@@ -7,6 +7,11 @@
 - `index.html`: ステータス管理
 - `formation-damage-calc.html`: 編成ダメージ計算
 
+## GitHub Pages
+
+`main` ブランチへの push で GitHub Pages に静的HTMLとしてデプロイします。
+公開URLは GitHub の Pages 設定または Actions のデプロイ結果から確認できます。
+
 ## Notes
 
 - `stat-prototype.css` と `stat-prototype.js` はステータス管理画面の既存実装を利用するため残しています。
