@@ -608,7 +608,10 @@
     });
 
     elements.bondSelect.addEventListener('change', () => {
-      currentApostleState().bond = normalizeBondLevel(elements.bondSelect.value);
+      const basic = DATA.getById('basicInfo', view.id);
+      const state = currentApostleState();
+      state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
+      elements.bondSelect.value = String(state.bond);
       saveState();
       render();
     });
@@ -1166,7 +1169,8 @@
       const target = event.target;
       if (!target.matches('select[data-bond-apostle-id]')) return;
       const id = target.dataset.bondApostleId;
-      ensureApostleState(id).bond = normalizeBondLevel(target.value);
+      const basic = DATA.getById('basicInfo', id);
+      ensureApostleState(id).bond = normalizeBondForApostle(basic, target.value);
       if (id === view.id) elements.bondSelect.value = String(ensureApostleState(id).bond);
       saveState();
       render();
@@ -1176,6 +1180,7 @@
       if (event.target.closest('select, button')) return;
       const card = event.target.closest('[data-bond-card-id]');
       if (!card) return;
+      if (card.classList.contains('is-bond-locked')) return;
       const select = card.querySelector('select[data-bond-apostle-id]');
       if (!select) return;
       select.focus();
@@ -1390,18 +1395,21 @@
 
   function syncControlsFromState() {
     const state = currentApostleState();
+    const basic = DATA.getById('basicInfo', view.id);
     elements.rankSelect.value = String(state.rank);
     elements.starSelect.value = String(state.star);
     state.level = normalizeApostleLevel(state.level, state.star);
     renderLevelOptions(state.star);
     elements.levelSelect.value = String(state.level);
+    state.bond = normalizeBondForApostle(basic, state.bond);
     elements.bondSelect.value = String(state.bond);
+    elements.bondSelect.disabled = isBondLockedApostle(basic);
     syncAsideControlsFromState(state);
     syncSkillLevelControlsFromState(state);
-    normalizeFollowForApostle(DATA.getById('basicInfo', view.id));
+    normalizeFollowForApostle(basic);
     elements.followToggle.checked = !!state.follow;
     const followLabel = elements.followToggle.closest('.follow-toggle');
-    if (followLabel) followLabel.hidden = isEldainApostle(DATA.getById('basicInfo', view.id));
+    if (followLabel) followLabel.hidden = isEldainApostle(basic);
     renderCurrentApostlePicker();
   }
 
@@ -1739,13 +1747,22 @@
     return Math.max(1, Math.min(30, Number.isFinite(value) && value > 0 ? value : 1));
   }
 
+  function isBondLockedApostle(basic = null) {
+    return Number(basic?.レア度) === 1;
+  }
+
+  function normalizeBondForApostle(basic = null, level = 1) {
+    return isBondLockedApostle(basic) ? 1 : normalizeBondLevel(level);
+  }
+
   function persistCurrentControls() {
     if (!view.id) return;
     const state = currentApostleState();
+    const basic = DATA.getById('basicInfo', view.id);
     state.rank = Number(elements.rankSelect.value) || 1;
     state.star = normalizeApostleStar(elements.starSelect.value);
     state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
-    state.bond = normalizeBondLevel(elements.bondSelect.value);
+    state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
     state.asideRank = Number(elements.asideRankSelect.value) || 0;
     state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
     state.skillLevels = normalizeSkillLevels({
@@ -2085,11 +2102,13 @@
   }
 
   function renderProfileMetaChips(state) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const bondLocked = isBondLockedApostle(basic);
     const skills = state.skillLevels || {};
     const chips = [
       renderProfileMetaSelectChip('Lv', 'level', state.level, createNumberOptions(1, getLevelCapForStar(state.star)), 'level'),
       renderProfileMetaSelectChip('Rank', 'rank', state.rank, createNumberOptions(1, 9), 'rank'),
-      renderProfileMetaSelectChip('好感度Lv', 'bond', state.bond, createNumberOptions(1, 30), 'bond')
+      renderProfileMetaSelectChip('好感度Lv', 'bond', state.bond, createNumberOptions(1, 30), 'bond', bondLocked)
     ];
     if (Number(state.asideRank) || 0) {
       chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', state.asideRank, [
@@ -2119,11 +2138,11 @@
     return `<span class="profile-meta-values">${chips.join('')}</span>`;
   }
 
-  function renderProfileMetaSelectChip(label, field, value, options, tone = '') {
+  function renderProfileMetaSelectChip(label, field, value, options, tone = '', disabled = false) {
     return `
-      <span class="profile-meta-chip${tone ? ` profile-meta-chip-${escapeAttr(tone)}` : ''}">
-        <small>${escapeHtml(label)}</small>
-        <select class="profile-meta-select" data-profile-field="${escapeAttr(field)}" aria-label="${escapeAttr(label)}">
+      <span class="profile-meta-chip${tone ? ` profile-meta-chip-${escapeAttr(tone)}` : ''}${disabled ? ' is-disabled' : ''}">
+        <small>${escapeHtml(disabled ? `${label}固定` : label)}</small>
+        <select class="profile-meta-select" data-profile-field="${escapeAttr(field)}" aria-label="${escapeAttr(label)}" ${disabled ? 'disabled' : ''}>
           ${renderOptions(options, value)}
         </select>
       </span>
@@ -2229,7 +2248,7 @@
       state.rank = Math.max(1, Math.min(9, value));
       elements.rankSelect.value = String(state.rank);
     } else if (field === 'bond') {
-      state.bond = normalizeBondLevel(value);
+      state.bond = normalizeBondForApostle(DATA.getById('basicInfo', view.id), value);
       elements.bondSelect.value = String(state.bond);
     } else if (field === 'asideRank') {
       state.asideRank = Math.max(0, Math.min(3, value));
@@ -3345,13 +3364,15 @@
 
     elements.bondOverviewGrid.innerHTML = rows.map(row => {
       const state = ensureApostleState(row.id);
+      state.bond = normalizeBondForApostle(row, state.bond);
+      const locked = isBondLockedApostle(row);
       const bondTone = getBondOverviewTone(state.bond);
       return `
-        <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の好感度Lvを変更">
+        <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
           <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
           <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
-          <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}</strong>
-          <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv">
+          <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
+          <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
             ${Array.from({ length: 30 }, (_, index) => {
               const level = index + 1;
               return `<option value="${level}" ${state.bond === level ? 'selected' : ''}>Lv ${level}</option>`;
@@ -7337,6 +7358,7 @@
       const basic = DATA.getById('basicInfo', id);
       state.star = Number(basic?.レア度) || 1;
     }
+    const basic = DATA.getById('basicInfo', id);
     state.star = normalizeApostleStar(state.star);
     if (state.gradeConfigured !== true) {
       state.grade = 1;
@@ -7345,7 +7367,7 @@
       state.grade = normalizeGrade(state.grade);
     }
     state.level = normalizeApostleLevel(state.level, state.star);
-    state.bond = normalizeBondLevel(state.bond);
+    state.bond = normalizeBondForApostle(basic, state.bond);
     if (state.asideRank === undefined) state.asideRank = inferAsideRankFromLevel(state.asideLevel);
     if (state.asideLevel === undefined) state.asideLevel = 0;
     state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);

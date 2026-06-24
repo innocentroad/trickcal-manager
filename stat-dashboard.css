@@ -794,6 +794,16 @@
   font-weight: 1000;
 }
 
+.profile-meta-chip.is-disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.55);
+  opacity: 0.62;
+}
+
+.profile-meta-chip.is-disabled select {
+  cursor: not-allowed;
+}
+
 .profile-meta-select,
 .profile-skill-levels select {
   min-height: 18px;
@@ -889,6 +899,10 @@
 
 :root[data-theme="dark"] .profile-meta-chip strong {
   color: #254f32;
+}
+
+:root[data-theme="dark"] .profile-meta-chip.is-disabled {
+  opacity: 0.58;
 }
 
 :root[data-theme="dark"] .profile-meta-select,
@@ -1424,6 +1438,23 @@
 
 .bond-overview-card.bond-none {
   background: rgba(255, 255, 255, 0.7);
+}
+
+.bond-overview-card.is-bond-locked {
+  cursor: not-allowed;
+  filter: grayscale(0.65);
+  opacity: 0.62;
+}
+
+.bond-overview-card.is-bond-locked select {
+  cursor: not-allowed;
+}
+
+.bond-overview-value small {
+  margin-left: 0.25rem;
+  color: rgba(94, 104, 96, 0.68);
+  font-size: 0.64rem;
+  font-weight: 900;
 }
 
 .rank-summary-tables {
