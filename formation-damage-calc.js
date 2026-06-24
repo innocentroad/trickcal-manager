@@ -122,6 +122,13 @@
       selfTakenDmgP: document.getElementById('fdc-self-taken-dmg-p'),
       selfCritResP: document.getElementById('fdc-self-crit-res-p'),
       selfCritDmgResP: document.getElementById('fdc-self-crit-dmg-res-p'),
+      extraCrayonHpP: document.getElementById('fdc-extra-crayon-hp-p'),
+      extraCrayonAtkP: document.getElementById('fdc-extra-crayon-atk-p'),
+      extraCrayonDefP: document.getElementById('fdc-extra-crayon-def-p'),
+      extraCrayonCritP: document.getElementById('fdc-extra-crayon-crit-p'),
+      extraCrayonCritDmgP: document.getElementById('fdc-extra-crayon-crit-dmg-p'),
+      extraCrayonCritResP: document.getElementById('fdc-extra-crayon-crit-res-p'),
+      extraCrayonCritDmgResP: document.getElementById('fdc-extra-crayon-crit-dmg-res-p'),
       enemyDefP: document.getElementById('fdc-enemy-def-p'),
       enemyTakenDmgP: document.getElementById('fdc-enemy-taken-dmg-p'),
       enemyCritResP: document.getElementById('fdc-enemy-crit-res-p'),
@@ -400,6 +407,9 @@
           view.enemySkillIndex = -2;
           if (el.enemySkill) el.enemySkill.value = input.value || '';
           renderEnemySkillChoices();
+        }
+        if (isExtraCrayonInput(input) && !view.statDirty) {
+          syncStatsFromTarget(buildContext());
         }
         saveCalcSettings();
         renderResult(buildContext());
@@ -849,6 +859,9 @@
       if (saved.skillLevelOverrides && typeof saved.skillLevelOverrides === 'object') {
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
+      if (saved.extraCrayon && typeof saved.extraCrayon === 'object') {
+        writeExtraCrayonInputs(saved.extraCrayon);
+      }
     } catch (error) {
       console.warn('Failed to restore formation damage settings', error);
     }
@@ -872,7 +885,8 @@
         effectSources: pickBooleanMap(view.effectSources),
         selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
-        skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides)
+        skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
+        extraCrayon: readExtraCrayonInputs()
       }));
     } catch (error) {
       console.warn('Failed to save formation damage settings', error);
@@ -2729,7 +2743,7 @@
     if (sourceTags.includes('シナジー')) return 'synergy';
     if (sourceTags.includes('遺物') || sourceTags.includes('愛用遺物')) return 'artifact';
     if (sourceTags.includes('スペル') || sourceTags.includes('愛用スペル')) return 'spell';
-    if (sourceTags.includes('クレヨン') || sourceTags.includes('A3全体') || sourceTags.includes('フォロー')) return 'globalStats';
+    if (sourceTags.includes('クレヨン') || sourceTags.includes('A3全体') || sourceTags.includes('フォロー') || sourceTags.includes('追加クレヨン')) return 'globalStats';
     return '';
   }
 
@@ -3267,6 +3281,7 @@
     pushSynergyEffects(result.applied, formation, target, state);
     pushFavoriteSkillEffects(result.skillChanges, target, formation, cards);
     pushGlobalStatSnapshotEffects(result.globalStats, target, state);
+    pushExtraCrayonEffects(result.globalStats);
     finalizeEffectTags(result);
     return result;
   }
@@ -3275,7 +3290,12 @@
     result.applied.forEach(item => setEffectTags(item, { status: ['自動適用'] }));
     result.conditional.forEach(item => setEffectTags(item, { status: item.tags?.status?.length ? item.tags.status : ['条件あり'] }));
     result.skillChanges.forEach(item => setEffectTags(item, { status: ['スキル変更'] }));
-    result.globalStats.forEach(item => setEffectTags(item, { status: ['自動適用'], source: ['クレヨン', 'A3全体', 'フォロー'], effect: ['全体ステータス補正'] }));
+    result.globalStats.forEach(item => {
+      const source = item.source === '追加クレヨン'
+        ? ['追加クレヨン']
+        : ['クレヨン', 'A3全体', 'フォロー'];
+      setEffectTags(item, { status: ['自動適用'], source, effect: ['全体ステータス補正'] });
+    });
   }
 
   function setEffectTags(item, additions = {}) {
@@ -3403,6 +3423,18 @@
       if (value) diff[statKey] = value;
     });
     return diff;
+  }
+
+  function pushExtraCrayonEffects(list) {
+    const rates = readExtraCrayonInputs();
+    if (!Object.values(rates).some(value => Number(value))) return;
+    const rateText = formatStatMap(rates, '%');
+    list.push({
+      source: '追加クレヨン',
+      label: '追加クレヨン',
+      reason: rateText ? `基礎ステータスへ追加補正: ${rateText}` : '',
+      bonuses: {}
+    });
   }
 
   function pushBaseCardEffect(list, row, source, damageType) {
@@ -3839,7 +3871,7 @@
       || apostleState.totals
       || apostleState.calculatedStats
       || {};
-    return {
+    return applyExtraCrayonToStats({
       hp: readStatValue(raw, ['hp', 'HP']),
       physicalAtk: readStatValue(raw, ['physicalAtk', 'patk', '物理攻撃', '物理攻撃力']),
       magicAtk: readStatValue(raw, ['magicAtk', 'matk', '魔法攻撃', '魔法攻撃力']),
@@ -3849,7 +3881,77 @@
       critDmg: readStatValue(raw, ['critDmg', '会心DMG', '会心ダメージ']),
       critRes: readStatValue(raw, ['critRes', '会心抵抗']),
       critDmgRes: readStatValue(raw, ['critDmgRes', '会心DMG抵抗'])
+    }, snapshot);
+  }
+
+  function applyExtraCrayonToStats(stats = {}, snapshot = null) {
+    const rates = getExtraCrayonRates();
+    if (!Object.values(rates).some(value => Number(value))) return stats;
+    const applyRate = (value, rate, internalKey = '') => {
+      const finalValue = Number(value || 0);
+      const percent = Number(rate) || 0;
+      if (!percent) return finalValue;
+      const existingGlobalIncrease = Number(snapshot?.breakdown?.globalPercent?.[internalKey]) || 0;
+      const additiveBase = Math.max(0, finalValue - existingGlobalIncrease);
+      if (snapshot?.breakdown?.globalPercent) return finalValue + Math.floor(additiveBase * percent / 100);
+      return finalValue * (1 + percent / 100);
     };
+    return {
+      ...stats,
+      hp: applyRate(stats.hp, rates.hpP, 'hp'),
+      physicalAtk: applyRate(stats.physicalAtk, rates.atkP, 'patk'),
+      magicAtk: applyRate(stats.magicAtk, rates.atkP, 'matk'),
+      physicalDef: applyRate(stats.physicalDef, rates.defP, 'pdef'),
+      magicDef: applyRate(stats.magicDef, rates.defP, 'mdef'),
+      crit: applyRate(stats.crit, rates.critP, 'crit'),
+      critDmg: applyRate(stats.critDmg, rates.critDmgP, 'critDmg'),
+      critRes: applyRate(stats.critRes, rates.critResP, 'critRes'),
+      critDmgRes: applyRate(stats.critDmgRes, rates.critDmgResP, 'critDmgRes')
+    };
+  }
+
+  function getExtraCrayonRates() {
+    if (view.effectSources.globalStats === false) return {};
+    return readExtraCrayonInputs();
+  }
+
+  function readExtraCrayonInputs() {
+    return {
+      hpP: readNumber(el.inputs.extraCrayonHpP),
+      atkP: readNumber(el.inputs.extraCrayonAtkP),
+      defP: readNumber(el.inputs.extraCrayonDefP),
+      critP: readNumber(el.inputs.extraCrayonCritP),
+      critDmgP: readNumber(el.inputs.extraCrayonCritDmgP),
+      critResP: readNumber(el.inputs.extraCrayonCritResP),
+      critDmgResP: readNumber(el.inputs.extraCrayonCritDmgResP)
+    };
+  }
+
+  function writeExtraCrayonInputs(values = {}) {
+    const pairs = [
+      ['extraCrayonHpP', values.hpP],
+      ['extraCrayonAtkP', values.atkP],
+      ['extraCrayonDefP', values.defP],
+      ['extraCrayonCritP', values.critP],
+      ['extraCrayonCritDmgP', values.critDmgP],
+      ['extraCrayonCritResP', values.critResP],
+      ['extraCrayonCritDmgResP', values.critDmgResP]
+    ];
+    pairs.forEach(([key, value]) => {
+      if (el.inputs[key]) el.inputs[key].value = Number.isFinite(Number(value)) ? String(Number(value)) : '0';
+    });
+  }
+
+  function isExtraCrayonInput(input) {
+    return [
+      el.inputs.extraCrayonHpP,
+      el.inputs.extraCrayonAtkP,
+      el.inputs.extraCrayonDefP,
+      el.inputs.extraCrayonCritP,
+      el.inputs.extraCrayonCritDmgP,
+      el.inputs.extraCrayonCritResP,
+      el.inputs.extraCrayonCritDmgResP
+    ].includes(input);
   }
 
   function getGradeAdjustedSnapshot(apostleState = {}, basic = null, gradeOverride = 'saved', statMode = 'current') {
@@ -4464,6 +4566,9 @@
   function formatStatMap(map, unit = '') {
     const labels = {
       hp: 'HP',
+      hpP: 'HP',
+      atkP: '攻撃',
+      defP: '防御',
       patk: '物理攻撃',
       matk: '魔法攻撃',
       pdef: '物理防御',
@@ -4473,8 +4578,12 @@
       physicalDef: '物理防御',
       magicDef: '魔法防御',
       crit: '会心',
+      critP: '会心',
       critDmg: '会心DMG',
+      critDmgP: '会心DMG',
       critRes: '会心抵抗',
+      critResP: '会心抵抗',
+      critDmgResP: '会心DMG抵抗',
       critDmgRes: '会心DMG抵抗'
     };
     return Object.entries(map || {})
