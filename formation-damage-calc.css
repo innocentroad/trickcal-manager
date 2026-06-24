@@ -1726,7 +1726,7 @@ body.theme-light .fdc-field select {
 
 .fdc-skill-effect-toggle {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr);
   gap: 0.34rem 0.42rem;
   align-items: start;
   border: 1px solid color-mix(in srgb, var(--fdc-border) 86%, transparent);
@@ -1765,6 +1765,27 @@ body.theme-light .fdc-field select {
 .fdc-skill-effect-source.tone-favorite { background: #ec4899; }
 .fdc-skill-effect-source.tone-extra { background: #14b8a6; }
 
+.fdc-skill-effect-info {
+  display: inline-grid;
+  place-items: center;
+  width: 1.28rem;
+  height: 1.28rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 34%, var(--fdc-border));
+  border-radius: 999px;
+  padding: 0;
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-primary) 18%, var(--fdc-input));
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fdc-skill-effect-info:hover,
+.fdc-skill-effect-info:focus-visible {
+  background: color-mix(in srgb, var(--fdc-primary) 30%, var(--fdc-input));
+}
+
 .fdc-skill-effect-text {
   grid-column: 1 / -1;
   display: grid;
@@ -1800,25 +1821,6 @@ body.theme-light .fdc-field select {
   white-space: normal;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-}
-
-.fdc-skill-effect-conditions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.22rem;
-  margin-top: 0.14rem;
-}
-
-.fdc-skill-effect-conditions em {
-  border: 1px solid color-mix(in srgb, var(--fdc-primary) 34%, var(--fdc-border));
-  border-radius: 999px;
-  padding: 0.08rem 0.38rem;
-  color: color-mix(in srgb, var(--fdc-primary) 74%, var(--fdc-text));
-  background: color-mix(in srgb, var(--fdc-primary) 12%, var(--fdc-input));
-  font-size: 0.62rem;
-  font-style: normal;
-  font-weight: 900;
-  line-height: 1.25;
 }
 
 .fdc-skill-effect-empty {

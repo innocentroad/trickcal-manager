@@ -1420,6 +1420,14 @@
         renderResult(buildContext());
       });
     });
+    el.selfSkillEffects.querySelectorAll('[data-fdc-skill-effect-info]').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const option = collectRenderedSkillEffectOptions(buildContext()).find(item => item.key === button.dataset.fdcSkillEffectInfo);
+        if (option) showSkillEffectPopover(button, option);
+      });
+    });
   }
 
   function renderSkillEffectSection(title, options, emptyText) {
@@ -1437,18 +1445,40 @@
 
   function renderSkillEffectToggle(option) {
     const checked = isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
-    const conditionLines = getSkillEffectConditionLines(option);
+    const summary = formatBonusMap(option.bonuses) || getSkillEffectConditionSummary(option) || '詳細あり';
     return `
       <label class="fdc-skill-effect-toggle">
         <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
         <span class="fdc-skill-effect-source ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
+        <button type="button" class="fdc-skill-effect-info" data-fdc-skill-effect-info="${escapeAttr(option.key)}" aria-label="${escapeAttr(`${option.label}の条件詳細`)}">i</button>
         <span class="fdc-skill-effect-text">
           <strong>${escapeHtml(option.label)}</strong>
-          <small>${escapeHtml(formatBonusMap(option.bonuses) || option.detailText || '')}</small>
-          ${conditionLines.length ? `<span class="fdc-skill-effect-conditions">${conditionLines.map(line => `<em>${escapeHtml(line)}</em>`).join('')}</span>` : ''}
+          <small>${escapeHtml(summary)}</small>
         </span>
       </label>
     `;
+  }
+
+  function collectRenderedSkillEffectOptions(context) {
+    const target = context.target;
+    if (!target) return [];
+    return buildSelfSkillEffectOptions(target, context)
+      .filter(option => isBonusMapRelevantToPerspective(option.bonuses));
+  }
+
+  function showSkillEffectPopover(anchor, option) {
+    const lines = [
+      formatBonusMap(option.bonuses) ? `効果: ${formatBonusMap(option.bonuses)}` : '',
+      ...getSkillEffectConditionLines(option).map(line => `条件: ${line}`),
+      option.detailText || ''
+    ].filter(Boolean);
+    showFdcInfoPopover(anchor, option.label || 'スキル効果詳細', lines);
+  }
+
+  function getSkillEffectConditionSummary(option) {
+    const conditions = getSkillEffectConditionLines(option);
+    if (!conditions.length) return '';
+    return conditions.slice(0, 2).join(' / ');
   }
 
   function getSkillEffectConditionLines(option) {
