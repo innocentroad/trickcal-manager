@@ -306,6 +306,7 @@
     });
     el.targetPreview?.addEventListener('click', () => toggleFormationPicker());
     el.floatingTarget?.addEventListener('click', () => toggleFormationPicker(true));
+    el.formationPicker?.addEventListener('click', event => event.stopPropagation());
     window.addEventListener('scroll', updateFloatingTargetVisibility, { passive: true });
     window.addEventListener('resize', updateFloatingTargetVisibility, { passive: true });
     el.formationPreset?.addEventListener('change', () => {
