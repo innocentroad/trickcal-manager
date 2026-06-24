@@ -1437,6 +1437,7 @@
 
   function renderSkillEffectToggle(option) {
     const checked = isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
+    const conditionLines = getSkillEffectConditionLines(option);
     return `
       <label class="fdc-skill-effect-toggle">
         <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
@@ -1444,9 +1445,22 @@
         <span class="fdc-skill-effect-text">
           <strong>${escapeHtml(option.label)}</strong>
           <small>${escapeHtml(formatBonusMap(option.bonuses) || option.detailText || '')}</small>
+          ${conditionLines.length ? `<span class="fdc-skill-effect-conditions">${conditionLines.map(line => `<em>${escapeHtml(line)}</em>`).join('')}</span>` : ''}
         </span>
       </label>
     `;
+  }
+
+  function getSkillEffectConditionLines(option) {
+    const lines = String(option.detailText || '')
+      .split(/\n+/)
+      .map(line => line.trim())
+      .filter(Boolean);
+    const conditionLines = lines.filter(line => (
+      /条件|対象|列|同列|前列|中列|後列|攻撃|守備|防御|支援|補助|物理|魔法|性格|純粋|冷静|狂気|活発|憂鬱|編成/.test(line)
+      && !/物理\d|魔法\d|倍率|ダメージ\d/.test(line)
+    ));
+    return unique(conditionLines).slice(0, 4);
   }
 
   function renderSynergyCategory(context) {

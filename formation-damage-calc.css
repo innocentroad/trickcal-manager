@@ -1802,6 +1802,25 @@ body.theme-light .fdc-field select {
   -webkit-line-clamp: 2;
 }
 
+.fdc-skill-effect-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+  margin-top: 0.14rem;
+}
+
+.fdc-skill-effect-conditions em {
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 34%, var(--fdc-border));
+  border-radius: 999px;
+  padding: 0.08rem 0.38rem;
+  color: color-mix(in srgb, var(--fdc-primary) 74%, var(--fdc-text));
+  background: color-mix(in srgb, var(--fdc-primary) 12%, var(--fdc-input));
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
 .fdc-skill-effect-empty {
   border: 1px dashed var(--fdc-border);
   border-radius: 12px;
