@@ -425,7 +425,7 @@
     ].map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
     renderAsideLevelOptions(0);
 
-    elements.researchProgressSelect.innerHTML = Array.from({ length: 45 }, (_, index) => {
+    elements.researchProgressSelect.innerHTML = Array.from({ length: 46 }, (_, index) => {
       const label = index === 0 ? 'OFF' : `${index}回目`;
       return `<option value="${index}">${label}</option>`;
     }).join('');
@@ -3089,7 +3089,11 @@
     const progress = Number(appState.research.progress) || 0;
     const level = Number(appState.research.level) || 0;
     if (!progress || !level) return [];
-    return DATA.sheets.research;
+    return DATA.sheets.research.filter(isResearchStatRow);
+  }
+
+  function isResearchStatRow(row) {
+    return Boolean(row?.種族 && row?.ステータス);
   }
 
   function renderResearchOverview() {
@@ -6446,7 +6450,7 @@
     const level = Number(appState.research.level) || 0;
     if (!progress || !level) return;
     (DATA.sheets.research || [])
-      .filter(row => row.種族 === basic.種族)
+      .filter(row => isResearchStatRow(row) && row.種族 === basic.種族)
       .forEach(row => {
         const value = getResearchValue(row, level, progress);
         if (value) addSourceNamedStat(breakdown, 'research', row.ステータス, value);
