@@ -6009,23 +6009,52 @@
   .board-quick-button,
   .card-quick-button,
   .bottom-section-button {
-    flex: 0 0 62px;
-    width: 62px;
-    min-width: 62px;
+    flex: 0 0 48px;
+    width: 48px;
+    min-width: 48px;
     gap: 2px;
-    padding-inline: 1px 3px !important;
+    padding-inline: 1px 2px !important;
     font-size: 0.58rem;
+    justify-content: center;
   }
 
   .bottom-section-icon {
-    width: 25px;
-    height: 25px;
-    flex-basis: 25px;
+    width: 24px;
+    height: 24px;
+    flex-basis: 24px;
   }
 
   .bottom-section-icon img {
-    width: 19px;
-    height: 19px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .bottom-section-button strong {
+    flex: 0 0 auto;
+    width: 1.1em;
+    text-align: center;
+    white-space: normal;
+    word-break: keep-all;
+    transform: translateY(1px);
+    line-height: 0.92;
+  }
+
+  .bottom-section-button strong span {
+    display: block;
+    line-height: 0.92;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+    white-space: normal;
+  }
+
+  .bottom-section-button strong span::before {
+    left: 50%;
+    right: auto;
+    bottom: -2px;
+    width: calc(100% + 9px);
+    height: calc(100% + 5px);
+    transform: translateX(-50%);
+    opacity: 0.95;
   }
 
   .bottom-save-menu summary,
@@ -6037,14 +6066,22 @@
   }
 
   .bottom-save-menu summary.bottom-save-trigger {
-    width: 76px;
-    min-width: 76px;
-    flex-basis: 76px;
+    width: 58px;
+    min-width: 58px;
+    flex-basis: 58px;
     padding-inline: 1px 3px !important;
   }
 
   .bottom-save-trigger strong {
-    font-size: 0.54rem;
+    width: 2.4em;
+    font-size: 0.52rem;
+    line-height: 0.95;
+    transform: translateY(1px);
+  }
+
+  .bottom-save-trigger strong span {
+    white-space: normal;
+    line-height: 0.95;
   }
 
   .bottom-global-menu summary strong {
