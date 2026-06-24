@@ -103,15 +103,16 @@
       ? null
       : TRICKCAL_STAT_DATA.sheets.basicInfo.find(row => row.id === apostleSelect.value);
     const personalityTone = personalityToneMap[basicInfo?.性格];
+    const apostleName = String(basicInfo?.使徒名 || basicInfo?.id || sourceName.textContent || '使徒選択').trim();
 
     bottomApostleImage.dataset.fallback = 'false';
     bottomApostleImage.src = sourceImage.currentSrc || sourceImage.src || 'img/Chara/null.webp';
-    bottomApostleImage.alt = sourceName.textContent || '';
-    bottomApostleName.textContent = sourceName.textContent || '使徒選択';
+    bottomApostleImage.alt = apostleName;
+    bottomApostleName.textContent = apostleName;
     bottomApostleButton.classList.remove(...personalityToneClasses);
     if (personalityTone) bottomApostleButton.classList.add(`personality-${personalityTone}`);
-    syncAsideAvailability(apostleSelect.value, sourceName.textContent || '');
-    syncSkillIcons(apostleSelect.value, sourceName.textContent || '');
+    syncAsideAvailability(apostleSelect.value, apostleName);
+    syncSkillIcons(apostleSelect.value, apostleName);
   }
 
   function syncAsideAvailability(apostleId, apostleName) {
