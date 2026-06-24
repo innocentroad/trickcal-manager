@@ -2284,6 +2284,41 @@ h3 {
   font: inherit;
 }
 
+.board-global-query-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.board-global-query-tools .apostle-picker-sort {
+  flex: 0 1 auto;
+}
+
+.board-global-discard-plan {
+  min-height: 34px;
+  margin-left: auto;
+  border: 1px solid rgba(185, 55, 55, 0.3);
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #9f3030;
+  background: rgba(255, 238, 236, 0.94);
+  font-size: 0.72rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.board-global-discard-plan:hover:not(:disabled) {
+  border-color: rgba(185, 55, 55, 0.55);
+  background: rgba(255, 220, 216, 0.98);
+}
+
+.board-global-discard-plan:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
 .board-global-actions {
   display: none;
   gap: 6px;

@@ -235,6 +235,7 @@
     boardGlobalCancel: document.getElementById('board-global-cancel'),
     boardGlobalSavePlan: document.getElementById('board-global-save-plan'),
     boardGlobalConfirm: document.getElementById('board-global-confirm'),
+    boardGlobalDiscardPlan: document.getElementById('board-global-discard-plan'),
     boardTabs: Array.from(document.querySelectorAll('#board-tabs button')),
     boardStage: document.getElementById('board-stage'),
     fillBoard: document.getElementById('fill-board'),
@@ -1347,6 +1348,8 @@
     elements.boardGlobalConfirm.addEventListener('click', () => {
       handleBoardGlobalAction('current');
     });
+
+    elements.boardGlobalDiscardPlan.addEventListener('click', discardAllSavedBoardPlans);
 
     elements.boardGrid.addEventListener('click', event => {
       const node = event.target.closest('.board-node[data-node-key]');
@@ -4903,6 +4906,7 @@
 
     const hasChanges = Object.keys(globalBoardDrafts).length > 0;
     const planMode = view.boardGlobalMode === 'plan';
+    const savedPlanCount = getSavedBoardPlanApostleIds().length;
     elements.boardGlobalModeCurrent.classList.toggle('is-active', !planMode);
     elements.boardGlobalModePlan.classList.toggle('is-active', planMode);
     elements.boardGlobalSort.value = view.boardGlobalSort;
@@ -4911,6 +4915,11 @@
     elements.boardGlobalConfirm.hidden = planMode;
     elements.boardGlobalConfirm.disabled = planMode || !hasChanges;
     elements.boardGlobalSavePlan.textContent = planMode ? '予定を保存' : '予定として保存';
+    elements.boardGlobalDiscardPlan.hidden = !planMode;
+    elements.boardGlobalDiscardPlan.disabled = !savedPlanCount;
+    elements.boardGlobalDiscardPlan.textContent = savedPlanCount
+      ? `保存予定を破棄 (${savedPlanCount})`
+      : '保存予定を破棄';
     elements.boardGlobalOverviewSummary.innerHTML = renderGlobalBoardChangeSummary();
     elements.boardGlobalOverviewList.innerHTML = rows
       .map(({ basic, result }) => renderBoardGlobalApostleCard(basic, result))
@@ -4925,6 +4934,38 @@
     const state = ensureApostleState(id);
     if (!state.plannedBoards || typeof state.plannedBoards !== 'object') return false;
     return hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards || {});
+  }
+
+  function getSavedBoardPlanApostleIds() {
+    return DATA.sheets.basicInfo
+      .map(basic => basic.id)
+      .filter(id => {
+        const state = ensureApostleState(id);
+        return state.plannedBoards
+          && typeof state.plannedBoards === 'object'
+          && hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards);
+      });
+  }
+
+  function discardAllSavedBoardPlans() {
+    const savedIds = getSavedBoardPlanApostleIds();
+    if (!savedIds.length) return;
+    const draftCount = Object.values(globalBoardDrafts).filter(draft => draft?.mode === 'plan').length;
+    const editingNote = draftCount || boardDraft?.mode === 'plan'
+      ? '\n予定モードで編集中の変更も破棄されます。'
+      : '';
+    if (!window.confirm(`${savedIds.length}使徒分の保存予定をすべて破棄しますか？\n現在状態は変更されません。${editingNote}`)) return;
+
+    Object.values(appState.apostles || {}).forEach(state => {
+      delete state.plannedBoards;
+      delete state.plannedBoardShortcutTargets;
+    });
+    Object.keys(globalBoardDrafts).forEach(id => {
+      if (globalBoardDrafts[id]?.mode === 'plan') delete globalBoardDrafts[id];
+    });
+    if (boardDraft?.mode === 'plan') boardDraft = null;
+    saveState();
+    render();
   }
 
   function collectBoardGlobalEffectsForApostle(id, boards) {

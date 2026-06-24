@@ -358,13 +358,11 @@
           </div>
           <div class="setting-panel" data-setting-panel="board-global">
             <p class="panel-note">特殊マスを選ぶと対象使徒のボード経路まで更新します。複数使徒の変更をまとめて確定・予定保存できます。</p>
-            <div class="board-global-toolbar">
+            <div class="board-global-toolbar" hidden>
               <span class="board-mode-switch board-global-mode" aria-label="全体ボード編集モード">
                 <button type="button" id="board-global-mode-current" class="is-active">現在</button>
                 <button type="button" id="board-global-mode-plan">予定</button>
               </span>
-              <label class="board-global-search"><span>検索</span><input type="search" id="board-global-search" placeholder="使徒名・性格・種族"></label>
-              <label class="apostle-picker-sort"><span>並び順</span><select id="board-global-sort"><option value="name">50音順</option><option value="progress">解放数順</option></select></label>
               <span class="board-global-actions">
                 <button type="button" id="board-global-cancel" class="secondary" disabled>変更を取消</button>
                 <button type="button" id="board-global-save-plan" class="plan" disabled>予定を保存</button>
@@ -372,6 +370,11 @@
               </span>
             </div>
             <div id="board-global-progress-summary" class="board-global-progress-summary"></div>
+            <div class="board-global-query-tools">
+              <label class="board-global-search"><span>検索</span><input type="search" id="board-global-search" placeholder="使徒名・性格・種族"></label>
+              <label class="apostle-picker-sort"><span>並び順</span><select id="board-global-sort"><option value="name">50音順</option><option value="planned">変更予定優先</option><option value="progress">解放数順</option></select></label>
+              <button type="button" id="board-global-discard-plan" class="board-global-discard-plan" hidden disabled>保存予定を破棄</button>
+            </div>
             <details class="board-global-filter-details">
               <summary>絞り込み <span id="board-global-filter-count"></span></summary>
               <div id="board-global-filters" class="board-global-filters"></div>
