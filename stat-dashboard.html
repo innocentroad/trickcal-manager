@@ -12,7 +12,7 @@
   <link rel="prefetch" href="enemy-presets.js" as="script">
   <script>
     (() => {
-      const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'light';
+      const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'dark';
       document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
     })();
   </script>

@@ -345,7 +345,7 @@
   function loadSavedTheme() {
     const saved = localStorage.getItem(COMMON_THEME_STORAGE_KEY)
       || localStorage.getItem(THEME_STORAGE_KEY)
-      || 'light';
+      || 'dark';
     return saved === 'dark' ? 'dark' : 'light';
   }
 
