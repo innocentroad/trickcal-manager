@@ -283,6 +283,15 @@
       if (picker.contains(event.target) || event.target.closest('[data-fdc-temp-artifact-slot], [data-fdc-temp-artifact-row]')) return;
       closeTempArtifactPicker();
     });
+    document.addEventListener('click', event => {
+      if (!el.formationPicker || el.formationPicker.hidden) return;
+      if (el.formationPicker.contains(event.target) || event.target.closest('#fdc-target-preview, #fdc-floating-target')) return;
+      closeFormationPicker();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (el.formationPicker && !el.formationPicker.hidden) closeFormationPicker();
+    });
     document.addEventListener('change', event => {
       const input = event.target.closest('[data-fdc-condition-toggle]');
       if (!input) return;
@@ -1109,13 +1118,17 @@
         </div>
       `).join('');
     el.formationPicker.innerHTML = `
-      <div class="fdc-picker-tabs">
-        <button type="button" class="${view.pickerMode === 'formation' ? 'is-active' : ''}" data-fdc-picker-mode="formation">編成</button>
-        <button type="button" class="${view.pickerMode === 'all' ? 'is-active' : ''}" data-fdc-picker-mode="all">一覧</button>
+      <div class="fdc-picker-head">
+        <div class="fdc-picker-tabs">
+          <button type="button" class="${view.pickerMode === 'formation' ? 'is-active' : ''}" data-fdc-picker-mode="formation">編成</button>
+          <button type="button" class="${view.pickerMode === 'all' ? 'is-active' : ''}" data-fdc-picker-mode="all">一覧</button>
+        </div>
+        <button type="button" class="fdc-picker-close" data-fdc-picker-close aria-label="使徒選択を閉じる">×</button>
       </div>
       ${pendingMember ? renderPendingTempMemberNotice(pendingMember) : ''}
       <div class="fdc-picker-body ${view.pickerMode === 'all' ? 'is-all' : 'is-formation'}">${body}</div>
     `;
+    el.formationPicker.querySelector('[data-fdc-picker-close]')?.addEventListener('click', closeFormationPicker);
     el.formationPicker.querySelectorAll('[data-fdc-picker-mode]').forEach(button => {
       button.addEventListener('click', () => {
         view.pendingTempMemberId = '';
@@ -1157,6 +1170,7 @@
         applyPendingTempMemberToSlot(button.dataset.fdcTempMemberSlot || '', buildContext());
         view.statDirty = false;
         el.formationPicker.hidden = true;
+        el.formationPicker.classList.remove('is-floating-picker');
         render();
       });
     });
@@ -1170,6 +1184,7 @@
           return;
         }
         el.formationPicker.hidden = true;
+        el.formationPicker.classList.remove('is-floating-picker');
         render();
       });
     });
@@ -1975,6 +1990,15 @@
       renderFormationPicker(buildContext());
     }
     el.targetPreview?.setAttribute('aria-expanded', String(shouldOpen));
+    updateFloatingTargetVisibility();
+  }
+
+  function closeFormationPicker() {
+    if (!el.formationPicker) return;
+    el.formationPicker.hidden = true;
+    el.formationPicker.classList.remove('is-floating-picker');
+    view.pendingTempMemberId = '';
+    el.targetPreview?.setAttribute('aria-expanded', 'false');
     updateFloatingTargetVisibility();
   }
 

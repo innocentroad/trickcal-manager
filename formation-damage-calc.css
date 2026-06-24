@@ -970,10 +970,17 @@ body.theme-light .fdc-formation-loader select {
   overscroll-behavior: contain;
 }
 
+.fdc-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
 .fdc-picker-tabs {
   display: inline-flex;
   gap: 0.25rem;
-  margin-bottom: 0.55rem;
   border: 1px solid var(--fdc-border);
   border-radius: 999px;
   padding: 0.18rem;
@@ -993,6 +1000,28 @@ body.theme-light .fdc-formation-loader select {
 .fdc-picker-tabs button.is-active {
   color: var(--fdc-text);
   background: var(--fdc-primary-soft);
+}
+
+.fdc-picker-close {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 999px;
+  padding: 0;
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-input) 84%, var(--fdc-panel));
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--fdc-shadow) 66%, transparent);
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fdc-picker-close:hover,
+.fdc-picker-close:focus-visible {
+  background: color-mix(in srgb, #ff6b7a 18%, var(--fdc-input));
 }
 
 .fdc-picker-placement {
