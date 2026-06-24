@@ -292,6 +292,7 @@
     boardGlobalMode: 'current',
     boardShortcutOffMode: loadBoardShortcutOffMode(),
     boardGlobalSort: 'name',
+    boardGlobalSortTouched: false,
     boardGlobalFilters: {
       layers: new Set(),
       stats: new Set()
@@ -1262,6 +1263,7 @@
 
     elements.boardGlobalSort.addEventListener('change', () => {
       view.boardGlobalSort = elements.boardGlobalSort.value || 'name';
+      view.boardGlobalSortTouched = true;
       renderBoardGlobalOverview();
     });
 
@@ -4865,6 +4867,11 @@
           'ja',
           { sensitivity: 'base' }
         );
+        if (view.boardGlobalSort === 'planned') {
+          const plannedOrder = Number(hasBoardGlobalPlannedChange(b.basic.id)) - Number(hasBoardGlobalPlannedChange(a.basic.id));
+          if (plannedOrder) return plannedOrder;
+          return nameOrder;
+        }
         if (view.boardGlobalSort !== 'progress') return nameOrder;
         return b.result.filledSpecialCount - a.result.filledSpecialCount || nameOrder;
       });
@@ -4883,6 +4890,16 @@
     elements.boardGlobalOverviewList.innerHTML = rows
       .map(({ basic, result }) => renderBoardGlobalApostleCard(basic, result))
       .join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function hasBoardGlobalPlannedChange(id) {
+    const draft = globalBoardDrafts[id];
+    if (draft?.mode === 'plan') {
+      return hasBoardSnapshotDiff(ensureApostleState(id).boards || {}, draft.boards || {});
+    }
+    const state = ensureApostleState(id);
+    if (!state.plannedBoards || typeof state.plannedBoards !== 'object') return false;
+    return hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards || {});
   }
 
   function collectBoardGlobalEffectsForApostle(id, boards) {
@@ -5161,6 +5178,9 @@
       && !window.confirm('全体ボードの未保存変更を取り消してモードを切り替えますか？')) return;
     globalBoardDrafts = {};
     view.boardGlobalMode = mode;
+    if (!view.boardGlobalSortTouched) {
+      view.boardGlobalSort = mode === 'plan' ? 'planned' : 'name';
+    }
     render();
   }
 

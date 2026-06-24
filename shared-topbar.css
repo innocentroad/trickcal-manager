@@ -110,8 +110,8 @@
 }
 
 .topbar-global-popover {
-  position: fixed;
-  top: calc(3.25rem + 0.42rem);
+  position: absolute;
+  top: calc(100% + 0.42rem);
   left: 50%;
   z-index: 1125;
   display: grid;
