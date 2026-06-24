@@ -1699,6 +1699,7 @@ body.theme-light .fdc-field select {
 
 .fdc-skill-effect-list {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
   gap: 0.38rem;
 }
 
