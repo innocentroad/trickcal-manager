@@ -1662,7 +1662,6 @@ body.theme-light .fdc-field select {
 
 .fdc-skill-effects {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.42rem;
   margin-top: 0.72rem;
 }
