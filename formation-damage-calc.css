@@ -216,7 +216,7 @@ body.theme-light .fdc-theme-toggle {
   z-index: 1122;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   column-gap: 0.42rem;
   align-items: center;
   min-width: 9.2rem;
@@ -261,7 +261,7 @@ body.theme-light .fdc-theme-toggle {
 
 .fdc-floating-target-portrait {
   position: relative;
-  grid-row: 1 / 3;
+  grid-row: 1;
   display: block;
   width: 2.65rem;
   height: 2.65rem;
@@ -317,16 +317,6 @@ body.theme-light .fdc-theme-toggle {
   color: var(--fdc-text);
   font-size: 0.82rem;
   font-weight: 950;
-  line-height: 1.1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.fdc-floating-target-meta {
-  overflow: hidden;
-  color: var(--fdc-muted);
-  font-size: 0.66rem;
-  font-weight: 850;
   line-height: 1.1;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3212,8 +3202,7 @@ body.theme-light .fdc-result-diff.is-negative {
     border-radius: 0.82rem;
   }
 
-  .fdc-floating-target-name,
-  .fdc-floating-target-meta {
+  .fdc-floating-target-name {
     display: none;
   }
 

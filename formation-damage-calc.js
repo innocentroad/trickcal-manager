@@ -1087,7 +1087,6 @@
         ${renderApostleBadges(target)}
       </span>
       <span class="fdc-floating-target-name">${escapeHtml(target.name || '-')}</span>
-      <span class="fdc-floating-target-meta">${escapeHtml([target.position, normalizeRole(target.role), formatDamageType(context.damageType)].filter(Boolean).join(' / '))}</span>
     `;
   }
 
