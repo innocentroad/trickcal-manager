@@ -1074,13 +1074,13 @@
     if (!el.floatingTarget) return;
     if (!target) {
       el.floatingTarget.className = 'fdc-floating-target';
-      el.floatingTarget.innerHTML = '<span>使徒</span>';
+      el.floatingTarget.innerHTML = '';
       el.floatingTarget.title = '使徒を選択';
       updateFloatingTargetVisibility();
       return;
     }
     el.floatingTarget.className = `fdc-floating-target is-filled personality-${target.personality || ''}`;
-    el.floatingTarget.title = `${target.name} / クリックで使徒選択`;
+    el.floatingTarget.title = 'クリックで使徒選択';
     el.floatingTarget.innerHTML = `
       <span class="fdc-floating-target-portrait">
         <img src="${escapeAttr(getApostleImage(target.id, target.name))}" alt="" data-fallback>
