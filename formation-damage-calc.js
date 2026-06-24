@@ -15,6 +15,7 @@
     '活発': '憂鬱'
   };
   const APOSTLE_IMAGE_ALIASES = {
+    ED: 'Ed',
     Kyuri: 'Kyuri',
     Kyui: 'Kyuri',
     Kyuui: 'Kyuri',
