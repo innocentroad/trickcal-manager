@@ -1086,7 +1086,6 @@
         <img src="${escapeAttr(getApostleImage(target.id, target.name))}" alt="" data-fallback>
         ${renderApostleBadges(target)}
       </span>
-      <span class="fdc-floating-target-name">${escapeHtml(target.name || '-')}</span>
     `;
   }
 
