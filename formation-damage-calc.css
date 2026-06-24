@@ -208,6 +208,130 @@ body.theme-light .fdc-theme-toggle {
   display: none;
 }
 
+.fdc-floating-target {
+  --fdc-personality-color: var(--fdc-primary);
+  position: fixed;
+  top: calc(3.25rem + 0.48rem);
+  left: clamp(0.55rem, 1.4vw, 1rem);
+  z-index: 1122;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 0.42rem;
+  align-items: center;
+  min-width: 9.2rem;
+  max-width: min(15rem, calc(100vw - 6.8rem));
+  border: 2px solid color-mix(in srgb, var(--fdc-personality-color) 68%, var(--fdc-border));
+  border-radius: 0.9rem;
+  padding: 0.28rem 0.5rem 0.28rem 0.28rem;
+  color: var(--fdc-text);
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--fdc-personality-color) 30%, var(--fdc-panel-strong)),
+      color-mix(in srgb, var(--fdc-personality-color) 12%, var(--fdc-panel-strong)));
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--fdc-shadow) 82%, transparent);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-0.45rem) scale(0.96);
+  transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  backdrop-filter: blur(10px);
+}
+
+.fdc-floating-target[hidden] {
+  display: none;
+}
+
+.fdc-floating-target.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.fdc-floating-target:hover,
+.fdc-floating-target:focus-visible {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--fdc-personality-color) 26%, transparent),
+    0 16px 32px color-mix(in srgb, var(--fdc-shadow) 88%, transparent);
+}
+
+.fdc-floating-target.personality-純粋 { --fdc-personality-color: mediumseagreen; }
+.fdc-floating-target.personality-冷静 { --fdc-personality-color: dodgerblue; }
+.fdc-floating-target.personality-狂気 { --fdc-personality-color: crimson; }
+.fdc-floating-target.personality-活発 { --fdc-personality-color: goldenrod; }
+.fdc-floating-target.personality-憂鬱 { --fdc-personality-color: slateblue; }
+
+.fdc-floating-target-portrait {
+  position: relative;
+  grid-row: 1 / 3;
+  display: block;
+  width: 2.65rem;
+  height: 2.65rem;
+  overflow: visible;
+  border-radius: 0.7rem;
+  background: color-mix(in srgb, var(--fdc-personality-color) 30%, var(--fdc-panel));
+}
+
+.fdc-floating-target-portrait > img:first-child {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+  object-position: 50% 34%;
+  clip-path: inset(0 round 0.7rem);
+}
+
+.fdc-floating-target .fdc-apostle-badge {
+  width: 0.62rem !important;
+  height: 0.62rem !important;
+  max-width: 0.62rem !important;
+  max-height: 0.62rem !important;
+}
+
+.fdc-floating-target .fdc-personality-badge {
+  top: -0.16rem !important;
+  left: -0.16rem !important;
+  width: 0.78rem !important;
+  height: 0.78rem !important;
+  max-width: 0.78rem !important;
+  max-height: 0.78rem !important;
+}
+
+.fdc-floating-target .fdc-role-badge {
+  left: -0.08rem !important;
+  bottom: -0.1rem !important;
+}
+
+.fdc-floating-target .fdc-attack-badge {
+  left: 0.58rem !important;
+  bottom: -0.1rem !important;
+}
+
+.fdc-floating-target .fdc-position-badge {
+  left: 1.24rem !important;
+  bottom: -0.1rem !important;
+}
+
+.fdc-floating-target-name {
+  overflow: hidden;
+  color: var(--fdc-text);
+  font-size: 0.82rem;
+  font-weight: 950;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdc-floating-target-meta {
+  overflow: hidden;
+  color: var(--fdc-muted);
+  font-size: 0.66rem;
+  font-weight: 850;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .fdc-perspective-arrow {
   position: absolute;
   font-size: 1.22rem;
@@ -831,6 +955,19 @@ body.theme-light .fdc-formation-loader select {
   border-radius: 18px;
   padding: 0.62rem;
   background: color-mix(in srgb, var(--fdc-panel-strong) 90%, transparent);
+}
+
+.fdc-formation-picker.is-floating-picker {
+  position: fixed;
+  top: 7.3rem;
+  left: clamp(0.55rem, 1.4vw, 1rem);
+  z-index: 1121;
+  width: min(38rem, calc(100vw - 1.1rem));
+  max-height: min(72vh, calc(100vh - 10.2rem));
+  margin: 0;
+  overflow: auto;
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--fdc-shadow) 88%, transparent);
+  overscroll-behavior: contain;
 }
 
 .fdc-picker-tabs {
@@ -3013,6 +3150,26 @@ body.theme-light .fdc-result-diff.is-negative {
     right: 0.52rem;
     top: calc(3.25rem + 0.48rem);
     transform: none;
+  }
+
+  .fdc-floating-target {
+    top: calc(3.25rem + 0.48rem);
+    left: 0.45rem;
+    min-width: 0;
+    max-width: 3.55rem;
+    grid-template-columns: auto;
+    padding: 0.22rem;
+    border-radius: 0.82rem;
+  }
+
+  .fdc-floating-target-name,
+  .fdc-floating-target-meta {
+    display: none;
+  }
+
+  .fdc-floating-target-portrait {
+    width: 2.85rem;
+    height: 2.85rem;
   }
 }
 

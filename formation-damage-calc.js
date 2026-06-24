@@ -72,6 +72,7 @@
     enemyBuffCategory: document.getElementById('fdc-enemy-buff-category'),
     formationPreset: document.getElementById('fdc-formation-preset'),
     targetPreview: document.getElementById('fdc-target-preview'),
+    floatingTarget: document.getElementById('fdc-floating-target'),
     formationPicker: document.getElementById('fdc-formation-picker'),
     skillPopover: document.getElementById('fdc-skill-popover'),
     selfSkillEffects: document.getElementById('fdc-self-skill-effects'),
@@ -295,6 +296,9 @@
       render();
     });
     el.targetPreview?.addEventListener('click', () => toggleFormationPicker());
+    el.floatingTarget?.addEventListener('click', () => toggleFormationPicker(true));
+    window.addEventListener('scroll', updateFloatingTargetVisibility, { passive: true });
+    window.addEventListener('resize', updateFloatingTargetVisibility, { passive: true });
     el.formationPreset?.addEventListener('change', () => {
       view.formationPresetId = el.formationPreset.value || '';
       view.tempMembers = {};
@@ -1039,6 +1043,7 @@
     if (!target) {
       el.targetPreview.className = 'fdc-target-preview';
       el.targetPreview.innerHTML = '<span class="fdc-target-empty">編成から使徒を選択</span>';
+      renderFloatingTarget(null, context);
       return;
     }
     el.targetPreview.className = `fdc-target-preview is-filled personality-${target.personality || ''}`;
@@ -1051,6 +1056,37 @@
         <span class="fdc-target-grade-icons" title="${escapeAttr(formatGradeLabel(target))}">${renderGradeIcons(target.grade)}</span>
       </span>
     `;
+    renderFloatingTarget(target, context);
+    updateFloatingTargetVisibility();
+  }
+
+  function renderFloatingTarget(target, context) {
+    if (!el.floatingTarget) return;
+    if (!target) {
+      el.floatingTarget.className = 'fdc-floating-target';
+      el.floatingTarget.innerHTML = '<span>使徒</span>';
+      el.floatingTarget.title = '使徒を選択';
+      updateFloatingTargetVisibility();
+      return;
+    }
+    el.floatingTarget.className = `fdc-floating-target is-filled personality-${target.personality || ''}`;
+    el.floatingTarget.title = `${target.name} / クリックで使徒選択`;
+    el.floatingTarget.innerHTML = `
+      <span class="fdc-floating-target-portrait">
+        <img src="${escapeAttr(getApostleImage(target.id, target.name))}" alt="" data-fallback>
+        ${renderApostleBadges(target)}
+      </span>
+      <span class="fdc-floating-target-name">${escapeHtml(target.name || '-')}</span>
+      <span class="fdc-floating-target-meta">${escapeHtml([target.position, normalizeRole(target.role), formatDamageType(context.damageType)].filter(Boolean).join(' / '))}</span>
+    `;
+  }
+
+  function updateFloatingTargetVisibility() {
+    if (!el.floatingTarget) return;
+    const previewBottom = el.targetPreview?.getBoundingClientRect?.().bottom ?? 0;
+    const shouldShow = !!view.targetId && window.scrollY > 180 && previewBottom < 18;
+    el.floatingTarget.hidden = !shouldShow;
+    el.floatingTarget.classList.toggle('is-visible', shouldShow);
   }
 
   function renderGradeIcons(grade) {
@@ -1930,10 +1966,16 @@
     return `<span class="fdc-picker-artifacts" aria-label="装備遺物">${artifacts}</span>`;
   }
 
-  function toggleFormationPicker() {
+  function toggleFormationPicker(forceOpen = null) {
     if (!el.formationPicker) return;
-    el.formationPicker.hidden = !el.formationPicker.hidden;
-    el.targetPreview?.setAttribute('aria-expanded', String(!el.formationPicker.hidden));
+    const shouldOpen = forceOpen === null ? el.formationPicker.hidden : !!forceOpen;
+    el.formationPicker.hidden = !shouldOpen;
+    el.formationPicker.classList.toggle('is-floating-picker', shouldOpen && forceOpen === true);
+    if (shouldOpen) {
+      renderFormationPicker(buildContext());
+    }
+    el.targetPreview?.setAttribute('aria-expanded', String(shouldOpen));
+    updateFloatingTargetVisibility();
   }
 
   function renderApostleBadges(member) {
