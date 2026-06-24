@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trickcal Manager | ステータス管理</title>
+  <script>
+    (() => {
+      const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'light';
+      document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
+    })();
+  </script>
+  <link rel="stylesheet" href="stat-prototype.css">
+  <link rel="stylesheet" href="stat-dashboard.css">
+  <link rel="stylesheet" href="shared-topbar.css">
+</head>
+<body class="dashboard-page">
+  <section class="dashboard-top-control-bar" aria-label="共通操作">
+    <div class="dashboard-top-status">
+      <strong>ステータス管理</strong>
+      <span>使徒・編成・カード・ボードを管理</span>
+    </div>
+    <div class="dashboard-top-tabs" aria-label="管理画面切替">
+      <a href="formation-damage-calc.html"><span class="topbar-label">ダメ<br>計算</span></a>
+      <button type="button" class="is-active" data-dashboard-profile-top aria-current="page"><span class="topbar-label">ステ<br>管理</span></button>
+      <button type="button" data-dashboard-view="formation">編成</button>
+      <button type="button" data-open-card-manager="artifact">遺物</button>
+      <button type="button" data-open-card-manager="spell">スペル</button>
+      <button type="button" data-open-global="board-global"><span class="topbar-label">全体<br>ボード</span></button>
+      <details class="topbar-global-menu">
+        <summary><span class="topbar-label">一括<br>設定</span></summary>
+        <div class="topbar-global-popover" aria-label="一括設定メニュー">
+          <button type="button" data-open-global="rank">Rank</button>
+          <button type="button" data-open-global="bond">好感度</button>
+          <button type="button" data-open-global="aside">アサイド</button>
+          <button type="button" data-open-global="research">研究</button>
+        </div>
+      </details>
+    </div>
+    <div class="dashboard-top-actions">
+      <button type="button" id="dashboard-top-reload" class="topbar-reload-button" aria-label="再読み込み" title="再読み込み">↻</button>
+      <button type="button" class="dashboard-top-theme-toggle" data-dashboard-theme-toggle aria-label="テーマ切替">☀</button>
+    </div>
+  </section>
+
+  <div class="dashboard-layout">
+    <article class="dashboard-card apostle-info-card dashboard-persistent-profile">
+      <div class="apostle-info-profile">
+        <div class="portrait-frame dashboard-portrait">
+          <img id="apostle-image" data-apostle-image alt="">
+          <img id="profile-aside-icon" class="profile-aside-icon" data-apostle-image alt="">
+        </div>
+        <div>
+          <h2 id="apostle-name">-</h2>
+          <p id="apostle-meta" class="muted-line"></p>
+        </div>
+      </div>
+      <div id="profile-chip-row" class="profile-chip-row"></div>
+      <div id="stat-total-grid" class="stat-total-grid dashboard-stat-list"></div>
+    </article>
+
+    <main class="dashboard-main">
+      <section class="dashboard-view is-active" data-dashboard-panel="settings">
+        <article class="dashboard-card dashboard-hidden-controls" hidden>
+          <div class="panel-head">
+            <div>
+              <h2>使徒設定</h2>
+            </div>
+            <p class="panel-note">★・好感度・アサイド・スキルを使徒ごとに保存します。</p>
+          </div>
+          <div class="dashboard-apostle-selector">
+            <label class="control-field apostle-field">
+              <span>使徒</span>
+              <select id="apostle-select" class="native-apostle-select" aria-hidden="true" tabindex="-1"></select>
+              <button type="button" id="apostle-picker-button" class="apostle-picker-button" aria-haspopup="dialog">
+                <span id="apostle-picker-current"></span>
+                <span class="apostle-picker-arrow">選択</span>
+              </button>
+            </label>
+          </div>
+          <div class="apostle-setting-sections basic-setting-sections">
+            <section class="apostle-setting-block growth-settings">
+              <div class="setting-block-head">
+                <span class="setting-block-icon">育</span>
+                <div><h3>育成</h3><p>基本レベル・★・好感度</p></div>
+              </div>
+              <div class="setting-field-grid">
+                <label class="control-field">
+                  <span>Lv</span>
+                  <select id="level-select"></select>
+                </label>
+                <label class="control-field">
+                  <span>★</span>
+                  <select id="star-select"></select>
+                </label>
+                <label class="control-field">
+                  <span>好感度Lv</span>
+                  <select id="bond-select"></select>
+                </label>
+                <label class="follow-toggle refined-follow-toggle">
+                  <input type="checkbox" id="follow-toggle">
+                  <img src="img/フォロー.webp" alt="">
+                  <span><strong>フォロー</strong><small>本人への補正を適用</small></span>
+                </label>
+              </div>
+            </section>
+
+          </div>
+        </article>
+
+        <article class="dashboard-card">
+          <div class="panel-head">
+            <div>
+              <h2>ステータス上昇内訳</h2>
+            </div>
+            <p class="panel-note">基礎から全体補正まで、上昇元を横断して確認します。</p>
+          </div>
+          <div id="stat-breakdown-table" class="stat-breakdown-table"></div>
+        </article>
+
+        <article class="dashboard-card info-subcard">
+          <details class="effect-details">
+            <summary class="summary-toggle-label">適用中効果</summary>
+            <div id="active-effect-list" class="active-effect-list"></div>
+          </details>
+          <div>
+            <h3>基礎タイプ</h3>
+            <div id="base-type-list" class="compact-table-wrap"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="skill">
+        <article class="dashboard-card skill-dashboard-panel">
+          <div class="panel-head">
+            <div>
+              <h2>スキル</h2>
+            </div>
+            <small id="skill-level-cap-note" class="skill-cap-note"></small>
+          </div>
+          <div class="skill-slider-grid">
+            <label class="skill-slider-field">
+              <img id="low-skill-icon" class="skill-setting-icon" alt="">
+              <span>低学年</span>
+              <input id="low-skill-level-select" type="range" min="1" max="12" step="1">
+              <output id="low-skill-level-output">12</output>
+            </label>
+            <label class="skill-slider-field">
+              <img id="high-skill-icon" class="skill-setting-icon" alt="">
+              <span>高学年</span>
+              <input id="high-skill-level-select" type="range" min="1" max="12" step="1">
+              <output id="high-skill-level-output">12</output>
+            </label>
+            <label class="skill-slider-field">
+              <img id="passive-skill-icon" class="skill-setting-icon" alt="">
+              <span>パッシブ</span>
+              <input id="passive-skill-level-select" type="range" min="1" max="12" step="1">
+              <output id="passive-skill-level-output">12</output>
+            </label>
+          </div>
+          <div id="skill-info-list" class="skill-info-list"></div>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="aside">
+        <article class="dashboard-card aside-dashboard-panel aside-settings">
+          <div class="panel-head">
+            <div>
+              <h2>アサイド</h2>
+            </div>
+            <span class="setting-block-icon aside-setting-icon-wrap">
+              <img id="aside-setting-icon" class="aside-setting-icon" alt="">
+            </span>
+          </div>
+          <div class="setting-field-grid compact aside-control-grid">
+            <label class="control-field">
+              <span>発現</span>
+              <select id="aside-rank-select"></select>
+            </label>
+            <label class="control-field">
+              <span>アサイドLv</span>
+              <select id="aside-level-select"></select>
+            </label>
+          </div>
+          <div id="aside-info-list" class="aside-info-list"></div>
+          <section class="aside-tier-panel">
+            <h3>アサイドTier</h3>
+            <div id="aside-tier-list" class="compact-table-wrap"></div>
+          </section>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="equipment">
+        <article class="dashboard-card">
+          <div class="panel-head equipment-dashboard-head">
+            <div>
+              <h2>装備</h2>
+            </div>
+            <div class="equipment-head-controls">
+              <label class="control-field rank-inline-control">
+                <span>装備Rank</span>
+                <select id="rank-select"></select>
+              </label>
+              <div class="equipment-bulk-actions" aria-label="装備一括操作">
+                <button type="button" id="equip-all-on">一括装備</button>
+                <button type="button" id="equip-all-off">一括解除</button>
+                <label>
+                  <span>一括+</span>
+                  <select id="equip-bulk-enhance">
+                    <option value="0">+0</option>
+                    <option value="1">+1</option>
+                    <option value="2">+2</option>
+                    <option value="3">+3</option>
+                    <option value="4">+4</option>
+                    <option value="5">+5</option>
+                  </select>
+                </label>
+                <button type="button" id="equip-apply-enhance">+変更</button>
+              </div>
+            </div>
+          </div>
+          <div id="equipment-grid" class="equipment-grid"></div>
+          <section class="equipment-rank-effect">
+            <div class="equipment-rank-effect-head">
+              <h3>Rank全体効果</h3>
+              <p class="panel-note">この使徒の現在Rankまでに解放されている全体加算値です。</p>
+            </div>
+            <div id="rank-bonus-list" class="compact-table-wrap"></div>
+          </section>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="board">
+        <article class="dashboard-card board-panel">
+          <div class="panel-head">
+            <div><h2>ボード</h2></div>
+            <button type="button" class="board-open-global" data-open-global="board-global">全体設定へ</button>
+          </div>
+          <div class="board-actions">
+            <span class="board-mode-switch" aria-label="ボード編集モード">
+              <button type="button" id="board-mode-current" class="is-active">現在</button>
+              <button type="button" id="board-mode-plan">予定</button>
+            </span>
+            <button type="button" id="fill-board">表示中を全埋め</button>
+            <button type="button" id="clear-board">表示中を全解除</button>
+            <span class="board-draft-actions">
+              <button type="button" id="cancel-board-draft" class="secondary" disabled>編集を取消</button>
+              <button type="button" id="save-board-plan" class="plan" disabled>予定として保存</button>
+              <button type="button" id="confirm-board-draft" class="primary" disabled>現在状態に反映</button>
+            </span>
+          </div>
+          <div class="board-workspace">
+            <div id="board-stage" class="board-stage board-layer-1">
+              <div class="board-tabs" id="board-tabs">
+                <button type="button" class="is-active" data-board="1">1</button>
+                <button type="button" data-board="2">2</button>
+                <button type="button" data-board="3">3</button>
+              </div>
+              <div class="board-canvas">
+                <div id="board-grid" class="board-grid"></div>
+              </div>
+            </div>
+            <div class="board-shortcut-options">
+              <button type="button" id="board-shortcut-off-toggle" class="board-shortcut-off-toggle" data-board-shortcut-off-toggle>
+                OFF時: マスのみ
+              </button>
+            </div>
+            <div id="board-special-list" class="board-special-list"></div>
+            <div id="board-draft-summary" class="board-draft-summary"></div>
+            <div id="board-selection-summary" class="board-selection-summary"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="global">
+        <article class="dashboard-card global-settings-panel">
+          <div class="setting-panel is-active" data-setting-panel="research">
+            <p class="panel-note">研究は使徒設定ではなく、アカウント全体の設定として扱います。</p>
+            <div class="research-controls">
+              <label class="research-control"><span>段階</span><select id="research-level-select"></select></label>
+              <label class="research-control"><span>回目</span><select id="research-progress-select"></select></label>
+            </div>
+            <h3>選択使徒に適用中</h3>
+            <div id="active-research-list" class="research-table-wrap research-active-list"></div>
+            <details class="research-overview-details">
+              <summary>研究全体の適用一覧</summary>
+              <div id="research-grid" class="research-table-wrap"></div>
+            </details>
+          </div>
+          <div class="setting-panel" data-setting-panel="rank">
+            <p class="panel-note">使徒ごとのRankとRank全体効果をまとめて管理します。</p>
+            <div class="rank-overview-tools">
+              <label class="apostle-picker-sort">
+                <span>並び順</span>
+                <select id="rank-overview-sort">
+                  <option value="name">50音順</option>
+                  <option value="rank">装備Rankが高い順</option>
+                </select>
+              </label>
+            </div>
+            <details class="apostle-filter-details rank-filter-details">
+              <summary><span>絞り込み</span><span id="rank-filter-count" class="apostle-filter-count"></span></summary>
+              <div id="rank-overview-filters" class="apostle-picker-filters" aria-label="装備Rank使徒絞り込み"></div>
+            </details>
+            <div id="rank-overview-grid" class="rank-overview-grid"></div>
+            <div id="rank-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
+          </div>
+          <div class="setting-panel" data-setting-panel="bond">
+            <p class="panel-note">使徒ごとの好感度Lvをまとめて管理します。</p>
+            <div class="rank-overview-tools">
+              <label class="apostle-picker-sort">
+                <span>並び順</span>
+                <select id="bond-overview-sort">
+                  <option value="name">50音順</option>
+                  <option value="bond">好感度Lvが高い順</option>
+                </select>
+              </label>
+            </div>
+            <details class="apostle-filter-details rank-filter-details">
+              <summary><span>絞り込み</span><span id="bond-filter-count" class="apostle-filter-count"></span></summary>
+              <div id="bond-overview-filters" class="apostle-picker-filters" aria-label="好感度使徒絞り込み"></div>
+            </details>
+            <div id="bond-overview-grid" class="rank-overview-grid"></div>
+            <div id="bond-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
+          </div>
+          <div class="setting-panel" data-setting-panel="aside">
+            <p class="panel-note">各使徒のアサイド発現状態とA3全体効果を管理します。</p>
+            <div class="rank-overview-tools">
+              <label class="apostle-picker-sort">
+                <span>並び順</span>
+                <select id="aside-overview-sort">
+                  <option value="name">50音順</option>
+                  <option value="aside">アサイド段階が高い順</option>
+                </select>
+              </label>
+            </div>
+            <details class="apostle-filter-details rank-filter-details">
+              <summary><span>絞り込み</span><span id="aside-filter-count" class="apostle-filter-count"></span></summary>
+              <div id="aside-overview-filters" class="apostle-picker-filters" aria-label="アサイド使徒絞り込み"></div>
+            </details>
+            <div id="aside-overview-grid" class="rank-overview-grid"></div>
+            <div id="aside-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
+          </div>
+          <div class="setting-panel" data-setting-panel="board-global">
+            <p class="panel-note">特殊マスを選ぶと対象使徒のボード経路まで更新します。複数使徒の変更をまとめて確定・予定保存できます。</p>
+            <div class="board-global-toolbar">
+              <span class="board-mode-switch board-global-mode" aria-label="全体ボード編集モード">
+                <button type="button" id="board-global-mode-current" class="is-active">現在</button>
+                <button type="button" id="board-global-mode-plan">予定</button>
+              </span>
+              <label class="board-global-search"><span>検索</span><input type="search" id="board-global-search" placeholder="使徒名・性格・種族"></label>
+              <label class="apostle-picker-sort"><span>並び順</span><select id="board-global-sort"><option value="name">50音順</option><option value="progress">解放数順</option></select></label>
+              <span class="board-global-actions">
+                <button type="button" id="board-global-cancel" class="secondary" disabled>変更を取消</button>
+                <button type="button" id="board-global-save-plan" class="plan" disabled>予定を保存</button>
+                <button type="button" id="board-global-confirm" class="primary" disabled>現在状態に反映</button>
+              </span>
+            </div>
+            <div id="board-global-progress-summary" class="board-global-progress-summary"></div>
+            <details class="board-global-filter-details">
+              <summary>絞り込み <span id="board-global-filter-count"></span></summary>
+              <div id="board-global-filters" class="board-global-filters"></div>
+            </details>
+            <div id="board-global-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
+            <div id="board-global-overview-list" class="board-global-list"></div>
+          </div>
+          <div class="setting-panel" data-setting-panel="cards">
+            <p class="panel-note">カードの所持状況、スターアップ、はんだ状態を管理します。</p>
+            <div class="card-manager-tools">
+              <span class="card-manager-tabs" id="card-manager-tabs" aria-label="カード種別">
+                <button type="button" class="is-active" data-card-kind="artifact">遺物</button>
+                <button type="button" data-card-kind="spell">スペル</button>
+              </span>
+              <label class="card-manager-search"><span>検索</span><input type="search" id="card-manager-search" placeholder="カード名・使徒名"></label>
+              <label class="card-manager-select"><span>レア度</span>
+                <select id="card-manager-rarity">
+                  <option value="">すべて</option>
+                  <option value="signature">愛用</option>
+                  <option value="伝説">伝説</option>
+                  <option value="希少">希少</option>
+                  <option value="高級">高級</option>
+                </select>
+              </label>
+              <label class="card-manager-select"><span>効果</span>
+                <select id="card-manager-effect">
+                  <option value="">すべて</option>
+                  <option value="hp">HP</option>
+                  <option value="attack">攻撃</option>
+                  <option value="haste">攻撃速度</option>
+                  <option value="crit">会心/会心DMG</option>
+                  <option value="defense">防御/抵抗</option>
+                  <option value="hp-recovery">HP回復</option>
+                  <option value="healing">HP治癒</option>
+                  <option value="sp-recovery">SP回復</option>
+                  <option value="damage-up">与ダメUP</option>
+                  <option value="damage-taken">被ダメ増減</option>
+                  <option value="toggle">特殊効果</option>
+                </select>
+              </label>
+              <label class="card-manager-owned-filter"><input type="checkbox" id="card-manager-owned-only"> 所持のみ</label>
+              <span class="card-manager-bulk-tools" aria-label="カード一括操作">
+                <button type="button" id="card-manager-own-visible">表示中を全所持</button>
+                <label class="card-manager-select"><span>全レア度</span>
+                  <select id="card-manager-bulk-star">
+                    <option value="">変更なし</option>
+                    <option value="1">★1</option>
+                    <option value="2">★2</option>
+                    <option value="3">★3</option>
+                    <option value="4">★4</option>
+                    <option value="5">★5</option>
+                  </select>
+                </label>
+                <label class="card-manager-select"><span>全はんだ</span>
+                  <select id="card-manager-bulk-solder">
+                    <option value="">変更なし</option>
+                    <option value="0">+0</option>
+                    <option value="1">+1</option>
+                    <option value="2">+2</option>
+                  </select>
+                </label>
+              </span>
+            </div>
+            <div id="card-manager-summary" class="card-manager-summary"></div>
+            <div id="card-manager-grid" class="card-manager-grid"></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-view" data-dashboard-panel="formation">
+        <article class="dashboard-card formation-panel">
+          <div class="panel-head">
+            <div>
+              <h2>編成</h2>
+              <p class="panel-note">使徒・遺物・スペルをまとめて編成し、名前とタグ付きで保存できます。</p>
+            </div>
+            <div class="formation-tools">
+              <button type="button" id="formation-clear">編成をクリア</button>
+            </div>
+          </div>
+          <div class="formation-save-panel">
+            <div class="formation-save-main">
+              <div id="formation-active-preset" class="formation-active-preset" aria-live="polite"></div>
+              <div class="formation-save-actions">
+                <button type="button" id="formation-save-current">新規保存</button>
+                <button type="button" id="formation-overwrite-current">上書き</button>
+              </div>
+            </div>
+            <div id="formation-save-list" class="formation-save-list" aria-label="保存済み編成"></div>
+            <div class="formation-save-editor" id="formation-save-editor" hidden>
+              <div class="formation-save-fields">
+                <label>
+                  <span>編成名</span>
+                  <input type="text" id="formation-save-name" placeholder="例: R41 リニュア用">
+                </label>
+                <label>
+                  <span>タグ</span>
+                  <span class="formation-tag-input">
+                    <input type="text" id="formation-save-tags" placeholder="例: 次元の衝突, エーリアスフロンティア">
+                    <span class="formation-tag-presets" aria-label="よく使うタグ">
+                      <button type="button" data-formation-tag-preset="次元の衝突">次元の衝突</button>
+                      <button type="button" data-formation-tag-preset="エーリアスフロンティア">エーリアスフロンティア</button>
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div class="formation-save-editor-actions">
+                <button type="button" id="formation-save-confirm">保存する</button>
+                <button type="button" id="formation-save-cancel">キャンセル</button>
+              </div>
+            </div>
+          </div>
+          <div class="formation-layout">
+            <div class="formation-overview-row">
+              <div id="formation-synergy-summary" class="formation-synergy-summary" aria-live="polite"></div>
+              <div class="formation-overview-side">
+                <div id="formation-member-summary" class="formation-member-summary" aria-live="polite"></div>
+              </div>
+            </div>
+            <div id="formation-cost-summary" class="formation-cost-summary" aria-live="polite"></div>
+            <div id="formation-board" class="formation-board" aria-label="編成"></div>
+            <div id="formation-spell-list" class="formation-spell-list" aria-label="編成スペル"></div>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <nav class="dashboard-bottom-bar" aria-label="クイック操作">
+    <button type="button" class="bottom-apostle-button" data-open-apostle-picker>
+      <img id="bottom-apostle-image" data-apostle-image alt="">
+      <span><small>使徒選択</small><strong id="bottom-apostle-name">-</strong></span>
+    </button>
+    <button type="button" class="bottom-section-button" data-dashboard-view="settings">
+      <span class="bottom-section-icon"><img src="img/Tab_Chara.webp" alt=""></span><strong><span>基本</span></strong>
+    </button>
+    <button type="button" class="bottom-section-button" data-dashboard-view="equipment">
+      <span class="bottom-section-icon"><img src="img/Tab_Equip.webp" alt=""></span><strong><span>装備</span></strong>
+    </button>
+    <button type="button" class="bottom-section-button" data-dashboard-view="board">
+      <span class="bottom-section-icon"><img src="img/Tab_Board.webp" alt=""></span><strong><span>ボード</span></strong>
+    </button>
+    <button type="button" class="bottom-section-button" data-dashboard-view="skill">
+      <span class="bottom-section-icon"><img src="img/Tab_Skill.webp" alt=""></span><strong><span>スキル</span></strong>
+    </button>
+    <button type="button" class="bottom-section-button" data-dashboard-view="aside">
+      <span class="bottom-section-icon"><img src="img/Tab_Aside.webp" alt=""></span><strong><span>アサイド</span></strong>
+    </button>
+    <details class="bottom-save-menu">
+      <summary class="bottom-section-button bottom-save-trigger">
+        <span class="bottom-section-icon bottom-save-icon"><img src="img/Tab_Save.png" alt=""></span><strong><span>セーブ/ロード</span></strong>
+      </summary>
+      <div class="bottom-save-popover" aria-label="状態の保存と読み込み">
+        <div class="bottom-save-head">
+          <span class="bottom-save-label">セーブ/ロード</span>
+          <small id="state-status" aria-live="polite"></small>
+        </div>
+        <div class="bottom-save-section">
+          <span class="bottom-save-section-title">スロット</span>
+          <div id="state-slot-list" class="bottom-save-slots state-slot-list" aria-label="保存スロット">
+            <button type="button" class="is-selected" data-state-slot="1">1</button>
+            <button type="button" data-state-slot="2">2</button>
+            <button type="button" data-state-slot="3">3</button>
+            <button type="button" data-state-slot="4">4</button>
+            <button type="button" data-state-slot="5">5</button>
+          </div>
+        </div>
+        <div class="bottom-save-actions">
+          <button type="button" id="save-state-slot">セーブ</button>
+          <button type="button" id="load-state-slot">ロード</button>
+          <button type="button" id="delete-state-slot" class="danger">削除</button>
+        </div>
+        <div class="bottom-transfer-actions">
+          <button type="button" id="export-state">エクスポート</button>
+          <button type="button" id="import-state">インポート</button>
+          <input type="file" id="import-state-file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+    </details>
+  </nav>
+
+  <dialog id="apostle-picker-dialog" class="apostle-picker-dialog">
+    <div class="apostle-picker-head">
+      <div><h2>使徒選択</h2></div>
+      <button type="button" id="apostle-picker-close" class="apostle-picker-close">閉じる</button>
+    </div>
+    <div class="apostle-picker-tools">
+      <label class="apostle-picker-search">
+        <span>検索</span>
+        <input type="search" id="apostle-picker-search" placeholder="使徒名・性格・種族・役割">
+      </label>
+      <label class="apostle-picker-sort">
+        <span>並び順</span>
+        <select id="apostle-picker-sort">
+          <option value="name">50音順</option>
+          <option value="level">Lvが高い順</option>
+          <option value="rank">装備Rankが高い順</option>
+        </select>
+      </label>
+    </div>
+    <details class="apostle-filter-details">
+      <summary><span>絞り込み</span><span id="apostle-filter-count" class="apostle-filter-count"></span></summary>
+      <div id="apostle-picker-filters" class="apostle-picker-filters" aria-label="使徒絞り込み"></div>
+    </details>
+    <div id="apostle-picker-grid" class="apostle-picker-grid"></div>
+  </dialog>
+
+  <dialog id="formation-picker-dialog" class="formation-picker-dialog">
+    <div class="formation-picker-head">
+      <div><h2 id="formation-picker-title">選択</h2></div>
+      <button type="button" id="formation-picker-close" class="apostle-picker-close">閉じる</button>
+    </div>
+    <div class="formation-picker-tools">
+      <label class="formation-picker-search">
+        <span>検索</span>
+        <input type="search" id="formation-picker-search" placeholder="名前で検索">
+      </label>
+      <label class="formation-picker-sort" id="formation-picker-sort-wrap">
+        <span>並び順</span>
+        <select id="formation-picker-sort">
+          <option value="name">50音順</option>
+          <option value="level">Lvが高い順</option>
+          <option value="rank">装備Rankが高い順</option>
+        </select>
+      </label>
+    </div>
+    <details class="formation-filter-details" id="formation-filter-details">
+      <summary><span>絞り込み</span><span id="formation-filter-count" class="apostle-filter-count"></span></summary>
+      <div id="formation-picker-filters" class="apostle-picker-filters" aria-label="編成使徒絞り込み"></div>
+    </details>
+    <div id="formation-picker-grid" class="formation-picker-grid"></div>
+  </dialog>
+
+  <script src="statData.js"></script>
+  <script src="synergy.js"></script>
+  <script src="cards.js"></script>
+  <script src="stat-prototype.js"></script>
+  <script src="stat-dashboard.js"></script>
+</body>
+</html>
