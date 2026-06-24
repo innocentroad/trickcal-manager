@@ -6048,13 +6048,25 @@
   }
 
   .bottom-section-button strong span::before {
-    left: 50%;
-    right: auto;
-    bottom: -2px;
-    width: calc(100% + 9px);
-    height: calc(100% + 5px);
-    transform: translateX(-50%);
-    opacity: 0.95;
+    display: none;
+  }
+
+  .dashboard-bottom-bar .bottom-section-button.is-active strong,
+  .dashboard-bottom-bar .bottom-save-menu[open] .bottom-save-trigger strong {
+    color: #f7fff5 !important;
+    text-shadow:
+      0 0 5px rgba(255, 255, 255, 0.92),
+      0 0 10px rgba(94, 207, 124, 0.66),
+      0 1px 2px rgba(13, 54, 28, 0.48);
+  }
+
+  :root[data-theme="dark"] .dashboard-bottom-bar .bottom-section-button.is-active strong,
+  :root[data-theme="dark"] .dashboard-bottom-bar .bottom-save-menu[open] .bottom-save-trigger strong {
+    color: #ffffff !important;
+    text-shadow:
+      0 0 5px rgba(255, 255, 255, 0.84),
+      0 0 12px rgba(196, 181, 253, 0.72),
+      0 1px 2px rgba(0, 0, 0, 0.6);
   }
 
   .bottom-save-menu summary,
