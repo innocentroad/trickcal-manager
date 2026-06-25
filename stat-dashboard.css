@@ -5938,6 +5938,54 @@
     width: 44px;
   }
 
+  .card-manager-kind-grid {
+    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    gap: 7px;
+  }
+
+  .resource-card {
+    --card-name-panel-height: 38%;
+    border-radius: 10px;
+  }
+
+  .resource-card-image-wrap {
+    border-width: 2px !important;
+    border-radius: 8px !important;
+  }
+
+  .resource-card-name-panel {
+    padding: 15px 4px 5px;
+    font-size: clamp(0.54rem, 2.25vw, 0.64rem);
+    line-height: 1.08;
+  }
+
+  .resource-card-cost {
+    top: 3px;
+    right: 3px;
+    width: 24px;
+  }
+
+  .resource-card-cost-value-fill,
+  .resource-card-cost-value {
+    font-size: 0.78rem;
+  }
+
+  .resource-card-star-overlay {
+    transform: translateX(-50%) scale(0.82);
+    transform-origin: center bottom;
+  }
+
+  .resource-solder-overlay {
+    right: 3px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .resource-solder-token-icon {
+    width: 22px;
+    height: 22px;
+  }
+
   .formation-board {
     grid-template-columns: repeat(3, minmax(112px, 132px));
     gap: 0;
@@ -6282,34 +6330,38 @@
   .board-quick-button,
   .card-quick-button,
   .bottom-section-button {
-    flex: 0 0 48px;
-    width: 48px;
-    min-width: 48px;
-    gap: 2px;
-    padding-inline: 1px 2px !important;
+    flex: 0 0 42px;
+    width: 42px;
+    min-width: 42px;
+    display: grid;
+    grid-template-rows: 22px 1fr;
+    gap: 0;
+    padding: 1px !important;
     font-size: 0.58rem;
     justify-content: center;
   }
 
   .bottom-section-icon {
-    width: 24px;
-    height: 24px;
-    flex-basis: 24px;
+    width: 21px;
+    height: 21px;
+    flex-basis: 21px;
+    justify-self: center;
   }
 
   .bottom-section-icon img {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
   }
 
   .bottom-section-button strong {
     flex: 0 0 auto;
-    width: 1.1em;
+    width: auto;
+    max-width: 100%;
     text-align: center;
     white-space: normal;
     word-break: keep-all;
-    transform: translateY(1px);
-    line-height: 0.92;
+    transform: none;
+    line-height: 0.9;
   }
 
   .bottom-section-button strong span {
