@@ -6330,14 +6330,14 @@
   .board-quick-button,
   .card-quick-button,
   .bottom-section-button {
-    flex: 0 0 42px;
-    width: 42px;
-    min-width: 42px;
+    flex: 0 0 44px;
+    width: 44px;
+    min-width: 44px;
     display: grid;
     grid-template-rows: 22px 1fr;
     gap: 0;
     padding: 1px !important;
-    font-size: 0.58rem;
+    font-size: 0.54rem;
     justify-content: center;
   }
 
@@ -6367,9 +6367,19 @@
   .bottom-section-button strong span {
     display: block;
     line-height: 0.92;
-    overflow-wrap: anywhere;
+    overflow-wrap: normal;
     word-break: keep-all;
     white-space: normal;
+  }
+
+  .bottom-save-trigger strong span[data-compact-label] {
+    font-size: 0;
+  }
+
+  .bottom-save-trigger strong span[data-compact-label]::after {
+    content: attr(data-compact-label);
+    font-size: 0.56rem;
+    line-height: 0.95;
   }
 
   .bottom-section-button strong span::before {
@@ -6423,6 +6433,28 @@
 
   .bottom-global-menu summary strong {
     line-height: 1.02;
+  }
+}
+
+@media (max-width: 360px) {
+  .board-quick-button,
+  .card-quick-button,
+  .bottom-section-button {
+    flex-basis: 39px;
+    width: 39px;
+    min-width: 39px;
+    grid-template-rows: 1fr;
+    font-size: 0.52rem;
+  }
+
+  .bottom-section-icon {
+    display: none;
+  }
+
+  .bottom-save-menu summary.bottom-save-trigger {
+    width: 42px;
+    min-width: 42px;
+    flex-basis: 42px;
   }
 }
 
