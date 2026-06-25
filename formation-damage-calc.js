@@ -1474,6 +1474,7 @@
       <label class="fdc-skill-effect-toggle">
         <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
         <span class="fdc-skill-effect-source ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
+        ${option.ownerName ? `<span class="fdc-skill-effect-owner">${escapeHtml(option.ownerName)}</span>` : ''}
         <button type="button" class="fdc-skill-effect-info" data-fdc-skill-effect-info="${escapeAttr(option.key)}" aria-label="${escapeAttr(`${option.label}の条件詳細`)}">i</button>
         <span class="fdc-skill-effect-text">
           <strong>${escapeHtml(summary.main)}</strong>
@@ -1783,6 +1784,7 @@
       source: '編成スキル',
       sourceTag: 'スキル/アサイド',
       defaultEnabled,
+      ownerName: memberName,
       label: createFdcSkillEffectLabel({
         sourceLabel,
         category,
@@ -1823,6 +1825,7 @@
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
           defaultEnabled: targetState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
+          ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
             category: 'A3',

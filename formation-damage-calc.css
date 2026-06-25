@@ -1709,7 +1709,7 @@ body.theme-light .fdc-field select {
 
 .fdc-skill-effect-toggle {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr);
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   gap: 0.34rem 0.42rem;
   align-items: start;
   border: 1px solid color-mix(in srgb, var(--fdc-border) 86%, transparent);
@@ -1747,6 +1747,17 @@ body.theme-light .fdc-field select {
 .fdc-skill-effect-source.tone-passive { background: #8b5cf6; }
 .fdc-skill-effect-source.tone-favorite { background: #ec4899; }
 .fdc-skill-effect-source.tone-extra { background: #14b8a6; }
+
+.fdc-skill-effect-owner {
+  align-self: center;
+  min-width: 0;
+  color: var(--fdc-text);
+  font-size: 0.72rem;
+  font-weight: 900;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .fdc-skill-effect-info {
   display: inline-grid;
