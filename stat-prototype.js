@@ -2173,8 +2173,8 @@
     renderRankOverview();
     renderBondOverview();
     renderAsideOverview();
-    renderCardManager();
-    renderFormation();
+    if (isCardManagerPanelActive()) renderCardManager();
+    if (isDashboardPanelActive('formation')) renderFormation();
     renderBoardGlobalOverview();
     renderBoardSpecial(boardRows);
     renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
@@ -2467,6 +2467,8 @@
       updateGlobalOpenActiveButton('');
       updateCardManagerQuickButtons('');
     }
+    if (viewName === 'formation') renderFormation();
+    if (viewName === 'global' && isGlobalSettingPanelActive('cards')) renderCardManager();
   }
 
   function openGlobalSettingPanel(tab = 'research', options = {}) {
@@ -2476,6 +2478,7 @@
     elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
     updateGlobalOpenActiveButton(tab);
     if (tab === 'board-global') renderBoardGlobalOverview();
+    if (tab === 'cards') renderCardManager();
     if (options.scroll !== false) scrollGlobalSettingIntoView(tab);
   }
 
@@ -2509,6 +2512,14 @@
 
   function isDashboardPanelActive(name) {
     return !!document.querySelector(`[data-dashboard-panel="${name}"]`)?.classList.contains('is-active');
+  }
+
+  function isGlobalSettingPanelActive(name) {
+    return !!document.querySelector(`[data-setting-panel="${name}"]`)?.classList.contains('is-active');
+  }
+
+  function isCardManagerPanelActive() {
+    return isDashboardPanelActive('global') && isGlobalSettingPanelActive('cards');
   }
 
   function updateGlobalOpenActiveButton(tab) {
@@ -3719,7 +3730,7 @@
 
   function warmCardManagerImages(rows) {
     const cache = warmCardManagerImages.cache || (warmCardManagerImages.cache = new Map());
-    rows.forEach((card, index) => {
+    const warmOne = (card, index) => {
       const priority = getCardManagerImagePriority(index);
       [getCardManagerRarityFrame(card), getCardManagerImagePath(card)].filter(Boolean).forEach(src => {
         if (cache.has(src)) return;
@@ -3729,7 +3740,16 @@
         image.src = src;
         cache.set(src, image);
       });
-    });
+    };
+    rows.slice(0, 24).forEach(warmOne);
+    const rest = rows.slice(24);
+    if (!rest.length) return;
+    const warmRest = () => rest.forEach((card, offset) => warmOne(card, offset + 24));
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(warmRest, { timeout: 1200 });
+    } else {
+      window.setTimeout(warmRest, 160);
+    }
   }
 
   function getCardManagerImagePriority(index) {
@@ -4534,16 +4554,35 @@
       </div>
       ${spells.length && view.formationSpellDetailsOpen ? renderFormationSpellDetails(selectedRows) : ''}
       <div class="formation-spell-catalog" aria-label="スペル一覧">
-        ${cards.map(card => renderFormationSpellCard(card, counts[card.id] || 0)).join('')}
+        <span class="formation-spell-empty">スペル一覧を準備中...</span>
       </div>
     `;
+    scheduleFormationSpellCatalogRender(cards, counts);
+  }
+
+  function scheduleFormationSpellCatalogRender(cards, counts) {
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    scheduleFormationSpellCatalogRender.token = token;
+    const renderCatalog = () => {
+      if (scheduleFormationSpellCatalogRender.token !== token) return;
+      const catalog = elements.formationSpellList?.querySelector('.formation-spell-catalog');
+      if (!catalog) return;
+      catalog.innerHTML = cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('');
+    };
+    requestAnimationFrame(() => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(renderCatalog, { timeout: 280 });
+      } else {
+        window.setTimeout(renderCatalog, 40);
+      }
+    });
   }
 
   function renderFormationSelectedSpell(card, index, count = 1) {
     if (!card) return '';
     return `
       <button type="button" class="formation-spell-selected-card ${getCardManagerRarityClass(card)}" data-formation-spell-remove-id="${escapeAttr(index)}" title="${escapeAttr(`${card.name}を外す`)}">
-        <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}">
+        <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="eager" decoding="async" fetchpriority="high">
         ${count > 1 ? `<span class="formation-spell-count">x${escapeHtml(count)}</span>` : ''}
       </button>
     `;
@@ -4570,7 +4609,7 @@
           return `
             <section class="formation-spell-detail-card ${getCardManagerRarityClass(card)}">
               <div class="formation-spell-detail-title">
-                <img src="${escapeAttr(getCardManagerImagePath(card))}" alt="">
+                <img src="${escapeAttr(getCardManagerImagePath(card))}" alt="" loading="lazy" decoding="async" fetchpriority="low">
                 <strong>${escapeHtml(card.name)}</strong>
                 <span>${escapeHtml(`x${count || 1}`)}</span>
               </div>
@@ -4584,11 +4623,12 @@
     `;
   }
 
-  function renderFormationSpellCard(card, count) {
+  function renderFormationSpellCard(card, count, index = 0) {
+    const priority = getCardManagerImagePriority(index);
     return `
       <div class="formation-spell-card ${getCardManagerRarityClass(card)} ${count ? 'is-selected' : ''}" title="${escapeAttr(card.name)}">
         <span class="formation-spell-card-art">
-          <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}">
+          <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="${priority.loading}" decoding="async" fetchpriority="${priority.fetchPriority}">
           ${renderFormationCostBadge(card.cost)}
         </span>
         <span class="formation-spell-name">${escapeHtml(card.name)}</span>
