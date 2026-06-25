@@ -47,6 +47,8 @@
     themeToggle: document.getElementById('fdc-theme-toggle'),
     perspectiveToggle: document.getElementById('fdc-perspective-toggle'),
     perspectiveLabel: document.getElementById('fdc-perspective-label'),
+    mobileSideSwitch: document.getElementById('fdc-mobile-side-switch'),
+    mobileSideButtons: Array.from(document.querySelectorAll('.fdc-mobile-side-switch button[data-fdc-mobile-side]')),
     damageType: document.getElementById('fdc-damage-type'),
     enemyDamageType: document.getElementById('fdc-enemy-damage-type'),
     gradeOverride: document.getElementById('fdc-grade-override'),
@@ -170,6 +172,7 @@
     gradeOverride: 'saved',
     statMode: 'current',
     perspective: 'self',
+    mobileVisibleSide: 'self',
     enemyPersonality: '',
     enemyPresetKey: '',
     formationPresetId: '',
@@ -312,6 +315,11 @@
       saveCalcSettings();
       render();
     });
+    el.mobileSideButtons.forEach(button => button.addEventListener('click', () => {
+      view.mobileVisibleSide = button.dataset.fdcMobileSide === 'enemy' ? 'enemy' : 'self';
+      saveCalcSettings();
+      syncMobileSideUi();
+    }));
     el.targetPreview?.addEventListener('click', () => toggleFormationPicker());
     el.floatingTarget?.addEventListener('click', () => toggleFormationPicker(true));
     el.formationPicker?.addEventListener('click', event => event.stopPropagation());
@@ -422,6 +430,7 @@
     const context = buildContext();
     syncApplyFloatUi();
     syncPerspectiveUi();
+    syncMobileSideUi();
     if (el.damageType) el.damageType.value = view.damageType;
     if (el.enemyDamageType) el.enemyDamageType.value = view.enemyDamageType;
     syncDamageTypeUi(context);
@@ -843,6 +852,7 @@
       if (['saved', '1', '2', '3', '4', '5', '6'].includes(String(saved.gradeOverride))) view.gradeOverride = String(saved.gradeOverride);
       if (['current', 'planned'].includes(saved.statMode)) view.statMode = saved.statMode;
       if (['self', 'enemy'].includes(saved.perspective)) view.perspective = saved.perspective;
+      if (['self', 'enemy'].includes(saved.mobileVisibleSide)) view.mobileVisibleSide = saved.mobileVisibleSide;
       if (typeof saved.enemyPersonality === 'string') view.enemyPersonality = saved.enemyPersonality;
       if (typeof saved.enemyPresetKey === 'string') view.enemyPresetKey = saved.enemyPresetKey;
       if (Number.isFinite(Number(saved.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(saved.enemyPhaseIndex));
@@ -878,6 +888,7 @@
         gradeOverride: view.gradeOverride || 'saved',
         statMode: view.statMode === 'planned' ? 'planned' : 'current',
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
+        mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
         enemyPresetKey: view.enemyPresetKey || '',
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
@@ -3170,6 +3181,16 @@
     document.querySelector('.enemy-side')?.classList.toggle('is-defender', !defense);
     syncRoleChip(el.selfRoleChip, !defense);
     syncRoleChip(el.enemyRoleChip, defense);
+  }
+
+  function syncMobileSideUi() {
+    const visibleSide = view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self';
+    document.body.dataset.fdcMobileSide = visibleSide;
+    el.mobileSideButtons.forEach(button => {
+      const active = button.dataset.fdcMobileSide === visibleSide;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
   }
 
   function syncRoleChip(chip, attacker) {

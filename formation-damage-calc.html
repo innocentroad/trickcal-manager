@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="formation-damage-calc.css">
   <link rel="stylesheet" href="shared-topbar.css">
 </head>
-<body class="formation-damage-calc theme-dark">
+<body class="formation-damage-calc theme-dark" data-fdc-mobile-side="self">
   <main class="fdc-shell">
     <section class="fdc-top-control-bar" aria-label="計算操作">
       <div class="fdc-top-status">
@@ -48,6 +48,10 @@
       <span class="fdc-perspective-arrow fdc-arrow-left">←</span>
       <small id="fdc-perspective-label">攻撃</small>
     </button>
+    <span id="fdc-mobile-side-switch" class="fdc-mobile-side-switch" aria-label="表示キャラ切替">
+      <button type="button" class="is-active" data-fdc-mobile-side="self" aria-pressed="true">自</button>
+      <button type="button" data-fdc-mobile-side="enemy" aria-pressed="false">敵</button>
+    </span>
     <button type="button" id="fdc-floating-target" class="fdc-floating-target" aria-label="選択使徒を変更" hidden></button>
 
     <section class="side-panels fdc-side-panels">

@@ -116,6 +116,9 @@
     urls.add(`img/Chara/Skill/Skill_F_${assetId}.webp`);
     urls.add(`img/Chara/Skill/Skill_S_${assetId}.webp`);
     urls.add(`img/Chara/Aside/AsideIcon_${assetId}.webp`);
+    urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_1.webp`);
+    urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_2.webp`);
+    urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_3.webp`);
   }
 
   function getCardCollections() {
