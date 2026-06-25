@@ -7833,6 +7833,86 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   color: rgba(203, 213, 225, 0.76) !important;
 }
 
+.formation-active-preset span,
+.formation-active-preset strong,
+.formation-active-preset small,
+.formation-active-preset b,
+.formation-preset-shortcuts button strong,
+.formation-preset-details summary,
+.formation-preset-details summary span,
+.formation-preset-card strong,
+.formation-preset-card span,
+.formation-preset-card small,
+.formation-preset-card b {
+  text-shadow: none;
+}
+
+.formation-active-preset span {
+  color: #386043;
+}
+
+.formation-preset-shortcuts button strong,
+.formation-preset-card strong {
+  color: #24442e;
+}
+
+.formation-preset-card span,
+.formation-preset-card small,
+.formation-preset-details summary span {
+  color: rgba(42, 74, 50, 0.74);
+}
+
+.formation-preset-card b,
+.formation-active-preset b {
+  color: #2f6f4c;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme="dark"] .formation-active-preset {
+  color: #d9f5e3 !important;
+  background: rgba(18, 31, 48, 0.78) !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset.is-active {
+  color: #ecfdf5 !important;
+  border-color: rgba(134, 239, 172, 0.24) !important;
+  background: linear-gradient(135deg, rgba(25, 67, 50, 0.82), rgba(18, 31, 48, 0.82)) !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset span {
+  color: #bbf7d0 !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset strong,
+:root[data-theme="dark"] .formation-preset-shortcuts button strong,
+:root[data-theme="dark"] .formation-preset-card strong,
+:root[data-theme="dark"] .formation-preset-details summary {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset small,
+:root[data-theme="dark"] .formation-preset-card span,
+:root[data-theme="dark"] .formation-preset-card small,
+:root[data-theme="dark"] .formation-preset-details summary span {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset b,
+:root[data-theme="dark"] .formation-preset-card b {
+  color: #dcfce7 !important;
+  background: rgba(34, 197, 94, 0.18) !important;
+}
+
+:root[data-theme="dark"] .formation-preset-shortcuts button span {
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #4ade80, #15803d) !important;
+}
+
+:root[data-theme="dark"] .formation-active-preset em {
+  color: #fff7ed !important;
+  background: rgba(249, 115, 22, 0.92) !important;
+}
+
 :root[data-theme="dark"] .formation-synergy-personality {
   border-color: transparent !important;
   background: transparent !important;
