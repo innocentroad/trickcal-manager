@@ -22,7 +22,7 @@
     xXionx: 'Xion'
   };
 
-  const COMMON_IMAGES = [
+  const BASE_COMMON_IMAGES = [
     'ico.webp',
     'img/Chara/null.webp',
     'img/Grade_on.webp',
@@ -83,7 +83,10 @@
     'img/役割_支援.webp',
     'img/配置列_前列.webp',
     'img/配置列_中列.webp',
-    'img/配置列_後列.webp',
+    'img/配置列_後列.webp'
+  ];
+
+  const STAT_DASHBOARD_IMAGES = [
     'img/Board/Tile_1_On.webp',
     'img/Board/Tile_1_Off.webp',
     'img/Board/Tile_2_On.webp',
@@ -95,6 +98,9 @@
     'img/Board/Tileicon_2.webp',
     'img/Board/Tileicon_3.webp'
   ];
+
+  const preloadCache = [];
+  const requestedUrls = new Set();
 
   function readJson(key) {
     try {
@@ -108,10 +114,21 @@
     return APOSTLE_ALIASES[id] || id;
   }
 
+  function isDamageCalcPage() {
+    return document.body?.classList.contains('formation-damage-calc');
+  }
+
+  function getCommonImages() {
+    return isDamageCalcPage()
+      ? BASE_COMMON_IMAGES
+      : BASE_COMMON_IMAGES.concat(STAT_DASHBOARD_IMAGES);
+  }
+
   function addApostleImages(urls, id) {
     if (!id) return;
     const assetId = getApostleAssetId(String(id));
     urls.add(`img/Chara/${assetId}.webp`);
+    if (isDamageCalcPage()) return;
     urls.add(`img/Chara/Skill/Skill_P_${assetId}.webp`);
     urls.add(`img/Chara/Skill/Skill_F_${assetId}.webp`);
     urls.add(`img/Chara/Skill/Skill_S_${assetId}.webp`);
@@ -149,7 +166,7 @@
   }
 
   function collectSavedImages() {
-    const urls = new Set(COMMON_IMAGES);
+    const urls = new Set(getCommonImages());
     const state = readJson(STAT_STORAGE_KEY);
     const calc = readJson(CALC_SETTINGS_KEY);
 
@@ -166,8 +183,28 @@
     return Array.from(urls);
   }
 
+  function collectLibraryImages() {
+    const urls = new Set();
+    const apostles = typeof APOSTLE_LIBRARY !== 'undefined' && Array.isArray(APOSTLE_LIBRARY)
+      ? APOSTLE_LIBRARY
+      : [];
+    apostles.forEach(apostle => {
+      if (apostle?.id) urls.add(`img/Chara/${getApostleAssetId(apostle.id)}.webp`);
+    });
+    const collections = getCardCollections();
+    collections.artifact.concat(collections.spell).forEach(card => {
+      const path = getCardImagePath(card);
+      if (path) urls.add(path);
+    });
+    return Array.from(urls);
+  }
+
   function preloadImages(urls, chunkSize = 8) {
-    const queue = urls.filter(Boolean);
+    const queue = urls.filter(src => {
+      if (!src || requestedUrls.has(src)) return false;
+      requestedUrls.add(src);
+      return true;
+    });
     const loaded = [];
     const run = deadline => {
       let count = 0;
@@ -175,7 +212,9 @@
         const src = queue.shift();
         const image = new Image();
         image.decoding = 'async';
+        image.fetchPriority = 'low';
         image.src = src;
+        preloadCache.push(image);
         loaded.push(src);
         count += 1;
       }
@@ -195,12 +234,16 @@
 
   window.TRICKCAL_IMAGE_PRELOAD = {
     collectSavedImages,
-    preloadNow: () => preloadImages(collectSavedImages())
+    collectLibraryImages,
+    preloadNow: () => preloadImages(collectSavedImages()),
+    preloadLibrary: () => preloadImages(collectLibraryImages(), 3)
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => preloadImages(collectSavedImages()), { once: true });
-  } else {
-    preloadImages(collectSavedImages());
+  function startPreload() {
+    preloadImages(collectSavedImages(), 4);
+    window.setTimeout(() => preloadImages(collectLibraryImages(), 3), 2200);
   }
+
+  if (document.readyState === 'complete') startPreload();
+  else window.addEventListener('load', startPreload, { once: true });
 })();
