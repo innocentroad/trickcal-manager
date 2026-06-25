@@ -3680,7 +3680,7 @@
     });
     const renderKey = getCardManagerRenderKey(kind, rows);
     if (activeGrid.dataset.renderKey === renderKey) return;
-    activeGrid.innerHTML = rows.map(card => renderCardManagerCard(card)).join('')
+    activeGrid.innerHTML = rows.map((card, index) => renderCardManagerCard(card, index)).join('')
       || '<p class="empty-note">一致するカードがありません。</p>';
     activeGrid.dataset.renderKey = renderKey;
     revealCardManagerGridWhenReady(activeGrid);
@@ -3719,20 +3719,31 @@
 
   function warmCardManagerImages(rows) {
     const cache = warmCardManagerImages.cache || (warmCardManagerImages.cache = new Map());
-    rows.forEach(card => {
+    rows.forEach((card, index) => {
+      const priority = getCardManagerImagePriority(index);
       [getCardManagerRarityFrame(card), getCardManagerImagePath(card)].filter(Boolean).forEach(src => {
         if (cache.has(src)) return;
         const image = new Image();
         image.decoding = 'async';
-        image.fetchPriority = 'high';
+        image.fetchPriority = priority.fetchPriority;
         image.src = src;
         cache.set(src, image);
       });
     });
   }
 
+  function getCardManagerImagePriority(index) {
+    const isPriority = index < 24;
+    return {
+      isPriority,
+      loading: isPriority ? 'eager' : 'lazy',
+      fetchPriority: isPriority ? 'high' : 'low'
+    };
+  }
+
   function revealCardManagerGridWhenReady(grid) {
-    const images = Array.from(grid.querySelectorAll('img'));
+    const priorityImages = Array.from(grid.querySelectorAll('img[data-card-manager-priority="true"]'));
+    const images = priorityImages.length ? priorityImages : Array.from(grid.querySelectorAll('img'));
     if (!images.length) {
       grid.classList.remove('is-preparing');
       return;
@@ -3770,17 +3781,19 @@
     }).sort(compareCardManagerCards);
   }
 
-  function renderCardManagerCard(card) {
+  function renderCardManagerCard(card, index = 0) {
     const entry = getCardState(card.id);
     const star = normalizeCardStar(entry.star);
     const solder = star >= 5 ? normalizeCardSolder(entry.solder) : 0;
     const rarityFrame = card.kind === 'artifact' ? getCardManagerRarityFrame(card) : '';
     const rarityClass = getCardManagerRarityClass(card);
+    const priority = getCardManagerImagePriority(index);
+    const priorityAttrs = `loading="${priority.loading}" decoding="async" fetchpriority="${priority.fetchPriority}" data-card-manager-priority="${priority.isPriority ? 'true' : 'false'}"`;
     return `
       <article class="resource-card ${card.kind === 'spell' ? 'resource-card-spell' : 'resource-card-artifact'} ${rarityClass} ${entry.owned ? 'is-owned' : ''}" data-card-id="${escapeAttr(card.id)}">
         <div class="resource-card-image-wrap">
-          ${rarityFrame ? `<img class="resource-card-bg" src="${escapeAttr(rarityFrame)}" alt="" loading="eager" decoding="async" fetchpriority="high">` : ''}
-          <img class="resource-card-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="eager" decoding="async" fetchpriority="high">
+          ${rarityFrame ? `<img class="resource-card-bg" src="${escapeAttr(rarityFrame)}" alt="" ${priorityAttrs}>` : ''}
+          <img class="resource-card-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" ${priorityAttrs}>
           <span class="resource-card-cost">
             <img src="img/Card/cost.webp" alt="" class="resource-card-cost-img">
             <span class="resource-card-cost-value-fill">${escapeHtml(getCardManagerCost(card, star))}</span>
