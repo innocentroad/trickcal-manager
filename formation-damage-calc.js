@@ -1469,18 +1469,38 @@
 
   function renderSkillEffectToggle(option) {
     const checked = isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
-    const summary = formatBonusMap(option.bonuses) || getSkillEffectConditionSummary(option) || '詳細あり';
+    const summary = getSkillEffectCompactSummary(option);
     return `
       <label class="fdc-skill-effect-toggle">
         <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
         <span class="fdc-skill-effect-source ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
         <button type="button" class="fdc-skill-effect-info" data-fdc-skill-effect-info="${escapeAttr(option.key)}" aria-label="${escapeAttr(`${option.label}の条件詳細`)}">i</button>
         <span class="fdc-skill-effect-text">
-          <strong>${escapeHtml(option.label)}</strong>
-          <small>${escapeHtml(summary)}</small>
+          <strong>${escapeHtml(summary.main)}</strong>
+          <small>${escapeHtml(summary.meta)}</small>
         </span>
       </label>
     `;
+  }
+
+  function getSkillEffectCompactSummary(option) {
+    const kind = option.valueKind || option.effectType || option.effectLabel || option.label || '効果';
+    const value = option.effectValue || formatBonusMap(option.bonuses) || '';
+    const condition = option.condition || getSkillEffectConditionSummary(option) || '常時';
+    const target = option.effectTarget || '本人';
+    return {
+      main: [kind, value].filter(Boolean).join(' '),
+      meta: [condition, target].filter(Boolean).join(' / ')
+    };
+  }
+
+  function getSkillEffectDisplayRows(option) {
+    return [
+      { label: '値の種類', value: option.valueKind || option.effectType || option.effectLabel || '効果' },
+      { label: '効果値', value: option.effectValue || formatBonusMap(option.bonuses) || '-' },
+      { label: '条件', value: option.condition || getSkillEffectConditionSummary(option) || '常時' },
+      { label: '効果対象', value: option.effectTarget || '本人' }
+    ];
   }
 
   function collectRenderedSkillEffectOptions(context) {
@@ -1491,11 +1511,7 @@
   }
 
   function showSkillEffectPopover(anchor, option) {
-    const lines = [
-      formatBonusMap(option.bonuses) ? `効果: ${formatBonusMap(option.bonuses)}` : '',
-      ...getSkillEffectConditionLines(option).map(line => `条件: ${line}`),
-      option.detailText || ''
-    ].filter(Boolean);
+    const lines = getSkillEffectDisplayRows(option).map(row => `${row.label}: ${row.value}`);
     showFdcInfoPopover(anchor, option.label || 'スキル効果詳細', lines);
   }
 
@@ -1681,6 +1697,10 @@
           category,
           label,
           bonuses,
+          valueKind: stat.statName ? `${stat.statName}増加` : 'ステータス増加',
+          effectValue: formatFdcPercentValue(stat.increaseP ?? stat.increase ?? stat.value),
+          condition: '常時',
+          effectTarget: stat.statApplyTo || '本人',
           detailText: [skill.description, `${stat.statApplyTo || '本人'} ${stat.statName || ''} +${formatPlainNumber(stat.increaseP ?? stat.increase ?? stat.value)}%`].filter(Boolean).join('\n')
         });
       });
@@ -1701,6 +1721,11 @@
           category,
           label,
           bonuses,
+          valueKind: effect.valueKind || effect.effectType || '効果',
+          effectType: effect.effectType || '',
+          effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+          condition: composeFdcSkillEffectCondition(effect.condition, enemyPersonalityState.reason),
+          effectTarget: effect.effectTarget || '本人',
           defaultEnabled: enemyPersonalityState.hasCondition && enemyPersonalityState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
           detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
         });
@@ -1766,6 +1791,11 @@
         ownerName: memberName
       }),
       bonuses,
+      valueKind: effect.valueKind || effect.effectType || '効果',
+      effectType: effect.effectType || '',
+      effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+      condition: composeFdcSkillEffectCondition(effect.condition, targetState.reason, enemyPersonalityState.reason),
+      effectTarget: effect.effectTarget || '味方',
       detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
     };
   }
@@ -1800,6 +1830,11 @@
             ownerName: memberName
           }),
           bonuses,
+          valueKind: effect.valueKind || effect.effectType || '効果',
+          effectType: effect.effectType || '',
+          effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+          condition: composeFdcSkillEffectCondition(effect.condition, targetState.reason),
+          effectTarget: effect.effectTarget || '味方',
           detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
         });
       });
@@ -1955,6 +1990,31 @@
     else if (/治癒|回復量/.test(valueKind)) add('healingP');
     else if (/SP回復/.test(valueKind)) add('spRecoveryP');
     return bonuses;
+  }
+
+  function formatFdcSkillEffectValue(effect, skillLevel) {
+    const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
+    const rawValue = levelInfo?.raw || (levelInfo?.value ?? effect?.fixedValue);
+    if (rawValue === undefined || rawValue === null || rawValue === '') return '';
+    const text = levelInfo?.raw || formatPlainNumber(rawValue);
+    const unit = shouldAppendFdcPercentUnit(effect) ? '%' : '';
+    return `${text}${unit}`;
+  }
+
+  function composeFdcSkillEffectCondition(...parts) {
+    const values = unique(parts.map(part => String(part || '').trim()).filter(Boolean));
+    return values.join(' / ');
+  }
+
+  function formatFdcPercentValue(value) {
+    if (value === undefined || value === null || value === '') return '';
+    return `${formatPlainNumber(value)}%`;
+  }
+
+  function shouldAppendFdcPercentUnit(effect) {
+    const text = [effect?.valueKind, effect?.valueClass, effect?.effectType].filter(Boolean).join(' ');
+    if (/秒|回|個|スタック|Lv|レベル/.test(text)) return false;
+    return /倍率|増加|減少|上昇|低下|率|量|攻撃|防御|会心|ダメージ|HP|SP|治癒|回復/.test(text);
   }
 
   function isFdcDamageBonusValueClass(valueClass) {
