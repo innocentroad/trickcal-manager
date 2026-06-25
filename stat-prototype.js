@@ -3672,6 +3672,7 @@
       <span>${kind === 'artifact' ? '遺物' : 'スペル'} ${ownedCount}/${cards.length} 所持</span>
       <span>表示 ${rows.length}件</span>
     `;
+    warmCardManagerImages(rows);
     const activeGrid = getCardManagerKindGrid(kind);
     if (!activeGrid) return;
     elements.cardManagerGrid.querySelectorAll('[data-card-manager-kind-grid]').forEach(grid => {
@@ -3682,6 +3683,7 @@
     activeGrid.innerHTML = rows.map(card => renderCardManagerCard(card)).join('')
       || '<p class="empty-note">一致するカードがありません。</p>';
     activeGrid.dataset.renderKey = renderKey;
+    revealCardManagerGridWhenReady(activeGrid);
   }
 
   function getCardManagerKindGrid(kind) {
@@ -3715,6 +3717,44 @@
     });
   }
 
+  function warmCardManagerImages(rows) {
+    const cache = warmCardManagerImages.cache || (warmCardManagerImages.cache = new Map());
+    rows.forEach(card => {
+      [getCardManagerRarityFrame(card), getCardManagerImagePath(card)].filter(Boolean).forEach(src => {
+        if (cache.has(src)) return;
+        const image = new Image();
+        image.decoding = 'async';
+        image.fetchPriority = 'high';
+        image.src = src;
+        cache.set(src, image);
+      });
+    });
+  }
+
+  function revealCardManagerGridWhenReady(grid) {
+    const images = Array.from(grid.querySelectorAll('img'));
+    if (!images.length) {
+      grid.classList.remove('is-preparing');
+      return;
+    }
+    grid.classList.add('is-preparing');
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      requestAnimationFrame(() => grid.classList.remove('is-preparing'));
+    };
+    Promise.allSettled(images.map(image => {
+      if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+      if (typeof image.decode === 'function') return image.decode().catch(() => undefined);
+      return new Promise(resolve => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    })).then(finish);
+    window.setTimeout(finish, 700);
+  }
+
   function getVisibleCardManagerCards(kind = view.cardManager.kind) {
     const cardKind = kind === 'spell' ? 'spell' : 'artifact';
     const query = String(view.cardManager.search || '').toLocaleLowerCase('ja');
@@ -3739,8 +3779,8 @@
     return `
       <article class="resource-card ${card.kind === 'spell' ? 'resource-card-spell' : 'resource-card-artifact'} ${rarityClass} ${entry.owned ? 'is-owned' : ''}" data-card-id="${escapeAttr(card.id)}">
         <div class="resource-card-image-wrap">
-          ${rarityFrame ? `<img class="resource-card-bg" src="${escapeAttr(rarityFrame)}" alt="">` : ''}
-          <img class="resource-card-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}">
+          ${rarityFrame ? `<img class="resource-card-bg" src="${escapeAttr(rarityFrame)}" alt="" loading="eager" decoding="async" fetchpriority="high">` : ''}
+          <img class="resource-card-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="eager" decoding="async" fetchpriority="high">
           <span class="resource-card-cost">
             <img src="img/Card/cost.webp" alt="" class="resource-card-cost-img">
             <span class="resource-card-cost-value-fill">${escapeHtml(getCardManagerCost(card, star))}</span>

@@ -3224,10 +3224,16 @@
   grid-template-columns: repeat(auto-fill, minmax(126px, 1fr));
   gap: 12px;
   align-items: start;
+  opacity: 1;
+  transition: opacity 120ms ease;
 }
 
 .card-manager-kind-grid[hidden] {
   display: none !important;
+}
+
+.card-manager-kind-grid.is-preparing {
+  opacity: 0;
 }
 
 .resource-card {
