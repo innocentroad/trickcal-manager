@@ -147,6 +147,7 @@
     exportState: document.getElementById('export-state'),
     importState: document.getElementById('import-state'),
     importStateFile: document.getElementById('import-state-file'),
+    stateSlotIndicator: document.getElementById('state-slot-indicator'),
     stateStatus: document.getElementById('state-status'),
     image: document.getElementById('apostle-image'),
     profileAsideIcon: document.getElementById('profile-aside-icon'),
@@ -315,6 +316,7 @@
     formationSpellDetailsOpen: false
   };
   let stateStatusTimer = 0;
+  let stateSlotActionPending = false;
   let isRefreshingStatSnapshots = false;
   let stateSaveTimer = 0;
   let statSnapshotRefreshTimer = 0;
@@ -506,34 +508,23 @@
     elements.stateSlotList.addEventListener('click', event => {
       const button = event.target.closest('button[data-state-slot]');
       if (!button) return;
-      view.stateSlot = Number(button.dataset.stateSlot) || 1;
-      renderStateManager();
+      handleStateSlotClick(Number(button.dataset.stateSlot) || 1);
     });
 
     elements.saveStateSlot.addEventListener('click', () => {
-      persistCurrentControls();
-      appState.activeId = view.id;
-      appState.savedStates[String(view.stateSlot)] = createStateSnapshot();
-      saveState();
-      renderStateManager();
-      showStateStatus(`スロット${view.stateSlot}に保存しました`);
+      saveCurrentStateToSlot(view.stateSlot);
     });
 
     elements.loadStateSlot.addEventListener('click', () => {
       const snapshot = appState.savedStates[String(view.stateSlot)];
       if (!snapshot) return;
       if (!window.confirm(`現在の状態をスロット${view.stateSlot}の内容に置き換えますか？`)) return;
-      applyStateSnapshot(snapshot);
-      showStateStatus(`スロット${view.stateSlot}を読み込みました`);
+      loadStateSlot(view.stateSlot);
     });
 
     elements.deleteStateSlot.addEventListener('click', () => {
       if (!appState.savedStates[String(view.stateSlot)]) return;
-      if (!window.confirm(`スロット${view.stateSlot}の保存内容を削除しますか？`)) return;
-      delete appState.savedStates[String(view.stateSlot)];
-      saveState();
-      renderStateManager();
-      showStateStatus(`スロット${view.stateSlot}を削除しました`);
+      deleteStateSlot(view.stateSlot);
     });
 
     elements.exportState.addEventListener('click', exportStateFile);
@@ -1780,17 +1771,204 @@
   function renderStateManager() {
     const slotKey = String(view.stateSlot);
     const selectedSnapshot = appState.savedStates[slotKey];
+    const dirty = isCurrentStateDirty();
     elements.stateSlotButtons.forEach(button => {
       const key = button.dataset.stateSlot;
       const snapshot = appState.savedStates[key];
       button.classList.toggle('is-selected', key === slotKey);
+      button.classList.toggle('is-current', key === slotKey);
+      button.classList.toggle('is-dirty', key === slotKey && dirty);
       button.classList.toggle('has-data', !!snapshot);
       button.title = snapshot
-        ? `${snapshot.apostleName || snapshot.activeId || '保存状態'} / ${formatSavedAt(snapshot.savedAt)}`
+        ? `${key === slotKey && dirty ? '未保存変更あり / ' : ''}${snapshot.apostleName || snapshot.activeId || '保存状態'} / ${formatSavedAt(snapshot.savedAt)}`
         : `スロット${key}: 空`;
     });
+    document.querySelector('.bottom-save-menu')?.classList.toggle('is-dirty', dirty);
+    if (elements.stateSlotIndicator) {
+      elements.stateSlotIndicator.textContent = dirty ? `${slotKey}*` : slotKey;
+      elements.stateSlotIndicator.title = dirty ? `スロット${slotKey}: 未保存変更あり` : `スロット${slotKey}`;
+    }
     elements.loadStateSlot.disabled = !selectedSnapshot;
     elements.deleteStateSlot.disabled = !selectedSnapshot;
+  }
+
+  async function handleStateSlotClick(targetSlot) {
+    if (stateSlotActionPending) return;
+    stateSlotActionPending = true;
+    try {
+      persistCurrentControls();
+      const currentSlot = view.stateSlot;
+      const targetSnapshot = appState.savedStates[String(targetSlot)];
+      const dirty = isCurrentStateDirty();
+
+      if (!dirty && targetSlot !== currentSlot && targetSnapshot) {
+        loadStateSlot(targetSlot);
+        return;
+      }
+
+      if (!dirty && targetSlot !== currentSlot && !targetSnapshot) {
+        view.stateSlot = targetSlot;
+        renderStateManager();
+        showStateStatus(`スロット${targetSlot}は空です`);
+        return;
+      }
+
+      const action = await showStateSlotActionDialog({ currentSlot, targetSlot, dirty, hasTarget: !!targetSnapshot });
+      if (!action || action === 'cancel') return;
+
+      if (action === 'save-current') {
+        saveCurrentStateToSlot(currentSlot);
+        if (targetSlot !== currentSlot && appState.savedStates[String(targetSlot)]) loadStateSlot(targetSlot);
+        return;
+      }
+
+      if (action === 'save-target') {
+        saveCurrentStateToSlot(targetSlot);
+        return;
+      }
+
+      if (action === 'load-target') {
+        if (targetSnapshot) loadStateSlot(targetSlot);
+        else {
+          view.stateSlot = targetSlot;
+          renderStateManager();
+          showStateStatus(`スロット${targetSlot}は空です`);
+        }
+        return;
+      }
+
+      if (action === 'delete-target') {
+        deleteStateSlot(targetSlot);
+      }
+    } finally {
+      stateSlotActionPending = false;
+    }
+  }
+
+  function saveCurrentStateToSlot(slot) {
+    persistCurrentControls();
+    appState.activeId = view.id;
+    view.stateSlot = Number(slot) || 1;
+    appState.savedStates[String(view.stateSlot)] = createStateSnapshot();
+    saveState();
+    renderStateManager();
+    showStateStatus(`スロット${view.stateSlot}に保存しました`);
+  }
+
+  function loadStateSlot(slot) {
+    const safeSlot = Number(slot) || 1;
+    const snapshot = appState.savedStates[String(safeSlot)];
+    if (!snapshot) return;
+    view.stateSlot = safeSlot;
+    applyStateSnapshot(snapshot);
+    showStateStatus(`スロット${safeSlot}を読み込みました`);
+  }
+
+  function deleteStateSlot(slot) {
+    const safeSlot = Number(slot) || 1;
+    if (!appState.savedStates[String(safeSlot)]) return;
+    if (!window.confirm(`スロット${safeSlot}の保存内容を削除しますか？\nこの操作は元に戻せません。`)) return;
+    delete appState.savedStates[String(safeSlot)];
+    saveState();
+    renderStateManager();
+    showStateStatus(`スロット${safeSlot}を削除しました`);
+  }
+
+  function isCurrentStateDirty() {
+    const snapshot = appState.savedStates[String(view.stateSlot)];
+    if (!snapshot) return false;
+    try {
+      return stableStringify(createComparableCurrentState()) !== stableStringify(createComparableSnapshot(snapshot));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function createComparableCurrentState() {
+    return {
+      activeId: getValidApostleId(view.id || appState.activeId),
+      apostles: cloneJson(appState.apostles),
+      research: cloneJson(appState.research),
+      cards: cloneJson(appState.cards),
+      formation: normalizeFormationState(appState.formation || createDefaultFormation()),
+      activeFormationPresetId: appState.activeFormationPresetId || '',
+      savedFormations: normalizeFormationPresetList(appState.savedFormations || [])
+    };
+  }
+
+  function createComparableSnapshot(snapshot) {
+    const normalized = normalizeStateSnapshot(snapshot);
+    return {
+      activeId: normalized.activeId,
+      apostles: normalized.apostles,
+      research: normalized.research,
+      cards: normalized.cards,
+      formation: normalized.formation,
+      activeFormationPresetId: normalized.activeFormationPresetId || '',
+      savedFormations: normalizeFormationPresetList(normalized.savedFormations || [])
+    };
+  }
+
+  function stableStringify(value) {
+    return JSON.stringify(stableValue(value));
+  }
+
+  function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (!value || typeof value !== 'object') return value;
+    return Object.keys(value).sort().reduce((acc, key) => {
+      acc[key] = stableValue(value[key]);
+      return acc;
+    }, {});
+  }
+
+  function showStateSlotActionDialog({ currentSlot, targetSlot, dirty, hasTarget }) {
+    return new Promise(resolve => {
+      const overlay = document.createElement('div');
+      overlay.className = 'state-slot-action-overlay';
+      const title = dirty
+        ? `スロット${currentSlot}に未保存変更があります`
+        : `スロット${targetSlot}の操作`;
+      const lead = dirty
+        ? `スロット${targetSlot}へ移動する前に、今の変更をどう扱うか選んでください。`
+        : hasTarget
+          ? `スロット${targetSlot}を読み込むか、削除できます。`
+          : `スロット${targetSlot}は空です。現在の状態を保存できます。`;
+      const buttons = [];
+      if (dirty) buttons.push(['save-current', `元の${currentSlot}に保存`]);
+      if (!dirty || targetSlot !== currentSlot) buttons.push(['save-target', `スロット${targetSlot}に保存`]);
+      if (hasTarget) buttons.push(['load-target', `保存せず${targetSlot}を読込`]);
+      if (hasTarget) buttons.push(['delete-target', `スロット${targetSlot}を削除`, 'danger']);
+      buttons.push(['cancel', 'キャンセル', 'muted']);
+      overlay.innerHTML = `
+        <div class="state-slot-action-dialog" role="dialog" aria-modal="true" aria-label="保存スロット操作">
+          <strong>${escapeHtml(title)}</strong>
+          <p>${escapeHtml(lead)}</p>
+          <div class="state-slot-action-buttons">
+            ${buttons.map(([action, label, tone]) => `<button type="button" class="${tone || ''}" data-state-slot-action="${action}">${escapeHtml(label)}</button>`).join('')}
+          </div>
+        </div>
+      `;
+      const close = action => {
+        document.removeEventListener('keydown', onKeydown);
+        overlay.remove();
+        resolve(action);
+      };
+      const onKeydown = event => {
+        if (event.key === 'Escape') close('cancel');
+      };
+      overlay.addEventListener('click', event => {
+        if (event.target === overlay) {
+          close('cancel');
+          return;
+        }
+        const button = event.target.closest('[data-state-slot-action]');
+        if (button) close(button.dataset.stateSlotAction);
+      });
+      document.addEventListener('keydown', onKeydown);
+      document.body.appendChild(overlay);
+      overlay.querySelector('button')?.focus();
+    });
   }
 
   function createStateSnapshot() {
@@ -7471,6 +7649,7 @@
   }
 
   function saveState(options = {}) {
+    renderStateManager();
     scheduleStateSave();
     if (options.refreshSnapshots === false) return;
     scheduleStatSnapshotRefresh();

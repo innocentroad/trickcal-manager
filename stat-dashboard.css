@@ -1910,6 +1910,33 @@
   padding-inline: 2px 6px !important;
 }
 
+.bottom-save-menu summary.bottom-save-trigger strong {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  align-items: center;
+}
+
+.state-slot-indicator {
+  justify-self: start;
+  min-width: 1.45em;
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: #ffffff;
+  background: #4f9a63;
+  font-size: 0.62rem;
+  font-style: normal;
+  font-weight: 950;
+  line-height: 1.08;
+  text-align: center;
+}
+
+.bottom-save-menu.is-dirty .state-slot-indicator {
+  color: #fff8ec;
+  background: linear-gradient(135deg, #d68028, #b95536);
+  box-shadow: 0 0 0 2px rgba(255, 202, 131, 0.34);
+}
+
 .bottom-global-menu summary strong {
   display: block;
   font-size: inherit;
@@ -2061,12 +2088,34 @@
   width: 34px;
   min-height: 32px;
   padding: 0;
+  font-weight: 950;
 }
 
 .bottom-save-slots button.is-selected {
   color: #fff;
   border-color: var(--green);
   background: var(--green);
+}
+
+.bottom-save-slots button.is-current {
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.64), 0 5px 14px rgba(47, 118, 80, 0.18);
+}
+
+.bottom-save-slots button.is-dirty {
+  color: #fff8ec;
+  border-color: rgba(190, 126, 48, 0.7);
+  background: linear-gradient(135deg, #d89640, #bd5c3a);
+}
+
+.bottom-save-slots button.is-dirty::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff4c2;
 }
 
 .bottom-save-slots button.has-data::after {
@@ -2083,6 +2132,10 @@
 .bottom-save-actions button {
   flex: 1;
   min-height: 34px;
+}
+
+.bottom-save-popover .bottom-save-actions {
+  display: none;
 }
 
 .bottom-save-actions #save-state-slot {
@@ -2113,6 +2166,102 @@
 .bottom-save-actions button:disabled {
   opacity: 0.38;
   cursor: default;
+}
+
+.state-slot-action-overlay {
+  position: fixed;
+  z-index: 2600;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(12, 22, 16, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.state-slot-action-dialog {
+  width: min(360px, 100%);
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(62, 119, 84, 0.24);
+  border-radius: 18px;
+  padding: 15px;
+  color: var(--ink);
+  background: #fffaf0;
+  box-shadow: 0 20px 54px rgba(22, 33, 27, 0.32);
+}
+
+.state-slot-action-dialog strong {
+  color: var(--green-dark);
+  font-size: 0.96rem;
+}
+
+.state-slot-action-dialog p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.state-slot-action-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+}
+
+.state-slot-action-buttons button {
+  min-height: 36px;
+  padding: 0 10px;
+  font-size: 0.72rem;
+  font-weight: 950;
+}
+
+.state-slot-action-buttons button.danger {
+  color: #fff;
+  border-color: rgba(184, 91, 77, 0.42);
+  background: linear-gradient(135deg, #ca625b, #a74644);
+}
+
+.state-slot-action-buttons button.muted {
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.66);
+}
+
+:root[data-theme="dark"] .state-slot-indicator {
+  color: #ecfeff;
+  background: linear-gradient(135deg, #5caa78, #2f7650);
+}
+
+:root[data-theme="dark"] .bottom-save-menu.is-dirty .state-slot-indicator,
+:root[data-theme="dark"] .bottom-save-slots button.is-dirty {
+  color: #fff7ed !important;
+  border-color: rgba(251, 146, 60, 0.48) !important;
+  background: linear-gradient(135deg, #c2410c, #b45309) !important;
+}
+
+:root[data-theme="dark"] .state-slot-action-overlay {
+  background: rgba(3, 7, 12, 0.58);
+}
+
+:root[data-theme="dark"] .state-slot-action-dialog {
+  color: rgba(248, 250, 252, 0.95);
+  border-color: rgba(166, 180, 197, 0.22);
+  background: rgba(15, 26, 42, 0.98);
+  box-shadow: 0 22px 58px rgba(0, 0, 0, 0.54);
+}
+
+:root[data-theme="dark"] .state-slot-action-dialog strong {
+  color: #d9f99d;
+}
+
+:root[data-theme="dark"] .state-slot-action-dialog p {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+:root[data-theme="dark"] .state-slot-action-buttons button.muted {
+  color: rgba(203, 213, 225, 0.82);
+  background: rgba(30, 41, 59, 0.82);
 }
 
 .bottom-setting-group {
