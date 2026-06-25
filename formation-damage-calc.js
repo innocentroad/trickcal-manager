@@ -1670,11 +1670,12 @@
       normalizeFdcArray(skill.stats).forEach((stat, statIndex) => {
         const bonuses = normalizeFdcSkillStatBonus(stat);
         if (!bonuses || !Object.keys(bonuses).length) return;
-        const label = [
-          sourceLabel && sourceLabel !== '通常' ? sourceLabel : category,
-          skill.skillName || skill.name || '',
-          `${stat.statName || 'ステータス'}増加`
-        ].filter(Boolean).join(' / ');
+        const label = createFdcSkillEffectLabel({
+          sourceLabel,
+          category,
+          skillName: skill.skillName || skill.name || '',
+          effectLabel: `${stat.statName || 'ステータス'}増加`
+        });
         options.push({
           key: `${target.id}:${sourceKey}:stat:${statIndex}`,
           category,
@@ -1689,11 +1690,12 @@
         if (!bonuses || !Object.keys(bonuses).length) return;
         const effectText = [skill.description, effect.description, effect.effectDescription, effect.valueKind, effect.effectType, effect.effectTarget].filter(Boolean).join(' ');
         const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-        const label = [
-          sourceLabel && sourceLabel !== '通常' ? sourceLabel : category,
-          skill.skillName || skill.name || '',
-          effect.valueKind || effect.effectType || '効果'
-        ].filter(Boolean).join(' / ');
+        const label = createFdcSkillEffectLabel({
+          sourceLabel,
+          category,
+          skillName: skill.skillName || skill.name || '',
+          effectLabel: effect.valueKind || effect.effectType || '効果'
+        });
         options.push({
           key: `${target.id}:${sourceKey}:${effectIndex}`,
           category,
@@ -1756,11 +1758,13 @@
       source: '編成スキル',
       sourceTag: 'スキル/アサイド',
       defaultEnabled,
-      label: [
-        `${memberName} ${sourceLabel && sourceLabel !== '通常' ? sourceLabel : getFdcApostleSkillActionLabel(category)}`,
-        skill?.skillName || skill?.name || '',
-        effect.valueKind || effect.effectType || '効果'
-      ].filter(Boolean).join(' / '),
+      label: createFdcSkillEffectLabel({
+        sourceLabel,
+        category,
+        skillName: skill?.skillName || skill?.name || '',
+        effectLabel: effect.valueKind || effect.effectType || '効果',
+        ownerName: memberName
+      }),
       bonuses,
       detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
     };
@@ -1789,13 +1793,48 @@
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
           defaultEnabled: targetState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
-          label: [`${memberName} A3`, effect.valueKind || effect.effectType || '効果'].filter(Boolean).join(' / '),
+          label: createFdcSkillEffectLabel({
+            sourceLabel: 'A3',
+            category: 'A3',
+            effectLabel: effect.valueKind || effect.effectType || '効果',
+            ownerName: memberName
+          }),
           bonuses,
           detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
         });
       });
     });
     return options;
+  }
+
+  function createFdcSkillEffectLabel({ sourceLabel = '', category = '', skillName = '', effectLabel = '', ownerName = '' } = {}) {
+    const owner = String(ownerName || '').trim();
+    const action = getFdcApostleSkillActionLabel(category);
+    const source = String(sourceLabel || '').trim();
+    const candidates = [skillName, effectLabel]
+      .map(part => compactFdcSkillLabelPart(part, { source, category, action }))
+      .filter(Boolean);
+    const uniqueParts = unique(candidates);
+    const fallback = compactFdcSkillLabelPart(effectLabel || skillName || action || source || '効果', { source, category, action }) || '効果';
+    const body = uniqueParts.length ? uniqueParts.join(' / ') : fallback;
+    return owner ? `${owner} / ${body}` : body;
+  }
+
+  function compactFdcSkillLabelPart(value, { source = '', category = '', action = '' } = {}) {
+    const text = String(value || '').trim();
+    if (!text) return '';
+    const normalized = text.replace(/[\s　]+/g, '');
+    const sourceNorm = String(source || '').replace(/[\s　]+/g, '');
+    const categoryNorm = String(category || '').replace(/[\s　]+/g, '');
+    const actionNorm = String(action || '').replace(/[\s　]+/g, '');
+    const asideNumber = (sourceNorm.match(/^A([1-3])$/) || categoryNorm.match(/^A([1-3])$/) || categoryNorm.match(/^アサイド([1-3])$/))?.[1] || '';
+    if ([sourceNorm, categoryNorm, actionNorm].includes(normalized)) return '';
+    if (/^パッシブスキル$/.test(normalized) && /パッシブ/.test(`${sourceNorm}${categoryNorm}${actionNorm}`)) return '';
+    if (/^パッシブ$/.test(normalized) && /パッシブ/.test(`${sourceNorm}${categoryNorm}${actionNorm}`)) return '';
+    if (asideNumber && normalized === `アサイド${asideNumber}`) return '';
+    if (asideNumber && normalized === `アサイドLv${asideNumber}`) return '';
+    if (/^アサイド[1-3]$/.test(normalized) && /^A[1-3]$/.test(sourceNorm)) return '';
+    return text;
   }
 
   function pickDamageRelevantBonusMap(bonuses) {
@@ -3687,7 +3726,7 @@
     if (/基本攻撃/.test(text)) conditions.push(['基本攻撃', actionCategory === '基本攻撃']);
     if (/強化攻撃/.test(text)) conditions.push(['強化攻撃', actionCategory === '強化攻撃']);
     if (/スキル攻撃|スキル時|スキル.*ダメージ|スキル.*与ダメ|スキル与ダメ/.test(text)) {
-      conditions.push(['スキル', /低学年|高学年|アサイド/.test(actionCategory)]);
+      conditions.push(['スキル', isFdcSkillActionCategory(actionCategory)]);
     }
     const failed = conditions.filter(([, matched]) => !matched);
     return {
@@ -3796,7 +3835,7 @@
     if (actionCategory === '基本攻撃' || actionCategory === '強化攻撃') total += Number(summary.normalAttackAddP) || 0;
     if (actionCategory === '基本攻撃') total += Number(summary.basicAddP) || 0;
     if (actionCategory === '強化攻撃') total += Number(summary.enhancedAddP) || 0;
-    if (/低学年|高学年|アサイド/.test(actionCategory)) total += Number(summary.skillAddP) || 0;
+    if (isFdcSkillActionCategory(actionCategory)) total += Number(summary.skillAddP) || 0;
     return total;
   }
 
@@ -4388,8 +4427,13 @@
     return levels.default;
   }
 
+  function isFdcSkillActionCategory(category = '') {
+    return /低学年|高学年|アサイド|^A[1-3]$/.test(String(category || ''));
+  }
+
   function getFdcApostleSkillCategory(skill, sourceLabel = '') {
     if (String(sourceLabel || '').startsWith('愛用品')) return sourceLabel;
+    if (/^A[1-3]$/.test(String(sourceLabel || ''))) return String(sourceLabel || '');
     const raw = String(skill?.skillType || skill?.targetSkill || skill?.name || '');
     if (/普通攻撃_基本|基本攻撃|基本/.test(raw)) return '基本攻撃';
     if (/普通攻撃_強化|強化攻撃|強化/.test(raw)) return '強化攻撃';
@@ -4406,6 +4450,7 @@
     if (category === '高学年スキル') return 40;
     if (category.startsWith('愛用品')) return 50;
     if (category === 'パッシブ') return 50;
+    if (/^A[1-3]$/.test(category)) return 60 + Number(category.slice(1));
     return 90;
   }
 
@@ -4415,6 +4460,7 @@
     if (category === '低学年スキル') return '低学年';
     if (category === '高学年スキル') return '高学年';
     if (category.startsWith('愛用品')) return category.replace('愛用品', '愛用');
+    if (/^A[1-3]$/.test(category)) return category;
     return category || 'スキル';
   }
 
@@ -4425,6 +4471,7 @@
     if (category === '高学年スキル') return 'tone-high';
     if (category === 'パッシブ') return 'tone-passive';
     if (category.startsWith('愛用品')) return 'tone-favorite';
+    if (/^A[1-3]$/.test(category)) return 'tone-extra';
     return 'tone-extra';
   }
 
