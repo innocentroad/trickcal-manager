@@ -1724,7 +1724,7 @@
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
-          condition: composeFdcSkillEffectCondition(effect.condition, enemyPersonalityState.reason),
+          condition: getFdcSkillEffectDisplayCondition(effect, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
           defaultEnabled: enemyPersonalityState.hasCondition && enemyPersonalityState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
           detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
@@ -1794,7 +1794,7 @@
       valueKind: effect.valueKind || effect.effectType || '効果',
       effectType: effect.effectType || '',
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
-      condition: composeFdcSkillEffectCondition(effect.condition, targetState.reason, enemyPersonalityState.reason),
+      condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
       detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
     };
@@ -1833,7 +1833,7 @@
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
-          condition: composeFdcSkillEffectCondition(effect.condition, targetState.reason),
+          condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
           detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
         });
@@ -2001,9 +2001,11 @@
     return `${text}${unit}`;
   }
 
-  function composeFdcSkillEffectCondition(...parts) {
-    const values = unique(parts.map(part => String(part || '').trim()).filter(Boolean));
-    return values.join(' / ');
+  function getFdcSkillEffectDisplayCondition(effect, ...fallbackParts) {
+    const explicit = String(effect?.condition || '').trim();
+    if (explicit) return explicit;
+    return fallbackParts.map(part => String(part || '').trim())
+      .find(part => part && !/対象候補|手動ON|条件一致|現在:|未設定/.test(part)) || '';
   }
 
   function formatFdcPercentValue(value) {
