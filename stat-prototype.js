@@ -3672,8 +3672,47 @@
       <span>${kind === 'artifact' ? '遺物' : 'スペル'} ${ownedCount}/${cards.length} 所持</span>
       <span>表示 ${rows.length}件</span>
     `;
-    elements.cardManagerGrid.innerHTML = rows.map(card => renderCardManagerCard(card)).join('')
+    const activeGrid = getCardManagerKindGrid(kind);
+    if (!activeGrid) return;
+    elements.cardManagerGrid.querySelectorAll('[data-card-manager-kind-grid]').forEach(grid => {
+      grid.hidden = grid !== activeGrid;
+    });
+    const renderKey = getCardManagerRenderKey(kind, rows);
+    if (activeGrid.dataset.renderKey === renderKey) return;
+    activeGrid.innerHTML = rows.map(card => renderCardManagerCard(card)).join('')
       || '<p class="empty-note">一致するカードがありません。</p>';
+    activeGrid.dataset.renderKey = renderKey;
+  }
+
+  function getCardManagerKindGrid(kind) {
+    const cardKind = kind === 'spell' ? 'spell' : 'artifact';
+    let grid = elements.cardManagerGrid.querySelector(`[data-card-manager-kind-grid="${cardKind}"]`);
+    if (!grid) {
+      grid = document.createElement('div');
+      grid.className = 'card-manager-kind-grid';
+      grid.dataset.cardManagerKindGrid = cardKind;
+      elements.cardManagerGrid.appendChild(grid);
+    }
+    return grid;
+  }
+
+  function getCardManagerRenderKey(kind, rows) {
+    return stableStringify({
+      kind,
+      search: view.cardManager.search || '',
+      rarity: view.cardManager.rarity || '',
+      effect: view.cardManager.effect || '',
+      ownedOnly: !!view.cardManager.ownedOnly,
+      cards: rows.map(card => {
+        const state = getCardState(card.id);
+        return {
+          id: card.id,
+          owned: !!state.owned,
+          star: normalizeCardStar(state.star),
+          solder: normalizeCardSolder(state.solder)
+        };
+      })
+    });
   }
 
   function getVisibleCardManagerCards(kind = view.cardManager.kind) {
