@@ -955,10 +955,11 @@
     document.addEventListener('click', event => {
       const clickedBottomMenu = event.target.closest('.bottom-save-menu, .bottom-global-menu');
       const clickedBottomButton = event.target.closest('.dashboard-bottom-bar button');
-      if (clickedBottomButton) closeBottomMenus();
-      if (!clickedBottomMenu) closeBottomMenus();
-      if (clickedBottomMenu?.matches('.bottom-save-menu')) closeBottomMenus(clickedBottomMenu);
-      if (clickedBottomMenu?.matches('.bottom-global-menu')) closeBottomMenus(clickedBottomMenu);
+      if (clickedBottomMenu) {
+        closeBottomMenus(clickedBottomMenu);
+        return;
+      }
+      if (clickedBottomButton || !clickedBottomMenu) closeBottomMenus();
     });
 
     elements.formationPickerClose?.addEventListener('click', () => {
