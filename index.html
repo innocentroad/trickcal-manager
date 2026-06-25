@@ -532,8 +532,18 @@
           <span class="bottom-save-label">セーブ/ロード</span>
           <small id="state-status" aria-live="polite"></small>
         </div>
+        <div class="bottom-transfer-actions">
+          <button type="button" id="export-state">エクスポート</button>
+          <button type="button" id="import-state">インポート</button>
+          <input type="file" id="import-state-file" accept="application/json,.json" hidden>
+        </div>
+        <div class="bottom-save-actions" aria-label="スロット操作">
+          <button type="button" id="save-state-slot" data-state-slot-mode="save">セーブ</button>
+          <button type="button" id="load-state-slot" data-state-slot-mode="load">ロード</button>
+          <button type="button" id="delete-state-slot" class="danger" data-state-slot-mode="delete">削除</button>
+        </div>
         <div class="bottom-save-section">
-          <span class="bottom-save-section-title">スロット</span>
+          <span class="bottom-save-section-title">番号を選択</span>
           <div id="state-slot-list" class="bottom-save-slots state-slot-list" aria-label="保存スロット">
             <button type="button" class="is-selected" data-state-slot="1">1</button>
             <button type="button" data-state-slot="2">2</button>
@@ -541,16 +551,6 @@
             <button type="button" data-state-slot="4">4</button>
             <button type="button" data-state-slot="5">5</button>
           </div>
-        </div>
-        <div class="bottom-save-actions">
-          <button type="button" id="save-state-slot">セーブ</button>
-          <button type="button" id="load-state-slot">ロード</button>
-          <button type="button" id="delete-state-slot" class="danger">削除</button>
-        </div>
-        <div class="bottom-transfer-actions">
-          <button type="button" id="export-state">エクスポート</button>
-          <button type="button" id="import-state">インポート</button>
-          <input type="file" id="import-state-file" accept="application/json,.json" hidden>
         </div>
       </div>
     </details>
