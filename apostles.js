@@ -1450,6 +1450,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "最大HP増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "イード編成時",
                 "effectTarget": "味方全員",
                 "fixedValue": 15.0
               },
@@ -1457,6 +1458,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "SP回復周期",
                 "valueClass": "周期",
                 "effectType": "回復",
+                "condition": "イード編成時",
                 "effectTarget": "自身と周囲の味方",
                 "fixedValue": 5.0
               },
@@ -1464,6 +1466,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "SP回復",
                 "valueClass": "固定値",
                 "effectType": "回復",
+                "condition": "イード編成時",
                 "effectTarget": "自身と周囲の味方",
                 "fixedValue": 30.0
               }
@@ -1531,6 +1534,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "防御力増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "強化攻撃使用時",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 25.0
@@ -1539,6 +1543,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "防御力増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "強化攻撃使用時",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 5.0
@@ -1547,6 +1552,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "追加シールド",
               "valueClass": "倍率",
               "effectType": "シールド",
+              "condition": "低学年使用時",
               "effectTarget": "残りHP割合が最も低い味方",
               "targetSkill": "低学年スキル",
               "reference": "最大HP",
@@ -1572,6 +1578,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "追加シールド",
               "valueClass": "持続時間",
               "effectType": "シールド",
+              "condition": "低学年使用時",
               "effectTarget": "残りHP割合が最も低い味方",
               "targetSkill": "低学年スキル",
               "fixedValue": 8.0
@@ -1580,6 +1587,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復",
               "valueClass": "倍率",
               "effectType": "回復",
+              "condition": "保護発動時",
               "effectTarget": "保護が発動した味方",
               "targetSkill": "保護",
               "fixedValue": 30.0
@@ -2155,6 +2163,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "低学年スキル使用時",
               "effectTarget": "中列の味方",
               "targetSkill": "低学年スキル",
               "fixedValue": 16.0
@@ -2163,6 +2172,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ダメージ量増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "低学年スキル使用時",
               "effectTarget": "中列の味方",
               "targetSkill": "低学年スキル",
               "fixedValue": 7.0
@@ -2521,6 +2531,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP減少量",
               "valueClass": "SP量",
               "effectType": "デバフ",
+              "condition": "基本攻撃命中時",
               "effectTarget": "敵",
               "targetSkill": "基本攻撃",
               "fixedValue": 45.0
@@ -2529,6 +2540,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ワールドボスSP減少量",
               "valueClass": "SP量",
               "effectType": "デバフ",
+              "condition": "基本攻撃命中時",
               "effectTarget": "敵",
               "targetSkill": "基本攻撃",
               "fixedValue": 15.0
@@ -2537,6 +2549,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "低学年スキル使用後",
               "effectTarget": "自身以外の残りHP割合が最も少ない味方",
               "targetSkill": "低学年スキル",
               "reference": "最大HP",
@@ -2562,6 +2575,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "低学年スキル使用後",
               "effectTarget": "自身以外の残りHP割合が最も少ない味方",
               "targetSkill": "低学年スキル",
               "fixedValue": 6.0
@@ -3286,6 +3300,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "ダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "エピカ編成時",
                 "effectTarget": "味方全員",
                 "fixedValue": 15.0
               },
@@ -3293,6 +3308,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "エピカ編成時",
                 "effectTarget": "味方全員",
                 "fixedValue": 10.0
               },
@@ -3300,6 +3316,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "エピカ編成時かつ味方戦闘不能時",
                 "effectTarget": "味方全員",
                 "reference": "味方の使徒が戦闘不能",
                 "fixedValue": 15.0
@@ -3308,6 +3325,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "エピカ編成時かつ味方戦闘不能時",
                 "effectTarget": "味方全員",
                 "reference": "味方の使徒が戦闘不能",
                 "fixedValue": 10.0
@@ -4889,6 +4907,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃力増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "levels": {
                   "1": 20.0,
@@ -4912,6 +4931,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃力増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "fixedValue": 8.0
               },
@@ -4919,6 +4939,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "HP回復量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "fixedValue": 20.0
               },
@@ -4926,6 +4947,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "HP回復量増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "fixedValue": 8.0
               },
@@ -4933,6 +4955,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "levels": {
                   "1": 31.0,
@@ -4956,6 +4979,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "樹液範囲内時",
                 "effectTarget": "範囲内の味方",
                 "fixedValue": 8.0
               }
@@ -5038,6 +5062,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "倍率",
               "effectType": "シールド",
+              "condition": "強化攻撃時",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃_強化",
               "reference": "最大HP",
@@ -5047,6 +5072,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "持続時間",
               "effectType": "シールド",
+              "condition": "強化攻撃時",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 5.0
@@ -5055,6 +5081,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復",
               "valueClass": "固定値",
               "effectType": "回復",
+              "condition": "シールド破壊時",
               "effectTarget": "自身",
               "targetSkill": "シールド破壊時",
               "fixedValue": 45.0
@@ -5657,6 +5684,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "ぬいぐるみの意志発動時",
               "effectTarget": "自身",
               "fixedValue": 30.0
             },
@@ -5664,6 +5692,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "ぬいぐるみの意志発動時",
               "effectTarget": "自身",
               "fixedValue": 7.0
             },
@@ -5671,6 +5700,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "HP回復",
               "valueClass": "倍率",
               "effectType": "回復",
+              "condition": "ぬいぐるみの意志発動時",
               "effectTarget": "自身",
               "reference": "最大HP",
               "fixedValue": 1.0
@@ -5679,6 +5709,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "HP回復",
               "valueClass": "周期",
               "effectType": "回復",
+              "condition": "ぬいぐるみの意志発動時",
               "effectTarget": "自身",
               "fixedValue": 1.0
             },
@@ -5686,6 +5717,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "HP回復",
               "valueClass": "持続時間",
               "effectType": "回復",
+              "condition": "ぬいぐるみの意志発動時",
               "effectTarget": "自身",
               "fixedValue": 7.0
             }
@@ -5759,6 +5791,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復持続",
             "valueClass": "倍率",
             "effectType": "回復",
+            "condition": "睡眠中",
             "effectTarget": "自身",
             "reference": "最大HP",
             "levels": {
@@ -5780,6 +5813,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復持続",
             "valueClass": "持続時間",
             "effectType": "回復",
+            "condition": "睡眠中",
             "effectTarget": "自身",
             "fixedValue": 4.0
           },
@@ -5793,7 +5827,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "ふかふかタイム",
-        "description": "睡眠中、1秒ごとにコミーのHPが回復する。眠っている間はデバフに免疫を持つ。"
+        "description": "睡眠中、1秒ごとにコミーのHPが回復する。\n眠っている間はデバフに免疫を持つ。"
       },
       {
         "effects": [
@@ -5891,7 +5925,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "エルフ族特製アニマル缶",
-        "description": "着地時に衝撃波を起こして範囲物理ダメージを与え、HPを回復する。",
+        "description": "特別なアニマル缶を食べ、一定時間、巨大化する。\n着地時に衝撃波を起こして範囲物理ダメージを与え、HPを回復する。\n巨大化の持続時間中、与ダメージ量と攻撃速度が増加する。",
         "cooldownSeconds": 24.0
       },
       {
@@ -6577,7 +6611,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
-            "condition": "翡翠玉3スタック時",
+            "condition": "翡翠玉3スタックで翡翠玉取得時",
             "effectTarget": "自身",
             "levels": {
               "1": 19.0,
@@ -6789,6 +6823,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "魔弾獲得時",
             "effectTarget": "自身",
             "levels": {
               "1": 20.0,
@@ -6809,6 +6844,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "魔弾獲得時",
             "effectTarget": "自身",
             "fixedValue": 10.0
           }
@@ -7281,6 +7317,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ランダムな味方の使徒",
               "valueClass": "対象数",
               "effectType": "バフ",
+              "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方/アタッカー",
               "targetSkill": "低学年スキル",
               "fixedValue": 2.0
@@ -7289,6 +7326,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃力増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方/アタッカー",
               "targetSkill": "低学年スキル",
               "reference": "低学年スキルのレベルに依存"
@@ -7297,6 +7335,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃力増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方/アタッカー",
               "targetSkill": "低学年スキル",
               "fixedValue": 10.0
@@ -7305,6 +7344,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方/アタッカー",
               "targetSkill": "低学年スキル",
               "reference": "低学年スキルのレベルに依存"
@@ -7421,7 +7461,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "無責任な配達人",
-        "description": "郵便物を落とすごとに周囲の味方を回復"
+        "description": "素早く2往復して郵便を配る。\n郵便物を落とすごとに、周囲の味方のHPを回復する。"
       },
       {
         "effects": [
@@ -7490,7 +7530,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "シュパン配送",
-        "description": "疾走しながら郵便物をばらまき敵に範囲魔法ダメージ",
+        "description": "前方へ疾走しながら郵便物をばらまき、味方の防御力を増加させる。\n衝突した敵には範囲魔法ダメージを与え、ノイズを付与する。",
         "cooldownSeconds": 36.0
       },
       {
@@ -7525,7 +7565,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "敵のスキル攻撃の被ダメージ量が減少"
+        "description": "敵のスキル攻撃の被ダメージ量が減少する。\n強化攻撃と低学年スキルの移動速度が増加する。"
       },
       {
         "effects": [
@@ -7576,6 +7616,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "シールド",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "reference": "最大HP",
                 "fixedValue": 30.0
@@ -7591,6 +7632,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "シールド",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 6.0
               }
@@ -7605,6 +7647,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "防御力増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 36.0
               }
@@ -7619,6 +7662,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "防御力増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 6.0
               }
@@ -7741,7 +7785,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "友達が来たビー",
-        "description": "友達のミツバチを呼び寄せる。友達のミツバチはHP割合が最も低い敵を針で攻撃して物理ダメージを与える。"
+        "description": "友達のミツバチを呼び寄せる。\n友達のミツバチはHP割合が最も低い敵を針で攻撃して物理ダメージを与える。"
       },
       {
         "effects": [
@@ -7749,6 +7793,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "自身と召喚獣",
             "levels": {
               "1": 20.0,
@@ -7769,6 +7814,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "自身と召喚獣",
             "levels": {
               "1": 20.0,
@@ -7789,6 +7835,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "バフ",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "自身と召喚獣",
             "fixedValue": 8.0
           }
@@ -8047,7 +8094,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で短剣を3回投げ、敵に物理ダメージを与える。"
+        "description": "一定確率で短剣を3回投げ、敵に物理ダメージを与える。\n最後の一撃はより大きなダメージを与え、SPを減少させる。"
       }
     ],
     "favoriteCard": {},
@@ -8118,6 +8165,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理防御力減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "condition": "豆乳シールド破壊時",
             "effectTarget": "敵/周囲",
             "fixedValue": 50.0
           },
@@ -8125,6 +8173,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理防御力減少",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "豆乳シールド破壊時",
             "effectTarget": "敵/周囲",
             "fixedValue": 5.0
           },
@@ -8237,6 +8286,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 24.0,
@@ -8260,6 +8310,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ダメージ量増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 3.0
           },
@@ -8267,6 +8318,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 12.0,
@@ -8290,6 +8342,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 3.0
           }
@@ -8460,6 +8513,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "ウェーブ開始時",
               "effectTarget": "味方/前列",
               "reference": "最大HP",
               "fixedValue": 24.0
@@ -8468,6 +8522,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "シールド",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "ウェーブ開始時",
               "effectTarget": "味方/前列",
               "fixedValue": 12.0
             },
@@ -8475,6 +8530,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "ウェーブ開始時",
               "effectTarget": "味方/前列",
               "fixedValue": 32.0
             },
@@ -8482,6 +8538,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "ダメージ量増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "ウェーブ開始時",
               "effectTarget": "味方/前列",
               "fixedValue": 12.0
             },
@@ -8489,6 +8546,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "被ダメージ量減少",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "強化攻撃時",
               "effectTarget": "味方/周囲",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 24.0
@@ -8497,6 +8555,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "被ダメージ量減少",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "強化攻撃時",
               "effectTarget": "味方/周囲",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 3.0
@@ -8605,7 +8664,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
-            "effectTarget": "自身と攻撃力が最も高い味方",
+            "condition": "高学年時",
+            "effectTarget": "自身",
             "levels": {
               "1": 18.0,
               "2": 19,
@@ -8625,7 +8685,37 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心ダメージ量増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
-            "effectTarget": "自身と攻撃力が最も高い味方",
+            "condition": "高学年時",
+            "effectTarget": "自身",
+            "fixedValue": 12.0
+          },
+          {
+            "valueKind": "会心ダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "condition": "高学年時に攻撃力が最も高い味方",
+            "effectTarget": "攻撃力が最も高い味方",
+            "levels": {
+              "1": 18.0,
+              "2": 19,
+              "3": 20.0,
+              "4": 21.0,
+              "5": 22.0,
+              "6": 23.0,
+              "7": 24.0,
+              "8": 25.0,
+              "9": 26.0,
+              "10": 27.0,
+              "11": 28.0,
+              "12": 29.0
+            }
+          },
+          {
+            "valueKind": "会心ダメージ量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "高学年時に攻撃力が最も高い味方",
+            "effectTarget": "攻撃力が最も高い味方",
             "fixedValue": 12.0
           }
         ],
@@ -8786,6 +8876,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "敵撃破時",
             "effectTarget": "自身",
             "reference": "最大HP",
             "levels": {
@@ -8810,6 +8901,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "敵撃破時",
             "effectTarget": "自身",
             "fixedValue": 8.0
           }
@@ -8939,6 +9031,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "シールド",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "ポーズ後",
                 "effectTarget": "自身",
                 "reference": "最大HP",
                 "levels": {
@@ -8963,6 +9056,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "シールド",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "ポーズ後",
                 "effectTarget": "自身",
                 "fixedValue": 8.0
               },
@@ -8970,6 +9064,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "ポーズ後",
                 "effectTarget": "自身",
                 "fixedValue": 30.0
               },
@@ -8977,6 +9072,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "ポーズ後",
                 "effectTarget": "自身",
                 "fixedValue": 8.0
               }
@@ -9515,6 +9611,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "狂気性格の味方",
             "effectTarget": "味方/狂気",
             "levels": {
               "1": 12.0,
@@ -9852,7 +9949,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "水鉄砲を3回発射して敵に魔法ダメージ"
+        "description": "一定確率で水鉄砲を素早く3回発射して敵にダメージを与える。\n最後の一撃ではより大きなダメージを与える。"
       }
     ],
     "favoriteCard": {
@@ -10020,12 +10117,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "無敵",
             "valueClass": "状態免疫",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身"
           },
           {
             "valueKind": "無敵",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身",
             "fixedValue": 3.0
           },
@@ -10033,6 +10132,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "味方全体",
             "levels": {
               "1": 20.0,
@@ -10056,6 +10156,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "与ダメージ量増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "味方全体",
             "fixedValue": 8.0
           }
@@ -10093,6 +10194,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/周囲",
             "levels": {
               "1": 12.0,
@@ -10116,6 +10218,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/周囲",
             "fixedValue": 6.0
           }
@@ -10433,6 +10536,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "活発性格の味方",
             "effectTarget": "味方/活発",
             "levels": {
               "1": 12.0,
@@ -10787,6 +10891,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心抵抗増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "ステッカー付与時",
             "effectTarget": "味方/ステッカー対象",
             "levels": {
               "1": 11.0,
@@ -10807,6 +10912,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "ステッカー付与時",
             "effectTarget": "味方/ステッカー対象",
             "levels": {
               "1": 11.0,
@@ -10861,6 +10967,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最大HP増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/最大HP最高",
             "levels": {
               "1": 25.0,
@@ -10881,6 +10988,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最大HP増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/最大HP最高",
             "fixedValue": 8.0
           }
@@ -11012,6 +11120,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "会心抵抗増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "ステッカー時",
                 "effectTarget": "味方/ステッカー対象",
                 "levels": {
                   "1": 11.0,
@@ -11035,6 +11144,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "物理防御力増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "ステッカー時",
                 "effectTarget": "味方/ステッカー対象",
                 "levels": {
                   "1": 11.0,
@@ -11209,6 +11319,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "与ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "ステッカー時",
               "effectTarget": "ステッカー対象",
               "fixedValue": 30.0
             },
@@ -11283,6 +11394,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身",
             "reference": "最大HP",
             "levels": {
@@ -11304,6 +11416,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身",
             "fixedValue": 3.0
           }
@@ -11427,7 +11540,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で単体対象に拳を振り回し、物理ダメージを与える。"
+        "description": "一定確率で単体対象に拳を振り回し、物理ダメージを与え、気絶を付与する"
       }
     ],
     "favoriteCard": {},
@@ -11552,6 +11665,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/範囲",
             "levels": {
               "1": 65.0,
@@ -11575,6 +11689,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "味方/範囲",
             "levels": {
               "1": 7.0,
@@ -11709,6 +11824,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "強化攻撃で回復時",
               "effectTarget": "味方/強化攻撃回復対象",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 60.0
@@ -11717,6 +11833,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "強化攻撃で回復時",
               "effectTarget": "味方/強化攻撃回復対象",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 6.0
@@ -11824,7 +11941,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "ロックンピース！",
-        "description": "ロックを演奏し、範囲内の対象にノイズを付与する。"
+        "description": "ロックを演奏し、範囲内の対象にノイズを付与し、対象にかかっているバフを解除する。"
       },
       {
         "effects": [
@@ -11832,6 +11949,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時（赤い照明）",
             "effectTarget": "自身",
             "fixedValue": 10.0,
             "levels": {
@@ -11853,6 +11971,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時（緑の照明）",
             "effectTarget": "自身",
             "fixedValue": 10.0,
             "levels": {
@@ -11874,6 +11993,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時（青い照明）",
             "effectTarget": "自身",
             "fixedValue": 10.0,
             "levels": {
@@ -11894,7 +12014,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "スポットライト",
-        "description": "赤い照明: 10秒間、防御力が増加する。",
+        "description": "フェスタに3つの照明を当て、照明の色に応じて異なる効果を付与する。",
         "cooldownSeconds": 20.0
       },
       {
@@ -12364,23 +12484,26 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "召喚獣消滅時魔法ダメージ",
+            "valueKind": "魔法ダメージ(1回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 60.0
           },
           {
-            "valueKind": "召喚獣消滅時魔法ダメージ",
+            "valueKind": "魔法ダメージ(2回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 120.0
           }
         ],
         "skillType": "低学年",
         "skillName": "スティンギングゲートキーパー",
-        "description": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。"
+        "description": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。\nこの棘の触手は、消滅時、敵により大きなダメージを与える。",
+        "stunSeconds": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。"
       },
       {
         "effects": [
@@ -12441,21 +12564,23 @@ const APOSTLE_LIBRARY = [
             "valueKind": "棘の触手召喚",
             "valueClass": "召喚",
             "effectType": "召喚",
+            "condition": "棘の蔓生成時",
             "effectTarget": "敵",
             "fixedValue": 1.0
           }
         ],
         "skillType": "高学年",
         "skillName": "ガードオブトーチャー",
-        "description": "棘の蔓で最も近くにいる敵3名を縛り付け、1秒ごとに魔法ダメージを与える。",
+        "description": "棘の蔓で最も近くにいる敵3名を5秒間縛り付け、魔法ダメージを与え、バインド、沈黙を付与する。\n棘の蔓生成時、敵に棘の触手を1体召喚する。",
         "cooldownSeconds": 18.0
       },
       {
         "effects": [
           {
-            "valueKind": "狂気対象与ダメージ量増加",
+            "valueKind": "対狂気与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "パッシブ",
+            "condition": "狂気性格攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 40.0,
@@ -12508,23 +12633,25 @@ const APOSTLE_LIBRARY = [
             "fixedValue": 15.0
           },
           {
-            "valueKind": "召喚獣消滅時魔法ダメージ",
+            "valueKind": "魔法ダメージ(1回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 30.0
           },
           {
-            "valueKind": "召喚獣消滅時魔法ダメージ",
+            "valueKind": "魔法ダメージ(2回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 60.0
           }
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で棘の触手を召喚する。"
+        "description": "一定確率で棘の触手を召喚する。\n棘の触手は消滅するまで、近くの敵を攻撃する。\n棘の触手は消滅時、前後方向に範囲攻撃を放つ。"
       }
     ],
     "favoriteCard": {},
@@ -12603,7 +12730,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "受け入れ難い人物",
-        "description": "鞭を3回振り回して敵に範囲物理ダメージを与える。"
+        "description": "鞭を3回振り回して敵に範囲物理ダメージを与え、命中した敵全員に一定確率で苦痛を付与する。\n敵が苦痛、火傷、毒状態の場合、対象にかかった状態異常の種類数に応じてより大きなダメージを与える。"
       },
       {
         "effects": [
@@ -12650,15 +12777,16 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "プランB",
-        "description": "煙幕地帯で範囲物理持続ダメージを与える。",
+        "description": "敵に煙幕地帯を残す爆弾を発射し、範囲物理持続ダメージを与え目隠しを付与する。",
         "cooldownSeconds": 32.0
       },
       {
         "effects": [
           {
-            "valueKind": "対象苦痛状態時与ダメージ量増加",
+            "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "パッシブ",
+            "condition": "対象苦痛状態時",
             "effectTarget": "自身",
             "levels": {
               "1": 20.0,
@@ -12676,9 +12804,10 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "対象火傷状態時与ダメージ量増加",
+            "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "パッシブ",
+            "condition": "対象火傷状態時",
             "effectTarget": "自身",
             "levels": {
               "1": 20.0,
@@ -12696,9 +12825,10 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "対象毒状態時与ダメージ量増加",
+            "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "パッシブ",
+            "condition": "対象毒状態時",
             "effectTarget": "自身",
             "levels": {
               "1": 20.0,
@@ -12747,6 +12877,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 20.0
           },
@@ -12754,6 +12885,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
           },
@@ -12761,6 +12893,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 40.0
           },
@@ -12768,13 +12901,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法防御力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
           }
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "4回攻撃するごとに鞭を整える。"
+        "description": "4回攻撃するごとに鞭を整える。\n一定時間、物理攻撃力が増加し、魔法防御力が増加する。"
       }
     ],
     "favoriteCard": {},
@@ -12979,6 +13113,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心率増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "魚を食べた時",
             "effectTarget": "自身",
             "levels": {
               "1": 16.0,
@@ -12999,6 +13134,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "魚を食べた時",
             "effectTarget": "自身",
             "levels": {
               "1": 60.0,
@@ -13019,6 +13155,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心率増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "魚を食べた時",
             "effectTarget": "自身",
             "fixedValue": 8.0
           },
@@ -13026,6 +13163,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "会心ダメージ量増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "魚を食べた時",
             "effectTarget": "自身",
             "fixedValue": 8.0
           }
@@ -13213,9 +13351,10 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "前列使徒対象与ダメージ量増加",
+            "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "パッシブ",
+            "condition": "対前列使徒攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 40.0,
@@ -13330,6 +13469,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最後の一撃物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "最後の一撃時",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": 100.0,
@@ -13349,7 +13489,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "斧が飛ぶよ～",
-        "description": "斧を3個投げ、ランダムな敵に物理ダメージを与える。"
+        "description": "斧を3個投げ、ランダムな敵に物理ダメージを与える。\n最後の一撃はより大きなダメージを与える。"
       },
       {
         "effects": [
@@ -13479,6 +13619,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身",
             "levels": {
               "1": 25.0,
@@ -13499,6 +13640,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
           },
@@ -13518,7 +13660,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "かかってきな！",
-        "description": "敵を挑発してHPを回復する。"
+        "description": "敵を挑発してHPを回復し、一定時間攻撃力が増加する。"
       },
       {
         "effects": [
@@ -13579,19 +13721,21 @@ const APOSTLE_LIBRARY = [
             "valueKind": "無敵",
             "valueClass": "状態付与",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "自身"
           },
           {
             "valueKind": "無敵",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "自身",
             "fixedValue": 3.0
           }
         ],
         "skillType": "高学年",
         "skillName": "魔法：遠心分離",
-        "description": "高速回転して斧で周囲を薙ぎ払い、敵に範囲物理ダメージを11回与える。",
+        "description": "高速回転して斧で周囲を薙ぎ払い、敵に範囲物理ダメージを11回与え、ノックバックさせる。\n最後の一撃ではより大きなダメージを与える。回転中は無敵になる。",
         "cooldownSeconds": 20.0
       },
       {
@@ -13673,6 +13817,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "condition": "緑のポーション使用時",
             "effectTarget": "HP割合が最も少ない味方",
             "reference": "攻撃力",
             "levels": {
@@ -13694,9 +13839,10 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "赤ポーションの魔法ダメージ",
+            "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "赤のポーション使用時",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": "650～1000",
@@ -13717,9 +13863,10 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "黄ポーションの魔法ダメージ",
+            "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "赤のポーション使用時",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": "480～800",
@@ -13743,19 +13890,21 @@ const APOSTLE_LIBRARY = [
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "黄のポーション使用時",
             "effectTarget": "ランダムな敵"
           },
           {
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "黄のポーション使用時",
             "effectTarget": "ランダムな敵",
             "fixedValue": 4.0
           }
         ],
         "skillType": "低学年",
         "skillName": "どれにしようかな？",
-        "description": "緑のポーションで味方HPを回復"
+        "description": "3つのポーションからランダムで1つを選択し、敵に投げつける。\n緑のポーションはHP割合が最も少ない味方のHPを回復させる。\n赤のポーションはランダムな敵に魔法ダメージを与える。\n黄のポーションはランダムな敵に魔法ダメージを与え、気絶を付与する。"
       },
       {
         "effects": [
@@ -13800,6 +13949,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被スキルダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "被スキル攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 24.0,
@@ -13891,6 +14041,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復量",
               "valueClass": "固定値",
               "effectType": "回復",
+              "condition": "低学年使用時",
               "effectTarget": "後列の味方",
               "targetSkill": "低学年スキル",
               "fixedValue": "20～50"
@@ -14099,6 +14250,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "前列の味方",
             "reference": "最大HP",
             "levels": {
@@ -14120,6 +14272,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "前列の味方",
             "fixedValue": 3.0
           }
@@ -14166,7 +14319,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "ソナーショックウェーブ",
-        "description": "範囲内の対象に衝撃波を放出し、物理ダメージを与える。",
+        "description": "範囲内の対象に衝撃波を放出し、物理ダメージを与え、ノイズデバフを付与する。",
         "cooldownSeconds": 16.0
       },
       {
@@ -14206,7 +14359,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "基本攻撃のダメージ量が増加する。"
+        "description": "基本攻撃のダメージ量が増加する。\n毒と苦痛の免疫を得る。"
       },
       {
         "effects": [
@@ -14299,7 +14452,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "収集家のルール",
-        "description": "最も攻撃力が高い敵に毒矢を放って物理ダメージを3回与える。"
+        "description": "最も攻撃力が高い敵に毒矢を放って物理ダメージを3回与え、毒を付与する。"
       },
       {
         "effects": [
@@ -14346,7 +14499,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "それは私のコレクションっす。",
-        "description": "毒矢を発射し、ランダムな敵に8回物理ダメージを与える。",
+        "description": "毒矢を発射し、ランダムな敵に8回物理ダメージを与え、毒を付与する。",
         "cooldownSeconds": 11.0
       },
       {
@@ -14375,6 +14528,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "毒終了時追加物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "マヨによる毒効果終了時",
             "effectTarget": "毒が消えた敵",
             "levels": {
               "1": 25.0,
@@ -14394,7 +14548,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "強化攻撃のダメージ量が増加する。"
+        "description": "強化攻撃のダメージ量が増加する。\nマヨのスキルで発生した毒効果が消える度に追加で物理ダメージを与える。"
       },
       {
         "effects": [
@@ -14435,7 +14589,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で毒矢を飛ばして敵に物理ダメージを与える。"
+        "description": "一定確率で毒矢を飛ばして敵に物理ダメージを与え、毒を付与する。"
       }
     ],
     "favoriteCard": {},
@@ -14507,7 +14661,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "爆弾のお届け物です～",
-        "description": "特製爆弾を投げつけて敵に範囲物理ダメージを与える。"
+        "description": "特製爆弾を投げつけて敵に範囲物理ダメージを与え、火傷を付与する。"
       },
       {
         "effects": [
@@ -14582,7 +14736,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "強化攻撃の確率が増加する。"
+        "description": "強化攻撃の確率とダメージ量が増加する。"
       },
       {
         "effects": [
@@ -14623,7 +14777,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で強化爆弾を投げつけて敵に範囲物理ダメージを与える。"
+        "description": "一定確率で強化爆弾を投げつけて敵に範囲物理ダメージを与え、火傷を付与する。"
       }
     ],
     "favoriteCard": {},
@@ -14825,6 +14979,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最後の一撃物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "最後の一撃時",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": 80.0,
@@ -14844,7 +14999,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "手裏剣飛ばすよ～！",
-        "description": "手裏剣を3個投げ、ランダムな敵に物理ダメージを与える。"
+        "description": "手裏剣を3個投げ、ランダムな敵に物理ダメージを与える。最後の一撃はより大きなダメージを与える。"
       },
       {
         "effects": [
@@ -15206,6 +15361,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の自爆ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣破壊時",
             "effectTarget": "周囲の敵",
             "levels": {
               "1": 45.0,
@@ -15278,7 +15434,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "倍返しで抱きしめるっ",
-        "description": "ランダムな敵に魔法ダメージを与える分身を召喚する"
+        "description": "ランダムな敵に魔法ダメージを与える分身を召喚する。\n分身は3回ダメージを受けるか、時間が経過すると破壊される。\n破壊時には周囲に魔法ダメージを与え、感電を付与する。\n分身はHP回復効果を受けない。"
       },
       {
         "effects": [
@@ -15346,6 +15502,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の自爆ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "召喚獣破壊時",
             "effectTarget": "周囲の敵",
             "levels": {
               "1": 45.0,
@@ -15368,7 +15525,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "秒殺リスサンダー",
-        "description": "範囲魔法ダメージを4回与える",
+        "description": "指定範囲内で最も後ろにいる敵の元に現れ、範囲魔法ダメージを4回与える。\n攻撃が終わるとその場に分身を1個残し、スキル発動位置に戻ってくる。\n分身は低学年スキルによって召喚される分身と同一の特性を持つ。",
         "cooldownSeconds": 30.0
       },
       {
@@ -15407,6 +15564,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "才気煥発時（直接攻撃ダメージ2回被弾時）",
             "effectTarget": "自身",
             "levels": {
               "1": 16.0,
@@ -15430,6 +15588,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "才気煥発時（直接攻撃ダメージ2回被弾時）",
             "effectTarget": "自身",
             "fixedValue": 6.0
           },
@@ -15437,6 +15596,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "才気煥発時（直接攻撃ダメージ2回被弾時）",
             "effectTarget": "自身",
             "levels": {
               "1": 16.0,
@@ -15460,13 +15620,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "才気煥発時（直接攻撃ダメージ2回被弾時）",
             "effectTarget": "自身",
             "fixedValue": 6.0
           }
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "2回直接ダメージを受けると才気煥発を発動する"
+        "description": "2回直接ダメージを受けると才気煥発を発動する。\n才気煥発発動後は一定時間、攻撃力が増加し、被ダメージ量が減少する。\n直接ダメージ: 状態異常ダメージ、反射ダメージを除く直接攻撃によるダメージを意味する。"
       },
       {
         "effects": [
@@ -15528,6 +15689,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "召喚獣の自爆ダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "召喚獣破壊時",
               "effectTarget": "召喚獣",
               "targetSkill": "召喚獣自爆",
               "fixedValue": 200.0
@@ -15536,6 +15698,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復量",
               "valueClass": "固定値",
               "effectType": "回復",
+              "condition": "召喚獣破壊時",
               "effectTarget": "自身",
               "targetSkill": "召喚獣破壊時",
               "fixedValue": 10.0
@@ -15544,6 +15707,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "被ダメージ量減少",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "condition": "高学年使用時",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",
               "fixedValue": 50.0
@@ -15552,6 +15716,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "被ダメージ量減少",
               "valueClass": "持続時間",
               "effectType": "バフ",
+              "condition": "高学年使用時",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",
               "fixedValue": 3.0
@@ -15762,6 +15927,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "月光内にいる時",
             "effectTarget": "月光内の味方",
             "levels": {
               "1": 20.0,
@@ -15782,6 +15948,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "月光内にいる時",
             "effectTarget": "月光内の味方",
             "fixedValue": 6.0
           },
@@ -15789,6 +15956,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "condition": "月光内にいる時",
             "effectTarget": "月光内の敵",
             "levels": {
               "1": 30.0,
@@ -15809,6 +15977,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力減少",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "月光内にいる時",
             "effectTarget": "月光内の敵",
             "fixedValue": 6.0
           },
@@ -15823,12 +15992,13 @@ const APOSTLE_LIBRARY = [
             "valueKind": "基本攻撃強化",
             "valueClass": "スキル変更",
             "effectType": "バフ",
+            "condition": "月光持続中",
             "effectTarget": "自身"
           }
         ],
         "skillType": "低学年",
         "skillName": "向月葵",
-        "description": "最大HPが最も高い味方を照らす月光を召喚する"
+        "description": "一定時間、最大HPが最も高い味方を照らす月光を召喚する。\n月光の中にいる味方は防御力が増加し、敵は攻撃力が減少する。\n月光が持続する間、ヨミの基本攻撃が強化攻撃に変わる。"
       },
       {
         "effects": [
@@ -15902,7 +16072,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "心を込めたお迎えを",
-        "description": "雲を晴らす月光を召喚し、味方SP回復と敵への魔法ダメージ/SP減少を行う",
+        "description": "一定時間、雲を晴らす月光を召喚する。\n月光はヨミが見ている方向へゆっくりと前進する。\n月光の内側にいる味方は1秒ごとにSPが回復する。\n敵は1秒ごとにダメージを受け、SPが減少する。",
         "cooldownSeconds": 26.0
       },
       {
@@ -15988,7 +16158,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "ランダムな敵2体に魔法ダメージを与える"
+        "description": "一定確率で星光を降らせ、ランダムな敵2体に魔法ダメージを与え、攻撃速度を減少させる。\n追加で自身と、残りHP割合が最も低い味方を回復させる。"
       }
     ],
     "favoriteCard": {
@@ -16002,6 +16172,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "防御力増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "月光内にいる時",
                 "effectTarget": "月光内の味方",
                 "levels": {
                   "1": 20.0,
@@ -16022,6 +16193,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "与ダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "月光内にいる時",
                 "effectTarget": "月光内の味方",
                 "levels": {
                   "1": 10.0,
@@ -16049,6 +16221,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "バフ",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "月光内にいる時",
                 "effectTarget": "月光内の味方",
                 "fixedValue": 6.0
               }
@@ -16063,6 +16236,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃力減少",
                 "valueClass": "倍率",
                 "effectType": "デバフ",
+                "condition": "月光内にいる時",
                 "effectTarget": "月光内の敵",
                 "levels": {
                   "1": 30.0,
@@ -16090,6 +16264,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃力減少",
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
+                "condition": "月光内にいる時",
                 "effectTarget": "月光内の敵",
                 "fixedValue": 6.0
               }
@@ -16491,6 +16666,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復",
               "valueClass": "倍率",
               "effectType": "回復",
+              "condition": "低学年で敵撃破時",
               "effectTarget": "自身",
               "targetSkill": "低学年スキル",
               "fixedValue": 75.0
@@ -16499,6 +16675,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復クールタイム",
               "valueClass": "クールタイム",
               "effectType": "回復",
+              "condition": "低学年で敵撃破時",
               "effectTarget": "自身",
               "targetSkill": "低学年スキル",
               "fixedValue": 10.0
@@ -16602,6 +16779,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "力を溜めている時かつ前列の味方が直接ダメージを受けた時",
             "effectTarget": "自身",
             "fixedValue": 60.0
           },
@@ -16609,6 +16787,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最大物理ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "力を溜めている時かつ前列の味方が直接ダメージを受けた時",
             "effectTarget": "自身",
             "levels": {
               "1": 90.0,
@@ -16629,6 +16808,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最大被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "力を溜めている時かつ前列の味方が直接ダメージを受けた時",
             "effectTarget": "自身",
             "fixedValue": 80.0
           },
@@ -16648,7 +16828,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "低学年",
         "skillName": "精錬の一撃",
-        "description": "少しの間力を溜め、力を溜め終わると敵に範囲物理ダメージ"
+        "description": "少しの間力を溜め、被ダメージ量が減少する。\n力を溜めている間、前列の味方が直接ダメージを受けるたびに、自身の物理ダメージ量が上昇し、被ダメージ量減少効果が追加で増加する。\n力を溜め終わると、敵に範囲物理ダメージを与え、苦痛を付与する。"
       },
       {
         "effects": [
@@ -16702,7 +16882,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "高学年",
         "skillName": "鍛冶乱撃",
-        "description": "敵を3回切りつけ、範囲物理ダメージを与える",
+        "description": "敵を3回切りつけ、範囲物理ダメージを与える。\n最後の一撃の後、反動で後ろに下がる。",
         "cooldownSeconds": 30.0
       },
       {
@@ -16711,6 +16891,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "目標の敵へ攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 60.0,
@@ -16731,6 +16912,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "目標の敵からの攻撃時",
             "effectTarget": "自身",
             "levels": {
               "1": 24.0,
@@ -16750,7 +16932,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "パッシブ",
         "skillName": "パッシブスキル",
-        "description": "目標の敵への与ダメージ量が増加"
+        "description": "目標の敵への与ダメージ量が増加し、目標の敵からの被ダメージ量が減少する。"
       },
       {
         "effects": [
@@ -16805,6 +16987,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "与ダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "目標の敵へ攻撃時",
                 "effectTarget": "自身",
                 "levels": {
                   "1": 60.0,
@@ -16825,6 +17008,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "目標の敵からの攻撃時",
                 "effectTarget": "自身",
                 "levels": {
                   "1": 24.0,
@@ -17006,6 +17190,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "全行動速度を徐々に加速",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
             "levels": {
               "1": 20.0,
@@ -17029,6 +17214,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "全行動速度を徐々に加速",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
             "fixedValue": 7.0
           },
@@ -17036,6 +17222,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
             "levels": {
               "1": 12.0,
@@ -17059,6 +17246,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量減少",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
             "fixedValue": 10.0
           },
@@ -17066,12 +17254,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "全行動速度を徐々に減速",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の敵全体"
           },
           {
             "valueKind": "全行動速度を徐々に減速",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の敵全体",
             "fixedValue": 7.0
           },
@@ -17079,12 +17269,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "時間停止",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の敵全体"
           },
           {
             "valueKind": "時間停止",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "高学年使用時",
             "effectTarget": "フィールド上の敵全体",
             "fixedValue": 3.0
           },
@@ -17126,9 +17318,10 @@ const APOSTLE_LIBRARY = [
             "effectTarget": "自身"
           },
           {
-            "valueKind": "対純粋使徒与ダメージ量増加",
+            "valueKind": "対純粋与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "純粋性格攻撃時",
             "effectTarget": "味方アタッカー",
             "levels": {
               "1": 30.0,
@@ -17180,12 +17373,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
+            "effectTarget": "自身",
             "fixedValue": 25.0
           },
           {
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
+            "effectTarget": "自身",
             "fixedValue": 6.0
           }
         ],
@@ -17205,14 +17402,16 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
-                "effectTarget": "味方全員",
+                "condition": "リニュア編成時15秒ごとに",
+                "effectTarget": "攻撃力が最も高い味方の使徒",
                 "fixedValue": 50.0
               },
               {
                 "valueKind": "攻撃速度増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
-                "effectTarget": "味方全員",
+                "condition": "リニュア編成時15秒ごとに",
+                "effectTarget": "攻撃力が最も高い味方の使徒",
                 "fixedValue": 10.0
               }
             ],
@@ -17912,12 +18111,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "無敵",
             "valueClass": "状態付与",
             "effectType": "バフ",
+            "condition": "直接ダメージを6回受けた時",
             "effectTarget": "自身"
           },
           {
             "valueKind": "無敵",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "直接ダメージを6回受けた時",
             "effectTarget": "自身",
             "fixedValue": 2.0
           },
@@ -17925,6 +18126,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "無敵",
             "valueClass": "クールタイム",
             "effectType": "バフ",
+            "condition": "直接ダメージを6回受けた時",
             "effectTarget": "自身",
             "fixedValue": 15.0
           }
@@ -18046,6 +18248,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年スキルで回転時",
             "effectTarget": "自身",
             "fixedValue": 50.0
           },
@@ -18122,12 +18325,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目くらまし",
             "valueClass": "状態付与",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身"
           },
           {
             "valueKind": "目くらまし",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 4.0
           }
@@ -18518,6 +18723,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "高学年使用後",
             "effectTarget": "自身",
             "levels": {
               "1": 40.0,
@@ -18538,6 +18744,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "高学年使用後",
             "effectTarget": "自身",
             "fixedValue": 6.0
           }
@@ -18598,6 +18805,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "最も攻撃力が高い味方1体",
             "levels": {
               "1": 20.0,
@@ -18618,6 +18826,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "最も攻撃力が高い味方1体",
             "fixedValue": 8.0
           },
@@ -18625,6 +18834,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "最も攻撃力が高い味方3体",
             "levels": {
               "1": 20.0,
@@ -18645,6 +18855,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "防御力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "condition": "低学年使用時",
             "effectTarget": "最も攻撃力が高い味方3体",
             "fixedValue": 6.0
           }

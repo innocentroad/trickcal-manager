@@ -1913,7 +1913,7 @@
   function normalizeFdcSkillEffectBonus(effect, skillLevel) {
     if (!effect) return null;
     const valueClass = String(effect.valueClass || '');
-    if (valueClass && valueClass !== '倍率') return null;
+    if (valueClass && !isFdcDamageBonusValueClass(valueClass)) return null;
     const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
     const value = Number(levelInfo?.value ?? effect.fixedValue);
     if (!Number.isFinite(value) || value === 0) return null;
@@ -1934,6 +1934,10 @@
     else if (/防御力/.test(valueKind)) {
       if (targetEnemy && decrease) add('enemyDefDownP');
       else if (!targetEnemy) addSigned('defP');
+    } else if (/会心被(?:ダメージ量|DMG量)|被会心(?:ダメージ量|DMG量)|被会心.*ダメージ量|被会心.*DMG量/.test(valueKind)) {
+      addDamageTakenMod('critDmgResAddP');
+    } else if (/被会心率|被会心/.test(valueKind)) {
+      addDamageTakenMod('critResAddP');
     } else if (/会心DMG抵抗|会心ダメージ抵抗/.test(valueKind)) {
       if (targetEnemy && decrease) add('enemyCritDmgResDownP');
       else if (!targetEnemy) addSigned('critDmgResP');
@@ -1953,6 +1957,10 @@
     return bonuses;
   }
 
+  function isFdcDamageBonusValueClass(valueClass) {
+    return !valueClass || /倍率|与ダメージ量増加|被ダメージ量減少/.test(String(valueClass));
+  }
+
   function normalizeFdcSkillStatBonus(stat) {
     const applyTo = String(stat?.statApplyTo || '本人');
     if (/全体|味方/.test(applyTo)) return null;
@@ -1967,6 +1975,8 @@
     else if (/物理防御/.test(name)) bonuses.physicalDefP = value;
     else if (/魔法防御/.test(name)) bonuses.magicDefP = value;
     else if (/防御力/.test(name)) bonuses.defP = value;
+    else if (/会心被(?:ダメージ量|DMG量)|被会心(?:ダメージ量|DMG量)|被会心.*ダメージ量|被会心.*DMG量/.test(name)) bonuses.critDmgResAddP = value;
+    else if (/被会心率|被会心/.test(name)) bonuses.critResAddP = value;
     else if (/会心ダメージ抵抗|会心DMG抵抗/.test(name)) bonuses.critDmgResP = value;
     else if (/会心抵抗/.test(name)) bonuses.critResP = value;
     else if (/会心(?:ダメージ量|DMG量)/.test(name)) bonuses.critDmgAddP = value;
