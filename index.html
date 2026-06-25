@@ -525,13 +525,14 @@
     </button>
     <details class="bottom-save-menu">
       <summary class="bottom-section-button bottom-save-trigger">
-        <span class="bottom-section-icon bottom-save-icon"><img src="img/Tab_Save.png" alt=""></span><strong><span>セーブ/ロード</span><em id="state-slot-indicator" class="state-slot-indicator">1</em></strong>
+        <span class="bottom-section-icon bottom-save-icon"><img src="img/Tab_Save.png" alt=""></span><strong><span>セーブ/ロード</span></strong>
       </summary>
       <div class="bottom-save-popover" aria-label="状態の保存と読み込み">
         <div class="bottom-save-head">
           <span class="bottom-save-label">セーブ/ロード</span>
           <small id="state-status" aria-live="polite"></small>
         </div>
+        <div id="state-current-slot" class="state-current-slot">読み込み中: 1</div>
         <div class="bottom-transfer-actions">
           <button type="button" id="export-state">エクスポート</button>
           <button type="button" id="import-state">インポート</button>
@@ -542,8 +543,12 @@
           <button type="button" id="load-state-slot" data-state-slot-mode="load">ロード</button>
           <button type="button" id="delete-state-slot" class="danger" data-state-slot-mode="delete">削除</button>
         </div>
-        <div class="bottom-save-section">
-          <span class="bottom-save-section-title">番号を選択</span>
+        <div class="bottom-save-section" hidden>
+          <span id="state-slot-section-title" class="bottom-save-section-title">番号を選択</span>
+          <label id="state-save-name-wrap" class="bottom-save-name" hidden>
+            <span>保存名</span>
+            <input type="text" id="state-save-name" maxlength="24" placeholder="例: 次元用 現在">
+          </label>
           <div id="state-slot-list" class="bottom-save-slots state-slot-list" aria-label="保存スロット">
             <button type="button" class="is-selected" data-state-slot="1">1</button>
             <button type="button" data-state-slot="2">2</button>

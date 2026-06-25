@@ -1931,6 +1931,25 @@
   text-align: center;
 }
 
+.state-current-slot {
+  min-width: 0;
+  border-radius: 9px;
+  padding: 5px 7px;
+  color: #2f6046;
+  background: rgba(62, 119, 84, 0.08);
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state-current-slot.is-dirty {
+  color: #9a4c20;
+  background: rgba(216, 128, 40, 0.13);
+}
+
 .bottom-save-menu.is-dirty .state-slot-indicator {
   color: #fff8ec;
   background: linear-gradient(135deg, #d68028, #b95536);
@@ -2054,9 +2073,23 @@
   background: rgba(62, 119, 84, 0.055);
 }
 
+.bottom-save-section[hidden] {
+  display: none !important;
+}
+
 :root[data-theme="dark"] .bottom-save-section {
   border-color: rgba(166, 180, 197, 0.18);
   background: rgba(255, 255, 255, 0.045);
+}
+
+:root[data-theme="dark"] .state-current-slot {
+  color: #d9f5e3;
+  background: rgba(94, 164, 116, 0.13);
+}
+
+:root[data-theme="dark"] .state-current-slot.is-dirty {
+  color: #fed7aa;
+  background: rgba(251, 146, 60, 0.16);
 }
 
 .bottom-save-section-title {
@@ -2076,7 +2109,11 @@
   font-weight: 800;
 }
 
-.bottom-save-slots,
+.bottom-save-slots {
+  display: grid;
+  gap: 5px;
+}
+
 .bottom-save-actions,
 .bottom-transfer-actions {
   display: flex;
@@ -2085,16 +2122,113 @@
 
 .bottom-save-slots button {
   position: relative;
-  width: 34px;
-  min-height: 32px;
-  padding: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 5px 8px 5px 5px;
+  text-align: left;
   font-weight: 950;
+}
+
+.state-slot-number {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: #2f6f4c;
+  background: rgba(66, 130, 96, 0.12);
+  font-size: 0.78rem;
+}
+
+.state-slot-main {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.state-slot-main strong,
+.state-slot-main small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.state-slot-main strong {
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.state-slot-main small {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+
+.bottom-save-name {
+  display: grid;
+  gap: 4px;
+}
+
+.bottom-save-name[hidden] {
+  display: none !important;
+}
+
+.bottom-save-name span {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 900;
+}
+
+.bottom-save-name input {
+  width: 100%;
+  border: 1px solid rgba(36, 83, 59, 0.18);
+  border-radius: 9px;
+  padding: 7px 8px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  outline: none;
+}
+
+:root[data-theme="dark"] .bottom-save-name input {
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.28);
+  background: rgba(15, 23, 42, 0.82);
+}
+
+:root[data-theme="dark"] .state-slot-number {
+  color: #d9f5e3;
+  background: rgba(94, 164, 116, 0.18);
+}
+
+:root[data-theme="dark"] .state-slot-main strong {
+  color: #f8fafc;
+}
+
+:root[data-theme="dark"] .state-slot-main small {
+  color: #b6c2d1;
 }
 
 .bottom-save-slots button.is-selected {
   color: #fff;
   border-color: var(--green);
   background: var(--green);
+}
+
+.bottom-save-slots button.is-selected .state-slot-number {
+  color: var(--green-dark);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.bottom-save-slots button.is-selected .state-slot-main strong,
+.bottom-save-slots button.is-selected .state-slot-main small {
+  color: #ffffff;
 }
 
 .bottom-save-slots button.is-current {

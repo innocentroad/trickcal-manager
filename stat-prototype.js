@@ -140,14 +140,19 @@
     asideInfoList: document.getElementById('aside-info-list'),
     asideTierList: document.getElementById('aside-tier-list'),
     stateSlotList: document.getElementById('state-slot-list'),
+    stateSlotSection: document.getElementById('state-slot-list')?.closest('.bottom-save-section'),
+    stateSlotSectionTitle: document.getElementById('state-slot-section-title'),
     stateSlotButtons: Array.from(document.querySelectorAll('[data-state-slot]')),
     saveStateSlot: document.getElementById('save-state-slot'),
     loadStateSlot: document.getElementById('load-state-slot'),
     deleteStateSlot: document.getElementById('delete-state-slot'),
+    stateSaveNameWrap: document.getElementById('state-save-name-wrap'),
+    stateSaveName: document.getElementById('state-save-name'),
     exportState: document.getElementById('export-state'),
     importState: document.getElementById('import-state'),
     importStateFile: document.getElementById('import-state-file'),
     stateSlotIndicator: document.getElementById('state-slot-indicator'),
+    stateCurrentSlot: document.getElementById('state-current-slot'),
     stateStatus: document.getElementById('state-status'),
     image: document.getElementById('apostle-image'),
     profileAsideIcon: document.getElementById('profile-aside-icon'),
@@ -263,7 +268,7 @@
     board: 1,
     boardEditMode: 'current',
     stateSlot: 1,
-    stateSlotMode: 'save',
+    stateSlotMode: '',
     apostleFilters: {
       personality: new Set(),
       species: new Set(),
@@ -1766,26 +1771,40 @@
 
   function renderStateManager() {
     const slotKey = String(view.stateSlot);
-    const selectedSnapshot = appState.savedStates[slotKey];
     const dirty = isCurrentStateDirty();
     const mode = getStateSlotMode();
+    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択', delete: '削除する状態を選択' };
     elements.stateSlotButtons.forEach(button => {
       const key = button.dataset.stateSlot;
       const snapshot = appState.savedStates[key];
+      const slotName = getStateSlotDisplayName(key, snapshot);
+      const savedAt = snapshot ? formatSavedAt(snapshot.savedAt) : '未保存';
       button.classList.toggle('is-selected', key === slotKey);
       button.classList.toggle('is-current', key === slotKey);
       button.classList.toggle('is-dirty', key === slotKey && dirty);
       button.classList.toggle('has-data', !!snapshot);
       button.disabled = (mode === 'load' || mode === 'delete') && !snapshot;
+      button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
       button.title = snapshot
-        ? `${key === slotKey && dirty ? '未保存変更あり / ' : ''}${snapshot.apostleName || snapshot.activeId || '保存状態'} / ${formatSavedAt(snapshot.savedAt)}`
+        ? `${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
         : `スロット${key}: 空`;
     });
-    document.querySelector('.bottom-save-menu')?.classList.toggle('is-dirty', dirty);
-    document.querySelector('.bottom-save-menu')?.dataset.slotMode = mode;
+    const saveMenu = document.querySelector('.bottom-save-menu');
+    saveMenu?.classList.toggle('is-dirty', dirty);
+    if (saveMenu) {
+      if (mode) saveMenu.dataset.slotMode = mode;
+      else delete saveMenu.dataset.slotMode;
+    }
+    if (elements.stateSlotSection) elements.stateSlotSection.hidden = !mode;
+    if (elements.stateSlotSectionTitle) elements.stateSlotSectionTitle.textContent = modeLabels[mode] || '操作を選択';
+    if (elements.stateSaveNameWrap) elements.stateSaveNameWrap.hidden = mode !== 'save';
     if (elements.stateSlotIndicator) {
       elements.stateSlotIndicator.textContent = dirty ? `${slotKey}*` : slotKey;
       elements.stateSlotIndicator.title = dirty ? `スロット${slotKey}: 未保存変更あり` : `スロット${slotKey}`;
+    }
+    if (elements.stateCurrentSlot) {
+      elements.stateCurrentSlot.textContent = `${dirty ? '編集中' : '読み込み中'}: ${slotKey}`;
+      elements.stateCurrentSlot.classList.toggle('is-dirty', dirty);
     }
     [elements.saveStateSlot, elements.loadStateSlot, elements.deleteStateSlot].forEach(button => {
       button?.classList.toggle('is-selected', button.dataset.stateSlotMode === mode);
@@ -1795,21 +1814,25 @@
   }
 
   function getStateSlotMode() {
-    return ['save', 'load', 'delete'].includes(view.stateSlotMode) ? view.stateSlotMode : 'save';
+    return ['save', 'load', 'delete'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
   }
 
   function setStateSlotMode(mode) {
-    view.stateSlotMode = ['save', 'load', 'delete'].includes(mode) ? mode : 'save';
+    view.stateSlotMode = ['save', 'load', 'delete'].includes(mode) ? mode : '';
+    if (view.stateSlotMode === 'save' && elements.stateSaveName) {
+      elements.stateSaveName.value = '';
+      setTimeout(() => elements.stateSaveName?.focus(), 0);
+    }
     renderStateManager();
     const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択' };
-    showStateStatus(labels[getStateSlotMode()]);
+    if (getStateSlotMode()) showStateStatus(labels[getStateSlotMode()]);
   }
 
   function handleStateSlotClick(targetSlot) {
     persistCurrentControls();
     const mode = getStateSlotMode();
     if (mode === 'save') {
-      saveCurrentStateToSlot(targetSlot);
+      saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '');
       return;
     }
     if (mode === 'load') {
@@ -1832,11 +1855,14 @@
     }
   }
 
-  function saveCurrentStateToSlot(slot) {
+  function saveCurrentStateToSlot(slot, slotName = '') {
     persistCurrentControls();
     appState.activeId = view.id;
-    view.stateSlot = Number(slot) || 1;
-    appState.savedStates[String(view.stateSlot)] = createStateSnapshot();
+    const safeSlot = Number(slot) || 1;
+    const previousName = appState.savedStates[String(safeSlot)]?.slotName || '';
+    const normalizedName = String(slotName || '').trim() || previousName;
+    view.stateSlot = safeSlot;
+    appState.savedStates[String(view.stateSlot)] = createStateSnapshot(normalizedName);
     saveState();
     renderStateManager();
     showStateStatus(`スロット${view.stateSlot}に保存しました`);
@@ -1909,10 +1935,16 @@
     }, {});
   }
 
-  function createStateSnapshot() {
+  function getStateSlotDisplayName(slot, snapshot) {
+    if (!snapshot) return `スロット${slot}`;
+    return snapshot.slotName || snapshot.apostleName || snapshot.activeId || `スロット${slot}`;
+  }
+
+  function createStateSnapshot(slotName = '') {
     const basic = DATA.getById('basicInfo', view.id);
     return {
       savedAt: new Date().toISOString(),
+      slotName: String(slotName || '').trim(),
       apostleName: basic?.使徒名 || '',
       activeId: view.id || appState.activeId || '',
       apostles: cloneJson(appState.apostles),
@@ -1990,6 +2022,7 @@
     const snapshot = {
       ...cloneJson(imported.current),
       savedAt: new Date().toISOString(),
+      slotName: appState.savedStates[String(view.stateSlot)]?.slotName || '',
       apostleName: basic?.使徒名 || ''
     };
     appState.savedStates[String(view.stateSlot)] = snapshot;
@@ -2012,6 +2045,7 @@
       : createDefaultFormation();
     if (!Object.keys(apostles).length && !snapshot.activeId) throw new Error('Empty state');
     return {
+      slotName: snapshot.slotName || snapshot.name || '',
       activeId: getValidApostleId(snapshot.activeId),
       apostles,
       research,
