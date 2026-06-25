@@ -678,6 +678,13 @@
       button.addEventListener('click', () => activateDashboardView(button.dataset.dashboardView));
     });
 
+    document.querySelectorAll('[data-dashboard-profile-top]').forEach(button => {
+      button.addEventListener('click', () => {
+        activateDashboardView('settings');
+        elements.profileCard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
     document.querySelectorAll('[data-open-global]').forEach(button => {
       button.addEventListener('click', () => {
         closeBottomMenus(button.closest('.bottom-global-menu'));
