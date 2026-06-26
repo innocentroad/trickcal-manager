@@ -1709,7 +1709,7 @@
         if (isFdcApostleAttackMultiplierEffect(effect)) return;
         const bonuses = normalizeFdcSkillEffectBonus(effect, skillLevel);
         if (!bonuses || !Object.keys(bonuses).length) return;
-        const effectText = [skill.description, effect.description, effect.effectDescription, effect.valueKind, effect.effectType, effect.effectTarget].filter(Boolean).join(' ');
+        const effectText = getFdcSkillEffectConditionText(skill, effect);
         const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
         const label = createFdcSkillEffectLabel({
           sourceLabel,
@@ -1727,7 +1727,7 @@
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
-          defaultEnabled: enemyPersonalityState.hasCondition && enemyPersonalityState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
+          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState),
           detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
         });
       });
@@ -1774,9 +1774,9 @@
     if (!targetState.applies) return null;
     const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
-    const effectText = [skill?.description, effect.valueKind, effect.effectType, effect.effectTarget, effect.description, effect.effectDescription].filter(Boolean).join(' ');
+    const effectText = getFdcSkillEffectConditionText(skill, effect);
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-    const defaultEnabled = targetState.defaultEnabled && enemyPersonalityState.defaultEnabled && !isTimedOrManualEffect(effectText, effect);
+    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState);
     return {
       key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}`,
       group: 'formation',
@@ -1812,7 +1812,7 @@
       if (!aside3) return;
       const memberName = member.name || apostle?.name || member.id;
       normalizeFdcArray(aside3.effects).forEach((effect, effectIndex) => {
-        const effectText = [effect.valueKind, effect.effectType, effect.effectTarget, effect.description, effect.effectDescription].filter(Boolean).join(' ');
+        const effectText = getFdcSkillEffectConditionText(aside3, effect);
         const targetState = getFormationSkillTargetState(effect.effectTarget, target, member);
         if (!targetState.applies) return;
         const skillLevel = getFdcSkillLevelForCategory(getFdcEffectiveSkillLevels(member), 'アサイド');
@@ -1824,7 +1824,7 @@
           category: 'アサイド',
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
-          defaultEnabled: targetState.defaultEnabled && !isTimedOrManualEffect(effectText, effect),
+          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect),
           ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
@@ -2009,6 +2009,24 @@
     if (explicit) return explicit;
     return fallbackParts.map(part => String(part || '').trim())
       .find(part => part && !/対象候補|手動ON|条件一致|現在:|未設定/.test(part)) || '';
+  }
+
+  function getFdcSkillEffectConditionText(skill, effect) {
+    return [
+      effect?.condition,
+      effect?.effectTarget,
+      effect?.valueKind,
+      effect?.effectType,
+      effect?.description,
+      effect?.effectDescription,
+      skill?.description
+    ].filter(Boolean).join(' ');
+  }
+
+  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }) {
+    if (isTimedOrManualEffect(text, effect)) return false;
+    if (enemyPersonalityState?.hasCondition) return !!enemyPersonalityState.defaultEnabled;
+    return true;
   }
 
   function formatFdcPercentValue(value) {
@@ -3703,7 +3721,7 @@
 
   function isTimedOrManualEffect(text, effect) {
     if (effect.type === 'info') return true;
-    return /ウェーブ|開始時|毎に|ごと|スキル使用時|敵1体|クールタイム|CT/.test(text);
+    return /ウェーブ|開始時|毎に|ごと|(?:低学年|高学年|スキル|通常|普通|基本|強化|アサイド|攻撃).{0,8}使用時|発動時|発動中|命中時|攻撃時|被撃時|被弾時|敵1体|クールタイム|CT/.test(text);
   }
 
   function shouldExposeConditionalToggle(text, effect, actionMatch) {
