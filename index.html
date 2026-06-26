@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Trickcal Manager | ステータス管理</title>
+  <meta http-equiv="refresh" content="0; url=stat-dashboard.html">
+  <link rel="canonical" href="stat-dashboard.html">
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
   <link rel="prefetch" href="formation-damage-calc.html" as="document">
   <link rel="prefetch" href="formation-damage-calc.css" as="style">
@@ -11,6 +13,10 @@
   <link rel="prefetch" href="stat-engine.js" as="script">
   <link rel="prefetch" href="enemy-presets.js" as="script">
   <script>
+    if (!location.pathname.endsWith('/stat-dashboard.html')) {
+      location.replace(`stat-dashboard.html${location.search || ''}${location.hash || ''}`);
+    }
+
     (() => {
       const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'dark';
       document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
