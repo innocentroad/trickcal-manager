@@ -178,7 +178,7 @@
   ['save-state-slot', 'load-state-slot', 'delete-state-slot'].forEach(id => {
     document.getElementById(id).addEventListener('click', () => {
       if (id === 'load-state-slot') syncBottomApostle();
-      bottomSaveMenu.open = false;
+      bottomSaveMenu.open = true;
     });
   });
 

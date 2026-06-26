@@ -2202,6 +2202,16 @@
   background: rgba(15, 23, 42, 0.82);
 }
 
+.bottom-save-section-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.bottom-save-section-actions .secondary {
+  min-height: 30px;
+  padding-inline: 12px;
+}
+
 :root[data-theme="dark"] .state-slot-number {
   color: #d9f5e3;
   background: rgba(94, 164, 116, 0.18);

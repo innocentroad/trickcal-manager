@@ -146,6 +146,7 @@
     saveStateSlot: document.getElementById('save-state-slot'),
     loadStateSlot: document.getElementById('load-state-slot'),
     deleteStateSlot: document.getElementById('delete-state-slot'),
+    stateSlotCancel: document.getElementById('state-slot-cancel'),
     stateSaveNameWrap: document.getElementById('state-save-name-wrap'),
     stateSaveName: document.getElementById('state-save-name'),
     exportState: document.getElementById('export-state'),
@@ -526,6 +527,11 @@
 
     elements.deleteStateSlot.addEventListener('click', () => {
       setStateSlotMode('delete');
+    });
+
+    elements.stateSlotCancel?.addEventListener('click', () => {
+      setStateSlotMode('');
+      showStateStatus('スロット操作をキャンセルしました');
     });
 
     elements.exportState.addEventListener('click', exportStateFile);
@@ -1872,6 +1878,7 @@
     view.stateSlot = safeSlot;
     appState.savedStates[String(view.stateSlot)] = createStateSnapshot(normalizedName);
     saveState();
+    setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${view.stateSlot}に保存しました`);
   }
@@ -1881,6 +1888,7 @@
     const snapshot = appState.savedStates[String(safeSlot)];
     if (!snapshot) return;
     view.stateSlot = safeSlot;
+    setStateSlotMode('');
     applyStateSnapshot(snapshot);
     showStateStatus(`スロット${safeSlot}を読み込みました`);
   }
@@ -1891,6 +1899,7 @@
     if (!window.confirm(`スロット${safeSlot}の保存内容を削除しますか？\nこの操作は元に戻せません。`)) return;
     delete appState.savedStates[String(safeSlot)];
     saveState();
+    setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${safeSlot}を削除しました`);
   }
