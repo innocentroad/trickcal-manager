@@ -1562,8 +1562,8 @@ const CARD_LIBRARY = {
                 { id: "alice_party_sp", type: "info", label: "5秒ごと味方全体SP回復", description: "1〜10回復" },
                 {
                     id: "alice_signature_random_red",
-                    label: "Lv.1 ランダム効果 赤: 与ダメ減少",
-                    shortLabel: "赤カード 与ダメ減",
+                    label: "Lv.1 ランダム効果 赤カード時: 与ダメ減少",
+                    shortLabel: "赤カード時 与ダメ減",
                     type: "toggle",
                     description: "与ダメ減:5秒 / 魔法ダメ300%",
                     bonusesByStar: [
