@@ -3339,19 +3339,28 @@ body.theme-light .fdc-result-diff.is-negative {
 
   .bottom-results-grid {
     flex-wrap: wrap;
-    gap: 0.34rem;
-    padding: 0.42rem;
+    gap: 0.24rem;
+    padding: 0.34rem;
   }
 
   .bottom-results-grid .result-card {
-    min-width: 5.25rem;
-    padding: 0.34rem 0.38rem;
+    min-width: 4.8rem;
+    padding: 0.28rem 0.3rem;
+  }
+
+  .fdc-result-bar .result-card .label {
+    font-size: 0.6rem;
+  }
+
+  .fdc-result-bar .result-card .value {
+    font-size: clamp(0.78rem, 3.2vw, 1.02rem);
   }
 
   .fdc-detail-toggle {
-    flex-basis: 4.2rem !important;
-    min-width: 4.2rem !important;
-    max-width: 4.3rem;
+    flex-basis: 3.75rem !important;
+    min-width: 3.75rem !important;
+    max-width: 3.85rem;
+    padding-inline: 0.22rem !important;
   }
 
   .fdc-detail-toggle .value {
@@ -3421,25 +3430,25 @@ body.theme-light .fdc-result-diff.is-negative {
   }
 
   .bottom-results-grid {
-    gap: 0.28rem;
-    padding: 0.34rem;
+    gap: 0.18rem;
+    padding: 0.28rem;
   }
 
   .bottom-results-grid .result-card {
-    min-width: 4.85rem;
-    padding: 0.28rem 0.3rem;
+    min-width: 4.15rem;
+    padding: 0.24rem 0.22rem;
   }
 
   .fdc-result-bar .result-card .label {
-    font-size: 0.58rem;
+    font-size: 0.52rem;
   }
 
   .fdc-result-bar .result-card .value {
-    font-size: clamp(0.78rem, 4vw, 1rem);
+    font-size: clamp(0.68rem, 3.55vw, 0.9rem);
   }
 
   .fdc-result-current {
-    font-size: clamp(0.74rem, 3.8vw, 0.96rem);
+    font-size: clamp(0.66rem, 3.4vw, 0.84rem);
   }
 
   .fdc-result-before,
@@ -3448,8 +3457,24 @@ body.theme-light .fdc-result-diff.is-negative {
   }
 
   .fdc-detail-toggle {
-    flex-basis: 3.7rem !important;
-    min-width: 3.7rem !important;
-    max-width: 3.8rem;
+    flex-basis: 3.18rem !important;
+    min-width: 3.18rem !important;
+    max-width: 3.25rem;
+  }
+
+  .fdc-detail-toggle .label {
+    font-size: 0.5rem !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .bottom-results-grid .result-card {
+    flex: 1 1 calc(50% - 0.18rem);
+    min-width: 0;
+  }
+
+  .fdc-detail-toggle {
+    flex: 0 0 3rem !important;
+    min-width: 3rem !important;
   }
 }

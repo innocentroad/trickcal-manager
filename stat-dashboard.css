@@ -6421,14 +6421,23 @@
     width: 58px;
     min-width: 58px;
     flex-basis: 58px;
+    display: grid;
+    grid-template-rows: 22px 1fr;
+    justify-content: center;
+    gap: 0;
     padding-inline: 1px 3px !important;
   }
 
+  .bottom-save-trigger .bottom-section-icon {
+    justify-self: center;
+  }
+
   .bottom-save-trigger strong {
-    width: 2.4em;
+    width: auto;
     font-size: 0.52rem;
     line-height: 0.95;
-    transform: translateY(1px);
+    transform: none;
+    text-align: center;
   }
 
   .bottom-save-trigger strong span {
@@ -6460,6 +6469,7 @@
     width: 42px;
     min-width: 42px;
     flex-basis: 42px;
+    grid-template-rows: 1fr;
   }
 
   .resource-card-name-panel {
