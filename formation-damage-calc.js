@@ -3724,12 +3724,17 @@
     return /ウェーブ|開始時|毎に|ごと|(?:低学年|高学年|スキル|通常|普通|基本|強化|アサイド|攻撃).{0,8}使用時|発動時|発動中|命中時|攻撃時|被撃時|被弾時|敵1体|クールタイム|CT/.test(text);
   }
 
+  function isUnresolvedCardTriggerEffect(text) {
+    return /ランダム効果|赤カード時|黄カード時|青カード時|カード時|味方戦闘不能時|戦闘不能時|死亡時|倒れた時/.test(text);
+  }
+
   function shouldExposeConditionalToggle(text, effect, actionMatch) {
     if (effect.type === 'info') return true;
     return effect.type === 'toggle' || actionMatch.hasActionCondition || isTimedOrManualEffect(text, effect);
   }
 
   function getConditionalDefaultEnabled(text, effect, actionMatch, card = null, formation = null) {
+    if (isUnresolvedCardTriggerEffect(text)) return false;
     if (effect.defaultEnabled === true) return true;
     if (isFavoriteCardActiveInFormation(card, formation)) return true;
     if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) return true;
