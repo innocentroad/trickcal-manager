@@ -1465,18 +1465,18 @@
 }
 
 .equipment-bulk-actions {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 6px;
 }
 
-.equipment-bulk-actions button,
-.equipment-bulk-actions label {
+.equipment-bulk-actions summary,
+.equipment-bulk-menu button {
   min-height: 34px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   border: 1px solid rgba(36, 83, 59, 0.16);
   border-radius: 999px;
@@ -1487,18 +1487,48 @@
   font-weight: 900;
 }
 
-.equipment-bulk-actions button {
+.equipment-bulk-actions summary,
+.equipment-bulk-menu button {
   cursor: pointer;
 }
 
-.equipment-bulk-actions select {
-  min-height: 26px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0 6px;
-  color: var(--green-dark);
-  background: rgba(62, 119, 84, 0.09);
-  font: inherit;
+.equipment-bulk-actions summary {
+  list-style: none;
+}
+
+.equipment-bulk-actions summary::-webkit-details-marker {
+  display: none;
+}
+
+.equipment-bulk-actions[open] summary {
+  border-color: rgba(69, 130, 91, 0.32);
+  background: rgba(225, 244, 226, 0.95);
+}
+
+.equipment-bulk-menu {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 210px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(42px, 1fr));
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(36, 83, 59, 0.16);
+  border-radius: 18px;
+  background: rgba(255, 253, 247, 0.98);
+  box-shadow: 0 14px 30px rgba(47, 68, 49, 0.16);
+}
+
+.equipment-bulk-menu button:nth-child(-n + 2) {
+  grid-column: span 2;
+}
+
+.equipment-bulk-menu button {
+  min-height: 30px;
+  padding: 0 8px;
+  background: rgba(62, 119, 84, 0.08);
 }
 
 .dashboard-page .equipment-grid {
@@ -8056,6 +8086,12 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   background: transparent !important;
 }
 
+:root[data-theme="dark"] .formation-synergy-summary {
+  border-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
 :root[data-theme="dark"] .formation-member-summary {
   color: rgba(203, 213, 225, 0.82) !important;
 }
@@ -8183,20 +8219,26 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   color: rgba(248, 250, 252, 0.94) !important;
 }
 
-:root[data-theme="dark"] .equipment-bulk-actions button,
-:root[data-theme="dark"] .equipment-bulk-actions label,
-:root[data-theme="dark"] .rank-inline-control {
+:root[data-theme="dark"] .equipment-bulk-actions summary,
+:root[data-theme="dark"] .equipment-bulk-menu,
+:root[data-theme="dark"] .equipment-bulk-menu button {
   color: rgba(248, 250, 252, 0.95) !important;
   border-color: rgba(148, 163, 184, 0.22) !important;
-  background: transparent !important;
+  background: rgba(8, 13, 18, 0.58) !important;
 }
 
-:root[data-theme="dark"] .equipment-bulk-actions button:hover:not(:disabled) {
+:root[data-theme="dark"] .rank-inline-control {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+:root[data-theme="dark"] .equipment-bulk-actions[open] summary,
+:root[data-theme="dark"] .equipment-bulk-menu button:hover:not(:disabled) {
   border-color: rgba(196, 181, 253, 0.38) !important;
   background: rgba(255, 255, 255, 0.06) !important;
 }
 
-:root[data-theme="dark"] .equipment-bulk-actions select,
 :root[data-theme="dark"] .rank-inline-control select {
   color-scheme: dark !important;
   color: rgba(248, 250, 252, 0.98) !important;

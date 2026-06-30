@@ -48,6 +48,10 @@
     { key: 'spRegen', label: '毎秒SP回復', tone: 'sp', icon: 'SP回復.webp' }
   ];
 
+  const FOLLOW_BONUS_KEYS = TOTAL_LABELS
+    .map(item => item.key)
+    .filter(key => key !== 'spRegen');
+
   const BOARD_GLOBAL_STAT_GROUPS = [
     { key: 'hp', label: 'HP', stats: ['hp'], icon: 'Tile_Hp_On.webp' },
     { key: 'attack', label: '攻撃', stats: ['patk', 'matk'], icon: 'Tile_AtkBoth_On.webp', parts: ['物', '魔'] },
@@ -98,7 +102,6 @@
     '会心ダメージ抵抗': 'critDmgRes',
     '毎秒SP回復量': 'spRegen',
     '毎秒SP回復': 'spRegen',
-    'SP回復': 'spRegen',
     '全体会心': 'crit',
     '全体会心DMG': 'critDmg',
     '全体会心ダメージ': 'critDmg',
@@ -721,8 +724,8 @@
           ...state.skillLevels,
           [group]: Number(select.value) || 1
         }, state.asideRank);
-        saveState();
-        render();
+        saveState({ refreshSnapshots: false });
+        renderSkillLevelChange();
       };
       select.addEventListener('input', updateSkillLevelOutput);
       select.addEventListener('change', commitSkillLevelInput);
@@ -769,8 +772,7 @@
       getVisibleCardManagerCards().forEach(card => {
         ensureCardState(card.id).owned = true;
       });
-      saveState();
-      renderCardManager();
+      persistCardManagerChange();
     });
 
     elements.cardManagerBulkStar?.addEventListener('change', () => {
@@ -782,8 +784,7 @@
         if (entry.star < 5) entry.solder = 0;
       });
       elements.cardManagerBulkStar.value = '';
-      saveState();
-      renderCardManager();
+      persistCardManagerChange();
     });
 
     elements.cardManagerBulkSolder?.addEventListener('change', () => {
@@ -794,8 +795,7 @@
         if (normalizeCardStar(entry.star) >= 5) entry.solder = solder;
       });
       elements.cardManagerBulkSolder.value = '';
-      saveState();
-      renderCardManager();
+      persistCardManagerChange();
     });
 
     elements.cardManagerGrid?.addEventListener('change', event => {
@@ -806,8 +806,7 @@
       if (control.dataset.cardControl === 'owned') entry.owned = !!control.checked;
       if (control.dataset.cardControl === 'star') entry.star = normalizeCardStar(control.value);
       if (control.dataset.cardControl === 'solder') entry.solder = normalizeCardSolder(control.value);
-      saveState();
-      renderCardManager();
+      persistCardManagerChange(cardId);
     });
 
     elements.cardManagerGrid?.addEventListener('click', event => {
@@ -819,9 +818,11 @@
       const cardId = (starButton || solderButton || effectButton)?.dataset.cardId || cardElement?.dataset.cardId;
       const entry = ensureCardState(cardId);
       if (starButton) {
+        event.preventDefault();
         entry.star = normalizeCardStar(starButton.dataset.cardStar);
         if (entry.star < 5) entry.solder = 0;
       } else if (solderButton) {
+        event.preventDefault();
         if (normalizeCardStar(entry.star) < 5) return;
         entry.solder = normalizeCardSolder(((Number(entry.solder) || 0) + 1) % 3);
       } else {
@@ -830,10 +831,10 @@
           return;
         }
         if (event.target.closest('input, select, button, a')) return;
+        event.preventDefault();
         entry.owned = !entry.owned;
       }
-      saveState();
-      renderCardManager();
+      persistCardManagerChange(cardId);
     });
 
     elements.formationBoard?.addEventListener('click', event => {
@@ -890,6 +891,7 @@
 
       const stepButton = event.target.closest('[data-formation-spell-step]');
       if (!stepButton) return;
+      event.preventDefault();
       adjustFormationSpellCount(
         stepButton.dataset.formationSpellCard || '',
         Number(stepButton.dataset.formationSpellStep) || 0
@@ -1115,6 +1117,22 @@
 
     elements.equipApplyEnhance?.addEventListener('click', () => {
       setCurrentEquipmentEnhance(Number(elements.equipBulkEnhance?.value) || 0);
+    });
+
+    document.querySelector('.equipment-bulk-actions')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-equip-bulk-action]');
+      if (!button) return;
+      event.preventDefault();
+      const action = button.dataset.equipBulkAction || '';
+      if (action === 'off') setCurrentEquipmentBulk({ enabled: false });
+      if (action === 'on') setCurrentEquipmentBulk({ enabled: true });
+      if (action === 'enhance') {
+        setCurrentEquipmentBulk({
+          enabled: true,
+          enhance: Number(button.dataset.equipBulkEnhance) || 0
+        });
+      }
+      button.closest('details')?.removeAttribute('open');
     });
 
     elements.researchProgressSelect.addEventListener('change', () => {
@@ -2196,6 +2214,44 @@
     renderStatBreakdown(breakdown, totals, globalPercentRates);
   }
 
+  function renderSkillLevelChange() {
+    const basic = DATA.getById('basicInfo', view.id);
+    renderProfile(basic);
+    renderSkillInfoList(basic);
+  }
+
+  function persistCardManagerChange(cardId = '') {
+    saveState({ refreshSnapshots: false });
+    if (cardId && updateCardManagerCardInPlace(cardId)) return;
+    renderCardManager();
+  }
+
+  function updateCardManagerCardInPlace(cardId) {
+    const kind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
+    if (view.cardManager.ownedOnly) return false;
+    const grid = elements.cardManagerGrid?.querySelector(`[data-card-manager-kind-grid="${kind}"]`);
+    const cardElement = Array.from(grid?.querySelectorAll('.resource-card[data-card-id]') || [])
+      .find(element => element.dataset.cardId === cardId);
+    const cards = getCardManagerCards(kind);
+    const rows = getVisibleCardManagerCards(kind);
+    const card = rows.find(item => item.id === cardId);
+    if (!grid || !cardElement || !card) return false;
+    const index = rows.findIndex(item => item.id === cardId);
+    const anchorTop = cardElement.getBoundingClientRect().top;
+    cardElement.outerHTML = renderCardManagerCard(card, Math.max(0, index));
+    grid.dataset.renderKey = getCardManagerRenderKey(kind, rows);
+    renderCardManagerSummary(kind, cards, rows);
+    requestAnimationFrame(() => {
+      const nextCard = Array.from(grid.querySelectorAll('.resource-card[data-card-id]') || [])
+        .find(element => element.dataset.cardId === cardId);
+      if (!nextCard) return;
+      const nextTop = nextCard.getBoundingClientRect().top;
+      if (!Number.isFinite(nextTop)) return;
+      window.scrollBy(0, nextTop - anchorTop);
+    });
+    return true;
+  }
+
   function renderProfile(basic) {
     if (!basic) return;
     const eldain = String(basic.エルダイン || '').trim();
@@ -2436,6 +2492,9 @@
         [key]: value
       }, state.asideRank);
       syncSkillLevelControlsFromState(state);
+      saveState({ refreshSnapshots: false });
+      renderSkillLevelChange();
+      return;
     } else {
       return;
     }
@@ -2979,21 +3038,23 @@
   }
 
   function setCurrentEquipmentEnabled(enabled) {
-    const state = currentApostleState();
-    getVisibleEquipmentKeys().forEach(key => {
-      const saved = state.equipment[key] || { enabled: false, enhance: 0 };
-      state.equipment[key] = { ...saved, enabled };
-    });
-    saveState();
-    render();
+    setCurrentEquipmentBulk({ enabled });
   }
 
   function setCurrentEquipmentEnhance(enhance) {
-    const normalizedEnhance = Math.max(0, Math.min(5, Number(enhance) || 0));
+    setCurrentEquipmentBulk({ enhance });
+  }
+
+  function setCurrentEquipmentBulk({ enabled = null, enhance = null } = {}) {
+    const normalizedEnhance = enhance === null ? null : Math.max(0, Math.min(5, Number(enhance) || 0));
     const state = currentApostleState();
     getVisibleEquipmentKeys().forEach(key => {
       const saved = state.equipment[key] || { enabled: false, enhance: 0 };
-      state.equipment[key] = { ...saved, enhance: normalizedEnhance };
+      state.equipment[key] = {
+        ...saved,
+        ...(enabled === null ? {} : { enabled: !!enabled }),
+        ...(normalizedEnhance === null ? {} : { enhance: normalizedEnhance })
+      };
     });
     saveState();
     render();
@@ -3034,7 +3095,8 @@
     const levelValue = Math.max(1, Number(level) || 1);
     const starValue = normalizeApostleStar(star);
     const gradeRate = getGradeStatBonusRate(grade, statKey, basic);
-    return Math.floor((baseValue + coeffValue * (levelValue - 1)) * (1 + 0.2 * (starValue - 1)) * (1 + gradeRate));
+    const starRate = statKey === 'spRegen' ? 0 : 0.2 * (starValue - 1);
+    return Math.floor((baseValue + coeffValue * (levelValue - 1)) * (1 + starRate) * (1 + gradeRate));
   }
 
   function getGradeStatBonusRate(star, statKey = '', basic = null) {
@@ -3674,7 +3736,6 @@
     const kind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
     const cards = getCardManagerCards(kind);
     const rows = getVisibleCardManagerCards(kind);
-    const ownedCount = cards.filter(card => getCardState(card.id).owned).length;
     elements.cardManagerTabs.forEach(button => {
       button.classList.toggle('is-active', button.dataset.cardKind === kind);
     });
@@ -3688,10 +3749,7 @@
       elements.cardManagerEffect.value = view.cardManager.effect;
     }
     if (elements.cardManagerOwnedOnly) elements.cardManagerOwnedOnly.checked = !!view.cardManager.ownedOnly;
-    elements.cardManagerSummary.innerHTML = `
-      <span>${kind === 'artifact' ? '遺物' : 'スペル'} ${ownedCount}/${cards.length} 所持</span>
-      <span>表示 ${rows.length}件</span>
-    `;
+    renderCardManagerSummary(kind, cards, rows);
     warmCardManagerImages(rows);
     const activeGrid = getCardManagerKindGrid(kind);
     if (!activeGrid) return;
@@ -3704,6 +3762,15 @@
       || '<p class="empty-note">一致するカードがありません。</p>';
     activeGrid.dataset.renderKey = renderKey;
     revealCardManagerGridWhenReady(activeGrid);
+  }
+
+  function renderCardManagerSummary(kind, cards = getCardManagerCards(kind), rows = getVisibleCardManagerCards(kind)) {
+    if (!elements.cardManagerSummary) return;
+    const ownedCount = cards.filter(card => getCardState(card.id).owned).length;
+    elements.cardManagerSummary.innerHTML = `
+      <span>${kind === 'artifact' ? '遺物' : 'スペル'} ${ownedCount}/${cards.length} 所持</span>
+      <span>表示 ${rows.length}件</span>
+    `;
   }
 
   function getCardManagerKindGrid(kind) {
@@ -4539,8 +4606,9 @@
     `;
   }
 
-  function renderFormationSpells(formation = ensureFormationState()) {
+  function renderFormationSpells(formation = ensureFormationState(), options = {}) {
     if (!elements.formationSpellList) return;
+    const deferCatalog = options.deferCatalog !== false;
     const spells = normalizeFormationSpells(formation.spells);
     const cards = getCardManagerCards('spell').slice().sort(compareCardManagerCards);
     const cardById = new Map(cards.map(card => [card.id, card]));
@@ -4563,10 +4631,10 @@
       </div>
       ${spells.length && view.formationSpellDetailsOpen ? renderFormationSpellDetails(selectedRows) : ''}
       <div class="formation-spell-catalog" aria-label="スペル一覧">
-        <span class="formation-spell-empty">スペル一覧を準備中...</span>
+        ${deferCatalog ? '<span class="formation-spell-empty">スペル一覧を準備中...</span>' : cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('')}
       </div>
     `;
-    scheduleFormationSpellCatalogRender(cards, counts);
+    if (deferCatalog) scheduleFormationSpellCatalogRender(cards, counts);
   }
 
   function scheduleFormationSpellCatalogRender(cards, counts) {
@@ -4663,8 +4731,8 @@
     const formation = ensureFormationState();
     formation.spells = normalizeFormationSpells(formation.spells);
     formation.spells.push(spellId);
-    saveState();
-    renderFormationKeepingScroll();
+    saveState({ refreshSnapshots: false });
+    renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
   }
 
   function adjustFormationSpellCount(spellId, step) {
@@ -4684,8 +4752,45 @@
     if (index < 0) return;
     spells.splice(index, 1);
     formation.spells = spells;
-    saveState();
-    renderFormationKeepingScroll();
+    saveState({ refreshSnapshots: false });
+    renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
+  }
+
+  function renderFormationAfterSpellChange(formation = ensureFormationState(), options = {}) {
+    const anchorSpellId = options.anchorSpellId || '';
+    const catalogScrollTop = getFormationSpellCatalogElement()?.scrollTop ?? 0;
+    const anchorTop = anchorSpellId
+      ? getFormationSpellCatalogCardElement(anchorSpellId)?.getBoundingClientRect().top
+      : null;
+    renderFormationSpells(formation, { deferCatalog: false });
+    const nextCatalog = getFormationSpellCatalogElement();
+    if (nextCatalog) nextCatalog.scrollTop = catalogScrollTop;
+    renderFormationCostSummary(formation);
+    renderFormationSynergySummary(formation);
+    renderFormationActivePreset();
+    renderFormationPresetList();
+    requestAnimationFrame(() => {
+      const catalog = getFormationSpellCatalogElement();
+      if (catalog) catalog.scrollTop = catalogScrollTop;
+      if (anchorTop === null || anchorTop === undefined) return;
+      const anchor = getFormationSpellCatalogCardElement(anchorSpellId);
+      if (!anchor) return;
+      const nextTop = anchor.getBoundingClientRect().top;
+      if (!Number.isFinite(nextTop)) return;
+      window.scrollBy(0, nextTop - anchorTop);
+    });
+  }
+
+  function getFormationSpellCatalogElement() {
+    return elements.formationSpellList?.querySelector('.formation-spell-catalog') || null;
+  }
+
+  function getFormationSpellCatalogCardElement(spellId) {
+    if (!spellId || !elements.formationSpellList) return null;
+    return Array.from(elements.formationSpellList.querySelectorAll('.formation-spell-card')).find(card => {
+      const button = card.querySelector('[data-formation-spell-card]');
+      return button?.dataset.formationSpellCard === spellId;
+    }) || null;
   }
 
   function renderFormationKeepingScroll() {
@@ -4899,7 +5004,7 @@
       if (!Array.isArray(row.artifacts[lineIndex])) row.artifacts[lineIndex] = ['', '', ''];
       row.artifacts[lineIndex][artifactSlot] = value;
     }
-    saveState();
+    saveState({ refreshSnapshots: false });
     renderFormation();
     elements.formationPickerDialog.close();
   }
@@ -4908,7 +5013,7 @@
     const formation = ensureFormationState();
     if (!formation.rows[rowIndex]) return;
     formation.rows[rowIndex] = createDefaultFormationRow();
-    saveState();
+    saveState({ refreshSnapshots: false });
     renderFormation();
   }
 
@@ -6478,7 +6583,7 @@
   function collectFollowGlobalPercent(globalPercentBonuses, activeEffects) {
     if (!currentApostleState().follow) return;
     const followPercent = 3;
-    TOTAL_LABELS.forEach(item => addStatValue(globalPercentBonuses, item.key, followPercent));
+    FOLLOW_BONUS_KEYS.forEach(key => addStatValue(globalPercentBonuses, key, followPercent));
     activeEffects.push(`フォロー 全ステータス+${followPercent}%`);
   }
 
@@ -6619,7 +6724,7 @@
       collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
       if (state.follow) {
         const followPercent = 3;
-        TOTAL_LABELS.forEach(item => addStatValue(globalPercentBonuses, item.key, followPercent));
+        FOLLOW_BONUS_KEYS.forEach(key => addStatValue(globalPercentBonuses, key, followPercent));
       }
       applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
       return createStatSnapshot(kind, totals, breakdown, globalPercentRates);

@@ -1,0 +1,1 @@
+py -3.12 .\generate-stat-data.py --input .\trickcal_datasheet.xlsx --output ..\statData.js

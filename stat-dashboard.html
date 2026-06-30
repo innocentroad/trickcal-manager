@@ -216,22 +216,19 @@
                 <span>装備Rank</span>
                 <select id="rank-select"></select>
               </label>
-              <div class="equipment-bulk-actions" aria-label="装備一括操作">
-                <button type="button" id="equip-all-on">一括装備</button>
-                <button type="button" id="equip-all-off">一括解除</button>
-                <label>
-                  <span>一括+</span>
-                  <select id="equip-bulk-enhance">
-                    <option value="0">+0</option>
-                    <option value="1">+1</option>
-                    <option value="2">+2</option>
-                    <option value="3">+3</option>
-                    <option value="4">+4</option>
-                    <option value="5">+5</option>
-                  </select>
-                </label>
-                <button type="button" id="equip-apply-enhance">+変更</button>
-              </div>
+              <details class="equipment-bulk-actions" aria-label="装備一括操作">
+                <summary>一括</summary>
+                <div class="equipment-bulk-menu">
+                  <button type="button" data-equip-bulk-action="off">解除</button>
+                  <button type="button" data-equip-bulk-action="on">装備</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="0">+0</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="1">+1</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="2">+2</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="3">+3</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="4">+4</button>
+                  <button type="button" data-equip-bulk-action="enhance" data-equip-bulk-enhance="5">+5</button>
+                </div>
+              </details>
             </div>
           </div>
           <div id="equipment-grid" class="equipment-grid"></div>
