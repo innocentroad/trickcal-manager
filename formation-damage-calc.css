@@ -1413,12 +1413,10 @@ body.theme-light .fdc-formation-loader select {
 }
 
 .side-panel.is-physical-damage .fdc-stat-attack {
-  --stat-tone: #f97316;
   --stat-image: url("img/物理攻撃力.webp");
 }
 
 .side-panel.is-magic-damage .fdc-stat-attack {
-  --stat-tone: #8b5cf6;
   --stat-image: url("img/魔法攻撃力.webp");
 }
 
@@ -1699,6 +1697,26 @@ body.theme-light .fdc-field select {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--fdc-accent) 10%, transparent), transparent 52%),
     color-mix(in srgb, var(--fdc-input) 62%, transparent);
+}
+
+.fdc-skill-effect-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+  margin: -0.12rem 0 0.48rem;
+}
+
+.fdc-skill-effect-bonus-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.42rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 34%, var(--fdc-border));
+  border-radius: 999px;
+  padding: 0 0.52rem;
+  background: color-mix(in srgb, var(--fdc-primary) 17%, var(--fdc-input));
+  color: var(--fdc-text);
+  font-size: 0.68rem;
+  font-weight: 950;
 }
 
 .fdc-skill-effect-list {

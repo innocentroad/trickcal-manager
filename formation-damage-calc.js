@@ -1441,7 +1441,9 @@
       input.addEventListener('change', () => {
         view.selfSkillEffectEnabled[input.dataset.fdcSelfSkillEffect] = !!input.checked;
         saveCalcSettings();
-        renderResult(buildContext());
+        const nextContext = buildContext();
+        renderResult(nextContext);
+        renderSelfSkillEffects(nextContext);
       });
     });
     el.selfSkillEffects.querySelectorAll('[data-fdc-skill-effect-info]').forEach(button => {
@@ -1458,6 +1460,7 @@
     return `
       <section class="fdc-skill-effect-card">
         <div class="fdc-skill-effects-title">${escapeHtml(title)}</div>
+        ${renderSkillEffectBonusSummary(options)}
         ${options.length ? `
           <div class="fdc-skill-effect-list">
             ${options.map(option => renderSkillEffectToggle(option)).join('')}
@@ -1465,6 +1468,18 @@
         ` : `<div class="fdc-skill-effect-empty">${escapeHtml(emptyText)}</div>`}
       </section>
     `;
+  }
+
+  function renderSkillEffectBonusSummary(options) {
+    const enabledOptions = (options || [])
+      .filter(option => isSelfSkillEffectOptionEnabled(option))
+      .map(option => ({ bonuses: getRelevantBonusMap(option.bonuses || {}) }));
+    const summary = summarizeEffects(enabledOptions);
+    const chips = Object.entries(summary || {})
+      .filter(([, value]) => Number(value))
+      .map(([key, value]) => `<span class="fdc-skill-effect-bonus-chip">${escapeHtml(formatBonusMap({ [key]: value }))}</span>`);
+    if (!chips.length) return '';
+    return `<div class="fdc-skill-effect-summary">${chips.join('')}</div>`;
   }
 
   function renderSkillEffectToggle(option) {
@@ -1702,6 +1717,7 @@
           effectValue: formatFdcPercentValue(stat.increaseP ?? stat.increase ?? stat.value),
           condition: '常時',
           effectTarget: stat.statApplyTo || '本人',
+          defaultEnabled: true,
           detailText: [skill.description, `${stat.statApplyTo || '本人'} ${stat.statName || ''} +${formatPlainNumber(stat.increaseP ?? stat.increase ?? stat.value)}%`].filter(Boolean).join('\n')
         });
       });
