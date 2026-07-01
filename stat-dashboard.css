@@ -4302,16 +4302,21 @@
 }
 
 .formation-coin-owned {
+  position: relative;
   gap: 1px;
 }
 
 .formation-coin-input-wrap {
   position: relative;
+  border: 0;
+  padding: 0;
   width: 30px;
   height: 30px;
   display: inline-grid;
   place-items: center;
-  cursor: text;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
 }
 
 .formation-coin-input-wrap img {
@@ -4321,46 +4326,78 @@
   object-fit: contain;
 }
 
-.formation-coin-input-wrap input {
-  grid-area: 1 / 1;
-  position: relative;
-  z-index: 5;
-  width: 42px;
-  height: 20px;
-  border: none;
-  border-radius: 999px;
-  outline: none;
-  color: transparent;
-  background: transparent;
-  caret-color: #3f2a10;
-  font-size: 0.7rem;
-  font-weight: 950;
-  text-align: center;
-}
-
-.formation-coin-input-wrap input:focus {
-  color: #3f2a10;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.24);
-}
-
-.formation-coin-input-wrap:focus-within .formation-coin-display {
-  opacity: 0;
-}
-
 .formation-coin-display {
   grid-area: 1 / 1;
   position: relative;
   z-index: 2;
-  transform: translateY(1px) scaleX(0.9);
+  transform: translateY(1px) scaleX(0.92);
   max-width: 3.2em;
   overflow: hidden;
-  font-family: 'Baloo 2', 'Outfit', sans-serif;
-  font-size: 0.9rem;
-  font-weight: 950;
-  line-height: 1;
   pointer-events: none;
   text-align: center;
+}
+
+.formation-coin-popover {
+  position: absolute;
+  z-index: 32;
+  top: calc(100% + 7px);
+  left: 50%;
+  display: grid;
+  min-width: 9.5rem;
+  transform: translateX(-50%);
+  gap: 0.42rem;
+  border: 1px solid rgba(155, 114, 43, 0.24);
+  border-radius: 14px;
+  padding: 0.55rem;
+  background: rgba(255, 252, 238, 0.98);
+  box-shadow: 0 14px 28px rgba(99, 69, 20, 0.18);
+}
+
+.formation-coin-popover[hidden] {
+  display: none;
+}
+
+.formation-coin-popover label {
+  display: grid;
+  gap: 0.28rem;
+  color: #7c541d;
+  font-size: 0.68rem;
+  font-weight: 950;
+}
+
+.formation-coin-popover input {
+  width: 100%;
+  min-height: 2.1rem;
+  border: 1px solid rgba(155, 114, 43, 0.24);
+  border-radius: 10px;
+  padding: 0 0.55rem;
+  color: #35230e;
+  background: #fff;
+  font-family: 'Baloo 2', 'Outfit', sans-serif;
+  font-size: 1rem;
+  font-weight: 950;
+  text-align: center;
+}
+
+.formation-coin-popover button {
+  min-height: 1.85rem;
+  border: 1px solid rgba(155, 114, 43, 0.2);
+  border-radius: 999px;
+  color: #7c541d;
+  background: rgba(255, 245, 205, 0.92);
+  font-size: 0.72rem;
+  font-weight: 950;
+  cursor: pointer;
+}
+
+.formation-coin-display,
+.formation-cost-text,
+.formation-metric-number {
+  font-family: 'Baloo 2', 'Outfit', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .formation-metric-number {
@@ -4368,10 +4405,7 @@
   display: inline-grid;
   min-width: 1.35em;
   place-items: center;
-  font-family: 'Baloo 2', 'Outfit', sans-serif;
-  font-size: 0.92rem;
-  font-weight: 950;
-  line-height: 1;
+  transform: translateY(1px) scaleX(0.92);
 }
 
 .formation-metric-number-stroke,
@@ -5921,14 +5955,15 @@
     align-self: center;
   }
 
-  .formation-coin-input-wrap input {
-    width: 36px;
-    height: 18px;
-    font-size: 0.66rem;
-  }
-
   .formation-coin-display {
     font-size: 0.82rem;
+  }
+
+  .formation-coin-popover {
+    left: auto;
+    right: -0.4rem;
+    min-width: min(9.2rem, 78vw);
+    transform: none;
   }
 
   .formation-coin-remain {
@@ -8137,15 +8172,26 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   background: rgba(14, 22, 31, 0.72) !important;
 }
 
-:root[data-theme="dark"] .formation-coin-input-wrap input {
-  color: transparent !important;
-  background: transparent !important;
-  caret-color: rgba(248, 250, 252, 0.95);
+:root[data-theme="dark"] .formation-coin-popover {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+  background: rgba(16, 24, 34, 0.98) !important;
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.38) !important;
 }
 
-:root[data-theme="dark"] .formation-coin-input-wrap input:focus {
+:root[data-theme="dark"] .formation-coin-popover label {
+  color: rgba(248, 250, 252, 0.94) !important;
+}
+
+:root[data-theme="dark"] .formation-coin-popover input {
+  border-color: rgba(148, 163, 184, 0.26) !important;
   color: rgba(248, 250, 252, 0.96) !important;
-  background: rgba(8, 13, 18, 0.74) !important;
+  background: rgba(8, 13, 18, 0.9) !important;
+}
+
+:root[data-theme="dark"] .formation-coin-popover button {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  color: rgba(248, 250, 252, 0.92) !important;
+  background: rgba(45, 60, 76, 0.9) !important;
 }
 
 :root[data-theme="dark"] .formation-coin-display-stroke,

@@ -865,6 +865,26 @@
       }
     });
 
+    elements.formationCostSummary?.addEventListener('click', event => {
+      const openButton = event.target.closest('[data-formation-coin-open]');
+      if (openButton) {
+        const popover = elements.formationCostSummary.querySelector('[data-formation-coin-popover]');
+        const expanded = openButton.getAttribute('aria-expanded') === 'true';
+        if (popover) popover.hidden = expanded;
+        openButton.setAttribute('aria-expanded', String(!expanded));
+        if (!expanded) popover?.querySelector('[data-formation-coin-input]')?.focus();
+        return;
+      }
+      if (event.target.closest('[data-formation-coin-close]')) {
+        closeFormationCoinPopover();
+      }
+    });
+
+    document.addEventListener('click', event => {
+      if (!elements.formationCostSummary || elements.formationCostSummary.contains(event.target)) return;
+      closeFormationCoinPopover();
+    });
+
     elements.formationCostSummary?.addEventListener('input', event => {
       const input = event.target.closest('[data-formation-coin-input]');
       if (!input) return;
@@ -4818,15 +4838,21 @@
     const remainingCoins = ownedCoins - totalCost;
     elements.formationCostSummary.innerHTML = `
       <div class="formation-coin-box ${remainingCoins < 0 ? 'is-short' : ''}">
-        <label class="formation-coin-owned">
+        <span class="formation-coin-owned">
           <span>所持</span>
-          <span class="formation-coin-input-wrap" title="クリックして所持コインを入力">
+          <button type="button" class="formation-coin-input-wrap" data-formation-coin-open aria-expanded="false" title="クリックして所持コインを入力">
             <img src="img/Card/ef_coin.webp" alt="">
-            <input type="number" min="0" step="1" inputmode="numeric" data-formation-coin-input value="${escapeAttr(ownedCoins)}" aria-label="所持コイン数">
             <span class="formation-coin-display formation-coin-display-stroke" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
             <span class="formation-coin-display formation-coin-display-fill" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
+          </button>
+          <span class="formation-coin-popover" data-formation-coin-popover hidden>
+            <label>
+              <span>所持コイン</span>
+              <input type="number" min="0" step="1" inputmode="numeric" data-formation-coin-input value="${escapeAttr(ownedCoins)}" aria-label="所持コイン数">
+            </label>
+            <button type="button" data-formation-coin-close>閉じる</button>
           </span>
-        </label>
+        </span>
         <span class="formation-total-cost">
           <span>使用</span>
           <span class="formation-cost-badge formation-cost-badge-total" title="総コスト ${totalCost}">
@@ -4850,15 +4876,24 @@
     const box = elements.formationCostSummary?.querySelector('.formation-coin-box');
     const remain = elements.formationCostSummary?.querySelector('[data-formation-coin-remain]');
     const displays = elements.formationCostSummary?.querySelectorAll('[data-formation-coin-display]');
+    const input = elements.formationCostSummary?.querySelector('[data-formation-coin-input]');
     if (!box || !remain) return;
     const ownedCoins = normalizeFormationCoins(formation.coins);
     const remainingCoins = ownedCoins - calculateFormationCost(formation);
     box.classList.toggle('is-short', remainingCoins < 0);
     displays?.forEach(display => { display.textContent = formatNumber(ownedCoins); });
+    if (input && document.activeElement !== input) input.value = String(ownedCoins);
     remain.classList.toggle('is-negative', remainingCoins < 0);
     remain.setAttribute('aria-label', `残り${formatNumber(remainingCoins)}`);
     remain.querySelectorAll('.formation-metric-number-stroke, .formation-metric-number-fill')
       .forEach(node => { node.textContent = formatNumber(remainingCoins); });
+  }
+
+  function closeFormationCoinPopover() {
+    const popover = elements.formationCostSummary?.querySelector('[data-formation-coin-popover]');
+    const button = elements.formationCostSummary?.querySelector('[data-formation-coin-open]');
+    if (popover) popover.hidden = true;
+    button?.setAttribute('aria-expanded', 'false');
   }
 
   function calculateFormationCost(formation = ensureFormationState()) {

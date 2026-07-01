@@ -53,6 +53,7 @@
     enemyDamageType: document.getElementById('fdc-enemy-damage-type'),
     gradeOverride: document.getElementById('fdc-grade-override'),
     statMode: document.getElementById('fdc-stat-mode'),
+    statModeChoices: Array.from(document.querySelectorAll('[data-fdc-stat-mode-choice]')),
     selfRoleChip: document.getElementById('fdc-self-role-chip'),
     enemyRoleChip: document.getElementById('fdc-enemy-role-chip'),
     selfAttackTypeChip: document.getElementById('fdc-self-attack-type-chip'),
@@ -87,6 +88,8 @@
     applyFloatPanel: document.getElementById('fdc-apply-float-panel'),
     applyFloatToggle: document.getElementById('fdc-apply-float-toggle'),
     applyFloatInputs: Array.from(document.querySelectorAll('[data-fdc-apply-source]')),
+    categorySourceInputs: Array.from(document.querySelectorAll('[data-fdc-category-source]')),
+    resultDisplayInputs: Array.from(document.querySelectorAll('[data-fdc-result-display]')),
     applyFloatDots: Array.from(document.querySelectorAll('[data-fdc-apply-dot]')),
     applyFloatBulk: Array.from(document.querySelectorAll('[data-fdc-apply-bulk]')),
     selfSkillChoices: document.getElementById('fdc-self-skill-choices'),
@@ -158,6 +161,11 @@
       expected: document.getElementById('fdc-result-expected'),
       critRate: document.getElementById('fdc-result-crit-rate'),
       defRate: document.getElementById('fdc-result-def-rate'),
+      hpRates: {
+        normal: document.getElementById('fdc-result-normal-hp'),
+        expected: document.getElementById('fdc-result-expected-hp'),
+        crit: document.getElementById('fdc-result-crit-hp')
+      },
       detailToggle: document.getElementById('fdc-result-detail-toggle'),
       detailPanel: document.getElementById('fdc-result-detail-panel'),
       detailNote: document.getElementById('fdc-result-detail-note'),
@@ -204,6 +212,9 @@
       artifact: true,
       spell: true,
       globalStats: true
+    },
+    resultDisplays: {
+      hp: true
     }
   };
   restoreCalcSettings();
@@ -236,11 +247,20 @@
         render();
       });
     });
-    el.artifactEffectsToggle?.addEventListener('change', () => {
-      view.effectSources.artifact = !!el.artifactEffectsToggle.checked;
-      saveCalcSettings();
-      syncApplyFloatUi();
-      render();
+    el.categorySourceInputs.forEach(input => {
+      input.addEventListener('change', () => {
+        view.effectSources[input.dataset.fdcCategorySource] = !!input.checked;
+        saveCalcSettings();
+        syncApplyFloatUi();
+        render();
+      });
+    });
+    el.resultDisplayInputs.forEach(input => {
+      input.addEventListener('change', () => {
+        view.resultDisplays[input.dataset.fdcResultDisplay] = !!input.checked;
+        saveCalcSettings();
+        syncApplyFloatUi();
+      });
     });
     el.applyFloatBulk.forEach(button => {
       button.addEventListener('click', () => {
@@ -367,6 +387,16 @@
       view.statDirty = false;
       saveCalcSettings();
       render();
+    });
+    el.statModeChoices.forEach(button => {
+      button.addEventListener('click', () => {
+        view.statMode = button.dataset.fdcStatModeChoice === 'planned' ? 'planned' : 'current';
+        view.statDirty = false;
+        if (el.statMode) el.statMode.value = view.statMode;
+        saveCalcSettings();
+        syncApplyFloatUi();
+        render();
+      });
     });
     el.enemyPreset?.addEventListener('change', () => {
       view.enemyPresetKey = el.enemyPreset.value || '';
@@ -861,6 +891,9 @@
       if (saved.effectSources && typeof saved.effectSources === 'object') {
         view.effectSources = { ...view.effectSources, ...pickBooleanMap(saved.effectSources, Object.keys(view.effectSources)) };
       }
+      if (saved.resultDisplays && typeof saved.resultDisplays === 'object') {
+        view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(saved.resultDisplays, Object.keys(view.resultDisplays)) };
+      }
       if (saved.selfSkillEffectEnabled && typeof saved.selfSkillEffectEnabled === 'object') {
         view.selfSkillEffectEnabled = pickBooleanMap(saved.selfSkillEffectEnabled);
       }
@@ -895,6 +928,7 @@
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         selectedSkillCategory: view.selectedSkillCategory || '',
         effectSources: pickBooleanMap(view.effectSources),
+        resultDisplays: pickBooleanMap(view.resultDisplays),
         selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
@@ -2920,6 +2954,7 @@
     renderResultValue(el.result.normal, result.normal, currentResult?.normal, { type: 'number' });
     renderResultValue(el.result.crit, result.crit, currentResult?.crit, { type: 'number' });
     renderResultValue(el.result.expected, result.expected, currentResult?.expected, { type: 'number' });
+    renderHpRateResults(result, currentResult);
     renderResultValue(el.result.critRate, result.critRate * 100, currentResult ? currentResult.critRate * 100 : null, { type: 'percent', digits: 1, showPointDiff: true });
     renderResultValue(el.result.defRate, result.defRate * 100, currentResult ? currentResult.defRate * 100 : null, { type: 'percent', digits: 2 });
     syncCritRateCapTone(result);
@@ -2951,7 +2986,7 @@
     const diff = planned - current;
     const ratio = current ? (planned / current - 1) * 100 : planned ? Number.POSITIVE_INFINITY : 0;
     const diffText = formatResultDiff(ratio, diff, options);
-    const direction = view.perspective === 'enemy' ? -diff : diff;
+    const direction = options.invertForDefense === false ? diff : view.perspective === 'enemy' ? -diff : diff;
     const tone = direction > 0 ? 'is-positive' : direction < 0 ? 'is-negative' : 'is-neutral';
     element.classList.add('is-compare');
     element.innerHTML = `
@@ -2959,6 +2994,51 @@
       <span class="fdc-result-before">(${escapeHtml(formatResultMetric(current, options))})</span>
       <span class="fdc-result-diff ${tone}">${escapeHtml(diffText)}</span>
     `;
+  }
+
+  function renderHpRateResults(result, currentResult = null) {
+    const entries = [
+      ['normal', result.normal, currentResult?.normal],
+      ['expected', result.expected, currentResult?.expected],
+      ['crit', result.crit, currentResult?.crit]
+    ];
+    entries.forEach(([key, damage, currentDamage]) => {
+      renderHpRateValue(el.result.hpRates?.[key], result.hp, damage, currentResult?.hp, currentDamage);
+    });
+  }
+
+  function renderHpRateValue(element, hp, damage, currentHp = null, currentDamage = null) {
+    if (!element) return;
+    element.hidden = view.resultDisplays.hp === false;
+    if (element.hidden) {
+      element.textContent = '';
+      return;
+    }
+    const rate = calculateRemainingHpRate(hp, damage);
+    if (currentHp === null || currentHp === undefined || currentDamage === null || currentDamage === undefined) {
+      element.classList.remove('is-compare');
+      element.innerHTML = `<span>残HP ${escapeHtml(formatHpRate(rate))}</span>`;
+      return;
+    }
+    const currentRate = calculateRemainingHpRate(currentHp, currentDamage);
+    const diff = rate - currentRate;
+    const benefitDirection = view.perspective === 'enemy' ? diff : -diff;
+    const tone = benefitDirection > 0 ? 'is-positive' : benefitDirection < 0 ? 'is-negative' : 'is-neutral';
+    element.classList.add('is-compare');
+    element.innerHTML = `
+      <span>残HP ${escapeHtml(formatHpRate(rate))}</span>
+      <b class="${tone}">(${escapeHtml(`${diff > 0 ? '+' : ''}${diff.toFixed(1)}pt`)})</b>
+    `;
+  }
+
+  function calculateRemainingHpRate(hp, damage) {
+    const baseHp = Math.max(0, Number(hp) || 0);
+    if (!baseHp) return 0;
+    return clamp((baseHp - Math.max(0, Number(damage) || 0)) / baseHp * 100, 0, 100);
+  }
+
+  function formatHpRate(rate) {
+    return `${(Number(rate) || 0).toFixed(1)}%`;
   }
 
   function formatResultMetric(value, options = {}) {
@@ -3030,6 +3110,7 @@
           ['通常', formatNumber(result.normal)],
           ['会心', formatNumber(result.crit)],
           ['期待値', formatNumber(result.expected)],
+          ['防御側HP', formatNumber(result.hp)],
           ['会心率', `${(result.critRate * 100).toFixed(1)}%`],
           ['防御係数', `${(result.defRate * 100).toFixed(2)}%`]
         ]
@@ -3049,6 +3130,7 @@
       {
         title: '補正後ステータス',
         rows: [
+          ['防御側HP', formatNumber(stat.finalHp)],
           ['攻撃', formatNumber(stat.finalAtk)],
           ['防御', formatNumber(stat.finalDef)],
           ['会心', formatNumber(stat.finalCrit)],
@@ -3062,6 +3144,7 @@
       {
         title: '最終補正値',
         rows: [
+          ['防御側HP補正', formatSignedPercent(mods.hpP)],
           ['攻撃補正', formatSignedPercent(mods.attackP)],
           ['防御補正', formatSignedPercent(mods.defenseP)],
           createCapDetailRow('与ダメ補正', `${(mods.addRate * 100).toFixed(1)}%`, caps.addRate),
@@ -3133,6 +3216,8 @@
     const baseDef = isEnemyAttack ? readNumber(el.inputs.selfDef) : readNumber(el.inputs.def);
     const baseCritRes = isEnemyAttack ? readNumber(el.inputs.selfCritResBase) : readNumber(el.inputs.critRes);
     const baseCritDmgRes = isEnemyAttack ? readNumber(el.inputs.selfCritDmgResBase) : readNumber(el.inputs.critDmgRes);
+    const baseHp = isEnemyAttack ? readNumber(el.inputs.selfHp) : readNumber(el.inputs.enemyHp);
+    const hpP = isEnemyAttack ? getActiveHpBonusP(context) : 0;
     const attackP = attacker.atkP - attacker.atkDownP;
     const defenseP = defender.defP - defender.defDownP;
     const critP = attacker.critP;
@@ -3142,6 +3227,7 @@
     const finalAtk = baseAtk * (1 + attackP / 100);
     const finalCrit = baseCrit * (1 + attacker.critP / 100);
     const finalCritDmg = baseCritDmg * (1 + attacker.critDmgP / 100);
+    const finalHp = baseHp * (1 + hpP / 100);
     const finalDef = Math.max(1, baseDef * (1 + defenseP / 100));
     const finalCritRes = Math.max(1, baseCritRes * (1 + (defender.critResP - defender.critResDownP) / 100));
     const finalCritDmgRes = Math.max(1, baseCritDmgRes * (1 + (defender.critDmgResP - defender.critDmgResDownP) / 100));
@@ -3162,6 +3248,7 @@
     const crit = normal * critMult;
     const expected = normal * (1 - critRate) + crit * critRate;
     return {
+      hp: finalHp,
       normal,
       crit,
       expected,
@@ -3171,12 +3258,14 @@
       detail: {
         stats: {
           baseAtk,
+          baseHp,
           baseDef,
           baseCrit,
           baseCritDmg,
           baseCritRes,
           baseCritDmgRes,
           finalAtk,
+          finalHp,
           finalDef,
           finalCrit,
           finalCritDmg,
@@ -3186,6 +3275,7 @@
         },
         mods: {
           attackP,
+          hpP,
           defenseP,
           addRate,
           skillP: attacker.skill,
@@ -3206,6 +3296,17 @@
         }
       }
     };
+  }
+
+  function getActiveHpBonusP(context) {
+    const effects = context?.effects || {};
+    return [
+      ...(effects.applied || []),
+      ...(effects.globalStats || [])
+    ].reduce((total, item) => {
+      if (!isEffectSourceEnabled(item)) return total;
+      return total + (Number(item?.bonuses?.hpP) || 0);
+    }, 0);
   }
 
   function applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack) {
@@ -3420,16 +3521,32 @@
   }
 
   function syncApplyFloatUi() {
+    if (el.statMode) el.statMode.value = view.statMode;
+    el.statModeChoices.forEach(button => {
+      const active = button.dataset.fdcStatModeChoice === view.statMode;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     el.applyFloatInputs.forEach(input => {
       const key = input.dataset.fdcApplySource;
       input.checked = view.effectSources[key] !== false;
+    });
+    el.categorySourceInputs.forEach(input => {
+      const key = input.dataset.fdcCategorySource;
+      input.checked = view.effectSources[key] !== false;
+    });
+    el.resultDisplayInputs.forEach(input => {
+      const key = input.dataset.fdcResultDisplay;
+      input.checked = view.resultDisplays[key] !== false;
+    });
+    Object.values(el.result.hpRates || {}).forEach(element => {
+      if (element) element.hidden = view.resultDisplays.hp === false;
     });
     el.applyFloatDots.forEach(dot => {
       const key = dot.dataset.fdcApplyDot;
       dot.classList.toggle('is-on', view.effectSources[key] !== false);
       dot.classList.toggle('is-off', view.effectSources[key] === false);
     });
-    if (el.artifactEffectsToggle) el.artifactEffectsToggle.checked = view.effectSources.artifact !== false;
     const enabledCount = Object.values(view.effectSources).filter(Boolean).length;
     el.applyFloat?.classList.toggle('is-all-enabled', enabledCount === Object.keys(view.effectSources).length);
     el.applyFloat?.classList.toggle('is-all-disabled', enabledCount === 0);

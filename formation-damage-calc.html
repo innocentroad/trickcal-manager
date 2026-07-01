@@ -161,15 +161,21 @@
 
         <div class="stat-category">
           <h3>シナジー</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="synergy">
+              <input type="checkbox" data-fdc-category-source="synergy" checked>
+              <span>シナジー効果</span>
+            </label>
+          </div>
           <div id="fdc-synergy-category" class="fdc-synergy-category"></div>
         </div>
 
         <div class="stat-category">
           <h3>遺物カード</h3>
           <div class="fdc-category-actions">
-            <label class="fdc-inline-toggle">
-              <input type="checkbox" id="fdc-artifact-effects-toggle" checked>
-              <span>編成遺物効果</span>
+            <label class="fdc-inline-toggle" data-fdc-category-row="artifact">
+              <input type="checkbox" id="fdc-artifact-effects-toggle" data-fdc-category-source="artifact" checked>
+              <span>遺物効果</span>
             </label>
           </div>
           <div id="fdc-artifact-category" class="fdc-artifact-category"></div>
@@ -177,6 +183,12 @@
 
         <div class="stat-category">
           <h3>スペルカード</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="spell">
+              <input type="checkbox" data-fdc-category-source="spell" checked>
+              <span>スペル効果</span>
+            </label>
+          </div>
           <div id="fdc-spell-category" class="fdc-spell-category"></div>
         </div>
 
@@ -276,6 +288,12 @@
 
         <div class="stat-category">
           <h3>追加クレヨン (%)</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="globalStats">
+              <input type="checkbox" data-fdc-category-source="globalStats" checked>
+              <span>追加クレヨン</span>
+            </label>
+          </div>
           <div class="fdc-stat-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
               <span>HP(%)</span>
@@ -527,6 +545,10 @@
           <option value="current">現在</option>
           <option value="planned">予定</option>
         </select>
+        <span class="fdc-stat-mode-toggle" role="group" aria-label="ボード比較モード">
+          <button type="button" data-fdc-stat-mode-choice="current" aria-pressed="true">現在</button>
+          <button type="button" data-fdc-stat-mode-choice="planned" aria-pressed="false">予定</button>
+        </span>
       </label>
       <label class="fdc-apply-float-row" data-fdc-apply-row="synergy">
         <input type="checkbox" data-fdc-apply-source="synergy" checked>
@@ -543,6 +565,10 @@
       <label class="fdc-apply-float-row" data-fdc-apply-row="globalStats">
         <input type="checkbox" data-fdc-apply-source="globalStats" checked>
         <span>追加クレヨン</span>
+      </label>
+      <label class="fdc-apply-float-row fdc-apply-display-row" data-fdc-display-row="hp">
+        <input type="checkbox" data-fdc-result-display="hp" checked>
+        <span>HP表示</span>
       </label>
       <div class="fdc-apply-float-actions">
         <button type="button" data-fdc-apply-bulk="on">全ON</button>
@@ -572,14 +598,17 @@
       <div class="result-card result-normal">
         <span class="label">通常ダメージ</span>
         <span id="fdc-result-normal" class="value">0</span>
+        <span id="fdc-result-normal-hp" class="fdc-result-hp-rate"></span>
       </div>
       <div class="result-card result-expected highlight">
         <span class="label">期待値</span>
         <span id="fdc-result-expected" class="value">0</span>
+        <span id="fdc-result-expected-hp" class="fdc-result-hp-rate"></span>
       </div>
       <div class="result-card result-crit">
         <span class="label">会心ダメージ</span>
         <span id="fdc-result-crit" class="value">0</span>
+        <span id="fdc-result-crit-hp" class="fdc-result-hp-rate"></span>
       </div>
       <div class="result-card result-crit-rate">
         <span class="label">会心率</span>
