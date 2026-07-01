@@ -257,6 +257,7 @@
     boardModePlan: document.getElementById('board-mode-plan'),
     boardShortcutOffToggle: document.getElementById('board-shortcut-off-toggle'),
     boardDraftSummary: document.getElementById('board-draft-summary'),
+    boardFloatingSummary: document.getElementById('board-floating-summary'),
     boardSelectionSummary: document.getElementById('board-selection-summary'),
     boardSpecial: document.getElementById('board-special-list'),
     boardGrid: document.getElementById('board-grid')
@@ -865,6 +866,51 @@
       }
     });
 
+    elements.formationBoard?.addEventListener('dragstart', event => {
+      const slot = event.target.closest('[data-formation-apostle-row]');
+      if (!slot) return;
+      const rowIndex = Number(slot.dataset.formationApostleRow) || 0;
+      const lineIndex = Number(slot.dataset.formationLine) || 0;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', `${rowIndex}:${lineIndex}`);
+      elements.formationBoard.classList.add('is-dragging-apostle');
+      elements.formationBoard.dataset.dragFormationRow = String(rowIndex);
+      slot.classList.add('is-dragging');
+      elements.formationBoard.querySelectorAll(`[data-formation-apostle-row="${rowIndex}"]`).forEach(button => {
+        if (button !== slot) button.classList.add('is-drop-compatible');
+      });
+    });
+
+    elements.formationBoard?.addEventListener('dragover', event => {
+      const slot = event.target.closest('[data-formation-apostle-row]');
+      if (!slot) return;
+      const sourceRow = Number(elements.formationBoard.dataset.dragFormationRow);
+      const targetRow = Number(slot.dataset.formationApostleRow) || 0;
+      if (Number.isFinite(sourceRow) && sourceRow === targetRow) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        slot.classList.add('is-drop-target');
+      }
+    });
+
+    elements.formationBoard?.addEventListener('dragleave', event => {
+      const slot = event.target.closest('[data-formation-apostle-row]');
+      if (slot) slot.classList.remove('is-drop-target');
+    });
+
+    elements.formationBoard?.addEventListener('drop', event => {
+      const slot = event.target.closest('[data-formation-apostle-row]');
+      if (!slot) return;
+      event.preventDefault();
+      const [sourceRow, sourceLine] = String(event.dataTransfer.getData('text/plain') || '').split(':').map(Number);
+      const targetRow = Number(slot.dataset.formationApostleRow) || 0;
+      const targetLine = Number(slot.dataset.formationLine) || 0;
+      clearFormationDragState();
+      swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine);
+    });
+
+    elements.formationBoard?.addEventListener('dragend', clearFormationDragState);
+
     elements.formationCostSummary?.addEventListener('click', event => {
       const openButton = event.target.closest('[data-formation-coin-open]');
       if (openButton) {
@@ -1112,6 +1158,27 @@
       }
       saveState();
       render();
+    });
+
+    elements.boardFloatingSummary?.addEventListener('click', event => {
+      const shortcutModeButton = event.target.closest('[data-board-shortcut-off-toggle]');
+      if (shortcutModeButton) {
+        toggleBoardShortcutOffMode();
+        return;
+      }
+
+      const modeButton = event.target.closest('button[data-board-floating-mode]');
+      if (modeButton) {
+        switchBoardEditMode(modeButton.dataset.boardFloatingMode === 'plan' ? 'plan' : 'current');
+        return;
+      }
+
+      const actionButton = event.target.closest('button[data-board-floating-action]');
+      if (!actionButton || actionButton.disabled) return;
+      const action = actionButton.dataset.boardFloatingAction;
+      if (action === 'cancel') elements.cancelBoardDraft.click();
+      if (action === 'plan') elements.saveBoardPlan.click();
+      if (action === 'current') elements.confirmBoardDraft.click();
     });
 
     elements.equipment.addEventListener('change', event => {
@@ -4597,7 +4664,7 @@
     const attackIcon = basic?.攻撃タイプ ? `img/Attack_${basic.攻撃タイプ === '物理' ? 'phys' : 'mag'}.webp` : '';
     return `
       <div class="formation-line">
-        <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} personality-${escapeAttr(basic?.性格 || '')}" data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
+        <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} personality-${escapeAttr(basic?.性格 || '')}" data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="true" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
           ${basic ? '' : '<img class="formation-slot-bg" src="img/使徒bg.png" alt="">'}
           ${basic ? `<span class="formation-apostle-clip"><img data-apostle-image class="formation-apostle-img" src="${escapeAttr(getApostleImagePath(basic.id))}" alt="${escapeAttr(basic.使徒名 || basic.id)}"></span>` : '<span class="formation-empty-icon">?</span>'}
           ${basic?.性格 ? `<img class="formation-apostle-badge formation-personality-badge" src="img/性格_${escapeAttr(basic.性格)}.webp" alt="${escapeAttr(basic.性格)}" title="${escapeAttr(basic.性格)}">` : ''}
@@ -5042,6 +5109,31 @@
     saveState({ refreshSnapshots: false });
     renderFormation();
     elements.formationPickerDialog.close();
+  }
+
+  function swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine) {
+    if (![sourceRow, sourceLine, targetRow, targetLine].every(Number.isFinite)) return;
+    if (sourceRow !== targetRow || sourceLine === targetLine) return;
+    const formation = ensureFormationState();
+    const row = formation.rows[sourceRow];
+    if (!row) return;
+    const apostles = row.apostles || ['', '', ''];
+    const artifacts = row.artifacts || [[], [], []];
+    [apostles[sourceLine], apostles[targetLine]] = [apostles[targetLine] || '', apostles[sourceLine] || ''];
+    [artifacts[sourceLine], artifacts[targetLine]] = [artifacts[targetLine] || ['', '', ''], artifacts[sourceLine] || ['', '', '']];
+    row.apostles = apostles;
+    row.artifacts = artifacts;
+    saveState({ refreshSnapshots: false });
+    renderFormation();
+  }
+
+  function clearFormationDragState() {
+    if (!elements.formationBoard) return;
+    elements.formationBoard.classList.remove('is-dragging-apostle');
+    delete elements.formationBoard.dataset.dragFormationRow;
+    elements.formationBoard.querySelectorAll('.is-dragging, .is-drop-compatible, .is-drop-target').forEach(node => {
+      node.classList.remove('is-dragging', 'is-drop-compatible', 'is-drop-target');
+    });
   }
 
   function clearFormationRow(rowIndex) {
@@ -6102,6 +6194,7 @@
     elements.boardGrid.style.gridTemplateRows = `repeat(${maxX - minX + 1}, var(--board-cell-size))`;
     elements.boardGrid.innerHTML = nodes.join('');
     renderBoardDraftSummary(rows);
+    renderBoardFloatingSummary(rows);
     renderBoardSelectionSummary(rows);
   }
 
@@ -6271,6 +6364,10 @@
   }
 
   function renderBoardDraftSummary(rows) {
+    elements.boardDraftSummary.innerHTML = getBoardDraftSummarySections(rows).join('');
+  }
+
+  function getBoardDraftSummarySections(rows) {
     const sections = [];
     const state = currentApostleState();
     if (view.boardEditMode === 'plan' && hasSavedBoardPlan()) {
@@ -6285,7 +6382,54 @@
         sections.push(renderBoardChangeSection('編集中', '未保存', 'editing', summary));
       }
     }
-    elements.boardDraftSummary.innerHTML = sections.join('');
+    return sections;
+  }
+
+  function renderBoardFloatingSummary(rows) {
+    if (!elements.boardFloatingSummary) return;
+    const sections = getBoardDraftSummarySections(rows);
+    const draftChanged = hasBoardDraftChanges();
+    const canCancel = hasBoardDraft() || (view.boardEditMode === 'plan' && hasSavedBoardPlan());
+    const hasChanges = sections.length > 0;
+    elements.boardFloatingSummary.innerHTML = `
+      <div class="board-global-floating-host board-floating-host">
+        <div class="board-global-floating-dock board-floating-dock ${hasChanges ? 'has-changes' : 'is-empty'}">
+          <span class="board-global-floating-mode" aria-label="ボード編集モード">
+            <button type="button" class="${view.boardEditMode === 'current' ? 'is-active' : ''}" data-board-floating-mode="current">現在</button>
+            <button type="button" class="${view.boardEditMode === 'plan' ? 'is-active' : ''}" data-board-floating-mode="plan">予定</button>
+          </span>
+          <button type="button" class="board-shortcut-off-toggle board-global-shortcut-off-toggle ${view.boardShortcutOffMode === 'route' ? 'is-route' : ''}" data-board-shortcut-off-toggle>
+            ${view.boardShortcutOffMode === 'route' ? 'OFF時: 経路整理' : 'OFF時: マスのみ'}
+          </button>
+          <details class="board-global-floating-summary">
+            <summary title="変更内容">i</summary>
+            <div class="board-global-floating-panel">
+              ${hasChanges ? sections.join('') : '<p class="empty-note board-global-no-change">現在状態からの変更はありません。</p>'}
+            </div>
+          </details>
+          <details class="board-global-floating-save">
+            <summary title="保存・反映" aria-label="保存・反映">💾</summary>
+            <div class="board-global-floating-save-panel">
+              ${renderBoardFloatingActions({ draftChanged, canCancel })}
+            </div>
+          </details>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBoardFloatingActions({ draftChanged, canCancel }) {
+    const planMode = view.boardEditMode === 'plan';
+    const cancelDisabled = canCancel ? '' : ' disabled';
+    const saveDisabled = draftChanged ? '' : ' disabled';
+    const currentDisabled = !planMode && draftChanged ? '' : ' disabled';
+    return `
+      <div class="board-global-summary-actions board-global-summary-actions-floating" aria-label="ボード変更操作">
+        <button type="button" class="secondary" data-board-floating-action="cancel"${cancelDisabled}>${hasBoardDraft() ? '編集を取消' : '予定を削除'}</button>
+        <button type="button" class="plan" data-board-floating-action="plan"${saveDisabled}>${planMode ? '予定を保存' : (hasSavedBoardPlan() ? '予定に追加保存' : '予定として保存')}</button>
+        ${planMode ? '' : `<button type="button" class="primary" data-board-floating-action="current"${currentDisabled}>現在状態に反映</button>`}
+      </div>
+    `;
   }
 
   function collectBoardChangeSummary(rows, targetBoards, baselineBoards = currentApostleState().boards) {

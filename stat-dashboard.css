@@ -4900,6 +4900,28 @@
   pointer-events: none;
 }
 
+.formation-board.is-dragging-apostle .formation-apostle-slot {
+  cursor: grabbing;
+}
+
+.formation-apostle-slot.is-dragging {
+  opacity: 0.46;
+  transform: scale(0.96);
+}
+
+.formation-apostle-slot.is-drop-compatible {
+  outline: 2px dashed color-mix(in srgb, var(--formation-personality-color, var(--green)) 72%, white);
+  outline-offset: 3px;
+}
+
+.formation-apostle-slot.is-drop-target {
+  outline-style: solid;
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--formation-personality-color, var(--green)) 28%, transparent),
+    0 8px 18px rgba(34, 45, 36, 0.18);
+  transform: translateY(-1px) scale(1.03);
+}
+
 .formation-apostle-slot.personality-純粋 { --formation-personality-color: var(--personality-pure); }
 .formation-apostle-slot.personality-冷静 { --formation-personality-color: var(--personality-calm); }
 .formation-apostle-slot.personality-狂気 { --formation-personality-color: var(--personality-madness); }

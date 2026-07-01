@@ -1324,7 +1324,14 @@
       bindFdcSkillLevelControls(target);
       return;
     }
-    const current = readNumber(el.inputs.selfSkill);
+    let current = readNumber(el.inputs.selfSkill);
+    const selectedOption = view.selectedSkillCategory
+      ? options.find(option => option.category === view.selectedSkillCategory)
+      : null;
+    if (selectedOption && el.inputs.selfSkill) {
+      current = Number(selectedOption.value) || current;
+      el.inputs.selfSkill.value = String(selectedOption.value);
+    }
     el.selfSkillChoices.innerHTML = `
       ${renderFdcSkillLevelControls(target, levelConfig)}
       <div class="fdc-skill-choice-header">
@@ -3208,6 +3215,7 @@
     const isEnemyAttack = view.perspective === 'enemy';
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
+    if (!isEnemyAttack) attacker.skill = resolveSelectedSelfSkillMultiplier(context, attacker.skill);
     attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
     applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack);
     const baseAtk = isEnemyAttack ? readNumber(el.inputs.enemyAtk) : readNumber(el.inputs.atk);
@@ -3367,6 +3375,14 @@
       critDmgAddP: 0,
       atkDownP: readNumber(el.inputs.selfAttackerDmgDownP)
     };
+  }
+
+  function resolveSelectedSelfSkillMultiplier(context, fallbackValue) {
+    if (!view.selectedSkillCategory || !context?.target) return fallbackValue;
+    const options = buildFdcApostleSkillOptions(context.target, context);
+    const option = options.find(item => item.category === view.selectedSkillCategory);
+    const value = Number(option?.value);
+    return Number.isFinite(value) ? value : fallbackValue;
   }
 
   function getDebuffDamageP(side) {
@@ -4490,27 +4506,48 @@
         if (!isFdcApostleAttackMultiplierEffect(effect)) return;
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
         if (!levelInfo || !Number.isFinite(levelInfo.value)) return;
+        const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) : null;
+        const calcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
         const kind = effect.valueKind || 'ダメージ';
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
-          value: String(levelInfo.value),
-          label: `${category} / ${kind} (${formatPlainNumber(levelInfo.value)}%)`,
+          value: String(calcValue),
+          label: `${category} / ${kind} (${formatPlainNumber(calcValue)}%)`,
           category,
           sourceLabel,
           skillName: skill.skillName || skill.name || '',
           kind,
-          shortDetail: levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}` : '',
+          shortDetail: levelInfo.isRange
+            ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}`
+            : '',
           detailText: [
             skill.skillName || skill.name || '',
             detailText,
-            levelInfo.isRange ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: 平均 ${formatPlainNumber(levelInfo.value)}%` : ''
+            levelInfo.isRange
+              ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
+              : ''
           ].filter(Boolean).join('\n'),
           order: getFdcApostleSkillOrder(category)
         });
       });
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) {
+    const categoryText = String(category || '');
+    return Object.entries(apostle?.aside?.levels || {}).reduce((found, [level, data]) => {
+      if (found || !data || Number(level) > Number(levels.asideRank || 0)) return found;
+      const effect = normalizeFdcArray(data.effects).find(item => {
+        const valueKind = String(item?.valueKind || '');
+        if (!/乱数最大固定/.test(valueKind)) return false;
+        const targetSkill = String(item?.targetSkill || '');
+        if (!targetSkill) return true;
+        return targetSkill.includes(categoryText) || categoryText.includes(targetSkill) || (/高学年/.test(targetSkill) && /高学年/.test(categoryText));
+      });
+      return effect ? { sourceLabel: `A${level}`, effect, data } : null;
+    }, null);
   }
 
   function collectFdcApostleSkillSources(apostle, levels, target, context) {
