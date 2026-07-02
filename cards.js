@@ -1358,6 +1358,71 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "relic_barong_cursed_doll",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "バロンの呪いのぬいぐるみ",
+            "signature": true,
+            "favoriteCharacter": "バロン",
+            "cost": 24,
+            "bonusesByStar": [
+                {
+                    "atkP": 19.3,
+                    "defP": 19.3
+                },
+                {
+                    "atkP": 24.1,
+                    "defP": 24.1
+                },
+                {
+                    "atkP": 28.9,
+                    "defP": 28.9
+                },
+                {
+                    "atkP": 33.7,
+                    "defP": 33.7
+                },
+                {
+                    "atkP": 38.5,
+                    "defP": 38.5
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "target_debuff_enhanced_attack_damage",
+                    "type": "toggle",
+                    "label": "着用者が敵に状態異常を付与した時 強化攻撃 与ダメージ増加",
+                    "shortLabel": "強化攻撃 与ダメージ増加",
+                    "nonStacking": true,
+                    "description": "自分 / 持続:6 / 倍率",
+                    "descriptionByStar": [
+                        "与ダメージ増加50% (着用者が敵に状態異常を付与した時 / 自分)",
+                        "与ダメージ増加56.5% (着用者が敵に状態異常を付与した時 / 自分)",
+                        "与ダメージ増加63% (着用者が敵に状態異常を付与した時 / 自分)",
+                        "与ダメージ増加69.5% (着用者が敵に状態異常を付与した時 / 自分)",
+                        "与ダメージ増加76% (着用者が敵に状態異常を付与した時 / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "addP": 50
+                        },
+                        {
+                            "addP": 56.5
+                        },
+                        {
+                            "addP": 63
+                        },
+                        {
+                            "addP": 69.5
+                        },
+                        {
+                            "addP": 76
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "relic_dragon_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -3159,7 +3224,7 @@ const CARD_LIBRARY = {
                     "description": "敵全体 / 持続:星で変動 / 状態付与"
                 },
                 {
-                    "id": "duration",
+                    "id": "suspicious_poisonDuration",
                     "type": "toggle",
                     "label": "ウェーブ開始時 毒持続時間",
                     "shortLabel": "毒持続時間",
@@ -4676,6 +4741,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "atkP": 7.5,
             "critDmgP": 4
+        }
+    },
+    "relic_barong_cursed_doll": {
+        "1": {
+            "atkP": 4.8,
+            "defP": 4.8
+        },
+        "2": {
+            "atkP": 9.6,
+            "defP": 9.6
         }
     },
     "relic_dragon_sword": {

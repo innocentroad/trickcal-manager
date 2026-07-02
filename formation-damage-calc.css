@@ -986,6 +986,41 @@ body.theme-light .fdc-formation-loader select {
   margin-right: 0;
 }
 
+.fdc-target-grade-icons .grade-icon-set {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.fdc-target-grade-icons .grade-icon-set.is-grade-max {
+  filter:
+    drop-shadow(0 0 2px rgba(255, 183, 252, 0.92))
+    drop-shadow(0 0 5px rgba(190, 134, 255, 0.46));
+}
+
+.fdc-target-grade-icons .grade-icon-set.is-grade-max::before {
+  content: '';
+  position: absolute;
+  inset: -2px -3px;
+  z-index: 1;
+  border-radius: 8px;
+  background: radial-gradient(circle, rgba(255, 183, 252, 0.36), rgba(190, 134, 255, 0.22) 46%, transparent 76%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.fdc-target-grade-icons .grade-icon-set.is-grade-max img {
+  position: relative;
+  z-index: 0;
+}
+
+.fdc-target-grade-icons .grade-icon-set.is-grade-max img {
+  filter: brightness(1.1) saturate(1.16);
+}
+
 .fdc-formation-picker {
   margin: -0.35rem 0 0.85rem;
   border: 1px solid var(--fdc-border);

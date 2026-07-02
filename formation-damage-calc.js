@@ -1160,7 +1160,7 @@
   function renderGradeIcons(grade) {
     const safeGrade = Math.max(1, Math.min(6, Number(grade) || 1));
     const icon = safeGrade >= 6 ? '学年_2.webp' : '学年_1.webp';
-    return Array.from({ length: safeGrade }, () => `<img src="img/${escapeAttr(icon)}" alt="">`).join('');
+    return `<span class="grade-icon-set ${safeGrade >= 6 ? 'is-grade-max' : ''}">${Array.from({ length: safeGrade }, () => `<img src="img/${escapeAttr(icon)}" alt="">`).join('')}</span>`;
   }
 
   function renderFormationPicker(context) {

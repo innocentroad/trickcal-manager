@@ -1179,6 +1179,7 @@
       if (action === 'cancel') elements.cancelBoardDraft.click();
       if (action === 'plan') elements.saveBoardPlan.click();
       if (action === 'current') elements.confirmBoardDraft.click();
+      if (action === 'apply-plan-current') applyDisplayedBoardPlanToCurrent();
     });
 
     elements.equipment.addEventListener('change', event => {
@@ -2486,7 +2487,7 @@
   function renderGradeIcons(value) {
     const grade = normalizeGrade(value);
     const image = grade >= 6 ? '学年_2.webp' : '学年_1.webp';
-    return Array.from({ length: grade }, () => `<img src="img/${image}" alt="">`).join('');
+    return `<span class="grade-icon-set ${grade >= 6 ? 'is-grade-max' : ''}">${Array.from({ length: grade }, () => `<img src="img/${image}" alt="">`).join('')}</span>`;
   }
 
   function renderProfileMiniSelect(label, field, value, options) {
@@ -5886,6 +5887,26 @@
     saveState();
   }
 
+  function applyDisplayedGlobalBoardPlansToCurrent() {
+    const changedIds = DATA.sheets.basicInfo
+      .map(basic => basic.id)
+      .filter(id => hasBoardSnapshotDiff(ensureApostleState(id).boards || {}, getGlobalBoardDisplayBoards(id) || {}));
+    if (!changedIds.length) return;
+    const draftCount = Object.values(globalBoardDrafts).filter(draft => draft?.mode === 'plan').length;
+    const draftNote = draftCount ? `\n予定モードで編集中の${draftCount}使徒分も現在に反映します。` : '';
+    if (!window.confirm(`${changedIds.length}使徒分の予定ボードを現在状態に反映しますか？\n反映後、対象使徒の保存予定は削除されます。${draftNote}`)) return;
+
+    changedIds.forEach(id => {
+      const state = ensureApostleState(id);
+      state.boards = cloneJson(getGlobalBoardDisplayBoards(id) || state.boards || {});
+      delete state.plannedBoards;
+      delete state.plannedBoardShortcutTargets;
+      delete globalBoardDrafts[id];
+    });
+    if (boardDraft && changedIds.includes(boardDraft.apostleId)) boardDraft = null;
+    saveState();
+  }
+
   function handleBoardGlobalAction(action) {
     if (action === 'cancel') {
       globalBoardDrafts = {};
@@ -5899,6 +5920,11 @@
     }
     if (action === 'current') {
       applyGlobalBoardDrafts('current');
+      render();
+      return;
+    }
+    if (action === 'apply-plan-current') {
+      applyDisplayedGlobalBoardPlansToCurrent();
       render();
     }
   }
@@ -6007,7 +6033,9 @@
       <div class="board-global-summary-actions board-global-summary-actions-${escapeAttr(placement)}" aria-label="全体ボード変更操作">
         <button type="button" class="secondary" data-board-global-summary-action="cancel"${disabledAttr}>変更を取消</button>
         <button type="button" class="plan" data-board-global-summary-action="plan"${disabledAttr}>${planMode ? '予定を保存' : '予定として保存'}</button>
-        ${planMode ? '' : `<button type="button" class="primary" data-board-global-summary-action="current"${disabledAttr}>現在状態に反映</button>`}
+        ${planMode
+          ? `<button type="button" class="primary" data-board-global-summary-action="apply-plan-current"${disabledAttr}>予定を現在に反映</button>`
+          : `<button type="button" class="primary" data-board-global-summary-action="current"${disabledAttr}>現在状態に反映</button>`}
       </div>
     `;
   }
@@ -6423,11 +6451,14 @@
     const cancelDisabled = canCancel ? '' : ' disabled';
     const saveDisabled = draftChanged ? '' : ' disabled';
     const currentDisabled = !planMode && draftChanged ? '' : ' disabled';
+    const applyPlanDisabled = planMode && (draftChanged || hasSavedBoardPlan()) ? '' : ' disabled';
     return `
       <div class="board-global-summary-actions board-global-summary-actions-floating" aria-label="ボード変更操作">
         <button type="button" class="secondary" data-board-floating-action="cancel"${cancelDisabled}>${hasBoardDraft() ? '編集を取消' : '予定を削除'}</button>
         <button type="button" class="plan" data-board-floating-action="plan"${saveDisabled}>${planMode ? '予定を保存' : (hasSavedBoardPlan() ? '予定に追加保存' : '予定として保存')}</button>
-        ${planMode ? '' : `<button type="button" class="primary" data-board-floating-action="current"${currentDisabled}>現在状態に反映</button>`}
+        ${planMode
+          ? `<button type="button" class="primary" data-board-floating-action="apply-plan-current"${applyPlanDisabled}>予定を現在に反映</button>`
+          : `<button type="button" class="primary" data-board-floating-action="current"${currentDisabled}>現在状態に反映</button>`}
       </div>
     `;
   }
@@ -6486,11 +6517,70 @@
           <span>追加 ${summary.added}マス${summary.removed ? ` / 解除 ${summary.removed}マス` : ''}</span>
       </div>
       <div class="summary-table-grid">
-          ${renderBoardDraftCostTable(summary.costs)}
-          ${renderBoardDraftEffectTable(summary.effectGroups)}
+          ${renderBoardDraftCostSummary(summary.costs)}
+          ${renderBoardDraftEffectMatrix(summary.effectGroups)}
       </div>
       </section>
     `;
+  }
+
+  function renderBoardDraftCostSummary(costs) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const apostleName = basic?.使徒名 || view.id;
+    const normalized = {
+      gold: costs.gold,
+      lower: costs.lower,
+      middle: costs.middle,
+      upper: costs.upper,
+      special: costs.special,
+      sharedToken: costs.sharedToken,
+      apostleToken: costs.apostleToken
+    };
+    const html = renderGlobalBoardCostSummary(normalized);
+    if (!costs.apostleToken) return html;
+    return html.replace('title="使徒証"', `title="使徒証（${escapeAttr(apostleName)}）"`);
+  }
+
+  function renderBoardDraftEffectMatrix(effectGroups) {
+    const lower = createEmptyTotals();
+    const advanced = createEmptyTotals();
+    const special = createEmptyTotals();
+    addBoardEffectGroupToTotals(lower, effectGroups.lower);
+    addBoardEffectGroupToTotals(advanced, effectGroups.advanced);
+    addBoardEffectGroupToTotals(special, effectGroups.special);
+    const hasChange = BOARD_GLOBAL_STAT_GROUPS.some(group =>
+      group.stats.some(key => (Number(lower[key]) || 0) || (Number(advanced[key]) || 0) || (Number(special[key]) || 0))
+    );
+    if (!hasChange) return '<p class="empty-note board-global-cost-empty">ステータス変更なし</p>';
+    return `
+      <table class="board-global-stat-matrix board-global-change-matrix board-draft-change-matrix">
+        <thead>
+          <tr>
+            <th>差分</th>
+            <th title="通常マス"><img src="img/Board/Tileicon_1.webp" alt="通常"></th>
+            <th title="上級マス"><img src="img/Board/Tileicon_2.webp" alt="上級"></th>
+            <th title="特殊マス"><img src="img/Board/Tileicon_3.webp" alt="特殊"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
+            <tr>
+              <th title="${escapeAttr(group.label)}"><img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}"></th>
+              <td>${renderSignedBoardGlobalGroupedValue(lower, group, '')}</td>
+              <td>${renderSignedBoardGlobalGroupedValue(advanced, group, '')}</td>
+              <td>${renderSignedBoardGlobalGroupedValue(special, group, '%')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function addBoardEffectGroupToTotals(totals, group) {
+    if (!group) return;
+    Array.from(group.entries()).forEach(([type, value]) => {
+      addNamedStat(totals, type, Number(value) || 0);
+    });
   }
 
   function renderBoardDraftCostTable(costs) {
@@ -7332,6 +7422,27 @@
   function restoreSavedBoardPlan() {
     boardDraft = null;
     view.boardEditMode = 'current';
+  }
+
+  function applyDisplayedBoardPlanToCurrent() {
+    if (view.boardEditMode !== 'plan') return;
+    const state = currentApostleState();
+    const targetBoards = hasBoardDraft()
+      ? boardDraft.boards
+      : state.plannedBoards;
+    if (!targetBoards || !hasBoardSnapshotDiff(state.boards || {}, targetBoards || {})) return;
+    const basic = DATA.getById('basicInfo', view.id);
+    const name = basic?.使徒名 || view.id;
+    const editingNote = hasBoardDraft() ? '\n予定モードで編集中の内容も現在に反映します。' : '';
+    if (!window.confirm(`${name}の予定ボードを現在状態に反映しますか？\n反映後、この使徒の保存予定は削除されます。${editingNote}`)) return;
+
+    state.boards = cloneJson(targetBoards);
+    delete state.plannedBoards;
+    delete state.plannedBoardShortcutTargets;
+    boardDraft = null;
+    delete globalBoardDrafts[view.id];
+    saveState();
+    render();
   }
 
   function hasBoardDraft() {

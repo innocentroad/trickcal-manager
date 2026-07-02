@@ -851,6 +851,42 @@
   background: rgba(255, 147, 69, 0.16);
 }
 
+.grade-icon-set {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+
+.grade-icon-set.is-grade-max {
+  filter:
+    drop-shadow(0 0 2px rgba(255, 183, 252, 0.92))
+    drop-shadow(0 0 5px rgba(190, 134, 255, 0.46));
+}
+
+.grade-icon-set.is-grade-max::before {
+  content: '';
+  position: absolute;
+  inset: -2px -3px;
+  z-index: 1;
+  border-radius: 8px;
+  background:
+    radial-gradient(circle, rgba(255, 183, 252, 0.36), rgba(190, 134, 255, 0.22) 46%, transparent 76%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.grade-icon-set.is-grade-max img {
+  position: relative;
+  z-index: 0;
+}
+
+.grade-icon-set.is-grade-max img {
+  filter: brightness(1.1) saturate(1.16);
+}
+
 .profile-skill-levels {
   display: inline-flex;
   align-items: center;
@@ -7151,6 +7187,95 @@
   color: var(--ink);
   border-color: rgba(148, 163, 184, 0.18);
   background: rgba(15, 23, 42, 0.9);
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .summary-table-grid,
+:root[data-theme="dark"] .board-global-floating-panel .rank-summary-tables {
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-change-section {
+  color: rgba(238, 247, 242, 0.94);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  background: rgba(7, 12, 18, 0.34) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-head {
+  color: #bbf7d0;
+  border-color: rgba(74, 222, 128, 0.14);
+  background: rgba(34, 197, 94, 0.12) !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-title strong {
+  color: #f8fafc;
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-plan-saved,
+:root[data-theme="dark"] .board-global-floating-panel .board-plan-unsaved {
+  color: #e0f2fe;
+  border-color: rgba(125, 211, 252, 0.22);
+  background: rgba(14, 116, 144, 0.18) !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-cost-summary {
+  color: rgba(226, 232, 240, 0.92);
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(8, 13, 24, 0.48);
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-cost-chip {
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.2);
+  background: rgba(30, 41, 59, 0.76);
+  box-shadow: none;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-cost-chip strong {
+  color: #bbf7d0;
+  background: transparent !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-cost-chip.is-negative strong {
+  color: #fecaca;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-change-matrix,
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-change-matrix {
+  --board-global-layer-border: rgba(148, 163, 184, 0.22);
+  --board-global-layer-bg: rgba(8, 13, 24, 0.52);
+  --board-global-layer-label-bg: rgba(51, 65, 85, 0.84);
+  --board-global-layer-text: rgba(226, 232, 240, 0.94);
+  color: rgba(226, 232, 240, 0.92);
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  background-color: rgba(8, 13, 24, 0.52) !important;
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 44%) !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-change-matrix thead th,
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-change-matrix thead th {
+  color: #f8fafc !important;
+  background: rgba(51, 65, 85, 0.86) !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-change-matrix tbody th,
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-change-matrix tbody th {
+  color: #c4b5fd;
+  background: rgba(15, 23, 42, 0.28) !important;
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-change-matrix td,
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-change-matrix td {
+  color: rgba(241, 245, 249, 0.92);
+  background: rgba(15, 23, 42, 0.18);
+}
+
+:root[data-theme="dark"] .board-global-floating-panel .board-global-change-matrix td strong,
+:root[data-theme="dark"] .board-global-floating-panel .board-draft-change-matrix td strong {
+  color: #fde68a;
+  background: transparent !important;
 }
 
 :root[data-theme="dark"] .board-global-floating-mode {

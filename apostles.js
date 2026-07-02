@@ -904,6 +904,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[赤カード]魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "condition": "赤カード時",
                 "effectTarget": "敵",
                 "fixedValue": 300.0
               },
@@ -911,6 +912,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[赤カード]与ダメージ減少",
                 "valueClass": "倍率",
                 "effectType": "デバフ",
+                "condition": "赤カード時",
                 "effectTarget": "敵",
                 "fixedValue": 30.0
               },
@@ -918,6 +920,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[赤カード]与ダメージ減少",
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
+                "condition": "赤カード時",
                 "effectTarget": "敵",
                 "fixedValue": 5.0
               },
@@ -925,6 +928,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[黄カード]魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "condition": "黄カード時",
                 "effectTarget": "敵",
                 "fixedValue": 300.0
               },
@@ -932,12 +936,14 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[黄カード]気絶",
                 "valueClass": "状態付与",
                 "effectType": "デバフ",
+                "condition": "黄カード時",
                 "effectTarget": "敵"
               },
               {
                 "valueKind": "[黄カード]気絶",
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
+                "condition": "黄カード時",
                 "effectTarget": "敵",
                 "fixedValue": 3.0
               },
@@ -945,6 +951,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[青カード]魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "condition": "青カード時",
                 "effectTarget": "敵",
                 "fixedValue": 300.0
               },
@@ -952,6 +959,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "[青カード]SP減少",
                 "valueClass": "固定値",
                 "effectType": "デバフ",
+                "condition": "青カード時",
                 "effectTarget": "敵",
                 "fixedValue": 50.0
               }
@@ -3318,7 +3326,6 @@ const APOSTLE_LIBRARY = [
                 "effectType": "バフ",
                 "condition": "エピカ編成時かつ味方戦闘不能時",
                 "effectTarget": "味方全員",
-                "reference": "味方の使徒が戦闘不能",
                 "fixedValue": 15.0
               },
               {
@@ -3327,7 +3334,6 @@ const APOSTLE_LIBRARY = [
                 "effectType": "バフ",
                 "condition": "エピカ編成時かつ味方戦闘不能時",
                 "effectTarget": "味方全員",
-                "reference": "味方の使徒が戦闘不能",
                 "fixedValue": 10.0
               }
             ],
@@ -3342,16 +3348,16 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "condition": "エピカ編成時かつウェーブ開始時",
                 "effectTarget": "自身",
-                "reference": "ウェーブ開始時",
                 "fixedValue": 50.0
               },
               {
                 "valueKind": "攻撃速度増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "condition": "エピカ編成時かつウェーブ開始時",
                 "effectTarget": "自身",
-                "reference": "ウェーブ開始時",
                 "fixedValue": 15.0
               }
             ],
@@ -5293,7 +5299,10 @@ const APOSTLE_LIBRARY = [
               "9": 11.2,
               "10": 11.6,
               "11": 12.0,
-              "12": 12.4
+              "12": 12.4,
+              "13": 12.8,
+              "14": 13.2,
+              "15": 13.6
             }
           },
           {
@@ -5315,7 +5324,10 @@ const APOSTLE_LIBRARY = [
               "9": 72.0,
               "10": 76.0,
               "11": 80.0,
-              "12": 84.0
+              "12": 84.0,
+              "13": 88,
+              "14": 92,
+              "15": 96
             }
           },
           {
@@ -5381,7 +5393,10 @@ const APOSTLE_LIBRARY = [
               "9": 288.0,
               "10": 304.0,
               "11": 320.0,
-              "12": 336.0
+              "12": 336.0,
+              "13": 352,
+              "14": 368,
+              "15": 384
             }
           },
           {
@@ -5415,7 +5430,10 @@ const APOSTLE_LIBRARY = [
               "9": 40.0,
               "10": 42.0,
               "11": 44.0,
-              "12": 46.0
+              "12": 46.0,
+              "13": 48,
+              "14": 50,
+              "15": 52
             }
           }
         ],
@@ -6737,7 +6755,10 @@ const APOSTLE_LIBRARY = [
               "9": 320.0,
               "10": 335.0,
               "11": 350.0,
-              "12": 365.0
+              "12": 365.0,
+              "13": 380,
+              "14": 395,
+              "15": 410
             }
           },
           {
@@ -6786,7 +6807,10 @@ const APOSTLE_LIBRARY = [
               "9": 320.0,
               "10": 335.0,
               "11": 350.0,
-              "12": 365.0
+              "12": 365.0,
+              "13": 380,
+              "14": 395,
+              "15": 410
             }
           },
           {
@@ -6837,7 +6861,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56,
+              "14": 59,
+              "15": 62
             }
           },
           {
@@ -10819,6 +10846,504 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "barong",
+    "name": "バロン",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "冷静",
+      "race": "幽霊",
+      "role": "攻撃",
+      "position": "前列",
+      "attackType": "魔法",
+      "initialSp": 180.0,
+      "spRecoveryPerSecond": 40.0
+    },
+    "statTypes": {
+      "hp": 4.0,
+      "atkP": 0.0,
+      "atkM": 4.0,
+      "defP": 3.0,
+      "defM": 3.0,
+      "crit": 4.0,
+      "critDmg": 4.0,
+      "critRes": 2.0,
+      "critDmgRes": 2.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "levels": {
+              "1": 300.0,
+              "2": 330.0,
+              "3": 360.0,
+              "4": 390.0,
+              "5": 420.0,
+              "6": 450.0,
+              "7": 480.0,
+              "8": 510.0,
+              "9": 540.0,
+              "10": 570.0,
+              "11": 600.0,
+              "12": 630.0,
+              "13": 660.0,
+              "14": 690.0,
+              "15": 720.0
+            }
+          },
+          {
+            "valueKind": "呪い",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "呪い",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "敵",
+            "fixedValue": 15.0
+          },
+          {
+            "valueKind": "沈黙",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "condition": "スキル発動後",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "沈黙",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "condition": "スキル発動後",
+            "effectTarget": "敵",
+            "fixedValue": 10.0
+          }
+        ],
+        "skillType": "低学年",
+        "skillName": "陰口人形",
+        "description": "最も後ろにいる敵に突進し、魔法ダメージを与え呪いを付与する。\nスキル発動後、一定時間敵に沈黙を付与する。\n敵が3体以上いる場合、攻撃していない敵を優先的に攻撃する。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 600.0,
+              "2": 630.0,
+              "3": 660.0,
+              "4": 690.0,
+              "5": 720.0,
+              "6": 750.0,
+              "7": 780.0,
+              "8": 810.0,
+              "9": 840.0,
+              "10": 870.0,
+              "11": 900.0,
+              "12": 930.0,
+              "13": 960.0,
+              "14": 990.0,
+              "15": 1020.0
+            }
+          },
+          {
+            "valueKind": "呪い",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "呪い",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "敵",
+            "fixedValue": 15.0
+          },
+          {
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 25.0
+          },
+          {
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 8.0
+          }
+        ],
+        "skillType": "高学年",
+        "skillName": "鬼火呼び",
+        "description": "自身を中心に周囲の敵へ範囲魔法ダメージを与え、呪いを付与する。\n一定時間、自身の被ダメージが減少する。",
+        "cooldownSeconds": 40.0
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "シールド",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "reference": "最大HP",
+            "levels": {
+              "1": 35.0,
+              "2": 38.0,
+              "3": 41.0,
+              "4": 44.0,
+              "5": 47.0,
+              "6": 50.0,
+              "7": 53.0,
+              "8": 56.0,
+              "9": 59.0,
+              "10": 62.0,
+              "11": 65.0,
+              "12": 68.0,
+              "13": 71.0,
+              "14": 74.0,
+              "15": 77.0
+            }
+          },
+          {
+            "valueKind": "シールド",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
+          },
+          {
+            "valueKind": "攻撃速度増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 30.0,
+              "2": 33.0,
+              "3": 36.0,
+              "4": 39.0,
+              "5": 42.0,
+              "6": 45.0,
+              "7": 48.0,
+              "8": 51.0,
+              "9": 54.0,
+              "10": 57.0,
+              "11": 60.0,
+              "12": 63.0,
+              "13": 66.0,
+              "14": 69.0,
+              "15": 72.0
+            }
+          },
+          {
+            "valueKind": "攻撃速度増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
+          }
+        ],
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "ウェーブ開始時に一定時間、自身にシールドを生成する。\n低学年スキル使用後、一定時間自身の攻撃速度が増加する。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 120.0
+          }
+        ],
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "釘で突き刺し、敵に魔法ダメージを2回与える。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 360.0
+          },
+          {
+            "valueKind": "目くらまし",
+            "valueClass": "状態付与",
+            "effectType": "バフ",
+            "condition": "強化攻撃時",
+            "effectTarget": "自身"
+          },
+          {
+            "valueKind": "目くらまし",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "強化攻撃時",
+            "effectTarget": "自身",
+            "fixedValue": 8.0
+          },
+          {
+            "valueKind": "強化攻撃化",
+            "valueClass": "スキル変更",
+            "effectType": "バフ",
+            "condition": "呪い状態の敵が存在する場合",
+            "effectTarget": "自身",
+            "reference": "普通攻撃"
+          }
+        ],
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "釘を飛ばして敵に魔法ダメージを2回与え、自身に目くらましを付与する。\n呪い状態の敵が存在する間、バロンの基本攻撃が強化攻撃に変わる。"
+      }
+    ],
+    "favoriteCard": {
+      "name": "バロンの呪いのぬいぐるみ",
+      "kind": "遺物",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "valueKind": "総魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "effectTarget": "敵",
+                "fixedValue": 660.0
+              },
+              {
+                "valueKind": "攻撃速度減少",
+                "valueClass": "状態付与",
+                "effectType": "デバフ",
+                "effectTarget": "敵",
+                "fixedValue": 30.0
+              },
+              {
+                "valueKind": "攻撃速度減少",
+                "valueClass": "持続時間",
+                "effectType": "デバフ",
+                "effectTarget": "敵",
+                "fixedValue": 5.0
+              },
+              {
+                "valueKind": "目くらまし",
+                "valueClass": "状態付与",
+                "effectType": "バフ",
+                "condition": "強化攻撃時",
+                "effectTarget": "自身"
+              },
+              {
+                "valueKind": "目くらまし",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "condition": "強化攻撃時",
+                "effectTarget": "自身",
+                "fixedValue": 8.0
+              },
+              {
+                "valueKind": "強化攻撃化",
+                "valueClass": "スキル変更",
+                "effectType": "バフ",
+                "condition": "呪い状態の敵が存在する場合",
+                "effectTarget": "自身",
+                "reference": "普通攻撃"
+              }
+            ],
+            "targetSkill": "普通攻撃_強化",
+            "description": "釘を飛ばして敵に3回魔法ダメージを与え、攻撃速度を減少させる。自身には目くらましを付与する。\n呪い状態の敵が存在する場合、基本攻撃の代わりに強化攻撃を発動する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "valueKind": "魔法攻撃力増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              }
+            ],
+            "skillName": "愛用Lv3",
+            "description": "バロンの魔法攻撃力、会心、会心ダメージが増加する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "愛され幽霊バロン",
+      "levels": {
+        "1": {
+          "name": "みんなの愛されキャラ",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "魔法攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "ご主人様の時間だ",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "低学年スキルで突進中",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 40.0
+            },
+            {
+              "valueKind": "不吉な霧生成",
+              "valueClass": "持続時間",
+              "effectType": "召喚",
+              "effectTarget": "不吉な霧",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 10.0
+            },
+            {
+              "valueKind": "呪い",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "不吉な霧の中にいる時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "valueKind": "呪い",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "不吉な霧の中にいる時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 6.0
+            },
+            {
+              "valueKind": "毒",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "valueKind": "毒",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "reference": "最大HP",
+              "fixedValue": 15.0
+            },
+            {
+              "valueKind": "気絶",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "ウェーブの初回低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "valueKind": "気絶",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "ウェーブの初回低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 3.0
+            }
+          ],
+          "description": "低学年スキルの目標対象に向かって突進する際、被ダメージ量が減少し、足跡に沿って不吉な霧を生成する。\n不吉な霧の中にいる敵に一定時間ごとに呪いを付与する。\n低学年スキル命中時、敵に毒を付与し、自身のHPを回復させる。\nウェーブごとに最初の低学年スキル命中時、敵に気絶を付与する。"
+        },
+        "3": {
+          "name": "新たなクジラ",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "物理防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/前列",
+              "fixedValue": 13.6
+            },
+            {
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/前列",
+              "fixedValue": 5.9
+            }
+          ],
+          "description": "前列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "picora",
     "name": "ピコラ",
     "basic": {
@@ -10863,7 +11388,10 @@ const APOSTLE_LIBRARY = [
               "9": 1080.0,
               "10": 1140.0,
               "11": 1200.0,
-              "12": 1260.0
+              "12": 1260.0,
+              "13": 1320,
+              "14": 1380,
+              "15": 1440
             }
           },
           {
@@ -10884,7 +11412,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 21.0,
               "11": 22.0,
-              "12": 23.0
+              "12": 23.0,
+              "13": 24,
+              "14": 25,
+              "15": 26
             }
           },
           {
@@ -10905,7 +11436,10 @@ const APOSTLE_LIBRARY = [
               "9": 19.0,
               "10": 20.0,
               "11": 21.0,
-              "12": 22.0
+              "12": 22.0,
+              "13": 23,
+              "14": 24,
+              "15": 25
             }
           },
           {
@@ -10926,7 +11460,10 @@ const APOSTLE_LIBRARY = [
               "9": 19.0,
               "10": 20.0,
               "11": 21.0,
-              "12": 22.0
+              "12": 22.0,
+              "13": 23,
+              "14": 24,
+              "15": 25
             }
           },
           {
@@ -10981,7 +11518,10 @@ const APOSTLE_LIBRARY = [
               "9": 41.0,
               "10": 43.0,
               "11": 45.0,
-              "12": 47.0
+              "12": 47.0,
+              "13": 49,
+              "14": 51,
+              "15": 53
             }
           },
           {
@@ -11017,7 +11557,10 @@ const APOSTLE_LIBRARY = [
               "9": 18.0,
               "10": 19.0,
               "11": 20.0,
-              "12": 21.0
+              "12": 21.0,
+              "13": 22,
+              "14": 23,
+              "15": 24
             }
           }
         ],
@@ -12704,7 +13247,10 @@ const APOSTLE_LIBRARY = [
               "9": 554.4,
               "10": 584.1,
               "11": 613.8,
-              "12": 643.5
+              "12": 643.5,
+              "13": 673.2,
+              "14": 702.9,
+              "15": 732.6
             }
           },
           {
@@ -12751,7 +13297,10 @@ const APOSTLE_LIBRARY = [
               "9": 104.4,
               "10": 110.19999999999999,
               "11": 116.0,
-              "12": 121.8
+              "12": 121.8,
+              "13": 127.6,
+              "14": 133.4,
+              "15": 139.2
             }
           },
           {
@@ -12800,7 +13349,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56,
+              "14": 59,
+              "15": 62
             }
           },
           {
@@ -12821,7 +13373,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56,
+              "14": 59,
+              "15": 62
             }
           },
           {
@@ -12842,7 +13397,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56,
+              "14": 59,
+              "15": 62
             }
           }
         ],
@@ -16622,7 +17180,6 @@ const APOSTLE_LIBRARY = [
                 "fixedValue": 9.0
               }
             ],
-            "targetSkill": "愛用Lv3",
             "skillName": "愛用Lv3",
             "description": "リスティの物理攻撃力増加9%、会心増加9%、会心ダメージ増加9%"
           }
@@ -17431,7 +17988,7 @@ const APOSTLE_LIBRARY = [
                 "fixedValue": 5.0
               }
             ],
-            "targetSkill": "高学年スキル",
+            "targetSkill": "高学年",
             "skillName": "愛用Lv3",
             "description": "リニュアの高学年スキルのクールタイムが5秒減少する。"
           }
@@ -17586,7 +18143,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 20.5,
               "11": 21.0,
-              "12": 21.5
+              "12": 21.5,
+              "13": 22,
+              "14": 22.5,
+              "15": 23
             }
           },
           {
@@ -17606,7 +18166,10 @@ const APOSTLE_LIBRARY = [
               "9": 490.0,
               "10": 520.0,
               "11": 550.0,
-              "12": 580.0
+              "12": 580.0,
+              "13": 610,
+              "14": 640,
+              "15": 670
             }
           },
           {
@@ -17652,7 +18215,10 @@ const APOSTLE_LIBRARY = [
               "9": 640.0,
               "10": 670.0,
               "11": 700.0,
-              "12": 730.0
+              "12": 730.0,
+              "13": 760,
+              "14": 790,
+              "15": 820
             }
           },
           {
@@ -17672,7 +18238,10 @@ const APOSTLE_LIBRARY = [
               "9": 840.0,
               "10": 870.0,
               "11": 900.0,
-              "12": 930.0
+              "12": 930.0,
+              "13": 960,
+              "14": 990,
+              "15": 1020
             }
           },
           {
@@ -17722,7 +18291,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 20.5,
               "11": 21.0,
-              "12": 21.5
+              "12": 21.5,
+              "13": 22,
+              "14": 22.5,
+              "15": 23
             }
           }
         ],
