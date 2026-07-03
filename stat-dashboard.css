@@ -4838,22 +4838,25 @@
 }
 
 .formation-column-1 {
-  --formation-panel-border: rgba(72, 133, 190, 0.34);
-  --formation-panel-bg-a: rgba(70, 143, 205, 0.22);
-  --formation-panel-bg-b: rgba(43, 92, 143, 0.12);
+  --formation-panel-border: rgba(67, 150, 222, 0.5);
+  --formation-panel-bg-a: rgba(75, 160, 232, 0.34);
+  --formation-panel-bg-b: rgba(37, 108, 184, 0.2);
+  --formation-line-color: rgba(82, 168, 235, 0.38);
   transform: translateX(10px);
 }
 
 .formation-column-2 {
-  --formation-panel-border: rgba(96, 154, 55, 0.36);
-  --formation-panel-bg-a: rgba(105, 174, 66, 0.22);
-  --formation-panel-bg-b: rgba(68, 132, 47, 0.12);
+  --formation-panel-border: rgba(111, 190, 63, 0.52);
+  --formation-panel-bg-a: rgba(122, 204, 74, 0.34);
+  --formation-panel-bg-b: rgba(74, 154, 50, 0.2);
+  --formation-line-color: rgba(129, 210, 78, 0.38);
 }
 
 .formation-column-3 {
-  --formation-panel-border: rgba(188, 72, 69, 0.34);
-  --formation-panel-bg-a: rgba(205, 70, 67, 0.2);
-  --formation-panel-bg-b: rgba(150, 55, 55, 0.11);
+  --formation-panel-border: rgba(224, 76, 73, 0.52);
+  --formation-panel-bg-a: rgba(232, 76, 73, 0.34);
+  --formation-panel-bg-b: rgba(176, 56, 58, 0.2);
+  --formation-line-color: rgba(238, 91, 88, 0.38);
   transform: translateX(-10px);
 }
 
@@ -4880,11 +4883,25 @@
 }
 
 .formation-line {
+  position: relative;
   display: grid;
   grid-template-columns: clamp(64px, 7vw, 80px) minmax(0, 1fr);
   gap: clamp(5px, 0.8vw, 10px);
   align-items: center;
   padding: 10px 0;
+}
+
+.formation-line + .formation-line::before {
+  content: "";
+  position: absolute;
+  left: clamp(6px, 4%, 14px);
+  right: clamp(12px, 8%, 24px);
+  top: -5px;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--formation-line-color, rgba(255, 255, 255, 0.36)) 14%, var(--formation-line-color, rgba(255, 255, 255, 0.36)) 82%, transparent);
+  opacity: 0.78;
+  pointer-events: none;
 }
 
 .formation-line:nth-of-type(3) {
@@ -7428,21 +7445,21 @@
   background: transparent;
 }
 
-.board-global-filter-details summary {
+.board-global-filter-heading {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   min-height: 26px;
   border-radius: 999px;
   padding: 3px 8px;
-  cursor: pointer;
   font-size: 0.76rem;
   font-weight: 900;
   white-space: nowrap;
+  background: rgba(74, 136, 90, 0.1);
 }
 
-.board-global-filter-details[open] summary {
-  background: rgba(74, 136, 90, 0.1);
+.board-global-filter-count {
+  display: none;
 }
 
 .board-global-filters {
@@ -7491,17 +7508,106 @@
   object-fit: contain;
 }
 
+.board-global-bottom-summary {
+  margin: 12px 0 4px;
+}
+
+.board-global-stat-summary {
+  border: 1px solid rgba(74, 136, 90, 0.18);
+  border-radius: 16px;
+  padding: 10px;
+  background: linear-gradient(135deg, rgba(248, 253, 249, 0.94), rgba(239, 248, 242, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78), 0 8px 18px rgba(36, 74, 47, 0.08);
+}
+
+.board-global-stat-summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+
+.board-global-stat-summary-head strong {
+  color: #235332;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.board-global-stat-summary-head span {
+  color: rgba(43, 74, 53, 0.76);
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.board-global-stat-summary-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.board-global-stat-summary-counts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 26px;
+  border: 1px solid rgba(74, 136, 90, 0.16);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: rgba(36, 74, 47, 0.84);
+  background: rgba(255, 255, 255, 0.66);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.board-global-stat-summary-counts img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.board-global-stat-summary-grid {
+  align-items: stretch;
+}
+
 :root[data-theme="dark"] .board-global-filter-row strong {
   color: rgba(232, 244, 237, 0.92) !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
-:root[data-theme="dark"] .board-global-filter-details[open] summary {
+:root[data-theme="dark"] .board-global-filter-heading {
   color: rgba(250, 255, 252, 0.98) !important;
   background: rgba(58, 124, 82, 0.26) !important;
 }
 
 :root[data-theme="dark"] .board-global-stat-filter-row button img {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+:root[data-theme="dark"] .board-global-stat-summary {
+  color: var(--ink);
+  border-color: rgba(74, 222, 128, 0.16);
+  background: linear-gradient(135deg, rgba(12, 28, 24, 0.82), rgba(12, 20, 34, 0.78));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 24px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="dark"] .board-global-stat-summary-head strong {
+  color: rgba(248, 250, 252, 0.96);
+}
+
+:root[data-theme="dark"] .board-global-stat-summary-head span {
+  color: rgba(226, 232, 240, 0.78);
+}
+
+:root[data-theme="dark"] .board-global-stat-summary-counts span {
+  color: rgba(238, 247, 242, 0.92);
+  border-color: rgba(74, 222, 128, 0.16);
+  background: rgba(7, 12, 18, 0.34);
+}
+
+:root[data-theme="dark"] .board-global-stat-summary-counts img {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
@@ -8122,6 +8228,48 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   color: #ffffff !important;
   border-color: rgba(134, 239, 172, 0.52) !important;
   background: rgba(38, 105, 67, 0.9) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="1"] {
+  color: #d9f99d !important;
+  border-color: rgba(132, 204, 22, 0.44) !important;
+  background: rgba(54, 83, 20, 0.82) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="2"] {
+  color: #bfdbfe !important;
+  border-color: rgba(96, 165, 250, 0.46) !important;
+  background: rgba(30, 58, 138, 0.74) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="3"] {
+  color: #f0abfc !important;
+  border-color: rgba(217, 70, 239, 0.46) !important;
+  background: rgba(112, 26, 117, 0.72) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"].is-active,
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][aria-pressed="true"] {
+  color: #ffffff !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="1"].is-active,
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="1"][aria-pressed="true"] {
+  border-color: rgba(190, 242, 100, 0.68) !important;
+  background: linear-gradient(180deg, rgba(101, 163, 13, 0.96), rgba(63, 98, 18, 0.94)) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="2"].is-active,
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="2"][aria-pressed="true"] {
+  border-color: rgba(147, 197, 253, 0.7) !important;
+  background: linear-gradient(180deg, rgba(37, 99, 235, 0.94), rgba(30, 64, 175, 0.92)) !important;
+}
+
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="3"].is-active,
+:root[data-theme="dark"] .board-global-filters button[data-board-global-filter-group="layers"][data-board-global-filter-value="3"][aria-pressed="true"] {
+  border-color: rgba(240, 171, 252, 0.7) !important;
+  background: linear-gradient(180deg, rgba(192, 38, 211, 0.92), rgba(126, 34, 206, 0.92)) !important;
 }
 
 :root[data-theme="dark"] .dashboard-persistent-profile {

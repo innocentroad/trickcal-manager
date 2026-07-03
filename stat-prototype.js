@@ -235,6 +235,7 @@
     asideFilterCount: document.getElementById('aside-filter-count'),
     boardGlobalOverviewSummary: document.getElementById('board-global-overview-summary'),
     boardGlobalOverviewList: document.getElementById('board-global-overview-list'),
+    boardGlobalBottomSummary: document.getElementById('board-global-bottom-summary'),
     boardGlobalModeCurrent: document.getElementById('board-global-mode-current'),
     boardGlobalModePlan: document.getElementById('board-global-mode-plan'),
     boardGlobalSearch: document.getElementById('board-global-search'),
@@ -330,6 +331,8 @@
   let isRefreshingStatSnapshots = false;
   let stateSaveTimer = 0;
   let statSnapshotRefreshTimer = 0;
+  let stateManagerRenderTimer = 0;
+  let renderTimer = 0;
 
   init();
 
@@ -596,8 +599,9 @@
     elements.levelSelect.addEventListener('change', () => {
       const state = currentApostleState();
       state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      renderProfileQuick();
+      scheduleRender();
     });
 
     elements.starSelect.addEventListener('change', () => {
@@ -606,8 +610,9 @@
       state.level = normalizeApostleLevel(state.level, state.star);
       renderLevelOptions(state.star);
       elements.levelSelect.value = String(state.level);
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      renderProfileQuick();
+      scheduleRender();
     });
 
     elements.bondSelect.addEventListener('change', () => {
@@ -615,8 +620,9 @@
       const state = currentApostleState();
       state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
       elements.bondSelect.value = String(state.bond);
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      renderProfileQuick();
+      scheduleRender();
     });
 
     elements.asideRankSelect.addEventListener('change', () => {
@@ -624,6 +630,7 @@
       state.asideRank = Number(elements.asideRankSelect.value) || 0;
       state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
       state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+      ensureStarForAsideManifest(state);
       syncAsideControlsFromState(state);
       syncSkillLevelControlsFromState(state);
       saveState();
@@ -633,14 +640,16 @@
     elements.asideLevelSelect.addEventListener('change', () => {
       const state = currentApostleState();
       state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      renderProfileQuick();
+      scheduleRender();
     });
 
     elements.followToggle.addEventListener('change', () => {
       currentApostleState().follow = !!elements.followToggle.checked;
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      renderProfileQuick();
+      scheduleRender();
     });
 
     elements.profileCard?.addEventListener('click', event => {
@@ -651,8 +660,9 @@
         const state = currentApostleState();
         state.follow = !state.follow;
         elements.followToggle.checked = state.follow;
-        saveState();
-        render();
+        saveState({ renderStateManager: false });
+        renderProfileQuick();
+        scheduleRender();
         return;
       }
 
@@ -2235,6 +2245,10 @@
   }
 
   function render() {
+    if (renderTimer) {
+      window.clearTimeout(renderTimer);
+      renderTimer = 0;
+    }
     const basic = DATA.getById('basicInfo', view.id);
     const equipment = DATA.getById('equipment', view.id);
     const rankBonus = DATA.getById('rankGlobalBonuses', view.id);
@@ -2300,6 +2314,19 @@
     updateStatSnapshots(basic, totals, breakdown, globalPercentRates);
     renderTotals(totals, activeEffects);
     renderStatBreakdown(breakdown, totals, globalPercentRates);
+  }
+
+  function scheduleRender(delay = 80) {
+    if (renderTimer) window.clearTimeout(renderTimer);
+    renderTimer = window.setTimeout(() => {
+      renderTimer = 0;
+      render();
+    }, Math.max(0, Number(delay) || 0));
+  }
+
+  function renderProfileQuick() {
+    const basic = DATA.getById('basicInfo', view.id);
+    renderProfile(basic);
   }
 
   function renderSkillLevelChange() {
@@ -2375,8 +2402,11 @@
       elements.meta.insertAdjacentHTML('beforeend', chipHtml);
     }
 
-    elements.image.dataset.fallback = 'false';
-    elements.image.src = getApostleImagePath(basic.id);
+    const imagePath = getApostleImagePath(basic.id);
+    if (elements.image.getAttribute('src') !== imagePath) {
+      elements.image.dataset.fallback = 'false';
+      elements.image.src = imagePath;
+    }
     elements.image.alt = basic.使徒名 || basic.id;
     renderProfileFollowIcon(basic, state);
     renderProfileAsideIcon(basic, state);
@@ -2480,8 +2510,9 @@
     const state = currentApostleState();
     state.grade = normalizeGrade((Number(state.grade) || 1) + 1 > GRADE_MAX ? 1 : (Number(state.grade) || 1) + 1);
     state.gradeConfigured = true;
-    saveState();
-    render();
+    saveState({ renderStateManager: false });
+    renderProfileQuick();
+    scheduleRender();
   }
 
   function renderGradeIcons(value) {
@@ -2545,8 +2576,19 @@
     renderLevelOptions(state.star);
     elements.starSelect.value = String(state.star);
     elements.levelSelect.value = String(state.level);
-    saveState();
-    render();
+    saveState({ renderStateManager: false });
+    renderProfileQuick();
+    scheduleRender();
+  }
+
+  function ensureStarForAsideManifest(state) {
+    if (!state || !(Number(state.asideRank) || 0)) return;
+    if (normalizeApostleStar(state.star) >= APOSTLE_STAR_MAX) return;
+    state.star = APOSTLE_STAR_MAX;
+    state.level = normalizeApostleLevel(state.level, state.star);
+    renderLevelOptions(state.star);
+    elements.starSelect.value = String(state.star);
+    elements.levelSelect.value = String(state.level);
   }
 
   function updateProfileField(field, rawValue) {
@@ -2568,6 +2610,7 @@
       state.asideRank = Math.max(0, Math.min(3, value));
       state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
       state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+      ensureStarForAsideManifest(state);
       syncAsideControlsFromState(state);
       syncSkillLevelControlsFromState(state);
     } else if (field === 'asideLevel') {
@@ -2580,14 +2623,15 @@
         [key]: value
       }, state.asideRank);
       syncSkillLevelControlsFromState(state);
-      saveState({ refreshSnapshots: false });
+      saveState({ refreshSnapshots: false, renderStateManager: false });
       renderSkillLevelChange();
       return;
     } else {
       return;
     }
-    saveState();
-    render();
+    saveState({ renderStateManager: false });
+    renderProfileQuick();
+    scheduleRender();
   }
 
   function toggleProfileAsideRank() {
@@ -2601,6 +2645,7 @@
     } else {
       state.asideRank = 1;
       state.asideLevel = Math.max(1, normalizeAsideLevelForRank(state.asideLevel, state.asideRank));
+      ensureStarForAsideManifest(state);
     }
     state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
     syncAsideControlsFromState(state);
@@ -5456,6 +5501,9 @@
     elements.boardGlobalOverviewList.innerHTML = rows
       .map(({ basic, result }) => renderBoardGlobalApostleCard(basic, result))
       .join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+    if (elements.boardGlobalBottomSummary) {
+      elements.boardGlobalBottomSummary.innerHTML = renderBoardGlobalBottomSummary(rows);
+    }
   }
 
   function hasBoardGlobalPlannedChange(id) {
@@ -5466,6 +5514,72 @@
     const state = ensureApostleState(id);
     if (!state.plannedBoards || typeof state.plannedBoards !== 'object') return false;
     return hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards || {});
+  }
+
+  function renderBoardGlobalBottomSummary(rows) {
+    if (!rows.length) return '';
+    const summary = collectBoardGlobalBottomSummary(rows);
+    const selected = summary.counts.lower + summary.counts.advanced + summary.counts.special;
+    return `
+      <section class="board-global-stat-summary">
+        <div class="board-global-stat-summary-head">
+          <strong>表示中の統計</strong>
+          <span>${formatNumber(rows.length)}使徒 / ${formatNumber(selected)}マス選択中</span>
+        </div>
+        <div class="board-global-stat-summary-counts">
+          <span><img src="img/Board/Tileicon_1.webp" alt="">通常 ${formatNumber(summary.counts.lower)}</span>
+          <span><img src="img/Board/Tileicon_2.webp" alt="">上級 ${formatNumber(summary.counts.advanced)}</span>
+          <span><img src="img/Board/Tileicon_3.webp" alt="">特殊 ${formatNumber(summary.counts.special)}</span>
+        </div>
+        <div class="summary-table-grid board-global-stat-summary-grid">
+          ${renderGlobalBoardCostSummary(summary.costs, { signed: false, emptyText: 'コストなし' })}
+          ${renderBoardDraftEffectMatrix(summary.effectGroups, { title: '合計' })}
+        </div>
+      </section>
+    `;
+  }
+
+  function collectBoardGlobalBottomSummary(rows) {
+    const costs = {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+    const effectGroups = {
+      special: new Map(),
+      advanced: new Map(),
+      lower: new Map()
+    };
+    const counts = { lower: 0, advanced: 0, special: 0 };
+    rows.forEach(({ basic }) => {
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        if (row.マス_type === 'スタート') return;
+        if (!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)]) return;
+        const tileGroup = getBoardSummaryTileGroup(row.マス_type);
+        if (tileGroup) counts[tileGroup] += 1;
+        costs.gold += Number(row.ゴールド) || 0;
+        costs.lower += Number(row.下級) || 0;
+        costs.middle += Number(row.中級) || 0;
+        costs.upper += Number(row.上級) || 0;
+        costs.special += Number(row.特級) || 0;
+        costs.sharedToken += Number(row['★1共同教団証']) || 0;
+        costs.apostleToken += Number(row.使徒証) || 0;
+        addBoardSummaryEffect(effectGroups, row.効果1_type, row.効果1_value, row.マス_type);
+        addBoardSummaryEffect(effectGroups, row.効果2_type, row.効果2_value, row.マス_type);
+      });
+    });
+    return { costs, effectGroups, counts };
+  }
+
+  function getBoardSummaryTileGroup(tileType) {
+    if (tileType === '特殊') return 'special';
+    if (tileType === '上級') return 'advanced';
+    return 'lower';
   }
 
   function getSavedBoardPlanApostleIds() {
@@ -6040,7 +6154,9 @@
     `;
   }
 
-  function renderGlobalBoardCostSummary(costs) {
+  function renderGlobalBoardCostSummary(costs, options = {}) {
+    const signed = options.signed !== false;
+    const emptyText = options.emptyText || 'コスト変更なし';
     const items = [
       ['gold', 'ゴールド', 'img/ゴールド.webp'],
       ['lower', '下級くれよん', 'img/下級くれよん.webp'],
@@ -6050,13 +6166,13 @@
       ['sharedToken', '★1共同教団証', 'img/★1共同教団証.webp'],
       ['apostleToken', '使徒証', 'img/使徒証.webp']
     ].filter(([key]) => costs[key]);
-    if (!items.length) return '<p class="empty-note board-global-cost-empty">コスト変更なし</p>';
+    if (!items.length) return `<p class="empty-note board-global-cost-empty">${escapeHtml(emptyText)}</p>`;
     return `
       <div class="board-global-cost-summary" aria-label="消費アイテム差分">
         ${items.map(([key, label, icon]) => `
           <span class="board-global-cost-chip ${costs[key] < 0 ? 'is-negative' : ''}" title="${escapeAttr(label)}">
             <img src="${escapeAttr(icon)}" alt="${escapeAttr(label)}">
-            <strong>${escapeHtml(formatSignedBoardValue(costs[key]))}</strong>
+            <strong>${escapeHtml(signed ? formatSignedBoardValue(costs[key]) : formatNumber(costs[key]))}</strong>
           </span>
         `).join('')}
       </div>
@@ -6541,7 +6657,8 @@
     return html.replace('title="使徒証"', `title="使徒証（${escapeAttr(apostleName)}）"`);
   }
 
-  function renderBoardDraftEffectMatrix(effectGroups) {
+  function renderBoardDraftEffectMatrix(effectGroups, options = {}) {
+    const title = options.title || '差分';
     const lower = createEmptyTotals();
     const advanced = createEmptyTotals();
     const special = createEmptyTotals();
@@ -6556,7 +6673,7 @@
       <table class="board-global-stat-matrix board-global-change-matrix board-draft-change-matrix">
         <thead>
           <tr>
-            <th>差分</th>
+            <th>${escapeHtml(title)}</th>
             <th title="通常マス"><img src="img/Board/Tileicon_1.webp" alt="通常"></th>
             <th title="上級マス"><img src="img/Board/Tileicon_2.webp" alt="上級"></th>
             <th title="特殊マス"><img src="img/Board/Tileicon_3.webp" alt="特殊"></th>
@@ -8165,10 +8282,19 @@
   }
 
   function saveState(options = {}) {
-    renderStateManager();
+    if (options.renderStateManager === false) scheduleStateManagerRender();
+    else renderStateManager();
     scheduleStateSave();
     if (options.refreshSnapshots === false) return;
     scheduleStatSnapshotRefresh();
+  }
+
+  function scheduleStateManagerRender() {
+    if (stateManagerRenderTimer) window.clearTimeout(stateManagerRenderTimer);
+    stateManagerRenderTimer = window.setTimeout(() => {
+      stateManagerRenderTimer = 0;
+      renderStateManager();
+    }, 120);
   }
 
   function scheduleStateSave() {

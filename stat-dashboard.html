@@ -373,12 +373,13 @@
               <label class="apostle-picker-sort"><span>並び順</span><select id="board-global-sort"><option value="name">50音順</option><option value="planned">変更予定優先</option><option value="progress">解放数順</option></select></label>
               <button type="button" id="board-global-discard-plan" class="board-global-discard-plan" hidden disabled>保存予定を破棄</button>
             </div>
-            <details class="board-global-filter-details" open>
-              <summary>絞り込み <span id="board-global-filter-count"></span></summary>
+            <div class="board-global-filter-details">
+              <span class="board-global-filter-heading">絞り込み <span id="board-global-filter-count" class="board-global-filter-count" aria-live="polite"></span></span>
               <div id="board-global-filters" class="board-global-filters"></div>
-            </details>
+            </div>
             <div id="board-global-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
             <div id="board-global-overview-list" class="board-global-list"></div>
+            <div id="board-global-bottom-summary" class="board-global-bottom-summary"></div>
           </div>
           <div class="setting-panel" data-setting-panel="cards">
             <p class="panel-note">カードの所持状況、スターアップ、はんだ状態を管理します。</p>
