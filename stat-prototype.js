@@ -364,10 +364,11 @@
     bindEvents();
     installStatEngineApi();
     window.addEventListener('beforeunload', flushPendingStateSave);
+    refreshAllStatSnapshots();
     renderStateManager();
     render();
     applyInitialDashboardRoute();
-    saveState();
+    saveState({ refreshSnapshots: false });
   }
 
   function getCurrentTheme() {
