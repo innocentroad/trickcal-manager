@@ -25,7 +25,7 @@
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
   const COMBAT_POWER_BASE_BY_RARITY = {
-    1: 0.6477,
+    1: 0.7212,
     2: 0.7212,
     3: 0.7425
   };
