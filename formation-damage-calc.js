@@ -3125,6 +3125,7 @@
       {
         title: '基礎ステータス',
         rows: [
+          ...(Number(stats.combatPower) ? [['戦闘力', formatNumber(stats.combatPower)]] : []),
           ['HP', formatNumber(stats.hp)],
           ['攻撃', formatNumber(stats[attackKey])],
           ['防御', formatNumber(stats[defenseKey])],

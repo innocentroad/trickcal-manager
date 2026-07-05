@@ -24,6 +24,22 @@
   };
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
+  const COMBAT_POWER_BASE_BY_RARITY = {
+    1: 0.6477,
+    2: 0.7212,
+    3: 0.7425
+  };
+  const COMBAT_POWER_CORRECTION_RATE = 0.7;
+  const COMBAT_POWER_SKILL_RATE = 0.7;
+  const COMBAT_POWER_ASIDE_BONUS = 0.49;
+  const COMBAT_POWER_SKILL_VALUE_BY_RARITY = {
+    1: 0.01,
+    2: 0.01,
+    3: 0.02
+  };
+  const FORMATION_COIN_BASE = 216;
+  const FORMATION_COIN_BONUS = 30;
+  const FORMATION_COIN_CP_RATE = 0.000012;
 
   const STAT_GROUPS = [
     { key: 'HP', label: 'HP', total: 'hp', tone: 'hp' },
@@ -32,7 +48,7 @@
     { key: '物理防御', lookup: '物理防御力', label: '物防', total: 'pdef', tone: 'defense' },
     { key: '魔法防御', lookup: '魔法防御力', label: '魔防', total: 'mdef', tone: 'defense' },
     { key: '会心/会心DMG', label: '会心/会心DMG', total: 'critPair', tone: 'crit' },
-    { key: '会心抵抗/会心DMG抵抗', label: '会心抵抗/会心DMG抵抗', total: 'critResPair', tone: 'crit' }
+    { key: '会心抵抗/会心DMG抵抗', label: '会心抵抗/会心DMG抵抗', total: 'critResPair', tone: 'crit-res' }
   ];
 
   const TOTAL_LABELS = [
@@ -43,8 +59,8 @@
     { key: 'mdef', label: '魔法防御', tone: 'defense', icon: '魔法防御力.webp' },
     { key: 'crit', label: '会心', tone: 'crit', icon: '会心.webp' },
     { key: 'critDmg', label: '会心DMG', tone: 'crit', icon: '会心ダメージ.webp' },
-    { key: 'critRes', label: '会心抵抗', tone: 'crit', icon: '会心抵抗.webp' },
-    { key: 'critDmgRes', label: '会心DMG抵抗', tone: 'crit', icon: '会心DMG抵抗.webp' },
+    { key: 'critRes', label: '会心抵抗', tone: 'crit-res', icon: '会心抵抗.webp' },
+    { key: 'critDmgRes', label: '会心DMG抵抗', tone: 'crit-res', icon: '会心DMG抵抗.webp' },
     { key: 'spRegen', label: '毎秒SP回復', tone: 'sp', icon: 'SP回復.webp' }
   ];
 
@@ -735,8 +751,9 @@
           ...state.skillLevels,
           [group]: Number(select.value) || 1
         }, state.asideRank);
-        saveState({ refreshSnapshots: false });
+        saveState({ renderStateManager: false });
         renderSkillLevelChange();
+        scheduleRender();
       };
       select.addEventListener('input', updateSkillLevelOutput);
       select.addEventListener('change', commitSkillLevelInput);
@@ -931,6 +948,24 @@
         if (!expanded) popover?.querySelector('[data-formation-coin-input]')?.focus();
         return;
       }
+      const autoButton = event.target.closest('[data-formation-coin-auto]');
+      if (autoButton) {
+        const formation = ensureFormationState();
+        formation.coinMode = 'auto';
+        formation.coins = calculateFormationAutoCoins();
+        saveState();
+        updateFormationCoinSummary(formation);
+        renderFormationActivePreset();
+        return;
+      }
+      const manualButton = event.target.closest('[data-formation-coin-manual]');
+      if (manualButton) {
+        const formation = ensureFormationState();
+        formation.coinMode = 'manual';
+        saveState();
+        updateFormationCoinSummary(formation);
+        return;
+      }
       if (event.target.closest('[data-formation-coin-close]')) {
         closeFormationCoinPopover();
       }
@@ -945,6 +980,7 @@
       const input = event.target.closest('[data-formation-coin-input]');
       if (!input) return;
       const formation = ensureFormationState();
+      formation.coinMode = 'manual';
       formation.coins = normalizeFormationCoins(input.value);
       saveState();
       updateFormationCoinSummary(formation);
@@ -1577,7 +1613,23 @@
       const difference = ensureApostleState(b.id).rank - ensureApostleState(a.id).rank;
       return difference || nameOrder;
     }
+    if (sortKey === 'combatPower') {
+      const difference = getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id);
+      return difference || nameOrder;
+    }
     return nameOrder;
+  }
+
+  function getApostleCombatPowerForSort(id) {
+    const state = ensureApostleState(id);
+    return Number(state.statSnapshots?.current?.stats?.combatPower ?? state.finalStats?.combatPower) || 0;
+  }
+
+  function formatCompactCombatPower(value) {
+    const num = Math.max(0, Math.floor(Number(value) || 0));
+    if (num >= 1000000) return `${(num / 1000000).toFixed(num >= 10000000 ? 0 : 1).replace(/\.0$/, '')}m`;
+    if (num >= 10000) return `${(num / 1000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '')}k`;
+    return formatNumber(num);
   }
 
   function renderApostlePickerFilters() {
@@ -1678,7 +1730,9 @@
       ? `Lv ${state.level}`
       : view.apostleSort === 'rank'
         ? `Rank ${state.rank}`
-        : '';
+        : view.apostleSort === 'combatPower'
+          ? `CP ${formatCompactCombatPower(getApostleCombatPowerForSort(basic.id))}`
+          : '';
     return `
       <button
         type="button"
@@ -2037,6 +2091,7 @@
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
       formation: normalizeFormationState(appState.formation || createDefaultFormation()),
+      totalCombatPower: normalizeFormationCoins(appState.totalCombatPower),
       activeFormationPresetId: appState.activeFormationPresetId || '',
       savedFormations: normalizeFormationPresetList(appState.savedFormations || [])
     };
@@ -2050,6 +2105,7 @@
       research: normalized.research,
       cards: normalized.cards,
       formation: normalized.formation,
+      totalCombatPower: normalizeFormationCoins(normalized.totalCombatPower),
       activeFormationPresetId: normalized.activeFormationPresetId || '',
       savedFormations: normalizeFormationPresetList(normalized.savedFormations || [])
     };
@@ -2084,6 +2140,7 @@
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
       formation: cloneJson(appState.formation || createDefaultFormation()),
+      totalCombatPower: normalizeFormationCoins(appState.totalCombatPower),
       activeFormationPresetId: appState.activeFormationPresetId || '',
       savedFormations: cloneJson(appState.savedFormations || [])
     };
@@ -2097,6 +2154,7 @@
     appState.research = normalized.research;
     appState.cards = normalized.cards;
     appState.formation = normalized.formation;
+    appState.totalCombatPower = normalizeFormationCoins(normalized.totalCombatPower);
     appState.activeFormationPresetId = normalized.activeFormationPresetId || '';
     if (Array.isArray(normalized.savedFormations)) {
       appState.savedFormations = normalized.savedFormations;
@@ -2184,6 +2242,7 @@
       research,
       cards,
       formation,
+      totalCombatPower: normalizeFormationCoins(snapshot.totalCombatPower),
       activeFormationPresetId: snapshot.activeFormationPresetId || '',
       savedFormations: Array.isArray(snapshot.savedFormations)
         ? normalizeFormationPresetList(snapshot.savedFormations)
@@ -2380,6 +2439,7 @@
           <span>${escapeHtml(basic.使徒名 || basic.id)}</span>
           ${eldain ? `<span class="apostle-name-tag">${escapeHtml(eldain)}</span>` : ''}
         </span>
+        ${renderProfileCombatPower(currentApostleCombatPower())}
       </span>
     `;
     setProfileVisualClasses(basic, state);
@@ -2515,6 +2575,20 @@
     scheduleRender();
   }
 
+  function renderProfileCombatPower(value) {
+    return `
+      <span class="profile-combat-power" title="戦闘力">
+        <img src="img/c_pow.webp" alt="戦闘力">
+        <strong data-profile-combat-power-value>${escapeHtml(formatNumber(value))}</strong>
+      </span>
+    `;
+  }
+
+  function updateProfileCombatPowerDisplay(value = currentApostleCombatPower()) {
+    elements.name?.querySelectorAll('[data-profile-combat-power-value]')
+      .forEach(node => { node.textContent = formatNumber(value); });
+  }
+
   function renderGradeIcons(value) {
     const grade = normalizeGrade(value);
     const image = grade >= 6 ? '学年_2.webp' : '学年_1.webp';
@@ -2623,8 +2697,9 @@
         [key]: value
       }, state.asideRank);
       syncSkillLevelControlsFromState(state);
-      saveState({ refreshSnapshots: false, renderStateManager: false });
+      saveState({ renderStateManager: false });
       renderSkillLevelChange();
+      scheduleRender();
       return;
     } else {
       return;
@@ -4947,22 +5022,29 @@
   function renderFormationCostSummary(formation) {
     if (!elements.formationCostSummary) return;
     const totalCost = calculateFormationCost(formation);
+    ensureFormationCoinState(formation);
     const ownedCoins = normalizeFormationCoins(formation.coins);
     const remainingCoins = ownedCoins - totalCost;
+    const totalCombatPower = getSavedTotalCombatPower();
+    const autoCoins = calculateFormationAutoCoins(totalCombatPower);
+    const isAuto = formation.coinMode === 'auto';
     elements.formationCostSummary.innerHTML = `
-      <div class="formation-coin-box ${remainingCoins < 0 ? 'is-short' : ''}">
+      <div class="formation-coin-box ${remainingCoins < 0 ? 'is-short' : ''} ${isAuto ? 'is-auto' : 'is-manual'}">
         <span class="formation-coin-owned">
-          <span>所持</span>
+          <span>所持${isAuto ? '<em>自動</em>' : ''}</span>
           <button type="button" class="formation-coin-input-wrap" data-formation-coin-open aria-expanded="false" title="クリックして所持コインを入力">
             <img src="img/Card/ef_coin.webp" alt="">
             <span class="formation-coin-display formation-coin-display-stroke" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
             <span class="formation-coin-display formation-coin-display-fill" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
           </button>
           <span class="formation-coin-popover" data-formation-coin-popover hidden>
+            <span class="formation-coin-auto-note">総合CP ${escapeHtml(formatNumber(totalCombatPower))} → ${escapeHtml(formatNumber(autoCoins))}枚</span>
             <label>
               <span>所持コイン</span>
               <input type="number" min="0" step="1" inputmode="numeric" data-formation-coin-input value="${escapeAttr(ownedCoins)}" aria-label="所持コイン数">
             </label>
+            <button type="button" data-formation-coin-auto>自動算出を反映</button>
+            <button type="button" data-formation-coin-manual>手動入力にする</button>
             <button type="button" data-formation-coin-close>閉じる</button>
           </span>
         </span>
@@ -4990,12 +5072,19 @@
     const remain = elements.formationCostSummary?.querySelector('[data-formation-coin-remain]');
     const displays = elements.formationCostSummary?.querySelectorAll('[data-formation-coin-display]');
     const input = elements.formationCostSummary?.querySelector('[data-formation-coin-input]');
+    const note = elements.formationCostSummary?.querySelector('.formation-coin-auto-note');
     if (!box || !remain) return;
+    ensureFormationCoinState(formation);
     const ownedCoins = normalizeFormationCoins(formation.coins);
     const remainingCoins = ownedCoins - calculateFormationCost(formation);
+    const totalCombatPower = getSavedTotalCombatPower();
+    const autoCoins = calculateFormationAutoCoins(totalCombatPower);
     box.classList.toggle('is-short', remainingCoins < 0);
+    box.classList.toggle('is-auto', formation.coinMode === 'auto');
+    box.classList.toggle('is-manual', formation.coinMode !== 'auto');
     displays?.forEach(display => { display.textContent = formatNumber(ownedCoins); });
     if (input && document.activeElement !== input) input.value = String(ownedCoins);
+    if (note) note.textContent = `総合CP ${formatNumber(totalCombatPower)} → ${formatNumber(autoCoins)}枚`;
     remain.classList.toggle('is-negative', remainingCoins < 0);
     remain.setAttribute('aria-label', `残り${formatNumber(remainingCoins)}`);
     remain.querySelectorAll('.formation-metric-number-stroke, .formation-metric-number-fill')
@@ -5060,6 +5149,8 @@
       ? `Lv ${state.level}`
       : view.formationSort === 'rank'
         ? `Rank ${state.rank}`
+        : view.formationSort === 'combatPower'
+          ? `CP ${formatCompactCombatPower(getApostleCombatPowerForSort(basic.id))}`
         : basic.配列 || '';
     return [main, basic.性格, basic.種族, basic.役割]
       .filter(Boolean)
@@ -5196,7 +5287,7 @@
     while (appState.formation.rows.length < 3) appState.formation.rows.push(createDefaultFormationRow());
     appState.formation.rows = appState.formation.rows.slice(0, 3).map(row => normalizeFormationRow(row));
     appState.formation.spells = normalizeFormationSpells(appState.formation.spells);
-    appState.formation.coins = normalizeFormationCoins(appState.formation.coins);
+    ensureFormationCoinState(appState.formation);
     return appState.formation;
   }
 
@@ -5205,14 +5296,15 @@
       cardKind: formation?.cardKind === 'spell' ? 'spell' : 'artifact',
       rows: Array.isArray(formation?.rows) ? formation.rows.slice(0, 3).map(row => normalizeFormationRow(row)) : [],
       spells: normalizeFormationSpells(formation?.spells),
-      coins: normalizeFormationCoins(formation?.coins)
+      coins: normalizeFormationCoins(formation?.coins),
+      coinMode: formation?.coinMode === 'auto' ? 'auto' : 'manual'
     };
     while (normalized.rows.length < 3) normalized.rows.push(createDefaultFormationRow());
     return normalized;
   }
 
   function createDefaultFormation() {
-    return { cardKind: 'artifact', rows: Array.from({ length: 3 }, createDefaultFormationRow), spells: [], coins: 0 };
+    return { cardKind: 'artifact', rows: Array.from({ length: 3 }, createDefaultFormationRow), spells: [], coins: 0, coinMode: 'manual' };
   }
 
   function createDefaultFormationRow() {
@@ -5237,6 +5329,41 @@
 
   function normalizeFormationCoins(value) {
     return Math.max(0, Math.floor(Number(value) || 0));
+  }
+
+  function ensureFormationCoinState(formation = ensureFormationState()) {
+    formation.coinMode = formation.coinMode === 'auto' ? 'auto' : 'manual';
+    if (formation.coinMode === 'auto') formation.coins = calculateFormationAutoCoins();
+    else formation.coins = normalizeFormationCoins(formation.coins);
+    return formation;
+  }
+
+  function calculateFormationAutoCoins(totalCombatPower = getSavedTotalCombatPower()) {
+    return Math.floor((Number(totalCombatPower) || 0) * FORMATION_COIN_CP_RATE + FORMATION_COIN_BONUS) + FORMATION_COIN_BASE;
+  }
+
+  function currentApostleCombatPower() {
+    return Number(currentApostleState()?.statSnapshots?.current?.stats?.combatPower) || 0;
+  }
+
+  function getSavedTotalCombatPower() {
+    const saved = Number(appState.totalCombatPower);
+    if (Number.isFinite(saved) && saved > 0) return Math.floor(saved);
+    return calculateTotalCombatPowerFromSnapshots();
+  }
+
+  function calculateTotalCombatPowerFromSnapshots() {
+    return (DATA.sheets.basicInfo || []).reduce((total, basic) => {
+      const state = ensureApostleState(basic.id);
+      return total + (Number(state.statSnapshots?.current?.stats?.combatPower) || 0);
+    }, 0);
+  }
+
+  function updateTotalCombatPowerFromSnapshots() {
+    appState.totalCombatPower = calculateTotalCombatPowerFromSnapshots();
+    if (appState.formation?.coinMode === 'auto') {
+      appState.formation.coins = calculateFormationAutoCoins(appState.totalCombatPower);
+    }
   }
 
   function getFormationColumnPosition(rowIndex) {
@@ -7044,6 +7171,9 @@
     if (planned) state.statSnapshots.planned = planned;
     else delete state.statSnapshots.planned;
     state.finalStats = state.statSnapshots.current.stats;
+    updateTotalCombatPowerFromSnapshots();
+    updateProfileCombatPowerDisplay(state.statSnapshots.current.stats.combatPower);
+    updateFormationCoinSummary();
   }
 
   function refreshAllStatSnapshots() {
@@ -7062,6 +7192,7 @@
         else delete state.statSnapshots.planned;
         state.finalStats = current.stats;
       });
+      updateTotalCombatPowerFromSnapshots();
     } finally {
       view.id = originalId;
       isRefreshingStatSnapshots = false;
@@ -7089,7 +7220,7 @@
     });
   }
 
-  function calculateStatSnapshotForApostle(basic, state, boardOverride, kind) {
+  function calculateStatSnapshotForApostle(basic, state, boardOverride, kind, options = {}) {
     const boardMode = kind === 'planned' ? 'plan' : kind === 'current' ? 'current' : null;
     return withTemporaryViewId(basic.id, () => withTemporaryApostleState(basic.id, state, () => withTemporaryApostleBoards(state, boardOverride || state.boards || {}, boardMode, () => {
       const totals = createEmptyTotals();
@@ -7113,7 +7244,10 @@
         FOLLOW_BONUS_KEYS.forEach(key => addStatValue(globalPercentBonuses, key, followPercent));
       }
       applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
-      return createStatSnapshot(kind, totals, breakdown, globalPercentRates);
+      return createStatSnapshot(kind, totals, breakdown, globalPercentRates, basic, state, {
+        ...options,
+        boardOverride: boardOverride || state.boards || {}
+      });
     })));
   }
 
@@ -7169,7 +7303,8 @@
       basic,
       state,
       resolveSnapshotBoardOverride(state, options),
-      options.kind || 'override'
+      options.kind || 'override',
+      options
     );
     return {
       apostleId: safeId,
@@ -7179,14 +7314,80 @@
     };
   }
 
-  function createStatSnapshot(kind, totals, breakdown, globalPercentRates) {
+  function createStatSnapshot(kind, totals, breakdown, globalPercentRates, basic = DATA.getById('basicInfo', view.id), state = currentApostleState(), options = {}) {
+    const stats = mapTotalsForSnapshot(totals);
+    const combatPowerTotals = options.combatPowerTotals === true
+      ? totals
+      : (options.combatPowerTotals || createCombatPowerTotalsAtGradeOne(basic, state, options.boardOverride));
+    stats.combatPower = calculateCombatPower(basic, state, combatPowerTotals || totals);
     return {
       kind,
-      stats: mapTotalsForSnapshot(totals),
+      stats,
       breakdown: cloneJson(breakdown),
       globalPercentRates: mapTotalsForSnapshot(globalPercentRates),
       updatedAt: new Date().toISOString()
     };
+  }
+
+  function createCombatPowerTotalsAtGradeOne(basic, state, boardOverride = null) {
+    if (!basic?.id || !state) return null;
+    const cpState = {
+      ...cloneJson(state),
+      grade: 1,
+      gradeConfigured: true
+    };
+    const snapshot = calculateStatSnapshotForApostle(
+      basic,
+      cpState,
+      boardOverride || cpState.boards || {},
+      'combatPower',
+      { combatPowerTotals: true }
+    );
+    return snapshot?.stats ? snapshotTotalsFromStats(snapshot.stats) : null;
+  }
+
+  function snapshotTotalsFromStats(stats = {}) {
+    return {
+      hp: Number(stats.hp) || 0,
+      patk: Number(stats.physicalAtk) || 0,
+      matk: Number(stats.magicAtk) || 0,
+      pdef: Number(stats.physicalDef) || 0,
+      mdef: Number(stats.magicDef) || 0,
+      crit: Number(stats.crit) || 0,
+      critDmg: Number(stats.critDmg) || 0,
+      critRes: Number(stats.critRes) || 0,
+      critDmgRes: Number(stats.critDmgRes) || 0
+    };
+  }
+
+  function calculateCombatPower(basic, state, totals) {
+    if (!basic || !totals) return 0;
+    const activeAttack = basic.攻撃タイプ === '魔法'
+      ? Number(totals.matk) || 0
+      : Number(totals.patk) || 0;
+    const weightedStats = (Number(totals.hp) || 0) * 4 / 35
+      + activeAttack * 3
+      + (Number(totals.pdef) || 0)
+      + (Number(totals.mdef) || 0)
+      + (Number(totals.crit) || 0)
+      + (Number(totals.critDmg) || 0)
+      + (Number(totals.critRes) || 0)
+      + (Number(totals.critDmgRes) || 0);
+    const rarity = Number(basic.レア度) || 3;
+    const baseRate = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
+    const correction = Number(basic.戦闘力補正 ?? basic.combatPowerCorrection ?? basic.weight_value_a) || 0;
+    const skillValue = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity] ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
+    const skills = state?.skillLevels || {};
+    const skillSum = ['low', 'high', 'passive']
+      .map(key => Math.max(0, (Number(skills[key]) || 1) - 1) * skillValue)
+      .reduce((total, value) => total + value, 0);
+    const asideBonus = (Number(state?.asideRank) || 0) >= 2 ? COMBAT_POWER_ASIDE_BONUS : 0;
+    return Math.max(0, Math.floor(weightedStats * (
+      baseRate
+      + correction * COMBAT_POWER_CORRECTION_RATE
+      + skillSum * COMBAT_POWER_SKILL_RATE
+      + asideBonus
+    )));
   }
 
   function mapTotalsForSnapshot(totals) {
@@ -8272,12 +8473,13 @@
         research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
         cards: parsed.cards && typeof parsed.cards === 'object' ? parsed.cards : {},
         formation: parsed.formation && typeof parsed.formation === 'object' ? normalizeFormationState(parsed.formation) : createDefaultFormation(),
+        totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
         activeFormationPresetId: parsed.activeFormationPresetId || '',
         savedStates: parsed.savedStates && typeof parsed.savedStates === 'object' ? parsed.savedStates : {},
         savedFormations: normalizeFormationPresetList(parsed.savedFormations)
       };
     } catch (error) {
-      return { activeId: '', apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), activeFormationPresetId: '', savedStates: {}, savedFormations: [] };
+      return { activeId: '', apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, savedFormations: [] };
     }
   }
 

@@ -422,6 +422,7 @@ def generate(input_path: Path, output_path: Path) -> None:
         + "};\n"
         + "window.TRICKCAL_STAT_DATA = TRICKCAL_STAT_DATA;\n",
         encoding="utf-8",
+        newline="\n",
     )
 
 
