@@ -180,6 +180,7 @@
     meta: document.getElementById('apostle-meta'),
     profileChipRow: document.getElementById('profile-chip-row'),
     profileCard: document.querySelector('.dashboard-persistent-profile'),
+    profileHeader: document.querySelector('.apostle-info-profile'),
     dashboardViewButtons: Array.from(document.querySelectorAll('[data-dashboard-view]')),
     dashboardPanels: Array.from(document.querySelectorAll('[data-dashboard-panel]')),
     totals: document.getElementById('stat-total-grid'),
@@ -494,11 +495,20 @@
       window.location.reload();
     });
 
-    elements.apostlePickerButton.addEventListener('click', () => {
-      elements.apostlePickerSearch.value = '';
-      renderApostlePicker();
-      elements.apostlePickerDialog.showModal();
-      elements.apostlePickerSearch.focus();
+    elements.apostlePickerButton.addEventListener('click', openApostlePickerDialog);
+
+    elements.profileHeader?.setAttribute('role', 'button');
+    elements.profileHeader?.setAttribute('tabindex', '0');
+    elements.profileHeader?.setAttribute('aria-label', '使徒を選択');
+    elements.profileHeader?.addEventListener('click', event => {
+      if (event.target.closest('button, select, input, a, #profile-aside-icon')) return;
+      openApostlePickerDialog();
+    });
+    elements.profileHeader?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (event.target.closest('button, select, input, a, #profile-aside-icon')) return;
+      event.preventDefault();
+      openApostlePickerDialog();
     });
 
     elements.apostlePickerClose.addEventListener('click', () => {
@@ -1636,8 +1646,8 @@
 
   function formatCompactCombatPower(value) {
     const num = Math.max(0, Math.floor(Number(value) || 0));
-    if (num >= 1000000) return `${(num / 1000000).toFixed(num >= 10000000 ? 0 : 1).replace(/\.0$/, '')}m`;
-    if (num >= 10000) return `${(num / 1000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '')}k`;
+    if (num >= 1000000) return `${(num / 1000000).toFixed(num >= 10000000 ? 0 : 1).replace(/\.0$/, '')}M`;
+    if (num >= 10000) return `${(num / 1000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '')}K`;
     return formatNumber(num);
   }
 
@@ -1715,6 +1725,13 @@
     `;
   }
 
+  function openApostlePickerDialog() {
+    elements.apostlePickerSearch.value = '';
+    renderApostlePicker();
+    elements.apostlePickerDialog.showModal();
+    elements.apostlePickerSearch.focus();
+  }
+
   function renderCurrentApostlePicker() {
     const basic = DATA.getById('basicInfo', view.id);
     if (!basic) {
@@ -1753,10 +1770,11 @@
           <img data-apostle-image src="${escapeAttr(getApostleImagePath(basic.id))}" alt="">
           ${renderApostleInfoBadges(basic, true)}
           ${state.follow ? '<img class="apostle-picker-follow-icon" src="img/フォロー.webp" alt="フォロー中" title="フォロー中">' : ''}
-          ${sortValue ? `<span class="apostle-picker-sort-value">${escapeHtml(sortValue)}</span>` : ''}
         </span>
         <span class="apostle-picker-stars" aria-label="星${escapeAttr(state.star)}">${renderStarRating(state.star, basic.レア度)}</span>
-        <strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>
+        ${sortValue
+          ? `<strong class="has-sort-value"><span class="apostle-picker-name-text">${escapeHtml(basic.使徒名 || basic.id)}</span><span class="apostle-picker-sort-value">${escapeHtml(sortValue)}</span></strong>`
+          : `<strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>`}
       </button>
     `;
   }
@@ -2506,7 +2524,6 @@
           <span>${escapeHtml(basic.使徒名 || basic.id)}</span>
           ${eldain ? `<span class="apostle-name-tag">${escapeHtml(eldain)}</span>` : ''}
         </span>
-        ${renderProfileCombatPower(currentApostleCombatPower())}
       </span>
     `;
     setProfileVisualClasses(basic, state);
@@ -2528,6 +2545,8 @@
     } else {
       elements.meta.insertAdjacentHTML('beforeend', chipHtml);
     }
+
+    renderProfilePortraitCombatPower(currentApostleCombatPower());
 
     const imagePath = getApostleImagePath(basic.id);
     if (elements.image.getAttribute('src') !== imagePath) {
@@ -2581,20 +2600,22 @@
       renderProfileMetaSelectChip('Rank', 'rank', state.rank, createNumberOptions(1, 9), 'rank'),
       renderProfileMetaSelectChip('好感度Lv', 'bond', state.bond, createNumberOptions(1, 30), 'bond', bondLocked)
     ];
-    if (Number(state.asideRank) || 0) {
-      chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', state.asideRank, [
+    if (hasAsideEffects(basic?.id)) {
+      chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', Number(state.asideRank) || 0, [
         { value: 0, label: '未' },
         { value: 1, label: 'A1' },
         { value: 2, label: 'A2' },
         { value: 3, label: 'A3' }
       ], 'aside'));
-      chips.push(renderProfileMetaSelectChip(
-        'アサイドLv',
-        'asideLevel',
-        state.asideLevel,
-        createNumberOptions(1, getAsideLevelCap(state.asideRank)),
-        'aside-level'
-      ));
+      if (Number(state.asideRank) || 0) {
+        chips.push(renderProfileMetaSelectChip(
+          'アサイドLv',
+          'asideLevel',
+          state.asideLevel,
+          createNumberOptions(1, getAsideLevelCap(state.asideRank)),
+          'aside-level'
+        ));
+      }
     }
     chips.push(`
       <span class="profile-meta-chip profile-meta-chip-skill">
@@ -2651,8 +2672,17 @@
     `;
   }
 
+  function renderProfilePortraitCombatPower(value = currentApostleCombatPower()) {
+    const portrait = elements.image?.closest('.dashboard-portrait');
+    if (!portrait) return;
+    const html = renderProfileCombatPower(value);
+    const current = portrait.querySelector('.profile-combat-power');
+    if (current) current.outerHTML = html;
+    else elements.image.insertAdjacentHTML('afterend', html);
+  }
+
   function updateProfileCombatPowerDisplay(value = currentApostleCombatPower()) {
-    elements.name?.querySelectorAll('[data-profile-combat-power-value]')
+    elements.profileCard?.querySelectorAll('[data-profile-combat-power-value]')
       .forEach(node => { node.textContent = formatNumber(value); });
   }
 
@@ -3792,6 +3822,9 @@
           'ja',
           { sensitivity: 'base' }
         );
+        if (view.rankSort === 'combatPower') {
+          return getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id) || nameOrder;
+        }
         if (view.rankSort !== 'rank') return nameOrder;
         return ensureApostleState(b.id).rank - ensureApostleState(a.id).rank || nameOrder;
       });
@@ -3828,7 +3861,7 @@
 
   function updateRankOverviewAfterChange(id) {
     renderRankOverviewSummaryFromState();
-    if (view.rankSort === 'rank') {
+    if (view.rankSort === 'rank' || view.rankSort === 'combatPower') {
       renderRankOverviewCards();
       return;
     }
@@ -5726,6 +5759,9 @@
           const plannedOrder = Number(hasBoardGlobalPlannedChange(b.basic.id)) - Number(hasBoardGlobalPlannedChange(a.basic.id));
           if (plannedOrder) return plannedOrder;
           return nameOrder;
+        }
+        if (view.boardGlobalSort === 'combatPower') {
+          return getApostleCombatPowerForSort(b.basic.id) - getApostleCombatPowerForSort(a.basic.id) || nameOrder;
         }
         if (view.boardGlobalSort !== 'progress') return nameOrder;
         return b.result.filledSpecialCount - a.result.filledSpecialCount || nameOrder;

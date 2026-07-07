@@ -2153,6 +2153,7 @@
     return members.sort((a, b) => {
       if (sortKey === 'level') return (Number(b.level) || 0) - (Number(a.level) || 0) || nameSort(a, b);
       if (sortKey === 'rank') return (Number(b.rank) || 0) - (Number(a.rank) || 0) || nameSort(a, b);
+      if (sortKey === 'combatPower') return (Number(b.stats?.combatPower) || 0) - (Number(a.stats?.combatPower) || 0) || nameSort(a, b);
       if (sortKey === 'position') return POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || nameSort(a, b);
       if (sortKey === 'star') return (Number(b.star) || 0) - (Number(a.star) || 0) || nameSort(a, b);
       return nameSort(a, b);
@@ -2170,6 +2171,7 @@
           <span>並び</span>
           <select data-fdc-picker-sort>
             ${renderSelectOption('name', '50音順', view.pickerSort)}
+            ${renderSelectOption('combatPower', '戦闘力高い順', view.pickerSort)}
             ${renderSelectOption('level', 'Lv高い順', view.pickerSort)}
             ${renderSelectOption('rank', 'Rank高い順', view.pickerSort)}
             ${renderSelectOption('star', '★多い順', view.pickerSort)}
@@ -4189,7 +4191,8 @@
       crit: readStatValue(raw, ['crit', '会心']),
       critDmg: readStatValue(raw, ['critDmg', '会心DMG', '会心ダメージ']),
       critRes: readStatValue(raw, ['critRes', '会心抵抗']),
-      critDmgRes: readStatValue(raw, ['critDmgRes', '会心DMG抵抗'])
+      critDmgRes: readStatValue(raw, ['critDmgRes', '会心DMG抵抗']),
+      combatPower: readStatValue(raw, ['combatPower', '戦闘力'])
     }, snapshot);
   }
 
