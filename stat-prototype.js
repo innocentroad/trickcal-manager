@@ -289,7 +289,7 @@
     id: '',
     board: 1,
     boardEditMode: 'current',
-    stateSlot: 1,
+    stateSlot: normalizeStateSlot(appState.activeStateSlot),
     stateSlotMode: '',
     apostleFilters: {
       personality: new Set(),
@@ -347,8 +347,11 @@
   let isRefreshingStatSnapshots = false;
   let stateSaveTimer = 0;
   let statSnapshotRefreshTimer = 0;
+  let statSnapshotRefreshWorkTimer = 0;
+  let pendingStatSnapshotRefreshIds = new Set();
   let stateManagerRenderTimer = 0;
   let renderTimer = 0;
+  let pendingImportedState = null;
 
   init();
 
@@ -356,6 +359,7 @@
     document.addEventListener('error', handleApostleImageError, true);
     setTheme(loadSavedTheme());
     populateControls();
+    view.stateSlot = normalizeStateSlot(appState.activeStateSlot);
     view.id = appState.activeId || DATA.sheets.basicInfo[0]?.id || '';
     elements.apostleSelect.value = view.id;
     ensureApostleState(view.id);
@@ -364,6 +368,10 @@
     bindEvents();
     installStatEngineApi();
     window.addEventListener('beforeunload', flushPendingStateSave);
+    window.addEventListener('pagehide', flushPendingStateSave);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPendingStateSave();
+    });
     refreshAllStatSnapshots();
     renderStateManager();
     render();
@@ -554,6 +562,7 @@
     });
 
     elements.stateSlotCancel?.addEventListener('click', () => {
+      pendingImportedState = null;
       setStateSlotMode('');
       showStateStatus('スロット操作をキャンセルしました');
     });
@@ -570,14 +579,9 @@
       if (!file) return;
       try {
         const payload = JSON.parse(await file.text());
-        const imported = parseImportedState(payload);
-        const slotLabel = `スロット${view.stateSlot}`;
-        const overwriteNote = appState.savedStates[String(view.stateSlot)]
-          ? `${slotLabel}の保存内容を上書きします。`
-          : `${slotLabel}に保存します。`;
-        if (!window.confirm(`インポートした状態を読み込み、${overwriteNote}\n他の保存スロットは変更しません。`)) return;
-        applyImportedState(imported);
-        showStateStatus(`${slotLabel}にインポートしました`);
+        pendingImportedState = parseImportedState(payload);
+        setStateSlotMode('import');
+        showStateStatus('インポート先のスロット番号を選択');
       } catch (error) {
         console.error(error);
         window.alert('読み込める状態ファイルではありません。');
@@ -616,7 +620,7 @@
     elements.levelSelect.addEventListener('change', () => {
       const state = currentApostleState();
       state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
     });
@@ -627,7 +631,7 @@
       state.level = normalizeApostleLevel(state.level, state.star);
       renderLevelOptions(state.star);
       elements.levelSelect.value = String(state.level);
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
     });
@@ -637,7 +641,7 @@
       const state = currentApostleState();
       state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
       elements.bondSelect.value = String(state.bond);
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
     });
@@ -657,14 +661,14 @@
     elements.asideLevelSelect.addEventListener('change', () => {
       const state = currentApostleState();
       state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
     });
 
     elements.followToggle.addEventListener('change', () => {
       currentApostleState().follow = !!elements.followToggle.checked;
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
     });
@@ -677,7 +681,7 @@
         const state = currentApostleState();
         state.follow = !state.follow;
         elements.followToggle.checked = state.follow;
-        saveState({ renderStateManager: false });
+        saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
         renderProfileQuick();
         scheduleRender();
         return;
@@ -752,7 +756,7 @@
           ...state.skillLevels,
           [group]: Number(select.value) || 1
         }, state.asideRank);
-        saveState({ renderStateManager: false });
+        saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
         renderSkillLevelChange();
         scheduleRender();
       };
@@ -766,6 +770,7 @@
         elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item === button));
         elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
         updateGlobalOpenActiveButton(tab);
+        renderActiveGlobalSettingPanel();
         scrollGlobalSettingIntoView(tab, { block: 'start' });
       });
     });
@@ -1238,7 +1243,7 @@
       if (target.matches('.equip-enabled')) equip.enabled = target.checked;
       if (target.matches('.equip-enhance')) equip.enhance = Number(target.value) || 0;
       currentApostleState().equipment[key] = equip;
-      saveState();
+      saveState({ refreshSnapshotIds: [view.id] });
       render();
     });
 
@@ -1288,8 +1293,9 @@
       const id = target.dataset.rankApostleId;
       ensureApostleState(id).rank = Number(target.value) || 1;
       if (id === view.id) elements.rankSelect.value = String(ensureApostleState(id).rank);
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      render({ skipActiveGlobal: true });
+      updateRankOverviewAfterChange(id);
     });
 
     elements.rankOverviewGrid.addEventListener('click', event => {
@@ -1332,8 +1338,9 @@
       const basic = DATA.getById('basicInfo', id);
       ensureApostleState(id).bond = normalizeBondForApostle(basic, target.value);
       if (id === view.id) elements.bondSelect.value = String(ensureApostleState(id).bond);
-      saveState();
-      render();
+      saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+      if (id === view.id) render({ skipActiveGlobal: true });
+      updateBondOverviewAfterChange(id);
     });
 
     elements.bondOverviewGrid.addEventListener('click', event => {
@@ -1382,8 +1389,9 @@
         syncAsideControlsFromState(state);
         syncSkillLevelControlsFromState(state);
       }
-      saveState();
-      render();
+      saveState({ renderStateManager: false });
+      render({ skipActiveGlobal: true });
+      updateAsideOverviewAfterChange(id);
     });
 
     elements.asideOverviewGrid.addEventListener('click', event => {
@@ -1958,7 +1966,7 @@
     const slotKey = String(view.stateSlot);
     const dirty = isCurrentStateDirty();
     const mode = getStateSlotMode();
-    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択', delete: '削除する状態を選択' };
+    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択', delete: '削除する状態を選択', import: 'インポート先を選択' };
     elements.stateSlotButtons.forEach(button => {
       const key = button.dataset.stateSlot;
       const snapshot = appState.savedStates[key];
@@ -1999,17 +2007,18 @@
   }
 
   function getStateSlotMode() {
-    return ['save', 'load', 'delete'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
+    return ['save', 'load', 'delete', 'import'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
   }
 
   function setStateSlotMode(mode) {
-    view.stateSlotMode = ['save', 'load', 'delete'].includes(mode) ? mode : '';
+    view.stateSlotMode = ['save', 'load', 'delete', 'import'].includes(mode) ? mode : '';
+    if (view.stateSlotMode !== 'import') pendingImportedState = null;
     if (view.stateSlotMode === 'save' && elements.stateSaveName) {
       elements.stateSaveName.value = '';
       setTimeout(() => elements.stateSaveName?.focus(), 0);
     }
     renderStateManager();
-    const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択' };
+    const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択', import: 'インポート先番号を選択' };
     if (getStateSlotMode()) showStateStatus(labels[getStateSlotMode()]);
   }
 
@@ -2037,39 +2046,65 @@
         return;
       }
       deleteStateSlot(targetSlot);
+      return;
     }
+    if (mode === 'import') {
+      importStateToSlot(targetSlot);
+    }
+  }
+
+  function importStateToSlot(slot) {
+    if (!pendingImportedState) {
+      showStateStatus('インポートするファイルが選択されていません', true);
+      setStateSlotMode('');
+      return;
+    }
+    const safeSlot = normalizeStateSlot(slot);
+    const slotLabel = `スロット${safeSlot}`;
+    const overwriteNote = appState.savedStates[String(safeSlot)]
+      ? `${slotLabel}の保存内容を上書きします。`
+      : `${slotLabel}に保存します。`;
+    if (!window.confirm(`インポートした状態を読み込み、${overwriteNote}\n他の保存スロットは変更しません。`)) return;
+    const imported = pendingImportedState;
+    pendingImportedState = null;
+    setStateSlotMode('');
+    applyImportedState(imported, safeSlot);
+    showStateStatus(`${slotLabel}にインポートしました`);
   }
 
   function saveCurrentStateToSlot(slot, slotName = '') {
     persistCurrentControls();
     appState.activeId = view.id;
-    const safeSlot = Number(slot) || 1;
+    const safeSlot = normalizeStateSlot(slot);
     const previousName = appState.savedStates[String(safeSlot)]?.slotName || '';
     const normalizedName = String(slotName || '').trim() || previousName;
     view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
     appState.savedStates[String(view.stateSlot)] = createStateSnapshot(normalizedName);
-    saveState();
+    saveState({ flush: true });
     setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${view.stateSlot}に保存しました`);
   }
 
   function loadStateSlot(slot) {
-    const safeSlot = Number(slot) || 1;
+    const safeSlot = normalizeStateSlot(slot);
     const snapshot = appState.savedStates[String(safeSlot)];
     if (!snapshot) return;
     view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
     setStateSlotMode('');
     applyStateSnapshot(snapshot);
     showStateStatus(`スロット${safeSlot}を読み込みました`);
   }
 
   function deleteStateSlot(slot) {
-    const safeSlot = Number(slot) || 1;
+    const safeSlot = normalizeStateSlot(slot);
     if (!appState.savedStates[String(safeSlot)]) return;
     if (!window.confirm(`スロット${safeSlot}の保存内容を削除しますか？\nこの操作は元に戻せません。`)) return;
     delete appState.savedStates[String(safeSlot)];
-    saveState();
+    if (view.stateSlot === safeSlot) appState.activeStateSlot = view.stateSlot;
+    saveState({ flush: true });
     setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${safeSlot}を削除しました`);
@@ -2077,7 +2112,7 @@
 
   function isCurrentStateDirty() {
     const snapshot = appState.savedStates[String(view.stateSlot)];
-    if (!snapshot) return false;
+    if (!snapshot) return hasUnsavedCurrentStateWithoutSlot();
     try {
       return stableStringify(createComparableCurrentState()) !== stableStringify(createComparableSnapshot(snapshot));
     } catch (_) {
@@ -2085,10 +2120,24 @@
     }
   }
 
+  function hasUnsavedCurrentStateWithoutSlot() {
+    const defaultState = {
+      activeId: getValidApostleId(DATA.sheets.basicInfo[0]?.id || ''),
+      apostles: {},
+      research: {},
+      cards: {},
+      formation: normalizeFormationState(createDefaultFormation()),
+      totalCombatPower: 0,
+      activeFormationPresetId: '',
+      savedFormations: []
+    };
+    const current = createComparableCurrentState();
+    return stableStringify(current) !== stableStringify(defaultState);
+  }
   function createComparableCurrentState() {
     return {
       activeId: getValidApostleId(view.id || appState.activeId),
-      apostles: cloneJson(appState.apostles),
+      apostles: createComparableApostleStates(appState.apostles),
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
       formation: normalizeFormationState(appState.formation || createDefaultFormation()),
@@ -2102,7 +2151,7 @@
     const normalized = normalizeStateSnapshot(snapshot);
     return {
       activeId: normalized.activeId,
-      apostles: normalized.apostles,
+      apostles: createComparableApostleStates(normalized.apostles),
       research: normalized.research,
       cards: normalized.cards,
       formation: normalized.formation,
@@ -2112,6 +2161,20 @@
     };
   }
 
+  function createComparableApostleStates(states = {}) {
+    const comparable = cloneJson(states || {});
+    Object.values(comparable).forEach(state => {
+      if (!state || typeof state !== 'object') return;
+      delete state.statSnapshots;
+      delete state.finalStats;
+    });
+    return comparable;
+  }
+
+  function normalizeStateSlot(value) {
+    const num = Number(value) || 1;
+    return Math.max(1, Math.min(6, Math.trunc(num)));
+  }
   function stableStringify(value) {
     return JSON.stringify(stableValue(value));
   }
@@ -2137,7 +2200,7 @@
       slotName: String(slotName || '').trim(),
       apostleName: basic?.使徒名 || '',
       activeId: view.id || appState.activeId || '',
-      apostles: cloneJson(appState.apostles),
+      apostles: createComparableApostleStates(appState.apostles),
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
       formation: cloneJson(appState.formation || createDefaultFormation()),
@@ -2168,7 +2231,8 @@
     elements.apostleSelect.value = view.id;
     syncControlsFromState();
     renderResearchControls();
-    saveState();
+    appState.activeStateSlot = view.stateSlot;
+    saveState({ flush: true });
     renderStateManager();
     render();
     document.dispatchEvent(new CustomEvent('stat-state-applied'));
@@ -2209,15 +2273,18 @@
     return { current };
   }
 
-  function applyImportedState(imported) {
+  function applyImportedState(imported, slot = view.stateSlot) {
+    const safeSlot = normalizeStateSlot(slot);
     const basic = DATA.getById('basicInfo', imported.current.activeId);
     const snapshot = {
       ...cloneJson(imported.current),
       savedAt: new Date().toISOString(),
-      slotName: appState.savedStates[String(view.stateSlot)]?.slotName || '',
+      slotName: appState.savedStates[String(safeSlot)]?.slotName || '',
       apostleName: basic?.使徒名 || ''
     };
-    appState.savedStates[String(view.stateSlot)] = snapshot;
+    view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
+    appState.savedStates[String(safeSlot)] = snapshot;
     applyStateSnapshot(snapshot);
   }
 
@@ -2304,7 +2371,7 @@
     }, 3200);
   }
 
-  function render() {
+  function render(options = {}) {
     if (renderTimer) {
       window.clearTimeout(renderTimer);
       renderTimer = 0;
@@ -2359,14 +2426,12 @@
     renderRankBonuses(rankBonus);
     applyAllRankGlobalBonuses(totals, activeEffects, breakdown);
     renderActiveResearch(basic, totals, activeEffects, breakdown);
-    renderRankOverview();
-    renderBondOverview();
-    renderAsideOverview();
-    if (isCardManagerPanelActive()) renderCardManager();
+    if (!options.skipActiveGlobal && isDashboardPanelActive('global')) renderActiveGlobalSettingPanel();
     if (isDashboardPanelActive('formation')) renderFormation();
-    renderBoardGlobalOverview();
-    renderBoardSpecial(boardRows);
-    renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
+    if (isDashboardPanelActive('board')) {
+      renderBoardSpecial(boardRows);
+      renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
+    }
     collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
     collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
     collectFollowGlobalPercent(globalPercentBonuses, activeEffects);
@@ -2375,6 +2440,7 @@
     renderTotals(totals, activeEffects);
     renderStatBreakdown(breakdown, totals, globalPercentRates);
   }
+
 
   function scheduleRender(delay = 80) {
     if (renderTimer) window.clearTimeout(renderTimer);
@@ -2571,7 +2637,7 @@
     const state = currentApostleState();
     state.grade = normalizeGrade((Number(state.grade) || 1) + 1 > GRADE_MAX ? 1 : (Number(state.grade) || 1) + 1);
     state.gradeConfigured = true;
-    saveState({ renderStateManager: false });
+    saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
     renderProfileQuick();
     scheduleRender();
   }
@@ -2651,7 +2717,7 @@
     renderLevelOptions(state.star);
     elements.starSelect.value = String(state.star);
     elements.levelSelect.value = String(state.level);
-    saveState({ renderStateManager: false });
+    saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
     renderProfileQuick();
     scheduleRender();
   }
@@ -2698,14 +2764,15 @@
         [key]: value
       }, state.asideRank);
       syncSkillLevelControlsFromState(state);
-      saveState({ renderStateManager: false });
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderSkillLevelChange();
       scheduleRender();
       return;
     } else {
       return;
     }
-    saveState({ renderStateManager: false });
+    const refreshOptions = field === 'rank' || field === 'asideRank' ? {} : { refreshSnapshotIds: [view.id] };
+    saveState({ renderStateManager: false, ...refreshOptions });
     renderProfileQuick();
     scheduleRender();
   }
@@ -2730,7 +2797,7 @@
     render();
   }
 
-  function activateDashboardView(name) {
+  function activateDashboardView(name, options = {}) {
     const viewName = name || 'settings';
     if (viewName === 'global') syncBoardDraftToGlobalDraft();
     if (viewName === 'board') syncGlobalDraftToBoardDraft(view.id);
@@ -2744,18 +2811,19 @@
       updateGlobalOpenActiveButton('');
       updateCardManagerQuickButtons('');
     }
+    if (viewName === 'settings') render();
     if (viewName === 'formation') renderFormation();
-    if (viewName === 'global' && isGlobalSettingPanelActive('cards')) renderCardManager();
+    if (viewName === 'board') render();
+    if (viewName === 'global' && options.render !== false) renderActiveGlobalSettingPanel();
   }
 
   function openGlobalSettingPanel(tab = 'research', options = {}) {
     syncBoardDraftToGlobalDraft();
-    activateDashboardView('global');
+    activateDashboardView('global', { render: false });
     elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item.dataset.settingTab === tab));
     elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
     updateGlobalOpenActiveButton(tab);
-    if (tab === 'board-global') renderBoardGlobalOverview();
-    if (tab === 'cards') renderCardManager();
+    renderActiveGlobalSettingPanel();
     if (options.scroll !== false) scrollGlobalSettingIntoView(tab);
   }
 
@@ -2795,9 +2863,15 @@
     return !!document.querySelector(`[data-setting-panel="${name}"]`)?.classList.contains('is-active');
   }
 
-  function isCardManagerPanelActive() {
-    return isDashboardPanelActive('global') && isGlobalSettingPanelActive('cards');
+  function renderActiveGlobalSettingPanel() {
+    if (!isDashboardPanelActive('global')) return;
+    if (isGlobalSettingPanelActive('rank')) renderRankOverview();
+    if (isGlobalSettingPanelActive('bond')) renderBondOverview();
+    if (isGlobalSettingPanelActive('aside')) renderAsideOverview();
+    if (isGlobalSettingPanelActive('board-global')) renderBoardGlobalOverview();
+    if (isGlobalSettingPanelActive('cards')) renderCardManager();
   }
+
 
   function updateGlobalOpenActiveButton(tab) {
     document.querySelectorAll('[data-open-global]').forEach(button => {
@@ -3265,7 +3339,7 @@
         ...(normalizedEnhance === null ? {} : { enhance: normalizedEnhance })
       };
     });
-    saveState();
+    saveState({ refreshSnapshotIds: [view.id] });
     render();
   }
 
@@ -3677,7 +3751,10 @@
   function renderRankOverview() {
     renderRankOverviewFilters();
     renderRankOverviewCards();
+    renderRankOverviewSummaryFromState();
+  }
 
+  function renderRankOverviewSummaryFromState() {
     const effects = createEmptyTotals();
     DATA.sheets.rankGlobalBonuses.forEach(row => {
       const state = ensureApostleState(row.id);
@@ -3719,32 +3796,46 @@
         return ensureApostleState(b.id).rank - ensureApostleState(a.id).rank || nameOrder;
       });
 
-    elements.rankOverviewGrid.innerHTML = rows.map(row => {
-      const state = ensureApostleState(row.id);
-      const assetId = getApostleAssetId(row.id);
-      const rankTone = state.rank >= 9
-        ? 'rank-gold'
-        : state.rank >= 7
-          ? 'rank-purple'
-          : state.rank >= 5
-            ? 'rank-blue'
-            : state.rank >= 3
-              ? 'rank-green'
-              : 'rank-gray';
-      return `
-        <label class="rank-overview-card personality-${escapeAttr(row.性格 || '')} ${rankTone}" data-rank-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の装備Rankを変更">
-          <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(assetId)}.webp" alt="">
-          <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
-          <strong class="rank-overview-value">R${state.rank}</strong>
-          <select data-rank-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 装備Rank">
-            ${Array.from({ length: 9 }, (_, index) => {
-              const rank = index + 1;
-              return `<option value="${rank}" ${state.rank === rank ? 'selected' : ''}>Rank ${rank}</option>`;
-            }).join('')}
-          </select>
-        </label>
-      `;
-    }).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+    elements.rankOverviewGrid.innerHTML = rows.map(renderRankOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderRankOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    const assetId = getApostleAssetId(row.id);
+    const rankTone = state.rank >= 9
+      ? 'rank-gold'
+      : state.rank >= 7
+        ? 'rank-purple'
+        : state.rank >= 5
+          ? 'rank-blue'
+          : state.rank >= 3
+            ? 'rank-green'
+            : 'rank-gray';
+    return `
+      <label class="rank-overview-card personality-${escapeAttr(row.性格 || '')} ${rankTone}" data-rank-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の装備Rankを変更">
+        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(assetId)}.webp" alt="">
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value">R${state.rank}</strong>
+        <select data-rank-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 装備Rank">
+          ${Array.from({ length: 9 }, (_, index) => {
+            const rank = index + 1;
+            return `<option value="${rank}" ${state.rank === rank ? 'selected' : ''}>Rank ${rank}</option>`;
+          }).join('')}
+        </select>
+      </label>
+    `;
+  }
+
+  function updateRankOverviewAfterChange(id) {
+    renderRankOverviewSummaryFromState();
+    if (view.rankSort === 'rank') {
+      renderRankOverviewCards();
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.rankOverviewGrid.querySelectorAll('[data-rank-card-id]'))
+      .find(element => element.dataset.rankCardId === id);
+    if (basic && card) card.outerHTML = renderRankOverviewCard(basic);
   }
 
   function renderRankOverviewSummary(totals) {
@@ -3818,25 +3909,39 @@
         return ensureApostleState(b.id).bond - ensureApostleState(a.id).bond || nameOrder;
       });
 
-    elements.bondOverviewGrid.innerHTML = rows.map(row => {
-      const state = ensureApostleState(row.id);
-      state.bond = normalizeBondForApostle(row, state.bond);
-      const locked = isBondLockedApostle(row);
-      const bondTone = getBondOverviewTone(state.bond);
-      return `
-        <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
-          <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
-          <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
-          <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
-          <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
-            ${Array.from({ length: 30 }, (_, index) => {
-              const level = index + 1;
-              return `<option value="${level}" ${state.bond === level ? 'selected' : ''}>Lv ${level}</option>`;
-            }).join('')}
-          </select>
-        </label>
-      `;
-    }).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+    elements.bondOverviewGrid.innerHTML = rows.map(renderBondOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderBondOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    state.bond = normalizeBondForApostle(row, state.bond);
+    const locked = isBondLockedApostle(row);
+    const bondTone = getBondOverviewTone(state.bond);
+    return `
+      <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
+        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
+        <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
+          ${Array.from({ length: 30 }, (_, index) => {
+            const level = index + 1;
+            return `<option value="${level}" ${state.bond === level ? 'selected' : ''}>Lv ${level}</option>`;
+          }).join('')}
+        </select>
+      </label>
+    `;
+  }
+
+  function updateBondOverviewAfterChange(id) {
+    renderBondOverviewSummary();
+    if (view.bondSort === 'bond') {
+      renderBondOverviewCards();
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.bondOverviewGrid.querySelectorAll('[data-bond-card-id]'))
+      .find(element => element.dataset.bondCardId === id);
+    if (basic && card) card.outerHTML = renderBondOverviewCard(basic);
   }
 
   function getBondOverviewTone(level) {
@@ -3870,7 +3975,10 @@
   function renderAsideOverview() {
     renderAsideOverviewFilters();
     renderAsideOverviewCards();
+    renderAsideOverviewSummaryFromState();
+  }
 
+  function renderAsideOverviewSummaryFromState() {
     const effects = createEmptyTotals();
     DATA.sheets.basicInfo.filter(row => hasAsideEffects(row.id)).forEach(row => {
       const state = ensureApostleState(row.id);
@@ -3914,30 +4022,44 @@
         return ensureApostleState(b.id).asideRank - ensureApostleState(a.id).asideRank || nameOrder;
       });
 
-    elements.asideOverviewGrid.innerHTML = rows.map(row => {
-      const state = ensureApostleState(row.id);
-      const asideRank = Number(state.asideRank) || 0;
-      const asideTone = asideRank >= 3
-        ? 'aside-a3'
-        : asideRank === 2
-          ? 'aside-a2'
-          : asideRank === 1
-            ? 'aside-a1'
-            : 'aside-off';
-      return `
-        <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
-          <img data-apostle-image class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
-          <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
-          <strong class="rank-overview-value">${asideRank ? `A${asideRank}` : '未発現'}</strong>
-          <select data-aside-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} アサイド段階">
-            <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
-            <option value="1" ${asideRank === 1 ? 'selected' : ''}>A1</option>
-            <option value="2" ${asideRank === 2 ? 'selected' : ''}>A2</option>
-            <option value="3" ${asideRank === 3 ? 'selected' : ''}>A3</option>
-          </select>
-        </label>
-      `;
-    }).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+    elements.asideOverviewGrid.innerHTML = rows.map(renderAsideOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderAsideOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    const asideRank = Number(state.asideRank) || 0;
+    const asideTone = asideRank >= 3
+      ? 'aside-a3'
+      : asideRank === 2
+        ? 'aside-a2'
+        : asideRank === 1
+          ? 'aside-a1'
+          : 'aside-off';
+    return `
+      <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
+        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value">${asideRank ? `A${asideRank}` : '未発現'}</strong>
+        <select data-aside-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} アサイド段階">
+          <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
+          <option value="1" ${asideRank === 1 ? 'selected' : ''}>A1</option>
+          <option value="2" ${asideRank === 2 ? 'selected' : ''}>A2</option>
+          <option value="3" ${asideRank === 3 ? 'selected' : ''}>A3</option>
+        </select>
+      </label>
+    `;
+  }
+
+  function updateAsideOverviewAfterChange(id) {
+    renderAsideOverviewSummaryFromState();
+    if (view.asideSort === 'aside') {
+      renderAsideOverviewCards();
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.asideOverviewGrid.querySelectorAll('[data-aside-card-id]'))
+      .find(element => element.dataset.asideCardId === id);
+    if (basic && card) card.outerHTML = renderAsideOverviewCard(basic);
   }
 
   function renderCardManager() {
@@ -7179,11 +7301,15 @@
 
   function refreshAllStatSnapshots() {
     if (isRefreshingStatSnapshots) return;
+    refreshStatSnapshotsForRows(DATA.sheets.basicInfo || []);
+  }
+
+  function refreshStatSnapshotsForRows(rows = []) {
+    if (!rows.length || isRefreshingStatSnapshots) return;
     isRefreshingStatSnapshots = true;
-    const originalId = view.id;
     const hasAnyPlan = hasAnySavedBoardPlan();
     try {
-      (DATA.sheets.basicInfo || []).forEach(basic => {
+      rows.forEach(basic => {
         const state = ensureApostleState(basic.id);
         const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
         if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
@@ -7194,8 +7320,12 @@
         state.finalStats = current.stats;
       });
       updateTotalCombatPowerFromSnapshots();
+      const currentId = view.id;
+      if (rows.some(basic => basic.id === currentId)) {
+        updateProfileCombatPowerDisplay(ensureApostleState(currentId).statSnapshots?.current?.stats?.combatPower);
+      }
+      updateFormationCoinSummary();
     } finally {
-      view.id = originalId;
       isRefreshingStatSnapshots = false;
     }
   }
@@ -8477,19 +8607,21 @@
         totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
         activeFormationPresetId: parsed.activeFormationPresetId || '',
         savedStates: parsed.savedStates && typeof parsed.savedStates === 'object' ? parsed.savedStates : {},
+        activeStateSlot: normalizeStateSlot(parsed.activeStateSlot),
         savedFormations: normalizeFormationPresetList(parsed.savedFormations)
       };
     } catch (error) {
-      return { activeId: '', apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, savedFormations: [] };
+      return { activeId: '', apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, activeStateSlot: 1, savedFormations: [] };
     }
   }
 
   function saveState(options = {}) {
     if (options.renderStateManager === false) scheduleStateManagerRender();
     else renderStateManager();
-    scheduleStateSave();
+    if (options.flush) flushPendingStateSave();
+    else scheduleStateSave();
     if (options.refreshSnapshots === false) return;
-    scheduleStatSnapshotRefresh();
+    scheduleStatSnapshotRefresh(options.refreshSnapshotIds);
   }
 
   function scheduleStateManagerRender() {
@@ -8520,13 +8652,99 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   }
 
-  function scheduleStatSnapshotRefresh() {
+  function scheduleStatSnapshotRefresh(ids = null) {
+    queueStatSnapshotRefreshIds(ids);
     if (statSnapshotRefreshTimer) window.clearTimeout(statSnapshotRefreshTimer);
     statSnapshotRefreshTimer = window.setTimeout(() => {
+      const idsToRefresh = pendingStatSnapshotRefreshIds;
+      pendingStatSnapshotRefreshIds = new Set();
       statSnapshotRefreshTimer = 0;
-      refreshAllStatSnapshots();
-      persistState();
+      refreshScheduledStatSnapshots(idsToRefresh);
     }, 350);
+  }
+
+  function queueStatSnapshotRefreshIds(ids = null) {
+    if (ids == null) {
+      pendingStatSnapshotRefreshIds = null;
+      return;
+    }
+    if (pendingStatSnapshotRefreshIds === null) return;
+    Array.from(ids || []).forEach(id => {
+      const safeId = getValidApostleId(id);
+      if (safeId) pendingStatSnapshotRefreshIds.add(safeId);
+    });
+  }
+
+  function refreshScheduledStatSnapshots(idsToRefresh) {
+    if (isRefreshingStatSnapshots) {
+      queueStatSnapshotRefreshIds(idsToRefresh === null ? null : Array.from(idsToRefresh));
+      scheduleStatSnapshotRefresh(pendingStatSnapshotRefreshIds === null ? null : Array.from(pendingStatSnapshotRefreshIds));
+      return;
+    }
+    const rows = getStatSnapshotRefreshRows(idsToRefresh);
+    if (!rows.length) {
+      persistState();
+      return;
+    }
+    refreshStatSnapshotsForRowsChunked(rows);
+  }
+
+  function getStatSnapshotRefreshRows(idsToRefresh) {
+    if (idsToRefresh === null) return DATA.sheets.basicInfo || [];
+    const idSet = new Set(Array.from(idsToRefresh || []).map(getValidApostleId).filter(Boolean));
+    if (!idSet.size) return [];
+    return (DATA.sheets.basicInfo || []).filter(basic => idSet.has(basic.id));
+  }
+
+  function refreshStatSnapshotsForRowsChunked(rows = []) {
+    if (!rows.length || isRefreshingStatSnapshots) return;
+    if (statSnapshotRefreshWorkTimer) window.clearTimeout(statSnapshotRefreshWorkTimer);
+    isRefreshingStatSnapshots = true;
+    const hasAnyPlan = hasAnySavedBoardPlan();
+    let index = 0;
+    const finishRefresh = () => {
+      updateTotalCombatPowerFromSnapshots();
+      const currentId = view.id;
+      if (rows.some(basic => basic.id === currentId)) {
+        updateProfileCombatPowerDisplay(ensureApostleState(currentId).statSnapshots?.current?.stats?.combatPower);
+      }
+      updateFormationCoinSummary();
+      isRefreshingStatSnapshots = false;
+      persistState();
+    };
+    const failRefresh = error => {
+      console.error(error);
+      isRefreshingStatSnapshots = false;
+      persistState();
+    };
+    const runChunk = () => {
+      statSnapshotRefreshWorkTimer = 0;
+      try {
+        const startedAt = Date.now();
+        do {
+          const basic = rows[index];
+          const state = ensureApostleState(basic.id);
+          const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
+          if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+          state.statSnapshots.current = current;
+          const planned = hasAnyPlan ? createPlannedStatSnapshot(basic, state, current) : null;
+          if (planned) state.statSnapshots.planned = planned;
+          else delete state.statSnapshots.planned;
+          state.finalStats = current.stats;
+          index += 1;
+        } while (index < rows.length && Date.now() - startedAt < 8);
+
+        if (index < rows.length) {
+          statSnapshotRefreshWorkTimer = window.setTimeout(runChunk, 0);
+          return;
+        }
+
+        finishRefresh();
+      } catch (error) {
+        failRefresh(error);
+      }
+    };
+    statSnapshotRefreshWorkTimer = window.setTimeout(runChunk, 0);
   }
 
   function formatNumber(value) {
