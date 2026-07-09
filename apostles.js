@@ -13,7 +13,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.525
     },
     "statTypes": {
       "hp": 1.0,
@@ -307,7 +308,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.325
     },
     "statTypes": {
       "hp": 4.0,
@@ -541,7 +543,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -574,7 +577,10 @@ const APOSTLE_LIBRARY = [
               "9": 470.0,
               "10": 495.0,
               "11": 520.0,
-              "12": 545.0
+              "12": 545.0,
+              "13": 570,
+              "14": 595,
+              "15": 620
             }
           },
           {
@@ -614,7 +620,10 @@ const APOSTLE_LIBRARY = [
               "9": 1080.0,
               "10": 1140.0,
               "11": 1200.0,
-              "12": 1260.0
+              "12": 1260.0,
+              "13": 1320,
+              "14": 1380,
+              "15": 1440
             }
           },
           {
@@ -647,7 +656,10 @@ const APOSTLE_LIBRARY = [
               "9": 380.0,
               "10": 405.0,
               "11": 430.0,
-              "12": 455.0
+              "12": 455.0,
+              "13": 480,
+              "14": 505,
+              "15": 530
             }
           },
           {
@@ -701,7 +713,10 @@ const APOSTLE_LIBRARY = [
               "9": 685.0,
               "10": 720.0,
               "11": 755.0,
-              "12": 790.0
+              "12": 790.0,
+              "13": 825,
+              "14": 860,
+              "15": 895
             }
           },
           {
@@ -741,7 +756,10 @@ const APOSTLE_LIBRARY = [
               "9": 2160.0,
               "10": 2280.0,
               "11": 2400.0,
-              "12": 2520.0
+              "12": 2520.0,
+              "13": 2640,
+              "14": 2760,
+              "15": 2880
             }
           },
           {
@@ -774,7 +792,10 @@ const APOSTLE_LIBRARY = [
               "9": 550.0,
               "10": 585.0,
               "11": 620.0,
-              "12": 655.0
+              "12": 655.0,
+              "13": 690,
+              "14": 725,
+              "15": 760
             }
           },
           {
@@ -829,7 +850,10 @@ const APOSTLE_LIBRARY = [
               "9": 24.0,
               "10": 25.0,
               "11": 26.0,
-              "12": 27.0
+              "12": 27.0,
+              "13": 28,
+              "14": 29,
+              "15": 30
             }
           },
           {
@@ -849,7 +873,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56,
+              "14": 59,
+              "15": 62
             }
           }
         ],
@@ -986,7 +1013,107 @@ const APOSTLE_LIBRARY = [
       }
     },
     "aside": {
-      "levels": {}
+      "name": "最高の吉のカード",
+      "levels": {
+        "1": {
+          "name": "幸運カードの主人公",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "魔法攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "完全ラッキーアリスでしょ！",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "スキルダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 33.0
+            },
+            {
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "味方が12回直接ダメージ",
+              "effectTarget": "自身",
+              "fixedValue": 25.0
+            },
+            {
+              "valueKind": "HP回復クールタイム",
+              "valueClass": "クールタイム",
+              "effectType": "回復",
+              "condition": "味方が12回直接ダメージ",
+              "effectTarget": "自身",
+              "reference": "最大HP",
+              "fixedValue": 5.0
+            },
+            {
+              "valueKind": "SP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "味方が12回直接ダメージ",
+              "effectTarget": "自身",
+              "fixedValue": 100.0
+            },
+            {
+              "valueKind": "SP回復クールタイム",
+              "valueClass": "クールタイム",
+              "effectType": "回復",
+              "condition": "味方が12回直接ダメージ",
+              "effectTarget": "自身",
+              "fixedValue": 5.0
+            }
+          ],
+          "description": "スキルダメージ量が増加する。\n味方が一定回数直接ダメージを受けると、自身のHPとSPを回復する。"
+        },
+        "3": {
+          "name": "幸運を祈るわ！",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "会心",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/中列",
+              "fixedValue": 19.5
+            }
+          ],
+          "description": "中列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -1001,7 +1128,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.21
     },
     "statTypes": {
       "hp": 5.0,
@@ -1171,7 +1299,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 160.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.25
     },
     "statTypes": {
       "hp": 5.0,
@@ -1643,7 +1772,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -1851,7 +1981,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 100.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.425
     },
     "statTypes": {
       "hp": 3.0,
@@ -2229,7 +2360,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 150.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -2647,7 +2779,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 150.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.335
     },
     "statTypes": {
       "hp": 3.0,
@@ -2894,7 +3027,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -3086,7 +3220,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 20.0
+      "spRecoveryPerSecond": 20.0,
+      "戦闘力補正": 0.465
     },
     "statTypes": {
       "hp": 3.0,
@@ -3383,7 +3518,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -3609,7 +3745,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -3895,7 +4032,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.565
     },
     "statTypes": {
       "hp": 2.0,
@@ -4082,7 +4220,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.4
     },
     "statTypes": {
       "hp": 2.0,
@@ -4226,7 +4365,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -4401,7 +4541,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.3
     },
     "statTypes": {
       "hp": 4.0,
@@ -4670,7 +4811,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.335
     },
     "statTypes": {
       "hp": 4.0,
@@ -5135,7 +5277,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.31
     },
     "statTypes": {
       "hp": 2.0,
@@ -5266,7 +5409,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -5789,7 +5933,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.25
     },
     "statTypes": {
       "hp": 5.0,
@@ -6032,7 +6177,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -6173,7 +6319,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -6206,7 +6353,10 @@ const APOSTLE_LIBRARY = [
               "9": 1020.0,
               "10": 1085.0,
               "11": 1150.0,
-              "12": 1215.0
+              "12": 1215.0,
+              "13": 1280,
+              "14": 1345,
+              "15": 1410
             }
           },
           {
@@ -6240,7 +6390,10 @@ const APOSTLE_LIBRARY = [
               "9": 1560.0,
               "10": 1650.0,
               "11": 1740.0,
-              "12": 1830.0
+              "12": 1830.0,
+              "13": 1920,
+              "14": 2010,
+              "15": 2100
             }
           }
         ],
@@ -6268,7 +6421,10 @@ const APOSTLE_LIBRARY = [
               "9": 46.0,
               "10": 48.0,
               "11": 50.0,
-              "12": 52.0
+              "12": 52.0,
+              "13": 54,
+              "14": 56,
+              "15": 58
             }
           }
         ],
@@ -6293,7 +6449,99 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "思い出の中の精霊たち",
+      "levels": {
+        "1": {
+          "name": "友情の証",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "物理攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "竜巻が吹く",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 40.0
+            },
+            {
+              "valueKind": "竜巻ダメージ",
+              "valueClass": "倍率",
+              "effectType": "攻撃",
+              "condition": "普通攻撃命中時",
+              "effectTarget": "敵",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 120.0
+            },
+            {
+              "valueKind": "竜巻追加ダメージ",
+              "valueClass": "倍率",
+              "effectType": "攻撃",
+              "condition": "普通攻撃命中時かつ追加で敵がいる場合",
+              "effectTarget": "竜巻ダメージを与えた敵を除く他の敵",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 120.0
+            }
+          ],
+          "description": "攻撃速度が増加する。\n普通攻撃命中時に一定確率で竜巻が発生し、ダメージを受けた敵に物理ダメージを与えて消える。\n周囲に敵がいる場合、竜巻が追加で1つ発生し、ダメージを受けた敵を除く他の敵に物理ダメージを与えて消える。"
+        },
+        "3": {
+          "name": "精霊の守護者",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "会心",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            },
+            {
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "味方全員の会心と会心ダメージを増加させる。"
+        }
+      }
     },
     "board": null
   },
@@ -6308,7 +6556,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 25.0
+      "spRecoveryPerSecond": 25.0,
+      "戦闘力補正": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -6516,7 +6765,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 25.0
+      "spRecoveryPerSecond": 25.0,
+      "戦闘力補正": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -6722,7 +6972,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 50.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.325
     },
     "statTypes": {
       "hp": 4.0,
@@ -7136,7 +7387,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -7433,7 +7685,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 100.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.41
     },
     "statTypes": {
       "hp": 3.0,
@@ -7733,7 +7986,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.26
     },
     "statTypes": {
       "hp": 4.0,
@@ -7931,7 +8185,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.325
     },
     "statTypes": {
       "hp": 3.0,
@@ -8141,7 +8396,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.34
     },
     "statTypes": {
       "hp": 4.0,
@@ -8630,7 +8886,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -8810,7 +9067,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 150.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -9219,7 +9477,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -9354,7 +9613,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -9496,7 +9756,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.45
     },
     "statTypes": {
       "hp": 2.0,
@@ -9804,7 +10065,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.525
     },
     "statTypes": {
       "hp": 2.0,
@@ -10124,7 +10386,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.45
     },
     "statTypes": {
       "hp": 3.0,
@@ -10448,7 +10711,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -10715,7 +10979,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.195
     },
     "statTypes": {
       "hp": 3.0,
@@ -10856,7 +11121,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "魔法",
       "initialSp": 180.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.235
     },
     "statTypes": {
       "hp": 4.0,
@@ -11354,7 +11620,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.525
     },
     "statTypes": {
       "hp": 2.0,
@@ -11917,7 +12184,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.185
     },
     "statTypes": {
       "hp": 5.0,
@@ -12103,7 +12371,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 100.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.425
     },
     "statTypes": {
       "hp": 3.0,
@@ -12432,7 +12701,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -12619,7 +12889,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.345
     },
     "statTypes": {
       "hp": 3.0,
@@ -12990,7 +13261,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 20.0
+      "spRecoveryPerSecond": 20.0,
+      "戦闘力補正": 0.335
     },
     "statTypes": {
       "hp": 3.0,
@@ -13214,7 +13486,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -13630,7 +13903,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.2
     },
     "statTypes": {
       "hp": 4.0,
@@ -13830,7 +14104,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -13980,7 +14255,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.22
     },
     "statTypes": {
       "hp": 3.0,
@@ -14136,7 +14412,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 25.0
+      "spRecoveryPerSecond": 25.0,
+      "戦闘力補正": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -14355,7 +14632,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 200.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.475
     },
     "statTypes": {
       "hp": 1.0,
@@ -14621,12 +14899,12 @@ const APOSTLE_LIBRARY = [
             {
               "statApplyTo": "全体",
               "statName": "会心抵抗",
-              "increaseP": 6.0
+              "increaseP": 3.0
             },
             {
               "statApplyTo": "全体",
               "statName": "会心ダメージ抵抗",
-              "increaseP": 6.0
+              "increaseP": 3.0
             }
           ],
           "effects": []
@@ -14646,7 +14924,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 150.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.39
     },
     "statTypes": {
       "hp": 2.0,
@@ -14788,7 +15067,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.185
     },
     "statTypes": {
       "hp": 5.0,
@@ -14951,7 +15231,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.325
     },
     "statTypes": {
       "hp": 3.0,
@@ -15167,7 +15448,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -15355,7 +15637,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.195
     },
     "statTypes": {
       "hp": 3.0,
@@ -15490,7 +15773,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 20.0
+      "spRecoveryPerSecond": 20.0,
+      "戦闘力補正": 0.27
     },
     "statTypes": {
       "hp": 3.0,
@@ -15646,7 +15930,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.425
     },
     "statTypes": {
       "hp": 1.0,
@@ -15876,7 +16161,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "魔法",
       "initialSp": 100.0,
-      "spRecoveryPerSecond": 20.0
+      "spRecoveryPerSecond": 20.0,
+      "戦闘力補正": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -16329,7 +16615,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -16465,7 +16752,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "魔法",
       "initialSp": 220.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.4
     },
     "statTypes": {
       "hp": 3.0,
@@ -16893,7 +17181,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 44.0
+      "spRecoveryPerSecond": 44.0,
+      "戦闘力補正": 0.37
     },
     "statTypes": {
       "hp": 3.0,
@@ -17296,7 +17585,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.22
     },
     "statTypes": {
       "hp": 4.0,
@@ -17663,7 +17953,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 160.0,
-      "spRecoveryPerSecond": 40.0
+      "spRecoveryPerSecond": 40.0,
+      "戦闘力補正": 0.37
     },
     "statTypes": {
       "hp": 4.0,
@@ -18109,7 +18400,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -18452,7 +18744,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -18739,7 +19032,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -19032,7 +19326,8 @@ const APOSTLE_LIBRARY = [
       "position": "後列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 30.0
+      "spRecoveryPerSecond": 30.0,
+      "戦闘力補正": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -19173,7 +19468,8 @@ const APOSTLE_LIBRARY = [
       "position": "中列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 37.0
+      "spRecoveryPerSecond": 37.0,
+      "戦闘力補正": 0.225
     },
     "statTypes": {
       "hp": 4.0,
@@ -19357,7 +19653,8 @@ const APOSTLE_LIBRARY = [
       "position": "前列",
       "attackType": "物理",
       "initialSp": 0.0,
-      "spRecoveryPerSecond": 50.0
+      "spRecoveryPerSecond": 50.0,
+      "戦闘力補正": 0.22
     },
     "statTypes": {
       "hp": 5.0,

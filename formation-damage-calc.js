@@ -2,6 +2,7 @@
   document.documentElement?.classList?.add('fdc-root');
   const STAT_STORAGE_KEY = 'trickcal_stat_prototype_v1';
   const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1';
+  const CALC_RESULT_SAVES_KEY = 'trickcal_formation_damage_result_saves_v1';
   const CUSTOM_ENEMY_PRESETS_KEY = 'trickcal_formation_damage_enemy_presets_v1';
   const THEME_KEY = 'trickcal_theme';
   const LEGACY_THEME_KEY = 'trickcal_damage_calc_theme';
@@ -45,6 +46,12 @@
   const el = {
     reload: document.getElementById('fdc-reload'),
     themeToggle: document.getElementById('fdc-theme-toggle'),
+    saveMenu: document.getElementById('fdc-save-menu'),
+    loadedSaveLabel: document.getElementById('fdc-loaded-save-label'),
+    saveActionButtons: Array.from(document.querySelectorAll('[data-fdc-save-action]')),
+    saveList: document.getElementById('fdc-save-list'),
+    loadOptionsPanel: document.getElementById('fdc-load-options-panel'),
+    loadPartInputs: Array.from(document.querySelectorAll('[data-fdc-load-part]')),
     perspectiveToggle: document.getElementById('fdc-perspective-toggle'),
     perspectiveLabel: document.getElementById('fdc-perspective-label'),
     mobileSideSwitch: document.getElementById('fdc-mobile-side-switch'),
@@ -215,7 +222,11 @@
     },
     resultDisplays: {
       hp: true
-    }
+    },
+    damageSaveAction: '',
+    loadedDamageSaveId: '',
+    referenceState: null,
+    referenceOptions: { cards: false, global: false, apostles: false }
   };
   restoreCalcSettings();
 
@@ -223,6 +234,7 @@
   setupCollapsibleStatCategories();
   bindEvents();
   populateEnemyPresets();
+  renderDamageSaveActionPanel();
   applyEnemyPreset();
   render();
 
@@ -232,7 +244,16 @@
       render();
     });
     el.themeToggle?.addEventListener('click', toggleTheme);
-    el.result.detailToggle?.addEventListener('click', () => {
+    el.saveMenu?.addEventListener('toggle', () => {
+      view.damageSaveAction = '';
+      renderDamageSaveActionPanel();
+      if (el.saveMenu.open) closeApplyFloatPanel();
+    });
+    el.saveActionButtons.forEach(button => button.addEventListener('click', () => {
+      const action = button.dataset.fdcSaveAction || '';
+      view.damageSaveAction = view.damageSaveAction === action ? '' : action;
+      renderDamageSaveActionPanel();
+    }));    el.result.detailToggle?.addEventListener('click', () => {
       const open = el.result.detailPanel?.hidden !== false;
       setResultDetailOpen(open);
       const context = buildContext();
@@ -281,6 +302,10 @@
     document.addEventListener('click', event => {
       if (!el.applyFloat || el.applyFloat.contains(event.target)) return;
       closeApplyFloatPanel();
+    });
+    document.addEventListener('click', event => {
+      if (!el.saveMenu?.open || el.saveMenu.contains(event.target)) return;
+      el.saveMenu.open = false;
     });
     document.addEventListener('click', event => {
       if (!el.skillPopover || el.skillPopover.hidden) return;
@@ -779,7 +804,7 @@
   }
 
   function buildContext() {
-    const state = loadStatState();
+    const state = getEffectiveStatState();
     const formationSource = getSelectedFormationSource(state);
     const formation = applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(formationSource.formation)));
     const members = getFormationMembers(formation, state);
@@ -869,6 +894,329 @@
     return next;
   }
 
+  function loadDamageCalculationSaves() {
+    try {
+      const raw = localStorage.getItem(CALC_RESULT_SAVES_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter(item => item && typeof item === 'object' && item.id && item.snapshot)
+        .map(item => ({
+          id: String(item.id),
+          name: String(item.name || '無題の計算'),
+          savedAt: Number(item.savedAt) || 0,
+          snapshot: item.snapshot
+        }))
+        .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+    } catch (error) {
+      console.warn('Failed to load damage calculation saves', error);
+      return [];
+    }
+  }
+
+  function writeDamageCalculationSaves(items) {
+    try {
+      const normalized = (Array.isArray(items) ? items : [])
+        .filter(item => item && item.id && item.snapshot)
+        .slice(0, 50);
+      localStorage.setItem(CALC_RESULT_SAVES_KEY, JSON.stringify(normalized));
+    } catch (error) {
+      console.warn('Failed to save damage calculation saves', error);
+    }
+  }
+
+  function renderDamageSaveActionPanel() {
+    const action = view.damageSaveAction;
+    const saves = loadDamageCalculationSaves();
+    el.saveActionButtons.forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.fdcSaveAction === action));
+    });
+    if (el.loadOptionsPanel) el.loadOptionsPanel.hidden = action !== 'load';
+    if (!el.saveList) return;
+    el.saveList.hidden = !action;
+    el.saveList.dataset.action = action;
+    if (!action) {
+      el.saveList.innerHTML = '';
+      return;
+    }
+    const items = [];
+    if (action === 'save') {
+      items.push('<button type="button" class="fdc-save-list-item is-new" data-fdc-save-id=""><strong>新規保存</strong><span>新しい保存データを作成</span></button>');
+    }
+    saves.forEach(item => {
+      items.push(`<button type="button" class="fdc-save-list-item" data-fdc-save-id="${escapeAttr(item.id)}"><strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${escapeHtml(formatDamageSaveOptionLabel(item, false))}</span></button>`);
+    });
+    if (!items.length) {
+      el.saveList.innerHTML = '<p class="fdc-save-list-empty">保存データはありません</p>';
+      return;
+    }
+    el.saveList.innerHTML = items.join('');
+    el.saveList.querySelectorAll('[data-fdc-save-id]').forEach(button => {
+      button.addEventListener('click', () => executeDamageSaveAction(action, button.dataset.fdcSaveId || ''));
+    });
+  }
+
+  function executeDamageSaveAction(action, id) {
+    if (action === 'save') saveCurrentDamageCalculation(id);
+    if (action === 'load') loadSelectedDamageCalculation(id);
+    if (action === 'delete') deleteSelectedDamageCalculation(id);
+  }
+
+  function formatDamageSaveOptionLabel(item, includeName = true) {
+    const date = item.savedAt ? new Date(item.savedAt) : null;
+    const stamp = date && !Number.isNaN(date.getTime())
+      ? `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+      : '';
+    const expected = Number(item.snapshot?.result?.expected);
+    const expectedText = Number.isFinite(expected) && expected > 0 ? `期待値 ${formatCompactDamage(expected)}` : '';
+    return [includeName ? item.name || '無題の計算' : '', expectedText, stamp].filter(Boolean).join(' / ');
+  }
+
+  function getDamageSaveById(id) {
+    if (!id) return null;
+    return loadDamageCalculationSaves().find(item => item.id === id) || null;
+  }
+
+  function closeDamageSaveMenu() {
+    view.damageSaveAction = '';
+    renderDamageSaveActionPanel();
+    if (el.saveMenu) el.saveMenu.open = false;
+  }
+
+  function saveCurrentDamageCalculation(selectedId = '') {
+    const saves = loadDamageCalculationSaves();
+    const existing = saves.find(item => item.id === selectedId) || null;
+    const context = buildContext();
+    const defaultName = existing?.name || createDamageSaveDefaultName(context);
+    const enteredName = window.prompt(existing ? '保存名を変更して上書き' : '保存名', defaultName);
+    if (enteredName === null) return;
+    const now = Date.now();
+    const item = {
+      id: existing?.id || `calc:${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
+      name: enteredName.trim() || defaultName,
+      savedAt: now,
+      snapshot: createDamageCalculationSnapshot(context)
+    };
+    writeDamageCalculationSaves([item, ...saves.filter(saved => saved.id !== item.id)]);
+    closeDamageSaveMenu();
+  }
+
+  function loadSelectedDamageCalculation(id) {
+    const selected = getDamageSaveById(id);
+    if (!selected) return;
+    if (!window.confirm(`「${selected.name || '無題の計算'}」を読み込みますか？`)) return;
+    applyDamageCalculationSnapshot(selected.snapshot, getDamageLoadOptions());
+    view.loadedDamageSaveId = selected.id;
+    renderLoadedDamageSaveLabel(selected);
+    closeDamageSaveMenu();
+  }
+
+  function deleteSelectedDamageCalculation(id) {
+    const selected = getDamageSaveById(id);
+    if (!selected) return;
+    if (!window.confirm(`「${selected.name || '無題の計算'}」を削除しますか？`)) return;
+    writeDamageCalculationSaves(loadDamageCalculationSaves().filter(item => item.id !== selected.id));
+    if (view.loadedDamageSaveId === selected.id) {
+      view.loadedDamageSaveId = '';
+      renderLoadedDamageSaveLabel(null);
+    }
+    closeDamageSaveMenu();
+  }
+
+  function renderLoadedDamageSaveLabel(item) {
+    if (!el.loadedSaveLabel) return;
+    el.loadedSaveLabel.hidden = !item;
+    if (!item) {
+      el.loadedSaveLabel.innerHTML = '';
+      el.loadedSaveLabel.title = '';
+      return;
+    }
+    const result = item.snapshot?.result || {};
+    el.loadedSaveLabel.innerHTML = `<strong>${escapeHtml(item.name || '無題の計算')}</strong><span>期待値 ${escapeHtml(formatCompactDamage(Number(result.expected) || 0))}</span>`;
+    el.loadedSaveLabel.title = formatDamageSaveOptionLabel(item);
+  }
+  function createDamageSaveDefaultName(context = buildContext()) {
+    const target = context.target?.name || '使徒未選択';
+    const preset = getSelectedEnemyPreset();
+    const enemy = preset?.name?.replace(/^\[保存\]\s*/, '') || '手動敵';
+    return `${target} vs ${enemy}`;
+  }
+
+  function createDamageCalculationSnapshot(context = buildContext()) {
+    const result = calculateDamage(context);
+    return {
+      version: 1,
+      savedAt: Date.now(),
+      view: clonePlain({
+        targetId: view.targetId || '',
+        formationPresetId: view.formationPresetId || '',
+        damageType: view.damageType || 'auto',
+        enemyDamageType: view.enemyDamageType || 'auto',
+        gradeOverride: view.gradeOverride || 'saved',
+        statMode: view.statMode === 'planned' ? 'planned' : 'current',
+        perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
+        mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
+        enemyPersonality: view.enemyPersonality || '',
+        enemyPresetKey: view.enemyPresetKey || '',
+        enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
+        enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
+        selectedSkillCategory: view.selectedSkillCategory || '',
+        statDirty: !!view.statDirty,
+        effectSources: pickBooleanMap(view.effectSources),
+        resultDisplays: pickBooleanMap(view.resultDisplays),
+        selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
+        conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
+        skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
+        tempMembers: view.tempMembers || {},
+        tempArtifacts: view.tempArtifacts || { formation: {}, target: {} },
+        spellDetailsOpen: !!view.spellDetailsOpen
+      }),
+      inputs: readDamageCalculationInputs(),
+      referenceState: createReferenceStateSnapshot(context),
+      result: {
+        normal: Math.round(Number(result.normal) || 0),
+        crit: Math.round(Number(result.crit) || 0),
+        expected: Math.round(Number(result.expected) || 0),
+        critRate: Number(result.critRate) || 0,
+        defRate: Number(result.defRate) || 0
+      }
+    };
+  }
+
+  function applyDamageCalculationSnapshot(snapshot = {}, options = getDamageLoadOptions()) {
+    if (!snapshot || typeof snapshot !== 'object') return;
+    const loadOptions = {
+      settings: true,
+      enemy: true,
+      cards: !!options.cards,
+      global: !!options.global,
+      apostles: !!options.apostles
+    };
+    const savedView = snapshot.view && typeof snapshot.view === 'object' ? snapshot.view : {};
+    view.referenceState = snapshot.referenceState && typeof snapshot.referenceState === 'object'
+      ? clonePlain(snapshot.referenceState)
+      : null;
+    view.referenceOptions = { cards: loadOptions.cards, global: loadOptions.global, apostles: loadOptions.apostles };
+    applyDamageSnapshotView(savedView, loadOptions);
+    view.pendingTempMemberId = '';
+    closeTempArtifactPicker();
+    closeFormationPicker();
+    populateEnemyPresets();
+    render();
+    writeDamageCalculationInputs(snapshot.inputs || {}, loadOptions);
+    saveCalcSettings();
+    renderResult(buildContext());
+  }
+
+  function applyDamageSnapshotView(savedView = {}, options = {}) {
+    if (options.settings) {
+      if (typeof savedView.targetId === 'string') view.targetId = savedView.targetId;
+      if (typeof savedView.formationPresetId === 'string') view.formationPresetId = savedView.formationPresetId;
+      if (['auto', 'physical', 'magic'].includes(savedView.damageType)) view.damageType = savedView.damageType;
+      if (['saved', '1', '2', '3', '4', '5', '6'].includes(String(savedView.gradeOverride))) view.gradeOverride = String(savedView.gradeOverride);
+      if (['current', 'planned'].includes(savedView.statMode)) view.statMode = savedView.statMode;
+      if (['self', 'enemy'].includes(savedView.perspective)) view.perspective = savedView.perspective;
+      if (['self', 'enemy'].includes(savedView.mobileVisibleSide)) view.mobileVisibleSide = savedView.mobileVisibleSide;
+      if (typeof savedView.selectedSkillCategory === 'string') view.selectedSkillCategory = savedView.selectedSkillCategory;
+      if (savedView.effectSources && typeof savedView.effectSources === 'object') view.effectSources = { ...view.effectSources, ...pickBooleanMap(savedView.effectSources, Object.keys(view.effectSources)) };
+      if (savedView.resultDisplays && typeof savedView.resultDisplays === 'object') view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(savedView.resultDisplays, Object.keys(view.resultDisplays)) };
+      view.selfSkillEffectEnabled = savedView.selfSkillEffectEnabled && typeof savedView.selfSkillEffectEnabled === 'object' ? pickBooleanMap(savedView.selfSkillEffectEnabled) : {};
+      view.conditionalEffectEnabled = savedView.conditionalEffectEnabled && typeof savedView.conditionalEffectEnabled === 'object' ? pickBooleanMap(savedView.conditionalEffectEnabled) : {};
+      view.skillLevelOverrides = savedView.skillLevelOverrides && typeof savedView.skillLevelOverrides === 'object' ? sanitizeSkillLevelOverrides(savedView.skillLevelOverrides) : {};
+      view.tempMembers = savedView.tempMembers && typeof savedView.tempMembers === 'object' ? clonePlain(savedView.tempMembers) : {};
+      view.tempArtifacts = savedView.tempArtifacts && typeof savedView.tempArtifacts === 'object'
+        ? clonePlain(savedView.tempArtifacts)
+        : { formation: {}, target: {} };
+      view.spellDetailsOpen = !!savedView.spellDetailsOpen;
+    }
+    if (options.enemy) {
+      if (['auto', 'physical', 'magic'].includes(savedView.enemyDamageType)) view.enemyDamageType = savedView.enemyDamageType;
+      if (typeof savedView.enemyPersonality === 'string') view.enemyPersonality = savedView.enemyPersonality;
+      if (typeof savedView.enemyPresetKey === 'string') view.enemyPresetKey = savedView.enemyPresetKey;
+      if (Number.isFinite(Number(savedView.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(savedView.enemyPhaseIndex));
+      if (Number.isFinite(Number(savedView.enemySkillIndex))) view.enemySkillIndex = Number(savedView.enemySkillIndex);
+    }
+    view.statDirty = true;
+  }
+  function readDamageCalculationInputs() {
+    return Object.fromEntries(Object.entries(el.inputs || {})
+      .filter(([, input]) => input && 'value' in input)
+      .map(([key, input]) => [key, input.value]));
+  }
+
+  function writeDamageCalculationInputs(values = {}, options = { settings: true, enemy: true }) {
+    Object.entries(values || {}).forEach(([key, value]) => {
+      const input = el.inputs?.[key];
+      if (!input || !('value' in input)) return;
+      const enemyInput = isEnemyDamageInputKey(key);
+      if (enemyInput && !options.enemy) return;
+      if (!enemyInput && !options.settings) return;
+      input.value = value == null ? '' : String(value);
+    });
+    if (options.settings) {
+      if (el.damageType) el.damageType.value = view.damageType;
+      if (el.gradeOverride) el.gradeOverride.value = view.gradeOverride;
+      if (el.statMode) el.statMode.value = view.statMode;
+      if (el.formationPreset) el.formationPreset.value = view.formationPresetId || '';
+    }
+    if (options.enemy) {
+      if (el.enemyDamageType) el.enemyDamageType.value = view.enemyDamageType;
+      if (el.enemyPersonality) el.enemyPersonality.value = view.enemyPersonality || '';
+      if (el.enemyPreset) el.enemyPreset.value = view.enemyPresetKey || '';
+    }
+  }
+
+  function isEnemyDamageInputKey(key) {
+    return String(key || '').startsWith('enemy') || ['def', 'critRes', 'critDmgRes'].includes(key);
+  }
+
+  function getDamageLoadOptions() {
+    const defaults = { cards: false, global: false, apostles: false };
+    el.loadPartInputs.forEach(input => {
+      const key = input.dataset.fdcLoadPart;
+      if (Object.prototype.hasOwnProperty.call(defaults, key)) defaults[key] = !!input.checked;
+    });
+    return defaults;
+  }
+
+  function createReferenceStateSnapshot(context = buildContext()) {
+    const state = context.state || loadStatState();
+    const ids = new Set([
+      context.target?.id,
+      ...(context.members || []).map(member => member.id),
+      ...Object.values(view.tempMembers || {})
+    ].filter(Boolean));
+    const apostles = {};
+    ids.forEach(id => {
+      if (state.apostles?.[id]) apostles[id] = clonePlain(state.apostles[id]);
+    });
+    const selectedPreset = Array.isArray(state.savedFormations)
+      ? state.savedFormations.find(item => item?.id === view.formationPresetId)
+      : null;
+    return {
+      found: true,
+      activeId: state.activeId || view.targetId || '',
+      apostles,
+      research: clonePlain(state.research || {}),
+      cards: clonePlain(state.cards || {}),
+      formation: clonePlain(normalizeFormation(getSelectedFormationSource(state).formation)),
+      savedFormations: selectedPreset ? [clonePlain(selectedPreset)] : []
+    };
+  }
+
+  function formatCompactDamage(value) {
+    const number = Math.round(Number(value) || 0);
+    if (number >= 100000000) return `${formatPlainNumber(number / 100000000)}億`;
+    if (number >= 10000) return `${formatPlainNumber(number / 10000)}万`;
+    return formatNumber(number);
+  }
+  function clonePlain(value) {
+    try {
+      return JSON.parse(JSON.stringify(value || {}));
+    } catch {
+      return {};
+    }
+  }
   function restoreCalcSettings() {
     try {
       const raw = localStorage.getItem(CALC_SETTINGS_KEY);
@@ -962,6 +1310,49 @@
     return result;
   }
 
+  function getEffectiveStatState() {
+    const current = loadStatState();
+    if (!view.referenceState || typeof view.referenceState !== 'object') return current;
+    const reference = clonePlain(view.referenceState);
+    const options = view.referenceOptions || {};
+    const next = {
+      ...current,
+      found: true,
+      formation: reference.formation || current.formation || {},
+      savedFormations: Array.isArray(reference.savedFormations) && reference.savedFormations.length
+        ? reference.savedFormations
+        : (current.savedFormations || [])
+    };
+    next.cards = options.cards ? (reference.cards || {}) : (current.cards || {});
+    next.research = options.global ? (reference.research || {}) : (current.research || {});
+    next.apostles = mergeReferenceApostleStates(current.apostles || {}, reference.apostles || {}, options);
+    return next;
+  }
+
+  function mergeReferenceApostleStates(currentApostles = {}, referenceApostles = {}, options = {}) {
+    const result = clonePlain(currentApostles || {});
+    Object.entries(referenceApostles || {}).forEach(([id, savedState]) => {
+      const currentState = result[id] && typeof result[id] === 'object' ? result[id] : {};
+      if (options.apostles && options.global) {
+        result[id] = clonePlain(savedState);
+        return;
+      }
+      const nextState = { ...currentState };
+      if (options.apostles) {
+        Object.entries(savedState || {}).forEach(([key, value]) => {
+          if (['boards', 'plannedBoards'].includes(key)) return;
+          nextState[key] = clonePlain(value);
+        });
+      }
+      if (options.global) {
+        ['boards', 'plannedBoards', 'statSnapshots'].forEach(key => {
+          if (savedState && Object.prototype.hasOwnProperty.call(savedState, key)) nextState[key] = clonePlain(savedState[key]);
+        });
+      }
+      result[id] = nextState;
+    });
+    return result;
+  }
   function loadStatState() {
     try {
       const raw = localStorage.getItem(STAT_STORAGE_KEY);
@@ -3529,6 +3920,7 @@
   function toggleApplyFloatPanel() {
     if (!el.applyFloatPanel || !el.applyFloatToggle) return;
     const open = !!el.applyFloatPanel.hidden;
+    if (open && el.saveMenu) el.saveMenu.open = false;
     el.applyFloatPanel.hidden = !open;
     el.applyFloatToggle.setAttribute('aria-expanded', String(open));
   }

@@ -156,6 +156,275 @@ body.theme-light .fdc-theme-toggle {
   align-items: center;
   min-width: 0;
 }
+.fdc-save-menu {
+  position: relative;
+}
+
+.fdc-save-menu > summary {
+  list-style: none;
+}
+
+.fdc-save-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fdc-save-float-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.45rem;
+  min-height: 2.1rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 80%, transparent);
+  border-radius: 999px;
+  padding: 0.28rem;
+  background: color-mix(in srgb, var(--fdc-bg) 88%, #000 12%);
+  color: var(--fdc-text);
+  box-shadow: var(--fdc-shadow);
+  font-size: 0.78rem;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.78;
+  backdrop-filter: blur(12px);
+}
+
+.fdc-save-float-toggle svg {
+  width: 1.12rem;
+  height: 1.12rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fdc-save-menu:hover .fdc-save-float-toggle,
+.fdc-save-menu[open] .fdc-save-float-toggle {
+  opacity: 1;
+}
+
+.fdc-loaded-save-label {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  align-items: center;
+  gap: 0.48rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 42%, var(--fdc-border));
+  border-radius: 0.6rem;
+  padding: 0.28rem 0.55rem;
+  color: var(--fdc-text);
+  background: var(--fdc-primary-soft);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fdc-loaded-save-label:not([hidden]) {
+  display: inline-flex;
+}
+
+.fdc-loaded-save-label strong,
+.fdc-loaded-save-label span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdc-loaded-save-label strong {
+  max-width: 10rem;
+}
+
+.fdc-loaded-save-label span {
+  color: var(--fdc-muted);
+  font-size: 0.66rem;
+}
+
+.fdc-save-popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.48rem;
+  width: min(24rem, calc(100vw - 1.4rem));
+  max-width: calc(100vw - 1.4rem);
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 84%, transparent);
+  border-radius: 16px;
+  padding: 0.72rem;
+  background: color-mix(in srgb, var(--fdc-panel) 94%, #000 6%);
+  color: var(--fdc-text);
+  box-shadow: var(--fdc-shadow);
+  white-space: normal;
+  transform: none;
+  backdrop-filter: blur(12px);
+}
+
+.fdc-save-actions button[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px currentColor !important;
+}
+
+.fdc-save-actions [data-fdc-save-action="save"] {
+  color: #ecfdf5 !important;
+  border-color: color-mix(in srgb, #34d399 48%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, #047857 58%, var(--fdc-panel)) !important;
+}
+
+.fdc-save-actions [data-fdc-save-action="load"] {
+  color: #eff6ff !important;
+  border-color: color-mix(in srgb, #60a5fa 52%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, #1d4ed8 55%, var(--fdc-panel)) !important;
+}
+
+.fdc-save-list {
+  display: grid;
+  gap: 0.32rem;
+  max-height: min(19rem, 46vh);
+  overflow-y: auto;
+  padding-right: 0.12rem;
+}
+
+.fdc-save-list[hidden] {
+  display: none;
+}
+
+.fdc-save-list-item {
+  display: grid;
+  gap: 0.18rem;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 88%, transparent) !important;
+  color: var(--fdc-text) !important;
+  background: color-mix(in srgb, var(--fdc-input) 86%, var(--fdc-panel)) !important;
+  box-shadow: none !important;
+  text-align: left;
+}
+
+.fdc-save-list-item:hover,
+.fdc-save-list-item:focus-visible {
+  border-color: color-mix(in srgb, var(--fdc-primary) 58%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, var(--fdc-primary-soft) 66%, var(--fdc-panel)) !important;
+}
+
+.fdc-save-list[data-action="save"] .fdc-save-list-item.is-new {
+  border-color: color-mix(in srgb, #34d399 52%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, #047857 18%, var(--fdc-input)) !important;
+}
+
+.fdc-save-list[data-action="delete"] .fdc-save-list-item:hover,
+.fdc-save-list[data-action="delete"] .fdc-save-list-item:focus-visible {
+  border-color: color-mix(in srgb, #f87171 58%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, #991b1b 20%, var(--fdc-input)) !important;
+}
+
+.fdc-save-list-item strong,
+.fdc-save-list-item span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdc-save-list-item span {
+  color: var(--fdc-muted);
+  font-size: 0.67rem;
+}
+
+.fdc-save-list-item.is-new {
+  border-style: dashed !important;
+}
+
+.fdc-save-list-empty {
+  margin: 0;
+  padding: 0.7rem;
+  color: var(--fdc-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: center;
+}
+.fdc-save-load-options {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.fdc-save-load-label {
+  color: var(--fdc-muted);
+  font-size: 0.7rem;
+  font-weight: 950;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.fdc-save-load-options label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.32rem;
+  min-height: 2rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 78%, transparent);
+  border-radius: 0.58rem;
+  padding: 0.28rem 0.36rem;
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-panel) 76%, transparent);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.fdc-save-load-options input {
+  width: 0.82rem;
+  height: 0.82rem;
+  accent-color: var(--fdc-primary);
+}
+
+.fdc-save-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.34rem;
+}
+
+.fdc-save-popover button {
+  min-width: 0 !important;
+  min-height: 2.05rem !important;
+  border-radius: 0.6rem !important;
+  padding: 0.28rem 0.52rem !important;
+  font-size: 0.78rem !important;
+  white-space: nowrap !important;
+}
+
+.fdc-save-popover button.is-danger {
+  color: #fee2e2 !important;
+  border-color: color-mix(in srgb, #f87171 45%, var(--fdc-border)) !important;
+  background: color-mix(in srgb, #991b1b 50%, var(--fdc-panel)) !important;
+}
+
+.fdc-save-popover button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (max-width: 520px) {
+
+  .fdc-save-popover {
+    position: fixed;
+    right: max(0.7rem, env(safe-area-inset-right));
+    left: max(0.7rem, env(safe-area-inset-left));
+    bottom: calc(6.8rem + 2.65rem);
+    width: auto;
+    max-width: none;
+  }
+
+  .fdc-save-load-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fdc-save-load-label {
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+}
 
 .fdc-target-preview img {
   object-fit: cover;
@@ -345,10 +614,19 @@ body.is-defense-mode .fdc-arrow-left {
   right: clamp(0.75rem, 3vw, 1.35rem);
   bottom: 6.8rem;
   z-index: 1120;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: end;
+  justify-items: end;
   gap: 0.45rem;
+}
+
+.fdc-save-menu {
+  grid-column: 1;
+}
+
+.fdc-apply-float-toggle {
+  grid-column: 2;
 }
 
 body.fdc-result-detail-open .fdc-apply-float-controller {
@@ -429,7 +707,9 @@ body.fdc-result-detail-open .fdc-apply-float-toggle:not([aria-expanded="true"]) 
 }
 
 .fdc-apply-float-panel {
-  order: -1;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
   width: 13.4rem;
   border: 1px solid color-mix(in srgb, var(--fdc-border) 84%, transparent);
   border-radius: 16px;

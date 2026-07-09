@@ -174,6 +174,8 @@
     stateSlotIndicator: document.getElementById('state-slot-indicator'),
     stateCurrentSlot: document.getElementById('state-current-slot'),
     stateStatus: document.getElementById('state-status'),
+    historyUndo: null,
+    historyRedo: null,
     image: document.getElementById('apostle-image'),
     profileAsideIcon: document.getElementById('profile-aside-icon'),
     name: document.getElementById('apostle-name'),
@@ -353,6 +355,13 @@
   let stateManagerRenderTimer = 0;
   let renderTimer = 0;
   let pendingImportedState = null;
+  const formationCoinHistoryActions = new WeakMap();
+  const historyState = {
+    undoStack: [],
+    redoStack: [],
+    isRestoring: false,
+    limit: 50
+  };
 
   init();
 
@@ -366,6 +375,7 @@
     ensureApostleState(view.id);
     restoreSavedBoardPlan();
     syncControlsFromState();
+    ensureHistoryControls();
     bindEvents();
     installStatEngineApi();
     window.addEventListener('beforeunload', flushPendingStateSave);
@@ -485,6 +495,21 @@
     renderApostlePicker();
   }
 
+  function ensureHistoryControls() {
+    let controls = document.querySelector('.history-floating-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'history-floating-controls';
+      controls.setAttribute('aria-label', '履歴操作');
+      controls.innerHTML = `
+        <button type="button" id="history-undo" class="history-floating-button" aria-label="元に戻す" title="元に戻す" disabled>↶</button>
+        <button type="button" id="history-redo" class="history-floating-button" aria-label="やり直す" title="やり直す" disabled>↷</button>
+      `;
+      document.body.appendChild(controls);
+    }
+    elements.historyUndo = document.getElementById('history-undo');
+    elements.historyRedo = document.getElementById('history-redo');
+  }
   function bindEvents() {
     elements.themeToggles.forEach(button => button.addEventListener('click', () => {
       setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
@@ -599,8 +624,21 @@
       }
     });
 
+    elements.historyUndo?.addEventListener('click', () => {
+      undoHistoryAction();
+      elements.historyUndo.blur();
+    });
+
+    elements.historyRedo?.addEventListener('click', () => {
+      redoHistoryAction();
+      elements.historyRedo.blur();
+    });
+
+    document.addEventListener('keydown', handleHistoryShortcut);
+    updateHistoryControls();
     elements.apostleSelect.addEventListener('change', () => {
       persistCurrentControls();
+      const history = beginHistoryAction('使徒選択');
       syncBoardDraftToGlobalDraft();
       const shouldRestoreBoardDraft = isDashboardPanelActive('board');
       boardDraft = null;
@@ -612,6 +650,7 @@
       syncControlsFromState();
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     window.addEventListener('trickcal-stat-active-apostle-sync', event => {
@@ -622,20 +661,25 @@
     });
 
     elements.rankSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('Rank変更');
       currentApostleState().rank = Number(elements.rankSelect.value) || 1;
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.levelSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('Lv変更');
       const state = currentApostleState();
       state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
+      commitHistoryAction(history);
     });
 
     elements.starSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('星変更');
       const state = currentApostleState();
       state.star = normalizeApostleStar(elements.starSelect.value);
       state.level = normalizeApostleLevel(state.level, state.star);
@@ -644,9 +688,11 @@
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
+      commitHistoryAction(history);
     });
 
     elements.bondSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('好感度変更');
       const basic = DATA.getById('basicInfo', view.id);
       const state = currentApostleState();
       state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
@@ -654,9 +700,11 @@
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
+      commitHistoryAction(history);
     });
 
     elements.asideRankSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('アサイドRank変更');
       const state = currentApostleState();
       state.asideRank = Number(elements.asideRankSelect.value) || 0;
       state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
@@ -666,21 +714,26 @@
       syncSkillLevelControlsFromState(state);
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.asideLevelSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('アサイドLv変更');
       const state = currentApostleState();
       state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
+      commitHistoryAction(history);
     });
 
     elements.followToggle.addEventListener('change', () => {
+      const history = beginHistoryAction('フォロー変更');
       currentApostleState().follow = !!elements.followToggle.checked;
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderProfileQuick();
       scheduleRender();
+      commitHistoryAction(history);
     });
 
     elements.profileCard?.addEventListener('click', event => {
@@ -688,12 +741,14 @@
       if (followButton) {
         const basic = DATA.getById('basicInfo', view.id);
         if (isEldainApostle(basic)) return;
+        const history = beginHistoryAction('フォロー変更');
         const state = currentApostleState();
         state.follow = !state.follow;
         elements.followToggle.checked = state.follow;
         saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
         renderProfileQuick();
         scheduleRender();
+        commitHistoryAction(history);
         return;
       }
 
@@ -760,6 +815,7 @@
         if (output) output.textContent = String(Number(select.value) || 1);
       };
       const commitSkillLevelInput = () => {
+        const history = beginHistoryAction('スキルLv変更');
         updateSkillLevelOutput();
         const state = currentApostleState();
         state.skillLevels = normalizeSkillLevels({
@@ -769,6 +825,7 @@
         saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
         renderSkillLevelChange();
         scheduleRender();
+        commitHistoryAction(history);
       };
       select.addEventListener('input', updateSkillLevelOutput);
       select.addEventListener('change', commitSkillLevelInput);
@@ -813,14 +870,17 @@
     });
 
     elements.cardManagerOwnVisible?.addEventListener('click', () => {
+      const history = beginHistoryAction('カード所持一括変更');
       getVisibleCardManagerCards().forEach(card => {
         ensureCardState(card.id).owned = true;
       });
       persistCardManagerChange();
+      commitHistoryAction(history);
     });
 
     elements.cardManagerBulkStar?.addEventListener('change', () => {
       if (elements.cardManagerBulkStar.value === '') return;
+      const history = beginHistoryAction('カード星一括変更');
       const star = normalizeCardStar(elements.cardManagerBulkStar.value);
       getVisibleCardManagerCards().forEach(card => {
         const entry = ensureCardState(card.id);
@@ -829,10 +889,12 @@
       });
       elements.cardManagerBulkStar.value = '';
       persistCardManagerChange();
+      commitHistoryAction(history);
     });
 
     elements.cardManagerBulkSolder?.addEventListener('change', () => {
       if (elements.cardManagerBulkSolder.value === '') return;
+      const history = beginHistoryAction('カード合成一括変更');
       const solder = normalizeCardSolder(elements.cardManagerBulkSolder.value);
       getVisibleCardManagerCards().forEach(card => {
         const entry = ensureCardState(card.id);
@@ -840,17 +902,21 @@
       });
       elements.cardManagerBulkSolder.value = '';
       persistCardManagerChange();
+      commitHistoryAction(history);
     });
 
     elements.cardManagerGrid?.addEventListener('change', event => {
       const control = event.target.closest('[data-card-control]');
       if (!control) return;
       const cardId = control.dataset.cardId;
+      const historyLabels = { owned: 'カード所持変更', star: 'カード星変更', solder: 'カード合成変更' };
+      const history = beginHistoryAction(historyLabels[control.dataset.cardControl] || 'カード変更');
       const entry = ensureCardState(cardId);
       if (control.dataset.cardControl === 'owned') entry.owned = !!control.checked;
       if (control.dataset.cardControl === 'star') entry.star = normalizeCardStar(control.value);
       if (control.dataset.cardControl === 'solder') entry.solder = normalizeCardSolder(control.value);
       persistCardManagerChange(cardId);
+      commitHistoryAction(history);
     });
 
     elements.cardManagerGrid?.addEventListener('click', event => {
@@ -861,13 +927,16 @@
       if (!starButton && !solderButton && !effectButton && !cardElement) return;
       const cardId = (starButton || solderButton || effectButton)?.dataset.cardId || cardElement?.dataset.cardId;
       const entry = ensureCardState(cardId);
+      let history = null;
       if (starButton) {
         event.preventDefault();
+        history = beginHistoryAction('カード星変更');
         entry.star = normalizeCardStar(starButton.dataset.cardStar);
         if (entry.star < 5) entry.solder = 0;
       } else if (solderButton) {
         event.preventDefault();
         if (normalizeCardStar(entry.star) < 5) return;
+        history = beginHistoryAction('カード合成変更');
         entry.solder = normalizeCardSolder(((Number(entry.solder) || 0) + 1) % 3);
       } else {
         if (effectButton) {
@@ -876,9 +945,11 @@
         }
         if (event.target.closest('input, select, button, a')) return;
         event.preventDefault();
+        history = beginHistoryAction('カード所持変更');
         entry.owned = !entry.owned;
       }
       persistCardManagerChange(cardId);
+      commitHistoryAction(history);
     });
 
     elements.formationBoard?.addEventListener('click', event => {
@@ -966,20 +1037,24 @@
       }
       const autoButton = event.target.closest('[data-formation-coin-auto]');
       if (autoButton) {
+        const history = beginHistoryAction('編成コイン変更');
         const formation = ensureFormationState();
         formation.coinMode = 'auto';
         formation.coins = calculateFormationAutoCoins();
         saveState();
         updateFormationCoinSummary(formation);
         renderFormationActivePreset();
+        commitHistoryAction(history);
         return;
       }
       const manualButton = event.target.closest('[data-formation-coin-manual]');
       if (manualButton) {
+        const history = beginHistoryAction('編成コイン変更');
         const formation = ensureFormationState();
         formation.coinMode = 'manual';
         saveState();
         updateFormationCoinSummary(formation);
+        commitHistoryAction(history);
         return;
       }
       if (event.target.closest('[data-formation-coin-close]')) {
@@ -992,6 +1067,12 @@
       closeFormationCoinPopover();
     });
 
+    elements.formationCostSummary?.addEventListener('focusin', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input || formationCoinHistoryActions.has(input)) return;
+      formationCoinHistoryActions.set(input, beginHistoryAction('編成コイン変更'));
+    });
+
     elements.formationCostSummary?.addEventListener('input', event => {
       const input = event.target.closest('[data-formation-coin-input]');
       if (!input) return;
@@ -1001,6 +1082,18 @@
       saveState();
       updateFormationCoinSummary(formation);
       renderFormationActivePreset();
+    });
+
+    elements.formationCostSummary?.addEventListener('change', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input) return;
+      commitFormationCoinHistory(input);
+    });
+
+    elements.formationCostSummary?.addEventListener('focusout', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input) return;
+      commitFormationCoinHistory(input);
     });
 
     elements.formationSpellList?.addEventListener('click', event => {
@@ -1049,9 +1142,11 @@
 
     elements.formationClear?.addEventListener('click', () => {
       if (!window.confirm('編成をすべてクリアしますか？')) return;
+      const history = beginHistoryAction('編成クリア');
       appState.formation = createDefaultFormation();
       saveState();
       renderFormation();
+      commitHistoryAction(history);
     });
 
     elements.formationSaveCurrent?.addEventListener('click', openFormationSaveEditor);
@@ -1154,23 +1249,28 @@
     });
 
     elements.fillBoard.addEventListener('click', () => {
+      const history = beginHistoryAction('ボードマス一括ON');
       beginBoardDraftForLayer(view.board);
       const board = currentBoardState();
       board.targets = [];
       getCurrentBoardRows().forEach(row => board.filled[boardKey(row)] = true);
       render();
+      commitHistoryAction(history);
     });
 
     elements.clearBoard.addEventListener('click', () => {
+      const history = beginHistoryAction('ボードマス一括OFF');
       beginBoardDraftForLayer(view.board);
       const board = currentBoardState();
       board.filled = {};
       board.targets = [];
       render();
+      commitHistoryAction(history);
     });
 
     elements.confirmBoardDraft.addEventListener('click', () => {
       if (!hasBoardDraft()) return;
+      const history = beginHistoryAction('ボード現在反映');
       const state = currentApostleState();
       const newBoards = cloneJson(boardDraft.boards);
       const rebasedPlan = rebaseSavedBoardPlan(state, newBoards);
@@ -1186,10 +1286,12 @@
       delete globalBoardDrafts[view.id];
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.saveBoardPlan.addEventListener('click', () => {
       if (!hasBoardDraftChanges()) return;
+      const history = beginHistoryAction('ボード予定保存');
       const state = currentApostleState();
       if (view.boardEditMode === 'plan') {
         state.plannedBoards = cloneJson(boardDraft.boards);
@@ -1201,6 +1303,7 @@
       delete globalBoardDrafts[view.id];
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.boardModeCurrent.addEventListener('click', () => switchBoardEditMode('current'));
@@ -1248,6 +1351,7 @@
       const target = event.target;
       const cell = target.closest('.equip-cell');
       if (!cell) return;
+      const history = beginHistoryAction('装備変更');
       const key = cell.dataset.equipKey;
       const equip = currentApostleState().equipment[key] || { enabled: false, enhance: 0 };
       if (target.matches('.equip-enabled')) equip.enabled = target.checked;
@@ -1255,6 +1359,7 @@
       currentApostleState().equipment[key] = equip;
       saveState({ refreshSnapshotIds: [view.id] });
       render();
+      commitHistoryAction(history);
     });
 
     elements.equipAllOn?.addEventListener('click', () => {
@@ -1286,26 +1391,32 @@
     });
 
     elements.researchProgressSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('研究進行度変更');
       appState.research.progress = Number(elements.researchProgressSelect.value) || 0;
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.researchLevelSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('研究Lv変更');
       appState.research.level = Number(elements.researchLevelSelect.value) || 0;
       saveState();
       render();
+      commitHistoryAction(history);
     });
 
     elements.rankOverviewGrid.addEventListener('change', event => {
       const target = event.target;
       if (!target.matches('select[data-rank-apostle-id]')) return;
+      const history = beginHistoryAction('一覧Rank変更');
       const id = target.dataset.rankApostleId;
       ensureApostleState(id).rank = Number(target.value) || 1;
       if (id === view.id) elements.rankSelect.value = String(ensureApostleState(id).rank);
       saveState({ renderStateManager: false });
       render({ skipActiveGlobal: true });
       updateRankOverviewAfterChange(id);
+      commitHistoryAction(history);
     });
 
     elements.rankOverviewGrid.addEventListener('click', event => {
@@ -1344,6 +1455,7 @@
     elements.bondOverviewGrid.addEventListener('change', event => {
       const target = event.target;
       if (!target.matches('select[data-bond-apostle-id]')) return;
+      const history = beginHistoryAction('一覧好感度変更');
       const id = target.dataset.bondApostleId;
       const basic = DATA.getById('basicInfo', id);
       ensureApostleState(id).bond = normalizeBondForApostle(basic, target.value);
@@ -1351,6 +1463,7 @@
       saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
       if (id === view.id) render({ skipActiveGlobal: true });
       updateBondOverviewAfterChange(id);
+      commitHistoryAction(history);
     });
 
     elements.bondOverviewGrid.addEventListener('click', event => {
@@ -1390,6 +1503,7 @@
     elements.asideOverviewGrid.addEventListener('change', event => {
       const target = event.target;
       if (!target.matches('select[data-aside-apostle-id]')) return;
+      const history = beginHistoryAction('一覧アサイド変更');
       const id = target.dataset.asideApostleId;
       const state = ensureApostleState(id);
       state.asideRank = Number(target.value) || 0;
@@ -1402,6 +1516,7 @@
       saveState({ renderStateManager: false });
       render({ skipActiveGlobal: true });
       updateAsideOverviewAfterChange(id);
+      commitHistoryAction(history);
     });
 
     elements.asideOverviewGrid.addEventListener('click', event => {
@@ -1535,6 +1650,7 @@
       const rows = getCurrentBoardRows();
       const row = rows.find(item => boardKey(item) === key);
       if (!row || row.マス_type === 'スタート') return;
+      const history = beginHistoryAction('ボードマス変更');
       beginBoardDraftForLayer(view.board);
       const board = currentBoardState();
       board.targets = [];
@@ -1549,6 +1665,7 @@
         });
       }
       render();
+      commitHistoryAction(history);
     });
 
     elements.boardSpecial.addEventListener('click', event => {
@@ -1559,10 +1676,12 @@
       const key = button.dataset.boardShortcutKey;
       const target = rows.find(row => boardKey(row) === key);
       if (!target) return;
+      const history = beginHistoryAction('ボード特殊マス変更');
       beginBoardDraftForLayer(layer);
       applyBoardShortcutFromCurrentState(layer, key);
       view.board = layer;
       render();
+      commitHistoryAction(history);
     });
   }
 
@@ -2083,10 +2202,12 @@
       ? `${slotLabel}の保存内容を上書きします。`
       : `${slotLabel}に保存します。`;
     if (!window.confirm(`インポートした状態を読み込み、${overwriteNote}\n他の保存スロットは変更しません。`)) return;
+    const history = beginHistoryAction('インポート');
     const imported = pendingImportedState;
     pendingImportedState = null;
     setStateSlotMode('');
     applyImportedState(imported, safeSlot);
+    commitHistoryAction(history);
     showStateStatus(`${slotLabel}にインポートしました`);
   }
 
@@ -2109,10 +2230,12 @@
     const safeSlot = normalizeStateSlot(slot);
     const snapshot = appState.savedStates[String(safeSlot)];
     if (!snapshot) return;
+    const history = beginHistoryAction('ロード');
     view.stateSlot = safeSlot;
     appState.activeStateSlot = view.stateSlot;
     setStateSlotMode('');
     applyStateSnapshot(snapshot);
+    commitHistoryAction(history);
     showStateStatus(`スロット${safeSlot}を読み込みました`);
   }
 
@@ -2169,6 +2292,13 @@
     const normalized = normalizeStateSnapshot(snapshot);
     return {
       activeId: normalized.activeId,
+      boardEditMode: normalized.boardEditMode || 'current',
+      boardGlobalMode: normalized.boardGlobalMode || 'current',
+      boardDraft: normalized.boardDraft ? cloneJson(normalized.boardDraft) : null,
+      globalBoardDrafts: normalized.globalBoardDrafts ? cloneJson(normalized.globalBoardDrafts) : {},
+      dashboardView: normalized.dashboardView || 'settings',
+      globalSettingPanel: normalized.globalSettingPanel || '',
+      cardManagerKind: normalized.cardManagerKind || 'artifact',
       apostles: createComparableApostleStates(normalized.apostles),
       research: normalized.research,
       cards: normalized.cards,
@@ -2211,13 +2341,14 @@
     return snapshot.slotName || snapshot.apostleName || snapshot.activeId || `スロット${slot}`;
   }
 
-  function createStateSnapshot(slotName = '') {
+  function createStateSnapshot(slotName = '', options = {}) {
     const basic = DATA.getById('basicInfo', view.id);
-    return {
+    const snapshot = {
       savedAt: new Date().toISOString(),
       slotName: String(slotName || '').trim(),
       apostleName: basic?.使徒名 || '',
       activeId: view.id || appState.activeId || '',
+      activeStateSlot: view.stateSlot,
       apostles: createComparableApostleStates(appState.apostles),
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
@@ -2226,9 +2357,19 @@
       activeFormationPresetId: appState.activeFormationPresetId || '',
       savedFormations: cloneJson(appState.savedFormations || [])
     };
+    if (options.includeTransient) {
+      snapshot.boardEditMode = view.boardEditMode || 'current';
+      snapshot.boardGlobalMode = view.boardGlobalMode || 'current';
+      snapshot.boardDraft = boardDraft ? cloneJson(boardDraft) : null;
+      snapshot.globalBoardDrafts = cloneJson(globalBoardDrafts || {});
+      snapshot.dashboardView = getActiveDashboardViewName();
+      snapshot.globalSettingPanel = getActiveGlobalSettingPanelName();
+      snapshot.cardManagerKind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
+    }
+    return snapshot;
   }
 
-  function applyStateSnapshot(snapshot) {
+  function applyStateSnapshot(snapshot, options = {}) {
     const normalized = normalizeStateSnapshot(snapshot);
     boardDraft = null;
     appState.activeId = normalized.activeId;
@@ -2243,16 +2384,22 @@
     }
     view.id = getValidApostleId(appState.activeId);
     appState.activeId = view.id;
+    if (normalized.activeStateSlot) view.stateSlot = normalized.activeStateSlot;
     view.board = 1;
     ensureApostleState(view.id);
     restoreSavedBoardPlan();
+    view.boardEditMode = normalized.boardEditMode || view.boardEditMode;
+    view.boardGlobalMode = normalized.boardGlobalMode || view.boardGlobalMode;
+    boardDraft = normalized.boardDraft ? cloneJson(normalized.boardDraft) : null;
+    globalBoardDrafts = normalized.globalBoardDrafts ? cloneJson(normalized.globalBoardDrafts) : {};
+    applyDashboardViewSnapshot(normalized);
     elements.apostleSelect.value = view.id;
     syncControlsFromState();
     renderResearchControls();
     appState.activeStateSlot = view.stateSlot;
     saveState({ flush: true });
     renderStateManager();
-    render();
+    render({ deferFormationSpellCatalog: options.deferFormationSpellCatalog });
     document.dispatchEvent(new CustomEvent('stat-state-applied'));
   }
 
@@ -2324,6 +2471,14 @@
     return {
       slotName: snapshot.slotName || snapshot.name || '',
       activeId: getValidApostleId(snapshot.activeId),
+      activeStateSlot: snapshot.activeStateSlot ? normalizeStateSlot(snapshot.activeStateSlot) : null,
+      boardEditMode: snapshot.boardEditMode === 'plan' ? 'plan' : 'current',
+      boardGlobalMode: snapshot.boardGlobalMode === 'plan' ? 'plan' : 'current',
+      boardDraft: snapshot.boardDraft && typeof snapshot.boardDraft === 'object' ? cloneJson(snapshot.boardDraft) : null,
+      globalBoardDrafts: snapshot.globalBoardDrafts && typeof snapshot.globalBoardDrafts === 'object' ? cloneJson(snapshot.globalBoardDrafts) : {},
+      dashboardView: normalizeDashboardViewName(snapshot.dashboardView),
+      globalSettingPanel: normalizeGlobalSettingPanelName(snapshot.globalSettingPanel),
+      cardManagerKind: snapshot.cardManagerKind === 'spell' ? 'spell' : 'artifact',
       apostles,
       research,
       cards,
@@ -2379,6 +2534,112 @@
     return date.toLocaleString('ja-JP');
   }
 
+  function beginHistoryAction(label) {
+    if (historyState.isRestoring) return null;
+    try {
+      return {
+        label: label || '変更',
+        before: createStateSnapshot('', { includeTransient: true })
+      };
+    } catch (error) {
+      console.warn('history snapshot failed', error);
+      return null;
+    }
+  }
+
+  function commitHistoryAction(action) {
+    if (!action || historyState.isRestoring) return;
+    try {
+      const after = createStateSnapshot('', { includeTransient: true });
+      if (stableStringify(createComparableSnapshot(action.before)) === stableStringify(createComparableSnapshot(after))) {
+        updateHistoryControls();
+        return;
+      }
+      historyState.undoStack.push({ label: action.label || '変更', before: action.before, after });
+      if (historyState.undoStack.length > historyState.limit) historyState.undoStack.shift();
+      historyState.redoStack = [];
+      updateHistoryControls();
+    } catch (error) {
+      console.warn('history commit failed', error);
+    }
+  }
+
+  function commitFormationCoinHistory(input) {
+    const action = formationCoinHistoryActions.get(input);
+    if (!action) return;
+    formationCoinHistoryActions.delete(input);
+    commitHistoryAction(action);
+  }
+
+  function clearHistory() {
+    historyState.undoStack = [];
+    historyState.redoStack = [];
+    updateHistoryControls();
+  }
+
+  function undoHistoryAction() {
+    const action = historyState.undoStack.pop();
+    if (!action) return;
+    historyState.redoStack.push(action);
+    restoreHistorySnapshot(action.before, `${action.label}を元に戻しました`);
+  }
+
+  function redoHistoryAction() {
+    const action = historyState.redoStack.pop();
+    if (!action) return;
+    historyState.undoStack.push(action);
+    restoreHistorySnapshot(action.after, `${action.label}をやり直しました`);
+  }
+
+  function restoreHistorySnapshot(snapshot, message) {
+    historyState.isRestoring = true;
+    try {
+      applyStateSnapshot(snapshot, { deferFormationSpellCatalog: false });
+      showStateStatus(message);
+    } finally {
+      historyState.isRestoring = false;
+      updateHistoryControls();
+    }
+  }
+
+  function updateHistoryControls() {
+    const undoAction = historyState.undoStack[historyState.undoStack.length - 1];
+    const redoAction = historyState.redoStack[historyState.redoStack.length - 1];
+    const undoLabel = undoAction?.label || '';
+    const redoLabel = redoAction?.label || '';
+    if (elements.historyUndo) {
+      elements.historyUndo.disabled = !historyState.undoStack.length;
+      elements.historyUndo.title = undoLabel ? `元に戻す: ${undoLabel}` : '元に戻す';
+      elements.historyUndo.setAttribute('aria-label', elements.historyUndo.title);
+    }
+    if (elements.historyRedo) {
+      elements.historyRedo.disabled = !historyState.redoStack.length;
+      elements.historyRedo.title = redoLabel ? `やり直す: ${redoLabel}` : 'やり直す';
+      elements.historyRedo.setAttribute('aria-label', elements.historyRedo.title);
+    }
+  }
+
+  function isHistoryShortcutTarget(event) {
+    if (!event.ctrlKey && !event.metaKey) return false;
+    if (event.altKey) return false;
+    const key = String(event.key || '').toLowerCase();
+    return key === 'z' || key === 'y';
+  }
+
+  function shouldIgnoreHistoryShortcut(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    if (target.closest('input, textarea, select, [contenteditable="true"]')) return true;
+    return false;
+  }
+
+  function handleHistoryShortcut(event) {
+    if (!isHistoryShortcutTarget(event) || shouldIgnoreHistoryShortcut(event)) return;
+    const key = String(event.key || '').toLowerCase();
+    event.preventDefault();
+    if (key === 'y' || (key === 'z' && event.shiftKey)) redoHistoryAction();
+    else undoHistoryAction();
+  }
   function showStateStatus(message, isError = false) {
     window.clearTimeout(stateStatusTimer);
     elements.stateStatus.textContent = message;
@@ -2445,7 +2706,7 @@
     applyAllRankGlobalBonuses(totals, activeEffects, breakdown);
     renderActiveResearch(basic, totals, activeEffects, breakdown);
     if (!options.skipActiveGlobal && isDashboardPanelActive('global')) renderActiveGlobalSettingPanel();
-    if (isDashboardPanelActive('formation')) renderFormation();
+    if (isDashboardPanelActive('formation')) renderFormation({ deferSpellCatalog: options.deferFormationSpellCatalog });
     if (isDashboardPanelActive('board')) {
       renderBoardSpecial(boardRows);
       renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
@@ -2655,12 +2916,14 @@
   }
 
   function cycleProfileGrade() {
+    const history = beginHistoryAction('学年変更');
     const state = currentApostleState();
     state.grade = normalizeGrade((Number(state.grade) || 1) + 1 > GRADE_MAX ? 1 : (Number(state.grade) || 1) + 1);
     state.gradeConfigured = true;
     saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
     renderProfileQuick();
     scheduleRender();
+    commitHistoryAction(history);
   }
 
   function renderProfileCombatPower(value) {
@@ -2741,6 +3004,7 @@
   }
 
   function setProfileStar(star) {
+    const history = beginHistoryAction('星変更');
     const state = currentApostleState();
     state.star = normalizeApostleStar(star);
     state.level = normalizeApostleLevel(state.level, state.star);
@@ -2750,6 +3014,7 @@
     saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
     renderProfileQuick();
     scheduleRender();
+    commitHistoryAction(history);
   }
 
   function ensureStarForAsideManifest(state) {
@@ -2763,6 +3028,18 @@
   }
 
   function updateProfileField(field, rawValue) {
+    const historyLabels = {
+      level: 'Lv変更',
+      grade: '学年変更',
+      rank: 'Rank変更',
+      bond: '好感度変更',
+      asideRank: 'アサイドRank変更',
+      asideLevel: 'アサイドLv変更',
+      skillLow: 'スキルLv変更',
+      skillHigh: 'スキルLv変更',
+      skillPassive: 'スキルLv変更'
+    };
+    const history = beginHistoryAction(historyLabels[field] || 'ステータス変更');
     const state = currentApostleState();
     const value = Number(rawValue) || 0;
     if (field === 'level') {
@@ -2797,6 +3074,7 @@
       saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
       renderSkillLevelChange();
       scheduleRender();
+      commitHistoryAction(history);
       return;
     } else {
       return;
@@ -2805,12 +3083,14 @@
     saveState({ renderStateManager: false, ...refreshOptions });
     renderProfileQuick();
     scheduleRender();
+    commitHistoryAction(history);
   }
 
   function toggleProfileAsideRank() {
     const basic = DATA.getById('basicInfo', view.id);
     if (!basic || !hasAsideEffects(basic.id)) return;
     const state = currentApostleState();
+    const history = beginHistoryAction('アサイド切替');
     if (Number(state.asideRank) || 0) {
       if (!window.confirm('アサイド発現をOFFにしますか？\nアサイドLvは0に戻ります。')) return;
       state.asideRank = 0;
@@ -2825,9 +3105,45 @@
     syncSkillLevelControlsFromState(state);
     saveState();
     render();
+    commitHistoryAction(history);
   }
 
+  function getActiveDashboardViewName() {
+    return elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
+  }
+
+  function getActiveGlobalSettingPanelName() {
+    return elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
+  }
+
+  function normalizeDashboardViewName(name) {
+    const value = String(name || 'settings');
+    return elements.dashboardPanels.some(panel => panel.dataset.dashboardPanel === value) ? value : 'settings';
+  }
+
+  function normalizeGlobalSettingPanelName(name) {
+    const value = String(name || '');
+    return elements.globalSettingPanels.some(panel => panel.dataset.settingPanel === value) ? value : '';
+  }
+
+  function applyDashboardViewSnapshot(snapshot) {
+    const viewName = normalizeDashboardViewName(snapshot.dashboardView);
+    const globalPanel = normalizeGlobalSettingPanelName(snapshot.globalSettingPanel);
+    view.cardManager.kind = snapshot.cardManagerKind === 'spell' ? 'spell' : 'artifact';
+    elements.dashboardViewButtons.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.dashboardView === viewName);
+    });
+    elements.dashboardPanels.forEach(panel => {
+      panel.classList.toggle('is-active', panel.dataset.dashboardPanel === viewName);
+    });
+    elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item.dataset.settingTab === globalPanel));
+    elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === globalPanel));
+    elements.cardManagerTabs.forEach(item => item.classList.toggle('is-active', item.dataset.cardKind === view.cardManager.kind));
+    updateGlobalOpenActiveButton(viewName === 'global' && globalPanel !== 'cards' ? globalPanel : '');
+    updateCardManagerQuickButtons(viewName === 'global' && globalPanel === 'cards' ? view.cardManager.kind : '');
+  }
   function activateDashboardView(name, options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
     const viewName = name || 'settings';
     if (viewName === 'global') syncBoardDraftToGlobalDraft();
     if (viewName === 'board') syncGlobalDraftToBoardDraft(view.id);
@@ -2845,27 +3161,32 @@
     if (viewName === 'formation') renderFormation();
     if (viewName === 'board') render();
     if (viewName === 'global' && options.render !== false) renderActiveGlobalSettingPanel();
+    commitHistoryAction(history);
   }
 
   function openGlobalSettingPanel(tab = 'research', options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
     syncBoardDraftToGlobalDraft();
-    activateDashboardView('global', { render: false });
+    activateDashboardView('global', { render: false, skipHistory: true });
     elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item.dataset.settingTab === tab));
     elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
     updateGlobalOpenActiveButton(tab);
     renderActiveGlobalSettingPanel();
     if (options.scroll !== false) scrollGlobalSettingIntoView(tab);
+    commitHistoryAction(history);
   }
 
   function openCardManagerPanel(kind = 'artifact', options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
     const safeKind = kind === 'spell' ? 'spell' : 'artifact';
     view.cardManager.kind = safeKind;
     elements.cardManagerTabs.forEach(item => item.classList.toggle('is-active', item.dataset.cardKind === safeKind));
-    openGlobalSettingPanel('cards', { scroll: false });
+    openGlobalSettingPanel('cards', { scroll: false, skipHistory: true });
     updateGlobalOpenActiveButton('');
     updateCardManagerQuickButtons(safeKind);
     renderCardManager();
     if (options.scroll !== false) scrollGlobalSettingIntoView('cards');
+    commitHistoryAction(history);
   }
 
   function applyInitialDashboardRoute() {
@@ -2874,11 +3195,11 @@
     const global = params.get('global');
     const targetView = params.get('view');
     if (card) {
-      openCardManagerPanel(card, { scroll: true });
+      openCardManagerPanel(card, { scroll: true, skipHistory: true });
     } else if (global) {
-      openGlobalSettingPanel(global, { scroll: true });
+      openGlobalSettingPanel(global, { scroll: true, skipHistory: true });
     } else if (targetView) {
-      activateDashboardView(targetView);
+      activateDashboardView(targetView, { skipHistory: true });
       if (targetView === 'formation') {
         document.querySelector('[data-dashboard-panel="formation"]')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
       }
@@ -3359,6 +3680,7 @@
   }
 
   function setCurrentEquipmentBulk({ enabled = null, enhance = null } = {}) {
+    const history = beginHistoryAction('装備一括変更');
     const normalizedEnhance = enhance === null ? null : Math.max(0, Math.min(5, Number(enhance) || 0));
     const state = currentApostleState();
     getVisibleEquipmentKeys().forEach(key => {
@@ -3371,6 +3693,7 @@
     });
     saveState({ refreshSnapshotIds: [view.id] });
     render();
+    commitHistoryAction(history);
   }
 
   function applyBaseStats(basic, totals, activeEffects, breakdown, state = currentApostleState()) {
@@ -4343,11 +4666,11 @@
     return popover;
   }
 
-  function renderFormation() {
+  function renderFormation(options = {}) {
     if (!elements.formationBoard) return;
     const formation = ensureFormationState();
     elements.formationBoard.innerHTML = formation.rows.map((row, rowIndex) => renderFormationColumn(row, rowIndex)).join('');
-    renderFormationSpells(formation);
+    renderFormationSpells(formation, { deferCatalog: options.deferSpellCatalog });
     renderFormationCostSummary(formation);
     renderFormationMemberSummary(formation);
     renderFormationSynergySummary(formation);
@@ -4356,6 +4679,7 @@
   }
 
   function saveCurrentFormationPreset() {
+    const history = beginHistoryAction('編成保存');
     ensureFormationPresetStore();
     const now = new Date();
     const name = (elements.formationSaveName?.value || '').trim()
@@ -4375,6 +4699,7 @@
     closeFormationSaveEditor();
     renderFormationActivePreset();
     renderFormationPresetList();
+    commitHistoryAction(history);
   }
 
   function openFormationSaveEditor() {
@@ -4395,12 +4720,14 @@
   function loadFormationPreset(id) {
     const preset = ensureFormationPresetStore().find(item => item.id === id);
     if (!preset) return;
+    const history = beginHistoryAction('編成ロード');
     appState.formation = normalizeFormationState(preset.formation);
     appState.activeFormationPresetId = preset.id;
     if (elements.formationSaveName) elements.formationSaveName.value = preset.name || '';
     if (elements.formationSaveTags) elements.formationSaveTags.value = (preset.tags || []).join(', ');
     saveState();
     renderFormation();
+    commitHistoryAction(history);
   }
 
   function overwriteCurrentFormationPreset() {
@@ -4408,6 +4735,7 @@
     const id = appState.activeFormationPresetId || '';
     const preset = presets.find(item => item.id === id);
     if (!preset) return;
+    const history = beginHistoryAction('編成上書き');
     const name = (elements.formationSaveName?.value || '').trim() || preset.name || '無題の編成';
     preset.name = name;
     preset.tags = parseFormationTags(elements.formationSaveTags?.value || '');
@@ -4416,6 +4744,7 @@
     saveState();
     renderFormationActivePreset();
     renderFormationPresetList();
+    commitHistoryAction(history);
   }
 
   function toggleFormationPresetFavoritePicker(id) {
@@ -4430,6 +4759,7 @@
     const presets = ensureFormationPresetStore();
     const preset = presets.find(item => item.id === id);
     if (!preset) return;
+    const history = beginHistoryAction('編成お気に入り変更');
     const slot = normalizeFavoriteSlot(slotValue);
     if (!slot || preset.favoriteSlot === slot) {
       preset.favoriteSlot = 0;
@@ -4442,6 +4772,7 @@
     appState.openFormationFavoritePickerId = '';
     saveState();
     renderFormationPresetList();
+    commitHistoryAction(history);
   }
 
   function deleteFormationPreset(id) {
@@ -4449,12 +4780,14 @@
     const preset = presets.find(item => item.id === id);
     if (!preset) return;
     if (!window.confirm(`編成「${preset.name}」を削除しますか？`)) return;
+    const history = beginHistoryAction('編成削除');
     appState.savedFormations = presets.filter(item => item.id !== id);
     if (appState.activeFormationPresetId === id) appState.activeFormationPresetId = '';
     if (appState.openFormationFavoritePickerId === id) appState.openFormationFavoritePickerId = '';
     saveState();
     renderFormationActivePreset();
     renderFormationPresetList();
+    commitHistoryAction(history);
   }
 
   function renderFormationActivePreset() {
@@ -5092,11 +5425,13 @@
 
   function addFormationSpell(spellId) {
     if (!spellId) return;
+    const history = beginHistoryAction('編成スペル変更');
     const formation = ensureFormationState();
     formation.spells = normalizeFormationSpells(formation.spells);
     formation.spells.push(spellId);
     saveState({ refreshSnapshots: false });
     renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
+    commitHistoryAction(history);
   }
 
   function adjustFormationSpellCount(spellId, step) {
@@ -5114,10 +5449,12 @@
     const spells = normalizeFormationSpells(formation.spells);
     const index = spells.indexOf(spellId);
     if (index < 0) return;
+    const history = beginHistoryAction('編成スペル変更');
     spells.splice(index, 1);
     formation.spells = spells;
     saveState({ refreshSnapshots: false });
     renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
+    commitHistoryAction(history);
   }
 
   function renderFormationAfterSpellChange(formation = ensureFormationState(), options = {}) {
@@ -5386,6 +5723,7 @@
     if (!view.formationPicker) return;
     const formation = ensureFormationState();
     const { type, rowIndex, lineIndex, artifactSlot } = view.formationPicker;
+    const history = beginHistoryAction(type === 'spell' ? '編成スペル変更' : type === 'apostle' ? '編成使徒変更' : '編成遺物変更');
     if (type === 'spell') {
       formation.spells = normalizeFormationSpells(formation.spells);
       if (value) formation.spells.push(value);
@@ -5402,6 +5740,7 @@
     saveState({ refreshSnapshots: false });
     renderFormation();
     elements.formationPickerDialog.close();
+    commitHistoryAction(history);
   }
 
   function swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine) {
@@ -5410,6 +5749,7 @@
     const formation = ensureFormationState();
     const row = formation.rows[sourceRow];
     if (!row) return;
+    const history = beginHistoryAction('編成配置変更');
     const apostles = row.apostles || ['', '', ''];
     const artifacts = row.artifacts || [[], [], []];
     [apostles[sourceLine], apostles[targetLine]] = [apostles[targetLine] || '', apostles[sourceLine] || ''];
@@ -5418,6 +5758,7 @@
     row.artifacts = artifacts;
     saveState({ refreshSnapshots: false });
     renderFormation();
+    commitHistoryAction(history);
   }
 
   function clearFormationDragState() {
@@ -5432,9 +5773,11 @@
   function clearFormationRow(rowIndex) {
     const formation = ensureFormationState();
     if (!formation.rows[rowIndex]) return;
+    const history = beginHistoryAction('編成行クリア');
     formation.rows[rowIndex] = createDefaultFormationRow();
     saveState({ refreshSnapshots: false });
     renderFormation();
+    commitHistoryAction(history);
   }
 
   function ensureFormationState() {
@@ -5887,6 +6230,7 @@
       ? '\n予定モードで編集中の変更も破棄されます。'
       : '';
     if (!window.confirm(`${savedIds.length}使徒分の保存予定をすべて破棄しますか？\n現在状態は変更されません。${editingNote}`)) return;
+    const history = beginHistoryAction('ボード予定一括破棄');
 
     Object.values(appState.apostles || {}).forEach(state => {
       delete state.plannedBoards;
@@ -5898,6 +6242,7 @@
     if (boardDraft?.mode === 'plan') boardDraft = null;
     saveState();
     render();
+    commitHistoryAction(history);
   }
 
   function collectBoardGlobalEffectsForApostle(id, boards) {
@@ -6186,6 +6531,7 @@
     const rows = DATA.getById('board', id) || [];
     const target = rows.find(row => Number(row.ボード階層) === Number(layer) && boardKey(row) === key);
     if (!target || target.マス_type !== '特殊') return;
+    const history = beginHistoryAction('全体ボード特殊マス変更');
 
     if (!globalBoardDrafts[id]) {
       const baselineBoards = cloneJson(getGlobalBoardBaselineBoards(id));
@@ -6245,6 +6591,7 @@
     }
 
     if (!hasGlobalBoardDraftChanges(id)) delete globalBoardDrafts[id];
+    commitHistoryAction(history);
   }
 
   function hasGlobalBoardDraftChanges(id) {
@@ -6308,6 +6655,8 @@
   }
 
   function handleBoardGlobalAction(action) {
+    const historyLabels = { plan: '全体ボード予定保存', current: '全体ボード現在反映', 'apply-plan-current': '全体ボード予定反映' };
+    const history = historyLabels[action] ? beginHistoryAction(historyLabels[action]) : null;
     if (action === 'cancel') {
       globalBoardDrafts = {};
       render();
@@ -6316,16 +6665,19 @@
     if (action === 'plan') {
       applyGlobalBoardDrafts('plan');
       render();
+      commitHistoryAction(history);
       return;
     }
     if (action === 'current') {
       applyGlobalBoardDrafts('current');
       render();
+      commitHistoryAction(history);
       return;
     }
     if (action === 'apply-plan-current') {
       applyDisplayedGlobalBoardPlansToCurrent();
       render();
+      commitHistoryAction(history);
     }
   }
 
@@ -7920,6 +8272,7 @@
     const name = basic?.使徒名 || view.id;
     const editingNote = hasBoardDraft() ? '\n予定モードで編集中の内容も現在に反映します。' : '';
     if (!window.confirm(`${name}の予定ボードを現在状態に反映しますか？\n反映後、この使徒の保存予定は削除されます。${editingNote}`)) return;
+    const history = beginHistoryAction('ボード予定反映');
 
     state.boards = cloneJson(targetBoards);
     delete state.plannedBoards;
@@ -7928,6 +8281,7 @@
     delete globalBoardDrafts[view.id];
     saveState();
     render();
+    commitHistoryAction(history);
   }
 
   function hasBoardDraft() {

@@ -2444,19 +2444,21 @@ h3 {
 
 .board-global-floating-dock {
   position: fixed;
-  right: 18px;
-  bottom: calc(var(--dashboard-bar-height, 68px) + 14px);
+  right: 116px;
+  bottom: calc(var(--dashboard-bar-height, 68px) + 18px);
   z-index: 80;
   display: flex;
   align-items: center;
   gap: 4px;
+  box-sizing: border-box;
+  height: 40px;
   max-width: calc(100vw - 24px);
-  border: 1px solid rgba(36, 83, 59, 0.06);
+  border: 1px solid rgba(55, 88, 68, 0.14);
   border-radius: 999px;
-  padding: 4px;
-  background: rgba(255, 253, 247, 0.24);
-  box-shadow: 0 8px 22px rgba(47, 68, 49, 0.12);
-  backdrop-filter: blur(8px);
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: 0 10px 26px rgba(38, 56, 44, 0.16);
+  backdrop-filter: blur(10px);
   color: var(--green-dark);
 }
 
@@ -2470,7 +2472,7 @@ h3 {
   overflow: hidden;
   border: 1px solid rgba(36, 83, 59, 0.14);
   border-radius: 999px;
-  background: rgba(255, 253, 247, 0.46);
+  background: rgba(255, 255, 255, 0.42);
 }
 
 .board-global-floating-mode button {
@@ -2562,13 +2564,13 @@ h3 {
 }
 
 .board-global-floating-panel {
-  max-width: min(520px, calc(100vw - 24px));
-  width: min(520px, calc(100vw - 24px));
+  max-width: min(520px, calc(100vw - 140px));
+  width: min(520px, calc(100vw - 140px));
 }
 
 .board-global-floating-save-panel {
   width: max-content;
-  max-width: calc(100vw - 24px);
+  max-width: calc(100vw - 140px);
 }
 
 .board-global-floating-panel .rank-summary-tables {
@@ -3188,16 +3190,40 @@ h3 {
   }
 
   .board-global-floating-dock {
-    right: 10px;
-    bottom: calc(var(--dashboard-bar-height, 68px) + 8px);
+    right: 100px;
+    bottom: calc(var(--dashboard-bar-height, 68px) + 12px);
+    height: 36px;
     max-width: calc(100vw - 20px);
     border-radius: 999px;
     flex-wrap: nowrap;
     justify-content: flex-end;
   }
 
+  .board-global-floating-mode button {
+    min-height: 28px;
+    padding: 0 7px;
+  }
+
+  .board-global-floating-summary summary,
+  .board-global-floating-save summary {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  .board-global-floating-save summary {
+    width: 32px;
+    min-width: 32px;
+    max-width: 32px;
+  }
+
   .board-global-floating-panel,
   .board-global-floating-save-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--dashboard-bar-height, 68px) + 64px);
+    width: auto;
+    max-width: none;
     border-radius: 18px;
   }
 
@@ -3366,5 +3392,69 @@ h3 {
 
   .split-list {
     grid-template-columns: 1fr;
+  }
+}
+
+.history-floating-controls {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--dashboard-bar-height, 68px) + 18px);
+  z-index: 92;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  pointer-events: none;
+}
+
+.history-floating-button {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(55, 88, 68, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #244735;
+  box-shadow: 0 10px 26px rgba(38, 56, 44, 0.18);
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 800;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.history-floating-button:hover:not(:disabled),
+.history-floating-button:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(38, 56, 44, 0.24);
+  outline: none;
+}
+
+.history-floating-button:focus-visible:not(:disabled) {
+  border-color: rgba(64, 126, 86, 0.55);
+}
+
+.history-floating-button:disabled {
+  border-color: rgba(55, 88, 68, 0.12);
+  background: rgba(235, 239, 235, 0.82);
+  color: #8d9a91;
+  cursor: default;
+  box-shadow: 0 8px 20px rgba(38, 56, 44, 0.12);
+}
+
+@media (max-width: 720px) {
+  .history-floating-controls {
+    right: 12px;
+    bottom: calc(var(--dashboard-bar-height, 68px) + 12px);
+    gap: 6px;
+  }
+
+  .history-floating-button {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 22px;
   }
 }

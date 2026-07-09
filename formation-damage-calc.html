@@ -49,6 +49,9 @@
         </details>
       </div>
       <div class="fdc-top-actions">
+        <a class="topbar-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
+          <img src="img/icon/note.svg" alt="">
+        </a>
         <button type="button" id="fdc-reload" class="topbar-reload-button" aria-label="再読み込み" title="再読み込み">↻</button>
         <button type="button" id="fdc-theme-toggle" class="fdc-theme-toggle" aria-label="テーマ切替">☾</button>
       </div>
@@ -575,6 +578,32 @@
         <button type="button" data-fdc-apply-bulk="off">全OFF</button>
       </div>
     </div>
+    <details class="fdc-save-menu" id="fdc-save-menu">
+      <summary class="fdc-save-float-toggle" aria-label="保存・読込" title="保存・読込">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8L15.2 3Z"></path>
+          <path d="M17 21v-8H7v8"></path>
+          <path d="M7 3v5h8"></path>
+        </svg>
+      </summary>
+      <div class="fdc-save-popover" aria-label="ダメージ計算保存メニュー">
+        <div id="fdc-loaded-save-label" class="fdc-loaded-save-label" hidden></div>
+        <div id="fdc-load-options-panel" hidden>
+          <div class="fdc-save-load-options" aria-label="比較用読込">
+            <span class="fdc-save-load-label">読込設定</span>
+            <label><input type="checkbox" data-fdc-load-part="apostles">使徒基礎</label>
+            <label><input type="checkbox" data-fdc-load-part="global">全体効果</label>
+            <label><input type="checkbox" data-fdc-load-part="cards">カード状態</label>
+          </div>
+        </div>
+        <div id="fdc-save-list" class="fdc-save-list" hidden></div>
+        <div class="fdc-save-actions" aria-label="保存操作">
+          <button type="button" data-fdc-save-action="save">保存</button>
+          <button type="button" data-fdc-save-action="load">読込</button>
+          <button type="button" data-fdc-save-action="delete" class="is-danger">削除</button>
+        </div>
+      </div>
+    </details>
     <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
       <span>計算</span>
       <span class="fdc-apply-float-dots">

@@ -91,6 +91,7 @@
   color: var(--fdc-text) !important;
   background: var(--fdc-panel) !important;
   box-shadow: 0 8px 20px var(--fdc-shadow);
+  font-family: inherit;
   font-size: 0.76rem;
   font-weight: 900;
   line-height: 1.15;
@@ -220,6 +221,41 @@ body.theme-dark .fdc-top-control-bar .topbar-global-popover {
   line-height: 1 !important;
 }
 
+.topbar-note-link,
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) .topbar-note-link {
+  display: block;
+  width: 16px;
+  min-width: 0;
+  height: 16px;
+  min-height: 0;
+  flex: 0 0 auto;
+  margin-right: 0.28rem;
+  transform: translateY(0.42rem);
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+  opacity: 0.62;
+  transition: opacity 0.16s ease;
+}
+
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) .topbar-note-link:hover,
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) .topbar-note-link:focus-visible {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.topbar-note-link img {
+  display: block;
+  width: 16px !important;
+  height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+}
 .topbar-reload-button {
   width: 2.5rem;
   height: 2.5rem;
