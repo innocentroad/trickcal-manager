@@ -7932,7 +7932,7 @@
     const multiplier = rarityCorrection
       + correctionB
       + asideBonus
-      + skillCorrection * Math.max(0, skillLevelSum - 1);
+      + skillCorrection * Math.max(0, skillLevelSum - 3);
     return Math.max(0, Math.floor(basePower * multiplier));
   }
 
