@@ -225,6 +225,9 @@ def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object
             "会心DMGTier": "会心DMGタイプ",
             "会心抵抗Tier": "会心抵抗タイプ",
             "会心DMG抵抗Tier": "会心DMG抵抗タイプ",
+            # Keep the public names used by the CP formula stable while accepting the legacy datasheet header as the B correction.
+            "戦闘力補正": "戦闘力補正値B",
+            "weight_value_a": "戦闘力補正値B",
         }
         for old, new in renames.items():
             if new not in item and old in item:

@@ -4289,6 +4289,7 @@ const CARD_LIBRARY = {
                 {
                     "id": "catch_him_wave",
                     "type": "toggle",
+                    "defaultEnabled": true,
                     "label": "1ウェーブ中 攻撃力増加",
                     "shortLabel": "攻撃力増加",
                     "description": "味方全体 / 倍率",

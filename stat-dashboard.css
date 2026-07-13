@@ -1,3 +1,31 @@
+body.dashboard-page.is-booting > * {
+  visibility: hidden;
+}
+
+body.dashboard-page.is-booting::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  color: var(--muted, #63725f);
+  background-color: var(--bg, #eef7e2);
+}
+
+body.dashboard-page.is-booting::after {
+  content: '';
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3001;
+  width: 36px;
+  height: 36px;
+  background: url('img/NetworkIcon_Elena.png') center / contain no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
 :root {
   --dashboard-top-control-height: 3.25rem;
   --dashboard-bar-height: 50px;
@@ -607,12 +635,7 @@
   gap: 18px;
   min-width: 0;
   border-radius: 18px;
-  cursor: pointer;
-}
-
-.apostle-info-profile:focus-visible {
-  outline: 3px solid rgba(62, 119, 84, 0.28);
-  outline-offset: 4px;
+  cursor: default;
 }
 
 .dashboard-portrait {
@@ -627,6 +650,15 @@
 .dashboard-portrait > #apostle-image {
   border-radius: 28px;
   overflow: hidden;
+  cursor: pointer;
+}
+.dashboard-portrait > #apostle-image:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--profile-personality-color, var(--green)) 58%, transparent);
+  outline-offset: 3px;
+}
+#board-special-list .board-shortcut,
+#board-special-list .board-shortcut * {
+  cursor: pointer !important;
 }
 
 .portrait-frame .profile-aside-icon {
@@ -3236,7 +3268,7 @@
 }
 
 .dashboard-page .aside-tier-table {
-  min-width: min(100%, 360px);
+  min-width: min(100%, 460px);
 }
 
 .dashboard-page .aside-tier-table th,
@@ -3247,6 +3279,14 @@
 .dashboard-page .aside-tier-table tbody th {
   color: var(--green-dark);
   text-align: left;
+}
+
+.aside-tier-source {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: right;
 }
 
 .card-manager-tools {
@@ -5935,13 +5975,39 @@
 }
 
 @media (max-width: 980px) {
-  :root {
+  body.dashboard-page.is-booting::after {
+  content: '';
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3001;
+  width: 36px;
+  height: 36px;
+  background: url('img/NetworkIcon_Elena.png') center / contain no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+:root {
     --dashboard-top-control-height: 3.25rem;
   }
 }
 
 @media (max-width: 900px) {
-  :root {
+  body.dashboard-page.is-booting::after {
+  content: '';
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3001;
+  width: 36px;
+  height: 36px;
+  background: url('img/NetworkIcon_Elena.png') center / contain no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+:root {
     --dashboard-rail-width: 76px;
   }
 
@@ -6329,7 +6395,20 @@
 }
 
 @media (max-width: 700px) {
-  :root {
+  body.dashboard-page.is-booting::after {
+  content: '';
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 3001;
+  width: 36px;
+  height: 36px;
+  background: url('img/NetworkIcon_Elena.png') center / contain no-repeat;
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+:root {
     --dashboard-bar-height: 44px;
     --dashboard-bottom-control-height: 40px;
   }

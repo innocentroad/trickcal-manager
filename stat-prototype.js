@@ -3,6 +3,8 @@
 
   const DATA = window.TRICKCAL_STAT_DATA;
   if (!DATA) {
+    document.body.classList.remove('is-booting');
+    document.body.removeAttribute('aria-busy');
     document.body.innerHTML = '<main class="stat-shell"><p>statData.jsを読み込めませんでした。</p></main>';
     return;
   }
@@ -25,15 +27,13 @@
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
   const COMBAT_POWER_BASE_BY_RARITY = {
-    1: 0.7212,
-    2: 0.7212,
-    3: 0.7425
+    1: 1.015,
+    2: 1.03,
+    3: 1.06
   };
-  const COMBAT_POWER_CORRECTION_RATE = 0.7;
-  const COMBAT_POWER_SKILL_RATE = 0.7;
-  const COMBAT_POWER_ASIDE_BONUS = 0.49;
+  const COMBAT_POWER_ASIDE_BONUS = 0.7;
   const COMBAT_POWER_SKILL_VALUE_BY_RARITY = {
-    1: 0.01,
+    1: 0.005,
     2: 0.01,
     3: 0.02
   };
@@ -182,7 +182,6 @@
     meta: document.getElementById('apostle-meta'),
     profileChipRow: document.getElementById('profile-chip-row'),
     profileCard: document.querySelector('.dashboard-persistent-profile'),
-    profileHeader: document.querySelector('.apostle-info-profile'),
     dashboardViewButtons: Array.from(document.querySelectorAll('[data-dashboard-view]')),
     dashboardPanels: Array.from(document.querySelectorAll('[data-dashboard-panel]')),
     totals: document.getElementById('stat-total-grid'),
@@ -383,11 +382,25 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') flushPendingStateSave();
     });
-    refreshAllStatSnapshots();
     renderStateManager();
     render();
     applyInitialDashboardRoute();
     saveState({ refreshSnapshots: false });
+    scheduleDeferredInitialWork();
+    document.body.classList.remove('is-booting');
+    document.body.removeAttribute('aria-busy');
+  }
+
+  function scheduleDeferredInitialWork() {
+    const run = () => {
+      refreshAllStatSnapshots();
+      saveState({ refreshSnapshots: false });
+    };
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(run, { timeout: 800 });
+    } else {
+      window.setTimeout(run, 0);
+    }
   }
 
   function getCurrentTheme() {
@@ -486,13 +499,10 @@
       const label = index === 0 ? 'OFF' : `${index}段階`;
       return `<option value="${index}">${label}</option>`;
     }).join('');
-
     renderResearchControls();
     renderRankOverviewControls();
     renderBondOverviewControls();
     renderAsideOverviewControls();
-    renderApostlePickerFilters();
-    renderApostlePicker();
   }
 
   function ensureHistoryControls() {
@@ -522,20 +532,15 @@
 
     elements.apostlePickerButton.addEventListener('click', openApostlePickerDialog);
 
-    elements.profileHeader?.setAttribute('role', 'button');
-    elements.profileHeader?.setAttribute('tabindex', '0');
-    elements.profileHeader?.setAttribute('aria-label', '使徒を選択');
-    elements.profileHeader?.addEventListener('click', event => {
-      if (event.target.closest('button, select, input, a, #profile-aside-icon')) return;
-      openApostlePickerDialog();
-    });
-    elements.profileHeader?.addEventListener('keydown', event => {
+    elements.image?.setAttribute('role', 'button');
+    elements.image?.setAttribute('tabindex', '0');
+    elements.image?.setAttribute('aria-label', '使徒を選択');
+    elements.image?.addEventListener('click', openApostlePickerDialog);
+    elements.image?.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
-      if (event.target.closest('button, select, input, a, #profile-aside-icon')) return;
       event.preventDefault();
       openApostlePickerDialog();
     });
-
     elements.apostlePickerClose.addEventListener('click', () => {
       elements.apostlePickerDialog.close();
     });
@@ -1846,6 +1851,7 @@
 
   function openApostlePickerDialog() {
     elements.apostlePickerSearch.value = '';
+    renderApostlePickerFilters();
     renderApostlePicker();
     elements.apostlePickerDialog.showModal();
     elements.apostlePickerSearch.focus();
@@ -2292,13 +2298,6 @@
     const normalized = normalizeStateSnapshot(snapshot);
     return {
       activeId: normalized.activeId,
-      boardEditMode: normalized.boardEditMode || 'current',
-      boardGlobalMode: normalized.boardGlobalMode || 'current',
-      boardDraft: normalized.boardDraft ? cloneJson(normalized.boardDraft) : null,
-      globalBoardDrafts: normalized.globalBoardDrafts ? cloneJson(normalized.globalBoardDrafts) : {},
-      dashboardView: normalized.dashboardView || 'settings',
-      globalSettingPanel: normalized.globalSettingPanel || '',
-      cardManagerKind: normalized.cardManagerKind || 'artifact',
       apostles: createComparableApostleStates(normalized.apostles),
       research: normalized.research,
       cards: normalized.cards,
@@ -3406,27 +3405,41 @@
       return;
     }
 
+    const state = currentApostleState();
+    const rank = Number(state.asideRank) || 0;
+    const level = Number(state.asideLevel) || 0;
     const attackType = String(basic.攻撃タイプ || basic['攻撃Type'] || '').trim();
     const attackLabel = attackType === '魔法' ? '魔法攻撃' : '物理攻撃';
+    const manifest = getAsideManifestBonus(basic) || {};
+    const levelBonus = calculateAsideLevelBonus(basic, level, rank) || {};
     const rows = [
-      ['HP', getFirstRowValue(tier, ['HPタイプ', 'HPTier', 'HP AsideTier', 'HP\nAsideTier'])],
-      [attackLabel, getFirstRowValue(tier, ['攻撃力タイプ', 'ATKTier', 'ATK AsideTier', 'ATK\nAsideTier'])],
-      ['物理防御', getFirstRowValue(tier, ['物理防御力タイプ', 'DEFTier', 'DEF AsideTier', 'DEF\nAsideTier'])],
-      ['魔法防御', getFirstRowValue(tier, ['魔法防御力タイプ', 'MDEFTier', 'DEF AsideTier', 'DEF\nAsideTier'])]
+      ['HP', getFirstRowValue(tier, ['HPタイプ', 'HPTier', 'HP AsideTier', 'HP\nAsideTier']), manifest.hp, levelBonus.hp],
+      [attackLabel, getFirstRowValue(tier, ['攻撃力タイプ', 'ATKTier', 'ATK AsideTier', 'ATK\nAsideTier']), manifest.attack, levelBonus.attack],
+      ['物理防御', getFirstRowValue(tier, ['物理防御力タイプ', 'DEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.pdef, levelBonus.pdef],
+      ['魔法防御', getFirstRowValue(tier, ['魔法防御力タイプ', 'MDEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.mdef, levelBonus.mdef]
     ];
 
     elements.asideTierList.innerHTML = `
       <table class="compact-table aside-tier-table">
-        <thead><tr><th>ステータス</th><th>Tier</th></tr></thead>
+        <thead><tr><th>ステータス</th><th>Tier</th><th>発現</th><th>Lv</th><th>合計</th></tr></thead>
         <tbody>
-          ${rows.map(([label, value]) => `
-            <tr>
-              <th>${escapeHtml(label)}</th>
-              <td>${value ? `Tier ${escapeHtml(value)}` : '-'}</td>
-            </tr>
-          `).join('')}
+          ${rows.map(([label, value, manifestAdd, levelAdd]) => {
+            const manifestValue = Number(manifestAdd) || 0;
+            const levelValue = Number(levelAdd) || 0;
+            const total = rank ? manifestValue + levelValue : 0;
+            return `
+              <tr>
+                <th>${escapeHtml(label)}</th>
+                <td>${value ? escapeHtml(value) : '-'}</td>
+                <td>${rank && manifestValue ? `+${escapeHtml(formatNumber(manifestValue))}` : '-'}</td>
+                <td>${rank && levelValue ? `+${escapeHtml(formatNumber(levelValue))}` : '-'}</td>
+                <td>${total ? `+${escapeHtml(formatNumber(total))}` : '-'}</td>
+              </tr>
+            `;
+          }).join('')}
         </tbody>
       </table>
+      <p class="aside-tier-source">現在: A${escapeHtml(rank)} / Lv${escapeHtml(level || '-')} ${manifest.source ? `・発現値: ${escapeHtml(manifest.source)}` : ''}</p>
     `;
   }
 
@@ -4692,7 +4705,7 @@
       tags,
       favoriteSlot: 0,
       savedAt: now.toISOString(),
-      formation: cloneJson(ensureFormationState())
+      formation: normalizeFormationState(ensureFormationState())
     });
     appState.activeFormationPresetId = id;
     saveState();
@@ -4740,7 +4753,7 @@
     preset.name = name;
     preset.tags = parseFormationTags(elements.formationSaveTags?.value || '');
     preset.savedAt = new Date().toISOString();
-    preset.formation = cloneJson(ensureFormationState());
+    preset.formation = normalizeFormationState(ensureFormationState());
     saveState();
     renderFormationActivePreset();
     renderFormationPresetList();
@@ -4813,7 +4826,7 @@
 
   function isFormationPresetDirty(preset) {
     if (!preset?.formation) return false;
-    return JSON.stringify(normalizeFormationStateForCompare(preset.formation)) !== JSON.stringify(normalizeFormationStateForCompare(ensureFormationState()));
+    return stableStringify(normalizeFormationStateForCompare(preset.formation)) !== stableStringify(normalizeFormationStateForCompare(ensureFormationState()));
   }
 
   function normalizeFormationStateForCompare(formation) {
@@ -7884,29 +7897,43 @@
     const activeAttack = basic.攻撃タイプ === '魔法'
       ? Number(totals.matk) || 0
       : Number(totals.patk) || 0;
-    const weightedStats = (Number(totals.hp) || 0) * 4 / 35
-      + activeAttack * 3
-      + (Number(totals.pdef) || 0)
+    const hp = Math.max(0, Number(totals.hp) || 0);
+    const defensesAndCrit = (Number(totals.pdef) || 0)
       + (Number(totals.mdef) || 0)
       + (Number(totals.crit) || 0)
       + (Number(totals.critDmg) || 0)
       + (Number(totals.critRes) || 0)
       + (Number(totals.critDmgRes) || 0);
+    const correctionA = Number(
+      basic.戦闘力補正値A
+      ?? basic.combatPowerCorrectionA
+      ?? basic.combat_power_correction_a
+    ) || 0;
     const rarity = Number(basic.レア度) || 3;
-    const baseRate = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
-    const correction = Number(basic.戦闘力補正 ?? basic.combatPowerCorrection ?? basic.weight_value_a) || 0;
-    const skillValue = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity] ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
+    const rarityCorrection = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
+    const correctionB = Number(
+      basic.戦闘力補正値B
+      ?? basic.combatPowerCorrectionB
+      ?? basic.combat_power_correction_b
+      ?? basic.戦闘力補正
+      ?? basic.combatPowerCorrection
+      ?? basic.weight_value_a
+    ) || 0;
+    const skillCorrection = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity]
+      ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
     const skills = state?.skillLevels || {};
-    const skillSum = ['low', 'high', 'passive']
-      .map(key => Math.max(0, (Number(skills[key]) || 1) - 1) * skillValue)
+    const skillLevelSum = ['low', 'high', 'passive']
+      .map(key => Math.max(1, Number(skills[key]) || 1))
       .reduce((total, value) => total + value, 0);
     const asideBonus = (Number(state?.asideRank) || 0) >= 2 ? COMBAT_POWER_ASIDE_BONUS : 0;
-    return Math.max(0, Math.floor(weightedStats * (
-      baseRate
-      + correction * COMBAT_POWER_CORRECTION_RATE
-      + skillSum * COMBAT_POWER_SKILL_RATE
+    const basePower = hp * 0.08
+      + activeAttack * 2.1
+      + (defensesAndCrit + correctionA) * 0.7;
+    const multiplier = rarityCorrection
+      + correctionB
       + asideBonus
-    )));
+      + skillCorrection * Math.max(0, skillLevelSum - 1);
+    return Math.max(0, Math.floor(basePower * multiplier));
   }
 
   function mapTotalsForSnapshot(totals) {

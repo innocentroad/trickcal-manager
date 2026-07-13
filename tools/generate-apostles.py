@@ -56,6 +56,10 @@ KEY_MAP = {
     "SP回復": "initialSp",
     "初期SP": "initialSp",
     "毎秒SP回復量": "spRecoveryPerSecond",
+    "戦闘力補正値A": "combatPowerCorrectionA",
+    "戦闘力補正値B": "combatPowerCorrectionB",
+    "戦闘力補正": "combatPowerCorrectionB",
+    "weight_value_a": "combatPowerCorrectionB",
     "ボードタイプ": "boardType",
     "ボード形": "boardShape",
     "no": "no",
@@ -548,5 +552,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

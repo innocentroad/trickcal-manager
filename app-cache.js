@@ -7,10 +7,13 @@
   const ROUTE_ASSETS = {
     stat: [
       'stat-dashboard.html',
-      'stat-prototype.css',
-      'stat-dashboard.css',
-      'shared-topbar.css',
-      'stat-prototype.js',
+      'stat-prototype.css?v=20260705b',
+      'stat-dashboard.css?v=20260713d',
+      'shared-topbar.css?v=20260709a',
+      'statData.js?v=20260713e',
+      'synergy.js',
+      'cards.js?v=20260711a',
+      'stat-prototype.js?v=20260713e',
       'stat-dashboard.js',
       'image-preload.js'
     ],
@@ -18,10 +21,14 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css',
-      'shared-topbar.css',
+      'shared-topbar.css?v=20260709a',
+      'statData.js',
       'stat-engine.js',
+      'apostles.js',
+      'cards.js?v=20260711a',
+      'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js',
+      'formation-damage-calc.js?v=20260711c',
       'image-preload.js'
     ]
   };
@@ -37,7 +44,7 @@
   }, { once: true });
 
   function warmLikelyRouteSoon() {
-    const warm = () => warmRouteAssets(document.body?.classList.contains('formation-damage-calc') ? 'stat' : 'calc');
+    const warm = () => warmRouteAssets(document.body?.classList.contains('formation-damage-calc') ? 'calc' : 'stat');
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(warm, { timeout: 2200 });
     } else {

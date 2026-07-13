@@ -661,7 +661,8 @@ body.fdc-result-detail-open .fdc-apply-float-toggle:not([aria-expanded="true"]) 
   backdrop-filter: blur(12px);
 }
 
-.fdc-apply-float-controller:hover .fdc-apply-float-toggle,
+.fdc-apply-float-toggle:hover,
+.fdc-apply-float-toggle:focus-visible,
 .fdc-apply-float-toggle[aria-expanded="true"] {
   opacity: 1;
 }
@@ -3617,11 +3618,6 @@ body.theme-light .fdc-result-diff.is-negative {
 }
 
 @media (max-width: 980px) {
-  .fdc-side-panels,
-  .fdc-calc-grid {
-    grid-template-columns: 1fr;
-  }
-
   .fdc-enemy-preset-controls {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3661,13 +3657,20 @@ body.theme-light .fdc-result-diff.is-negative {
   }
 }
 
+@media (max-width: 860px) {
+  .fdc-side-panels,
+  .fdc-calc-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (min-width: 701px) and (max-width: 980px) {
   .fdc-side-preamble {
     min-height: clamp(15.4rem, 24vw, 17.2rem);
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 860px) {
   .fdc-side-panels > .side-panel {
     display: none;
   }

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'trickcal-manager';
-const CACHE_VERSION = '20260625-asset-cache-2';
+const CACHE_VERSION = '20260711-asset-cache-1';
 const RUNTIME_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}`;
 
 self.addEventListener('install', event => {

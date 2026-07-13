@@ -14,7 +14,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.525
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.525
     },
     "statTypes": {
       "hp": 1.0,
@@ -309,7 +310,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.325
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.325
     },
     "statTypes": {
       "hp": 4.0,
@@ -544,7 +546,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.375
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -1129,7 +1132,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.21
+      "combatPowerCorrectionA": 70.0,
+      "combatPowerCorrectionB": 0.21
     },
     "statTypes": {
       "hp": 5.0,
@@ -1300,7 +1304,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 160.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.25
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 5.0,
@@ -1773,7 +1778,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -1982,7 +1988,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.425
+      "combatPowerCorrectionA": 95.0,
+      "combatPowerCorrectionB": 0.425
     },
     "statTypes": {
       "hp": 3.0,
@@ -2361,7 +2368,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -2780,7 +2788,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.335
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.335
     },
     "statTypes": {
       "hp": 3.0,
@@ -3028,7 +3037,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -3221,7 +3231,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "戦闘力補正": 0.465
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.465
     },
     "statTypes": {
       "hp": 3.0,
@@ -3519,7 +3530,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.375
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -3746,7 +3758,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.375
+      "combatPowerCorrectionA": 135.0,
+      "combatPowerCorrectionB": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -4033,7 +4046,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.565
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.565
     },
     "statTypes": {
       "hp": 2.0,
@@ -4221,7 +4235,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.4
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.4
     },
     "statTypes": {
       "hp": 2.0,
@@ -4366,7 +4381,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -4542,7 +4558,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.3
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.3
     },
     "statTypes": {
       "hp": 4.0,
@@ -4812,7 +4829,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.335
+      "combatPowerCorrectionA": 95.0,
+      "combatPowerCorrectionB": 0.335
     },
     "statTypes": {
       "hp": 4.0,
@@ -5278,7 +5296,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.31
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.31
     },
     "statTypes": {
       "hp": 2.0,
@@ -5410,7 +5429,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -5934,7 +5954,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.25
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 5.0,
@@ -6178,7 +6199,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.26
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -6320,7 +6342,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -6557,7 +6580,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 25.0,
-      "戦闘力補正": 0.375
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.375
     },
     "statTypes": {
       "hp": 3.0,
@@ -6766,7 +6790,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 25.0,
-      "戦闘力補正": 0.3
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -6973,7 +6998,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 50.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.325
+      "combatPowerCorrectionA": 105.0,
+      "combatPowerCorrectionB": 0.325
     },
     "statTypes": {
       "hp": 4.0,
@@ -7388,7 +7414,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.3
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -7686,7 +7713,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.41
+      "combatPowerCorrectionA": 95.0,
+      "combatPowerCorrectionB": 0.41
     },
     "statTypes": {
       "hp": 3.0,
@@ -7987,7 +8015,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.26
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.26
     },
     "statTypes": {
       "hp": 4.0,
@@ -8186,7 +8215,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.325
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.325
     },
     "statTypes": {
       "hp": 3.0,
@@ -8397,7 +8427,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.34
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.34
     },
     "statTypes": {
       "hp": 4.0,
@@ -8887,7 +8918,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.3
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.3
     },
     "statTypes": {
       "hp": 3.0,
@@ -9068,7 +9100,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 5.0,
@@ -9478,7 +9511,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.31
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -9614,7 +9648,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.26
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -9757,7 +9792,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.45
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.45
     },
     "statTypes": {
       "hp": 2.0,
@@ -10066,7 +10102,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.525
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.525
     },
     "statTypes": {
       "hp": 2.0,
@@ -10387,7 +10424,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.45
+      "combatPowerCorrectionA": 95.0,
+      "combatPowerCorrectionB": 0.45
     },
     "statTypes": {
       "hp": 3.0,
@@ -10712,7 +10750,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -10980,7 +11019,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.195
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.195
     },
     "statTypes": {
       "hp": 3.0,
@@ -11122,7 +11162,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 180.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.235
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.235
     },
     "statTypes": {
       "hp": 4.0,
@@ -11621,7 +11662,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.525
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.525
     },
     "statTypes": {
       "hp": 2.0,
@@ -12185,7 +12227,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.185
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.185
     },
     "statTypes": {
       "hp": 5.0,
@@ -12372,7 +12415,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.425
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.425
     },
     "statTypes": {
       "hp": 3.0,
@@ -12702,7 +12746,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.25
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -12890,7 +12935,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.345
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.345
     },
     "statTypes": {
       "hp": 3.0,
@@ -13262,7 +13308,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "戦闘力補正": 0.335
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.335
     },
     "statTypes": {
       "hp": 3.0,
@@ -13487,7 +13534,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -13904,7 +13952,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.2
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.2
     },
     "statTypes": {
       "hp": 4.0,
@@ -14105,7 +14154,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -14256,7 +14306,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.22
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.22
     },
     "statTypes": {
       "hp": 3.0,
@@ -14413,7 +14464,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 25.0,
-      "戦闘力補正": 0.25
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -14633,7 +14685,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.475
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.475
     },
     "statTypes": {
       "hp": 1.0,
@@ -14925,7 +14978,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.39
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.39
     },
     "statTypes": {
       "hp": 2.0,
@@ -15068,7 +15122,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.185
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.185
     },
     "statTypes": {
       "hp": 5.0,
@@ -15232,7 +15287,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.325
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.325
     },
     "statTypes": {
       "hp": 3.0,
@@ -15449,7 +15505,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.26
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.26
     },
     "statTypes": {
       "hp": 3.0,
@@ -15638,7 +15695,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.195
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.195
     },
     "statTypes": {
       "hp": 3.0,
@@ -15774,7 +15832,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "戦闘力補正": 0.27
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.27
     },
     "statTypes": {
       "hp": 3.0,
@@ -15931,7 +15990,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.425
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.425
     },
     "statTypes": {
       "hp": 1.0,
@@ -16162,7 +16222,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 20.0,
-      "戦闘力補正": 0.35
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.35
     },
     "statTypes": {
       "hp": 3.0,
@@ -16616,7 +16677,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.31
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -16753,7 +16815,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 220.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.4
+      "combatPowerCorrectionA": 110.0,
+      "combatPowerCorrectionB": 0.4
     },
     "statTypes": {
       "hp": 3.0,
@@ -17182,7 +17245,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "戦闘力補正": 0.37
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.37
     },
     "statTypes": {
       "hp": 3.0,
@@ -17586,7 +17650,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.22
+      "combatPowerCorrectionA": 80.0,
+      "combatPowerCorrectionB": 0.22
     },
     "statTypes": {
       "hp": 4.0,
@@ -17954,7 +18019,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 160.0,
       "spRecoveryPerSecond": 40.0,
-      "戦闘力補正": 0.37
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.37
     },
     "statTypes": {
       "hp": 4.0,
@@ -18401,7 +18467,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -18745,7 +18812,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.25
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 4.0,
@@ -19033,7 +19101,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.275
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.275
     },
     "statTypes": {
       "hp": 4.0,
@@ -19327,7 +19396,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "戦闘力補正": 0.31
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.31
     },
     "statTypes": {
       "hp": 3.0,
@@ -19469,7 +19539,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "戦闘力補正": 0.225
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.225
     },
     "statTypes": {
       "hp": 4.0,
@@ -19654,7 +19725,8 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 50.0,
-      "戦闘力補正": 0.22
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.22
     },
     "statTypes": {
       "hp": 5.0,

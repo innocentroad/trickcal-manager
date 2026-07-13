@@ -2197,8 +2197,10 @@
         const category = getFdcApostleSkillCategory(skill, sourceLabel);
         const skillLevel = getFdcSkillLevelForCategory(memberLevels, category);
         normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
+          const effectText = getFdcSkillEffectConditionText(skill, effect);
           const option = createFormationSkillEffectOption({
             effect,
+            effectText,
             effectIndex,
             sourceKey,
             sourceLabel,
@@ -2216,13 +2218,12 @@
     return options.concat(buildFormationA3SkillEffectOptions(target, context));
   }
 
-  function createFormationSkillEffectOption({ effect, effectIndex, sourceKey, sourceLabel, category, skill, skillLevel, member, memberName, target }) {
+  function createFormationSkillEffectOption({ effect, effectText = '', effectIndex, sourceKey, sourceLabel, category, skill, skillLevel, member, memberName, target }) {
     if (isFdcApostleAttackMultiplierEffect(effect)) return null;
-    const targetState = getFormationSkillTargetState(effect.effectTarget, target, member);
+    const targetState = getFormationSkillTargetState(effect.effectTarget, target, member, effectText);
     if (!targetState.applies) return null;
     const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
-    const effectText = getFdcSkillEffectConditionText(skill, effect);
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
     const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState);
     return {
@@ -2261,7 +2262,7 @@
       const memberName = member.name || apostle?.name || member.id;
       normalizeFdcArray(aside3.effects).forEach((effect, effectIndex) => {
         const effectText = getFdcSkillEffectConditionText(aside3, effect);
-        const targetState = getFormationSkillTargetState(effect.effectTarget, target, member);
+        const targetState = getFormationSkillTargetState(effect.effectTarget, target, member, effectText);
         if (!targetState.applies) return;
         const skillLevel = getFdcSkillLevelForCategory(getFdcEffectiveSkillLevels(member), 'アサイド');
         const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
@@ -2354,8 +2355,9 @@
     return Object.fromEntries(Object.entries(bonuses).filter(([key, value]) => allowed.has(key) && Number(value)));
   }
 
-  function getFormationSkillTargetState(rawTarget, target, sourceMember) {
+  function getFormationSkillTargetState(rawTarget, target, sourceMember, conditionText = '') {
     const text = String(rawTarget || '').trim();
+    const body = [text, conditionText].filter(Boolean).join(' ');
     const result = (applies, defaultEnabled, reason = '') => ({ applies, defaultEnabled, reason });
     if (!text) return result(false, false);
     if (/敵/.test(text)) return result(false, false, '敵対象');
@@ -2365,9 +2367,12 @@
     if (/全体|味方全員|味方全体|フィールド上の味方全体|味方\/最大/.test(text)) {
       return result(true, true, '味方全体');
     }
-    const reason = judgeTargetText(text, target, resolveActiveDamageType(target));
-    if (reason.matched && /前列|中列|後列|攻撃|守備|防御|支援|補助|物理|魔法/.test(text)) {
+    const reason = judgeTargetText(body, target, resolveActiveDamageType(target));
+    if (reason.matched && reason.reason) {
       return result(true, true, reason.reason);
+    }
+    if (!reason.matched && reason.reason) {
+      return result(false, false, reason.reason);
     }
     if (/味方/.test(text)) {
       return result(true, false, `${text} / 対象候補のため手動ON`);
@@ -2472,8 +2477,8 @@
   }
 
   function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }) {
-    if (isTimedOrManualEffect(text, effect)) return false;
     if (enemyPersonalityState?.hasCondition) return !!enemyPersonalityState.defaultEnabled;
+    if (isTimedOrManualEffect(text, effect)) return false;
     return true;
   }
 
@@ -4280,9 +4285,14 @@
   function getConditionalDefaultEnabled(text, effect, actionMatch, card = null, formation = null) {
     if (isUnresolvedCardTriggerEffect(text)) return false;
     if (effect.defaultEnabled === true) return true;
+    if (isSameLineStartEffect(text)) return true;
     if (isFavoriteCardActiveInFormation(card, formation)) return true;
     if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) return true;
     return !!(actionMatch?.hasActionCondition && !isTimedOrManualEffect(text, effect));
+  }
+
+  function isSameLineStartEffect(text) {
+    return /同列/.test(String(text || '')) && /戦闘開始時|開始時/.test(String(text || ''));
   }
 
   function isFavoriteCardActiveInFormation(card, formation) {
@@ -4398,6 +4408,12 @@
     if (/サポート|支援|補助/.test(text)) checks.push(['役割', normalizeRole(target.role) === '支援', '支援']);
     if (/魔法攻撃/.test(text)) checks.push(['攻撃種別', resolvedType === 'magic', '魔法']);
     if (/物理攻撃/.test(text)) checks.push(['攻撃種別', resolvedType === 'physical', '物理']);
+    ['純粋', '冷静', '狂気', '活発', '憂鬱'].forEach(personality => {
+      const allyPersonalityPattern = new RegExp(`${personality}(?:性格)?(?:の)?味方|味方[\\/／ ]?${personality}`);
+      if (allyPersonalityPattern.test(text)) {
+        checks.push(['性格', target.personality === personality, personality]);
+      }
+    });
     const failed = checks.filter(([, matched]) => !matched);
     return {
       matched: failed.length === 0,
