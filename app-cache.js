@@ -13,7 +13,7 @@
       'statData.js?v=20260713e',
       'synergy.js',
       'cards.js?v=20260715a',
-      'stat-prototype.js?v=20260715q',
+      'stat-prototype.js?v=20260716a',
       'stat-dashboard.js',
       'image-preload.js'
     ],

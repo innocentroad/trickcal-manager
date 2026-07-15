@@ -841,22 +841,15 @@
 
     elements.globalSettingTabs.forEach(button => {
       button.addEventListener('click', () => {
-        const tab = button.dataset.settingTab;
-        elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item === button));
-        elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
-        updateGlobalOpenActiveButton(tab);
-        renderActiveGlobalSettingPanel();
-        scrollGlobalSettingIntoView(tab, { block: 'start' });
+        openGlobalSettingPanel(button.dataset.settingTab);
       });
     });
 
     elements.cardManagerTabs.forEach(button => {
       button.addEventListener('click', () => {
-        view.cardManager.kind = button.dataset.cardKind || 'artifact';
-        renderCardManager();
+        openCardManagerPanel(button.dataset.cardKind === 'spell' ? 'spell' : 'artifact');
       });
     });
-
     elements.cardManagerSearch?.addEventListener('input', () => {
       view.cardManager.search = elements.cardManagerSearch.value.trim();
       renderCardManager();
@@ -2297,9 +2290,9 @@
     };
   }
 
-  function createComparableSnapshot(snapshot) {
+  function createComparableSnapshot(snapshot, options = {}) {
     const normalized = normalizeStateSnapshot(snapshot);
-    return {
+    const comparable = {
       activeId: normalized.activeId,
       apostles: createComparableApostleStates(normalized.apostles),
       research: normalized.research,
@@ -2309,8 +2302,13 @@
       activeFormationPresetId: normalized.activeFormationPresetId || '',
       savedFormations: normalizeFormationPresetList(normalized.savedFormations || [])
     };
+    if (options.includeTransient) {
+      comparable.dashboardView = normalized.dashboardView;
+      comparable.globalSettingPanel = normalized.globalSettingPanel;
+      comparable.cardManagerKind = normalized.cardManagerKind;
+    }
+    return comparable;
   }
-
   function createComparableApostleStates(states = {}) {
     const comparable = cloneJson(states || {});
     Object.values(comparable).forEach(state => {
@@ -2553,7 +2551,7 @@
     if (!action || historyState.isRestoring) return;
     try {
       const after = createStateSnapshot('', { includeTransient: true });
-      if (stableStringify(createComparableSnapshot(action.before)) === stableStringify(createComparableSnapshot(after))) {
+      if (stableStringify(createComparableSnapshot(action.before, { includeTransient: true })) === stableStringify(createComparableSnapshot(after, { includeTransient: true }))) {
         updateHistoryControls();
         return;
       }
@@ -3234,13 +3232,13 @@
     }
     if (!context || context.path !== window.location.pathname) return;
 
-    if (context.activeView === 'global' && context.activeGlobalPanel) {
-      openGlobalSettingPanel(context.activeGlobalPanel, { scroll: false, skipHistory: true });
-    } else {
-      activateDashboardView(context.activeView, { skipHistory: true });
-    }
-
+    // stat-dashboard.js がURL指定の初期表示を適用した後に、再読み込み前の状態を優先する。
     window.requestAnimationFrame(() => {
+      if (context.activeView === 'global' && context.activeGlobalPanel) {
+        openGlobalSettingPanel(context.activeGlobalPanel, { scroll: false, skipHistory: true });
+      } else {
+        activateDashboardView(context.activeView, { skipHistory: true });
+      }
       window.requestAnimationFrame(() => {
         window.scrollTo({ left: Number(context.scrollX) || 0, top: Number(context.scrollY) || 0, behavior: 'auto' });
       });
