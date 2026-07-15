@@ -13,6 +13,7 @@
   const COMMON_THEME_STORAGE_KEY = 'trickcal_theme';
   const THEME_STORAGE_KEY = 'trickcal_stat_theme';
   const BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY = 'trickcal_board_shortcut_off_mode';
+  const DASHBOARD_RELOAD_CONTEXT_KEY = 'trickcal_dashboard_reload_context_v1';
   const EXPORT_SCHEMA = 'trickcal-stat-state';
   const EXPORT_VERSION = 1;
   const APOSTLE_IMAGE_FALLBACK = 'img/Chara/null.webp';
@@ -385,6 +386,7 @@
     renderStateManager();
     render();
     applyInitialDashboardRoute();
+    restoreDashboardReloadContext();
     saveState({ refreshSnapshots: false });
     scheduleDeferredInitialWork();
     document.body.classList.remove('is-booting');
@@ -527,6 +529,7 @@
 
     elements.topReload?.addEventListener('click', () => {
       flushPendingStateSave();
+      saveDashboardReloadContext();
       window.location.reload();
     });
 
@@ -3205,6 +3208,44 @@
     }
   }
 
+  function saveDashboardReloadContext() {
+    const activeView = elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
+    const activeGlobalPanel = elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
+    try {
+      sessionStorage.setItem(DASHBOARD_RELOAD_CONTEXT_KEY, JSON.stringify({
+        path: window.location.pathname,
+        activeView,
+        activeGlobalPanel,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY
+      }));
+    } catch (_) {
+      // セッションストレージを使えない環境では通常の再読み込みにフォールバックする。
+    }
+  }
+
+  function restoreDashboardReloadContext() {
+    let context;
+    try {
+      context = JSON.parse(sessionStorage.getItem(DASHBOARD_RELOAD_CONTEXT_KEY) || 'null');
+      sessionStorage.removeItem(DASHBOARD_RELOAD_CONTEXT_KEY);
+    } catch (_) {
+      return;
+    }
+    if (!context || context.path !== window.location.pathname) return;
+
+    if (context.activeView === 'global' && context.activeGlobalPanel) {
+      openGlobalSettingPanel(context.activeGlobalPanel, { scroll: false, skipHistory: true });
+    } else {
+      activateDashboardView(context.activeView, { skipHistory: true });
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ left: Number(context.scrollX) || 0, top: Number(context.scrollY) || 0, behavior: 'auto' });
+      });
+    });
+  }
   function isDashboardPanelActive(name) {
     return !!document.querySelector(`[data-dashboard-panel="${name}"]`)?.classList.contains('is-active');
   }
@@ -6209,8 +6250,8 @@
         costs.middle += Number(row.中級) || 0;
         costs.upper += Number(row.上級) || 0;
         costs.special += Number(row.特級) || 0;
-        costs.sharedToken += Number(row['★1共同教団証']) || 0;
-        costs.apostleToken += Number(row.使徒証) || 0;
+        costs.sharedToken += getBoardSharedTokenCost(row, basic.id);
+        costs.apostleToken += getBoardApostleTokenCost(row, basic.id);
         addBoardSummaryEffect(effectGroups, row.効果1_type, row.効果1_value, row.マス_type);
         addBoardSummaryEffect(effectGroups, row.効果2_type, row.効果2_value, row.マス_type);
       });
@@ -6731,8 +6772,8 @@
         costs.middle += (Number(row.中級) || 0) * direction;
         costs.upper += (Number(row.上級) || 0) * direction;
         costs.special += (Number(row.特級) || 0) * direction;
-        costs.sharedToken += (Number(row['★1共同教団証']) || 0) * direction;
-        costs.apostleToken += (Number(row.使徒証) || 0) * direction;
+        costs.sharedToken += getBoardSharedTokenCost(row, basic.id) * direction;
+        costs.apostleToken += getBoardApostleTokenCost(row, basic.id) * direction;
         if (row.マス_type === '上級' || row.マス_type === '特殊') {
           addSignedBoardGlobalEffect(row, direction, flat, percent);
         }
@@ -7265,8 +7306,8 @@
       costs.middle += (Number(row.中級) || 0) * direction;
       costs.upper += (Number(row.上級) || 0) * direction;
       costs.special += (Number(row.特級) || 0) * direction;
-      costs.sharedToken += (Number(row['★1共同教団証']) || 0) * direction;
-      costs.apostleToken += (Number(row.使徒証) || 0) * direction;
+      costs.sharedToken += getBoardSharedTokenCost(row, view.id) * direction;
+      costs.apostleToken += getBoardApostleTokenCost(row, view.id) * direction;
       addBoardSummaryEffect(effectGroups, row.効果1_type, (Number(row.効果1_value) || 0) * direction, row.マス_type);
       addBoardSummaryEffect(effectGroups, row.効果2_type, (Number(row.効果2_value) || 0) * direction, row.マス_type);
     });
@@ -7428,8 +7469,8 @@
       costs.middle += Number(row.中級) || 0;
       costs.upper += Number(row.上級) || 0;
       costs.special += Number(row.特級) || 0;
-      costs.sharedToken += Number(row['★1共同教団証']) || 0;
-      costs.apostleToken += Number(row.使徒証) || 0;
+      costs.sharedToken += getBoardSharedTokenCost(row, view.id);
+      costs.apostleToken += getBoardApostleTokenCost(row, view.id);
       addBoardSummaryEffect(effectGroups, row.効果1_type, row.効果1_value, row.マス_type);
       addBoardSummaryEffect(effectGroups, row.効果2_type, row.効果2_value, row.マス_type);
     });
@@ -7472,7 +7513,9 @@
                   ${item.apostleToken
                     ? `<span class="board-apostle-token" aria-hidden="true">
                         <img class="board-apostle-token-bg" src="img/使徒証_背景.webp" alt="">
-                        <img data-apostle-image class="board-apostle-token-chara" src="${escapeAttr(getApostleImagePath(view.id))}" alt="">
+                        <span class="board-apostle-token-photo">
+                          <img data-apostle-image class="board-apostle-token-chara" src="${escapeAttr(getApostleImagePath(view.id))}" alt="" draggable="false">
+                        </span>
                       </span>`
                     : `<img class="board-cost-icon" src="${escapeAttr(item.icon)}" alt="">`}
                   <span>${escapeHtml(item.label)}</span>
@@ -8080,8 +8123,24 @@
     summary.mid += (Number(row.中級) || 0) * sign;
     summary.high += (Number(row.上級) || 0) * sign;
     summary.special += (Number(row.特級) || 0) * sign;
-    summary.commonTicket += (Number(row['★1共同教団証']) || 0) * sign;
-    summary.apostleTicket += (Number(row.使徒証) || 0) * sign;
+    summary.commonTicket += getBoardSharedTokenCost(row) * sign;
+    summary.apostleTicket += getBoardApostleTokenCost(row) * sign;
+  }
+
+  // ★1使徒のボード3解放（ボード2のゲート）は★1共同教団証5枚で、使徒証は消費しない。
+  function getBoardApostleTokenCost(row, apostleId = row?.id) {
+    if (isRare1Board3UnlockGate(row, apostleId)) return 0;
+    return Number(row?.使徒証) || 0;
+  }
+
+  function getBoardSharedTokenCost(row, apostleId = row?.id) {
+    if (isRare1Board3UnlockGate(row, apostleId)) return 5;
+    return Number(row?.['★1共同教団証']) || 0;
+  }
+
+  function isRare1Board3UnlockGate(row, apostleId) {
+    const rarity = Number(DATA.getById('basicInfo', apostleId)?.レア度);
+    return rarity === 1 && Number(row?.ボード階層) === 2 && row?.マス_type === 'ゲート';
   }
 
   function findEquipmentValue(rank, statGroup, tier, enhance) {
@@ -9017,6 +9076,7 @@
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
       return {
         activeId: parsed.activeId || '',
+        syncRevision: Math.max(0, Number(parsed.syncRevision) || 0),
         apostles: parsed.apostles && typeof parsed.apostles === 'object' ? parsed.apostles : {},
         research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
         cards: parsed.cards && typeof parsed.cards === 'object' ? parsed.cards : {},
@@ -9028,7 +9088,7 @@
         savedFormations: normalizeFormationPresetList(parsed.savedFormations)
       };
     } catch (error) {
-      return { activeId: '', apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, activeStateSlot: 1, savedFormations: [] };
+      return { activeId: '', syncRevision: 0, apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, activeStateSlot: 1, savedFormations: [] };
     }
   }
 
@@ -9066,6 +9126,7 @@
   }
 
   function persistState() {
+    appState.syncRevision = Math.max(0, Number(appState.syncRevision) || 0) + 1;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
   }
 

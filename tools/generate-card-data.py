@@ -281,8 +281,12 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         }
         if short_label and short_label != label:
             effect["shortLabel"] = short_label
-        if as_bool(row.get("同効果非スタック")) or as_bool(row.get("同一使徒非スタック")):
-            effect["nonStacking"] = True
+        # 「同効果」と「同一使徒」はランタイムで判定範囲が異なるため、
+        # ここで単一の nonStacking フラグへ畳み込まない。
+        if as_bool(row.get("同効果非スタック")):
+            effect["nonStackingSameEffect"] = True
+        if as_bool(row.get("同一使徒非スタック")):
+            effect["nonStackingSameApostle"] = True
         if attack_type in DMG_TYPE_MAP:
             effect["onlyWhenDmgType"] = DMG_TYPE_MAP[attack_type]
         meta = [part for part in [target, duration and f"持続:{duration}", reference and f"参照:{reference}", value_kind, reset_condition and f"リセット:{reset_condition}"] if part]

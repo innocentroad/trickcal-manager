@@ -193,6 +193,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 175.0
           },
@@ -200,6 +202,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "感電",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 3.0
           }
@@ -251,10 +255,10 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 15.0
             },
             {
-              "valueKind": "普通攻撃のダメージ量増加",
+              "valueKind": "普通攻撃のダメージ量増加(その他倍率)",
               "valueClass": "倍率",
-              "effectType": "パッシブ",
-              "effectTarget": "敵/感電状態",
+              "effectType": "バフ",
+              "condition": "感電状態の敵攻撃時",
               "targetSkill": "普通攻撃",
               "fixedValue": 40.0
             },
@@ -409,12 +413,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "凍傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "凍傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 10.0
           }
@@ -498,6 +506,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 190.0
           },
@@ -505,6 +515,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 2.0
           },
@@ -512,6 +524,10 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 20.0
           },
@@ -519,6 +535,10 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度減少",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 4.0
           }
@@ -633,12 +653,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[残り火注意]火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "[残り火注意]火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 7.0
           },
@@ -769,12 +793,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[残り火注意]火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "[残り火注意]火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 10.0
           },
@@ -899,7 +927,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_基本",
         "skillName": "基本",
-        "description": "トランプを飛ばして敵に魔法ダメージを与える。"
+        "description": "カードを投げつけて敵に魔法ダメージを与える。"
       },
       {
         "effects": [
@@ -907,20 +935,15 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "敵",
-            "fixedValue": 200.0
-          },
-          {
-            "valueKind": "アルカナ出現",
-            "valueClass": "回数",
-            "effectType": "スキル変更",
-            "effectTarget": "自身",
-            "fixedValue": 4.0
+            "fixedValue": 250.0
           }
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "4回攻撃するごとにランダムなアルカナが出現し、強化攻撃が変更される。"
+        "description": "4回攻撃するごとに敵にカードの束を投げつけて魔法ダメージを与える。"
       }
     ],
     "favoriteCard": {
@@ -1049,7 +1072,7 @@ const APOSTLE_LIBRARY = [
           "stats": [],
           "effects": [
             {
-              "valueKind": "スキルダメージ増加",
+              "valueKind": "スキルダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "effectTarget": "自身",
@@ -1540,16 +1563,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動条件被弾数",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 5.0
-          },
-          {
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "被ダメージ回数",
+            "triggerValue": 9.0,
             "effectTarget": "前方の敵/範囲",
             "fixedValue": 240.0
           },
@@ -1557,6 +1575,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "被ダメージ回数",
+            "triggerValue": 9.0,
             "effectTarget": "自身",
             "reference": "最大HP",
             "fixedValue": 20.0
@@ -1565,6 +1585,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "triggerType": "被ダメージ回数",
+            "triggerValue": 9.0,
             "effectTarget": "ダメージを受けた敵",
             "fixedValue": 30.0
           },
@@ -1572,13 +1594,15 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力減少",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "被ダメージ回数",
+            "triggerValue": 9.0,
             "effectTarget": "ダメージを受けた敵",
             "fixedValue": 6.0
           }
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "直接ダメージを5回受けるたびに、前方の敵に範囲魔法ダメージを与え、自身のHPを回復する。ダメージを受けた敵は攻撃力が減少する。"
+        "description": "直接ダメージを9回受けるたびに、前方の敵に範囲魔法ダメージを与え、自身のHPを回復する。ダメージを受けた敵は攻撃力が減少する。\n強化攻撃中は、被ダメージの回数がカウントされない。"
       }
     ],
     "favoriteCard": {
@@ -1700,16 +1724,7 @@ const APOSTLE_LIBRARY = [
               "reference": "最大HP",
               "levels": {
                 "1": 24.0,
-                "2": 26,
-                "3": 28.0,
-                "4": 30.0,
-                "5": 32.0,
-                "6": 34.0,
-                "7": 36.0,
-                "8": 38.0,
-                "9": 40.0,
-                "10": 42.0,
-                "11": 44.0,
+                "2": "#REF!",
                 "12": 46.0,
                 "13": 48.0,
                 "14": 50.0,
@@ -1819,12 +1834,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "領域内の敵"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "領域内の敵",
             "fixedValue": 4.0
           }
@@ -1859,12 +1878,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "中央の敵/範囲"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "中央の敵/範囲",
             "fixedValue": 6.0
           },
@@ -2243,6 +2266,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 160.0
           },
@@ -2250,6 +2275,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "SP回復",
             "valueClass": "固定値",
             "effectType": "回復",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "周囲の味方",
             "fixedValue": 20.0
           }
@@ -2555,6 +2582,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "敵",
             "fixedValue": 260.0
           }
@@ -2963,12 +2992,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 2.0
           }
@@ -2983,6 +3016,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 100.0
           },
@@ -2990,6 +3025,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "2回目の魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "跳ね返り先の敵",
             "fixedValue": 150.0
           },
@@ -2997,6 +3034,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "跳ね返り数",
             "valueClass": "対象数",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 2.0
           },
@@ -3004,12 +3043,20 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 3.0
           }
@@ -3203,6 +3250,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 125.0
           }
@@ -3434,6 +3483,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 400.0
           }
@@ -3674,6 +3725,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "SP回復",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "自身",
             "fixedValue": 35.0
           }
@@ -3694,6 +3747,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "SP回復",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "triggerType": "一定確率",
+                "triggerValue": 30.0,
                 "effectTarget": "自身",
                 "fixedValue": 35.0
               },
@@ -3701,6 +3756,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "スキルダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "triggerType": "一定確率",
+                "triggerValue": 30.0,
                 "effectTarget": "自身",
                 "fixedValue": 60.0
               }
@@ -3930,6 +3987,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 15.0,
             "effectTarget": "敵",
             "fixedValue": 600.0
           }
@@ -4518,6 +4577,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "攻撃力が最も高い敵と周囲",
             "fixedValue": 250.0
           },
@@ -4525,12 +4586,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "攻撃力が最も高い敵と周囲"
           },
           {
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "攻撃力が最も高い敵と周囲",
             "fixedValue": 1.5
           }
@@ -4766,6 +4831,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "スキル使用時",
             "effectTarget": "自身",
             "levels": {
@@ -4787,6 +4854,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "スキル使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
@@ -5035,16 +5104,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動攻撃回数",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 4.0
-          },
-          {
             "valueKind": "SP回復",
             "valueClass": "固定値",
             "effectType": "回復",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "周囲の味方",
             "fixedValue": 50.0
           }
@@ -5506,6 +5570,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "普通攻撃ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "基本攻撃時",
             "effectTarget": "自身",
             "fixedValue": 7.0
@@ -5514,17 +5580,11 @@ const APOSTLE_LIBRARY = [
             "valueKind": "普通攻撃ダメージ量増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "基本攻撃時",
             "effectTarget": "自身",
             "fixedValue": 10.0
-          },
-          {
-            "valueKind": "普通攻撃ダメージ量増加",
-            "valueClass": "最大スタック",
-            "effectType": "バフ",
-            "condition": "基本攻撃時",
-            "effectTarget": "自身",
-            "fixedValue": 9.0
           }
         ],
         "skillType": "低学年",
@@ -5646,16 +5706,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動間隔",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 3.0
-          },
-          {
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 300.0
           },
@@ -5663,12 +5718,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "挑発",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲"
           },
           {
             "valueKind": "挑発",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 2.0
           },
@@ -5676,6 +5735,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ノックバック",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲"
           }
         ],
@@ -6159,6 +6220,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "敵",
             "fixedValue": 300.0
           },
@@ -6166,12 +6229,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 20.0,
             "effectTarget": "敵",
             "fixedValue": 1.5
           }
@@ -6946,6 +7013,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "翡翠玉獲得",
             "valueClass": "回数",
             "effectType": "バフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "自身",
             "fixedValue": 1.0
           },
@@ -6953,6 +7022,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "翡翠玉最大スタック",
             "valueClass": "回数",
             "effectType": "バフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "自身",
             "fixedValue": 3.0
           },
@@ -6960,6 +7031,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "condition": "翡翠玉獲得時",
             "effectTarget": "自身",
             "reference": "最大HP",
@@ -6969,6 +7042,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "シールド",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "condition": "翡翠玉獲得時",
             "effectTarget": "自身",
             "fixedValue": 6.0
@@ -6976,7 +7051,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "一定確率で翡翠を摂取し、翡翠玉を1スタック獲得する。"
+        "description": "一定確率で翡翠を摂取し、翡翠玉を1スタック獲得する。\n翡翠玉の獲得時、自身に魔法のシールドを生成する。"
       }
     ],
     "favoriteCard": {},
@@ -7042,6 +7117,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔弾獲得",
             "valueClass": "固定値",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
             "effectTarget": "自身",
             "fixedValue": 2.0
           },
@@ -7053,9 +7130,11 @@ const APOSTLE_LIBRARY = [
             "fixedValue": 6.0
           },
           {
-            "valueKind": "魔弾の物理ダメージ量増加",
+            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
             "condition": "魔弾所持時",
             "effectTarget": "自身",
             "fixedValue": 5.0
@@ -7094,6 +7173,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔弾獲得",
             "valueClass": "固定値",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
             "effectTarget": "自身",
             "fixedValue": 1.0
           },
@@ -7105,9 +7186,11 @@ const APOSTLE_LIBRARY = [
             "fixedValue": 6.0
           },
           {
-            "valueKind": "魔弾の物理ダメージ量増加",
+            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
             "condition": "魔弾所持時",
             "effectTarget": "自身",
             "fixedValue": 5.0
@@ -7124,6 +7207,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "魔弾獲得時",
             "effectTarget": "自身",
             "levels": {
@@ -7148,6 +7233,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "condition": "魔弾獲得時",
             "effectTarget": "自身",
             "fixedValue": 10.0
@@ -7174,16 +7261,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動間隔",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 3.0
-          },
-          {
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 350.0
           },
@@ -7191,12 +7273,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目隠し",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲"
           },
           {
             "valueKind": "目隠し",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 6.0
           },
@@ -7204,13 +7290,21 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔弾獲得",
             "valueClass": "固定値",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "自身",
             "fixedValue": 1.0
           },
           {
-            "valueKind": "魔弾の物理ダメージ量増加",
+            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "condition": "魔弾所持時",
             "effectTarget": "自身",
             "fixedValue": 5.0
@@ -7246,6 +7340,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化の弾丸物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵/最も遠い敵",
                 "fixedValue": 444.0
               }
@@ -7348,7 +7444,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 6.0
             },
             {
-              "valueKind": "低学年スキルダメージ増加",
+              "valueKind": "低学年スキルダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "condition": "低学年スキル使用時",
@@ -7887,7 +7983,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_基本",
         "skillName": "基本",
-        "description": "郵便物を飛ばして魔法ダメージ"
+        "description": "郵便物を飛ばして魔法ダメージを与える。"
       },
       {
         "effects": [
@@ -7895,6 +7991,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "n回ごと",
+            "triggerValue": 2.0,
             "effectTarget": "残りHP割合が最も低い味方",
             "reference": "対象の最大HP",
             "fixedValue": 15.0
@@ -7902,7 +8000,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
-        "description": "2回目の攻撃の代わりに残りHP割合が低い味方を回復"
+        "description": "2回目の攻撃の代わりに、HP割合が最も低い味方を回復させ、元の位置に戻る。"
       }
     ],
     "favoriteCard": {
@@ -7916,6 +8014,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "HP回復",
                 "valueClass": "倍率",
                 "effectType": "回復",
+                "triggerType": "n回ごと",
+                "triggerValue": 2.0,
                 "effectTarget": "残りHP割合が最も低い味方",
                 "reference": "対象の最大HP",
                 "fixedValue": 15.0
@@ -7924,52 +8024,39 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "シールド",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 2.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "reference": "最大HP",
                 "fixedValue": 30.0
-              }
-            ],
-            "targetSkill": "普通攻撃_強化",
-            "skillName": "強化",
-            "description": "強化攻撃で味方を回復しシールド付与と防御力増加"
-          },
-          {
-            "effects": [
+              },
               {
                 "valueKind": "シールド",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 2.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 6.0
-              }
-            ],
-            "targetSkill": "普通攻撃_強化",
-            "skillName": "強化",
-            "description": "シールド持続時間"
-          },
-          {
-            "effects": [
+              },
               {
                 "valueKind": "防御力増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 2.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 36.0
-              }
-            ],
-            "targetSkill": "普通攻撃_強化",
-            "skillName": "強化",
-            "description": "防御力増加"
-          },
-          {
-            "effects": [
+              },
               {
                 "valueKind": "防御力増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 2.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "回復させた味方",
                 "fixedValue": 6.0
@@ -7977,7 +8064,7 @@ const APOSTLE_LIBRARY = [
             ],
             "targetSkill": "普通攻撃_強化",
             "skillName": "強化",
-            "description": "防御力増加の持続時間"
+            "description": "2回目の攻撃の代わりに、残りHP割合が最も低い味方を回復させ、元の位置に戻る。\n回復させた味方にシールドを付与し、防御力を増加させる。"
           }
         ],
         "3": [
@@ -8379,6 +8466,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 96.0
           },
@@ -8386,6 +8475,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最後の一撃の物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 64.0
           },
@@ -8393,6 +8484,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ヒット数",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 3.0
           },
@@ -8400,6 +8493,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "SP減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 10.0
           }
@@ -8689,16 +8784,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動間隔",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 3.0
-          },
-          {
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵/範囲",
             "fixedValue": 350.0
           },
@@ -8725,6 +8815,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵/範囲",
                 "fixedValue": 700.0
               },
@@ -8732,12 +8824,16 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "気絶",
                 "valueClass": "状態付与",
                 "effectType": "デバフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵/範囲"
               },
               {
                 "valueKind": "気絶確率",
                 "valueClass": "倍率",
                 "effectType": "デバフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵/範囲",
                 "fixedValue": 50.0
               },
@@ -8745,6 +8841,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "気絶",
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵/範囲",
                 "fixedValue": 2.0
               }
@@ -9292,6 +9390,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "自身",
             "reference": "最大HP",
             "fixedValue": 10.0
@@ -9300,12 +9400,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "挑発",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "挑発",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "敵",
             "fixedValue": 3.0
           }
@@ -9980,6 +10084,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 50.0,
             "effectTarget": "敵",
             "fixedValue": 150.0
           },
@@ -9987,6 +10093,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "一定確率",
+            "triggerValue": 50.0,
             "effectTarget": "味方/残りHP割合最低",
             "reference": "与ダメージ量",
             "fixedValue": 275.0
@@ -10262,6 +10370,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵",
             "fixedValue": 48.0
           },
@@ -10269,6 +10379,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "最後の一撃の魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵",
             "fixedValue": 72.0
           }
@@ -10908,6 +11020,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 150.0
           },
@@ -10915,6 +11029,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "確定会心",
             "valueClass": "条件",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵"
           }
         ],
@@ -10934,6 +11050,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 30.0,
                 "effectTarget": "敵",
                 "fixedValue": 150.0
               },
@@ -10941,8 +11059,18 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率(怒り100中)",
+                "triggerValue": 100.0,
                 "effectTarget": "敵/範囲",
                 "fixedValue": 250.0
+              },
+              {
+                "valueKind": "確定会心",
+                "valueClass": "条件",
+                "effectType": "攻撃",
+                "triggerType": "一定確率(怒り100中)",
+                "triggerValue": 100.0,
+                "effectTarget": "敵/範囲"
               },
               {
                 "valueKind": "怒り獲得",
@@ -10957,12 +11085,6 @@ const APOSTLE_LIBRARY = [
                 "effectType": "条件",
                 "effectTarget": "自身",
                 "fixedValue": 100.0
-              },
-              {
-                "valueKind": "確定会心",
-                "valueClass": "条件",
-                "effectType": "攻撃",
-                "effectTarget": "敵/範囲"
               }
             ],
             "targetSkill": "普通攻撃_強化",
@@ -11060,12 +11182,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "毒",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "毒",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 4.0
           }
@@ -11381,6 +11507,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "呪い状態の敵が存在",
+            "triggerValue": 1.0,
             "effectTarget": "敵",
             "fixedValue": 360.0
           },
@@ -11388,6 +11516,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目くらまし",
             "valueClass": "状態付与",
             "effectType": "バフ",
+            "triggerType": "呪い状態の敵が存在",
+            "triggerValue": 1.0,
             "condition": "強化攻撃時",
             "effectTarget": "自身"
           },
@@ -11395,17 +11525,11 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目くらまし",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "呪い状態の敵が存在",
+            "triggerValue": 1.0,
             "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 8.0
-          },
-          {
-            "valueKind": "強化攻撃化",
-            "valueClass": "スキル変更",
-            "effectType": "バフ",
-            "condition": "呪い状態の敵が存在する場合",
-            "effectTarget": "自身",
-            "reference": "普通攻撃"
           }
         ],
         "skillType": "普通攻撃_強化",
@@ -11424,6 +11548,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "総魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "呪い状態の敵が存在",
+                "triggerValue": 1.0,
                 "effectTarget": "敵",
                 "fixedValue": 660.0
               },
@@ -11431,6 +11557,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度減少",
                 "valueClass": "状態付与",
                 "effectType": "デバフ",
+                "triggerType": "呪い状態の敵が存在",
+                "triggerValue": 1.0,
                 "effectTarget": "敵",
                 "fixedValue": 30.0
               },
@@ -11438,6 +11566,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度減少",
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
+                "triggerType": "呪い状態の敵が存在",
+                "triggerValue": 1.0,
                 "effectTarget": "敵",
                 "fixedValue": 5.0
               },
@@ -11445,6 +11575,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "目くらまし",
                 "valueClass": "状態付与",
                 "effectType": "バフ",
+                "triggerType": "呪い状態の敵が存在",
+                "triggerValue": 1.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "自身"
               },
@@ -11452,17 +11584,11 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "目くらまし",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "triggerType": "呪い状態の敵が存在",
+                "triggerValue": 1.0,
                 "condition": "強化攻撃時",
                 "effectTarget": "自身",
                 "fixedValue": 8.0
-              },
-              {
-                "valueKind": "強化攻撃化",
-                "valueClass": "スキル変更",
-                "effectType": "バフ",
-                "condition": "呪い状態の敵が存在する場合",
-                "effectTarget": "自身",
-                "reference": "普通攻撃"
               }
             ],
             "targetSkill": "普通攻撃_強化",
@@ -11897,6 +12023,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/ランダム",
             "fixedValue": 120.0
           },
@@ -11904,6 +12032,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "呪文",
             "valueClass": "回数",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 40.0,
             "effectTarget": "敵/ランダム",
             "fixedValue": 2.0
           }
@@ -12375,6 +12505,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 300.0
           },
@@ -12382,12 +12514,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 3.0
           }
@@ -12627,6 +12763,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
             "effectTarget": "味方/HP割合最低",
             "reference": "自身最大HP",
             "fixedValue": 20.0
@@ -13131,6 +13269,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 180.0
           },
@@ -13138,12 +13278,20 @@ const APOSTLE_LIBRARY = [
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 4.0
           }
@@ -13164,6 +13312,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "敵",
                 "levels": {
                   "1": 280.0,
@@ -13184,6 +13334,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "最後の一撃の魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "敵",
                 "levels": {
                   "1": 420.0,
@@ -13204,6 +13356,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化シンクローズの魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "敵",
                 "levels": {
                   "1": 340.0,
@@ -13224,6 +13378,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化シンクローズの最後の一撃の魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "敵",
                 "levels": {
                   "1": 510.0,
@@ -13244,6 +13400,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化シンクローズ発動確率",
                 "valueClass": "倍率",
                 "effectType": "条件",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "自身",
                 "fixedValue": 75.0
               },
@@ -13251,6 +13409,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "強化シンクローズ発動回数",
                 "valueClass": "回数",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 25.0,
                 "effectTarget": "敵",
                 "fixedValue": 2.0
               }
@@ -13484,6 +13644,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "棘の触手召喚",
             "valueClass": "召喚",
             "effectType": "召喚",
+            "triggerType": "一定確率",
+            "triggerValue": 33.0,
             "effectTarget": "敵",
             "fixedValue": 1.0
           },
@@ -13491,6 +13653,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 33.0,
             "effectTarget": "近くの敵",
             "fixedValue": 15.0
           },
@@ -13498,6 +13662,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ(1回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 33.0,
             "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 30.0
@@ -13506,6 +13672,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ(2回目)",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 33.0,
             "condition": "召喚獣消滅時",
             "effectTarget": "敵",
             "fixedValue": 60.0
@@ -13585,12 +13753,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "命中した敵"
           },
           {
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "命中した敵",
             "fixedValue": 5.0
           }
@@ -13746,16 +13918,11 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
-            "valueKind": "発動間隔",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 4.0
-          },
-          {
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 20.0
@@ -13764,6 +13931,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
@@ -13772,6 +13941,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法防御力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 40.0
@@ -13780,6 +13951,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法防御力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃使用時",
             "effectTarget": "自身",
             "fixedValue": 6.0
@@ -14279,6 +14452,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 200.0
           }
@@ -14883,6 +15058,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "ランダムな敵",
             "fixedValue": 250.0
           }
@@ -15335,12 +15512,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "毒",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "最も攻撃力が高い敵"
           },
           {
             "valueKind": "毒",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "最も攻撃力が高い敵",
             "fixedValue": 4.0
           }
@@ -15382,12 +15563,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "毒",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "ランダムな敵"
           },
           {
             "valueKind": "毒",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "ランダムな敵",
             "fixedValue": 4.0
           }
@@ -15465,6 +15650,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 125.0
           },
@@ -15472,12 +15659,20 @@ const APOSTLE_LIBRARY = [
             "valueKind": "毒",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "毒",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 30.0,
             "effectTarget": "敵",
             "fixedValue": 2.0
           }
@@ -15546,12 +15741,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 4.0
           }
@@ -15655,6 +15854,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 50.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 125.0
           },
@@ -15662,12 +15863,20 @@ const APOSTLE_LIBRARY = [
             "valueKind": "火傷",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 50.0,
             "effectTarget": "範囲内の敵"
           },
           {
             "valueKind": "火傷",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "triggerValue": 50.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 2.0
           }
@@ -16179,6 +16388,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "fixedValue": 100.0
           },
@@ -16186,12 +16397,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目隠し",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵"
           },
           {
             "valueKind": "目隠し",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "敵",
             "levels": {
               "1": 3.0
@@ -16591,7 +16806,7 @@ const APOSTLE_LIBRARY = [
           "stats": [],
           "effects": [
             {
-              "valueKind": "召喚獣の自爆ダメージ増加",
+              "valueKind": "召喚獣の自爆ダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "condition": "召喚獣破壊時",
@@ -17031,6 +17246,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "ランダムな敵2体",
             "fixedValue": 300.0
           },
@@ -17038,6 +17255,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度減少",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "ランダムな敵2体",
             "fixedValue": 40.0
           },
@@ -17045,6 +17264,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度減少",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "ランダムな敵2体",
             "fixedValue": 3.0
           },
@@ -17052,6 +17273,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "自身",
             "reference": "最大HP",
             "fixedValue": 16.0
@@ -17060,6 +17283,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "HP回復",
             "valueClass": "倍率",
             "effectType": "回復",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "残りHP割合が最も低い味方",
             "reference": "最大HP",
             "fixedValue": 16.0
@@ -17452,6 +17677,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "敵",
             "fixedValue": 120.0
           },
@@ -17459,16 +17686,10 @@ const APOSTLE_LIBRARY = [
             "valueKind": "確定会心",
             "valueClass": "固定値",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "敵",
             "fixedValue": 1.0
-          },
-          {
-            "valueKind": "発動条件",
-            "valueClass": "回数",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "reference": "普通攻撃",
-            "fixedValue": 4.0
           }
         ],
         "skillType": "普通攻撃_強化",
@@ -17484,22 +17705,19 @@ const APOSTLE_LIBRARY = [
           {
             "effects": [
               {
-                "valueKind": "ハッキング",
-                "valueClass": "固定値",
-                "effectType": "条件",
-                "effectTarget": "敵",
-                "fixedValue": 3.0
-              },
-              {
                 "valueKind": "確定会心",
                 "valueClass": "条件",
                 "effectType": "攻撃",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "敵"
               },
               {
                 "valueKind": "SP回復",
                 "valueClass": "固定値",
                 "effectType": "バフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
                 "effectTarget": "自身"
               }
             ],
@@ -17728,12 +17946,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵"
           },
           {
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 6.0
           }
@@ -17873,6 +18095,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 200.0
           },
@@ -17880,6 +18104,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ノックバック",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
+            "triggerValue": 25.0,
             "effectTarget": "範囲内の敵"
           }
         ],
@@ -17936,14 +18162,7 @@ const APOSTLE_LIBRARY = [
                   "11": 44.0,
                   "12": 46.0
                 }
-              }
-            ],
-            "targetSkill": "パッシブ",
-            "skillName": "パッシブスキル",
-            "description": "目標敵への与ダメージ量増加と被ダメージ量減少、基本攻撃ダメージ増加"
-          },
-          {
-            "effects": [
+              },
               {
                 "valueKind": "基本攻撃ダメージ量増加",
                 "valueClass": "倍率",
@@ -17954,7 +18173,7 @@ const APOSTLE_LIBRARY = [
             ],
             "targetSkill": "パッシブ",
             "skillName": "パッシブスキル",
-            "description": "基本攻撃のダメージ量増加"
+            "description": "目標敵への与ダメージ量増加と被ダメージ量減少、基本攻撃ダメージ増加"
           },
           {
             "effects": [
@@ -18535,12 +18754,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵"
           },
           {
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 10.0
           },
@@ -18674,12 +18897,16 @@ const APOSTLE_LIBRARY = [
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵"
           },
           {
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 2.0
           }
@@ -18747,7 +18974,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 4.0
             },
             {
-              "valueKind": "低学年スキルダメージ増加",
+              "valueKind": "低学年スキルダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "effectTarget": "自身",
@@ -18763,7 +18990,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 100.0
             },
             {
-              "valueKind": "高学年スキルダメージ増加",
+              "valueKind": "高学年スキルダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "effectTarget": "自身",
@@ -19312,7 +19539,7 @@ const APOSTLE_LIBRARY = [
           "stats": [],
           "effects": [
             {
-              "valueKind": "普通攻撃ダメージ量増加",
+              "valueKind": "普通攻撃ダメージ量増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
               "effectTarget": "自身",

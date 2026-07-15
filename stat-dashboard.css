@@ -947,34 +947,17 @@ body.dashboard-page.is-booting::after {
   gap: 0;
 }
 
+/* 6年生は面で光らせず、輪郭から淡く発光させる。 */
 .grade-icon-set.is-grade-max {
   filter:
-    drop-shadow(0 0 2px rgba(255, 183, 252, 0.92))
-    drop-shadow(0 0 5px rgba(190, 134, 255, 0.46));
-}
-
-.grade-icon-set.is-grade-max::before {
-  content: '';
-  position: absolute;
-  inset: -2px -3px;
-  z-index: 1;
-  border-radius: 8px;
-  background:
-    radial-gradient(circle, rgba(255, 183, 252, 0.36), rgba(190, 134, 255, 0.22) 46%, transparent 76%);
-  mix-blend-mode: screen;
-  opacity: 0.72;
-  pointer-events: none;
+    drop-shadow(0 0 2px rgba(255, 220, 252, 0.72))
+    drop-shadow(0 0 5px rgba(190, 138, 255, 0.3))
+    drop-shadow(0 2px 4px rgba(118, 78, 170, 0.32));
 }
 
 .grade-icon-set.is-grade-max img {
-  position: relative;
-  z-index: 0;
+  filter: brightness(1.08) saturate(1.12);
 }
-
-.grade-icon-set.is-grade-max img {
-  filter: brightness(1.1) saturate(1.16);
-}
-
 .profile-skill-levels {
   display: inline-flex;
   align-items: center;
@@ -7655,10 +7638,10 @@ body.dashboard-page.is-booting::after {
 }
 
 .board-global-filter-details {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px 8px;
+  gap: 4px 7px;
   margin: 4px 0 8px;
   border: 0;
   padding: 0;
@@ -7668,14 +7651,12 @@ body.dashboard-page.is-booting::after {
 .board-global-filter-heading {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 26px;
-  border-radius: 999px;
-  padding: 3px 8px;
-  font-size: 0.76rem;
+  gap: 3px;
+  color: rgba(50, 76, 58, 0.78);
+  font-size: 0.68rem;
   font-weight: 900;
+  line-height: 1;
   white-space: nowrap;
-  background: rgba(74, 136, 90, 0.1);
 }
 
 .board-global-filter-count {
@@ -7683,11 +7664,7 @@ body.dashboard-page.is-booting::after {
 }
 
 .board-global-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  min-width: 0;
+  display: contents;
 }
 
 .board-global-filter-row {
@@ -7798,8 +7775,8 @@ body.dashboard-page.is-booting::after {
 }
 
 :root[data-theme="dark"] .board-global-filter-heading {
-  color: rgba(250, 255, 252, 0.98) !important;
-  background: rgba(58, 124, 82, 0.26) !important;
+  color: rgba(250, 255, 252, 0.9) !important;
+  background: transparent !important;
 }
 
 :root[data-theme="dark"] .board-global-stat-filter-row button img {
@@ -7840,10 +7817,6 @@ body.dashboard-page.is-booting::after {
     width: min(210px, 58vw);
   }
 
-  .board-global-filter-details {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
 
   .board-global-filters {
     gap: 4px 6px;

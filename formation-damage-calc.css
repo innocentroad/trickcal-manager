@@ -495,7 +495,7 @@ body.theme-light .fdc-theme-toggle {
   max-width: none;
   border: 2px solid color-mix(in srgb, var(--fdc-personality-color) 68%, var(--fdc-border));
   border-radius: 0.9rem;
-  padding: 0.24rem;
+  padding: 0;
   color: var(--fdc-text);
   background:
     linear-gradient(135deg,
@@ -508,7 +508,6 @@ body.theme-light .fdc-theme-toggle {
   transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   backdrop-filter: blur(10px);
 }
-
 .fdc-floating-target[hidden] {
   display: none;
 }
@@ -538,10 +537,9 @@ body.theme-light .fdc-theme-toggle {
   width: 2.65rem;
   height: 2.65rem;
   overflow: visible;
-  border-radius: 0.7rem;
+  border-radius: calc(0.9rem - 2px);
   background: color-mix(in srgb, var(--fdc-personality-color) 30%, var(--fdc-panel));
 }
-
 .fdc-floating-target-portrait > img:first-child {
   position: absolute;
   inset: 0;
@@ -550,7 +548,7 @@ body.theme-light .fdc-theme-toggle {
   border-radius: inherit;
   object-fit: cover;
   object-position: 50% 34%;
-  clip-path: inset(0 round 0.7rem);
+  clip-path: inset(0 round calc(0.9rem - 2px));
 }
 
 .fdc-floating-target .fdc-apostle-badge {
@@ -880,7 +878,7 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
   display: flex;
   justify-content: space-between;
   gap: 0.8rem;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 0.8rem;
 }
 
@@ -1060,7 +1058,7 @@ body.theme-light .fdc-attack-type-chip.is-magic {
   display: flex;
   flex-wrap: wrap;
   gap: 0.72rem;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 0.85rem;
 }
 
@@ -1139,6 +1137,17 @@ body.theme-light .fdc-formation-loader select {
 .fdc-picker-slot.personality-活発 { --fdc-personality-color: goldenrod; }
 .fdc-target-preview.personality-憂鬱,
 .fdc-picker-slot.personality-憂鬱 { --fdc-personality-color: slateblue; }
+
+.fdc-target-preview {
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.fdc-target-preview:hover,
+.fdc-target-preview:focus-visible {
+  border-color: color-mix(in srgb, var(--fdc-personality-color) 84%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fdc-personality-color) 28%, transparent), 0 8px 18px color-mix(in srgb, var(--fdc-shadow) 62%, transparent);
+  transform: translateY(-1px);
+}
 
 .fdc-target-preview[aria-expanded="true"] {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--fdc-personality-color) 30%, transparent);
@@ -1275,33 +1284,17 @@ body.theme-light .fdc-formation-loader select {
   gap: 0;
 }
 
+/* 6年生はネオン状の面発光ではなく、アイコンの立体感を少しだけ強める。 */
 .fdc-target-grade-icons .grade-icon-set.is-grade-max {
   filter:
-    drop-shadow(0 0 2px rgba(255, 183, 252, 0.92))
-    drop-shadow(0 0 5px rgba(190, 134, 255, 0.46));
-}
-
-.fdc-target-grade-icons .grade-icon-set.is-grade-max::before {
-  content: '';
-  position: absolute;
-  inset: -2px -3px;
-  z-index: 1;
-  border-radius: 8px;
-  background: radial-gradient(circle, rgba(255, 183, 252, 0.36), rgba(190, 134, 255, 0.22) 46%, transparent 76%);
-  mix-blend-mode: screen;
-  opacity: 0.72;
-  pointer-events: none;
+    drop-shadow(0 0 2px rgba(255, 220, 252, 0.72))
+    drop-shadow(0 0 5px rgba(190, 138, 255, 0.3))
+    drop-shadow(0 2px 4px rgba(118, 78, 170, 0.32));
 }
 
 .fdc-target-grade-icons .grade-icon-set.is-grade-max img {
-  position: relative;
-  z-index: 0;
+  filter: brightness(1.08) saturate(1.12);
 }
-
-.fdc-target-grade-icons .grade-icon-set.is-grade-max img {
-  filter: brightness(1.1) saturate(1.16);
-}
-
 .fdc-formation-picker {
   margin: -0.35rem 0 0.85rem;
   border: 1px solid var(--fdc-border);
@@ -1438,7 +1431,6 @@ body.theme-light .fdc-formation-loader select {
 }
 
 .fdc-picker-count {
-  align-self: center;
   justify-self: end;
   border-radius: 999px;
   padding: 0.28rem 0.55rem;
@@ -1504,10 +1496,29 @@ body.theme-light .fdc-formation-loader select {
       color-mix(in srgb, var(--fdc-personality-color) 34%, var(--fdc-input)),
       color-mix(in srgb, var(--fdc-personality-color) 12%, var(--fdc-input)));
   cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease, filter 0.16s ease;
 }
 
 .fdc-picker-slot.is-active {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fdc-personality-color) 36%, transparent);
+  z-index: 1;
+  border-color: color-mix(in srgb, var(--fdc-personality-color) 88%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fdc-personality-color) 42%, transparent), 0 10px 22px color-mix(in srgb, var(--fdc-shadow) 62%, transparent);
+  filter: brightness(1.1);
+  transform: translateY(-2px) scale(1.03);
+}
+
+.fdc-picker-slot:not(:disabled):hover,
+.fdc-picker-slot:not(:disabled):focus-visible {
+  z-index: 2;
+  border-color: color-mix(in srgb, var(--fdc-personality-color) 82%, white);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fdc-personality-color) 32%, transparent), 0 8px 18px color-mix(in srgb, var(--fdc-shadow) 52%, transparent);
+  filter: brightness(1.07);
+  transform: translateY(-2px);
+}
+
+.fdc-picker-slot.is-active:hover,
+.fdc-picker-slot.is-active:focus-visible {
+  transform: translateY(-2px) scale(1.03);
 }
 
 .fdc-picker-slot.is-temp::after {
@@ -2109,11 +2120,49 @@ body.theme-light .fdc-field select {
   cursor: pointer;
 }
 
-.fdc-skill-effect-toggle input {
+.fdc-skill-effect-toggle > input[type="checkbox"] {
   width: 1rem;
   height: 1rem;
   margin: 0;
   accent-color: var(--fdc-primary);
+}
+
+.fdc-skill-effect-stack-control {
+  grid-column: 1 / -1;
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.22rem;
+  min-height: 1.42rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 28%, var(--fdc-border));
+  border-radius: 8px;
+  padding: 0.14rem 0.36rem;
+  background: color-mix(in srgb, var(--fdc-primary) 8%, var(--fdc-input));
+  color: var(--fdc-muted);
+  font-size: 0.58rem;
+  font-weight: 850;
+}
+
+.fdc-skill-effect-stack-control input {
+  width: 2.8rem;
+  min-height: 1.25rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 6px;
+  padding: 0.08rem 0.2rem;
+  background: var(--fdc-panel);
+  color: var(--fdc-text);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.fdc-skill-effect-stack-control input:disabled {
+  opacity: 0.5;
+}
+
+.fdc-skill-effect-stack-control small {
+  color: var(--fdc-muted);
+  font-size: 0.56rem;
 }
 
 .fdc-skill-effect-source {
@@ -2138,7 +2187,6 @@ body.theme-light .fdc-field select {
 .fdc-skill-effect-source.tone-extra { background: #14b8a6; }
 
 .fdc-skill-effect-owner {
-  align-self: center;
   min-width: 0;
   color: var(--fdc-text);
   font-size: 0.72rem;
@@ -2286,7 +2334,7 @@ body.theme-light .fdc-field select {
 .fdc-synergy-personality-icons {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.02rem;
   min-height: 2.34rem;
   padding: 0.18rem 0 0.02rem;
@@ -3072,9 +3120,19 @@ button.fdc-artifact-slot {
   cursor: pointer;
 }
 
+/* 長いカードがあっても、隣列の短いカードを空白で押し下げない。 */
+.fdc-artifact-card-grid {
+  grid-column: 1 / -1;
+  columns: 11rem;
+  column-gap: 0.38rem;
+}
+
 .fdc-artifact-effect-group {
   display: grid;
   gap: 0.34rem;
+  min-width: 0;
+  break-inside: avoid;
+  margin: 0 0 0.38rem;
   border: 1px solid var(--fdc-border);
   border-radius: 14px;
   padding: 0.48rem 0.56rem;
@@ -3104,27 +3162,76 @@ button.fdc-artifact-slot {
   white-space: nowrap;
 }
 
+.fdc-artifact-card-effects {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.fdc-artifact-card-effect {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.fdc-artifact-card-effect + .fdc-artifact-card-effect {
+  padding-top: 0.34rem;
+  border-top: 1px dashed color-mix(in srgb, var(--fdc-border) 82%, transparent);
+}
+
 .fdc-artifact-effect-group-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 0.28rem;
+  min-width: 0;
 }
 
 .fdc-artifact-effect-mini-chip {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 0.22rem;
+  max-width: 100%;
+  min-width: 0;
   min-height: 1.42rem;
   border: 1px solid color-mix(in srgb, var(--fdc-primary) 28%, var(--fdc-border));
   border-radius: 999px;
-  padding: 0 0.42rem;
+  padding: 0.2rem 0.42rem;
   background: color-mix(in srgb, var(--fdc-primary) 12%, var(--fdc-panel));
   color: var(--fdc-text);
   font-size: 0.62rem;
   font-weight: 900;
 }
 
+.fdc-artifact-effect-mini-chip-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.22rem;
+  min-width: 0;
+}
+
+.fdc-artifact-effect-mini-chip-content > span {
+  flex: 1 1 6em;
+  min-inline-size: 5em;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.fdc-artifact-effect-mini-chip-content b,
+.fdc-artifact-effect-mini-chip-content em {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.fdc-artifact-effect-scope {
+  color: var(--fdc-muted);
+  font-size: 0.56rem;
+  font-weight: 850;
+}
+
 .fdc-artifact-effect-mini-chip input {
+  grid-column: 1;
+  align-self: center;
   width: 0.86rem;
   height: 0.86rem;
   margin: 0;
@@ -3136,10 +3243,67 @@ button.fdc-artifact-slot {
   font-weight: 950;
 }
 
+.fdc-artifact-effect-mini-chip em {
+  color: var(--fdc-accent);
+  font-size: 0.58rem;
+  font-style: normal;
+  font-weight: 950;
+}
+
+.fdc-artifact-detail-box {
+  margin-top: 0.55rem;
+}
 .fdc-artifact-effect-mini-chip.is-toggleable {
   cursor: pointer;
 }
 
+.fdc-artifact-effect-stack-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.28rem;
+}
+
+.fdc-artifact-effect-stack-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  min-height: 1.42rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 28%, var(--fdc-border));
+  border-radius: 8px;
+  padding: 0.16rem 0.38rem;
+  background: color-mix(in srgb, var(--fdc-primary) 8%, var(--fdc-panel));
+  color: var(--fdc-muted);
+  font-size: 0.58rem;
+  font-weight: 850;
+}
+
+.fdc-artifact-effect-stack-control input {
+  width: 2.8rem;
+  min-height: 1.25rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 6px;
+  padding: 0.08rem 0.2rem;
+  background: var(--fdc-panel);
+  color: var(--fdc-text);
+  font-size: 0.62rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.fdc-artifact-effect-stack-control.is-disabled {
+  opacity: 0.45;
+  filter: grayscale(0.45);
+}
+
+.fdc-artifact-effect-stack-control input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fdc-artifact-effect-stack-control small {
+  color: var(--fdc-muted);
+  font-size: 0.56rem;
+}
 .fdc-spell-category {
   display: grid;
   gap: 0.58rem;
@@ -3647,15 +3811,16 @@ body.theme-light .fdc-result-diff.is-negative {
     min-width: 0;
     max-width: 3.55rem;
     grid-template-columns: auto;
-    padding: 0.22rem;
+    padding: 0;
     border-radius: 0.82rem;
   }
-
-  .fdc-floating-target-portrait {
+  .fdc-floating-target-portrait,
+  .fdc-floating-target-portrait > img:first-child {
     width: 2.85rem;
     height: 2.85rem;
-  }
-}
+    border-radius: calc(0.82rem - 2px);
+    clip-path: inset(0 round calc(0.82rem - 2px));
+  }}
 
 @media (max-width: 860px) {
   .fdc-side-panels,
@@ -3890,7 +4055,7 @@ body.theme-light .fdc-result-diff.is-negative {
   .fdc-result-detail-group div {
     flex-direction: column;
     gap: 0.02rem;
-    align-items: flex-start;
+    align-items: center;
   }
 
   .fdc-result-bar .bottom-results-grid {

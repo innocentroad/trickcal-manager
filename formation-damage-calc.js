@@ -8,6 +8,12 @@
   const LEGACY_THEME_KEY = 'trickcal_damage_calc_theme';
   const FALLBACK_IMAGE = 'img/Chara/null.webp';
   const POSITIONS = ['後列', '中列', '前列'];
+  const FDC_STATUS_SKILL_MULTIPLIERS = Object.freeze({
+    '火傷': 30,
+    '毒': 6,
+    '苦痛': 12,
+    '凍傷': 9
+  });
   const PERSONALITY_ADVANTAGE = {
     '純粋': '冷静',
     '冷静': '狂気',
@@ -206,6 +212,7 @@
     skillLevelOverrides: {},
     selfSkillEffectEnabled: {},
     conditionalEffectEnabled: {},
+    conditionalEffectStackCounts: {},
     tempMembers: {},
     pendingTempMemberId: '',
     spellDetailsOpen: false,
@@ -239,6 +246,9 @@
   render();
 
   function bindEvents() {
+    window.addEventListener('storage', event => {
+      if (event.key === STAT_STORAGE_KEY) syncFdcSkillLevelOverridesFromManager();
+    });
     el.reload?.addEventListener('click', () => {
       view.statDirty = false;
       render();
@@ -349,6 +359,26 @@
       if (el.formationPicker && !el.formationPicker.hidden) closeFormationPicker();
     });
     document.addEventListener('change', event => {
+      const stackInput = event.target.closest('[data-fdc-stack-count]');
+      if (stackInput) {
+        const key = stackInput.dataset.fdcStackCount || '';
+        const max = Math.max(1, Number(stackInput.dataset.fdcStackMax) || 1);
+        const value = Math.min(max, Math.max(1, Math.floor(Number(stackInput.value) || 1)));
+        stackInput.value = String(value);
+        if (key) view.conditionalEffectStackCounts[key] = value;
+        saveCalcSettings();
+        render();
+        return;
+      }
+      const groupInput = event.target.closest('[data-fdc-condition-toggle-group]');
+      if (groupInput) {
+        decodeConditionToggleGroupKeys(groupInput.dataset.fdcConditionToggleGroup).forEach(key => {
+          view.conditionalEffectEnabled[key] = !!groupInput.checked;
+        });
+        saveCalcSettings();
+        render();
+        return;
+      }
       const input = event.target.closest('[data-fdc-condition-toggle]');
       if (!input) return;
       view.conditionalEffectEnabled[input.dataset.fdcConditionToggle] = !!input.checked;
@@ -754,8 +784,9 @@
       ...skills.map((skill, index) => ({
         index,
         value: skill.mult || 100,
-        action: skill.action || skill.name || `Skill ${index + 1}`,
-        name: skill.name || '',
+        // preset の action は大半が汎用の「攻撃」なので、固有の行動名を優先する。
+        action: skill.name || skill.action || `Skill ${index + 1}`,
+        name: skill.name && skill.action && skill.name !== skill.action ? skill.action : '',
         note: skill.note || ''
       }))
     ];
@@ -817,6 +848,10 @@
     const damageType = resolveActiveDamageType(target);
     const cards = state.cards && typeof state.cards === 'object' ? state.cards : {};
     const actionCategory = view.selectedSkillCategory || '';
+    if (view._selfSkillEffectActionCategory !== actionCategory) {
+      view.selfSkillEffectEnabled = {};
+      view._selfSkillEffectActionCategory = actionCategory;
+    }
     const effects = collectEffects({ target, formation, cards, damageType, state, actionCategory });
     applyEnabledSelfSkillEffects(effects, { target, formation, cards, damageType, state, actionCategory, members, allMembers });
     const summary = summarizeEffects(getEnabledEffectRows(effects));
@@ -1066,6 +1101,7 @@
         resultDisplays: pickBooleanMap(view.resultDisplays),
         selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
+        conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
         tempMembers: view.tempMembers || {},
         tempArtifacts: view.tempArtifacts || { formation: {}, target: {} },
@@ -1122,6 +1158,7 @@
       if (savedView.resultDisplays && typeof savedView.resultDisplays === 'object') view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(savedView.resultDisplays, Object.keys(view.resultDisplays)) };
       view.selfSkillEffectEnabled = savedView.selfSkillEffectEnabled && typeof savedView.selfSkillEffectEnabled === 'object' ? pickBooleanMap(savedView.selfSkillEffectEnabled) : {};
       view.conditionalEffectEnabled = savedView.conditionalEffectEnabled && typeof savedView.conditionalEffectEnabled === 'object' ? pickBooleanMap(savedView.conditionalEffectEnabled) : {};
+      view.conditionalEffectStackCounts = savedView.conditionalEffectStackCounts && typeof savedView.conditionalEffectStackCounts === 'object' ? pickNumberMap(savedView.conditionalEffectStackCounts) : {};
       view.skillLevelOverrides = savedView.skillLevelOverrides && typeof savedView.skillLevelOverrides === 'object' ? sanitizeSkillLevelOverrides(savedView.skillLevelOverrides) : {};
       view.tempMembers = savedView.tempMembers && typeof savedView.tempMembers === 'object' ? clonePlain(savedView.tempMembers) : {};
       view.tempArtifacts = savedView.tempArtifacts && typeof savedView.tempArtifacts === 'object'
@@ -1248,6 +1285,9 @@
       if (saved.conditionalEffectEnabled && typeof saved.conditionalEffectEnabled === 'object') {
         view.conditionalEffectEnabled = pickBooleanMap(saved.conditionalEffectEnabled);
       }
+      if (saved.conditionalEffectStackCounts && typeof saved.conditionalEffectStackCounts === 'object') {
+        view.conditionalEffectStackCounts = pickNumberMap(saved.conditionalEffectStackCounts);
+      }
       if (saved.skillLevelOverrides && typeof saved.skillLevelOverrides === 'object') {
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
@@ -1279,6 +1319,7 @@
         resultDisplays: pickBooleanMap(view.resultDisplays),
         selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
+        conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
         extraCrayon: readExtraCrayonInputs()
       }));
@@ -1292,6 +1333,15 @@
     Object.entries(source || {}).forEach(([key, value]) => {
       if (allowedKeys && !allowedKeys.includes(key)) return;
       result[key] = !!value;
+    });
+    return result;
+  }
+
+  function pickNumberMap(source = {}) {
+    const result = {};
+    Object.entries(source || {}).forEach(([key, value]) => {
+      const numeric = Number(value);
+      if (key && Number.isFinite(numeric)) result[key] = numeric;
     });
     return result;
   }
@@ -1435,6 +1485,7 @@
       rank: Number(apostleState.rank) || 1,
       stats: readMemberStats(apostleState, basic, view.gradeOverride, view.statMode),
       artifactIds: getEffectiveMemberArtifactIds(id, artifactIds),
+      managerSyncRevision: Math.max(0, Number(state.syncRevision) || 0),
       skillLevels: apostleState.skillLevels || apostleState.skills || {},
       asideRank: Number(apostleState.asideRank) || 0,
       asideLevel: Number(apostleState.asideLevel) || 0
@@ -1745,12 +1796,15 @@
       button.addEventListener('click', event => {
         if (event.target.closest('.fdc-skill-choice-info')) return;
         el.inputs.selfSkill.value = button.dataset.fdcSkillValue || '100';
-        view.selectedSkillCategory = button.dataset.fdcSkillCategory || '';
+        const nextSkillCategory = button.dataset.fdcSkillCategory || '';
+        view.selfSkillEffectEnabled = {};
+        view.selectedSkillCategory = nextSkillCategory;
         el.selfSkillChoices.querySelectorAll('.fdc-skill-choice').forEach(row => row.classList.remove('is-active'));
         button.classList.add('is-active');
         saveCalcSettings();
         const context = buildContext();
         renderResult(context);
+        renderSelfSkillEffects(context);
         renderArtifactCategory(context);
         renderSynergyCategory(context);
         renderSpellCategory(context);
@@ -1837,12 +1891,19 @@
     el.selfSkillChoices?.querySelectorAll('[data-fdc-skill-level]').forEach(control => {
       control.addEventListener('change', () => {
         const id = target.id;
+        const base = normalizeFdcSkillLevelConfig(target?.skillLevels || {});
         view.skillLevelOverrides[id] = {
           ...getFdcEffectiveSkillLevels(target),
-          [control.dataset.fdcSkillLevel]: Number(control.value) || 0
+          [control.dataset.fdcSkillLevel]: Number(control.value) || 0,
+          baseLow: base.low,
+          baseHigh: base.high,
+          basePassive: base.passive,
+          baseAsideRank: Number(target?.asideRank) || 0,
+          baseAsideLevel: Number(target?.asideLevel) || 0,
+          managerSyncRevision: Math.max(0, Number(target?.managerSyncRevision) || 0)
         };
         saveCalcSettings();
-        renderSelfSkillChoices(buildContext());
+        render();
       });
     });
   }
@@ -1905,7 +1966,7 @@
   function renderSkillEffectBonusSummary(options) {
     const enabledOptions = (options || [])
       .filter(option => isSelfSkillEffectOptionEnabled(option))
-      .map(option => ({ bonuses: getRelevantBonusMap(option.bonuses || {}) }));
+      .map(option => ({ bonuses: getRelevantBonusMap(getSkillEffectOptionBonuses(option)) }));
     const summary = summarizeEffects(enabledOptions);
     const chips = Object.entries(summary || {})
       .filter(([, value]) => Number(value))
@@ -1917,6 +1978,7 @@
   function renderSkillEffectToggle(option) {
     const checked = isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
     const summary = getSkillEffectCompactSummary(option);
+    const stackControl = renderSkillEffectStackControl(option);
     return `
       <label class="fdc-skill-effect-toggle">
         <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
@@ -1927,17 +1989,41 @@
           <strong>${escapeHtml(summary.main)}</strong>
           <small>${escapeHtml(summary.meta)}</small>
         </span>
+        ${stackControl}
       </label>
     `;
   }
 
+  function renderSkillEffectStackControl(option) {
+    const maxStack = Number(option?.stackMax);
+    if (!option?.key || !Number.isFinite(maxStack) || maxStack <= 1) return '';
+    const value = getConditionalEffectStackCount(option.key, maxStack, option.stackDefault);
+    const enabled = isSelfSkillEffectOptionEnabled(option);
+    return `
+      <span class="fdc-skill-effect-stack-control">
+        <span>スタック</span>
+        <input type="number" min="1" max="${escapeAttr(maxStack)}" step="1" value="${escapeAttr(value)}" data-fdc-stack-count="${escapeAttr(option.key)}" data-fdc-stack-max="${escapeAttr(maxStack)}"${enabled ? '' : ' disabled'} aria-label="スタック数（最大${escapeAttr(maxStack)}）">
+        <small>/ ${escapeHtml(maxStack)}</small>
+      </span>
+    `;
+  }
+
+  function getSkillEffectOptionBonuses(option) {
+    const maxStack = Number(option?.stackMax);
+    const count = Number.isFinite(maxStack) && maxStack > 1
+      ? getConditionalEffectStackCount(option.key, maxStack, option.stackDefault)
+      : 1;
+    return scaleBonusMap(option?.bonuses, count);
+  }
+
   function getSkillEffectCompactSummary(option) {
     const kind = option.valueKind || option.effectType || option.effectLabel || option.label || '効果';
-    const value = option.effectValue || formatBonusMap(option.bonuses) || '';
+    const value = option.effectValue || formatBonusMap(getSkillEffectOptionBonuses(option)) || '';
+    const stackText = Number(option?.stackMax) > 1 ? ` ×${getConditionalEffectStackCount(option.key, option.stackMax, option.stackDefault)}` : '';
     const condition = option.condition || getSkillEffectConditionSummary(option) || '常時';
     const target = option.effectTarget || '本人';
     return {
-      main: [kind, value].filter(Boolean).join(' '),
+      main: [kind, value + stackText].filter(Boolean).join(' '),
       meta: [condition, target].filter(Boolean).join(' / ')
     };
   }
@@ -2107,7 +2193,7 @@
         const item = setEffectTags({
           source: option.group === 'formation' ? '編成スキル' : option.source || '本人スキル',
           label: option.label,
-          bonuses: option.bonuses,
+          bonuses: getSkillEffectOptionBonuses(option),
           reason: option.detailText,
           tags: { source: [option.sourceTag || 'スキル/アサイド'], status: [option.defaultEnabled ? '自動ON' : '手動ON'], effect: Object.keys(option.bonuses || {}).flatMap(effectTagsFromBonusKey) }
         }, { status: [option.defaultEnabled ? '自動ON' : '手動ON'] });
@@ -2127,6 +2213,7 @@
     const apostle = getApostleSkillData(target);
     if (!apostle) return buildFormationA3SkillEffectOptions(target, context);
     const levels = getFdcEffectiveSkillLevels(target);
+    const actionKey = encodeURIComponent(context.actionCategory || 'none');
     const options = [];
     collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }) => {
       const category = getFdcApostleSkillCategory(skill, sourceLabel);
@@ -2141,7 +2228,7 @@
           effectLabel: `${stat.statName || 'ステータス'}増加`
         });
         options.push({
-          key: `${target.id}:${sourceKey}:stat:${statIndex}`,
+          key: `${target.id}:${sourceKey}:stat:${statIndex}:${actionKey}`,
           category,
           label,
           bonuses,
@@ -2159,6 +2246,7 @@
         if (!bonuses || !Object.keys(bonuses).length) return;
         const effectText = getFdcSkillEffectConditionText(skill, effect);
         const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
+        const allyPersonalityState = getAllyPersonalityConditionState(effectText, target);
         const label = createFdcSkillEffectLabel({
           sourceLabel,
           category,
@@ -2166,17 +2254,18 @@
           effectLabel: effect.valueKind || effect.effectType || '効果'
         });
         options.push({
-          key: `${target.id}:${sourceKey}:${effectIndex}`,
+          key: `${target.id}:${sourceKey}:${effectIndex}:${actionKey}`,
           category,
           label,
           bonuses,
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
-          condition: getFdcSkillEffectDisplayCondition(effect, enemyPersonalityState.reason),
+          condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
-          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState),
-          detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
+          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context),
+          detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
+          ...getFdcEffectStackMeta(effect)
         });
       });
     });
@@ -2185,6 +2274,7 @@
 
   function buildFormationSkillEffectOptions(target, context) {
     if (!target || !context?.members?.length) return [];
+    const actionKey = encodeURIComponent(context.actionCategory || 'none');
     const options = [];
     context.members.forEach(member => {
       if (!member?.id || member.id === target.id) return;
@@ -2209,7 +2299,9 @@
             skillLevel,
             member,
             memberName,
-            target
+            target,
+            actionCategory: context.actionCategory,
+            context
           });
           if (option) options.push(option);
         });
@@ -2218,16 +2310,16 @@
     return options.concat(buildFormationA3SkillEffectOptions(target, context));
   }
 
-  function createFormationSkillEffectOption({ effect, effectText = '', effectIndex, sourceKey, sourceLabel, category, skill, skillLevel, member, memberName, target }) {
+  function createFormationSkillEffectOption({ effect, effectText = '', effectIndex, sourceKey, sourceLabel, category, skill, skillLevel, member, memberName, target, actionCategory = '', context = null }) {
     if (isFdcApostleAttackMultiplierEffect(effect)) return null;
     const targetState = getFormationSkillTargetState(effect.effectTarget, target, member, effectText);
     if (!targetState.applies) return null;
     const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState);
+    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context);
     return {
-      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}`,
+      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${encodeURIComponent(actionCategory || 'none')}`,
       group: 'formation',
       category,
       source: '編成スキル',
@@ -2247,12 +2339,14 @@
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
       condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
-      detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
+      detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
+      ...getFdcEffectStackMeta(effect)
     };
   }
 
   function buildFormationA3SkillEffectOptions(target, context) {
     if (!target || !context?.members?.length) return [];
+    const actionKey = encodeURIComponent(context.actionCategory || 'none');
     const options = [];
     context.members.forEach(member => {
       if (!member?.id || member.id === target.id || Number(member.asideRank) < 3) return;
@@ -2268,12 +2362,12 @@
         const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
         if (!bonuses || !Object.keys(bonuses).length) return;
         options.push({
-          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}`,
+          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${actionKey}`,
           group: 'formation',
           category: 'アサイド',
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
-          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect),
+          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, undefined, context.actionCategory, undefined, context),
           ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
@@ -2287,13 +2381,19 @@
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
-          detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n')
+          detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
+          ...getFdcEffectStackMeta(effect)
         });
       });
     });
     return options;
   }
 
+  function getFdcEffectStackMeta(effect) {
+    const maxStack = Number(effect?.maxStack);
+    if (effect?.effectStack !== true || !Number.isFinite(maxStack) || maxStack <= 1) return {};
+    return { stackMax: Math.floor(maxStack), stackDefault: 1 };
+  }
   function createFdcSkillEffectLabel({ sourceLabel = '', category = '', skillName = '', effectLabel = '', ownerName = '' } = {}) {
     const owner = String(ownerName || '').trim();
     const action = getFdcApostleSkillActionLabel(category);
@@ -2342,6 +2442,7 @@
       'critDmgResP',
       'critDmgResAddP',
       'addP',
+      'otherP',
       'normalAttackAddP',
       'basicAddP',
       'enhancedAddP',
@@ -2380,12 +2481,36 @@
     return result(false, false, reason.reason);
   }
 
+  function isAllyPersonalityConditionText(text) {
+    const body = String(text || '');
+    return ['純粋', '冷静', '狂気', '活発', '憂鬱'].some(name =>
+      new RegExp(`${name}(?:性格)?の味方`).test(body)
+      || new RegExp(`味方[\\/／ ]?${name}`).test(body)
+    );
+  }
+  function getAllyPersonalityConditionState(text, target) {
+    const body = String(text || '');
+    const personalities = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+    const personality = personalities.find(name =>
+      new RegExp(`${name}(?:性格)?の味方`).test(body)
+      || new RegExp(`味方[\\/／ ]?${name}`).test(body)
+    );
+    if (!personality) return { hasCondition: false, defaultEnabled: true, reason: '' };
+    const matched = normalizePersonalityName(target?.personality) === personality;
+    return {
+      hasCondition: true,
+      defaultEnabled: matched,
+      reason: matched
+        ? `味方性格=${personality}`
+        : `味方性格条件: ${personality} (現在:${target?.personality || '未設定'})`
+    };
+  }
   function getEnemyPersonalityConditionState(text) {
     const body = String(text || '');
     const personalities = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
     const personality = personalities.find(name => {
       if (!body.includes(name)) return false;
-      if (new RegExp(`${name}の味方`).test(body)) return false;
+      if (new RegExp(`${name}(?:性格)?の味方`).test(body) || new RegExp(`味方[\\/／ ]?${name}`).test(body)) return false;
       return new RegExp(`${name}(?:へ|への|に対|相手|敵)`).test(body)
         || new RegExp(`${name}.*(?:与ダメージ|ダメージ量|ダメージ増加)`).test(body);
     });
@@ -2419,8 +2544,10 @@
     const add = key => { bonuses[key] = (bonuses[key] || 0) + value; };
     const addSigned = key => { bonuses[key] = (bonuses[key] || 0) + (decrease ? -value : value); };
     const addDamageTakenMod = key => { bonuses[key] = (bonuses[key] || 0) + (decrease ? value : -value); };
+    const isOtherMultiplier = /\(その他倍率\)/.test(valueKind);
 
-    if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
+    if (isOtherMultiplier) addSigned('otherP');
+    else if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
     else if (/攻撃力/.test(valueKind) && !targetEnemy) addSigned('atkP');
     else if (/防御力/.test(valueKind)) {
       if (targetEnemy && decrease) add('enemyDefDownP');
@@ -2476,10 +2603,40 @@
     ].filter(Boolean).join(' ');
   }
 
-  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }) {
-    if (enemyPersonalityState?.hasCondition) return !!enemyPersonalityState.defaultEnabled;
+  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }, actionCategory = '', allyPersonalityState = { hasCondition: false, defaultEnabled: true }, context = null) {
+    const personalityEnabled = enemyPersonalityState?.hasCondition
+      ? !!enemyPersonalityState.defaultEnabled
+      : true;
+    // 行動条件は効果名やスキル説明ではなく、datasheet の条件/対象スキルだけを見る。
+    // 「普通攻撃ダメージ量増加」は効果名に普通攻撃を含むが、発動条件ではない。
+    const explicitCondition = String(effect?.condition || '').trim();
+    // 編成側の対象判定（getFormationSkillTargetState）が性格一致を確認している
+    // 場合もあるため、ここでは味方性格条件を未対応イベント条件としてOFFにしない。
+    // 本人スキルでは allyPersonalityState で一致/不一致を判定する。
+    if (isAllyPersonalityConditionText(explicitCondition)) {
+      return personalityEnabled
+        && (!allyPersonalityState?.hasCondition || !!allyPersonalityState.defaultEnabled);
+    }
+    const actionText = [effect?.condition, effect?.targetSkill].filter(Boolean).join(' ');
+    const selectedActionCategory = actionCategory || view.selectedSkillCategory || '';
+    const actionMatch = judgeActionCondition(actionText, selectedActionCategory);
+    if (actionMatch.hasActionCondition) return personalityEnabled && actionMatch.matched;
+    if (enemyPersonalityState?.hasCondition) return personalityEnabled;
+    if (isFdcFormationAvailabilityCondition(explicitCondition, context)) return personalityEnabled;
+    // 明示された状態/イベント条件は、現在の計算画面で再現できないため初期OFF。
+    if (explicitCondition && !/^(?:バフ|デバフ|常時|無条件|なし)$/.test(explicitCondition)) return false;
     if (isTimedOrManualEffect(text, effect)) return false;
     return true;
+  }
+
+  function isFdcFormationAvailabilityCondition(condition = '', context = null) {
+    const match = String(condition || '').trim().match(/^(.+?)編成時(?:かつ(?:ウェーブ開始時|1\s*ウェーブ(?:中|目)?))?$/);
+    if (!match) return false;
+    const requiredName = normalizeComparableName(match[1]);
+    if (!requiredName) return false;
+    return (context?.members || []).some(member =>
+      [member?.name, member?.id].some(value => normalizeComparableName(value) === requiredName)
+    );
   }
 
   function formatFdcPercentValue(value) {
@@ -2689,6 +2846,7 @@
     const equippedDetailEffects = equippedEffects.filter(item => !isAutomaticBonusEffect(item));
     const formationAutoEffects = formationEffects.filter(isAutomaticBonusEffect);
     const formationDetailEffects = formationEffects.filter(item => !isAutomaticBonusEffect(item));
+    const allDetailEffects = [...equippedDetailEffects, ...formationDetailEffects];
     const enabled = view.effectSources.artifact !== false;
     el.artifactCategory.innerHTML = `
       <section class="fdc-artifact-section">
@@ -2708,22 +2866,25 @@
           <h4>装備遺物補正 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
           <div class="fdc-artifact-effect-chips">
             ${renderArtifactBonusSummary(equippedAutoEffects, enabled)}
-            ${renderGroupedArtifactEffectChips(equippedDetailEffects, enabled)}
-            ${!equippedAutoEffects.length && !equippedDetailEffects.length ? '<p class="fdc-empty">装備遺物の補正なし</p>' : ''}
+            ${!equippedAutoEffects.length ? '<p class="fdc-empty">装備遺物の補正なし</p>' : ''}
           </div>
         </section>
         <section class="fdc-artifact-effect-box ${enabled ? '' : 'is-disabled'}">
           <h4>編成遺物補正 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
           <div class="fdc-artifact-effect-chips">
             ${renderArtifactBonusSummary(formationAutoEffects, enabled)}
-            ${formationDetailEffects.length ? renderGroupedArtifactEffectChips(formationDetailEffects, enabled) : ''}
-            ${!formationAutoEffects.length && !formationDetailEffects.length ? '<p class="fdc-empty">影響する編成遺物なし</p>' : ''}
+            ${!formationAutoEffects.length ? '<p class="fdc-empty">影響する編成遺物なし</p>' : ''}
           </div>
         </section>
       </div>
+      <section class="fdc-artifact-effect-box fdc-artifact-detail-box ${enabled ? '' : 'is-disabled'}">
+        <h4>遺物特殊効果 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
+        <div class="fdc-artifact-effect-chips">
+          ${allDetailEffects.length ? renderGroupedArtifactEffectChips(allDetailEffects, enabled) : '<p class="fdc-empty">計算に影響する特殊効果なし</p>'}
+        </div>
+      </section>
     `;
   }
-
   function renderFormationArtifactBoard(context) {
     return Array.from({ length: 3 }, (_, lineIndex) => `
       <div class="fdc-artifact-board-row">
@@ -3096,54 +3257,158 @@
   }
 
   function renderGroupedArtifactEffectChips(rows, enabled) {
-    return groupArtifactEffectRows(rows.filter(isVisibleDamageRelatedEffect))
+    const cards = groupArtifactEffectRows(rows.filter(isVisibleDamageRelatedEffect))
       .map(group => renderArtifactEffectGroupChip(group, enabled))
       .join('');
+    return cards ? `<div class="fdc-artifact-card-grid">${cards}</div>` : '';
   }
 
+  // 見出しはカード単位、状態・スタック・トグルは効果単位で保持する。
+  // 同じカードを複数人が持つ場合も、所持者はメタ情報として集約する。
   function groupArtifactEffectRows(rows) {
-    const groups = new Map();
+    const cards = new Map();
     rows.forEach(row => {
-      const key = [row.source, row.ownerLabel || '', row.cardName || row.label || ''].join('::');
-      if (!groups.has(key)) {
-        groups.set(key, {
+      const cardKey = row.cardName || row.source || 'artifact';
+      if (!cards.has(cardKey)) {
+        cards.set(cardKey, {
           title: row.cardName || row.label || '遺物',
-          source: row.source || '',
-          ownerLabel: row.ownerLabel || '',
-          rows: []
+          sources: [],
+          ownerLabels: [],
+          effects: new Map()
         });
       }
-      groups.get(key).rows.push(row);
+      const cardGroup = cards.get(cardKey);
+      const effectKey = row.overlapStackKey || [row.label || '', row.conditionKey || ''].join('::');
+      if (!cardGroup.effects.has(effectKey)) cardGroup.effects.set(effectKey, { rows: [] });
+      const effectGroup = cardGroup.effects.get(effectKey);
+      const duplicateKey = row.conditionKey || [row.source, row.cardName, row.label, JSON.stringify(row.bonuses || {})].join('::');
+      if (!effectGroup.rows.some(candidate => (candidate.conditionKey || [candidate.source, candidate.cardName, candidate.label, JSON.stringify(candidate.bonuses || {})].join('::')) === duplicateKey)) {
+        effectGroup.rows.push(row);
+      }
+      if (row.source) cardGroup.sources.push(row.source);
+      if (row.ownerLabel) cardGroup.ownerLabels.push(row.ownerLabel);
     });
-    return Array.from(groups.values());
+    return Array.from(cards.values()).map(group => ({
+      ...group,
+      effects: Array.from(group.effects.values())
+    }));
   }
 
   function renderArtifactEffectGroupChip(group, enabled) {
-    const effectChips = group.rows.map(row => renderArtifactEffectMiniChip(row)).join('');
-    const meta = [group.source, group.ownerLabel].filter(Boolean).join(' / ');
+    const owners = unique(group.ownerLabels);
+    // スペル補正セクション内の「スペル」は見出しと重複するため表示しない。
+    const sources = unique(group.sources).filter(source => source !== 'スペル');
+    const meta = owners.length ? `所持: ${owners.join(' / ')}` : sources.join(' / ');
+    const effects = group.effects.map(effectGroup => renderArtifactEffectItem(effectGroup, enabled)).join('');
     return `
       <div class="fdc-artifact-effect-group ${enabled ? '' : 'is-disabled'}">
         <strong>${escapeHtml(group.title)}</strong>
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ''}
-        <div class="fdc-artifact-effect-group-chips">${effectChips}</div>
+        <div class="fdc-artifact-card-effects">${effects}</div>
       </div>
+    `;
+  }
+
+  function renderArtifactEffectItem(group, enabled) {
+    const item = getArtifactEffectGroupItem(group);
+    const effectChip = renderArtifactEffectMiniChip(item);
+    const stackEnabled = !!enabled && !!item.groupEnabled;
+    const stackControls = [renderArtifactStackControl(item, stackEnabled), renderArtifactSharedStackControl(item, stackEnabled)].filter(Boolean).join('');
+    return `
+      <div class="fdc-artifact-card-effect">
+        ${item.scopeLabel ? `<small class="fdc-artifact-effect-scope">対象: ${escapeHtml(item.scopeLabel)}</small>` : ''}
+        <div class="fdc-artifact-effect-group-chips">${effectChip}</div>
+        ${stackControls ? `<div class="fdc-artifact-effect-stack-controls">${stackControls}</div>` : ''}
+      </div>
+    `;
+  }
+  function getArtifactEffectGroupItem(group) {
+    const rows = group.rows || [];
+    const effectiveRows = getEffectiveArtifactEffectRows(rows);
+    const overlapMax = effectiveRows.reduce((total, row) => total + Math.max(1, Number(row.overlapCount) || 1), 0);
+    const overlapStackKey = rows[0]?.overlapStackKey || '';
+    const overlapCount = overlapStackKey && overlapMax > 1
+      ? getConditionalEffectStackCount(overlapStackKey, overlapMax, overlapMax)
+      : overlapMax;
+    const rawBonuses = summarizeRawEffectBonuses(effectiveRows, key => isBonusKeyRelevantToPerspective(key));
+    const bonuses = overlapMax > 0 && overlapCount !== overlapMax
+      ? scaleBonusMapByFactor(rawBonuses, overlapCount / overlapMax)
+      : rawBonuses;
+    const conditionKeys = unique(rows.map(row => row.conditionKey));
+    const enabledCount = conditionKeys.filter(key => {
+      const row = rows.find(candidate => candidate.conditionKey === key);
+      return isConditionalEffectEnabled(key, row?.defaultEnabled);
+    }).length;
+    return {
+      ...rows[0],
+      bonuses,
+      conditionKeys,
+      groupEnabled: conditionKeys.length ? enabledCount === conditionKeys.length : false,
+      overlapStackKey,
+      overlapStackMax: overlapMax,
+      overlapCount
+    };
+  }
+
+  function renderArtifactStackControl(item, groupEnabled = true) {
+    const maxStack = Number(item?.stackMax);
+    if (!item?.conditionKey || !Number.isFinite(maxStack) || maxStack <= 1) return '';
+    const value = getConditionalEffectStackCount(item.conditionKey, maxStack, item.stackDefault);
+    const enabled = !!groupEnabled && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled);
+    return `
+      <span class="fdc-artifact-effect-stack-control${enabled ? '' : ' is-disabled'}">
+        <span>効果スタック</span>
+        <input type="number" min="1" max="${escapeAttr(maxStack)}" step="1" value="${escapeAttr(value)}" data-fdc-stack-count="${escapeAttr(item.conditionKey)}" data-fdc-stack-max="${escapeAttr(maxStack)}"${enabled ? '' : ' disabled'} aria-label="効果スタック数（最大${escapeAttr(maxStack)}）">
+        <small>/ ${escapeHtml(maxStack)}</small>
+      </span>
+    `;
+  }
+
+  function renderArtifactSharedStackControl(item, enabled = true) {
+    const maxStack = Number(item?.overlapStackMax);
+    if (!item?.overlapStackKey || !Number.isFinite(maxStack) || maxStack <= 1) return '';
+    return `
+      <span class="fdc-artifact-effect-stack-control${enabled ? '' : ' is-disabled'}">
+        <span>スタック</span>
+        <input type="number" min="1" max="${escapeAttr(maxStack)}" step="1" value="${escapeAttr(item.overlapCount)}" data-fdc-stack-count="${escapeAttr(item.overlapStackKey)}" data-fdc-stack-max="${escapeAttr(maxStack)}"${enabled ? '' : ' disabled'} aria-label="スタック数（最大${escapeAttr(maxStack)}）">
+        <small>/ ${escapeHtml(maxStack)}</small>
+      </span>
     `;
   }
 
   function renderArtifactEffectMiniChip(item) {
     const bonusText = item.bonusText || (item.bonuses ? formatBonusMap(getRelevantBonusMap(item.bonuses)) : '');
-    const checked = item.conditionKey && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled) ? ' checked' : '';
-    const toggle = item.canToggle ? `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}>` : '';
+    const checked = item.conditionKeys
+      ? (item.groupEnabled ? ' checked' : '')
+      : (item.conditionKey && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled) ? ' checked' : '');
+    const toggle = item.canToggle ? (item.conditionKeys?.length
+      ? `<input type="checkbox" data-fdc-condition-toggle-group="${escapeAttr(encodeConditionToggleGroupKeys(item.conditionKeys))}"${checked}>`
+      : `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}>`) : '';
     const label = item.label || '効果';
     return `
       <label class="fdc-artifact-effect-mini-chip ${item.canToggle ? 'is-toggleable' : ''}">
         ${toggle}
-        <span>${escapeHtml(label)}</span>
-        ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
+        <span class="fdc-artifact-effect-mini-chip-content">
+          <span>${escapeHtml(label)}</span>
+          ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
+          ${Number(item.overlapStackMax) > 1 ? `<em>×${escapeHtml(item.overlapCount)}</em>` : ''}
+        </span>
       </label>
     `;
   }
 
+  function encodeConditionToggleGroupKeys(keys = []) {
+    return encodeURIComponent(JSON.stringify(keys.filter(Boolean)));
+  }
+
+  function decodeConditionToggleGroupKeys(value = '') {
+    try {
+      const keys = JSON.parse(decodeURIComponent(value));
+      return Array.isArray(keys) ? keys.filter(Boolean) : [];
+    } catch (_) {
+      return [];
+    }
+  }
   function renderArtifactEffectChip(item, enabled) {
     const bonusText = item.bonusText || (item.bonuses ? formatBonusMap(getRelevantBonusMap(item.bonuses)) : '');
     const status = (item.tags?.status || []).join(' / ');
@@ -3284,17 +3549,13 @@
       .filter(([key, value]) => Number(value) && (isDefenseMode ? isDefenseBonusKey(key) : isAttackBonusKey(key))));
   }
 
-  function summarizeRelevantEffects(rows) {
-    const isDefenseMode = view.perspective === 'enemy';
-    return rows.reduce((sum, row) => {
-      Object.entries(row.bonuses || {}).forEach(([key, value]) => {
-        if (!(isDefenseMode ? isDefenseBonusKey(key) : isAttackBonusKey(key))) return;
-        sum[key] = (sum[key] || 0) + (Number(value) || 0);
-      });
-      return sum;
-    }, {});
+  function isBonusKeyRelevantToPerspective(key) {
+    return view.perspective === 'enemy' ? isDefenseBonusKey(key) : isAttackBonusKey(key);
   }
 
+  function summarizeRelevantEffects(rows) {
+    return summarizeEffectBonuses(rows, isBonusKeyRelevantToPerspective);
+  }
   function isAttackBonusKey(key) {
     return [
       'atkP',
@@ -4154,13 +4415,43 @@
     const card = getCard(row.id);
     (card?.conditionalEffects || []).forEach(effect => {
       const text = getEffectText(effect);
+      if (isMaxStackThresholdEffect(text) || isStackMetadataEffect(effect)) return;
+      const stackMeta = getCardEffectStackMeta(card, effect, row.star);
+      const conditionKey = createConditionEffectKey(source, row, effect, '', target);
+      const stackCount = stackMeta
+        ? getConditionalEffectStackCount(conditionKey, stackMeta.stackMax, stackMeta.stackDefault)
+        : 1;
+      const effectDamageType = resolveCardEffectBonusDamageType(effect, damageType);
+      const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[row.star - 1], effectDamageType, text);
+      const baseBonuses = scaleEffectBonusMap(
+        normalizedBaseBonuses,
+        row.qty,
+        effect,
+        text,
+        stackCount
+      );
+      const maxStackBonuses = stackMeta && stackCount >= stackMeta.stackMax
+        ? scaleEffectBonusMap(
+            getCardMaxStackBonusMap(card, row.star, damageType),
+            row.qty,
+            effect,
+            text
+          )
+        : {};
+      const bonuses = mergeBonusMaps(baseBonuses, maxStackBonuses);
       const item = {
         source,
         cardName: row.name,
+        ownerLabel: source === '装備遺物' ? '本人' : '',
         label: effect.label || effect.shortLabel || effect.id || '特殊効果',
-        bonuses: scaleEffectBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[row.star - 1], damageType, text), row.qty, effect, text),
+        scopeLabel: getArtifactEffectScopeLabel(effect),
+        bonuses,
         reason: '',
-        conditionKey: createConditionEffectKey(source, row, effect, '', target)
+        conditionKey,
+        overlapStackKey: createArtifactEffectOverlapKey(source, row, effect, target),
+        overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(row.qty) || 1),
+        nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+        ...(stackMeta || {})
       };
       if (isSkillChangeEffect(text, effect)) {
         item.reason = effect.description || 'スキル変更系';
@@ -4171,6 +4462,11 @@
       if (!targetReason.matched) {
         item.reason = targetReason.reason;
         pushConditionalEffectCandidate(result, item, false);
+        return;
+      }
+      if (!matchesCardEffectTargetDamageType(effect, damageType, target)) {
+        item.reason = `対象外: 攻撃種別=${effect.onlyWhenDmgType}`;
+        pushConditionalEffectCandidate(result, item, false, true);
         return;
       }
       const actionMatch = judgeActionCondition(text, actionCategory);
@@ -4194,17 +4490,45 @@
       const card = getCard(ownerRow.id);
       (card?.conditionalEffects || []).forEach(effect => {
         const text = getEffectText(effect);
-        const bonuses = scaleEffectBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], damageType, text), ownerRow.qty, effect, text);
+        if (isMaxStackThresholdEffect(text) || isStackMetadataEffect(effect)) return;
+        const stackMeta = getCardEffectStackMeta(card, effect, ownerRow.star);
+        const conditionKey = createConditionEffectKey('編成遺物', ownerRow, effect, ownerRow.ownerId, target);
+        const stackCount = stackMeta
+          ? getConditionalEffectStackCount(conditionKey, stackMeta.stackMax, stackMeta.stackDefault)
+          : 1;
+        const effectDamageType = resolveCardEffectBonusDamageType(effect, damageType);
+        const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], effectDamageType, text);
+        const baseBonuses = scaleEffectBonusMap(
+          normalizedBaseBonuses,
+          ownerRow.qty,
+          effect,
+          text,
+          stackCount
+        );
+        const maxStackBonuses = stackMeta && stackCount >= stackMeta.stackMax
+          ? scaleEffectBonusMap(
+              getCardMaxStackBonusMap(card, ownerRow.star, damageType),
+              ownerRow.qty,
+              effect,
+              text
+            )
+          : {};
+        const bonuses = mergeBonusMaps(baseBonuses, maxStackBonuses);
         if (!bonuses || !Object.keys(bonuses).length) return;
         if (!canFormationArtifactAffectTarget(text)) return;
         const item = {
           source: '編成遺物',
           cardName: ownerRow.name,
-          label: effect.shortLabel || effect.label || effect.id || '特殊効果',
+          label: effect.label || effect.shortLabel || effect.id || '特殊効果',
+          scopeLabel: getArtifactEffectScopeLabel(effect),
           bonuses,
           reason: '',
           ownerLabel: ownerRow.ownerLabel,
-          conditionKey: createConditionEffectKey('編成遺物', ownerRow, effect, ownerRow.ownerId, target),
+          conditionKey,
+          overlapStackKey: createArtifactEffectOverlapKey('編成遺物', ownerRow, effect, target),
+          overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(ownerRow.qty) || 1),
+          nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+          ...(stackMeta || {}),
           tags: { source: ['遺物'], target: [ownerRow.position, `第${ownerRow.line}列`].filter(Boolean) }
         };
         if (isSkillChangeEffect(text, effect)) return;
@@ -4252,7 +4576,7 @@
         reason: `対象外: 同列 (${ownerRow.position}${ownerRow.line} -> ${target.position || '-'}${target.line || '-'})`
       };
     }
-    if (!matchesEffectDamageType(effect, damageType, target)) {
+    if (!matchesCardEffectTargetDamageType(effect, damageType, target)) {
       return { matched: false, reason: `対象外: 攻撃種別=${effect.onlyWhenDmgType}` };
     }
     const targetReason = judgeTargetText(text.replace(/同列/g, ''), target, damageType);
@@ -4274,7 +4598,7 @@
   }
 
   function isUnresolvedCardTriggerEffect(text) {
-    return /ランダム効果|赤カード時|黄カード時|青カード時|カード時|味方戦闘不能時|戦闘不能時|死亡時|倒れた時/.test(text);
+    return /ランダム効果|赤カード時|黄カード時|青カード時|カード時|味方戦闘不能時|戦闘不能時|死亡時|倒れた時|最大スタック|スタック最大時/.test(text);
   }
 
   function shouldExposeConditionalToggle(text, effect, actionMatch) {
@@ -4285,10 +4609,17 @@
   function getConditionalDefaultEnabled(text, effect, actionMatch, card = null, formation = null) {
     if (isUnresolvedCardTriggerEffect(text)) return false;
     if (effect.defaultEnabled === true) return true;
+    if (isInitialWaveEffect(text)) return true;
     if (isSameLineStartEffect(text)) return true;
     if (isFavoriteCardActiveInFormation(card, formation)) return true;
-    if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) return true;
+    if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) {
+      return actionMatch?.hasActionCondition ? !!actionMatch.matched : true;
+    }
     return !!(actionMatch?.hasActionCondition && !isTimedOrManualEffect(text, effect));
+  }
+
+  function isInitialWaveEffect(text) {
+    return /(?:ウェーブ開始時|1\s*ウェーブ(?:中|目)?)/.test(String(text || ''));
   }
 
   function isSameLineStartEffect(text) {
@@ -4336,9 +4667,10 @@
     });
   }
 
-  function pushConditionalEffectCandidate(result, item, defaultEnabled = false) {
+  function pushConditionalEffectCandidate(result, item, defaultEnabled = false, forceDisabled = false) {
+    if (forceDisabled && item.conditionKey) delete view.conditionalEffectEnabled[item.conditionKey];
     if (item.bonuses && Object.keys(item.bonuses).length) {
-      pushToggleableConditionalEffect(result, item, defaultEnabled);
+      pushToggleableConditionalEffect(result, item, forceDisabled ? false : defaultEnabled);
       return;
     }
     result.conditional.push(item);
@@ -4352,6 +4684,17 @@
     return !!defaultEnabled;
   }
 
+  function createArtifactEffectOverlapKey(source, row, effect, target = null) {
+    return [
+      // 所持者や装備枠では分けず、同じカード効果を1つのスタック群にする。
+      'artifact-stack',
+      row?.id || '',
+      row?.star || '',
+      row?.solder || '',
+      effect?.id || effect?.label || effect?.shortLabel || '',
+      target ? createConditionTargetKey(target) : ''
+    ].join(':');
+  }
   function createConditionEffectKey(source, row, effect, ownerId = '', target = null) {
     return [
       source || '',
@@ -4374,10 +4717,23 @@
 
   function judgeActionCondition(text, actionCategory = '') {
     const conditions = [];
-    if (/通常攻撃|普通攻撃/.test(text)) conditions.push(['普通攻撃', actionCategory === '基本攻撃' || actionCategory === '強化攻撃']);
-    if (/基本攻撃/.test(text)) conditions.push(['基本攻撃', actionCategory === '基本攻撃']);
-    if (/強化攻撃/.test(text)) conditions.push(['強化攻撃', actionCategory === '強化攻撃']);
-    if (/スキル攻撃|スキル時|スキル.*ダメージ|スキル.*与ダメ|スキル与ダメ/.test(text)) {
+    const body = String(text || '');
+    const category = getFdcSkillBaseCategory(actionCategory);
+    const hasLow = /低学年(?:スキル)?(?:使用時|発動時)/.test(body) || /低学年[、,／\s]+高学年(?:スキル)?使用時/.test(body) || /(?:^|\s)低学年スキル(?:$|\s)/.test(body);
+    const hasHigh = /高学年(?:スキル)?(?:使用時|発動時)/.test(body) || /低学年[、,／\s]+高学年(?:スキル)?使用時/.test(body) || /(?:^|\s)高学年スキル(?:$|\s)/.test(body);
+    if (/状態異常/.test(body)) {
+      conditions.push(['状態異常', category === '状態異常']);
+    } else if (hasLow || hasHigh) {
+      // 「低学年、高学年使用時」はどちらか一方で成立する条件。
+      conditions.push(['低学年/高学年スキル', (hasLow && /低学年/.test(category)) || (hasHigh && /高学年/.test(category))]);
+    } else if (/アサイド(?:使用時|発動時)/.test(body)) {
+      conditions.push(['アサイド', /^A[1-3]$|^アサイド/.test(actionCategory)]);
+    } else if (/(?:通常|普通)攻撃(?:使用時|発動時|命中時)/.test(body) || /^(?:通常|普通)攻撃(?:_基本|_強化)?$/.test(body)) {
+      conditions.push(['普通攻撃', actionCategory === '基本攻撃' || actionCategory === '強化攻撃']);
+    }
+    if (/基本攻撃/.test(body)) conditions.push(['基本攻撃', actionCategory === '基本攻撃']);
+    if (/強化攻撃/.test(body)) conditions.push(['強化攻撃', actionCategory === '強化攻撃']);
+    if (!conditions.length && /スキル攻撃|スキル使用時|スキル発動時|スキル時|スキル.*ダメージ|スキル.*与ダメ|スキル与ダメ/.test(body)) {
       conditions.push(['スキル', isFdcSkillActionCategory(actionCategory)]);
     }
     const failed = conditions.filter(([, matched]) => !matched);
@@ -4388,6 +4744,30 @@
     };
   }
 
+  function resolveCardEffectBonusDamageType(effect, damageType) {
+    if (!isCardAttackPowerStatEffect(effect)) return damageType;
+    const only = String(effect?.onlyWhenDmgType || '').toLowerCase();
+    if (/mag|magic|魔法/.test(only)) return 'magic';
+    if (/phys|physical|物理/.test(only)) return 'physical';
+    return damageType;
+  }
+
+  function matchesCardEffectTargetDamageType(effect, damageType, target = null) {
+    // 攻撃力そのものを上げる効果は、選択中の攻撃の属性ではなく、
+    // 効果を受ける使徒本来の攻撃タイプで対象を判定する。
+    const targetDamageType = isCardAttackPowerStatEffect(effect)
+      ? resolveDamageType('auto', target)
+      : damageType;
+    return matchesEffectDamageType(effect, targetDamageType, target);
+  }
+
+  function isCardAttackPowerStatEffect(effect = null) {
+    const text = [effect?.label, effect?.shortLabel, effect?.description, ...(effect?.descriptionByStar || [])]
+      .filter(Boolean)
+      .join(' ');
+    return /(?:物理|魔法)?攻撃力(?:増加|減少|上昇|低下)/.test(text)
+      && !/(?:ダメージ|与ダメ|被ダメ|敵防御)/.test(text);
+  }
   function matchesEffectDamageType(effect, damageType, target = null) {
     const only = String(effect?.onlyWhenDmgType || '').toLowerCase();
     if (!only) return true;
@@ -4474,14 +4854,49 @@
   }
 
   function summarizeEffects(rows) {
-    return rows.reduce((sum, row) => {
-      Object.entries(row.bonuses || {}).forEach(([key, value]) => {
+    return summarizeEffectBonuses(rows);
+  }
+
+  function summarizeEffectBonuses(rows, includeKey = null) {
+    const grouped = new Map();
+    const plainRows = [];
+    (rows || []).forEach(row => {
+      if (row?.overlapStackKey) {
+        if (!grouped.has(row.overlapStackKey)) grouped.set(row.overlapStackKey, []);
+        grouped.get(row.overlapStackKey).push(row);
+      } else {
+        plainRows.push(row);
+      }
+    });
+    const summary = summarizeRawEffectBonuses(plainRows, includeKey);
+    grouped.forEach((groupRows, key) => {
+      const effectiveRows = getEffectiveArtifactEffectRows(groupRows);
+      const overlapMax = effectiveRows.reduce((total, row) => total + Math.max(1, Number(row.overlapCount) || 1), 0);
+      const overlapCount = getConditionalEffectStackCount(key, overlapMax, overlapMax);
+      const raw = summarizeRawEffectBonuses(effectiveRows, includeKey);
+      const scaled = overlapCount === overlapMax ? raw : scaleBonusMapByFactor(raw, overlapCount / overlapMax);
+      Object.entries(scaled).forEach(([bonusKey, value]) => {
+        summary[bonusKey] = (summary[bonusKey] || 0) + (Number(value) || 0);
+      });
+    });
+    return summary;
+  }
+
+  // 同効果非スタックは所持者や装備枠をまたいで一度だけ計上する。
+  // 同一使徒非スタックは item.overlapCount を1にしているため、ここでは除外しない。
+  function getEffectiveArtifactEffectRows(rows) {
+    const list = rows || [];
+    return list.some(row => row?.nonStackingSameEffect) ? list.slice(0, 1) : list;
+  }
+  function summarizeRawEffectBonuses(rows, includeKey = null) {
+    return (rows || []).reduce((sum, row) => {
+      Object.entries(row?.bonuses || {}).forEach(([key, value]) => {
+        if (includeKey && !includeKey(key)) return;
         sum[key] = (sum[key] || 0) + (Number(value) || 0);
       });
       return sum;
     }, {});
   }
-
   function getActiveAttackBonus(summary, damageType) {
     if (damageType === 'magic') return (Number(summary.magicAtkP) || 0) + (Number(summary.atkP) || 0);
     if (damageType === 'physical') return (Number(summary.physicalAtkP) || 0) + (Number(summary.atkP) || 0);
@@ -4565,9 +4980,75 @@
     return bonuses;
   }
 
-  function scaleEffectBonusMap(bonuses, qty = 1, effect = null, text = '') {
-    const multiplier = isNonStackingCardEffect(effect, text) ? 1 : qty;
-    return scaleBonusMap(bonuses, multiplier);
+  function isStackMetadataEffect(effect) {
+    const starBonuses = effect?.bonusesByStar?.[0] || effect?.bonuses || {};
+    const keys = Object.keys(starBonuses);
+    return keys.length > 0 && keys.every(key => key === 'maxStack' || key === 'stackCount');
+  }
+
+  function isMaxStackThresholdEffect(text) {
+    return /(?:最大スタック時|スタック最大時)/.test(String(text || ''));
+  }
+
+  function mergeBonusMaps(...maps) {
+    const merged = {};
+    maps.forEach(map => {
+      Object.entries(map || {}).forEach(([key, value]) => {
+        const numeric = Number(value) || 0;
+        if (numeric) merged[key] = (merged[key] || 0) + numeric;
+      });
+    });
+    return merged;
+  }
+
+  function getCardMaxStackBonusMap(card, star = 1, damageType = 'unknown') {
+    return normalizeArray(card?.conditionalEffects)
+      .filter(candidate => isMaxStackThresholdEffect(getEffectText(candidate)))
+      .reduce((sum, candidate) => mergeBonusMaps(
+        sum,
+        normalizeCardEffectBonuses(
+          candidate.bonusesByStar?.[Math.max(0, Number(star) - 1)],
+          damageType,
+          getEffectText(candidate)
+        )
+      ), {});
+  }
+  function getCardEffectStackMeta(card, effect, star = 1) {
+    const ownBonus = effect?.bonusesByStar?.[Math.max(0, Number(star) - 1)] || {};
+    const ownMax = Number(ownBonus.maxStack);
+    const ownCount = Number(ownBonus.stackCount);
+    const text = getEffectText(effect);
+    // 「最大スタック時」は到達判定用の効果であり、スタック数入力の対象ではない。
+    if (isMaxStackThresholdEffect(text)) return null;
+    const siblingMax = normalizeArray(card?.conditionalEffects).reduce((max, candidate) => {
+      const value = Number(candidate?.bonusesByStar?.[Math.max(0, Number(star) - 1)]?.maxStack);
+      return Number.isFinite(value) ? Math.max(max, value) : max;
+    }, 0);
+    // カード特殊効果では最大スタック数を別行で定義する。効果本文に「スタック」が
+    // 含まれない場合（ブランセの花束など）も、そのカードの実効果に適用する。
+    const hasExplicitStack = Number.isFinite(ownCount) || /スタック|stack/i.test(text) || siblingMax > 1;
+    if (!hasExplicitStack) return null;
+    const maxStack = Math.max(1, ownMax || siblingMax || 1);
+    if (maxStack <= 1) return null;
+    return {
+      stackMax: maxStack,
+      stackDefault: clamp(Number.isFinite(ownCount) ? ownCount : 1, 1, maxStack)
+    };
+  }
+
+  function getConditionalEffectStackCount(key, maxStack = 1, defaultCount = 0) {
+    const max = Math.max(1, Number(maxStack) || 1);
+    const saved = Number(view.conditionalEffectStackCounts?.[key]);
+    const fallback = Number.isFinite(Number(defaultCount)) ? Number(defaultCount) : 1;
+    return clamp(Number.isFinite(saved) ? saved : fallback, 1, max);
+  }
+
+  function scaleEffectBonusMap(bonuses, qty = 1, effect = null, text = '', stackCount = 1) {
+    // 「同一使徒非スタック」は同じ使徒が持つ複数枚だけを抑制する。
+    // 「同効果非スタック」は編成全体での集約時に処理する。
+    const cardMultiplier = isNonStackingSameApostleEffect(effect, text) ? 1 : qty;
+    const stackMultiplier = Math.max(1, Number(stackCount) || 1);
+    return scaleBonusMap(bonuses, cardMultiplier * stackMultiplier);
   }
 
   function scaleBonusMap(bonuses, qty = 1) {
@@ -4577,9 +5058,22 @@
     return Object.fromEntries(Object.entries(bonuses).map(([key, value]) => [key, (Number(value) || 0) * multiplier]));
   }
 
-  function isNonStackingCardEffect(effect = null, text = '') {
-    if (effect?.nonStacking === true) return true;
-    return /スタックしない|重複(?:しない|不可|適用されません|適用されない)/.test(String(text || getEffectText(effect)));
+  function scaleBonusMapByFactor(bonuses, factor = 1) {
+    if (!bonuses) return bonuses;
+    const multiplier = Math.max(0, Number(factor) || 0);
+    if (multiplier === 1) return bonuses;
+    return Object.fromEntries(Object.entries(bonuses).map(([key, value]) => [key, (Number(value) || 0) * multiplier]));
+  }
+  function isNonStackingSameApostleEffect(effect = null, text = '') {
+    if (effect?.nonStackingSameApostle === true) return true;
+    // 旧生成データは種別を持たないため、従来どおり同一使徒の複数枚にだけ適用する。
+    if (effect?.nonStacking === true && effect?.nonStackingSameEffect !== true) return true;
+    return /同一使徒.*(?:スタックしない|重複(?:しない|不可|適用されません|適用されない))/.test(String(text || getEffectText(effect)));
+  }
+
+  function isNonStackingSameEffect(effect = null, text = '') {
+    if (effect?.nonStackingSameEffect === true) return true;
+    return /同効果.*(?:スタックしない|重複(?:しない|不可|適用されません|適用されない))/.test(String(text || getEffectText(effect)));
   }
 
   function readMemberStats(apostleState = {}, basic = null, gradeOverride = 'saved', statMode = 'current') {
@@ -4911,9 +5405,13 @@
     if (!apostle) return [];
     const levels = getFdcEffectiveSkillLevels(target);
     const options = [];
+    const statusMultipliers = new Map();
     collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }, skillIndex) => {
       const category = getFdcApostleSkillCategory(skill, sourceLabel);
       const skillLevel = getFdcSkillLevelForCategory(levels, category);
+      getFdcSkillStatusMultipliers(skill).forEach(({ status, multiplier }) => {
+        statusMultipliers.set(status, multiplier);
+      });
       normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
         if (!isFdcApostleAttackMultiplierEffect(effect)) return;
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
@@ -4930,9 +5428,9 @@
           sourceLabel,
           skillName: skill.skillName || skill.name || '',
           kind,
-          shortDetail: levelInfo.isRange
-            ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}`
-            : '',
+          shortDetail: [
+            levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : ''
+          ].filter(Boolean).join(' / '),
           detailText: [
             skill.skillName || skill.name || '',
             detailText,
@@ -4944,7 +5442,33 @@
         });
       });
     });
+    statusMultipliers.forEach((multiplier, status) => {
+      options.push({
+        key: `${apostle.id || target.id}:status:${status}`,
+        value: String(multiplier),
+        label: `${status} (${multiplier}%)`,
+        category: `状態異常::${status}`,
+        sourceLabel: '状態異常',
+        skillName: '',
+        kind: status,
+        shortDetail: 'スキル倍率',
+        detailText: `${status}スキル倍率: ${multiplier}%`,
+        order: 80
+      });
+    });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcSkillStatusMultipliers(skill) {
+    const statuses = new Set();
+    normalizeFdcArray(skill?.effects).forEach(effect => {
+      if (effect?.valueClass !== '状態付与') return;
+      const valueKind = String(effect.valueKind || '');
+      Object.keys(FDC_STATUS_SKILL_MULTIPLIERS).forEach(status => {
+        if (valueKind.includes(status)) statuses.add(status);
+      });
+    });
+    return [...statuses].map(status => ({ status, multiplier: FDC_STATUS_SKILL_MULTIPLIERS[status] }));
   }
 
   function getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) {
@@ -5064,7 +5588,7 @@
 
   function getFdcEffectiveSkillLevels(target) {
     const base = normalizeFdcSkillLevelConfig(target?.skillLevels || {});
-    const override = view.skillLevelOverrides[target?.id] || {};
+    const override = getCurrentFdcSkillLevelOverride(target, base);
     const asideRank = Number(override.asideRank ?? target?.asideRank ?? base.asideRank) || 0;
     const maxSkillLevel = Math.max(1, 12 + Math.min(3, asideRank));
     const clampSkill = value => Math.max(1, Math.min(maxSkillLevel, Number(value) || 1));
@@ -5075,6 +5599,28 @@
       asideRank,
       asideLevel: Number(override.asideLevel ?? target?.asideLevel ?? base.asideLevel) || 0
     };
+  }
+
+  function getCurrentFdcSkillLevelOverride(target, base) {
+    const id = target?.id;
+    const override = view.skillLevelOverrides?.[id];
+    if (!id || !override || typeof override !== 'object') return {};
+    const matchesState = Number(override.baseLow) === Number(base.low)
+      && Number(override.baseHigh) === Number(base.high)
+      && Number(override.basePassive) === Number(base.passive)
+      && Number(override.baseAsideRank) === Number(target?.asideRank || 0)
+      && Number(override.baseAsideLevel) === Number(target?.asideLevel || 0)
+      && Number(override.managerSyncRevision) === Math.max(0, Number(target?.managerSyncRevision) || 0);
+    if (matchesState) return override;
+    delete view.skillLevelOverrides[id];
+    return {};
+  }
+
+  function syncFdcSkillLevelOverridesFromManager() {
+    if (!Object.keys(view.skillLevelOverrides || {}).length) return;
+    view.skillLevelOverrides = {};
+    saveCalcSettings();
+    render();
   }
 
   function normalizeFdcArray(value) {
@@ -5123,37 +5669,47 @@
     return raw || 'スキル';
   }
 
+  function getFdcSkillBaseCategory(category = '') {
+    return String(category || '').split('::')[0];
+  }
+
   function getFdcApostleSkillOrder(category) {
-    if (category === '基本攻撃') return 10;
-    if (category === '強化攻撃') return 20;
-    if (category === '低学年スキル') return 30;
-    if (category === '高学年スキル') return 40;
-    if (category.startsWith('愛用品')) return 50;
-    if (category === 'パッシブ') return 50;
-    if (/^A[1-3]$/.test(category)) return 60 + Number(category.slice(1));
+    const baseCategory = getFdcSkillBaseCategory(category);
+    if (baseCategory === '基本攻撃') return 10;
+    if (baseCategory === '強化攻撃') return 20;
+    if (baseCategory === '低学年スキル') return 30;
+    if (baseCategory === '高学年スキル') return 40;
+    if (baseCategory.startsWith('愛用品')) return 50;
+    if (baseCategory === 'パッシブ') return 50;
+    if (/^A[1-3]$/.test(baseCategory)) return 60 + Number(baseCategory.slice(1));
     return 90;
   }
 
   function getFdcApostleSkillActionLabel(category = '') {
-    if (category === '基本攻撃') return '基本';
-    if (category === '強化攻撃') return '強化';
-    if (category === '低学年スキル') return '低学年';
-    if (category === '高学年スキル') return '高学年';
-    if (category.startsWith('愛用品')) return category.replace('愛用品', '愛用');
-    if (/^A[1-3]$/.test(category)) return category;
-    return category || 'スキル';
+    const rawCategory = String(category || '');
+    const [baseCategory, status] = rawCategory.split('::');
+    if (status) return status;
+    if (baseCategory === '基本攻撃') return '基本';
+    if (baseCategory === '強化攻撃') return '強化';
+    if (baseCategory === '低学年スキル') return '低学年';
+    if (baseCategory === '高学年スキル') return '高学年';
+    if (baseCategory.startsWith('愛用品')) return baseCategory.replace('愛用品', '愛用');
+    if (/^A[1-3]$/.test(baseCategory)) return baseCategory;
+    return baseCategory || 'スキル';
   }
 
   function getFdcApostleSkillTone(category = '') {
-    if (category === '基本攻撃') return 'tone-basic';
-    if (category === '強化攻撃') return 'tone-enhanced';
-    if (category === '低学年スキル') return 'tone-low';
-    if (category === '高学年スキル') return 'tone-high';
-    if (category === 'パッシブ') return 'tone-passive';
-    if (category.startsWith('愛用品')) return 'tone-favorite';
-    if (/^A[1-3]$/.test(category)) return 'tone-extra';
+    const baseCategory = getFdcSkillBaseCategory(category);
+    if (baseCategory === '基本攻撃') return 'tone-basic';
+    if (baseCategory === '強化攻撃') return 'tone-enhanced';
+    if (baseCategory === '低学年スキル') return 'tone-low';
+    if (baseCategory === '高学年スキル') return 'tone-high';
+    if (baseCategory === 'パッシブ') return 'tone-passive';
+    if (baseCategory.startsWith('愛用品')) return 'tone-favorite';
+    if (/^A[1-3]$/.test(baseCategory)) return 'tone-extra';
     return 'tone-extra';
   }
+
 
   function isFdcApostleAttackMultiplierEffect(effect) {
     const valueKind = String(effect?.valueKind || '');
@@ -5234,6 +5790,15 @@
       || normalizeArray(effect?.solderBonuses).some(bonus => bonus && Object.keys(bonus).length);
   }
 
+  function getArtifactEffectScopeLabel(effect = null) {
+    const parts = String(effect?.description || '')
+      .split('/')
+      .map(part => part.trim())
+      .filter(Boolean);
+    // 生成データでは先頭要素が効果対象（自分、同列、味方全体など）。
+    const scope = parts.find(part => !/^(?:持続|参照|リセット):|^(?:倍率|固定値|スタック数|クールタイム)$/.test(part));
+    return scope || String(effect?.effectTarget || '').trim();
+  }
   function getEffectText(effect) {
     return [
       effect.id,

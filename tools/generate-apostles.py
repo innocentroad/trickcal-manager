@@ -72,6 +72,14 @@ KEY_MAP = {
     "値の種類": "valueKind",
     "値分類": "valueClass",
     "効果タイプ": "effectType",
+    "効果スタック": "effectStack",
+    "スタック数": "stackCount",
+    "最大スタック": "maxStack",
+    "最大スタック数": "maxStack",
+    "スキル発動条件種別": "triggerType",
+    "発動条件種別": "triggerType",
+    "スキル発動条件値": "triggerValue",
+    "発動条件値": "triggerValue",
     "発動条件": "condition",
     "条件": "condition",
     "効果対象": "effectTarget",
@@ -128,6 +136,8 @@ ALLOWED_VALUE_CLASSES = {
 def clean_value(value: Any) -> Any:
     if value is None:
         return None
+    if isinstance(value, bool):
+        return value
     text = str(value).replace("\ufeff", "").replace("\u2003", " ").replace("\u00a0", " ").strip()
     if text in {"", "-"}:
         return None
@@ -173,6 +183,8 @@ def read_sheet_rows(workbook: Any, sheet_name: str) -> list[dict[str, Any]]:
                 continue
             key = KEY_MAP.get(raw_key, raw_key)
             value = clean_value(raw_value)
+            if key == "effectStack" and value is False:
+                continue
             if has_value(value):
                 item[key] = value
         if "id" in item:
@@ -199,6 +211,9 @@ def has_effect_payload(data: dict[str, Any]) -> bool:
         "valueKind",
         "valueClass",
         "effectType",
+        "effectStack",
+        "stackCount",
+        "maxStack",
         "condition",
         "effectTarget",
         "targetSkill",
