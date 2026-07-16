@@ -1089,7 +1089,7 @@ const APOSTLE_LIBRARY = [
             {
               "valueKind": "HP回復クールタイム",
               "valueClass": "クールタイム",
-              "effectType": "回復",
+              "effectType": "クールタイム",
               "condition": "味方が12回直接ダメージ",
               "effectTarget": "自身",
               "reference": "最大HP",
@@ -1106,7 +1106,7 @@ const APOSTLE_LIBRARY = [
             {
               "valueKind": "SP回復クールタイム",
               "valueClass": "クールタイム",
-              "effectType": "回復",
+              "effectType": "クールタイム",
               "condition": "味方が12回直接ダメージ",
               "effectTarget": "自身",
               "fixedValue": 5.0
@@ -2337,7 +2337,7 @@ const APOSTLE_LIBRARY = [
               "valueClass": "倍率",
               "effectType": "バフ",
               "condition": "低学年スキル使用時",
-              "effectTarget": "中列の味方",
+              "effectTarget": "味方/中列",
               "targetSkill": "低学年スキル",
               "fixedValue": 16.0
             },
@@ -2346,7 +2346,7 @@ const APOSTLE_LIBRARY = [
               "valueClass": "持続時間",
               "effectType": "バフ",
               "condition": "低学年スキル使用時",
-              "effectTarget": "中列の味方",
+              "effectTarget": "味方/中列",
               "targetSkill": "低学年スキル",
               "fixedValue": 7.0
             }
@@ -2372,7 +2372,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "被ダメージ量減少",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "中列の味方",
+              "effectTarget": "味方/中列",
               "fixedValue": 14.0
             }
           ],
@@ -9604,6 +9604,304 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "daya",
+    "name": "ダーヤ",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "純粋",
+      "race": "竜族",
+      "role": "攻撃",
+      "position": "後列",
+      "attackType": "魔法",
+      "initialSp": 0.0,
+      "spRecoveryPerSecond": 30.0,
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.31
+    },
+    "statTypes": {
+      "hp": 4.0,
+      "atkP": 0.0,
+      "atkM": 4.0,
+      "defP": 4.0,
+      "defM": 4.0,
+      "crit": 4.0,
+      "critDmg": 4.0,
+      "critRes": 2.0,
+      "critDmgRes": 2.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵3名",
+            "levels": {
+              "1": 200.0,
+              "2": 225.0,
+              "3": 250.0,
+              "4": 275.0,
+              "5": 300.0,
+              "6": 325.0,
+              "7": 350.0,
+              "8": 375.0,
+              "9": 400.0,
+              "10": 425.0,
+              "11": 450.0,
+              "12": 475.0,
+              "13": 500.0,
+              "14": 525.0,
+              "15": 550.0
+            }
+          },
+          {
+            "valueKind": "苦痛",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "effectTarget": "敵3名"
+          },
+          {
+            "valueKind": "苦痛",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "effectTarget": "敵3名",
+            "fixedValue": 8.0
+          }
+        ],
+        "skillType": "低学年",
+        "skillName": "ダイヤモンドピアス",
+        "description": "尖ったダイヤを突き出し、敵3名に魔法ダメージを与え、苦痛を付与する。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 500.0,
+              "2": 550.0,
+              "3": 600.0,
+              "4": 650.0,
+              "5": 700.0,
+              "6": 750.0,
+              "7": 800.0,
+              "8": 850.0,
+              "9": 900.0,
+              "10": 950.0,
+              "11": 1000.0,
+              "12": 1050.0,
+              "13": 1100.0,
+              "14": 1150.0,
+              "15": 1200.0
+            }
+          }
+        ],
+        "skillType": "高学年",
+        "skillName": "ダイヤブレ…へくちゅ！",
+        "description": "くしゃみで敵に範囲魔法ダメージを与える。",
+        "cooldownSeconds": 40.0
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "スキルダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "味方/後列",
+            "levels": {
+              "1": 12.0,
+              "2": 14.0,
+              "3": 16.0,
+              "4": 18.0,
+              "5": 20.0,
+              "6": 22.0,
+              "7": 24.0,
+              "8": 26.0,
+              "9": 28.0,
+              "10": 30.0,
+              "11": 32.0,
+              "12": 34.0,
+              "13": 36.0,
+              "14": 38.0,
+              "15": 40.0
+            }
+          }
+        ],
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "味方の後列使徒のスキルダメージ量を増加させる。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 72.0
+          },
+          {
+            "valueKind": "最後の一撃魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 48.0
+          }
+        ],
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "ダイヤを3個飛ばして敵に魔法ダメージを与える。最後の一撃はより高いダメージを与える。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "effectTarget": "敵",
+            "fixedValue": 240.0
+          },
+          {
+            "valueKind": "苦痛",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "苦痛",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "effectTarget": "敵",
+            "fixedValue": 4.0
+          }
+        ],
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "一定確率で大きなダイヤを飛ばして敵に魔法ダメージを与え、苦痛を付与する。"
+      }
+    ],
+    "favoriteCard": {},
+    "aside": {
+      "name": "ダイヤモンドの指輪",
+      "levels": {
+        "1": {
+          "name": "ダイヤの輝き",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "魔法攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "ダイヤ……へくちゅ！",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "SP回復",
+              "valueClass": "固定値",
+              "effectType": "回復",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 100.0
+            },
+            {
+              "valueKind": "最大連続使用回数",
+              "valueClass": "回数",
+              "effectType": "使用制限",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "valueKind": "クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル"
+            },
+            {
+              "valueKind": "気絶",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "高学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "高学年スキル"
+            },
+            {
+              "valueKind": "気絶",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "高学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "高学年スキル"
+            }
+          ],
+          "description": "低学年スキルが命中すると、SPを100%回復する。（最大連続使用回数：2回）\n高学年スキルのクールタイムが減少し、気絶効果が追加される。"
+        },
+        "3": {
+          "name": "指輪遠征隊",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "会心",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 15.0
+            }
+          ],
+          "description": "味方全員の敵への与ダメージを増加させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "taida",
     "name": "タイダー",
     "basic": {
@@ -10193,6 +10491,435 @@ const APOSTLE_LIBRARY = [
             }
           ],
           "description": "中列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
+    "id": "tig",
+    "name": "ティグ",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "活発",
+      "race": "獣人",
+      "role": "攻撃",
+      "position": "前列",
+      "attackType": "物理",
+      "initialSp": 100.0,
+      "spRecoveryPerSecond": 40.0,
+      "combatPowerCorrectionA": 130.0,
+      "combatPowerCorrectionB": 0.29
+    },
+    "statTypes": {
+      "hp": 4.0,
+      "atkP": 4.0,
+      "atkM": 0.0,
+      "defP": 3.0,
+      "defM": 3.0,
+      "crit": 4.0,
+      "critDmg": 4.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 320.0,
+              "2": 352.0,
+              "3": 384.0,
+              "4": 416.0,
+              "5": 448.0,
+              "6": 480.0,
+              "7": 512.0,
+              "8": 544.0,
+              "9": 576.0,
+              "10": 608.0,
+              "11": 640.0,
+              "12": 672.0,
+              "13": 704.0,
+              "14": 736.0,
+              "15": 768.0
+            }
+          },
+          {
+            "valueKind": "HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "effectTarget": "範囲内の敵",
+            "reference": "最大HP",
+            "fixedValue": 20.0
+          }
+        ],
+        "skillType": "低学年",
+        "skillName": "ソニックブレイド",
+        "description": "瞬間的に前方に前進しながら範囲物理ダメージを与えた後、元の位置に戻る。対象が使徒である場合、最大HPに比例するダメージが追加される。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 600.0,
+              "2": 660.0,
+              "3": 720.0,
+              "4": 780.0,
+              "5": 840.0,
+              "6": 900.0,
+              "7": 960.0,
+              "8": 1020.0,
+              "9": 1080.0,
+              "10": 1140.0,
+              "11": 1200.0,
+              "12": 1260.0,
+              "13": 1320.0,
+              "14": 1380.0,
+              "15": 1440.0
+            }
+          },
+          {
+            "valueKind": "攻撃速度増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 150.0
+          },
+          {
+            "valueKind": "攻撃速度増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
+          },
+          {
+            "valueKind": "普通攻撃ダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 100.0
+          }
+        ],
+        "skillType": "高学年",
+        "skillName": "オーバードライブ",
+        "description": "剣気を飛ばして敵に範囲物理ダメージを与える。一定時間、攻撃速度、普通攻撃のダメージ量がアップする。\nこの効果は解除できない。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "攻撃速度増加",
+            "valueClass": "持続時間",
+            "effectType": "パッシブ",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 20.0,
+              "2": 22.0,
+              "3": 24.0,
+              "4": 26.0,
+              "5": 28.0,
+              "6": 30.0,
+              "7": 32.0,
+              "8": 34.0,
+              "9": 36.0,
+              "10": 38.0,
+              "11": 40.0,
+              "12": 42.0,
+              "13": 44.0,
+              "14": 46.0,
+              "15": 48.0
+            }
+          }
+        ],
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "攻撃速度が増加する。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 40.0
+          },
+          {
+            "valueKind": "2回目物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 60.0
+          }
+        ],
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "双剣を素早く振り回して敵に2回物理ダメージを与え、2回目の打撃はより大きなダメージを与える。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
+            "effectTarget": "範囲内の敵",
+            "fixedValue": 60.0
+          },
+          {
+            "valueKind": "2回目物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
+            "effectTarget": "範囲内の敵",
+            "fixedValue": 90.0
+          },
+          {
+            "valueKind": "SP回復",
+            "valueClass": "固定値",
+            "effectType": "回復",
+            "triggerType": "n回ごと",
+            "triggerValue": 3.0,
+            "effectTarget": "自身",
+            "fixedValue": 120.0
+          }
+        ],
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "3回目の攻撃ごとに、双剣を振り下ろした後、周囲に振り回して、敵に範囲物理ダメージを与え、SPを回復する。\n最後の一撃はより大きなダメージを与える。"
+      }
+    ],
+    "favoriteCard": {
+      "name": "ティグの燃え盛る剣",
+      "kind": "遺物",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "valueKind": "物理ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "levels": {
+                  "1": 900.0,
+                  "2": 990.0,
+                  "3": 1080.0,
+                  "4": 1170.0,
+                  "5": 1260.0,
+                  "6": 1350.0,
+                  "7": 1440.0,
+                  "8": 1530.0,
+                  "9": 1620.0,
+                  "10": 1710.0,
+                  "11": 1800.0,
+                  "12": 1890.0,
+                  "13": 1980.0,
+                  "14": 2070.0,
+                  "15": 2160.0
+                }
+              },
+              {
+                "valueKind": "攻撃速度増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "fixedValue": 200.0
+              },
+              {
+                "valueKind": "攻撃速度増加",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "fixedValue": 10.0
+              },
+              {
+                "valueKind": "普通攻撃ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "fixedValue": 100.0
+              }
+            ],
+            "targetSkill": "高学年",
+            "skillName": "オーバードラ火ブ",
+            "description": "燃え盛る剣の気を放って敵に範囲物理ダメージを与える。\n一定時間、攻撃速度と普通攻撃のダメージが増加する。\nこの効果は解除できない。\nオーバードラ火ブの持続時間中、強化攻撃が命中すると火傷を付与する。\n火傷状態の敵に与えるダメージ量が増加する。"
+          },
+          {
+            "effects": [
+              {
+                "valueKind": "火傷",
+                "valueClass": "状態付与",
+                "effectType": "デバフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
+                "condition": "オーバードラ火ブ（高学年スキル）の持続時間中",
+                "effectTarget": "敵"
+              },
+              {
+                "valueKind": "火傷",
+                "valueClass": "持続時間",
+                "effectType": "デバフ",
+                "triggerType": "n回ごと",
+                "triggerValue": 3.0,
+                "condition": "オーバードラ火ブ（高学年スキル）の持続時間中",
+                "effectTarget": "敵",
+                "fixedValue": 4.0
+              }
+            ],
+            "targetSkill": "普通攻撃_強化",
+            "skillName": "強化",
+            "description": "燃え盛る剣の気を放って敵に範囲物理ダメージを与える。\n一定時間、攻撃速度と普通攻撃のダメージが増加する。\nこの効果は解除できない。\nオーバードラ火ブの持続時間中、強化攻撃が命中すると火傷を付与する。\n火傷状態の敵に与えるダメージ量が増加する。"
+          },
+          {
+            "effects": [
+              {
+                "valueKind": "与ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "fixedValue": 100.0
+              }
+            ],
+            "description": "燃え盛る剣の気を放って敵に範囲物理ダメージを与える。\n一定時間、攻撃速度と普通攻撃のダメージが増加する。\nこの効果は解除できない。\nオーバードラ火ブの持続時間中、強化攻撃が命中すると火傷を付与する。\n火傷状態の敵に与えるダメージ量が増加する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "valueKind": "物理攻撃力増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              }
+            ],
+            "skillName": "愛用Lv3",
+            "description": "ティグの物理攻撃力、会心、会心ダメージが増加する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "礼儀正しいディアナ",
+      "levels": {
+        "1": {
+          "name": "ディアナの一番弟子",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "物理攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "真の師匠ディアナ",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "対象使徒（ティグ、ルポ、ベニー）",
+              "effectTarget": "対象の味方",
+              "fixedValue": 30.0
+            },
+            {
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "対象使徒（ティグ、ルポ、ベニー）",
+              "effectTarget": "対象の味方",
+              "fixedValue": 25.0
+            },
+            {
+              "valueKind": "無敵",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "condition": "オーバードライブ（高学年スキル）発動時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "valueKind": "無敵",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "condition": "オーバードライブ（高学年スキル）発動時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 3.0
+            }
+          ],
+          "description": "ティグ、ルポ、ベニーの敵への与ダメージと攻撃速度が増加する。オーバードライブ発動時、一定時間無敵になる。"
+        },
+        "3": {
+          "name": "次期村長ティグ",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "物理攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "物理防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "前方の敵",
+              "fixedValue": 14.0
+            },
+            {
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "前方の敵",
+              "fixedValue": 5.0
+            }
+          ],
+          "description": "前列の味方の与ダメージ量を増加し、前列の味方の攻撃速度を増加させる。"
         }
       }
     },
@@ -10796,7 +11523,7 @@ const APOSTLE_LIBRARY = [
             },
             {
               "valueKind": "無敵",
-              "valueClass": "状態免疫",
+              "valueClass": "状態付与",
               "effectType": "バフ",
               "condition": "高学年使用時",
               "effectTarget": "自身/前衛使徒",
@@ -12320,12 +13047,12 @@ const APOSTLE_LIBRARY = [
           "name": "おしゃれピープル、集合！",
           "stats": [
             {
-              "statApplyTo": "味方全体",
+              "statApplyTo": "全体",
               "statName": "HP",
               "increaseP": 3.0
             },
             {
-              "statApplyTo": "味方全体",
+              "statApplyTo": "全体",
               "statName": "会心ダメージ抵抗",
               "increaseP": 3.0
             }
@@ -18631,14 +19358,14 @@ const APOSTLE_LIBRARY = [
             {
               "valueKind": "敵現在高学年クールタイム増加",
               "valueClass": "クールタイム",
-              "effectType": "デバフ",
+              "effectType": "クールタイム",
               "effectTarget": "敵",
               "fixedValue": 1.0
             },
             {
               "valueKind": "自分現在高学年クールタイム減少",
               "valueClass": "クールタイム",
-              "effectType": "バフ",
+              "effectType": "クールタイム",
               "effectTarget": "自身",
               "fixedValue": 2.0
             }
@@ -19004,10 +19731,12 @@ const APOSTLE_LIBRARY = [
           "name": "君たちの瞳に乾杯！",
           "stats": [
             {
+              "statApplyTo": "全体",
               "statName": "HP",
               "increaseP": 4.0
             },
             {
+              "statApplyTo": "全体",
               "statName": "会心",
               "increaseP": 4.0
             }
@@ -19565,7 +20294,7 @@ const APOSTLE_LIBRARY = [
             {
               "valueKind": "クールタイム減少",
               "valueClass": "クールタイム",
-              "effectType": "バフ",
+              "effectType": "クールタイム",
               "condition": "自身に目くらまし付与時",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",

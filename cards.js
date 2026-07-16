@@ -1444,6 +1444,104 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "relic_tig_blazing_sword",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "ティグの燃え盛る剣",
+            "signature": true,
+            "favoriteCharacter": "ティグ",
+            "cost": 21,
+            "bonusesByStar": [
+                {
+                    "atkP": 16.6,
+                    "critDmgP": 8.9
+                },
+                {
+                    "atkP": 20.8,
+                    "critDmgP": 11.1
+                },
+                {
+                    "atkP": 25,
+                    "critDmgP": 13.3
+                },
+                {
+                    "atkP": 29.2,
+                    "critDmgP": 15.5
+                },
+                {
+                    "atkP": 33.4,
+                    "critDmgP": 17.7
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "normal_attack_3_haste",
+                    "type": "toggle",
+                    "label": "普通攻撃3回ごとに 攻撃速度",
+                    "shortLabel": "攻撃速度",
+                    "nonStackingSameEffect": true,
+                    "nonStackingSameApostle": true,
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "攻撃速度2% (普通攻撃3回ごとに / 自分)",
+                        "攻撃速度2.5% (普通攻撃3回ごとに / 自分)",
+                        "攻撃速度3% (普通攻撃3回ごとに / 自分)",
+                        "攻撃速度3.5% (普通攻撃3回ごとに / 自分)",
+                        "攻撃速度4% (普通攻撃3回ごとに / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "hasteP": 2
+                        },
+                        {
+                            "hasteP": 2.5
+                        },
+                        {
+                            "hasteP": 3
+                        },
+                        {
+                            "hasteP": 3.5
+                        },
+                        {
+                            "hasteP": 4
+                        }
+                    ]
+                },
+                {
+                    "id": "max_stack",
+                    "type": "toggle",
+                    "label": "最大スタック数",
+                    "nonStackingSameEffect": true,
+                    "nonStackingSameApostle": true,
+                    "description": "自分 / スタック数",
+                    "descriptionByStar": [
+                        "最大スタック数10 (自分)",
+                        "最大スタック数10 (自分)",
+                        "最大スタック数10 (自分)",
+                        "最大スタック数10 (自分)",
+                        "最大スタック数10 (自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "maxStack": 10
+                        },
+                        {
+                            "maxStack": 10
+                        },
+                        {
+                            "maxStack": 10
+                        },
+                        {
+                            "maxStack": 10
+                        },
+                        {
+                            "maxStack": 10
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "relic_dragon_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -4784,6 +4882,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "atkP": 9.6,
             "defP": 9.6
+        }
+    },
+    "relic_tig_blazing_sword": {
+        "1": {
+            "atkP": 4.9,
+            "critDmgP": 3.7
+        },
+        "2": {
+            "atkP": 9.9,
+            "critDmgP": 7.4
         }
     },
     "relic_dragon_sword": {
