@@ -97,16 +97,17 @@
   }
 
   function syncBottomApostle() {
-    const sourceImage = document.getElementById('apostle-image');
     const sourceName = document.getElementById('apostle-name');
+    const apostleId = apostleSelect.value;
     const basicInfo = typeof TRICKCAL_STAT_DATA === 'undefined'
       ? null
-      : TRICKCAL_STAT_DATA.sheets.basicInfo.find(row => row.id === apostleSelect.value);
+      : TRICKCAL_STAT_DATA.sheets.basicInfo.find(row => row.id === apostleId);
     const personalityTone = personalityToneMap[basicInfo?.性格];
     const apostleName = String(basicInfo?.使徒名 || basicInfo?.id || sourceName.textContent || '使徒選択').trim();
+    const assetId = apostleAssetAliases[apostleId] || apostleId;
 
     bottomApostleImage.dataset.fallback = 'false';
-    bottomApostleImage.src = sourceImage.currentSrc || sourceImage.src || 'img/Chara/null.webp';
+    bottomApostleImage.src = assetId ? `img/Chara/${assetId}.webp` : 'img/Chara/null.webp';
     bottomApostleImage.alt = apostleName;
     bottomApostleName.textContent = apostleName;
     bottomApostleButton.classList.remove(...personalityToneClasses);
