@@ -30,6 +30,7 @@
 :is(.dashboard-top-status, .fdc-top-status) :is(strong, h1) {
   margin: 0;
   color: var(--fdc-text);
+  font-family: inherit;
   font-size: 0.78rem;
   font-weight: 950;
   line-height: 1.1;

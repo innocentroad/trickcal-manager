@@ -3,29 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>トリッカル ダメージ計算ツール | Trickcal Manager</title>
-  <meta name="description" content="トリッカル・もちもちほっペ大作戦の使徒、スキル、編成、遺物、スペル、バフ・デバフを設定してダメージを計算できる非公式ツールです。">
+  <title>トリッカル ダメージ計算｜カード・クレヨンボード対応 | Trickcal Manager</title>
+  <meta name="description" content="トリッカル・もちもちほっペ大作戦の使徒、スキル、編成、遺物カード、スペルカード、クレヨンボード補正、バフ・デバフを反映できる非公式ダメージ計算ツールです。">
   <meta name="robots" content="index,follow">
   <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/formation-damage-calc.html">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
   <meta property="og:site_name" content="Trickcal Manager">
-  <meta property="og:title" content="トリッカル ダメージ計算ツール">
-  <meta property="og:description" content="使徒、スキル、編成、遺物、スペル、バフ・デバフを設定してダメージを計算できます。">
+  <meta property="og:title" content="トリッカル ダメージ計算｜カード・クレヨンボード対応">
+  <meta property="og:description" content="遺物カード、スペルカード、クレヨンボード補正、編成、スキル、バフ・デバフを反映してダメージを計算できます。">
   <meta property="og:url" content="https://innocentroad.github.io/trickcal-manager/formation-damage-calc.html">
   <meta name="twitter:card" content="summary">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "WebApplication",
-      "name": "トリッカル ダメージ計算ツール",
+      "name": "トリッカル ダメージ計算｜カード・クレヨンボード対応",
       "alternateName": "Trickcal Manager",
       "url": "https://innocentroad.github.io/trickcal-manager/formation-damage-calc.html",
       "applicationCategory": "GameApplication",
       "operatingSystem": "Web",
       "inLanguage": "ja",
       "isAccessibleForFree": true,
-      "description": "トリッカル・もちもちほっペ大作戦の編成、スキル、カード効果を反映できるダメージ計算ツール"
+      "description": "トリッカル・もちもちほっペ大作戦の編成、スキル、遺物カード、スペルカード、クレヨンボード補正を反映できるダメージ計算ツール",
+      "featureList": ["ダメージ計算", "遺物カード効果", "スペルカード効果", "クレヨンボード補正", "編成・シナジー反映"]
     }
   </script>
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
@@ -36,8 +37,8 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260716a" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260717a" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260715h">
-  <link rel="stylesheet" href="shared-topbar.css?v=20260717a">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260719f">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260718a">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
   <script>
@@ -53,7 +54,7 @@
     <section class="fdc-top-control-bar" aria-label="計算操作">
       <div class="fdc-top-status">
         <h1>ダメージ計算</h1>
-        <span>編成・カード・シナジー込みで計算</span>
+        <span>カード・クレヨンボード・シナジー込みで計算</span>
       </div>
       <div class="fdc-top-tabs" aria-label="表示切替">
         <button type="button" class="is-active"><span class="topbar-label">ダメ<br>計算</span></button>
@@ -366,17 +367,37 @@
               </span>
             </div>
             <div class="fdc-enemy-preset-controls">
-              <label class="fdc-field">
+              <label class="fdc-field fdc-enemy-source-mode-field">
+                <span>敵の種類</span>
+                <select id="fdc-enemy-source-mode">
+                  <option value="preset">敵プリセット</option>
+                  <option value="apostle">使徒 / PVP</option>
+                </select>
+              </label>
+              <label class="fdc-field fdc-enemy-preset-field fdc-enemy-source-preset">
                 <span>敵プリセット</span>
                 <select id="fdc-enemy-preset">
                   <option value="">手動入力</option>
                 </select>
               </label>
-              <label class="fdc-field fdc-phase-field" id="fdc-enemy-phase-field">
+              <label class="fdc-field fdc-enemy-apostle-field fdc-enemy-source-apostle" hidden>
+                <span>敵使徒</span>
+                <span class="fdc-enemy-apostle-control">
+                  <img id="fdc-enemy-apostle-image" src="img/Chara/null.webp" alt="">
+                  <select id="fdc-enemy-apostle">
+                    <option value="">使徒を選択</option>
+                  </select>
+                </span>
+              </label>
+              <label class="fdc-pvp-affinity-toggle fdc-enemy-source-apostle" hidden>
+                <input id="fdc-pvp-affinity-enabled" type="checkbox">
+                <span><b>PvP相性補正</b><small>不利75%・有利150%</small></span>
+              </label>
+              <label class="fdc-field fdc-phase-field fdc-enemy-source-preset" id="fdc-enemy-phase-field">
                 <span>フェーズ</span>
                 <select id="fdc-enemy-phase"></select>
               </label>
-              <div class="fdc-enemy-preset-save">
+              <div class="fdc-enemy-preset-save fdc-enemy-source-preset">
                 <label class="fdc-field">
                   <span>プリセット保存</span>
                   <input id="fdc-enemy-preset-name" type="text" placeholder="名前">
@@ -384,7 +405,7 @@
                 <button type="button" id="fdc-enemy-preset-save">保存</button>
                 <button type="button" id="fdc-enemy-preset-delete" class="is-danger" disabled>削除</button>
               </div>
-              <label class="fdc-field">
+              <label class="fdc-field fdc-enemy-damage-type-field">
                 <span>ダメージ種別</span>
                 <select id="fdc-enemy-damage-type">
                   <option value="auto">自動</option>
@@ -410,8 +431,8 @@
           </div>
         </div>
 
-        <div class="stat-category">
-          <h3>ステータス</h3>
+        <div class="stat-category" id="fdc-enemy-final-stats">
+          <h3 id="fdc-enemy-final-stats-heading">ステータス</h3>
           <div class="fdc-stat-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
               <span>HP</span>
@@ -444,6 +465,65 @@
           </div>
         </div>
 
+        <div class="stat-category fdc-enemy-source-apostle" id="fdc-enemy-individual-category" hidden>
+          <h3>個別設定</h3>
+          <p class="fdc-category-note">管理側の使徒設定を読み込み、この計算内だけ変更します。</p>
+          <div id="fdc-enemy-individual-settings"></div>
+        </div>
+
+        <div class="stat-category fdc-enemy-source-apostle fdc-enemy-build-corrections" id="fdc-enemy-global-percent-category" hidden>
+          <h3>ステータス補正</h3>
+          <p class="fdc-category-note">管理側の内訳を読み込み、この計算内だけ変更します。</p>
+          <details class="fdc-correction-group" id="fdc-enemy-global-percent-group" open>
+            <summary>全体補正 (%)</summary>
+            <label class="fdc-correction-enable"><input id="fdc-enemy-global-percent-enabled" type="checkbox" checked><span>計算に適用</span></label>
+            <details id="fdc-enemy-board-preset" class="fdc-enemy-board-preset" open>
+              <summary>特殊マス全塗りセット</summary>
+              <div class="fdc-enemy-board-preset-body">
+                <div class="fdc-enemy-board-preset-rows"></div>
+                <div class="fdc-enemy-board-preset-actions">
+                  <button type="button" data-fdc-board-preset-action="clear">選択解除</button>
+                  <button type="button" data-fdc-board-preset-action="apply">全体補正へ反映</button>
+                </div>
+              </div>
+            </details>
+            <div class="fdc-stat-grid">
+              <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp"><span>HP(%)</span><input id="fdc-enemy-global-hp-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>物理攻撃力(%)</span><input id="fdc-enemy-global-patk-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>魔法攻撃力(%)</span><input id="fdc-enemy-global-matk-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>物理防御力(%)</span><input id="fdc-enemy-global-pdef-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>魔法防御力(%)</span><input id="fdc-enemy-global-mdef-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit"><span>会心(%)</span><input id="fdc-enemy-global-crit-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg"><span>会心DMG(%)</span><input id="fdc-enemy-global-crit-dmg-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res"><span>会心抵抗(%)</span><input id="fdc-enemy-global-crit-res-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res"><span>会心DMG抵抗(%)</span><input id="fdc-enemy-global-crit-dmg-res-p" type="number" value="0" step="0.1"></label>
+            </div>
+          </details>
+          <details class="fdc-correction-group" id="fdc-enemy-global-additive-group" open>
+            <summary>全体加算補正</summary>
+            <label class="fdc-correction-enable"><input id="fdc-enemy-global-additive-enabled" type="checkbox" checked><span>計算に適用</span></label>
+            <p class="fdc-correction-note">Rank全体・ボード上級マス・研究の合計値です。</p>
+            <div class="fdc-enemy-additive-preset">
+              <label class="fdc-enemy-rank-preset-field"><span>Rank全体セット</span><select id="fdc-enemy-rank-preset"><option value="current">管理側の現在値</option><option value="rare3-rank9">★3使徒 Rank9</option><option value="all-rank9">全使徒 Rank9</option></select></label>
+              <label><span>研究段階</span><select id="fdc-enemy-research-level"></select></label>
+              <label><span>到達回数</span><select id="fdc-enemy-research-progress"></select></label>
+            </div>
+            <div class="fdc-enemy-board-preset-actions fdc-enemy-additive-preset-actions">
+              <button id="fdc-enemy-additive-preset-apply" type="button">選択内容を全体加算へ反映</button>
+            </div>
+            <div class="fdc-stat-grid">
+              <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp"><span>HP</span><input id="fdc-enemy-global-additive-hp" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>物理攻撃力</span><input id="fdc-enemy-global-additive-patk" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>魔法攻撃力</span><input id="fdc-enemy-global-additive-matk" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>物理防御力</span><input id="fdc-enemy-global-additive-pdef" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>魔法防御力</span><input id="fdc-enemy-global-additive-mdef" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit"><span>会心</span><input id="fdc-enemy-global-additive-crit" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg"><span>会心DMG</span><input id="fdc-enemy-global-additive-crit-dmg" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res"><span>会心抵抗</span><input id="fdc-enemy-global-additive-crit-res" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res"><span>会心DMG抵抗</span><input id="fdc-enemy-global-additive-crit-dmg-res" type="number" value="0"></label>
+            </div>
+          </details>
+        </div>
         <div class="stat-category">
           <h3>スキル</h3>
           <div class="fdc-skill-config-grid">
@@ -679,13 +759,13 @@
     <div class="fdc-skill-popover-body"></div>
   </div>
   <script src="statData.js"></script>
-  <script src="stat-engine.js"></script>
+  <script src="stat-engine.js?v=20260718b"></script>
   <script src="apostles.js"></script>
   <script src="cards.js?v=20260715a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js"></script>
-  <script src="app-cache.js?v=20260717a"></script>
+  <script src="app-cache.js?v=20260719g"></script>
   <script src="image-preload.js"></script>
-  <script src="formation-damage-calc.js?v=20260715as"></script>
+  <script src="formation-damage-calc.js?v=20260719e"></script>
 </body>
 </html>

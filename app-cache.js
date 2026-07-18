@@ -9,7 +9,7 @@
       'stat-dashboard.html',
       'stat-prototype.css?v=20260715b',
       'stat-dashboard.css?v=20260717a',
-      'shared-topbar.css?v=20260717a',
+      'shared-topbar.css?v=20260718a',
       'statData.js?v=20260713e',
       'synergy.js',
       'cards.js?v=20260715a',
@@ -20,15 +20,15 @@
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260715h',
-      'shared-topbar.css?v=20260717a',
+      'formation-damage-calc.css?v=20260719f',
+      'shared-topbar.css?v=20260718a',
       'statData.js',
-      'stat-engine.js',
+      'stat-engine.js?v=20260718b',
       'apostles.js',
       'cards.js?v=20260715a',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260715as',
+      'formation-damage-calc.js?v=20260719e',
       'image-preload.js'
     ]
   };

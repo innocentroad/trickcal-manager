@@ -906,32 +906,627 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
   min-width: 0;
 }
 
-.fdc-enemy-preset-controls > .fdc-field:nth-child(1) {
+.fdc-enemy-source-preset[hidden],
+.fdc-enemy-source-apostle[hidden] {
+  display: none !important;
+}
+
+.fdc-enemy-source-mode-field {
   grid-column: 1;
   grid-row: 1;
 }
 
-.fdc-enemy-preset-controls > .fdc-field:nth-child(2) {
+.fdc-enemy-preset-field,
+.fdc-enemy-apostle-field {
   grid-column: 1;
   grid-row: 2;
 }
 
-.fdc-enemy-preset-controls > .fdc-field:nth-child(4) {
+.fdc-enemy-preset-controls .fdc-phase-field {
+  grid-column: 1;
+  grid-row: 3;
+}
+
+.fdc-enemy-damage-type-field {
   grid-column: 2;
   grid-row: 1;
 }
 
-.fdc-enemy-preset-controls > .fdc-field:nth-child(5) {
+.fdc-enemy-personality-field {
   grid-column: 2;
   grid-row: 2;
 }
 
+.fdc-pvp-affinity-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.52rem;
+  grid-column: 1 / -1;
+  grid-row: 3;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 36%, var(--fdc-border));
+  border-radius: 0.68rem;
+  padding: 0.48rem 0.62rem;
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-primary) 9%, var(--fdc-input));
+  cursor: pointer;
+}
+
+.fdc-pvp-affinity-toggle input {
+  width: 0.92rem;
+  height: 0.92rem;
+  margin: 0;
+  accent-color: var(--fdc-primary);
+  flex: 0 0 auto;
+}
+
+.fdc-pvp-affinity-toggle > span {
+  display: flex;
+  align-items: baseline;
+  gap: 0.42rem;
+  min-width: 0;
+}
+
+.fdc-pvp-affinity-toggle b {
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.fdc-pvp-affinity-toggle small {
+  color: var(--fdc-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+}
+
+.fdc-enemy-apostle-control {
+  position: relative;
+  display: block;
+}
+
+.fdc-enemy-apostle-control img {
+  position: absolute;
+  top: 50%;
+  left: 0.42rem;
+  z-index: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+  transform: translateY(-50%);
+  border-radius: 0.48rem;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.fdc-enemy-apostle-control select {
+  width: 100%;
+  min-width: 0;
+  padding-left: 2.65rem !important;
+}
+
+.fdc-category-note {
+  margin: -0.25rem 0 0.72rem;
+  color: var(--fdc-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.fdc-enemy-individual-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.55rem;
+}
+
+.fdc-enemy-individual-toolbar button,
+.fdc-enemy-equipment-actions button {
+  border: 1px solid var(--fdc-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.58rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.fdc-enemy-individual-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.fdc-enemy-individual-section {
+  margin-top: 0.58rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 84%, transparent);
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--fdc-input) 64%, transparent);
+  overflow: clip;
+}
+
+.fdc-enemy-individual-section > summary {
+  padding: 0.58rem 0.68rem;
+  font-size: 0.8rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.fdc-enemy-individual-section[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--fdc-border) 72%, transparent);
+}
+
+.fdc-enemy-individual-section > .fdc-enemy-individual-grid,
+.fdc-enemy-equipment-body {
+  padding: 0.68rem;
+}
+
+.fdc-enemy-individual-control {
+  display: grid;
+  gap: 0.24rem;
+  min-width: 0;
+  color: var(--fdc-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.fdc-enemy-individual-control select {
+  width: 100%;
+  height: 1.75rem;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.48rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font: inherit;
+}
+
+.fdc-enemy-follow-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.38rem;
+  width: 100%;
+  height: 1.75rem;
+  box-sizing: border-box;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.48rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font-size: 0.7rem;
+  font-weight: 800;
+  font-family: inherit;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.fdc-enemy-follow-indicator {
+  width: 0.82rem;
+  height: 0.82rem;
+  box-sizing: border-box;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.22rem;
+  background: color-mix(in srgb, var(--fdc-panel) 76%, transparent);
+  flex: 0 0 auto;
+}
+
+.fdc-enemy-follow-control.is-on .fdc-enemy-follow-indicator {
+  border-color: var(--fdc-primary);
+  background: var(--fdc-primary);
+  box-shadow: inset 0 0 0 0.18rem var(--fdc-input);
+}
+
+.fdc-enemy-follow-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fdc-enemy-equipment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.38rem;
+  margin-bottom: 0.58rem;
+}
+
+.fdc-enemy-equipment-actions select {
+  border: 1px solid var(--fdc-border);
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+}
+
+.fdc-enemy-equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.fdc-enemy-artifact-slots {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.68rem;
+}
+
+.fdc-enemy-artifact-item {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.fdc-enemy-artifact-item .fdc-artifact-slot {
+  cursor: pointer;
+}
+
+.fdc-enemy-artifact-controls {
+  display: grid;
+  gap: 0.28rem;
+  width: 5.4rem;
+}
+
+.fdc-enemy-artifact-controls select {
+  min-width: 0;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.48rem;
+  padding: 0.28rem 0.34rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font-size: 0.68rem;
+}
+
+.fdc-enemy-artifact-info {
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.48rem;
+  padding: 0.28rem 0.34rem;
+  color: var(--fdc-muted);
+  background: var(--fdc-input);
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fdc-enemy-artifact-effects {
+  padding: 0 0.68rem 0.68rem;
+}
+
+.fdc-enemy-spell-body {
+  min-width: 0;
+  padding: 0.68rem;
+}
+
+.fdc-enemy-spell-add {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.fdc-enemy-spell-add select,
+.fdc-enemy-spell-item select,
+.fdc-enemy-spell-item input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.5rem;
+  padding: 0.34rem 0.42rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font: inherit;
+  line-height: 1.2;
+}
+
+.fdc-enemy-spell-list {
+  display: grid;
+  gap: 0.42rem;
+  margin-top: 0.58rem;
+}
+
+.fdc-enemy-spell-item {
+  display: grid;
+  grid-template-columns: 2.3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.42rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.62rem;
+  padding: 0.42rem;
+  background: var(--fdc-input);
+}
+
+.fdc-enemy-spell-item > img {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+.fdc-enemy-spell-name,
+.fdc-enemy-spell-controls label {
+  display: grid;
+  gap: 0.16rem;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.fdc-enemy-spell-name strong {
+  overflow: hidden;
+  color: var(--fdc-text);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdc-enemy-spell-name small,
+.fdc-enemy-spell-controls label > span {
+  color: var(--fdc-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.fdc-enemy-spell-item > button {
+  border: 0;
+  padding: 0.3rem;
+  color: var(--fdc-muted);
+  background: transparent;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.fdc-enemy-spell-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.fdc-enemy-spell-list + .fdc-enemy-artifact-effects {
+  padding: 0.68rem 0 0;
+}
+
+.fdc-enemy-equipment-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.45rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.62rem;
+  padding: 0.46rem 0.52rem;
+  background: var(--fdc-input);
+}
+
+.fdc-enemy-equipment-item > label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  color: var(--fdc-text);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.fdc-enemy-equipment-item small {
+  color: var(--fdc-muted);
+}
+
+.fdc-enemy-equipment-item select {
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.24rem 0.34rem;
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-panel) 72%, var(--fdc-input));
+}
+
+@media (max-width: 720px) {
+  .fdc-enemy-individual-grid,
+  .fdc-enemy-equipment-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.fdc-correction-group {
+  border: 1px solid color-mix(in srgb, var(--fdc-border) 84%, transparent);
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--fdc-input) 64%, transparent);
+  overflow: clip;
+}
+
+.fdc-correction-group + .fdc-correction-group {
+  margin-top: 0.52rem;
+}
+
+.fdc-correction-group > summary {
+  padding: 0.62rem 0.72rem;
+  color: var(--fdc-text);
+  font-size: 0.84rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.fdc-correction-group[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--fdc-border) 72%, transparent);
+}
+
+.fdc-correction-enable {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  width: fit-content;
+  margin: 0.58rem 0.68rem 0;
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.fdc-correction-enable input {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--fdc-primary);
+}
+
+.fdc-correction-group.is-disabled > summary {
+  color: var(--fdc-muted);
+}
+
+.fdc-correction-group.is-disabled > :not(summary):not(.fdc-correction-enable) {
+  opacity: 0.42;
+}
+
+.fdc-correction-group > .fdc-stat-grid {
+  padding: 0.68rem;
+}
+
+.fdc-correction-note {
+  margin: 0;
+  padding: 0.62rem 0.68rem 0;
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+.fdc-enemy-board-preset {
+  margin: 0.68rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 34%, var(--fdc-border));
+  border-radius: 0.72rem;
+  background: color-mix(in srgb, var(--fdc-primary) 7%, var(--fdc-panel));
+  overflow: clip;
+}
+
+.fdc-enemy-board-preset > summary {
+  padding: 0.68rem;
+  font-size: 0.84rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.fdc-enemy-board-preset[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--fdc-border) 72%, transparent);
+}
+
+.fdc-enemy-board-preset-body {
+  padding: 0.68rem;
+}
+
+.fdc-enemy-board-preset-body > p {
+  margin: 0 0 0.58rem;
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.fdc-enemy-board-preset-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.42rem;
+  align-items: center;
+}
+
+.fdc-enemy-board-preset-row + .fdc-enemy-board-preset-row {
+  margin-top: 0.38rem;
+}
+
+.fdc-enemy-board-preset-row > b {
+  color: var(--fdc-muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.fdc-enemy-board-preset-row > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.fdc-enemy-board-preset button,
+.fdc-enemy-additive-preset-actions button {
+  border: 1px solid var(--fdc-border);
+  border-radius: 999px;
+  padding: 0.28rem 0.54rem;
+  color: var(--fdc-muted);
+  background: var(--fdc-input);
+  font-size: 0.72rem;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.fdc-enemy-board-preset button.is-active {
+  border-color: color-mix(in srgb, var(--fdc-primary) 68%, var(--fdc-border));
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-primary) 26%, var(--fdc-input));
+}
+
+.fdc-enemy-additive-preset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.38rem;
+  margin: 0.58rem 0.68rem 0;
+}
+
+.fdc-enemy-rank-preset-field {
+  grid-column: 1 / -1;
+}
+
+.fdc-enemy-additive-preset label {
+  display: grid;
+  gap: 0.22rem;
+  color: var(--fdc-muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.fdc-enemy-additive-preset select {
+  min-width: 0;
+  border: 1px solid var(--fdc-border);
+  border-radius: 0.55rem;
+  padding: 0.38rem 0.48rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font: inherit;
+}
+.fdc-enemy-board-preset output {
+  display: block;
+  margin-top: 0.58rem;
+  color: var(--fdc-primary-soft, var(--fdc-text));
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.fdc-enemy-board-preset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.38rem;
+  margin-top: 0.58rem;
+}
+
+.fdc-enemy-additive-preset-actions {
+  padding: 0 0.68rem;
+}
+
+.fdc-enemy-board-preset-actions button:last-child {
+  border-color: color-mix(in srgb, var(--fdc-primary) 68%, var(--fdc-border));
+  color: var(--fdc-text);
+  background: color-mix(in srgb, var(--fdc-primary) 26%, var(--fdc-input));
+}
+#fdc-enemy-final-stats.is-final-output input[readonly] {
+  border-color: color-mix(in srgb, var(--fdc-primary) 38%, var(--fdc-border));
+  background: color-mix(in srgb, var(--fdc-primary) 10%, var(--fdc-input));
+  color: var(--fdc-text);
+  font-weight: 900;
+  cursor: default;
+}
 .fdc-enemy-preset-save {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 0.38rem;
   grid-column: 1;
-  grid-row: 3;
+  grid-row: 4;
   align-items: end;
 }
 

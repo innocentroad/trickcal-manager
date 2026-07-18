@@ -71,6 +71,12 @@
     enemyRoleChip: document.getElementById('fdc-enemy-role-chip'),
     selfAttackTypeChip: document.getElementById('fdc-self-attack-type-chip'),
     enemyAttackTypeChip: document.getElementById('fdc-enemy-attack-type-chip'),
+    enemySourceMode: document.getElementById('fdc-enemy-source-mode'),
+    pvpAffinityEnabled: document.getElementById('fdc-pvp-affinity-enabled'),
+    enemyApostle: document.getElementById('fdc-enemy-apostle'),
+    enemyApostleImage: document.getElementById('fdc-enemy-apostle-image'),
+    enemySourcePresetFields: Array.from(document.querySelectorAll('.fdc-enemy-source-preset')),
+    enemySourceApostleFields: Array.from(document.querySelectorAll('.fdc-enemy-source-apostle')),
     enemyPreset: document.getElementById('fdc-enemy-preset'),
     enemyPresetName: document.getElementById('fdc-enemy-preset-name'),
     enemyPresetSave: document.getElementById('fdc-enemy-preset-save'),
@@ -85,6 +91,18 @@
     selfWeaknessLabel: document.getElementById('fdc-self-weakness-label'),
     enemyWeaknessField: document.getElementById('fdc-enemy-weakness-field'),
     enemyWeaknessLabel: document.getElementById('fdc-enemy-weakness-label'),
+    enemyFinalStats: document.getElementById('fdc-enemy-final-stats'),
+    enemyFinalStatsHeading: document.getElementById('fdc-enemy-final-stats-heading'),
+    enemyIndividualSettings: document.getElementById('fdc-enemy-individual-settings'),
+    enemyGlobalPercentGroup: document.getElementById('fdc-enemy-global-percent-group'),
+    enemyGlobalAdditiveGroup: document.getElementById('fdc-enemy-global-additive-group'),
+    enemyGlobalPercentEnabled: document.getElementById('fdc-enemy-global-percent-enabled'),
+    enemyGlobalAdditiveEnabled: document.getElementById('fdc-enemy-global-additive-enabled'),
+    enemyBoardPreset: document.getElementById('fdc-enemy-board-preset'),
+    enemyRankPreset: document.getElementById('fdc-enemy-rank-preset'),
+    enemyResearchLevel: document.getElementById('fdc-enemy-research-level'),
+    enemyResearchProgress: document.getElementById('fdc-enemy-research-progress'),
+    enemyAdditivePresetApply: document.getElementById('fdc-enemy-additive-preset-apply'),
     selfBuffCategory: document.getElementById('fdc-self-buff-category'),
     enemyBuffCategory: document.getElementById('fdc-enemy-buff-category'),
     formationPreset: document.getElementById('fdc-formation-preset'),
@@ -148,6 +166,25 @@
       extraCrayonCritDmgP: document.getElementById('fdc-extra-crayon-crit-dmg-p'),
       extraCrayonCritResP: document.getElementById('fdc-extra-crayon-crit-res-p'),
       extraCrayonCritDmgResP: document.getElementById('fdc-extra-crayon-crit-dmg-res-p'),
+      enemyGlobalHpP: document.getElementById('fdc-enemy-global-hp-p'),
+      enemyGlobalPatkP: document.getElementById('fdc-enemy-global-patk-p'),
+      enemyGlobalMatkP: document.getElementById('fdc-enemy-global-matk-p'),
+      enemyGlobalPdefP: document.getElementById('fdc-enemy-global-pdef-p'),
+      enemyGlobalMdefP: document.getElementById('fdc-enemy-global-mdef-p'),
+      enemyGlobalCritP: document.getElementById('fdc-enemy-global-crit-p'),
+      enemyGlobalCritDmgP: document.getElementById('fdc-enemy-global-crit-dmg-p'),
+      enemyGlobalCritResP: document.getElementById('fdc-enemy-global-crit-res-p'),
+      enemyGlobalCritDmgResP: document.getElementById('fdc-enemy-global-crit-dmg-res-p'),
+
+      enemyGlobalAdditiveHp: document.getElementById('fdc-enemy-global-additive-hp'),
+      enemyGlobalAdditivePatk: document.getElementById('fdc-enemy-global-additive-patk'),
+      enemyGlobalAdditiveMatk: document.getElementById('fdc-enemy-global-additive-matk'),
+      enemyGlobalAdditivePdef: document.getElementById('fdc-enemy-global-additive-pdef'),
+      enemyGlobalAdditiveMdef: document.getElementById('fdc-enemy-global-additive-mdef'),
+      enemyGlobalAdditiveCrit: document.getElementById('fdc-enemy-global-additive-crit'),
+      enemyGlobalAdditiveCritDmg: document.getElementById('fdc-enemy-global-additive-crit-dmg'),
+      enemyGlobalAdditiveCritRes: document.getElementById('fdc-enemy-global-additive-crit-res'),
+      enemyGlobalAdditiveCritDmgRes: document.getElementById('fdc-enemy-global-additive-crit-dmg-res'),
       enemyDefP: document.getElementById('fdc-enemy-def-p'),
       enemyTakenDmgP: document.getElementById('fdc-enemy-taken-dmg-p'),
       enemyCritResP: document.getElementById('fdc-enemy-crit-res-p'),
@@ -195,7 +232,20 @@
     perspective: 'self',
     mobileVisibleSide: 'self',
     enemyPersonality: '',
+    enemySourceMode: 'preset',
+    pvpAffinityEnabled: false,
+    enemyApostleId: '',
     enemyPresetKey: '',
+    enemySelectedSkillCategory: '',
+    enemyStatDirty: false,
+    enemyGlobalPercentDirty: false,
+    enemyGlobalPercentEnabled: true,
+    enemyGlobalAdditiveEnabled: true,
+    enemyBoardPresetSelections: { 1: [], 2: [], 3: [] },
+    enemyIndividualOverrides: {},
+    enemyIndividualSectionOpen: { skills: true, equipment: false, artifacts: false, spells: false },
+    enemyRankPreset: 'current',
+    enemyResearchPreset: { level: 0, progress: 0, dirty: false },
     formationPresetId: '',
     enemyPhaseIndex: 0,
     enemySkillIndex: -1,
@@ -235,22 +285,61 @@
     referenceState: null,
     referenceOptions: { cards: false, global: false, apostles: false }
   };
+  const ENEMY_GLOBAL_PERCENT_CONFIG = [
+    { inputKey: 'enemyGlobalHpP', additiveInputKey: 'enemyGlobalAdditiveHp', statKey: 'hp', memberKey: 'hp', aliases: ['hp', 'HP'] },
+    { inputKey: 'enemyGlobalPatkP', additiveInputKey: 'enemyGlobalAdditivePatk', statKey: 'patk', memberKey: 'physicalAtk', aliases: ['physicalAtk', 'patk', '物理攻撃', '物理攻撃力'] },
+    { inputKey: 'enemyGlobalMatkP', additiveInputKey: 'enemyGlobalAdditiveMatk', statKey: 'matk', memberKey: 'magicAtk', aliases: ['magicAtk', 'matk', '魔法攻撃', '魔法攻撃力'] },
+    { inputKey: 'enemyGlobalPdefP', additiveInputKey: 'enemyGlobalAdditivePdef', statKey: 'pdef', memberKey: 'physicalDef', aliases: ['physicalDef', 'pdef', '物理防御', '物理防御力'] },
+    { inputKey: 'enemyGlobalMdefP', additiveInputKey: 'enemyGlobalAdditiveMdef', statKey: 'mdef', memberKey: 'magicDef', aliases: ['magicDef', 'mdef', '魔法防御', '魔法防御力'] },
+    { inputKey: 'enemyGlobalCritP', additiveInputKey: 'enemyGlobalAdditiveCrit', statKey: 'crit', memberKey: 'crit', aliases: ['crit', '会心'] },
+    { inputKey: 'enemyGlobalCritDmgP', additiveInputKey: 'enemyGlobalAdditiveCritDmg', statKey: 'critDmg', memberKey: 'critDmg', aliases: ['critDmg', '会心DMG', '会心ダメージ'] },
+    { inputKey: 'enemyGlobalCritResP', additiveInputKey: 'enemyGlobalAdditiveCritRes', statKey: 'critRes', memberKey: 'critRes', aliases: ['critRes', '会心抵抗'] },
+    { inputKey: 'enemyGlobalCritDmgResP', additiveInputKey: 'enemyGlobalAdditiveCritDmgRes', statKey: 'critDmgRes', memberKey: 'critDmgRes', aliases: ['critDmgRes', '会心DMG抵抗'] }
+  ];
+  const ENEMY_EQUIPMENT_GROUPS = [
+    { key: 'HP', label: 'HP' },
+    { key: '物理攻撃', label: '物攻' },
+    { key: '魔法攻撃', label: '魔攻' },
+    { key: '物理防御', label: '物防' },
+    { key: '魔法防御', label: '魔防' },
+    { key: '会心/会心DMG', label: '会心系' },
+    { key: '会心抵抗/会心DMG抵抗', label: '会心抵抗系' }
+  ];
+  const ENEMY_BOARD_PRESET_GROUPS = [
+    { key: 'hp', label: 'HP', statKeys: ['hp'] },
+    { key: 'attack', label: '攻撃', statKeys: ['patk', 'matk'] },
+    { key: 'defense', label: '防御', statKeys: ['pdef', 'mdef'] },
+    { key: 'crit', label: '会心系', statKeys: ['crit', 'critDmg'] },
+    { key: 'critRes', label: '会心抵抗系', statKeys: ['critRes', 'critDmgRes'] }
+  ];
   restoreCalcSettings();
 
   initTheme();
   setupCollapsibleStatCategories();
   bindEvents();
   populateEnemyPresets();
+  populateEnemyApostles();
   renderDamageSaveActionPanel();
   applyEnemyPreset();
   render();
 
   function bindEvents() {
     window.addEventListener('storage', event => {
-      if (event.key === STAT_STORAGE_KEY) syncFdcSkillLevelOverridesFromManager();
+      if (event.key !== STAT_STORAGE_KEY) return;
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      view.enemyResearchPreset.dirty = false;
+      view.enemyIndividualOverrides = {};
+      const hadSkillOverrides = Object.keys(view.skillLevelOverrides || {}).length > 0;
+      syncFdcSkillLevelOverridesFromManager();
+      if (!hadSkillOverrides) render();
     });
     el.reload?.addEventListener('click', () => {
       view.statDirty = false;
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      view.enemyResearchPreset.dirty = false;
+      view.enemyIndividualOverrides = {};
       render();
     });
     el.themeToggle?.addEventListener('click', toggleTheme);
@@ -412,6 +501,226 @@
       saveCalcSettings();
       render();
     });
+    el.enemySourceMode?.addEventListener('change', () => {
+      view.enemySourceMode = el.enemySourceMode.value === 'apostle' ? 'apostle' : 'preset';
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      view.enemyResearchPreset.dirty = false;
+      view.enemySkillIndex = -1;
+      view.enemySelectedSkillCategory = '';
+      if (el.inputs.enemySkill) el.inputs.enemySkill.value = '100';
+      if (view.enemySourceMode === 'apostle' && el.inputs.enemySpecial) el.inputs.enemySpecial.value = '100';
+      if (view.enemySourceMode === 'apostle' && !view.enemyApostleId) {
+        view.enemyApostleId = el.enemyApostle?.value || '';
+      }
+      applyEnemyPreset();
+      saveCalcSettings();
+      render();
+    });
+    el.pvpAffinityEnabled?.addEventListener('change', () => {
+      view.pvpAffinityEnabled = !!el.pvpAffinityEnabled.checked;
+      saveCalcSettings();
+      render();
+    });
+    el.enemyApostle?.addEventListener('change', () => {
+      view.enemyApostleId = el.enemyApostle.value || '';
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      view.enemyResearchPreset.dirty = false;
+      view.enemySkillIndex = -1;
+      view.enemySelectedSkillCategory = '';
+      if (el.inputs.enemySkill) el.inputs.enemySkill.value = '100';
+      applyEnemyPreset();
+      saveCalcSettings();
+      render();
+    });
+    el.enemyIndividualSettings?.addEventListener('change', event => {
+      const target = event.target;
+      const context = buildContext();
+      const settings = ensureEnemyIndividualOverride(context);
+      if (!settings) return;
+      const field = target.dataset.fdcEnemyIndividualField || '';
+      const skill = target.dataset.fdcEnemySkillLevel || '';
+      const equipmentEnabled = target.dataset.fdcEnemyEquipmentEnabled || '';
+      const equipmentEnhance = target.dataset.fdcEnemyEquipmentEnhance || '';
+      const artifactField = target.dataset.fdcEnemyArtifactField || '';
+      const artifactSlot = target.dataset.fdcEnemyArtifactSlot;
+      const spellField = target.dataset.fdcEnemySpellField || '';
+      const spellId = target.dataset.fdcEnemySpellId || '';
+      if (field === 'follow') settings.follow = !!target.checked;
+      else if (field === 'asideRank') settings.asideRank = Math.max(0, Math.min(3, Number(target.value) || 0));
+      else if (field) settings[field] = Number(target.value) || 1;
+      else if (skill) settings.skillLevels[skill] = Number(target.value) || 1;
+      else if (equipmentEnabled) {
+        const item = settings.equipment[equipmentEnabled] || { enabled: false, enhance: 0 };
+        settings.equipment[equipmentEnabled] = { ...item, enabled: !!target.checked };
+      } else if (equipmentEnhance) {
+        const item = settings.equipment[equipmentEnhance] || { enabled: false, enhance: 0 };
+        settings.equipment[equipmentEnhance] = { ...item, enhance: Math.max(0, Math.min(5, Number(target.value) || 0)) };
+      } else if (artifactField && artifactSlot !== undefined) {
+        const index = Math.max(0, Math.min(2, Number(artifactSlot) || 0));
+        const item = settings.artifactSettings?.[index] || { star: 1, solder: 0 };
+        if (artifactField === 'star') {
+          item.star = Math.max(1, Math.min(5, Number(target.value) || 1));
+          if (item.star < 5) item.solder = 0;
+        } else if (artifactField === 'solder') {
+          item.solder = Math.max(0, Math.min(2, Number(target.value) || 0));
+        }
+        settings.artifactSettings[index] = item;
+      } else if (target.matches('[data-fdc-enemy-spell-add]')) {
+        const id = String(target.value || '');
+        if (!id) return;
+        settings.spellIds.push(id);
+        target.value = '';
+      } else if (spellField && spellId) {
+        const item = settings.spellSettings?.[spellId] || { star: 1, solder: 0 };
+        if (spellField === 'count') {
+          const count = Math.max(0, Math.min(99, Number(target.value) || 0));
+          settings.spellIds = settings.spellIds.filter(id => id !== spellId);
+          settings.spellIds.push(...Array.from({ length: count }, () => spellId));
+        } else if (spellField === 'star') {
+          item.star = Math.max(1, Math.min(5, Number(target.value) || 1));
+          if (item.star < 5) item.solder = 0;
+          settings.spellSettings[spellId] = item;
+        } else if (spellField === 'solder') {
+          item.solder = Math.max(0, Math.min(2, Number(target.value) || 0));
+          settings.spellSettings[spellId] = item;
+        }
+      } else return;
+      view.enemyIndividualOverrides[view.enemyApostleId] = normalizeEnemyIndividualSettings(settings, context);
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      saveCalcSettings();
+      render();
+    });
+    el.enemyIndividualSettings?.addEventListener('click', event => {
+      const followToggle = event.target.closest('[data-fdc-enemy-follow-toggle]');
+      if (followToggle) {
+        const context = buildContext();
+        const settings = ensureEnemyIndividualOverride(context);
+        if (!settings) return;
+        settings.follow = !settings.follow;
+        view.enemyIndividualOverrides[view.enemyApostleId] = normalizeEnemyIndividualSettings(settings, context);
+        view.enemyStatDirty = false;
+        view.enemyGlobalPercentDirty = false;
+        saveCalcSettings();
+        render();
+        return;
+      }
+      const removeSpell = event.target.closest('[data-fdc-enemy-spell-remove]')?.dataset?.fdcEnemySpellRemove || '';
+      if (removeSpell) {
+        const context = buildContext();
+        const settings = ensureEnemyIndividualOverride(context);
+        if (!settings) return;
+        settings.spellIds = settings.spellIds.filter(id => id !== removeSpell);
+        delete settings.spellSettings[removeSpell];
+        view.enemyIndividualOverrides[view.enemyApostleId] = normalizeEnemyIndividualSettings(settings, context);
+        saveCalcSettings();
+        render();
+        return;
+      }
+      const action = event.target.closest('[data-fdc-enemy-individual-action]')?.dataset?.fdcEnemyIndividualAction || '';
+      if (!action) return;
+      const context = buildContext();
+      if (action === 'reset') {
+        delete view.enemyIndividualOverrides[view.enemyApostleId];
+      } else {
+        const settings = ensureEnemyIndividualOverride(context);
+        const equipmentRow = getEnemyEquipmentRow(view.enemyApostleId);
+        if (!settings) return;
+        const visibleKeys = ENEMY_EQUIPMENT_GROUPS
+          .filter(group => Number(equipmentRow?.[`Equip_Rank${settings.rank}_${group.key}`]) > 0)
+          .map(group => group.key);
+        if (action === 'equipment-on' || action === 'equipment-off') {
+          visibleKeys.forEach(key => {
+            const item = settings.equipment[key] || { enabled: false, enhance: 0 };
+            settings.equipment[key] = { ...item, enabled: action === 'equipment-on' };
+          });
+        } else if (action === 'equipment-enhance') {
+          const enhance = Math.max(0, Math.min(5, Number(el.enemyIndividualSettings.querySelector('[data-fdc-enemy-equipment-bulk-enhance]')?.value) || 0));
+          visibleKeys.forEach(key => {
+            const item = settings.equipment[key] || { enabled: false, enhance: 0 };
+            settings.equipment[key] = { ...item, enhance };
+          });
+        }
+        view.enemyIndividualOverrides[view.enemyApostleId] = normalizeEnemyIndividualSettings(settings, context);
+      }
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      saveCalcSettings();
+      render();
+    });
+    el.enemyBoardPreset?.addEventListener('click', event => {
+      const choice = event.target.closest('[data-fdc-board-preset-layer][data-fdc-board-preset-group]');
+      if (choice) {
+        const layer = String(Math.max(1, Math.min(3, Number(choice.dataset.fdcBoardPresetLayer) || 1)));
+        const group = choice.dataset.fdcBoardPresetGroup || '';
+        const selected = new Set(view.enemyBoardPresetSelections?.[layer] || []);
+        if (selected.has(group)) selected.delete(group);
+        else selected.add(group);
+        view.enemyBoardPresetSelections[layer] = ENEMY_BOARD_PRESET_GROUPS.map(item => item.key).filter(key => selected.has(key));
+        renderEnemyBoardPresetUi(buildContext());
+        saveCalcSettings();
+        return;
+      }
+      const action = event.target.closest('[data-fdc-board-preset-action]')?.dataset?.fdcBoardPresetAction;
+      if (action === 'clear') {
+        view.enemyBoardPresetSelections = { 1: [], 2: [], 3: [] };
+        renderEnemyBoardPresetUi(buildContext());
+        saveCalcSettings();
+        return;
+      }
+      if (action === 'apply') {
+        const context = buildContext();
+        writeEnemyGlobalPercentInputs(calculateEnemyBoardPresetRates());
+        view.enemyGlobalPercentDirty = true;
+        view.enemyStatDirty = false;
+        syncStatsFromEnemyApostle(context);
+        saveCalcSettings();
+        renderEnemyBoardPresetUi(context);
+        renderResult(context);
+      }
+    });
+    el.enemyRankPreset?.addEventListener('change', () => {
+      view.enemyRankPreset = normalizeEnemyRankPreset(el.enemyRankPreset.value);
+      renderEnemyBoardPresetUi(buildContext());
+      saveCalcSettings();
+    });
+    [el.enemyResearchLevel, el.enemyResearchProgress].forEach(select => {
+      select?.addEventListener('change', () => {
+        view.enemyResearchPreset = {
+          level: Math.max(0, Math.min(10, Number(el.enemyResearchLevel?.value) || 0)),
+          progress: Math.max(0, Math.min(45, Number(el.enemyResearchProgress?.value) || 0)),
+          dirty: true
+        };
+        renderEnemyBoardPresetUi(buildContext());
+        saveCalcSettings();
+      });
+    });
+    el.enemyAdditivePresetApply?.addEventListener('click', () => {
+      const context = buildContext();
+      writeEnemyCorrectionInputs('additiveInputKey', calculateEnemyGlobalAdditivePreset(context));
+      view.enemyGlobalPercentDirty = true;
+      view.enemyStatDirty = false;
+      syncStatsFromEnemyApostle(context);
+      saveCalcSettings();
+      renderResult(context);
+    });
+    [
+      [el.enemyGlobalPercentEnabled, 'enemyGlobalPercentEnabled'],
+      [el.enemyGlobalAdditiveEnabled, 'enemyGlobalAdditiveEnabled']
+    ].forEach(([input, viewKey]) => {
+      input?.addEventListener('change', () => {
+        view[viewKey] = !!input.checked;
+        view.enemyGlobalPercentDirty = true;
+        view.enemyStatDirty = false;
+        const context = buildContext();
+        syncStatsFromEnemyApostle(context);
+        renderEnemyCorrectionEnabledUi();
+        saveCalcSettings();
+        renderResult(context);
+      });
+    });
     el.enemyPersonality?.addEventListener('change', () => {
       view.enemyPersonality = el.enemyPersonality.value || '';
       saveCalcSettings();
@@ -426,7 +735,7 @@
     });
     el.enemyDamageType?.addEventListener('change', () => {
       view.enemyDamageType = el.enemyDamageType.value || 'auto';
-      view.statDirty = false;
+      view.enemyStatDirty = false;
       applyEnemyPreset();
       saveCalcSettings();
       render();
@@ -434,12 +743,16 @@
     el.gradeOverride?.addEventListener('change', () => {
       view.gradeOverride = el.gradeOverride.value || 'saved';
       view.statDirty = false;
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
       saveCalcSettings();
       render();
     });
     el.statMode?.addEventListener('change', () => {
       view.statMode = el.statMode.value === 'planned' ? 'planned' : 'current';
       view.statDirty = false;
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
       saveCalcSettings();
       render();
     });
@@ -447,6 +760,8 @@
       button.addEventListener('click', () => {
         view.statMode = button.dataset.fdcStatModeChoice === 'planned' ? 'planned' : 'current';
         view.statDirty = false;
+        view.enemyStatDirty = false;
+        view.enemyGlobalPercentDirty = false;
         if (el.statMode) el.statMode.value = view.statMode;
         saveCalcSettings();
         syncApplyFloatUi();
@@ -493,12 +808,30 @@
         renderResult(buildContext());
       });
     });
+    [el.inputs.enemyHp, el.inputs.enemyAtk, el.inputs.enemyCrit, el.inputs.enemyCritDmg, el.inputs.def, el.inputs.critRes, el.inputs.critDmgRes].forEach(input => {
+      input?.addEventListener('input', () => {
+        if (view.enemySourceMode === 'apostle') view.enemyStatDirty = true;
+        renderResult(buildContext());
+      });
+    });
+    getEnemyCorrectionInputKeys().forEach(inputKey => {
+      el.inputs[inputKey]?.addEventListener('input', () => {
+        if (view.enemySourceMode !== 'apostle') return;
+        const context = buildContext();
+        view.enemyGlobalPercentDirty = true;
+        view.enemyStatDirty = false;
+        syncStatsFromEnemyApostle(context);
+        saveCalcSettings();
+        renderResult(context);
+      });
+    });
     Object.values(el.inputs).forEach(input => {
-      if (!input || [el.inputs.selfHp, el.inputs.atk, el.inputs.selfDef, el.inputs.crit, el.inputs.critDmg, el.inputs.selfCritResBase, el.inputs.selfCritDmgResBase].includes(input)) return;
+      if (!input || isEnemyCorrectionInput(input) || [el.inputs.selfHp, el.inputs.atk, el.inputs.selfDef, el.inputs.crit, el.inputs.critDmg, el.inputs.selfCritResBase, el.inputs.selfCritDmgResBase].includes(input)) return;
       input.addEventListener('input', () => {
         if (input === el.inputs.selfSkill) view.selectedSkillCategory = '';
         if (input === el.inputs.enemySkill) {
           view.enemySkillIndex = -2;
+          view.enemySelectedSkillCategory = '';
           if (el.enemySkill) el.enemySkill.value = input.value || '';
           renderEnemySkillChoices();
         }
@@ -516,17 +849,20 @@
     syncApplyFloatUi();
     syncPerspectiveUi();
     syncMobileSideUi();
+    syncEnemySourceUi(context);
     if (el.damageType) el.damageType.value = view.damageType;
     if (el.enemyDamageType) el.enemyDamageType.value = view.enemyDamageType;
     syncDamageTypeUi(context);
     syncWeaknessFields(context.damageType);
-    syncEnemyPersonalityUi();
-    syncPersonalityTypeAffinity(context);
     if (el.gradeOverride) el.gradeOverride.value = view.gradeOverride;
     if (el.statMode) el.statMode.value = view.statMode;
     populateEnemyPhases();
-    renderEnemySkillChoices();
+    syncEnemyGlobalPercentInputs(context);
     syncStatsFromTarget(context);
+    syncStatsFromEnemyApostle(context);
+    syncEnemyPersonalityUi();
+    syncPersonalityTypeAffinity(context);
+    renderEnemySkillChoices(undefined, context);
     renderFormationPresetLoader(context);
     renderTarget(context);
     renderSelfSkillChoices(context);
@@ -536,6 +872,308 @@
     renderArtifactCategory(context);
     renderSpellCategory(context);
     renderResult(context);
+  }
+
+  function getEnemyIndividualBaseState(context, id = view.enemyApostleId) {
+    const apostleState = context?.state?.apostles?.[id] || {};
+    const basic = getApostle(id) || {};
+    return {
+      level: Number(apostleState.level) || 1,
+      star: Number(apostleState.star) || Number(basic.レア度) || 1,
+      grade: Number(apostleState.grade) || 1,
+      rank: Number(apostleState.rank) || 1,
+      bond: Number(basic.レア度) === 1 ? 1 : Number(apostleState.bond) || 1,
+      asideRank: Math.max(0, Math.min(3, Number(apostleState.asideRank) || 0)),
+      asideLevel: Number(apostleState.asideLevel) || 0,
+      follow: basic.エルダイン ? false : !!apostleState.follow,
+      skillLevels: clonePlain(apostleState.skillLevels || apostleState.skills || { low: 1, high: 1, passive: 1 }),
+      equipment: clonePlain(apostleState.equipment || {}),
+      artifactIds: ['', '', ''],
+      artifactSettings: [{}, {}, {}],
+      spellIds: [],
+      spellSettings: {}
+    };
+  }
+
+  function normalizeEnemyIndividualSettings(settings = {}, context = buildContext(), id = view.enemyApostleId) {
+    const base = getEnemyIndividualBaseState(context, id);
+    const basic = getApostle(id) || {};
+    const star = Math.max(1, Math.min(5, Number(settings.star ?? base.star) || 1));
+    const levelCap = ({ 1: 120, 2: 120, 3: 125, 4: 135, 5: 145 })[star] || 120;
+    const asideRank = Math.max(0, Math.min(3, Number(settings.asideRank ?? base.asideRank) || 0));
+    const asideLevelCap = [0, 30, 40, 50][asideRank] || 0;
+    const asideLevel = asideLevelCap
+      ? Math.max(1, Math.min(asideLevelCap, Number(settings.asideLevel ?? base.asideLevel) || 1))
+      : 0;
+    const skillCap = 12 + Math.max(0, Math.min(3, asideRank));
+    const skillSource = { ...base.skillLevels, ...(settings.skillLevels || {}) };
+    const equipment = clonePlain(base.equipment);
+    Object.entries(settings.equipment || {}).forEach(([key, value]) => {
+      equipment[key] = {
+        enabled: !!value?.enabled,
+        enhance: Math.max(0, Math.min(5, Number(value?.enhance) || 0))
+      };
+    });
+    const artifactIds = Array.from({ length: 3 }, (_, index) => String(settings.artifactIds?.[index] ?? base.artifactIds?.[index] ?? ''));
+    const cards = context?.state?.cards || {};
+    const artifactSettings = artifactIds.map((artifactId, index) => {
+      const manager = cards[artifactId] || {};
+      const saved = settings.artifactSettings?.[index] || {};
+      const artifactStar = Math.max(1, Math.min(5, Number(saved.star ?? manager.star) || 1));
+      return {
+        star: artifactStar,
+        solder: artifactStar >= 5 ? Math.max(0, Math.min(2, Number(saved.solder ?? manager.solder) || 0)) : 0
+      };
+    });
+    const spellIds = Array.isArray(settings.spellIds) ? settings.spellIds.map(String).filter(spellId => getCard(spellId)?.kind === 'spell') : [];
+    const spellSettings = {};
+    new Set(spellIds).forEach(spellId => {
+      const manager = cards[spellId] || {};
+      const saved = settings.spellSettings?.[spellId] || {};
+      const spellStar = Math.max(1, Math.min(5, Number(saved.star ?? manager.star) || 1));
+      spellSettings[spellId] = {
+        star: spellStar,
+        solder: spellStar >= 5 ? Math.max(0, Math.min(2, Number(saved.solder ?? manager.solder) || 0)) : 0
+      };
+    });
+    return {
+      level: Math.max(1, Math.min(levelCap, Number(settings.level ?? base.level) || 1)),
+      star,
+      grade: Math.max(1, Math.min(6, Number(settings.grade ?? base.grade) || 1)),
+      rank: Math.max(1, Math.min(10, Number(settings.rank ?? base.rank) || 1)),
+      bond: Number(basic.レア度) === 1 ? 1 : Math.max(1, Math.min(30, Number(settings.bond ?? base.bond) || 1)),
+      asideRank,
+      asideLevel,
+      follow: basic.エルダイン ? false : !!(settings.follow ?? base.follow),
+      skillLevels: {
+        low: Math.max(1, Math.min(skillCap, Number(skillSource.low) || 1)),
+        high: Math.max(1, Math.min(skillCap, Number(skillSource.high) || 1)),
+        passive: Math.max(1, Math.min(skillCap, Number(skillSource.passive) || 1))
+      },
+      equipment,
+      artifactIds,
+      artifactSettings,
+      spellIds,
+      spellSettings
+    };
+  }
+
+  function getEnemyIndividualOverride(context = buildContext(), id = view.enemyApostleId) {
+    const saved = view.enemyIndividualOverrides?.[id];
+    return saved && typeof saved === 'object' ? normalizeEnemyIndividualSettings(saved, context, id) : null;
+  }
+
+  function ensureEnemyIndividualOverride(context = buildContext(), id = view.enemyApostleId) {
+    if (!id) return null;
+    const current = getEnemyIndividualOverride(context, id) || normalizeEnemyIndividualSettings({}, context, id);
+    view.enemyIndividualOverrides[id] = current;
+    return current;
+  }
+
+  function getEnemyEquipmentRow(id) {
+    const data = typeof TRICKCAL_STAT_DATA === 'undefined' ? null : TRICKCAL_STAT_DATA;
+    return data?.getById?.('equipment', id)
+      || (data?.sheets?.equipment || []).find(row => row.id === id)
+      || null;
+  }
+
+  function renderEnemyIndividualOptions(max, selected, label) {
+    return Array.from({ length: max }, (_, index) => index + 1)
+      .map(value => `<option value="${value}" ${value === Number(selected) ? 'selected' : ''}>${escapeHtml(label(value))}</option>`)
+      .join('');
+  }
+
+  function renderEnemyIndividualSettings(context = buildContext()) {
+    if (!el.enemyIndividualSettings) return;
+    el.enemyIndividualSettings.querySelectorAll('[data-fdc-enemy-individual-section]').forEach(section => {
+      const key = section.dataset.fdcEnemyIndividualSection;
+      if (key) view.enemyIndividualSectionOpen[key] = section.open;
+    });
+    const id = view.enemyApostleId;
+    if (!id || view.enemySourceMode !== 'apostle') {
+      el.enemyIndividualSettings.innerHTML = '<p class="fdc-category-note">敵使徒を選択してください。</p>';
+      return;
+    }
+    const basic = getApostle(id) || {};
+    const settings = getEnemyIndividualOverride(context, id) || normalizeEnemyIndividualSettings({}, context, id);
+    const levelCap = ({ 1: 120, 2: 120, 3: 125, 4: 135, 5: 145 })[settings.star] || 120;
+    const asideRank = settings.asideRank;
+    const asideLevelCap = [0, 30, 40, 50][asideRank] || 0;
+    const skillCap = 12 + asideRank;
+    const equipmentRow = getEnemyEquipmentRow(id);
+    const cards = context?.state?.cards || {};
+    const artifactRows = Array.from({ length: 3 }, (_, index) => {
+      const artifactId = settings.artifactIds?.[index] || '';
+      return createArtifactDisplayRow(artifactId, 1, { ...(cards[artifactId] || {}), ...(settings.artifactSettings?.[index] || {}) }, {
+        owner: basic.使徒名 || id,
+        scope: 'enemy',
+        slot: index + 1
+      });
+    });
+    const enemyArtifactEffects = [
+      ...(context?.enemyEffects?.applied || []),
+      ...(context?.enemyEffects?.conditional || [])
+    ].filter(item => hasAnySourceTag(item, ['遺物', '愛用遺物']));
+    const enemySpellEffects = [
+      ...(context?.enemyEffects?.applied || []),
+      ...(context?.enemyEffects?.conditional || [])
+    ].filter(item => hasAnySourceTag(item, ['スペル', '愛用スペル']));
+    const spellRows = countIds(settings.spellIds)
+      .map(({ id: spellId, qty }) => {
+        const card = getCard(spellId);
+        const row = createCardRow(spellId, qty, { ...(cards[spellId] || {}), ...(settings.spellSettings?.[spellId] || {}) });
+        return { ...row, card, image: getCardImagePath(card), rarity: card?.rarity || '', signature: !!card?.signature };
+      })
+      .sort(compareArtifactOption);
+    const spellOptions = (typeof CARD_LIBRARY === 'undefined' ? [] : CARD_LIBRARY.spells || [])
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ja'));
+    const equipmentItems = ENEMY_EQUIPMENT_GROUPS.map(group => {
+      const tier = Number(equipmentRow?.[`Equip_Rank${settings.rank}_${group.key}`]) || 0;
+      if (!tier) return '';
+      const item = settings.equipment[group.key] || { enabled: false, enhance: 0 };
+      return `
+        <div class="fdc-enemy-equipment-item">
+          <label><input type="checkbox" data-fdc-enemy-equipment-enabled="${escapeAttr(group.key)}" ${item.enabled ? 'checked' : ''}><span>${escapeHtml(group.label)} <small>T${tier}</small></span></label>
+          <select data-fdc-enemy-equipment-enhance="${escapeAttr(group.key)}" aria-label="${escapeAttr(group.label)} 強化値">
+            ${Array.from({ length: 6 }, (_, enhance) => `<option value="${enhance}" ${enhance === Number(item.enhance) ? 'selected' : ''}>+${enhance}</option>`).join('')}
+          </select>
+        </div>`;
+    }).join('');
+    el.enemyIndividualSettings.innerHTML = `
+      <div class="fdc-enemy-individual-toolbar"><button type="button" data-fdc-enemy-individual-action="reset">管理側の設定に戻す</button></div>
+      <div class="fdc-enemy-individual-grid">
+        <label class="fdc-enemy-individual-control"><span>Rank</span><select data-fdc-enemy-individual-field="rank">${renderEnemyIndividualOptions(10, settings.rank, value => `Rank ${value}`)}</select></label>
+        <label class="fdc-enemy-individual-control"><span>Lv</span><select data-fdc-enemy-individual-field="level">${renderEnemyIndividualOptions(levelCap, settings.level, value => `Lv ${value}`)}</select></label>
+        <label class="fdc-enemy-individual-control"><span>★</span><select data-fdc-enemy-individual-field="star">${renderEnemyIndividualOptions(5, settings.star, value => `★${value}`)}</select></label>
+        <label class="fdc-enemy-individual-control"><span>学年</span><select data-fdc-enemy-individual-field="grade">${renderEnemyIndividualOptions(6, settings.grade, value => `${value}年生`)}</select></label>
+        <label class="fdc-enemy-individual-control"><span>好感度</span><select data-fdc-enemy-individual-field="bond" ${Number(basic.レア度) === 1 ? 'disabled' : ''}>${renderEnemyIndividualOptions(30, settings.bond, value => `Lv ${value}`)}</select></label>
+        <div class="fdc-enemy-individual-control"><span>フォロー</span><button type="button" class="fdc-enemy-follow-control ${settings.follow ? 'is-on' : ''}" data-fdc-enemy-follow-toggle aria-pressed="${settings.follow ? 'true' : 'false'}" ${basic.エルダイン ? 'disabled' : ''}><span class="fdc-enemy-follow-indicator"></span><span>${settings.follow ? 'ON' : 'OFF'}</span></button></div>
+        <label class="fdc-enemy-individual-control"><span>アサイド</span><select data-fdc-enemy-individual-field="asideRank">
+          <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
+          ${renderEnemyIndividualOptions(3, asideRank, value => `A${value}`)}
+        </select></label>
+        <label class="fdc-enemy-individual-control"><span>アサイドLv</span><select data-fdc-enemy-individual-field="asideLevel" ${asideRank ? '' : 'disabled'}>
+          ${asideRank ? renderEnemyIndividualOptions(asideLevelCap, settings.asideLevel, value => `Lv ${value}`) : '<option value="0">-</option>'}
+        </select></label>
+      </div>
+      <details class="fdc-enemy-individual-section" data-fdc-enemy-individual-section="skills" ${view.enemyIndividualSectionOpen.skills !== false ? 'open' : ''}>
+        <summary>スキルレベル</summary>
+        <div class="fdc-enemy-individual-grid">
+          <label class="fdc-enemy-individual-control"><span>低学年</span><select data-fdc-enemy-skill-level="low">${renderEnemyIndividualOptions(skillCap, settings.skillLevels.low, String)}</select></label>
+          <label class="fdc-enemy-individual-control"><span>高学年</span><select data-fdc-enemy-skill-level="high">${renderEnemyIndividualOptions(skillCap, settings.skillLevels.high, String)}</select></label>
+          <label class="fdc-enemy-individual-control"><span>パッシブ</span><select data-fdc-enemy-skill-level="passive">${renderEnemyIndividualOptions(skillCap, settings.skillLevels.passive, String)}</select></label>
+        </div>
+      </details>
+      <details class="fdc-enemy-individual-section" data-fdc-enemy-individual-section="equipment" ${view.enemyIndividualSectionOpen.equipment ? 'open' : ''}>
+        <summary>装備</summary>
+        <div class="fdc-enemy-equipment-body">
+          <div class="fdc-enemy-equipment-actions">
+            <button type="button" data-fdc-enemy-individual-action="equipment-on">全装備ON</button>
+            <button type="button" data-fdc-enemy-individual-action="equipment-off">全装備OFF</button>
+            <select data-fdc-enemy-equipment-bulk-enhance>${Array.from({ length: 6 }, (_, value) => `<option value="${value}">+${value}</option>`).join('')}</select>
+            <button type="button" data-fdc-enemy-individual-action="equipment-enhance">強化値を一括適用</button>
+          </div>
+          <div class="fdc-enemy-equipment-grid">${equipmentItems || '<p class="fdc-category-note">このRankの装備情報はありません。</p>'}</div>
+        </div>
+      </details>
+      <details class="fdc-enemy-individual-section" data-fdc-enemy-individual-section="artifacts" ${view.enemyIndividualSectionOpen.artifacts ? 'open' : ''}>
+        <summary>遺物</summary>
+        <div class="fdc-enemy-artifact-slots">
+          ${artifactRows.map((row, index) => `
+            <div class="fdc-enemy-artifact-item">
+              <button type="button" class="fdc-artifact-slot ${row ? `is-filled ${getCardRarityClass(row)}` : 'is-empty'}"
+                data-fdc-temp-artifact-row="enemy" data-fdc-temp-artifact-slot="${index}"
+                title="${escapeAttr(row ? `${row.name}を入替` : '遺物を選択')}">
+                ${renderArtifactIcon(row, index)}
+              </button>
+              <div class="fdc-enemy-artifact-controls">
+                <select data-fdc-enemy-artifact-slot="${index}" data-fdc-enemy-artifact-field="star" aria-label="遺物${index + 1} ★" ${row ? '' : 'disabled'}>
+                  ${renderEnemyIndividualOptions(5, row?.star || 1, value => `★${value}`)}
+                </select>
+                <select data-fdc-enemy-artifact-slot="${index}" data-fdc-enemy-artifact-field="solder" aria-label="遺物${index + 1} はんだ" ${row?.star >= 5 ? '' : 'disabled'}>
+                  <option value="0" ${!row?.solder ? 'selected' : ''}>はんだなし</option>
+                  <option value="1" ${row?.solder === 1 ? 'selected' : ''}>+1</option>
+                  <option value="2" ${row?.solder === 2 ? 'selected' : ''}>+2</option>
+                </select>
+                ${row ? `<button type="button" class="fdc-enemy-artifact-info" data-fdc-artifact-detail="${escapeAttr(row.id)}" data-fdc-artifact-star="${row.star}" data-fdc-artifact-solder="${row.solder || 0}">効果</button>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="fdc-enemy-artifact-effects">
+          ${enemyArtifactEffects.length
+            ? renderGroupedArtifactEffectChips(enemyArtifactEffects, view.effectSources.artifact !== false)
+            : '<p class="fdc-empty">遺物効果なし</p>'}
+        </div>
+      </details>
+      <details class="fdc-enemy-individual-section" data-fdc-enemy-individual-section="spells" ${view.enemyIndividualSectionOpen.spells ? 'open' : ''}>
+        <summary>スペル</summary>
+        <div class="fdc-enemy-spell-body">
+          <label class="fdc-enemy-spell-add"><span>スペルを追加</span><select data-fdc-enemy-spell-add>
+            <option value="">選択してください</option>
+            ${spellOptions.map(card => `<option value="${escapeAttr(card.id)}">${escapeHtml(card.name)}</option>`).join('')}
+          </select></label>
+          <div class="fdc-enemy-spell-list">
+            ${spellRows.length ? spellRows.map(row => `
+              <div class="fdc-enemy-spell-item ${getCardRarityClass(row)}">
+                <img src="${escapeAttr(row.image)}" alt="">
+                <span class="fdc-enemy-spell-name"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.rarity)}</small></span>
+                <button type="button" data-fdc-enemy-spell-remove="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.name)}を削除">×</button>
+                <div class="fdc-enemy-spell-controls">
+                  <label><span>枚数</span><input type="number" min="1" max="99" value="${row.qty}" data-fdc-enemy-spell-id="${escapeAttr(row.id)}" data-fdc-enemy-spell-field="count"></label>
+                  <label><span>★</span><select data-fdc-enemy-spell-id="${escapeAttr(row.id)}" data-fdc-enemy-spell-field="star">${renderEnemyIndividualOptions(5, row.star, value => `★${value}`)}</select></label>
+                  <label><span>はんだ</span><select data-fdc-enemy-spell-id="${escapeAttr(row.id)}" data-fdc-enemy-spell-field="solder" ${row.star >= 5 ? '' : 'disabled'}>
+                    <option value="0" ${!row.solder ? 'selected' : ''}>なし</option><option value="1" ${row.solder === 1 ? 'selected' : ''}>+1</option><option value="2" ${row.solder === 2 ? 'selected' : ''}>+2</option>
+                  </select></label>
+                </div>
+              </div>`).join('') : '<p class="fdc-empty">スペルなし</p>'}
+          </div>
+          <div class="fdc-enemy-artifact-effects">
+            ${enemySpellEffects.length ? renderGroupedArtifactEffectChips(enemySpellEffects, view.effectSources.spell !== false) : '<p class="fdc-empty">スペル効果なし</p>'}
+          </div>
+        </div>
+      </details>`;
+  }
+
+  function populateEnemyApostles() {
+    if (!el.enemyApostle) return;
+    const data = typeof TRICKCAL_STAT_DATA === 'undefined' ? null : TRICKCAL_STAT_DATA;
+    const rows = (data?.sheets?.basicInfo || []).slice().sort((a, b) =>
+      String(a.使徒名 || a.id || '').localeCompare(String(b.使徒名 || b.id || ''), 'ja')
+    );
+    el.enemyApostle.innerHTML = [
+      '<option value="">使徒を選択</option>',
+      ...rows.map(row => `<option value="${escapeAttr(row.id)}">${escapeHtml(row.使徒名 || row.id)}</option>`)
+    ].join('');
+    el.enemyApostle.value = rows.some(row => row.id === view.enemyApostleId) ? view.enemyApostleId : '';
+    view.enemyApostleId = el.enemyApostle.value;
+  }
+
+  function syncEnemySourceUi(context = buildContext()) {
+    const apostleMode = view.enemySourceMode === 'apostle';
+    if (apostleMode) view.enemyStatDirty = false;
+    if (el.enemySourceMode) el.enemySourceMode.value = apostleMode ? 'apostle' : 'preset';
+    if (el.pvpAffinityEnabled) el.pvpAffinityEnabled.checked = !!view.pvpAffinityEnabled;
+    el.enemySourcePresetFields.forEach(field => { field.hidden = apostleMode; });
+    el.enemySourceApostleFields.forEach(field => { field.hidden = !apostleMode; });
+    if (el.enemyApostle) el.enemyApostle.value = view.enemyApostleId || '';
+    const member = context?.enemyMember || null;
+    if (el.enemyApostleImage) {
+      el.enemyApostleImage.src = member ? getApostleImage(member.id, member.name) : FALLBACK_IMAGE;
+      el.enemyApostleImage.alt = member?.name || '';
+    }
+    if (el.enemyPersonality) el.enemyPersonality.disabled = apostleMode;
+    const finalStatInputs = [el.inputs.enemyHp, el.inputs.enemyAtk, el.inputs.enemyCrit, el.inputs.enemyCritDmg, el.inputs.def, el.inputs.critRes, el.inputs.critDmgRes];
+    finalStatInputs.forEach(input => {
+      if (input) input.readOnly = apostleMode;
+    });
+    if (el.enemyFinalStats) el.enemyFinalStats.classList.toggle('is-final-output', apostleMode);
+    if (el.enemyFinalStatsHeading) el.enemyFinalStatsHeading.textContent = apostleMode ? '最終ステータス' : 'ステータス';
+    renderEnemyIndividualSettings(context);
+    syncEnemyResearchPresetFromState(context);
+    renderEnemyBoardPresetUi(context);
+    syncEnemyPresetManagement();
   }
 
   function populateEnemyPresets() {
@@ -581,6 +1219,13 @@
   }
 
   function applyEnemyPreset() {
+    if (view.enemySourceMode === 'apostle') {
+      const context = buildContext();
+      syncEnemyGlobalPercentInputs(context);
+      syncStatsFromEnemyApostle(context);
+      renderEnemySkillChoices(undefined, context);
+      return;
+    }
     const preset = getSelectedEnemyPreset();
     populateEnemySkills(preset);
     if (!preset) {
@@ -629,11 +1274,18 @@
   function getEnemyPresetWeaknessInfo(preset, damageType = '') {
     const key = damageType === 'magic' ? 'mag' : damageType === 'physical' ? 'phys' : '';
     const weakness = key ? preset?.weakness?.[key] : null;
+    const weaknessEntries = Object.entries(preset?.weakness || {});
+    const availableLabel = weaknessEntries
+      .filter(([, value]) => Number(value?.add) > 0)
+      .map(([weaknessKey]) => weaknessKey === 'mag' ? '魔法弱点' : weaknessKey === 'phys' ? '物理弱点' : '弱点')
+      .join('・') || '弱点';
     return {
       key,
       label: key === 'mag' ? '魔法弱点' : key === 'phys' ? '物理弱点' : '弱点',
+      attackLabel: key === 'mag' ? '魔法攻撃' : key === 'phys' ? '物理攻撃' : '現在の攻撃',
+      availableLabel,
       add: Number(weakness?.add) || 0,
-      hasAny: !!preset?.weakness && Object.keys(preset.weakness).length > 0
+      hasAny: weaknessEntries.length > 0
     };
   }
 
@@ -645,10 +1297,9 @@
     }
     const weaknessInfo = getEnemyPresetWeaknessInfo(getSelectedEnemyPreset(), damageType);
     if (el.enemyWeaknessLabel) {
-      const condition = weaknessInfo.key ? weaknessInfo.label : '弱点';
       el.enemyWeaknessLabel.textContent = weaknessInfo.add
-        ? `${condition} 適用`
-        : `${condition} 対象外`;
+        ? `${weaknessInfo.label} 適用`
+        : `${weaknessInfo.availableLabel}（${weaknessInfo.attackLabel}では非適用）`;
     }
     if (el.enemyWeaknessField) {
       el.enemyWeaknessField.hidden = !weaknessInfo.hasAny;
@@ -667,6 +1318,7 @@
   }
 
   function getSelectedEnemyPreset() {
+    if (view.enemySourceMode === 'apostle') return null;
     return getEnemyPresets()[view.enemyPresetKey || el.enemyPreset?.value || ''] || null;
   }
 
@@ -763,7 +1415,19 @@
     if (el.enemyPresetDelete) el.enemyPresetDelete.disabled = !key.startsWith('custom:');
   }
 
-  function renderEnemySkillChoices(preset = getSelectedEnemyPreset()) {
+  function getEnemyApostleSkillOptions(context = buildContext()) {
+    const member = context?.enemyMember;
+    if (!member) return [];
+    const enemyContext = {
+      ...context,
+      target: member,
+      damageType: resolveEnemyDamageType(),
+      actionCategory: view.enemySelectedSkillCategory || ''
+    };
+    return buildFdcApostleSkillOptions(member, enemyContext);
+  }
+
+  function renderEnemySkillChoices(preset = getSelectedEnemyPreset(), context = null) {
     if (!el.enemySkillChoices) return;
     if (view.perspective !== 'enemy') {
       el.enemySkillChoices.hidden = true;
@@ -771,25 +1435,40 @@
       return;
     }
     el.enemySkillChoices.hidden = false;
-    const skills = Array.isArray(preset?.skills) ? preset.skills : [];
+    const apostleMode = view.enemySourceMode === 'apostle';
+    if (apostleMode) view.enemyStatDirty = false;
     const currentIndex = Number.isFinite(view.enemySkillIndex) ? view.enemySkillIndex : -1;
-    const rows = [
-      {
-        index: -1,
-        value: '',
-        action: 'なし',
-        name: '通常入力',
-        note: 'スキル倍率を使わない'
-      },
-      ...skills.map((skill, index) => ({
+    const rows = [{
+      index: -1,
+      value: '',
+      category: '',
+      action: 'なし',
+      name: '通常入力',
+      note: 'スキル倍率を使わない'
+    }];
+    if (apostleMode) {
+      getEnemyApostleSkillOptions(context || buildContext()).forEach((option, index) => {
+        rows.push({
+          index,
+          value: option.value || 100,
+          category: option.category || '',
+          action: getFdcApostleSkillActionLabel(option.category),
+          name: option.skillName || option.category || '',
+          note: option.kind || ''
+        });
+      });
+    } else {
+      const skills = Array.isArray(preset?.skills) ? preset.skills : [];
+      skills.forEach((skill, index) => rows.push({
         index,
         value: skill.mult || 100,
+        category: '',
         // preset の action は大半が汎用の「攻撃」なので、固有の行動名を優先する。
         action: skill.name || skill.action || `Skill ${index + 1}`,
         name: skill.name && skill.action && skill.name !== skill.action ? skill.action : '',
         note: skill.note || ''
-      }))
-    ];
+      }));
+    }
     el.enemySkillChoices.innerHTML = `
       <div class="fdc-skill-choice-header fdc-enemy-skill-choice-header">
         <span>行動</span>
@@ -797,16 +1476,22 @@
         <span>補足</span>
       </div>
       ${rows.map(row => `
-        <button type="button" class="fdc-skill-choice fdc-enemy-skill-choice ${row.index === currentIndex ? 'is-active' : ''}" data-fdc-enemy-skill-index="${row.index}" data-fdc-enemy-skill-value="${escapeAttr(row.value)}">
-          <span class="fdc-skill-choice-action ${row.index < 0 ? 'tone-basic' : 'tone-extra'}">${escapeHtml(row.action)}</span>
+        <button type="button" class="fdc-skill-choice fdc-enemy-skill-choice ${row.index === currentIndex ? 'is-active' : ''}" data-fdc-enemy-skill-index="${row.index}" data-fdc-enemy-skill-value="${escapeAttr(row.value)}" data-fdc-enemy-skill-category="${escapeAttr(row.category)}">
+          <span class="fdc-skill-choice-action ${row.index < 0 ? 'tone-basic' : apostleMode ? getFdcApostleSkillTone(row.category) : 'tone-extra'}">${escapeHtml(row.action)}</span>
           <span class="fdc-skill-choice-mult">${row.value === '' ? '-' : `${escapeHtml(formatPlainNumber(row.value))}%`}</span>
           <span class="fdc-skill-choice-kind">${escapeHtml([row.name, row.note].filter(Boolean).join(' / ') || '-')}</span>
         </button>
       `).join('')}
     `;
+    const activeRow = rows.find(row => row.index === currentIndex);
+    if (activeRow && currentIndex >= 0) {
+      if (el.enemySkill) el.enemySkill.value = String(activeRow.value || '');
+      if (el.inputs.enemySkill) el.inputs.enemySkill.value = String(activeRow.value || '100');
+    }
     el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-skill-index]').forEach(button => {
       button.addEventListener('click', () => {
         view.enemySkillIndex = Number(button.dataset.fdcEnemySkillIndex);
+        view.enemySelectedSkillCategory = button.dataset.fdcEnemySkillCategory || '';
         const value = button.dataset.fdcEnemySkillValue || '';
         if (el.enemySkill) {
           el.enemySkill.value = value;
@@ -822,7 +1507,6 @@
       });
     });
   }
-
   function scaleEnemyPresetByPhase(preset, phaseIndex) {
     const phase = Array.isArray(preset?.phases) ? preset.phases[phaseIndex] : null;
     if (!phase?.mult) return { ...preset };
@@ -845,6 +1529,7 @@
     }
     if (!view.targetId || !allMembers.some(member => member.id === view.targetId)) view.targetId = members[0]?.id || allMembers[0]?.id || '';
     const target = getCurrentTargetMember(members, allMembers);
+    const enemyMember = getSelectedEnemyApostleMember(allMembers, state);
     const damageType = resolveActiveDamageType(target);
     const cards = state.cards && typeof state.cards === 'object' ? state.cards : {};
     const actionCategory = view.selectedSkillCategory || '';
@@ -855,7 +1540,65 @@
     const effects = collectEffects({ target, formation, cards, damageType, state, actionCategory });
     applyEnabledSelfSkillEffects(effects, { target, formation, cards, damageType, state, actionCategory, members, allMembers });
     const summary = summarizeEffects(getEnabledEffectRows(effects));
-    return { state, formation, formationPreset: formationSource.preset, members, allMembers, target, damageType, actionCategory, effects, summary };
+    const enemyAttackEffects = collectEnemyCardEffects({
+      target: enemyMember,
+      cards,
+      damageType: resolveEnemyDamageType(),
+      actionCategory: view.enemySelectedSkillCategory || ''
+    });
+    const enemyDefenseEffects = collectEnemyCardEffects({
+      target: enemyMember,
+      cards,
+      damageType,
+      actionCategory
+    });
+    const enemyAttackSummary = summarizeEffects([
+      ...(enemyAttackEffects.applied || []),
+      ...(enemyAttackEffects.globalStats || [])
+    ].filter(isEffectSourceEnabled));
+    const enemyDefenseSummary = summarizeEffects([
+      ...(enemyDefenseEffects.applied || []),
+      ...(enemyDefenseEffects.globalStats || [])
+    ].filter(isEffectSourceEnabled));
+    return {
+      state,
+      formation,
+      formationPreset: formationSource.preset,
+      members,
+      allMembers,
+      target,
+      enemyMember,
+      damageType,
+      actionCategory,
+      effects,
+      summary,
+      enemyEffects: view.perspective === 'enemy' ? enemyAttackEffects : enemyDefenseEffects,
+      enemySummary: view.perspective === 'enemy' ? enemyAttackSummary : enemyDefenseSummary
+    };
+  }
+
+  function getSelectedEnemyApostleMember(allMembers = [], state = {}) {
+    if (view.enemySourceMode !== 'apostle' || !view.enemyApostleId) return null;
+    const member = allMembers.find(item => item.id === view.enemyApostleId) || null;
+    if (!member) return null;
+    const settings = getEnemyIndividualOverride({ state }, member.id) || normalizeEnemyIndividualSettings({}, { state }, member.id);
+    return {
+      ...member,
+      level: settings.level,
+      star: settings.star,
+      grade: settings.grade,
+      rank: settings.rank,
+      bond: settings.bond,
+      asideRank: settings.asideRank,
+      asideLevel: settings.asideLevel,
+      follow: settings.follow,
+      artifactIds: settings.artifactIds.slice(),
+      artifactSettings: settings.artifactSettings.map(item => ({ ...item })),
+      spellIds: settings.spellIds.slice(),
+      spellSettings: clonePlain(settings.spellSettings),
+      skillLevels: { ...member.skillLevels, ...settings.skillLevels },
+      hasEnemyIndividualSkillLevels: true
+    };
   }
 
   function getCurrentTargetMember(members, allMembers) {
@@ -1073,14 +1816,16 @@
   function createDamageSaveDefaultName(context = buildContext()) {
     const target = context.target?.name || '使徒未選択';
     const preset = getSelectedEnemyPreset();
-    const enemy = preset?.name?.replace(/^\[保存\]\s*/, '') || '手動敵';
+    const enemy = view.enemySourceMode === 'apostle'
+      ? context.enemyMember?.name || '敵使徒未選択'
+      : preset?.name?.replace(/^\[保存\]\s*/, '') || '手動敵';
     return `${target} vs ${enemy}`;
   }
 
   function createDamageCalculationSnapshot(context = buildContext()) {
     const result = calculateDamage(context);
     return {
-      version: 1,
+      version: 3,
       savedAt: Date.now(),
       view: clonePlain({
         targetId: view.targetId || '',
@@ -1092,7 +1837,22 @@
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
+        enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+        pvpAffinityEnabled: !!view.pvpAffinityEnabled,
+        enemyApostleId: view.enemyApostleId || '',
         enemyPresetKey: view.enemyPresetKey || '',
+        enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
+        enemyStatDirty: !!view.enemyStatDirty,
+        enemyGlobalPercentDirty: !!view.enemyGlobalPercentDirty,
+        enemyGlobalPercentEnabled: view.enemyGlobalPercentEnabled !== false,
+        enemyGlobalAdditiveEnabled: view.enemyGlobalAdditiveEnabled !== false,
+        enemyBoardPresetSelections: clonePlain(view.enemyBoardPresetSelections),
+        enemyIndividualOverrides: clonePlain(view.enemyIndividualOverrides),
+        enemyCorrectionSchema: 6,
+        enemyRankPreset: normalizeEnemyRankPreset(view.enemyRankPreset),
+        enemyGlobalPercent: readEnemyGlobalPercentInputs(),
+        enemyGlobalAdditive: readEnemyCorrectionInputs('additiveInputKey'),
+        enemyResearchPreset: clonePlain(view.enemyResearchPreset),
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         selectedSkillCategory: view.selectedSkillCategory || '',
@@ -1138,8 +1898,13 @@
     closeTempArtifactPicker();
     closeFormationPicker();
     populateEnemyPresets();
+    populateEnemyApostles();
     render();
-    writeDamageCalculationInputs(snapshot.inputs || {}, loadOptions);
+    const snapshotInputs = { ...(snapshot.inputs || {}) };
+    if (Number(savedView.enemyCorrectionSchema) !== 6) {
+      getEnemyCorrectionInputKeys().forEach(inputKey => { delete snapshotInputs[inputKey]; });
+    }
+    writeDamageCalculationInputs(snapshotInputs, loadOptions);
     saveCalcSettings();
     renderResult(buildContext());
   }
@@ -1169,6 +1934,19 @@
     if (options.enemy) {
       if (['auto', 'physical', 'magic'].includes(savedView.enemyDamageType)) view.enemyDamageType = savedView.enemyDamageType;
       if (typeof savedView.enemyPersonality === 'string') view.enemyPersonality = savedView.enemyPersonality;
+      if (['preset', 'apostle'].includes(savedView.enemySourceMode)) view.enemySourceMode = savedView.enemySourceMode;
+      view.pvpAffinityEnabled = !!savedView.pvpAffinityEnabled;
+      if (typeof savedView.enemyApostleId === 'string') view.enemyApostleId = savedView.enemyApostleId;
+      if (typeof savedView.enemySelectedSkillCategory === 'string') view.enemySelectedSkillCategory = savedView.enemySelectedSkillCategory;
+      view.enemyStatDirty = !!savedView.enemyStatDirty;
+      const hasCurrentEnemyCorrectionSchema = Number(savedView.enemyCorrectionSchema) === 6;
+      view.enemyGlobalPercentDirty = hasCurrentEnemyCorrectionSchema && !!savedView.enemyGlobalPercentDirty;
+      view.enemyGlobalPercentEnabled = savedView.enemyGlobalPercentEnabled !== false;
+      view.enemyGlobalAdditiveEnabled = savedView.enemyGlobalAdditiveEnabled !== false;
+      view.enemyBoardPresetSelections = normalizeEnemyBoardPresetSelections(savedView.enemyBoardPresetSelections);
+      view.enemyIndividualOverrides = savedView.enemyIndividualOverrides && typeof savedView.enemyIndividualOverrides === 'object' ? clonePlain(savedView.enemyIndividualOverrides) : {};
+      view.enemyRankPreset = normalizeEnemyRankPreset(savedView.enemyRankPreset);
+      if (savedView.enemyResearchPreset && typeof savedView.enemyResearchPreset === 'object') view.enemyResearchPreset = { level: Number(savedView.enemyResearchPreset.level) || 0, progress: Number(savedView.enemyResearchPreset.progress) || 0, dirty: !!savedView.enemyResearchPreset.dirty };
       if (typeof savedView.enemyPresetKey === 'string') view.enemyPresetKey = savedView.enemyPresetKey;
       if (Number.isFinite(Number(savedView.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(savedView.enemyPhaseIndex));
       if (Number.isFinite(Number(savedView.enemySkillIndex))) view.enemySkillIndex = Number(savedView.enemySkillIndex);
@@ -1198,6 +1976,8 @@
     }
     if (options.enemy) {
       if (el.enemyDamageType) el.enemyDamageType.value = view.enemyDamageType;
+      if (el.enemySourceMode) el.enemySourceMode.value = view.enemySourceMode;
+      if (el.enemyApostle) el.enemyApostle.value = view.enemyApostleId || '';
       if (el.enemyPersonality) el.enemyPersonality.value = view.enemyPersonality || '';
       if (el.enemyPreset) el.enemyPreset.value = view.enemyPresetKey || '';
     }
@@ -1220,6 +2000,7 @@
     const state = context.state || loadStatState();
     const ids = new Set([
       context.target?.id,
+      context.enemyMember?.id,
       ...(context.members || []).map(member => member.id),
       ...Object.values(view.tempMembers || {})
     ].filter(Boolean));
@@ -1269,6 +2050,21 @@
       if (['self', 'enemy'].includes(saved.perspective)) view.perspective = saved.perspective;
       if (['self', 'enemy'].includes(saved.mobileVisibleSide)) view.mobileVisibleSide = saved.mobileVisibleSide;
       if (typeof saved.enemyPersonality === 'string') view.enemyPersonality = saved.enemyPersonality;
+      if (['preset', 'apostle'].includes(saved.enemySourceMode)) view.enemySourceMode = saved.enemySourceMode;
+      view.pvpAffinityEnabled = !!saved.pvpAffinityEnabled;
+      if (typeof saved.enemyApostleId === 'string') view.enemyApostleId = saved.enemyApostleId;
+      if (typeof saved.enemySelectedSkillCategory === 'string') view.enemySelectedSkillCategory = saved.enemySelectedSkillCategory;
+      view.enemyStatDirty = !!saved.enemyStatDirty;
+      const hasCurrentEnemyCorrectionSchema = Number(saved.enemyCorrectionSchema) === 6;
+      view.enemyBoardPresetSelections = normalizeEnemyBoardPresetSelections(saved.enemyBoardPresetSelections);
+      view.enemyIndividualOverrides = saved.enemyIndividualOverrides && typeof saved.enemyIndividualOverrides === 'object' ? clonePlain(saved.enemyIndividualOverrides) : {};
+      view.enemyRankPreset = normalizeEnemyRankPreset(saved.enemyRankPreset);
+      view.enemyGlobalPercentDirty = hasCurrentEnemyCorrectionSchema && !!saved.enemyGlobalPercentDirty;
+      view.enemyGlobalPercentEnabled = saved.enemyGlobalPercentEnabled !== false;
+      view.enemyGlobalAdditiveEnabled = saved.enemyGlobalAdditiveEnabled !== false;
+      if (hasCurrentEnemyCorrectionSchema && saved.enemyGlobalPercent && typeof saved.enemyGlobalPercent === 'object') writeEnemyGlobalPercentInputs(saved.enemyGlobalPercent);
+      if (hasCurrentEnemyCorrectionSchema && saved.enemyGlobalAdditive && typeof saved.enemyGlobalAdditive === 'object') writeEnemyCorrectionInputs('additiveInputKey', saved.enemyGlobalAdditive);
+      if (hasCurrentEnemyCorrectionSchema && saved.enemyResearchPreset && typeof saved.enemyResearchPreset === 'object') view.enemyResearchPreset = { level: Number(saved.enemyResearchPreset.level) || 0, progress: Number(saved.enemyResearchPreset.progress) || 0, dirty: !!saved.enemyResearchPreset.dirty };
       if (typeof saved.enemyPresetKey === 'string') view.enemyPresetKey = saved.enemyPresetKey;
       if (Number.isFinite(Number(saved.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(saved.enemyPhaseIndex));
       if (Number.isFinite(Number(saved.enemySkillIndex))) view.enemySkillIndex = Number(saved.enemySkillIndex);
@@ -1311,7 +2107,22 @@
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
+        enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+        pvpAffinityEnabled: !!view.pvpAffinityEnabled,
+        enemyApostleId: view.enemyApostleId || '',
         enemyPresetKey: view.enemyPresetKey || '',
+        enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
+        enemyStatDirty: !!view.enemyStatDirty,
+        enemyGlobalPercentDirty: !!view.enemyGlobalPercentDirty,
+        enemyGlobalPercentEnabled: view.enemyGlobalPercentEnabled !== false,
+        enemyGlobalAdditiveEnabled: view.enemyGlobalAdditiveEnabled !== false,
+        enemyBoardPresetSelections: clonePlain(view.enemyBoardPresetSelections),
+        enemyIndividualOverrides: clonePlain(view.enemyIndividualOverrides),
+        enemyCorrectionSchema: 6,
+        enemyRankPreset: normalizeEnemyRankPreset(view.enemyRankPreset),
+        enemyGlobalPercent: readEnemyGlobalPercentInputs(),
+        enemyGlobalAdditive: readEnemyCorrectionInputs('additiveInputKey'),
+        enemyResearchPreset: clonePlain(view.enemyResearchPreset),
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         selectedSkillCategory: view.selectedSkillCategory || '',
@@ -1500,6 +2311,333 @@
       if (index >= 0 && index < 3) base[index] = artifactId || '';
     });
     return base;
+  }
+
+  function normalizeEnemyBoardPresetSelections(value = {}) {
+    const validGroups = new Set(ENEMY_BOARD_PRESET_GROUPS.map(group => group.key));
+    return Object.fromEntries([1, 2, 3].map(layer => [String(layer), Array.from(new Set(Array.isArray(value?.[layer]) ? value[layer] : []))
+      .filter(group => validGroups.has(group))]));
+  }
+
+  function getEnemyBoardPresetStatKey(effectType) {
+    const text = String(effectType || '').replace(/^全体/, '');
+    if (text === 'HP' || text === '最大HP') return 'hp';
+    if (text.includes('物理攻撃')) return 'patk';
+    if (text.includes('魔法攻撃')) return 'matk';
+    if (text.includes('物理防御')) return 'pdef';
+    if (text.includes('魔法防御')) return 'mdef';
+    if (text.includes('会心DMG抵抗')) return 'critDmgRes';
+    if (text.includes('会心抵抗')) return 'critRes';
+    if (text.includes('会心DMG') || text.includes('会心ダメージ')) return 'critDmg';
+    if (text.includes('会心')) return 'crit';
+    return '';
+  }
+
+  function getEnemyBoardPresetStatLabel(statKey) {
+    return ({
+      hp: 'HP',
+      patk: '物理攻撃',
+      matk: '魔法攻撃',
+      pdef: '物理防御',
+      mdef: '魔法防御',
+      crit: '会心',
+      critDmg: '会心DMG',
+      critRes: '会心抵抗',
+      critDmgRes: '会心DMG抵抗'
+    })[statKey] || statKey;
+  }
+  function calculateEnemyBoardPresetBonuses(tileType) {
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const rows = typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.board || [];
+    rows.forEach(row => {
+      const layer = String(Number(row.ボード階層) || 0);
+      if (row.マス_type !== tileType || !view.enemyBoardPresetSelections?.[layer]?.length) return;
+      [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+        const statKey = getEnemyBoardPresetStatKey(row[typeKey]);
+        const group = ENEMY_BOARD_PRESET_GROUPS.find(item => item.statKeys.includes(statKey));
+        if (!statKey || !group || !view.enemyBoardPresetSelections[layer].includes(group.key)) return;
+        totals[statKey] += Number(row[valueKey]) || 0;
+      });
+    });
+    return totals;
+  }
+
+  function calculateEnemyBoardPresetRates() {
+    return calculateEnemyBoardPresetBonuses('特殊');
+  }
+
+  function calculateEnemyResearchPreset(context) {
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const race = context?.enemyMember?.race || '';
+    const stage = Math.max(0, Math.min(10, Number(view.enemyResearchPreset?.level) || 0));
+    const progress = Math.max(0, Math.min(45, Number(view.enemyResearchPreset?.progress) || 0));
+    if (!race || !stage || !progress || typeof TRICKCAL_STAT_DATA === 'undefined') return totals;
+    (TRICKCAL_STAT_DATA?.sheets?.research || []).forEach(row => {
+      if (row.種族 !== race || !row.ステータス) return;
+      const rowCount = Number(row.id) || 0;
+      const maxStage = rowCount <= progress ? stage : stage - 1;
+      if (maxStage <= 0) return;
+      const statKey = getEnemyBoardPresetStatKey(row.ステータス);
+      if (!statKey) return;
+      for (let index = 1; index <= maxStage; index += 1) totals[statKey] += Number(row[`段階${index}`]) || 0;
+    });
+    return totals;
+  }
+
+  function sumEnemyCorrectionMaps(...maps) {
+    return Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, maps.reduce((total, map) => total + (Number(map?.[config.statKey]) || 0), 0)]));
+  }
+
+  function normalizeEnemyRankPreset(value) {
+    return ['rare3-rank9', 'all-rank9'].includes(value) ? value : 'current';
+  }
+
+  function calculateEnemyRankGlobalPreset(context, snapshot = getEnemyApostleStatSnapshot(context)) {
+    const mode = normalizeEnemyRankPreset(view.enemyRankPreset);
+    if (mode === 'current') return getCurrentEnemyRankGlobal(context, snapshot);
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const data = typeof TRICKCAL_STAT_DATA === 'undefined' ? null : TRICKCAL_STAT_DATA;
+    const basicById = new Map((data?.sheets?.basicInfo || []).map(row => [row.id, row]));
+    (data?.sheets?.rankGlobalBonuses || []).forEach(row => {
+      const basic = basicById.get(row.id);
+      if (mode === 'rare3-rank9' && Number(basic?.レア度) !== 3) return;
+      for (let rank = 1; rank < 9; rank += 1) {
+        for (let index = 1; index <= 2; index += 1) {
+          const statKey = getEnemyBoardPresetStatKey(row[`Rank${rank}to${rank + 1}_type${index}`]);
+          if (statKey) totals[statKey] += Number(row[`Rank${rank}to${rank + 1}_value${index}`]) || 0;
+        }
+      }
+    });
+    return totals;
+  }
+
+  function calculateEnemyGlobalAdditivePreset(context) {
+    const snapshot = getEnemyApostleStatSnapshot(context);
+    return sumEnemyCorrectionMaps(
+      calculateEnemyRankGlobalPreset(context, snapshot),
+      calculateCurrentEnemyBoardGlobalAdditive(context),
+      calculateEnemyResearchPreset(context)
+    );
+  }
+
+  function syncEnemyResearchPresetFromState(context) {
+    if (view.enemyResearchPreset?.dirty) return;
+    view.enemyResearchPreset = {
+      level: Math.max(0, Math.min(10, Number(context?.state?.research?.level) || 0)),
+      progress: Math.max(0, Math.min(45, Number(context?.state?.research?.progress) || 0)),
+      dirty: false
+    };
+  }
+
+  function renderEnemyBoardPresetUi(context = buildContext()) {
+    renderEnemyCorrectionEnabledUi();
+    if (!el.enemyBoardPreset) return;
+    view.enemyBoardPresetSelections = normalizeEnemyBoardPresetSelections(view.enemyBoardPresetSelections);
+    const rows = el.enemyBoardPreset.querySelector('.fdc-enemy-board-preset-rows');
+    if (rows) {
+      rows.innerHTML = [1, 2, 3].map(layer => `
+        <div class="fdc-enemy-board-preset-row">
+          <b>B${layer}</b>
+          <div>${ENEMY_BOARD_PRESET_GROUPS.map(group => `
+            <button type="button" class="${view.enemyBoardPresetSelections[layer].includes(group.key) ? 'is-active' : ''}" data-fdc-board-preset-layer="${layer}" data-fdc-board-preset-group="${escapeAttr(group.key)}">${escapeHtml(group.label)}</button>
+          `).join('')}</div>
+        </div>
+      `).join('');
+    }
+    if (el.enemyRankPreset) el.enemyRankPreset.value = normalizeEnemyRankPreset(view.enemyRankPreset);
+    if (el.enemyResearchLevel) {
+      if (!el.enemyResearchLevel.options.length) el.enemyResearchLevel.innerHTML = Array.from({ length: 11 }, (_, index) => `<option value="${index}">${index ? `${index}段階` : 'OFF'}</option>`).join('');
+      el.enemyResearchLevel.value = String(view.enemyResearchPreset?.level || 0);
+    }
+    if (el.enemyResearchProgress) {
+      if (!el.enemyResearchProgress.options.length) el.enemyResearchProgress.innerHTML = Array.from({ length: 46 }, (_, index) => `<option value="${index}">${index ? `${index}回目` : 'OFF'}</option>`).join('');
+      el.enemyResearchProgress.value = String(view.enemyResearchPreset?.progress || 0);
+    }
+  }
+  function renderEnemyCorrectionEnabledUi() {
+    const percentEnabled = view.enemyGlobalPercentEnabled !== false;
+    const additiveEnabled = view.enemyGlobalAdditiveEnabled !== false;
+    if (el.enemyGlobalPercentEnabled) el.enemyGlobalPercentEnabled.checked = percentEnabled;
+    if (el.enemyGlobalAdditiveEnabled) el.enemyGlobalAdditiveEnabled.checked = additiveEnabled;
+    el.enemyGlobalPercentGroup?.classList.toggle('is-disabled', !percentEnabled);
+    el.enemyGlobalAdditiveGroup?.classList.toggle('is-disabled', !additiveEnabled);
+  }
+  function getEnemyCorrectionInputKeys() {
+    return ENEMY_GLOBAL_PERCENT_CONFIG.flatMap(({ inputKey, additiveInputKey }) => [inputKey, additiveInputKey].filter(Boolean));
+  }
+
+  function readEnemyCorrectionInputs(configKey) {
+    return Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG
+      .filter(config => config[configKey])
+      .map(config => [config.statKey, readNumber(el.inputs[config[configKey]])]));
+  }
+
+  function readEnemyCorrectionSourceValue(values = {}, config = {}) {
+    return Number(values?.[config.statKey] ?? values?.[config.memberKey]) || 0;
+  }
+
+  function writeEnemyCorrectionInputs(configKey, values = {}) {
+    ENEMY_GLOBAL_PERCENT_CONFIG.forEach(config => {
+      const inputKey = config[configKey];
+      if (inputKey && el.inputs[inputKey]) el.inputs[inputKey].value = formatPlainNumber(readEnemyCorrectionSourceValue(values, config));
+    });
+  }
+
+  function readEnemyGlobalPercentInputs() {
+    return readEnemyCorrectionInputs('inputKey');
+  }
+
+  function writeEnemyGlobalPercentInputs(values = {}) {
+    writeEnemyCorrectionInputs('inputKey', values);
+  }
+
+  function calculateCurrentEnemyBoardGlobalAdditive(context) {
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const rows = typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.board || [];
+    rows.forEach(row => {
+      if (row.マス_type !== '上級') return;
+      const apostleState = context?.state?.apostles?.[row.id] || {};
+      const boards = view.statMode === 'planned' ? apostleState.plannedBoards || apostleState.boards || {} : apostleState.boards || {};
+      const layer = String(Number(row.ボード階層) || 0);
+      const key = `${row.ボード階層}:${row.X_pos}:${row.Y_pos}`;
+      if (!boards?.[layer]?.filled?.[key]) return;
+      [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+        const statKey = getEnemyBoardPresetStatKey(row[typeKey]);
+        if (statKey) totals[statKey] += Number(row[valueKey]) || 0;
+      });
+    });
+    return totals;
+  }
+
+  function calculateEnemyApostleRankGlobal(id, rankValue) {
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const rows = typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.rankGlobalBonuses || [];
+    const row = rows.find(item => item.id === id);
+    const rank = Math.max(1, Math.min(10, Number(rankValue) || 1));
+    if (!row) return totals;
+    for (let rankFrom = 1; rankFrom < rank; rankFrom += 1) {
+      for (let index = 1; index <= 2; index += 1) {
+        const statKey = getEnemyBoardPresetStatKey(row[`Rank${rankFrom}to${rankFrom + 1}_type${index}`]);
+        if (statKey) totals[statKey] += Number(row[`Rank${rankFrom}to${rankFrom + 1}_value${index}`]) || 0;
+      }
+    }
+    return totals;
+  }
+
+  function getCurrentEnemyRankGlobal(context, snapshot = null) {
+    const hasSavedRankGlobal = Object.prototype.hasOwnProperty.call(snapshot?.breakdown || {}, 'rankGlobal');
+    const saved = hasSavedRankGlobal
+      ? snapshot.breakdown.rankGlobal || {}
+      : (typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.rankGlobalBonuses || [])
+        .reduce((totals, row) => sumEnemyCorrectionMaps(
+          totals,
+          calculateEnemyApostleRankGlobal(row.id, context?.state?.apostles?.[row.id]?.rank || 1)
+        ), {});
+    const id = context?.enemyMember?.id || view.enemyApostleId;
+    if (!id) return saved;
+    const managerRank = Number(context?.state?.apostles?.[id]?.rank) || 1;
+    const individualRank = Number(getEnemyIndividualOverride(context, id)?.rank ?? managerRank) || managerRank;
+    const managerContribution = calculateEnemyApostleRankGlobal(id, managerRank);
+    const individualContribution = calculateEnemyApostleRankGlobal(id, individualRank);
+    return Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [
+      config.statKey,
+      (Number(saved?.[config.statKey]) || 0)
+        - (Number(managerContribution?.[config.statKey]) || 0)
+        + (Number(individualContribution?.[config.statKey]) || 0)
+    ]));
+  }
+
+  function getSavedEnemyGlobalAdditive(context, snapshot = getEnemyApostleStatSnapshot(context)) {
+    return sumEnemyCorrectionMaps(
+      getCurrentEnemyRankGlobal(context, snapshot),
+      calculateCurrentEnemyBoardGlobalAdditive(context),
+      snapshot?.breakdown?.research || {}
+    );
+  }
+  function syncEnemyGlobalPercentInputs(context) {
+    if (view.enemySourceMode !== 'apostle' || view.enemyGlobalPercentDirty) return;
+    const snapshot = getEnemyApostleStatSnapshot(context);
+    writeEnemyCorrectionInputs('inputKey', snapshot?.globalPercentRates || {});
+    writeEnemyCorrectionInputs('additiveInputKey', getSavedEnemyGlobalAdditive(context, snapshot));
+  }
+
+  function getEnemyApostleStatSnapshot(context) {
+    const member = context?.enemyMember;
+    if (!member) return null;
+    const apostleState = context?.state?.apostles?.[member.id] || {};
+    const basic = getApostle(member.id);
+    const override = getEnemyIndividualOverride(context, member.id) || normalizeEnemyIndividualSettings({}, context, member.id);
+    if (typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' || typeof TRICKCAL_SHARED_STAT_ENGINE.applyApostleOverridesToSnapshot !== 'function') {
+      return getGradeAdjustedSnapshot(apostleState, basic, view.gradeOverride, view.statMode);
+    }
+    const snapshot = getGradeAdjustedSnapshot(apostleState, basic, 'saved', view.statMode);
+    return TRICKCAL_SHARED_STAT_ENGINE.applyApostleOverridesToSnapshot(
+      TRICKCAL_STAT_DATA,
+      basic,
+      apostleState,
+      { snapshot, mode: view.statMode, overrides: override, kind: 'enemyIndividualOverride' }
+    );
+  }
+
+  function getEnemyStatsWithGlobalPercentOverrides(context, member) {
+    const snapshot = getEnemyApostleStatSnapshot(context);
+    const raw = snapshot?.stats;
+    if (!raw) return member?.stats || {};
+    const breakdown = snapshot?.breakdown || {};
+    const increases = breakdown.globalPercent || {};
+    const savedRates = snapshot?.globalPercentRates || {};
+    const savedGlobalAdditive = getSavedEnemyGlobalAdditive(context, snapshot);
+    const stats = { ...(member?.stats || {}) };
+    ENEMY_GLOBAL_PERCENT_CONFIG.forEach(({ inputKey, additiveInputKey, statKey, memberKey, aliases }) => {
+      const finalValue = Number(readStatValue(raw, aliases)) || 0;
+      const savedRate = Number(savedRates[statKey] ?? savedRates[memberKey]) || 0;
+      let beforePercent = finalValue;
+      if (Object.prototype.hasOwnProperty.call(increases, statKey)) {
+        beforePercent = Math.max(0, finalValue - (Number(increases[statKey]) || 0));
+      } else if (savedRate) {
+        beforePercent = Math.max(0, Math.round(finalValue / (1 + savedRate / 100)));
+      }
+      const additiveBase = Number(savedGlobalAdditive[statKey]) || 0;
+      const editedGlobalAdditive = view.enemyGlobalAdditiveEnabled === false
+        ? 0
+        : additiveInputKey ? readNumber(el.inputs[additiveInputKey]) : additiveBase;
+      const editedAdditive = Math.max(0, beforePercent - additiveBase + editedGlobalAdditive);
+      const editedRate = view.enemyGlobalPercentEnabled === false ? 0 : readNumber(el.inputs[inputKey]);
+      stats[memberKey] = editedAdditive + Math.floor(editedAdditive * editedRate / 100);
+    });
+    return stats;
+  }
+
+  function isEnemyCorrectionInput(input) {
+    return getEnemyCorrectionInputKeys().some(inputKey => el.inputs[inputKey] === input);
+  }
+
+  function syncStatsFromEnemyApostle(context) {
+    if (view.enemySourceMode !== 'apostle' || view.enemyStatDirty) return;
+    const member = context?.enemyMember;
+    if (!member) {
+      getEnemyCorrectionInputKeys().forEach(inputKey => {
+        if (el.inputs[inputKey]) el.inputs[inputKey].value = 0;
+      });
+      el.inputs.enemyHp.value = 0;
+      el.inputs.enemyAtk.value = 0;
+      el.inputs.enemyCrit.value = 0;
+      el.inputs.enemyCritDmg.value = 0;
+      el.inputs.def.value = 1;
+      el.inputs.critRes.value = 1;
+      el.inputs.critDmgRes.value = 1;
+      return;
+    }
+    const stats = getEnemyStatsWithGlobalPercentOverrides(context, member);
+    const enemyDamageType = resolveEnemyDamageType();
+    const selfDamageType = resolveSelfDamageType(context?.target);
+    el.inputs.enemyHp.value = Math.round(Number(stats.hp) || 0);
+    el.inputs.enemyAtk.value = Math.round(Number(enemyDamageType === 'magic' ? stats.magicAtk : stats.physicalAtk) || 0);
+    el.inputs.enemyCrit.value = Math.round(Number(stats.crit) || 0);
+    el.inputs.enemyCritDmg.value = Math.round(Number(stats.critDmg) || 0);
+    el.inputs.def.value = Math.round(Number(selfDamageType === 'magic' ? stats.magicDef : stats.physicalDef) || 1);
+    el.inputs.critRes.value = Math.round(Number(stats.critRes) || 1);
+    el.inputs.critDmgRes.value = Math.round(Number(stats.critDmgRes) || 1);
   }
 
   function syncStatsFromTarget(context) {
@@ -2515,7 +3653,7 @@
         || new RegExp(`${name}.*(?:与ダメージ|ダメージ量|ダメージ増加)`).test(body);
     });
     if (!personality) return { hasCondition: false, defaultEnabled: true, reason: '' };
-    const current = normalizePersonalityName(view.enemyPersonality);
+    const current = getEffectiveEnemyPersonality();
     const matched = current === personality;
     return {
       hasCondition: true,
@@ -3028,6 +4166,13 @@
 
   function openTempArtifactPickerFromElement(element, context) {
     const target = (() => {
+      if (element.dataset.fdcTempArtifactRow === 'enemy') {
+        return {
+          type: 'enemy',
+          apostleId: context.enemyMember?.id || view.enemyApostleId || '',
+          slotIndex: Number(element.dataset.fdcTempArtifactSlot) || 0
+        };
+      }
       if (element.dataset.fdcTempArtifactRow !== 'target') {
         return {
           type: 'formation',
@@ -3052,7 +4197,7 @@
           slotIndex: Number(element.dataset.fdcTempArtifactSlot) || 0
         };
     })();
-    if (target.type === 'target' && !target.apostleId) return;
+    if ((target.type === 'target' || target.type === 'enemy') && !target.apostleId) return;
     if (target.type === 'formation' && (!Number.isFinite(target.rowIndex) || !Number.isFinite(target.lineIndex))) return;
     view.artifactPicker = target;
     const picker = getTempArtifactPicker(true);
@@ -3079,7 +4224,7 @@
     const currentId = getCurrentTempArtifactId(context);
     picker.innerHTML = `
       <div class="fdc-temp-artifact-head">
-        <strong>遺物を一時入替</strong>
+        <strong>${view.artifactPicker?.type === 'enemy' ? '敵遺物を入替' : '遺物を一時入替'}</strong>
         <button type="button" data-fdc-temp-artifact-close aria-label="閉じる">×</button>
       </div>
       <div class="fdc-temp-artifact-grid">
@@ -3134,6 +4279,9 @@
     if (target.type === 'target') {
       return context.target?.artifactIds?.[target.slotIndex] || '';
     }
+    if (target.type === 'enemy') {
+      return context.enemyMember?.artifactIds?.[target.slotIndex] || '';
+    }
     return context.formation?.rows?.[target.rowIndex]?.artifacts?.[target.lineIndex]?.[target.slotIndex] || '';
   }
 
@@ -3143,6 +4291,23 @@
     if (target.type === 'target') {
       if (!view.tempArtifacts.target[target.apostleId]) view.tempArtifacts.target[target.apostleId] = {};
       view.tempArtifacts.target[target.apostleId][target.slotIndex] = id || '';
+    } else if (target.type === 'enemy') {
+      const context = buildContext();
+      const settings = ensureEnemyIndividualOverride(context, target.apostleId);
+      if (!settings) return;
+      settings.artifactIds = Array.from({ length: 3 }, (_, index) => settings.artifactIds?.[index] || '');
+      settings.artifactIds[target.slotIndex] = id || '';
+      settings.artifactSettings = Array.from({ length: 3 }, (_, index) => settings.artifactSettings?.[index] || { star: 1, solder: 0 });
+      const managerCard = context.state?.cards?.[id] || {};
+      const managerStar = Math.max(1, Math.min(5, Number(managerCard.star) || 1));
+      settings.artifactSettings[target.slotIndex] = {
+        star: managerStar,
+        solder: managerStar >= 5 ? Math.max(0, Math.min(2, Number(managerCard.solder) || 0)) : 0
+      };
+      view.enemyIndividualOverrides[target.apostleId] = normalizeEnemyIndividualSettings(settings, context, target.apostleId);
+      view.enemyStatDirty = false;
+      view.enemyGlobalPercentDirty = false;
+      saveCalcSettings();
     } else {
       view.tempArtifacts.formation[`${target.rowIndex}:${target.lineIndex}:${target.slotIndex}`] = id || '';
     }
@@ -3878,6 +5043,17 @@
     if (!isEnemyAttack) attacker.skill = resolveSelectedSelfSkillMultiplier(context, attacker.skill);
     attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
     applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack);
+    applyEffectSummaryToDamageMods(
+      context.enemySummary || {},
+      {
+        ...context,
+        damageType: isEnemyAttack ? resolveEnemyDamageType() : context.damageType,
+        actionCategory: view.enemySelectedSkillCategory || ''
+      },
+      attacker,
+      defender,
+      !isEnemyAttack
+    );
     const baseAtk = isEnemyAttack ? readNumber(el.inputs.enemyAtk) : readNumber(el.inputs.atk);
     const baseCrit = isEnemyAttack ? readNumber(el.inputs.enemyCrit) : readNumber(el.inputs.crit);
     const baseCritDmg = isEnemyAttack ? readNumber(el.inputs.enemyCritDmg) : readNumber(el.inputs.critDmg);
@@ -3885,7 +5061,7 @@
     const baseCritRes = isEnemyAttack ? readNumber(el.inputs.selfCritResBase) : readNumber(el.inputs.critRes);
     const baseCritDmgRes = isEnemyAttack ? readNumber(el.inputs.selfCritDmgResBase) : readNumber(el.inputs.critDmgRes);
     const baseHp = isEnemyAttack ? readNumber(el.inputs.selfHp) : readNumber(el.inputs.enemyHp);
-    const hpP = isEnemyAttack ? getActiveHpBonusP(context) : 0;
+    const hpP = isEnemyAttack ? getActiveHpBonusP(context) : Number(context.enemySummary?.hpP) || 0;
     const attackP = attacker.atkP - attacker.atkDownP;
     const defenseP = defender.defP - defender.defDownP;
     const critP = attacker.critP;
@@ -4152,20 +5328,21 @@
 
   function syncPersonalityTypeAffinity(context) {
     const selfPersonality = normalizePersonalityName(context?.target?.personality);
-    const enemyPersonality = normalizePersonalityName(view.enemyPersonality);
+    const enemyPersonality = getEffectiveEnemyPersonality();
     const rate = getPersonalityTypeRate(
       view.perspective === 'enemy' ? enemyPersonality : selfPersonality,
-      view.perspective === 'enemy' ? selfPersonality : enemyPersonality
+      view.perspective === 'enemy' ? selfPersonality : enemyPersonality,
+      view.enemySourceMode === 'apostle' && view.pvpAffinityEnabled
     );
     const input = view.perspective === 'enemy' ? el.inputs.enemyType : el.inputs.selfType;
     if (input) input.value = String(rate);
   }
 
-  function getPersonalityTypeRate(attackerPersonality, defenderPersonality) {
+  function getPersonalityTypeRate(attackerPersonality, defenderPersonality, pvpAdjusted = false) {
     if (!attackerPersonality || !defenderPersonality) return 100;
     if (attackerPersonality === defenderPersonality) return 100;
-    if (PERSONALITY_ADVANTAGE[attackerPersonality] === defenderPersonality) return 200;
-    if (PERSONALITY_ADVANTAGE[defenderPersonality] === attackerPersonality) return 50;
+    if (PERSONALITY_ADVANTAGE[attackerPersonality] === defenderPersonality) return pvpAdjusted ? 150 : 200;
+    if (PERSONALITY_ADVANTAGE[defenderPersonality] === attackerPersonality) return pvpAdjusted ? 75 : 50;
     return 100;
   }
 
@@ -4174,8 +5351,15 @@
     return Object.prototype.hasOwnProperty.call(PERSONALITY_ADVANTAGE, text) ? text : '';
   }
 
+  function getEffectiveEnemyPersonality() {
+    if (view.enemySourceMode === 'apostle') {
+      return normalizePersonalityName(getApostle(view.enemyApostleId)?.性格);
+    }
+    return normalizePersonalityName(view.enemyPersonality);
+  }
+
   function syncEnemyPersonalityUi() {
-    const personality = view.enemyPersonality || '';
+    const personality = getEffectiveEnemyPersonality();
     if (el.enemyPersonality) el.enemyPersonality.value = personality;
     if (el.enemyPersonalityIcon) {
       el.enemyPersonalityIcon.src = personality ? `img/性格_${personality}.webp` : 'img/性格_なし.webp';
@@ -4246,6 +5430,46 @@
     pushFavoriteSkillEffects(result.skillChanges, target, formation, cards);
     pushGlobalStatSnapshotEffects(result.globalStats, target, state);
     pushExtraCrayonEffects(result.globalStats);
+    finalizeEffectTags(result);
+    return result;
+  }
+
+  function collectEnemyCardEffects({ target, cards, damageType, actionCategory }) {
+    const result = { applied: [], conditional: [], skillChanges: [], globalStats: [] };
+    if (!target) return result;
+    const enemyCards = { ...(cards || {}) };
+    (target.artifactIds || []).forEach((id, index) => {
+      if (!id) return;
+      const cardState = { ...(cards?.[id] || {}), ...(target.artifactSettings?.[index] || {}) };
+      enemyCards[id] = cardState;
+      const row = { ...createCardRow(id, 1, cardState), ownerId: `enemy:${target.id}` };
+      pushBaseCardEffect(result.applied, row, '装備遺物', damageType);
+      pushConditionalCardEffects(
+        result,
+        row,
+        target,
+        '装備遺物',
+        damageType,
+        actionCategory,
+        { rows: [{ apostles: [target.id] }], spells: target.spellIds || [] }
+      );
+    });
+    countIds(target.spellIds || []).forEach(({ id, qty }) => {
+      const cardState = { ...(cards?.[id] || {}), ...(target.spellSettings?.[id] || {}) };
+      enemyCards[id] = cardState;
+      const row = { ...createCardRow(id, qty, cardState), ownerId: `enemy-spell:${target.id}` };
+      pushBaseCardEffect(result.applied, row, 'スペル', damageType);
+      pushConditionalCardEffects(
+        result,
+        row,
+        target,
+        'スペル',
+        damageType,
+        actionCategory,
+        { rows: [{ apostles: [target.id] }], spells: target.spellIds || [] }
+      );
+    });
+    pushFavoriteSkillEffects(result.skillChanges, target, { rows: [{ apostles: [target.id] }], spells: target.spellIds || [] }, enemyCards);
     finalizeEffectTags(result);
     return result;
   }
@@ -5389,6 +6613,10 @@
 
   function resolveEnemyDamageType(preset = getSelectedEnemyPreset()) {
     if (view.enemyDamageType === 'physical' || view.enemyDamageType === 'magic') return view.enemyDamageType;
+    if (view.enemySourceMode === 'apostle') {
+      const basic = getApostle(view.enemyApostleId);
+      return resolveDamageType('auto', { attackType: basic?.攻撃タイプ || basic?.攻撃Type || '' });
+    }
     if (preset?.dmgType === 'mag' || preset?.dmgType === 'magic') return 'magic';
     if (preset?.dmgType === 'phys' || preset?.dmgType === 'physical') return 'physical';
     return 'physical';
@@ -5588,7 +6816,7 @@
 
   function getFdcEffectiveSkillLevels(target) {
     const base = normalizeFdcSkillLevelConfig(target?.skillLevels || {});
-    const override = getCurrentFdcSkillLevelOverride(target, base);
+    const override = target?.hasEnemyIndividualSkillLevels ? {} : getCurrentFdcSkillLevelOverride(target, base);
     const asideRank = Number(override.asideRank ?? target?.asideRank ?? base.asideRank) || 0;
     const maxSkillLevel = Math.max(1, 12 + Math.min(3, asideRank));
     const clampSkill = value => Math.max(1, Math.min(maxSkillLevel, Number(value) || 1));
