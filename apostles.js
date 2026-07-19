@@ -10549,11 +10549,12 @@ const APOSTLE_LIBRARY = [
             }
           },
           {
-            "valueKind": "HP回復",
+            "valueKind": "物理ダメージ",
             "valueClass": "倍率",
-            "effectType": "回復",
-            "effectTarget": "範囲内の敵",
-            "reference": "最大HP",
+            "effectType": "攻撃",
+            "condition": "対象が使徒",
+            "effectTarget": "対象の敵",
+            "reference": "敵の最大HP",
             "fixedValue": 20.0
           }
         ],

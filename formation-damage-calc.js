@@ -380,6 +380,7 @@
         view.resultDisplays[input.dataset.fdcResultDisplay] = !!input.checked;
         saveCalcSettings();
         syncApplyFloatUi();
+        renderResult(buildContext());
       });
     });
     el.applyFloatBulk.forEach(button => {

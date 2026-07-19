@@ -13,7 +13,7 @@
       'statData.js?v=20260713e',
       'synergy.js',
       'cards.js?v=20260715a',
-      'stat-prototype.js?v=20260716a',
+      'stat-prototype.js?v=20260719a',
       'stat-dashboard.js?v=20260717a',
       'image-preload.js'
     ],
@@ -28,7 +28,7 @@
       'cards.js?v=20260715a',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260719e',
+      'formation-damage-calc.js?v=20260719f',
       'image-preload.js'
     ]
   };

@@ -2270,7 +2270,6 @@
       research: {},
       cards: {},
       formation: normalizeFormationState(createDefaultFormation()),
-      totalCombatPower: 0,
       activeFormationPresetId: '',
       savedFormations: []
     };
@@ -2283,8 +2282,7 @@
       apostles: createComparableApostleStates(appState.apostles),
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
-      formation: normalizeFormationState(appState.formation || createDefaultFormation()),
-      totalCombatPower: normalizeFormationCoins(appState.totalCombatPower),
+      formation: createComparableFormationState(appState.formation),
       activeFormationPresetId: appState.activeFormationPresetId || '',
       savedFormations: normalizeFormationPresetList(appState.savedFormations || [])
     };
@@ -2297,8 +2295,7 @@
       apostles: createComparableApostleStates(normalized.apostles),
       research: normalized.research,
       cards: normalized.cards,
-      formation: normalized.formation,
-      totalCombatPower: normalizeFormationCoins(normalized.totalCombatPower),
+      formation: createComparableFormationState(normalized.formation),
       activeFormationPresetId: normalized.activeFormationPresetId || '',
       savedFormations: normalizeFormationPresetList(normalized.savedFormations || [])
     };
@@ -2309,6 +2306,15 @@
     }
     return comparable;
   }
+
+  function createComparableFormationState(formation) {
+    const comparable = normalizeFormationState(formation || createDefaultFormation());
+    // Auto coins and total combat power are derived from apostle settings. A
+    // delayed stat refresh must not turn a just-saved state dirty.
+    if (comparable.coinMode === 'auto') comparable.coins = 0;
+    return comparable;
+  }
+
   function createComparableApostleStates(states = {}) {
     const comparable = cloneJson(states || {});
     Object.values(comparable).forEach(state => {
