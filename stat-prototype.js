@@ -783,6 +783,11 @@
     });
 
     elements.profileCard?.addEventListener('change', event => {
+      const equipmentSelect = event.target.closest('select[data-profile-equipment-key]');
+      if (equipmentSelect) {
+        updateProfileEquipment(equipmentSelect.dataset.profileEquipmentKey, equipmentSelect.value);
+        return;
+      }
       const select = event.target.closest('select[data-profile-field]');
       if (!select) return;
       updateProfileField(select.dataset.profileField, select.value);
@@ -2105,7 +2110,7 @@
     const slotKey = String(view.stateSlot);
     const dirty = isCurrentStateDirty();
     const mode = getStateSlotMode();
-    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択', delete: '削除する状態を選択', import: 'インポート先を選択' };
+    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択（空は新規）', delete: '削除する状態を選択', import: 'インポート先を選択' };
     elements.stateSlotButtons.forEach(button => {
       const key = button.dataset.stateSlot;
       const snapshot = appState.savedStates[key];
@@ -2115,11 +2120,11 @@
       button.classList.toggle('is-current', key === slotKey);
       button.classList.toggle('is-dirty', key === slotKey && dirty);
       button.classList.toggle('has-data', !!snapshot);
-      button.disabled = (mode === 'load' || mode === 'delete') && !snapshot;
+      button.disabled = mode === 'delete' && !snapshot;
       button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
       button.title = snapshot
         ? `${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
-        : `スロット${key}: 空`;
+        : `スロット${key}: 空${mode === 'load' ? '（新規状態として読み込み）' : ''}`;
     });
     const saveMenu = document.querySelector('.bottom-save-menu');
     saveMenu?.classList.toggle('is-dirty', dirty);
@@ -2169,10 +2174,6 @@
       return;
     }
     if (mode === 'load') {
-      if (!appState.savedStates[String(targetSlot)]) {
-        showStateStatus(`スロット${targetSlot}は空です`, true);
-        return;
-      }
       if (isCurrentStateDirty() && !window.confirm(`現在のスロット${view.stateSlot}に未保存変更があります。\n保存せずにスロット${targetSlot}を読み込みますか？`)) {
         return;
       }
@@ -2231,14 +2232,29 @@
   function loadStateSlot(slot) {
     const safeSlot = normalizeStateSlot(slot);
     const snapshot = appState.savedStates[String(safeSlot)];
-    if (!snapshot) return;
     const history = beginHistoryAction('ロード');
     view.stateSlot = safeSlot;
     appState.activeStateSlot = view.stateSlot;
     setStateSlotMode('');
-    applyStateSnapshot(snapshot);
+    applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot));
     commitHistoryAction(history);
-    showStateStatus(`スロット${safeSlot}を読み込みました`);
+    showStateStatus(snapshot
+      ? `スロット${safeSlot}を読み込みました`
+      : `空のスロット${safeSlot}を新規状態として開きました`);
+  }
+
+  function createEmptyStateSnapshot(slot) {
+    return {
+      activeId: getValidApostleId(DATA.sheets.basicInfo[0]?.id || ''),
+      activeStateSlot: normalizeStateSlot(slot),
+      apostles: {},
+      research: {},
+      cards: {},
+      formation: createDefaultFormation(),
+      totalCombatPower: 0,
+      activeFormationPresetId: '',
+      savedFormations: []
+    };
   }
 
   function deleteStateSlot(slot) {
@@ -2894,7 +2910,62 @@
         </strong>
       </span>
     `);
+    chips.push(renderProfileEquipmentChips(basic, state));
     return `<span class="profile-meta-values">${chips.join('')}</span>`;
+  }
+
+  function renderProfileEquipmentChips(basic, state) {
+    const equipment = DATA.getById('equipment', basic?.id);
+    if (!equipment) return '';
+    const rank = Number(state.rank) || 1;
+    const attackKey = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
+    const definitions = [
+      { key: 'HP', label: 'HP', title: 'HP' },
+      { key: attackKey, label: attackKey === '物理攻撃' ? '物攻' : '魔攻', title: attackKey },
+      { key: '物理防御', label: '物防', title: '物理防御' },
+      { key: '魔法防御', label: '魔防', title: '魔法防御' },
+      { key: '会心/会心DMG', label: '会心', title: '会心・会心DMG' },
+      { key: '会心抵抗/会心DMG抵抗', label: '抵抗', title: '会心抵抗・会心DMG抵抗' }
+    ];
+    const chips = definitions.map(item => {
+      const tier = Number(equipment[`Equip_Rank${rank}_${item.key}`]);
+      const saved = state.equipment?.[item.key] || { enabled: false, enhance: 0 };
+      const available = Number.isFinite(tier);
+      const selected = available && saved.enabled
+        ? Math.max(0, Math.min(5, Number(saved.enhance) || 0))
+        : 'off';
+      const options = [
+        { value: 'off', label: 'なし' },
+        ...Array.from({ length: 6 }, (_, enhance) => ({ value: enhance, label: `+${enhance}` }))
+      ];
+      return `
+        <label class="profile-equipment-chip ${selected === 'off' ? 'is-empty' : 'is-equipped'}" title="${escapeAttr(item.title)}">
+          <small>${escapeHtml(item.label)}</small>
+          <select data-profile-equipment-key="${escapeAttr(item.key)}" aria-label="${escapeAttr(`${item.title} 装備強化値`)}" ${available ? '' : 'disabled'}>
+            ${renderOptions(options, selected)}
+          </select>
+        </label>
+      `;
+    }).join('');
+    return `
+      <span class="profile-meta-chip profile-meta-chip-equipment" aria-label="装備設定">
+        <small>装備</small>
+        <strong class="profile-equipment-chips">${chips}</strong>
+      </span>
+    `;
+  }
+
+  function updateProfileEquipment(key, rawValue) {
+    if (!key) return;
+    const history = beginHistoryAction('装備変更');
+    const state = currentApostleState();
+    const equipment = state.equipment[key] || { enabled: false, enhance: 0 };
+    equipment.enabled = rawValue !== 'off';
+    if (equipment.enabled) equipment.enhance = Math.max(0, Math.min(5, Number(rawValue) || 0));
+    state.equipment[key] = equipment;
+    saveState({ refreshSnapshotIds: [view.id] });
+    render();
+    commitHistoryAction(history);
   }
 
   function renderProfileMetaSelectChip(label, field, value, options, tone = '', disabled = false) {
@@ -5004,10 +5075,40 @@
   function renderFormationMemberSummary(formation) {
     if (!elements.formationMemberSummary) return;
     const count = getFormationMemberCount(formation);
+    const formationCombatPower = calculateFormationCombatPower(formation);
+    const totalCombatPower = getSavedTotalCombatPower();
     elements.formationMemberSummary.innerHTML = `
       <span class="formation-member-count">
         <span>編成</span>
         <strong>${escapeHtml(count)}</strong>
+      </span>
+      ${renderFormationCombatPowerMetric('編成戦闘力', formationCombatPower, 'formation')}
+      ${renderFormationCombatPowerMetric('総合戦闘力', totalCombatPower, 'total')}
+    `;
+  }
+
+  function calculateFormationCombatPower(formation = ensureFormationState()) {
+    const ids = new Set();
+    (formation.rows || []).forEach(row => {
+      (row.apostles || []).forEach(id => {
+        const basic = id ? DATA.getById('basicInfo', id) : null;
+        if (basic?.id) ids.add(basic.id);
+      });
+    });
+    return Array.from(ids).reduce((total, id) => {
+      const combatPower = Number(ensureApostleState(id).statSnapshots?.current?.stats?.combatPower) || 0;
+      return total + combatPower;
+    }, 0);
+  }
+
+  function renderFormationCombatPowerMetric(label, value, kind) {
+    return `
+      <span class="formation-combat-power formation-combat-power-${escapeAttr(kind)}" title="${escapeAttr(`${label} ${formatNumber(value)}`)}">
+        <img src="img/c_pow.webp" alt="">
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <strong>${escapeHtml(formatNumber(value))}</strong>
+        </span>
       </span>
     `;
   }
@@ -5920,6 +6021,9 @@
     appState.totalCombatPower = calculateTotalCombatPowerFromSnapshots();
     if (appState.formation?.coinMode === 'auto') {
       appState.formation.coins = calculateFormationAutoCoins(appState.totalCombatPower);
+    }
+    if (isDashboardPanelActive('formation')) {
+      renderFormationMemberSummary(ensureFormationState());
     }
   }
 

@@ -8,12 +8,12 @@
     stat: [
       'stat-dashboard.html',
       'stat-prototype.css?v=20260715b',
-      'stat-dashboard.css?v=20260717a',
+      'stat-dashboard.css?v=20260719k',
       'shared-topbar.css?v=20260718a',
       'statData.js?v=20260713e',
       'synergy.js',
       'cards.js?v=20260715a',
-      'stat-prototype.js?v=20260719a',
+      'stat-prototype.js?v=20260719f',
       'stat-dashboard.js?v=20260717a',
       'image-preload.js'
     ],
