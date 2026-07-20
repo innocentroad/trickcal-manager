@@ -9174,6 +9174,13 @@
         const safeId = getValidApostleId(id);
         return cloneJson(ensureApostleState(safeId).statSnapshots?.planned || {});
       },
+      getSpState: (id = view.id, options = {}) => {
+        const safeId = getValidApostleId(id);
+        const basic = (DATA.sheets.basicInfo || []).find(item => item.id === safeId) || {};
+        const snapshot = ensureApostleState(safeId).statSnapshots?.current || {};
+        if (!window.TRICKCAL_SP_ENGINE) return null;
+        return window.TRICKCAL_SP_ENGINE.createApostleState(basic, snapshot, options);
+      },
       calculateApostleStats: calculateApostleStatsForEngine,
       refreshSnapshots: refreshAllStatSnapshots
     };

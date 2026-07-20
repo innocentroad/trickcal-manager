@@ -11,24 +11,26 @@
       'stat-dashboard.css?v=20260719k',
       'shared-topbar.css?v=20260718a',
       'statData.js?v=20260713e',
+      'sp-engine.js?v=20260720b',
       'synergy.js',
-      'cards.js?v=20260715a',
-      'stat-prototype.js?v=20260719f',
+      'cards.js?v=20260720b',
+      'stat-prototype.js?v=20260720a',
       'stat-dashboard.js?v=20260717a',
       'image-preload.js'
     ],
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260719f',
+      'formation-damage-calc.css?v=20260720j',
       'shared-topbar.css?v=20260718a',
       'statData.js',
+      'sp-engine.js?v=20260720b',
       'stat-engine.js?v=20260718b',
       'apostles.js',
-      'cards.js?v=20260715a',
+      'cards.js?v=20260720b',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260719f',
+      'formation-damage-calc.js?v=20260720m',
       'image-preload.js'
     ]
   };

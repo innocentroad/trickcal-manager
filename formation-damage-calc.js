@@ -2953,20 +2953,290 @@
       button.addEventListener('click', event => {
         event.stopPropagation();
         const option = optionsByKey.get(button.dataset.fdcSkillInfo || '');
-        if (option) showFdcSkillPopover(button, option);
+        if (option) showFdcSkillPopover(button, option, target, context);
       });
     });
     bindFdcSkillLevelControls(target);
   }
 
-  function showFdcSkillPopover(anchor, option) {
+  function showFdcSkillPopover(anchor, option, target = null, context = null) {
     const lines = [
       option.skillName ? `スキル名: ${option.skillName}` : '',
       option.label ? `候補: ${option.label}` : '',
       option.sourceLabel && option.sourceLabel !== '通常' ? `由来: ${option.sourceLabel}` : '',
-      option.detailText || ''
+      option.detailText || '',
+      ...getFdcLowSkillSpInfoLines(option, target, context)
     ].filter(Boolean);
     showFdcInfoPopover(anchor, option.category || 'スキル詳細', lines);
+  }
+
+  function getFdcLowSkillSpInfoLines(option, target, context = null) {
+    if (getFdcSkillBaseCategory(option?.category) !== '低学年スキル') return [];
+    if (!target || typeof TRICKCAL_SP_ENGINE === 'undefined') return [];
+    const apostle = getApostleSkillData(target) || getApostle(target.id) || {};
+    const baseState = TRICKCAL_SP_ENGINE.createApostleState(apostle, target.stats || {}, {
+      requiredSp: option.requiredSp
+    });
+    const cardTiming = getFdcSpCardTiming(context, baseState);
+    const state = TRICKCAL_SP_ENGINE.createState({
+      ...baseState,
+      initialSp: cardTiming.initialSp,
+      spRegen: cardTiming.spRegen
+    });
+    const slowCycle = TRICKCAL_SP_ENGINE.getCycleWithEvents(state, cardTiming.minEvents);
+    const fastCycle = TRICKCAL_SP_ENGINE.getCycleWithEvents(state, cardTiming.maxEvents);
+    const formatWait = seconds => {
+      if (!Number.isFinite(seconds)) return '自然回復では発動不可';
+      if (seconds <= 0) return '戦闘開始時';
+      return `${formatPlainNumber(seconds)}秒後`;
+    };
+    const formatWaitRange = (slowSeconds, fastSeconds, suffix = '') => {
+      if (!Number.isFinite(slowSeconds) && !Number.isFinite(fastSeconds)) return '自然回復では発動不可';
+      const values = [slowSeconds, fastSeconds].filter(Number.isFinite).sort((a, b) => a - b);
+      if (!values.length) return '自然回復では発動不可';
+      if (Math.abs(values[0] - values[values.length - 1]) < 0.001) {
+        return suffix ? `${formatPlainNumber(values[0])}${suffix}` : formatWait(values[0]);
+      }
+      return `${formatPlainNumber(values[0])}～${formatPlainNumber(values[values.length - 1])}${suffix || '秒後'}`;
+    };
+    return [
+      `SP条件: ${formatPlainNumber(state.requiredSp)}（初期${formatPlainNumber(state.initialSp)} / 1秒ごと+${formatPlainNumber(state.spRegen)}）`,
+      cardTiming.summaryText ? `SP補正: ${cardTiming.summaryText}` : '',
+      `初回発動まで: ${formatWaitRange(slowCycle.firstReadySeconds, fastCycle.firstReadySeconds)}`,
+      `次回発動まで: ${formatWaitRange(slowCycle.refillSeconds, fastCycle.refillSeconds, '秒')}`,
+      cardTiming.manualText ? `${cardTiming.manualText}は使用時刻未指定のため除外` : '',
+      'SP反映内訳',
+      ...cardTiming.detailLines
+    ];
+  }
+
+  function getFdcSpCardTiming(context, baseState) {
+    const candidateRows = [
+      ...(context?.effects?.conditional || []),
+      ...(context?.effects?.applied || [])
+    ];
+    const allRows = candidateRows.filter(row => (
+      isEffectSourceEnabled(row)
+      && !/対象外/.test(String(row?.reason || ''))
+      && (!row?.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled))
+    ));
+    const uniqueRows = new Map();
+    allRows.forEach(row => {
+      const key = row.conditionKey || [row.source, row.cardName, row.label, JSON.stringify(row.bonuses || {})].join(':');
+      if (!uniqueRows.has(key)) uniqueRows.set(key, row);
+    });
+    const rows = Array.from(uniqueRows.values());
+    const automaticRows = rows.filter(row => {
+      const text = [row.effectText, row.label, row.reason].filter(Boolean).join(' ');
+      if (/通常攻撃|普通攻撃|基本攻撃/.test(text)) return false;
+      if (Number(row?.bonuses?.spRegen) || Number(row?.bonuses?.spRegenP)) return true;
+      return (Number(row?.bonuses?.spRecovery) || Number(row?.bonuses?.spRecoveryP))
+        && /\d+(?:\.\d+)?秒ごと/.test(text);
+    });
+    const regenPercent = Number(summarizeEffectBonuses(automaticRows, key => key === 'spRegenP').spRegenP) || 0;
+    const regenFixed = Number(summarizeEffectBonuses(automaticRows, key => key === 'spRegen').spRegen) || 0;
+    const regenSources = unique(automaticRows
+      .filter(row => Number(row?.bonuses?.spRegen) || Number(row?.bonuses?.spRegenP))
+      .map(row => row.spSourceLabel || row.cardName || row.label || row.source)
+      .filter(Boolean));
+    const spRegen = Math.max(0, Math.floor(baseState.spRegen * (1 + regenPercent / 100) + regenFixed));
+    const initialRows = rows.filter(row => Number(row?.bonuses?.initialSp) || Number(row?.bonuses?.initialSpP));
+    const initialFixed = Number(summarizeEffectBonuses(initialRows, key => key === 'initialSp').initialSp) || 0;
+    const initialPercent = Number(summarizeEffectBonuses(initialRows, key => key === 'initialSpP').initialSpP) || 0;
+    const initialSources = unique(initialRows
+      .map(row => row.spSourceLabel || row.cardName || row.label || row.source)
+      .filter(Boolean));
+    const initialSp = Math.min(
+      baseState.maxSp,
+      Math.max(0, baseState.initialSp + initialFixed + baseState.maxSp * initialPercent / 100)
+    );
+    const periodicGroups = new Map();
+    automaticRows.forEach(row => {
+      if (!Number(row?.bonuses?.spRecovery) && !Number(row?.bonuses?.spRecoveryP)) return;
+      const text = [row.effectText, row.label, row.reason].filter(Boolean).join(' ');
+      const interval = Number(text.match(/(\d+(?:\.\d+)?)秒ごと/)?.[1]);
+      if (!Number.isFinite(interval) || interval <= 0) return;
+      const sourceName = row.spSourceLabel || row.cardName || row.label || row.source || '';
+      const key = [sourceName, interval].join(':');
+      if (!periodicGroups.has(key)) periodicGroups.set(key, { interval, source: sourceName, min: [], max: [], fixed: [] });
+      const group = periodicGroups.get(key);
+      if (/ランダム最低値/.test(text)) group.min.push(row);
+      else if (/ランダム最大値/.test(text)) group.max.push(row);
+      else group.fixed.push(row);
+    });
+    const minEvents = [];
+    const maxEvents = [];
+    const periodicLabels = [];
+    periodicGroups.forEach(group => {
+      const measureRows = list => {
+        const fixed = Number(summarizeEffectBonuses(list, key => key === 'spRecovery').spRecovery) || 0;
+        const percent = Number(summarizeEffectBonuses(list, key => key === 'spRecoveryP').spRecoveryP) || 0;
+        return { fixed, percent, amount: fixed + baseState.maxSp * percent / 100 };
+      };
+      const combineMeasures = (left, right) => ({
+        fixed: left.fixed + right.fixed,
+        percent: left.percent + right.percent,
+        amount: left.amount + right.amount
+      });
+      const common = measureRows(group.fixed);
+      const minimum = combineMeasures(common, measureRows(group.min.length ? group.min : group.max));
+      const maximum = combineMeasures(common, measureRows(group.max.length ? group.max : group.min));
+      if (minimum.amount > 0) minEvents.push({ intervalSeconds: group.interval, amountSp: minimum.amount, source: group.source });
+      if (maximum.amount > 0) maxEvents.push({ intervalSeconds: group.interval, amountSp: maximum.amount, source: group.source });
+      if (minimum.amount || maximum.amount) {
+        const low = minimum.amount;
+        const high = maximum.amount;
+        const range = Math.abs(low - high) < 0.001
+          ? formatPlainNumber(low)
+          : `${formatPlainNumber(Math.min(low, high))}～${formatPlainNumber(Math.max(low, high))}`;
+        periodicLabels.push(`${group.source ? `${group.source}: ` : ''}${formatPlainNumber(group.interval)}秒ごとSP${range}`);
+      }
+    });
+    const manualCards = unique(rows.filter(row => {
+      const text = [row.effectText, row.label, row.reason].filter(Boolean).join(' ');
+      return (Number(row?.bonuses?.spRecovery) || Number(row?.bonuses?.spRecoveryP)) && /カード選択時/.test(text);
+    }).map(row => row.cardName).filter(Boolean));
+    const detailLines = buildFdcSpTimingDetailLines(context, baseState, candidateRows);
+    const summaryParts = [
+      initialFixed || initialPercent
+        ? `初期SP${initialFixed ? `+${formatPlainNumber(initialFixed)}` : ''}${initialPercent ? `${initialFixed ? ' / ' : '+'}${formatPlainNumber(initialPercent)}%` : ''}（${formatPlainNumber(baseState.initialSp)}→${formatPlainNumber(initialSp)}${initialSources.length ? ` / ${initialSources.join('・')}` : ''}）`
+        : '',
+      regenFixed || regenPercent
+        ? `毎秒回復量${regenFixed ? `+${formatPlainNumber(regenFixed)}` : ''}${regenPercent ? `${regenFixed ? ' / ' : '+'}${formatPlainNumber(regenPercent)}%` : ''}（${formatPlainNumber(baseState.spRegen)}→${formatPlainNumber(spRegen)}${regenSources.length ? ` / ${regenSources.join('・')}` : ''}）`
+        : '',
+      ...periodicLabels
+    ].filter(Boolean);
+    return {
+      initialSp,
+      spRegen,
+      minEvents,
+      maxEvents,
+      summaryText: summaryParts.join(' / '),
+      manualText: manualCards.length ? `${manualCards.join(' / ')}のカード選択時SP回復` : '',
+      detailLines
+    };
+  }
+
+  function buildFdcSpTimingDetailLines(context, baseState, candidateRows = []) {
+    const applied = [`✓ 基礎: 初期SP${formatPlainNumber(baseState.initialSp)} / 毎秒SP+${formatPlainNumber(baseState.spRegen)}`];
+    const held = [];
+    const seen = new Set();
+    const add = ({ key = '', source = '', bonuses = {}, text = '', enabled = true, disabledReason = '' }) => {
+      if (!hasFdcSpTimingBonus(bonuses)) return;
+      const uniqueKey = key || [source, JSON.stringify(bonuses), text].join(':');
+      if (seen.has(uniqueKey)) return;
+      seen.add(uniqueKey);
+      const timing = classifyFdcSpTimingEffect(bonuses, text);
+      const value = formatFdcSpTimingBonus(bonuses, timing.interval, baseState.maxSp);
+      const label = source || '名称不明のSP効果';
+      if (enabled && timing.automatic) {
+        applied.push(`✓ ${label}: ${value}`);
+      } else {
+        const reasons = unique([disabledReason, timing.reason].filter(Boolean));
+        held.push(`－ ${label}: ${value}［${reasons.join(' / ') || '自動計算対象外'}］`);
+      }
+    };
+
+    const target = context?.target;
+    if (target) {
+      buildSelfSkillEffectOptions(target, context).forEach(option => {
+        const bonuses = getSkillEffectOptionBonuses(option);
+        const text = [option.condition, option.detailText, option.label].filter(Boolean).join(' ');
+        add({
+          key: `skill:${option.key}`,
+          source: option.spSourceLabel || option.label,
+          bonuses,
+          text,
+          enabled: isSelfSkillEffectOptionEnabled(option),
+          disabledReason: isSelfSkillEffectOptionEnabled(option) ? '' : '条件未成立または手動OFF'
+        });
+      });
+    }
+
+    candidateRows.forEach(row => {
+      if (/本人スキル|編成スキル|編成A3/.test(String(row?.source || ''))) return;
+      const text = [row.effectText, row.label, row.reason].filter(Boolean).join(' ');
+      const sourceEnabled = isEffectSourceEnabled(row);
+      const targetMatched = !/対象外/.test(String(row?.reason || ''));
+      const toggleEnabled = !row?.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled);
+      add({
+        key: `row:${row.conditionKey || [row.source, row.cardName, row.label].join(':')}`,
+        source: row.spSourceLabel || row.cardName || row.label || row.source,
+        bonuses: row.bonuses || {},
+        text,
+        enabled: sourceEnabled && targetMatched && toggleEnabled,
+        disabledReason: !sourceEnabled
+          ? '補正カテゴリOFF'
+          : (!targetMatched ? String(row.reason || '対象外') : (!toggleEnabled ? '手動OFF' : ''))
+      });
+    });
+
+    getFormationArtifactEffectOwners(context?.formation, context?.state?.cards || {}, target).forEach(ownerRow => {
+      const card = getCard(ownerRow.id);
+      normalizeFdcArray(card?.conditionalEffects).forEach(effect => {
+        const text = getEffectText(effect);
+        const damageType = resolveActiveDamageType(target);
+        const targetState = judgeFormationArtifactTarget(text, target, ownerRow, effect, damageType);
+        if (targetState.matched) return;
+        const bonuses = scaleEffectBonusMap(
+          normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], damageType, text),
+          ownerRow.qty,
+          effect,
+          text
+        );
+        add({
+          key: `artifact-target-out:${ownerRow.ownerId}:${ownerRow.id}:${effect.id || text}`,
+          source: `${ownerRow.name}${ownerRow.ownerLabel ? `（${ownerRow.ownerLabel}）` : ''}`,
+          bonuses,
+          text,
+          enabled: false,
+          disabledReason: targetState.reason || '効果対象外'
+        });
+      });
+    });
+
+    return [
+      ...applied,
+      ...(held.length ? ['保留・除外', ...held] : ['保留・除外: なし'])
+    ];
+  }
+
+  function hasFdcSpTimingBonus(bonuses = {}) {
+    return ['initialSp', 'initialSpP', 'spRegen', 'spRegenP', 'spRecovery', 'spRecoveryP']
+      .some(key => Number(bonuses?.[key]));
+  }
+
+  function classifyFdcSpTimingEffect(bonuses = {}, text = '') {
+    if (Number(bonuses.initialSp) || Number(bonuses.initialSpP)) return { automatic: true, interval: 0, reason: '' };
+    if (Number(bonuses.spRegen) || Number(bonuses.spRegenP)) return { automatic: true, interval: 1, reason: '' };
+    const interval = Number(String(text).match(/(\d+(?:\.\d+)?)秒ごと/)?.[1]);
+    if ((Number(bonuses.spRecovery) || Number(bonuses.spRecoveryP)) && Number.isFinite(interval) && interval > 0) {
+      return { automatic: true, interval, reason: '' };
+    }
+    const body = String(text || '');
+    if (/一定確率/.test(body)) return { automatic: false, interval: 0, reason: '確率発動は保留' };
+    if (/n回ごと|\d+回(?:目|ごと)|攻撃回数/.test(body)) return { automatic: false, interval: 0, reason: '攻撃回数条件は保留' };
+    if (/被撃|被弾|ダメージを受け|ダメージを受けた/.test(body)) return { automatic: false, interval: 0, reason: '被撃時回復は保留' };
+    if (/攻撃時|攻撃命中時|基本攻撃|強化攻撃|通常攻撃|普通攻撃/.test(body)) return { automatic: false, interval: 0, reason: '攻撃時回復は保留' };
+    if (/使用時|使用後|命中時|発動時|破壊時|撃破時|衝突時/.test(body)) return { automatic: false, interval: 0, reason: '発動・命中時回復は保留' };
+    return { automatic: false, interval: 0, reason: '発生タイミング未対応' };
+  }
+
+  function formatFdcSpTimingBonus(bonuses = {}, interval = 0, maxSp = 0) {
+    const parts = [];
+    const push = (key, label, suffix = '') => {
+      const value = Number(bonuses?.[key]) || 0;
+      if (value) parts.push(`${label}${value > 0 ? '+' : ''}${formatPlainNumber(value)}${suffix}`);
+    };
+    push('initialSp', '初期SP');
+    push('initialSpP', '初期SP', '%');
+    push('spRegen', '毎秒SP');
+    push('spRegenP', '毎秒SP', '%');
+    push('spRecovery', interval > 0 ? `${formatPlainNumber(interval)}秒ごとSP` : 'SP');
+    push('spRecoveryP', interval > 0 ? `${formatPlainNumber(interval)}秒ごとSP` : 'SP', '%');
+    const percentRecovery = Number(bonuses.spRecoveryP) || 0;
+    if (percentRecovery && maxSp) parts.push(`実回復${formatPlainNumber(maxSp * percentRecovery / 100)}`);
+    return parts.join(' / ') || 'SP効果';
   }
 
   function showFdcArtifactPopover(anchor) {
@@ -3015,7 +3285,8 @@
     if (body) body.innerHTML = lines.map(line => `<p>${escapeHtml(line).replace(/\n/g, '<br>')}</p>`).join('');
     const rect = anchor.getBoundingClientRect();
     el.skillPopover.hidden = false;
-    const width = Math.min(320, window.innerWidth - 24);
+    const preferredWidth = lines.includes('SP反映内訳') ? 400 : 320;
+    const width = Math.min(preferredWidth, window.innerWidth - 24);
     el.skillPopover.style.width = `${width}px`;
     el.skillPopover.style.left = `${Math.min(window.innerWidth - width - 12, Math.max(12, rect.right - width))}px`;
     el.skillPopover.style.top = `${Math.min(window.innerHeight - 80, rect.bottom + 8)}px`;
@@ -3163,7 +3434,7 @@
     const target = option.effectTarget || '本人';
     return {
       main: [kind, value + stackText].filter(Boolean).join(' '),
-      meta: [condition, target].filter(Boolean).join(' / ')
+      meta: [condition, target, option.durationText].filter(Boolean).join(' / ')
     };
   }
 
@@ -3171,6 +3442,7 @@
     return [
       { label: '値の種類', value: option.valueKind || option.effectType || option.effectLabel || '効果' },
       { label: '効果値', value: option.effectValue || formatBonusMap(option.bonuses) || '-' },
+      ...(option.durationText ? [{ label: '効果時間', value: option.durationText.replace(/^持続\s*/, '') }] : []),
       { label: '条件', value: option.condition || getSkillEffectConditionSummary(option) || '常時' },
       { label: '効果対象', value: option.effectTarget || '本人' }
     ];
@@ -3331,6 +3603,7 @@
       .forEach(option => {
         const item = setEffectTags({
           source: option.group === 'formation' ? '編成スキル' : option.source || '本人スキル',
+          spSourceLabel: option.spSourceLabel || '',
           label: option.label,
           bonuses: getSkillEffectOptionBonuses(option),
           reason: option.detailText,
@@ -3400,9 +3673,11 @@
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+          durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
-          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context),
+          spSourceLabel: createFdcSpSourceLabel(target?.name || apostle?.name, sourceLabel, category),
+          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category),
           detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
           ...getFdcEffectStackMeta(effect)
         });
@@ -3456,7 +3731,7 @@
     const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context);
+    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context, category);
     return {
       key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${encodeURIComponent(actionCategory || 'none')}`,
       group: 'formation',
@@ -3476,8 +3751,10 @@
       valueKind: effect.valueKind || effect.effectType || '効果',
       effectType: effect.effectType || '',
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+      durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
       condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
+      spSourceLabel: createFdcSpSourceLabel(memberName, sourceLabel, category),
       detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
       ...getFdcEffectStackMeta(effect)
     };
@@ -3506,7 +3783,7 @@
           category: 'アサイド',
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
-          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, undefined, context.actionCategory, undefined, context),
+          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, undefined, context.actionCategory, undefined, context, 'A3'),
           ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
@@ -3518,8 +3795,10 @@
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
+          durationText: getFdcSkillEffectDurationText(aside3, effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
+          spSourceLabel: createFdcSpSourceLabel(memberName, 'A3', 'A3'),
           detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
           ...getFdcEffectStackMeta(effect)
         });
@@ -3544,6 +3823,11 @@
     const fallback = compactFdcSkillLabelPart(effectLabel || skillName || action || source || '効果', { source, category, action }) || '効果';
     const body = uniqueParts.length ? uniqueParts.join(' / ') : fallback;
     return owner ? `${owner} / ${body}` : body;
+  }
+
+  function createFdcSpSourceLabel(ownerName = '', sourceLabel = '', category = '') {
+    const source = sourceLabel && sourceLabel !== '通常' ? sourceLabel : category;
+    return [ownerName, source].filter(Boolean).join(' ');
   }
 
   function compactFdcSkillLabelPart(value, { source = '', category = '', action = '' } = {}) {
@@ -3668,11 +3952,12 @@
   function normalizeFdcSkillEffectBonus(effect, skillLevel) {
     if (!effect) return null;
     const valueClass = String(effect.valueClass || '');
-    if (valueClass && !isFdcDamageBonusValueClass(valueClass)) return null;
+    const valueKind = String(effect.valueKind || '');
+    const isSpEffect = /SP/.test(valueKind) && !/SP減少|クールタイム|周期/.test(valueKind);
+    if (!isSpEffect && valueClass && !isFdcDamageBonusValueClass(valueClass)) return null;
     const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
     const value = Number(levelInfo?.value ?? effect.fixedValue);
     if (!Number.isFinite(value) || value === 0) return null;
-    const valueKind = String(effect.valueKind || '');
     const effectType = String(effect.effectType || '');
     const effectTarget = String(effect.effectTarget || '');
     const text = `${valueKind} ${effectType} ${effectTarget}`;
@@ -3684,6 +3969,14 @@
     const addSigned = key => { bonuses[key] = (bonuses[key] || 0) + (decrease ? -value : value); };
     const addDamageTakenMod = key => { bonuses[key] = (bonuses[key] || 0) + (decrease ? value : -value); };
     const isOtherMultiplier = /\(その他倍率\)/.test(valueKind);
+
+    if (isSpEffect) {
+      const percent = /倍率/.test(valueClass);
+      if (/戦闘開始時/.test(valueKind)) add(percent ? 'initialSpP' : 'initialSp');
+      else if (/毎秒|1秒ごと/.test(valueKind)) add(percent ? 'spRegenP' : 'spRegen');
+      else add(percent ? 'spRecoveryP' : 'spRecovery');
+      return bonuses;
+    }
 
     if (isOtherMultiplier) addSigned('otherP');
     else if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
@@ -3710,7 +4003,6 @@
     else if (/スキル.*ダメージ|ダメージ量|与ダメージ|与ダメ/.test(valueKind)) addSigned('addP');
     else if (/HP回復/.test(valueKind)) add('hpRecoveryP');
     else if (/治癒|回復量/.test(valueKind)) add('healingP');
-    else if (/SP回復/.test(valueKind)) add('spRecoveryP');
     return bonuses;
   }
 
@@ -3721,6 +4013,44 @@
     const text = levelInfo?.raw || formatPlainNumber(rawValue);
     const unit = shouldAppendFdcPercentUnit(effect) ? '%' : '';
     return `${text}${unit}`;
+  }
+
+  function getFdcSkillEffectDurationText(skill, effect, skillLevel) {
+    if (effect?.duration !== undefined && effect?.duration !== null && effect?.duration !== '') {
+      return formatFdcEffectDuration(effect.duration);
+    }
+    const effectKind = String(effect?.valueKind || '').replace(/[\s　]+/g, '');
+    const effectCondition = String(effect?.condition || '').replace(/[\s　]+/g, '');
+    const effectTarget = String(effect?.effectTarget || '').replace(/[\s　]+/g, '');
+    const candidates = normalizeFdcArray(skill?.effects)
+      .filter(candidate => candidate !== effect && (candidate?.valueClass === '持続時間' || /持続時間/.test(candidate?.valueKind || '')))
+      .map(candidate => {
+        const durationKind = String(candidate?.valueKind || '').replace(/[\s　]+/g, '');
+        const baseKind = durationKind.replace(/(?:の)?持続時間.*$/, '');
+        const candidateCondition = String(candidate?.condition || '').replace(/[\s　]+/g, '');
+        const candidateTarget = String(candidate?.effectTarget || '').replace(/[\s　]+/g, '');
+        let score = 0;
+        if (effectKind && durationKind === `${effectKind}の持続時間`) score += 100;
+        else if (effectKind && baseKind && (effectKind === baseKind || effectKind.includes(baseKind) || baseKind.includes(effectKind))) score += 70;
+        else if (baseKind === 'バフ' && effect?.effectType === 'バフ') score += 35;
+        if (!score) return { candidate, score: 0 };
+        if (effectCondition && candidateCondition && effectCondition === candidateCondition) score += 20;
+        if (effectTarget && candidateTarget && effectTarget === candidateTarget) score += 10;
+        return { candidate, score };
+      })
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score);
+    if (!candidates.length || (candidates[1] && candidates[0].score === candidates[1].score)) return '';
+    const durationEffect = candidates[0].candidate;
+    const levelInfo = getFdcEffectLevelInfo(durationEffect, skillLevel);
+    const rawValue = levelInfo?.raw || (levelInfo?.value ?? durationEffect?.fixedValue);
+    return formatFdcEffectDuration(rawValue);
+  }
+
+  function formatFdcEffectDuration(value) {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    return `持続 ${/^[+-]?\d+(?:\.\d+)?$/.test(text) ? `${text}秒` : text}`;
   }
 
   function getFdcSkillEffectDisplayCondition(effect, ...fallbackParts) {
@@ -3742,7 +4072,7 @@
     ].filter(Boolean).join(' ');
   }
 
-  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }, actionCategory = '', allyPersonalityState = { hasCondition: false, defaultEnabled: true }, context = null) {
+  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }, actionCategory = '', allyPersonalityState = { hasCondition: false, defaultEnabled: true }, context = null, sourceCategory = '') {
     const personalityEnabled = enemyPersonalityState?.hasCondition
       ? !!enemyPersonalityState.defaultEnabled
       : true;
@@ -3762,10 +4092,19 @@
     if (actionMatch.hasActionCondition) return personalityEnabled && actionMatch.matched;
     if (enemyPersonalityState?.hasCondition) return personalityEnabled;
     if (isFdcFormationAvailabilityCondition(explicitCondition, context)) return personalityEnabled;
+    if (!explicitCondition && isDeterministicPassiveSpTiming(text, effect, sourceCategory)) return personalityEnabled;
     // 明示された状態/イベント条件は、現在の計算画面で再現できないため初期OFF。
     if (explicitCondition && !/^(?:バフ|デバフ|常時|無条件|なし)$/.test(explicitCondition)) return false;
     if (isTimedOrManualEffect(text, effect)) return false;
     return true;
+  }
+
+  function isDeterministicPassiveSpTiming(text, effect, sourceCategory = '') {
+    const valueKind = String(effect?.valueKind || '');
+    if (!/SP/.test(valueKind) || /SP減少|クールタイム|周期/.test(valueKind)) return false;
+    if (String(effect?.triggerType || '').trim()) return false;
+    if (!/パッシブ|愛用品|^A[1-3]$/.test(String(sourceCategory || ''))) return false;
+    return /戦闘開始時|毎秒|1秒ごと|\d+(?:\.\d+)?秒ごと/.test(`${valueKind} ${text}`);
   }
 
   function isFdcFormationAvailabilityCondition(condition = '', context = null) {
@@ -3786,6 +4125,7 @@
   function shouldAppendFdcPercentUnit(effect) {
     const text = [effect?.valueKind, effect?.valueClass, effect?.effectType].filter(Boolean).join(' ');
     if (/秒|回|個|スタック|Lv|レベル/.test(text)) return false;
+    if (/SP/.test(String(effect?.valueKind || '')) && !/倍率/.test(String(effect?.valueClass || ''))) return false;
     return /倍率|増加|減少|上昇|低下|率|量|攻撃|防御|会心|ダメージ|HP|SP|治癒|回復/.test(text);
   }
 
@@ -4557,6 +4897,7 @@
         <span class="fdc-artifact-effect-mini-chip-content">
           <span>${escapeHtml(label)}</span>
           ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
+          ${item.duration ? `<small class="fdc-artifact-effect-duration">${escapeHtml(formatFdcEffectDuration(item.duration))}</small>` : ''}
           ${Number(item.overlapStackMax) > 1 ? `<em>×${escapeHtml(item.overlapCount)}</em>` : ''}
         </span>
       </label>
@@ -4758,7 +5099,12 @@
       'critDmgResAddP',
       'healingP',
       'hpRecoveryP',
+      'spRecovery',
       'spRecoveryP',
+      'spRegen',
+      'spRegenP',
+      'initialSp',
+      'initialSpP',
       'atkDownP',
       'attackerDmgDownP'
     ].includes(key);
@@ -5551,7 +5897,12 @@
       skillAddP: ['スキルダメージ'],
       healingP: ['治癒'],
       hpRecoveryP: ['HP回復'],
+      spRecovery: ['SP回復'],
       spRecoveryP: ['SP回復'],
+      spRegen: ['毎秒SP回復'],
+      spRegenP: ['毎秒SP回復'],
+      initialSp: ['初期SP'],
+      initialSpP: ['初期SP'],
       defP: ['防御力'],
       physicalDefP: ['物理防御'],
       magicDefP: ['魔法防御'],
@@ -5666,9 +6017,13 @@
       const bonuses = mergeBonusMaps(baseBonuses, maxStackBonuses);
       const item = {
         source,
+        cardId: row.id,
+        effectId: effect.id || '',
+        effectText: text,
         cardName: row.name,
         ownerLabel: source === '装備遺物' ? '本人' : '',
         label: effect.label || effect.shortLabel || effect.id || '特殊効果',
+        duration: effect.duration || '',
         scopeLabel: getArtifactEffectScopeLabel(effect),
         bonuses,
         reason: '',
@@ -5743,8 +6098,12 @@
         if (!canFormationArtifactAffectTarget(text)) return;
         const item = {
           source: '編成遺物',
+          cardId: ownerRow.id,
+          effectId: effect.id || '',
+          effectText: text,
           cardName: ownerRow.name,
           label: effect.label || effect.shortLabel || effect.id || '特殊効果',
+          duration: effect.duration || '',
           scopeLabel: getArtifactEffectScopeLabel(effect),
           bonuses,
           reason: '',
@@ -5836,11 +6195,23 @@
     if (effect.defaultEnabled === true) return true;
     if (isInitialWaveEffect(text)) return true;
     if (isSameLineStartEffect(text)) return true;
+    if (isDeterministicCardSpTiming(text, effect)) return true;
     if (isFavoriteCardActiveInFormation(card, formation)) return true;
     if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) {
       return actionMatch?.hasActionCondition ? !!actionMatch.matched : true;
     }
     return !!(actionMatch?.hasActionCondition && !isTimedOrManualEffect(text, effect));
+  }
+
+  function isDeterministicCardSpTiming(text, effect = null) {
+    const body = String(text || '');
+    const hasSpBonus = normalizeFdcArray(effect?.bonusesByStar).some(bonuses =>
+      ['initialSp', 'initialSpP', 'spRegen', 'spRegenP', 'spRecovery', 'spRecoveryP']
+        .some(key => Number(bonuses?.[key]))
+    );
+    if (!hasSpBonus) return false;
+    if (!/戦闘開始時|毎秒|1秒ごと|\d+(?:\.\d+)?秒ごと/.test(body)) return false;
+    return !/一定確率|n回ごと|\d+回(?:目|ごと)|攻撃時|攻撃命中時|通常攻撃|普通攻撃|基本攻撃|強化攻撃|被撃時|被弾時|使用時|使用後|発動時|命中時|破壊時|撃破時/.test(body);
   }
 
   function isInitialWaveEffect(text) {
@@ -6319,6 +6690,7 @@
       critDmg: readStatValue(raw, ['critDmg', '会心DMG', '会心ダメージ']),
       critRes: readStatValue(raw, ['critRes', '会心抵抗']),
       critDmgRes: readStatValue(raw, ['critDmgRes', '会心DMG抵抗']),
+      spRegen: readStatValue(raw, ['spRegen', '毎秒SP回復量', '毎秒SP回復']),
       combatPower: readStatValue(raw, ['combatPower', '戦闘力'])
     }, snapshot);
   }
@@ -6656,6 +7028,7 @@
           category,
           sourceLabel,
           skillName: skill.skillName || skill.name || '',
+          requiredSp: getFdcLowSkillRequiredSp(skill),
           kind,
           shortDetail: [
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : ''
@@ -6686,6 +7059,19 @@
       });
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcLowSkillRequiredSp(skill = {}) {
+    const direct = Number(skill.requiredSp ?? skill.spCost ?? skill['必要SP']);
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    const condition = normalizeFdcArray(skill.effects).find(effect => {
+      const type = String(effect?.triggerType || effect?.valueKind || '');
+      return /SP/.test(type) && /条件|必要|到達/.test(type);
+    });
+    const conditionValue = Number(condition?.triggerValue ?? condition?.fixedValue);
+    return Number.isFinite(conditionValue) && conditionValue > 0
+      ? conditionValue
+      : (typeof TRICKCAL_SP_ENGINE !== 'undefined' ? TRICKCAL_SP_ENGINE.DEFAULT_REQUIRED_SP : 300) || 300;
   }
 
   function getFdcSkillStatusMultipliers(skill) {
@@ -7080,7 +7466,12 @@
       otherP: 'その他',
       healingP: '治癒',
       hpRecoveryP: 'HP回復',
+      spRecovery: 'SP回復',
       spRecoveryP: 'SP回復',
+      spRegen: '毎秒SP回復',
+      spRegenP: '毎秒SP回復',
+      initialSp: '初期SP',
+      initialSpP: '初期SP',
       defP: '防御',
       physicalDefP: '物理防御',
       magicDefP: '魔法防御',
@@ -7097,13 +7488,12 @@
     };
     return Object.entries(map || {})
       .filter(([, value]) => Number(value))
-      .map(([key, value]) => `${labels[key] || key}${formatSignedPercentText(value)}`)
+      .map(([key, value]) => {
+        const suffix = ['spRecovery', 'spRegen', 'initialSp'].includes(key) ? '' : '%';
+        const number = Number(value) || 0;
+        return `${labels[key] || key}${number > 0 ? '+' : ''}${formatPlainNumber(number)}${suffix}`;
+      })
       .join(' / ');
-  }
-
-  function formatSignedPercentText(value) {
-    const number = Number(value) || 0;
-    return `${number > 0 ? '+' : ''}${formatPlainNumber(number)}%`;
   }
 
   function formatStatMap(map, unit = '') {

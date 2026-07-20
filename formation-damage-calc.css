@@ -1561,6 +1561,11 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
 
 .panel-role {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 4.25rem;
+  height: 1.35rem;
   margin-bottom: 0.18rem;
   border-radius: 999px;
   padding: 0.18rem 0.5rem;
@@ -1584,10 +1589,12 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
   display: inline-flex;
   gap: 0.22rem;
   align-items: center;
+  box-sizing: border-box;
+  height: 1.35rem;
   margin-bottom: 0.18rem;
   border: 1px solid color-mix(in srgb, var(--attack-type-color) 54%, var(--fdc-border));
   border-radius: 999px;
-  padding: 0.14rem 0.48rem 0.14rem 0.25rem;
+  padding: 0 0.48rem 0 0.25rem;
   color: var(--attack-type-text);
   background: color-mix(in srgb, var(--attack-type-color) 20%, var(--fdc-panel));
   font-size: 0.72rem;
@@ -1595,8 +1602,8 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
 }
 
 .fdc-attack-type-chip img {
-  width: 1.15rem;
-  height: 1.15rem;
+  width: 1rem;
+  height: 1rem;
   object-fit: contain;
 }
 
@@ -1619,7 +1626,8 @@ body.theme-light .fdc-attack-type-chip.is-magic {
 }
 
 .side-panel.is-defender .fdc-attack-type-chip {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .fdc-enemy-personality-control {
@@ -3815,6 +3823,17 @@ button.fdc-artifact-slot {
 .fdc-artifact-effect-mini-chip-content b,
 .fdc-artifact-effect-mini-chip-content em {
   flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.fdc-artifact-effect-duration {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 0.1rem 0.34rem;
+  color: color-mix(in srgb, #fde68a 82%, var(--fdc-text));
+  background: color-mix(in srgb, #f59e0b 18%, var(--fdc-input));
+  font-size: 0.62rem;
+  font-weight: 900;
   white-space: nowrap;
 }
 

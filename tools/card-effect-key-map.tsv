@@ -9,8 +9,8 @@
 基礎補正	会心被ダメージ量減少	critDmgResP	会心DMG抵抗;会心DMG抵抗増加;被会心ダメージ量減少;会心被ダメージ量減少	カード効果;はんだ効果;特殊効果	percent	敵から受ける会心DMG倍率を下げるカード系補正。会心DMG抵抗ステータス補正とは混同注意。
 基礎補正	HP治癒量	healingP	HP治癒;HP治癒量;着用者のHP治癒量	カード効果;はんだ効果;特殊効果	percent	HP治癒量%補正。
 回復補正	HP回復量	hpRecoveryP	HP回復;HP回復量;ヒール量	カード効果;はんだ効果;特殊効果	percent	既存cards.jsではhpRecoveryP。実計算に乗せる場合は回復計算側で扱う。
-SP補正	SP回復	spRecoveryP	SP回復;SP回復量	特殊効果	percent	瞬間SP回復・SP回復量補正候補。既存フィルタで参照あり。
-SP補正	毎秒SP回復量増加	spRegenP	毎秒SP;毎秒SP回復;毎秒SP回復量;毎秒SP回復量増加	特殊効果	percent	毎秒SP回復量補正候補。フォロー補正は乗せない。
+SP補正	SP回復	spRecoveryP	SP回復;SP回復量	特殊効果	by_value_class	倍率はspRecoveryP、固定値は生成時にspRecoveryへ変換する。
+SP補正	毎秒SP回復量増加	spRegenP	毎秒SP;毎秒SP回復;毎秒SP回復量;毎秒SP回復量増加	特殊効果	by_value_class	倍率はspRegenP、固定値は生成時にspRegenへ変換する。フォロー補正は乗せない。
 SP補正	SP	spP	SP増加;最大SP	特殊効果	percent	SP最大値/関連補正候補。用途未確定なら要確認。
 ダメージ補正	与ダメージ増加	addP	与ダメージ上昇;与ダメージ増加;ダメージ増加;スキルダメージ;普通攻撃ダメージ;強化攻撃ダメージ;状態異常ダメージ	特殊効果	percent	条件一致時に与ダメージ倍率へ加算。攻撃側で有効。
 ダメージ補正	被ダメージ減少	takenDmgP	被ダメージ減少;受けるダメージ減少;同列被ダメ減	特殊効果	percent	防御側で有効。ダメージが減る方向が有利。

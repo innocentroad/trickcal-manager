@@ -157,6 +157,16 @@ def resolve_key(label: object, key_map: dict[str, str]) -> str:
     return key_map.get(text, INLINE_EFFECT_KEYS.get(text, ""))
 
 
+def resolve_special_effect_key(label: object, value_class: object, key_map: dict[str, str]) -> str:
+    key = resolve_key(label, key_map)
+    if clean(value_class) == "固定値":
+        return {
+            "spRecoveryP": "spRecovery",
+            "spRegenP": "spRegen",
+        }.get(key, key)
+    return key
+
+
 def star_values(row: dict[str, object], prefix: str) -> list[int | float | None]:
     return [as_number(row.get(f"{prefix}_Star{star}")) for star in range(1, 6)]
 
@@ -266,14 +276,14 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         reference = clean(row.get("参照"))
         value_kind = clean(row.get("値分類"))
         reset_condition = clean(row.get("リセット条件"))
-        key = resolve_key(effect_label, key_map)
+        key = resolve_special_effect_key(effect_label, value_kind, key_map)
         values = [as_number(row.get(f"特殊効果_Star{star}")) for star in range(1, 6)]
         bonuses = make_bonus_array([(key, values)]) if key and any(value is not None for value in values) else []
 
         label_parts = [part for part in [condition, condition2, attack_type, effect_label] if part]
         label = " ".join(label_parts) if label_parts else effect_label
         short_label = " ".join(part for part in [attack_type, effect_label] if part) or effect_label
-        descriptions = build_descriptions(row, values, key)
+        descriptions = build_descriptions(row, values, key, value_kind)
         effect: dict[str, object] = {
             "id": effect_id,
             "type": "toggle" if bonuses else "info",
@@ -281,6 +291,12 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         }
         if short_label and short_label != label:
             effect["shortLabel"] = short_label
+        if value_kind:
+            effect["valueClass"] = value_kind
+        if duration:
+            effect["duration"] = duration
+        if duration:
+            effect["duration"] = duration
         # 「同効果」と「同一使徒」はランタイムで判定範囲が異なるため、
         # ここで単一の nonStacking フラグへ畳み込まない。
         if as_bool(row.get("同効果非スタック")):
@@ -320,7 +336,7 @@ def make_effect_id(row: dict[str, object]) -> str:
     return source or "effect"
 
 
-def build_descriptions(row: dict[str, object], values: list[int | float | None], key: str) -> list[str]:
+def build_descriptions(row: dict[str, object], values: list[int | float | None], key: str, value_class: str = "") -> list[str]:
     effect_label = clean(row.get("効果"))
     condition = clean(row.get("条件1"))
     target = clean(row.get("効果対象"))
@@ -331,7 +347,7 @@ def build_descriptions(row: dict[str, object], values: list[int | float | None],
         if value is None:
             descriptions.append("")
             continue
-        suffix = "" if key in {"maxStack", "count", "durationSec", "cooldownSec"} else "%"
+        suffix = "%" if value_class == "倍率" else ""
         text = f"{effect_label}{value}{suffix}"
         details = [part for part in [condition, target] if part]
         if details:

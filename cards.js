@@ -39,6 +39,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "戦闘開始時 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "description": "同列 / 倍率",
                     "descriptionByStar": [
                         "被ダメージ減少11.5% (戦闘開始時 / 同列)",
@@ -70,6 +71,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "戦闘開始時 魔法 攻撃力増加",
                     "shortLabel": "魔法 攻撃力増加",
+                    "valueClass": "倍率",
                     "onlyWhenDmgType": "mag",
                     "description": "同列 / 倍率",
                     "descriptionByStar": [
@@ -135,6 +137,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "敵を1体も倒していない時 魔法ダメージ 魔法 与ダメージ増加",
                     "shortLabel": "魔法 与ダメージ増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "onlyWhenDmgType": "mag",
@@ -202,6 +205,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "強化攻撃ダメージ 強化攻撃 与ダメージ増加",
                     "shortLabel": "強化攻撃 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加40% (強化攻撃ダメージ / 自分)",
@@ -266,6 +270,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃1回ごとに 防御力増加",
                     "shortLabel": "防御力増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -298,6 +303,7 @@ const CARD_LIBRARY = {
                     "id": "max_stack",
                     "type": "toggle",
                     "label": "最大スタック数",
+                    "valueClass": "スタック数",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / スタック数",
@@ -331,6 +337,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 防御力増加",
                     "shortLabel": "防御力増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -364,6 +371,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 最大HP増加",
                     "shortLabel": "最大HP増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -430,6 +438,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "低学年スキル使用時 攻撃速度",
                     "shortLabel": "攻撃速度",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 持続:6 / 倍率",
@@ -496,6 +506,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "被普通攻撃時 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -529,6 +540,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "基本攻撃が2回命中するたび HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 参照:最大HP / 倍率",
@@ -595,6 +607,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "低学年スキルが敵に命中するたび 魔法 敵防御力減少",
                     "shortLabel": "魔法 敵防御力減少",
+                    "valueClass": "倍率",
+                    "duration": "8",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "onlyWhenDmgType": "mag",
@@ -628,6 +642,7 @@ const CARD_LIBRARY = {
                     "id": "max_stack",
                     "type": "toggle",
                     "label": "最大スタック数",
+                    "valueClass": "スタック数",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "敵 / スタック数",
@@ -694,6 +709,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "対象を回復させた場合（カード効果を除く） 防御力増加",
                     "shortLabel": "防御力増加",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "対象の味方 / 持続:6 / 倍率",
@@ -760,6 +777,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "敵が1体しかいない場合 与ダメージ増加",
                     "shortLabel": "与ダメージ増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -826,6 +844,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキル使用時 着用者のHP治癒量",
                     "shortLabel": "着用者のHP治癒量",
+                    "valueClass": "倍率",
+                    "duration": "8",
                     "description": "自分 / 持続:8 / 倍率",
                     "descriptionByStar": [
                         "着用者のHP治癒量36% (スキル使用時 / 自分)",
@@ -856,13 +876,14 @@ const CARD_LIBRARY = {
                     "id": "cool_time",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "valueClass": "クールタイム",
                     "description": "自分 / クールタイム",
                     "descriptionByStar": [
-                        "クールタイム12% (自分)",
-                        "クールタイム12% (自分)",
-                        "クールタイム12% (自分)",
-                        "クールタイム12% (自分)",
-                        "クールタイム12% (自分)"
+                        "クールタイム12 (自分)",
+                        "クールタイム12 (自分)",
+                        "クールタイム12 (自分)",
+                        "クールタイム12 (自分)",
+                        "クールタイム12 (自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -920,6 +941,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃2回ごとに 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "同列 / 持続:6 / 倍率",
@@ -952,15 +975,16 @@ const CARD_LIBRARY = {
                     "id": "cool_time",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "valueClass": "クールタイム",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "同列 / クールタイム",
                     "descriptionByStar": [
-                        "クールタイム10% (同列)",
-                        "クールタイム10% (同列)",
-                        "クールタイム10% (同列)",
-                        "クールタイム10% (同列)",
-                        "クールタイム10% (同列)"
+                        "クールタイム10 (同列)",
+                        "クールタイム10 (同列)",
+                        "クールタイム10 (同列)",
+                        "クールタイム10 (同列)",
+                        "クールタイム10 (同列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -1018,6 +1042,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 最大HP増加",
                     "shortLabel": "最大HP増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1051,6 +1076,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 防御力増加",
                     "shortLabel": "防御力増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1117,6 +1143,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキル使用時 HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 参照:最大HP / 倍率",
@@ -1150,6 +1177,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキル使用時 最大HPを超えたHP回復量 シールド付与",
                     "shortLabel": "シールド付与",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 持続:6 / 参照:最大HPを超えたHP回復量 / 倍率",
@@ -1216,30 +1245,31 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "戦闘開始時 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
+                    "valueClass": "固定値",
                     "nonStackingSameApostle": true,
                     "description": "同列 / 固定値",
                     "descriptionByStar": [
-                        "毎秒SP回復量増加4% (戦闘開始時 / 同列)",
-                        "毎秒SP回復量増加6% (戦闘開始時 / 同列)",
-                        "毎秒SP回復量増加8% (戦闘開始時 / 同列)",
-                        "毎秒SP回復量増加10% (戦闘開始時 / 同列)",
-                        "毎秒SP回復量増加12% (戦闘開始時 / 同列)"
+                        "毎秒SP回復量増加4 (戦闘開始時 / 同列)",
+                        "毎秒SP回復量増加6 (戦闘開始時 / 同列)",
+                        "毎秒SP回復量増加8 (戦闘開始時 / 同列)",
+                        "毎秒SP回復量増加10 (戦闘開始時 / 同列)",
+                        "毎秒SP回復量増加12 (戦闘開始時 / 同列)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRegenP": 4
+                            "spRegen": 4
                         },
                         {
-                            "spRegenP": 6
+                            "spRegen": 6
                         },
                         {
-                            "spRegenP": 8
+                            "spRegen": 8
                         },
                         {
-                            "spRegenP": 10
+                            "spRegen": 10
                         },
                         {
-                            "spRegenP": 12
+                            "spRegen": 12
                         }
                     ]
                 }
@@ -1281,6 +1311,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "着用者にシールドが付与されている場合 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1347,6 +1378,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃6回ごとに 会心率",
                     "shortLabel": "会心率",
+                    "valueClass": "倍率",
+                    "duration": "12",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 持続:12 / 倍率",
@@ -1413,6 +1446,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "着用者が敵に状態異常を付与した時 強化攻撃 与ダメージ増加",
                     "shortLabel": "強化攻撃 与ダメージ増加",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 持続:6 / 倍率",
@@ -1479,6 +1514,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃3回ごとに 攻撃速度",
                     "shortLabel": "攻撃速度",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1511,6 +1547,7 @@ const CARD_LIBRARY = {
                     "id": "max_stack",
                     "type": "toggle",
                     "label": "最大スタック数",
+                    "valueClass": "スタック数",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / スタック数",
@@ -1570,6 +1607,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "1秒ごとに 攻撃速度増加",
                     "shortLabel": "攻撃速度増加",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率 / リセット:低学年スキル使用時",
@@ -1634,6 +1672,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "HPが40%以下になった場合 HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 参照:最大HP / 倍率",
@@ -1698,6 +1737,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ上昇",
                     "shortLabel": "スキル 与ダメージ上昇",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1731,6 +1771,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ上昇",
                     "shortLabel": "普通攻撃 与ダメージ上昇",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -1877,6 +1918,8 @@ const CARD_LIBRARY = {
                     "type": "info",
                     "label": "普通攻撃5回ごとに 目くらまし",
                     "shortLabel": "目くらまし",
+                    "valueClass": "状態付与",
+                    "duration": "2.5",
                     "description": "敵 / 持続:2.5 / 状態付与"
                 }
             ]
@@ -1939,6 +1982,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
                     "shortLabel": "シールド付与",
+                    "valueClass": "倍率",
+                    "duration": "6",
                     "description": "同列 / 持続:6 / 参照:対象の最大HP / 倍率",
                     "descriptionByStar": [
                         "シールド付与30% (戦闘開始時 / 同列)",
@@ -2025,6 +2070,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加18% (スキルダメージ / 自分)",
@@ -2116,6 +2162,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "1秒ごとに HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "description": "自分 / 参照:最大HP / 倍率",
                     "descriptionByStar": [
                         "HP回復2% (1秒ごとに / 自分)",
@@ -2178,6 +2225,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "通常攻撃命中時 SP回復",
                     "shortLabel": "SP回復",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 倍率",
@@ -2237,6 +2285,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "シールド付与時 シールド効果増加",
                     "shortLabel": "シールド効果増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "シールド効果増加66% (シールド付与時 / 自分)",
@@ -2294,6 +2343,7 @@ const CARD_LIBRARY = {
                     "type": "info",
                     "label": "1秒ごとに ダメージ効果",
                     "shortLabel": "ダメージ効果",
+                    "valueClass": "倍率",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "周辺の敵 / 参照:最大HP / 倍率",
@@ -2336,31 +2386,32 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
+                    "valueClass": "固定値",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 固定値",
                     "descriptionByStar": [
-                        "毎秒SP回復量増加10% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加11% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加12% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加13% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加14% (1秒ごとに / 自分)"
+                        "毎秒SP回復量増加10 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加11 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加12 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加13 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加14 (1秒ごとに / 自分)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRegenP": 10
+                            "spRegen": 10
                         },
                         {
-                            "spRegenP": 11
+                            "spRegen": 11
                         },
                         {
-                            "spRegenP": 12
+                            "spRegen": 12
                         },
                         {
-                            "spRegenP": 13
+                            "spRegen": 13
                         },
                         {
-                            "spRegenP": 14
+                            "spRegen": 14
                         }
                     ]
                 }
@@ -2395,6 +2446,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ増加",
                     "shortLabel": "普通攻撃 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加9% (普通攻撃ダメージ / 自分)",
@@ -2452,6 +2504,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "状態異常ダメージ 状態異常 与ダメージ増加",
                     "shortLabel": "状態異常 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加15% (状態異常ダメージ / 自分)",
@@ -2509,31 +2562,32 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
+                    "valueClass": "固定値",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 固定値",
                     "descriptionByStar": [
-                        "毎秒SP回復量増加6% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加7% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加8% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加9% (1秒ごとに / 自分)",
-                        "毎秒SP回復量増加10% (1秒ごとに / 自分)"
+                        "毎秒SP回復量増加6 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加7 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加8 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加9 (1秒ごとに / 自分)",
+                        "毎秒SP回復量増加10 (1秒ごとに / 自分)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRegenP": 6
+                            "spRegen": 6
                         },
                         {
-                            "spRegenP": 7
+                            "spRegen": 7
                         },
                         {
-                            "spRegenP": 8
+                            "spRegen": 8
                         },
                         {
-                            "spRegenP": 9
+                            "spRegen": 9
                         },
                         {
-                            "spRegenP": 10
+                            "spRegen": 10
                         }
                     ]
                 }
@@ -2568,6 +2622,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
                     "shortLabel": "シールド付与",
+                    "valueClass": "倍率",
+                    "duration": "10",
                     "description": "自分 / 持続:10 / 参照:最大HP / 倍率",
                     "descriptionByStar": [
                         "シールド付与60% (戦闘開始時 / 自分)",
@@ -2654,6 +2710,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加9% (スキルダメージ / 自分)",
@@ -2734,15 +2791,16 @@ const CARD_LIBRARY = {
                     "id": "debuff_resist",
                     "type": "toggle",
                     "label": "デバフ抵抗効果",
+                    "valueClass": "回数",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / 回数",
                     "descriptionByStar": [
-                        "デバフ抵抗効果1% (自分)",
-                        "デバフ抵抗効果1% (自分)",
-                        "デバフ抵抗効果1% (自分)",
-                        "デバフ抵抗効果1% (自分)",
-                        "デバフ抵抗効果1% (自分)"
+                        "デバフ抵抗効果1 (自分)",
+                        "デバフ抵抗効果1 (自分)",
+                        "デバフ抵抗効果1 (自分)",
+                        "デバフ抵抗効果1 (自分)",
+                        "デバフ抵抗効果1 (自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -2766,15 +2824,16 @@ const CARD_LIBRARY = {
                     "id": "cool_time",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "valueClass": "クールタイム",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "自分 / クールタイム",
                     "descriptionByStar": [
-                        "クールタイム10% (自分)",
-                        "クールタイム9.5% (自分)",
-                        "クールタイム9% (自分)",
-                        "クールタイム8.5% (自分)",
-                        "クールタイム8% (自分)"
+                        "クールタイム10 (自分)",
+                        "クールタイム9.5 (自分)",
+                        "クールタイム9 (自分)",
+                        "クールタイム8.5 (自分)",
+                        "クールタイム8 (自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -2959,6 +3018,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "5秒ごと ランダム最低値 HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "description": "味方全体 / 参照:対象の最大HP / 倍率",
                     "descriptionByStar": [
                         "HP回復5% (5秒ごと / 味方全体)",
@@ -2990,6 +3050,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "5秒ごと ランダム最大値 HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "description": "味方全体 / 参照:対象の最大HP / 倍率",
                     "descriptionByStar": [
                         "HP回復10% (5秒ごと / 味方全体)",
@@ -3021,29 +3082,30 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "5秒ごと ランダム最低値 SP回復",
                     "shortLabel": "SP回復",
+                    "valueClass": "固定値",
                     "description": "味方全体 / 固定値",
                     "descriptionByStar": [
-                        "SP回復1% (5秒ごと / 味方全体)",
-                        "SP回復1% (5秒ごと / 味方全体)",
-                        "SP回復1% (5秒ごと / 味方全体)",
-                        "SP回復1% (5秒ごと / 味方全体)",
-                        "SP回復1% (5秒ごと / 味方全体)"
+                        "SP回復1 (5秒ごと / 味方全体)",
+                        "SP回復1 (5秒ごと / 味方全体)",
+                        "SP回復1 (5秒ごと / 味方全体)",
+                        "SP回復1 (5秒ごと / 味方全体)",
+                        "SP回復1 (5秒ごと / 味方全体)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRecoveryP": 1
+                            "spRecovery": 1
                         },
                         {
-                            "spRecoveryP": 1
+                            "spRecovery": 1
                         },
                         {
-                            "spRecoveryP": 1
+                            "spRecovery": 1
                         },
                         {
-                            "spRecoveryP": 1
+                            "spRecovery": 1
                         },
                         {
-                            "spRecoveryP": 1
+                            "spRecovery": 1
                         }
                     ]
                 },
@@ -3052,29 +3114,30 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "5秒ごと ランダム最大値 SP回復",
                     "shortLabel": "SP回復",
+                    "valueClass": "固定値",
                     "description": "味方全体 / 固定値",
                     "descriptionByStar": [
-                        "SP回復10% (5秒ごと / 味方全体)",
-                        "SP回復10% (5秒ごと / 味方全体)",
-                        "SP回復10% (5秒ごと / 味方全体)",
-                        "SP回復10% (5秒ごと / 味方全体)",
-                        "SP回復10% (5秒ごと / 味方全体)"
+                        "SP回復10 (5秒ごと / 味方全体)",
+                        "SP回復10 (5秒ごと / 味方全体)",
+                        "SP回復10 (5秒ごと / 味方全体)",
+                        "SP回復10 (5秒ごと / 味方全体)",
+                        "SP回復10 (5秒ごと / 味方全体)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRecoveryP": 10
+                            "spRecovery": 10
                         },
                         {
-                            "spRecoveryP": 10
+                            "spRecovery": 10
                         },
                         {
-                            "spRecoveryP": 10
+                            "spRecovery": 10
                         },
                         {
-                            "spRecoveryP": 10
+                            "spRecovery": 10
                         },
                         {
-                            "spRecoveryP": 10
+                            "spRecovery": 10
                         }
                     ]
                 }
@@ -3116,13 +3179,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "ウェーブ開始時 学年+",
                     "shortLabel": "学年+",
+                    "valueClass": "固定値",
                     "description": "ランダムな味方1人 / 固定値",
                     "descriptionByStar": [
-                        "学年+1% (ウェーブ開始時 / ランダムな味方1人)",
-                        "学年+1% (ウェーブ開始時 / ランダムな味方1人)",
-                        "学年+1% (ウェーブ開始時 / ランダムな味方1人)",
-                        "学年+1% (ウェーブ開始時 / ランダムな味方1人)",
-                        "学年+1% (ウェーブ開始時 / ランダムな味方1人)"
+                        "学年+1 (ウェーブ開始時 / ランダムな味方1人)",
+                        "学年+1 (ウェーブ開始時 / ランダムな味方1人)",
+                        "学年+1 (ウェーブ開始時 / ランダムな味方1人)",
+                        "学年+1 (ウェーブ開始時 / ランダムな味方1人)",
+                        "学年+1 (ウェーブ開始時 / ランダムな味方1人)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3179,6 +3243,7 @@ const CARD_LIBRARY = {
                     "id": "yiide_frontline_reduce",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "description": "前列 / 倍率",
                     "descriptionByStar": [
                         "被ダメージ減少15% (前列)",
@@ -3209,6 +3274,7 @@ const CARD_LIBRARY = {
                     "id": "yiide_guard_def",
                     "type": "toggle",
                     "label": "防御力増加",
+                    "valueClass": "倍率",
                     "description": "前列かつガードタイプ / 倍率",
                     "descriptionByStar": [
                         "防御力増加20% (前列かつガードタイプ)",
@@ -3273,6 +3339,8 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "ウェーブ開始時 与ダメージ増加",
                     "shortLabel": "与ダメージ増加",
+                    "valueClass": "倍率",
+                    "duration": "30",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
                     "description": "味方全体 / 持続:30 / 倍率",
@@ -3351,6 +3419,8 @@ const CARD_LIBRARY = {
                     "type": "info",
                     "label": "ウェーブ開始時 毒",
                     "shortLabel": "毒",
+                    "valueClass": "状態付与",
+                    "duration": "星で変動",
                     "description": "敵全体 / 持続:星で変動 / 状態付与"
                 },
                 {
@@ -3358,13 +3428,15 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "ウェーブ開始時 毒持続時間",
                     "shortLabel": "毒持続時間",
+                    "valueClass": "持続時間",
+                    "duration": "星で変動",
                     "description": "敵全体 / 持続:星で変動 / 持続時間",
                     "descriptionByStar": [
-                        "毒持続時間12% (ウェーブ開始時 / 敵全体)",
-                        "毒持続時間15% (ウェーブ開始時 / 敵全体)",
-                        "毒持続時間18% (ウェーブ開始時 / 敵全体)",
-                        "毒持続時間21% (ウェーブ開始時 / 敵全体)",
-                        "毒持続時間24% (ウェーブ開始時 / 敵全体)"
+                        "毒持続時間12 (ウェーブ開始時 / 敵全体)",
+                        "毒持続時間15 (ウェーブ開始時 / 敵全体)",
+                        "毒持続時間18 (ウェーブ開始時 / 敵全体)",
+                        "毒持続時間21 (ウェーブ開始時 / 敵全体)",
+                        "毒持続時間24 (ウェーブ開始時 / 敵全体)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3415,6 +3487,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "味方全体 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加6.8% (スキルダメージ / 味方全体)",
@@ -3484,6 +3557,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
                     "shortLabel": "SP回復",
+                    "valueClass": "倍率",
                     "description": "残りSPが最も低い味方 / 倍率",
                     "descriptionByStar": [
                         "SP回復100% (カード選択時 / 残りSPが最も低い味方)",
@@ -3598,6 +3672,7 @@ const CARD_LIBRARY = {
                     "id": "center_row_damage",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "中列 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加7% (中列)",
@@ -3628,6 +3703,7 @@ const CARD_LIBRARY = {
                     "id": "center_row_reduce",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "description": "中列 / 倍率",
                     "descriptionByStar": [
                         "被ダメージ減少5% (中列)",
@@ -3684,6 +3760,7 @@ const CARD_LIBRARY = {
                     "id": "frontline_row_damage",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "前列 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加4% (前列)",
@@ -3714,6 +3791,7 @@ const CARD_LIBRARY = {
                     "id": "frontline_row_reduce",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "description": "前列 / 倍率",
                     "descriptionByStar": [
                         "被ダメージ減少8% (前列)",
@@ -3770,6 +3848,7 @@ const CARD_LIBRARY = {
                     "id": "backline_row_damage",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "valueClass": "倍率",
                     "description": "後列 / 倍率",
                     "descriptionByStar": [
                         "与ダメージ増加9% (後列)",
@@ -3800,6 +3879,7 @@ const CARD_LIBRARY = {
                     "id": "backline_row_reduce",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "valueClass": "倍率",
                     "description": "後列 / 倍率",
                     "descriptionByStar": [
                         "被ダメージ減少3% (後列)",
@@ -3857,13 +3937,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 狂気性格判定+1",
                     "shortLabel": "狂気性格判定+1",
+                    "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
                     "descriptionByStar": [
-                        "狂気性格判定+11% (カード選択時 / 性格シナジー)",
-                        "狂気性格判定+11% (カード選択時 / 性格シナジー)",
-                        "狂気性格判定+11% (カード選択時 / 性格シナジー)",
-                        "狂気性格判定+11% (カード選択時 / 性格シナジー)",
-                        "狂気性格判定+11% (カード選択時 / 性格シナジー)"
+                        "狂気性格判定+11 (カード選択時 / 性格シナジー)",
+                        "狂気性格判定+11 (カード選択時 / 性格シナジー)",
+                        "狂気性格判定+11 (カード選択時 / 性格シナジー)",
+                        "狂気性格判定+11 (カード選択時 / 性格シナジー)",
+                        "狂気性格判定+11 (カード選択時 / 性格シナジー)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3914,13 +3995,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 活発性格判定+1",
                     "shortLabel": "活発性格判定+1",
+                    "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
                     "descriptionByStar": [
-                        "活発性格判定+11% (カード選択時 / 性格シナジー)",
-                        "活発性格判定+11% (カード選択時 / 性格シナジー)",
-                        "活発性格判定+11% (カード選択時 / 性格シナジー)",
-                        "活発性格判定+11% (カード選択時 / 性格シナジー)",
-                        "活発性格判定+11% (カード選択時 / 性格シナジー)"
+                        "活発性格判定+11 (カード選択時 / 性格シナジー)",
+                        "活発性格判定+11 (カード選択時 / 性格シナジー)",
+                        "活発性格判定+11 (カード選択時 / 性格シナジー)",
+                        "活発性格判定+11 (カード選択時 / 性格シナジー)",
+                        "活発性格判定+11 (カード選択時 / 性格シナジー)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3971,13 +4053,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 純粋性格判定+1",
                     "shortLabel": "純粋性格判定+1",
+                    "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
                     "descriptionByStar": [
-                        "純粋性格判定+11% (カード選択時 / 性格シナジー)",
-                        "純粋性格判定+11% (カード選択時 / 性格シナジー)",
-                        "純粋性格判定+11% (カード選択時 / 性格シナジー)",
-                        "純粋性格判定+11% (カード選択時 / 性格シナジー)",
-                        "純粋性格判定+11% (カード選択時 / 性格シナジー)"
+                        "純粋性格判定+11 (カード選択時 / 性格シナジー)",
+                        "純粋性格判定+11 (カード選択時 / 性格シナジー)",
+                        "純粋性格判定+11 (カード選択時 / 性格シナジー)",
+                        "純粋性格判定+11 (カード選択時 / 性格シナジー)",
+                        "純粋性格判定+11 (カード選択時 / 性格シナジー)"
                     ],
                     "bonusesByStar": [
                         {
@@ -4028,13 +4111,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 憂鬱性格判定+1",
                     "shortLabel": "憂鬱性格判定+1",
+                    "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
                     "descriptionByStar": [
-                        "憂鬱性格判定+11% (カード選択時 / 性格シナジー)",
-                        "憂鬱性格判定+11% (カード選択時 / 性格シナジー)",
-                        "憂鬱性格判定+11% (カード選択時 / 性格シナジー)",
-                        "憂鬱性格判定+11% (カード選択時 / 性格シナジー)",
-                        "憂鬱性格判定+11% (カード選択時 / 性格シナジー)"
+                        "憂鬱性格判定+11 (カード選択時 / 性格シナジー)",
+                        "憂鬱性格判定+11 (カード選択時 / 性格シナジー)",
+                        "憂鬱性格判定+11 (カード選択時 / 性格シナジー)",
+                        "憂鬱性格判定+11 (カード選択時 / 性格シナジー)",
+                        "憂鬱性格判定+11 (カード選択時 / 性格シナジー)"
                     ],
                     "bonusesByStar": [
                         {
@@ -4085,13 +4169,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 冷静性格判定+1",
                     "shortLabel": "冷静性格判定+1",
+                    "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
                     "descriptionByStar": [
-                        "冷静性格判定+11% (カード選択時 / 性格シナジー)",
-                        "冷静性格判定+11% (カード選択時 / 性格シナジー)",
-                        "冷静性格判定+11% (カード選択時 / 性格シナジー)",
-                        "冷静性格判定+11% (カード選択時 / 性格シナジー)",
-                        "冷静性格判定+11% (カード選択時 / 性格シナジー)"
+                        "冷静性格判定+11 (カード選択時 / 性格シナジー)",
+                        "冷静性格判定+11 (カード選択時 / 性格シナジー)",
+                        "冷静性格判定+11 (カード選択時 / 性格シナジー)",
+                        "冷静性格判定+11 (カード選択時 / 性格シナジー)",
+                        "冷静性格判定+11 (カード選択時 / 性格シナジー)"
                     ],
                     "bonusesByStar": [
                         {
@@ -4422,6 +4507,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "1ウェーブ中 攻撃力増加",
                     "shortLabel": "攻撃力増加",
+                    "valueClass": "倍率",
                     "description": "味方全体 / 倍率",
                     "descriptionByStar": [
                         "攻撃力増加15% (1ウェーブ中 / 味方全体)",
@@ -4479,13 +4565,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 ランダム最低値 コイン獲得",
                     "shortLabel": "コイン獲得",
+                    "valueClass": "固定値",
                     "description": "コイン / 固定値",
                     "descriptionByStar": [
-                        "コイン獲得7% (カード選択時 / コイン)",
-                        "コイン獲得9% (カード選択時 / コイン)",
-                        "コイン獲得11% (カード選択時 / コイン)",
-                        "コイン獲得13% (カード選択時 / コイン)",
-                        "コイン獲得15% (カード選択時 / コイン)"
+                        "コイン獲得7 (カード選択時 / コイン)",
+                        "コイン獲得9 (カード選択時 / コイン)",
+                        "コイン獲得11 (カード選択時 / コイン)",
+                        "コイン獲得13 (カード選択時 / コイン)",
+                        "コイン獲得15 (カード選択時 / コイン)"
                     ],
                     "bonusesByStar": [
                         {
@@ -4510,13 +4597,14 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 ランダム最大値 コイン獲得",
                     "shortLabel": "コイン獲得",
+                    "valueClass": "固定値",
                     "description": "コイン / 固定値",
                     "descriptionByStar": [
-                        "コイン獲得15% (カード選択時 / コイン)",
-                        "コイン獲得17% (カード選択時 / コイン)",
-                        "コイン獲得19% (カード選択時 / コイン)",
-                        "コイン獲得21% (カード選択時 / コイン)",
-                        "コイン獲得23% (カード選択時 / コイン)"
+                        "コイン獲得15 (カード選択時 / コイン)",
+                        "コイン獲得17 (カード選択時 / コイン)",
+                        "コイン獲得19 (カード選択時 / コイン)",
+                        "コイン獲得21 (カード選択時 / コイン)",
+                        "コイン獲得23 (カード選択時 / コイン)"
                     ],
                     "bonusesByStar": [
                         {
@@ -4625,29 +4713,30 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
                     "shortLabel": "SP回復",
+                    "valueClass": "固定値",
                     "description": "味方全体 / 固定値",
                     "descriptionByStar": [
-                        "SP回復36% (カード選択時 / 味方全体)",
-                        "SP回復46% (カード選択時 / 味方全体)",
-                        "SP回復56% (カード選択時 / 味方全体)",
-                        "SP回復66% (カード選択時 / 味方全体)",
-                        "SP回復76% (カード選択時 / 味方全体)"
+                        "SP回復36 (カード選択時 / 味方全体)",
+                        "SP回復46 (カード選択時 / 味方全体)",
+                        "SP回復56 (カード選択時 / 味方全体)",
+                        "SP回復66 (カード選択時 / 味方全体)",
+                        "SP回復76 (カード選択時 / 味方全体)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRecoveryP": 36
+                            "spRecovery": 36
                         },
                         {
-                            "spRecoveryP": 46
+                            "spRecovery": 46
                         },
                         {
-                            "spRecoveryP": 56
+                            "spRecovery": 56
                         },
                         {
-                            "spRecoveryP": 66
+                            "spRecovery": 66
                         },
                         {
-                            "spRecoveryP": 76
+                            "spRecovery": 76
                         }
                     ]
                 }
@@ -4682,6 +4771,7 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "カード選択時 HP回復",
                     "shortLabel": "HP回復",
+                    "valueClass": "倍率",
                     "description": "味方全体 / 参照:対象の最大HP / 倍率",
                     "descriptionByStar": [
                         "HP回復15% (カード選択時 / 味方全体)",
