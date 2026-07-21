@@ -1,5 +1,5 @@
 // Trickcal Damage Calculator - Enemy Preset Data
-// Generated from presets.js. Keep this file enemy-only for formation damage pages.
+// Keep this file enemy-only for formation damage pages.
 
 const ENEMY_PRESETS = {
     "lily_d_15": {
@@ -330,7 +330,7 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_32": {
-        name: "[EF/中辛2]M.E.O.W",
+        name: "[EF/中辛2] M.E.O.W",
         hp: 58588935,
         atk_p: 19148,
         atk_m: 19148,
@@ -487,7 +487,7 @@ const ENEMY_PRESETS = {
         ]
     },
     "R41Renewa_ef_32": {
-        name: "[EF/中辛2]R41リニュア",
+        name: "[EF/中辛2] R41リニュア",
         hp: 58588935,
         atk_p: 19148,
         atk_m: 19148,
@@ -620,7 +620,7 @@ const ENEMY_PRESETS = {
         ]
     },
     "GTA_24": {
-        name: "[GTA24]バンク蔵-憂鬱",
+        name: "[GTA24] バンク蔵-憂鬱",
         hp: 4231046,
         atk_p: 1,
         atk_m: 1,

@@ -1525,6 +1525,12 @@ body.dashboard-page.is-booting::after {
   box-shadow: inset 0 0 0 1px rgba(45, 111, 69, 0.1);
 }
 
+.aside-overview-card .rank-overview-icon {
+  position: relative;
+  z-index: 1;
+  transform: scale(1.16);
+}
+
 .rank-overview-name {
   grid-area: name;
   overflow: hidden;

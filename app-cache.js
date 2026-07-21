@@ -8,13 +8,13 @@
     stat: [
       'stat-dashboard.html',
       'stat-prototype.css?v=20260715b',
-      'stat-dashboard.css?v=20260719k',
+      'stat-dashboard.css?v=20260722a',
       'shared-topbar.css?v=20260718a',
       'statData.js?v=20260713e',
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260720b',
-      'stat-prototype.js?v=20260720a',
+      'stat-prototype.js?v=20260722a',
       'stat-dashboard.js?v=20260717a',
       'image-preload.js'
     ],
@@ -30,7 +30,7 @@
       'cards.js?v=20260720b',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260720m',
+      'formation-damage-calc.js?v=20260721a',
       'image-preload.js'
     ]
   };

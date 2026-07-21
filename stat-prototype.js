@@ -1963,6 +1963,18 @@
   function handleApostleImageError(event) {
     const image = event.target;
     if (!(image instanceof HTMLImageElement) || !image.hasAttribute('data-apostle-image')) return;
+    const skillAssetId = image.dataset.apostleSkillAsset || '';
+    const skillFallback = image.dataset.apostleSkillFallback || '';
+    if (skillAssetId && skillFallback === 'passive') {
+      image.dataset.apostleSkillFallback = 'portrait';
+      image.src = `img/Chara/Skill/Skill_P_${skillAssetId}.webp`;
+      return;
+    }
+    if (skillAssetId && skillFallback === 'portrait') {
+      image.dataset.apostleSkillFallback = '';
+      image.src = `img/Chara/${skillAssetId}.webp`;
+      return;
+    }
     if (image.dataset.fallback === 'true') return;
     image.dataset.fallback = 'true';
     image.onload = () => image.classList.add('is-loaded');
@@ -3427,6 +3439,7 @@
       const first = items[0] || {};
       const level = getSkillLevelForKind(kind, state);
       const label = getSkillKindLabel(kind);
+      const cooldownSeconds = getSkillInfoCooldownSeconds(kind, first);
       const iconHtml = getSkillInfoIconHtml(kind, basic);
       const effectRows = items
         .map(row => formatEffectSummary(row, level))
@@ -3439,7 +3452,7 @@
             <div class="skill-info-title">
               <strong>${escapeHtml(label || 'スキル')}</strong>
               ${name && name !== label ? `<span>${escapeHtml(name)}</span>` : ''}
-              ${level ? `<em>SLv ${level}</em>` : ''}
+              ${level || cooldownSeconds ? `<em>${escapeHtml([cooldownSeconds ? `CT ${formatNumber(cooldownSeconds)}秒` : '', level ? `SLv ${level}` : ''].filter(Boolean).join(' / '))}</em>` : ''}
             </div>
             ${first.説明 ? `<p>${escapeHtml(first.説明)}</p>` : ''}
             ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
@@ -3823,6 +3836,12 @@
     saveState({ refreshSnapshotIds: [view.id] });
     render();
     commitHistoryAction(history);
+  }
+
+  function getSkillInfoCooldownSeconds(kind, row = {}) {
+    if (!String(kind || '').includes('高学年')) return 0;
+    const value = Number(row['高学年クールタイム秒'] ?? row['クールタイム秒'] ?? row.cooldownSeconds);
+    return Number.isFinite(value) && value > 0 ? value : 0;
   }
 
   function applyBaseStats(basic, totals, activeEffects, breakdown, state = currentApostleState()) {
@@ -4298,7 +4317,7 @@
             : 'rank-gray';
     return `
       <label class="rank-overview-card personality-${escapeAttr(row.性格 || '')} ${rankTone}" data-rank-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の装備Rankを変更">
-        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(assetId)}.webp" alt="">
+        <img data-apostle-image data-apostle-skill-asset="${escapeAttr(assetId)}" data-apostle-skill-fallback="passive" class="rank-overview-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(assetId)}.webp" alt="">
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
         <strong class="rank-overview-value">R${state.rank}</strong>
         <select data-rank-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 装備Rank">
@@ -4404,7 +4423,7 @@
     const bondTone = getBondOverviewTone(state.bond);
     return `
       <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
-        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <img data-apostle-image data-apostle-skill-asset="${escapeAttr(getApostleAssetId(row.id))}" data-apostle-skill-fallback="passive" class="rank-overview-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
         <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
         <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
@@ -6460,7 +6479,7 @@
             data-board-global-open-apostle="${escapeAttr(basic.id)}"
             title="${escapeAttr(`${basic.使徒名 || basic.id}のボードを開く`)}"
           >
-            <img data-apostle-image class="board-global-apostle-icon" src="img/Chara/Skill/Skill_P_${escapeAttr(assetId)}.webp" alt="">
+            <img data-apostle-image data-apostle-skill-asset="${escapeAttr(assetId)}" data-apostle-skill-fallback="passive" class="board-global-apostle-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(assetId)}.webp" alt="">
             <span class="board-global-apostle-meta">
               <span class="board-global-apostle-name">${escapeHtml(basic.使徒名 || basic.id)}</span>
               <span class="board-global-apostle-traits">${escapeHtml(basic.性格 || '')} / ${escapeHtml(basic.種族 || '')}</span>

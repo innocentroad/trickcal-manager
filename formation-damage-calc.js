@@ -1455,7 +1455,7 @@
           category: option.category || '',
           action: getFdcApostleSkillActionLabel(option.category),
           name: option.skillName || option.category || '',
-          note: option.kind || ''
+          note: [option.kind || '', option.cooldownSeconds ? `CT ${formatPlainNumber(option.cooldownSeconds)}秒` : ''].filter(Boolean).join(' / ')
         });
       });
     } else {
@@ -2964,6 +2964,7 @@
       option.skillName ? `スキル名: ${option.skillName}` : '',
       option.label ? `候補: ${option.label}` : '',
       option.sourceLabel && option.sourceLabel !== '通常' ? `由来: ${option.sourceLabel}` : '',
+      option.cooldownSeconds ? `クールタイム: ${formatPlainNumber(option.cooldownSeconds)}秒` : '',
       option.detailText || '',
       ...getFdcLowSkillSpInfoLines(option, target, context)
     ].filter(Boolean);
@@ -7020,6 +7021,7 @@
         const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) : null;
         const calcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
         const kind = effect.valueKind || 'ダメージ';
+        const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, category);
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
@@ -7029,9 +7031,11 @@
           sourceLabel,
           skillName: skill.skillName || skill.name || '',
           requiredSp: getFdcLowSkillRequiredSp(skill),
+          cooldownSeconds,
           kind,
           shortDetail: [
-            levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : ''
+            levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
+            cooldownSeconds ? `CT ${formatPlainNumber(cooldownSeconds)}秒` : ''
           ].filter(Boolean).join(' / '),
           detailText: [
             skill.skillName || skill.name || '',
@@ -7072,6 +7076,12 @@
     return Number.isFinite(conditionValue) && conditionValue > 0
       ? conditionValue
       : (typeof TRICKCAL_SP_ENGINE !== 'undefined' ? TRICKCAL_SP_ENGINE.DEFAULT_REQUIRED_SP : 300) || 300;
+  }
+
+  function getFdcHighSkillCooldownSeconds(skill = {}, category = '') {
+    if (getFdcSkillBaseCategory(category) !== '高学年スキル') return 0;
+    const value = Number(skill.cooldownSeconds ?? skill['高学年クールタイム秒'] ?? skill['クールタイム秒']);
+    return Number.isFinite(value) && value > 0 ? value : 0;
   }
 
   function getFdcSkillStatusMultipliers(skill) {

@@ -38,7 +38,6 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 - `cards.js`: 遺物・スペル・カード効果データ
 - `synergy.js`: 性格・種族シナジー
 - `enemy-presets.js`: 敵プリセット
-- `presets.js`: 画面で利用するプリセット定義
 
 ## データの更新
 
