@@ -1,0 +1,83 @@
+:root {
+  color-scheme: light dark;
+  font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+  color: #193326;
+  background: #e9efe9;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 320px; }
+
+button, input, select, textarea { font: inherit; }
+
+.tool-shell { width: min(1080px, calc(100% - 24px)); margin: 24px auto 48px; }
+.tool-head { margin-bottom: 14px; padding: 4px 4px 8px; }
+.tool-head h1 { margin: 3px 0 5px; font-size: clamp(1.35rem, 3vw, 2rem); }
+.tool-head p { margin: 0; color: #607066; font-size: .84rem; font-weight: 700; }
+.tool-head .eyebrow { color: #287348; font-size: .7rem; letter-spacing: .13em; }
+
+.panel {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid #cbd8ce;
+  border-radius: 16px;
+  background: #fffdf7;
+  box-shadow: 0 8px 24px rgba(27, 57, 39, .07);
+}
+
+.section-head, .output-head, .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.section-head { margin-bottom: 12px; }
+.section-head h2 { margin: 0; font-size: 1rem; }
+.section-head small { color: #6a786f; font-size: .72rem; font-weight: 700; }
+.source-field { display: flex; align-items: center; gap: 8px; color: #607066; font-size: .73rem; font-weight: 800; }
+.source-field select { min-width: 180px; }
+
+.basic-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tier-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.field, .reference { min-width: 0; display: grid; gap: 5px; color: #607066; font-size: .73rem; font-weight: 900; }
+.field :is(input, select), .reference strong, .source-field select {
+  width: 100%; min-width: 0; min-height: 40px; padding: 0 10px;
+  border: 1px solid #c8d5ca; border-radius: 10px; color: #193326; background: #fff;
+  font-size: .82rem; font-weight: 800;
+}
+.reference strong { display: flex; align-items: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.header-toggle { display: inline-flex; align-items: center; gap: 7px; color: #607066; font-size: .75rem; font-weight: 900; }
+.status { color: #607066; font-size: .73rem; font-weight: 800; }
+.status.is-error { color: #b42318; }
+.output-panel textarea {
+  width: 100%; min-height: 300px; margin-top: 10px; padding: 11px; resize: vertical;
+  border: 1px solid #c8d5ca; border-radius: 11px; color: #193326; background: #fff;
+  font: .72rem/1.45 Consolas, "SFMono-Regular", monospace; white-space: pre;
+}
+.actions { justify-content: flex-end; margin-top: 10px; }
+.actions button {
+  min-height: 40px; padding: 0 16px; border: 1px solid #b9cabc; border-radius: 10px;
+  color: #23593b; background: #fff; font-size: .79rem; font-weight: 900; cursor: pointer;
+}
+.actions button.primary { color: #fff; border-color: #287348; background: #287348; }
+.actions button:disabled { cursor: not-allowed; opacity: .45; }
+
+@media (prefers-color-scheme: dark) {
+  :root { color: #edf6f0; background: #0d1621; }
+  .tool-head p, .field, .reference, .source-field, .section-head small, .header-toggle, .status { color: #aebdb3; }
+  .panel { border-color: #344454; background: #142231; box-shadow: 0 10px 28px rgba(0, 0, 0, .28); }
+  .field :is(input, select), .reference strong, .source-field select, .output-panel textarea, .actions button {
+    color: #edf6f0; border-color: #405368; background: #101c29;
+  }
+  .status.is-error { color: #fda4af; }
+  .actions button.primary { border-color: #4a9667; background: #276b43; }
+}
+
+@media (max-width: 720px) {
+  .tool-shell { width: min(100% - 12px, 1080px); margin-top: 10px; }
+  .panel { padding: 12px; }
+  .basic-grid, .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .section-head { align-items: flex-start; flex-direction: column; }
+  .source-field { width: 100%; align-items: flex-start; flex-direction: column; }
+  .source-field select { min-width: 0; }
+  .output-head { align-items: flex-start; flex-direction: column; }
+  .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .actions button { padding: 0 6px; }
+}

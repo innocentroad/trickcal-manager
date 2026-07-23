@@ -8775,6 +8775,361 @@ button.apostle-picker-card[class*="personality-"] > strong.has-sort-value .apost
   background: #14211d !important;
 }
 
+/* 使徒設定一覧 */
+.apostle-bulk-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.apostle-bulk-search {
+  flex: 1 1 260px;
+  width: min(420px, 100%);
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.apostle-bulk-search input,
+.apostle-bulk-sort select {
+  min-height: 40px;
+  border: 1px solid rgba(36, 83, 59, 0.2);
+  border-radius: 11px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: rgba(255, 253, 247, 0.92);
+  font: inherit;
+  font-size: 0.84rem;
+}
+
+.apostle-bulk-sort {
+  flex: 0 0 164px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.apostle-bulk-sort select {
+  width: 100%;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.apostle-bulk-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.apostle-bulk-list {
+  display: grid;
+  gap: 5px;
+}
+
+.apostle-bulk-row {
+  --apostle-bulk-personality-color: #4b8a68;
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 58px 64px minmax(180px, 0.8fr) minmax(345px, 1.7fr);
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(36, 83, 59, 0.15);
+  border-left: 4px solid color-mix(in srgb, var(--apostle-bulk-personality-color) 72%, #ffffff);
+  border-radius: 11px;
+  padding: 5px 7px;
+  background: rgba(255, 253, 247, 0.72);
+}
+
+.apostle-bulk-row.personality-純粋 { --apostle-bulk-personality-color: var(--personality-pure); }
+.apostle-bulk-row.personality-冷静 { --apostle-bulk-personality-color: var(--personality-calm); }
+.apostle-bulk-row.personality-狂気 { --apostle-bulk-personality-color: var(--personality-madness); }
+.apostle-bulk-row.personality-活発 { --apostle-bulk-personality-color: var(--personality-active); }
+.apostle-bulk-row.personality-憂鬱 { --apostle-bulk-personality-color: var(--personality-gloomy); }
+
+.apostle-bulk-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 9px;
+  padding: 4px 6px 4px 4px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--apostle-bulk-personality-color) 17%, transparent),
+    color-mix(in srgb, var(--apostle-bulk-personality-color) 5%, transparent));
+  box-shadow: inset 2px 0 color-mix(in srgb, var(--apostle-bulk-personality-color) 58%, transparent);
+}
+
+.apostle-bulk-identity img {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--apostle-bulk-personality-color) 46%, rgba(36, 83, 59, 0.18));
+  border-radius: 9px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.apostle-bulk-identity > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.apostle-bulk-identity strong,
+.apostle-bulk-identity small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.apostle-bulk-identity strong {
+  font-size: 0.78rem;
+}
+
+.apostle-bulk-identity small,
+.apostle-bulk-group-title small {
+  color: var(--muted);
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
+.apostle-bulk-field,
+.apostle-bulk-group label {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 900;
+}
+
+.apostle-bulk-field,
+.apostle-bulk-group {
+  height: 54px;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 83, 59, 0.13);
+  border-radius: 9px;
+  padding: 4px;
+}
+
+.apostle-bulk-field.is-star {
+  border-color: rgba(190, 135, 26, 0.24);
+  background: rgba(255, 205, 92, 0.1);
+}
+
+.apostle-bulk-field.is-level {
+  border-color: rgba(54, 126, 181, 0.22);
+  background: rgba(84, 165, 224, 0.09);
+}
+
+.apostle-bulk-skills {
+  border-color: rgba(121, 84, 181, 0.22);
+  background: rgba(143, 107, 204, 0.09);
+}
+
+.apostle-bulk-equipments {
+  border-color: rgba(45, 137, 124, 0.22);
+  background: rgba(69, 164, 150, 0.09);
+}
+
+.apostle-bulk-field :is(select, input),
+.apostle-bulk-group select {
+  width: 100%;
+  min-width: 0;
+  height: 30px;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 83, 59, 0.2);
+  border-radius: 8px;
+  padding: 0 5px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.apostle-bulk-field input {
+  appearance: textfield;
+}
+
+.apostle-bulk-group {
+  min-width: 0;
+  margin: 0;
+  align-items: center;
+}
+
+.apostle-bulk-group-title {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  align-self: stretch;
+  min-width: 27px;
+  padding: 0 3px 0 1px;
+  border-right: 1px solid rgba(36, 83, 59, 0.13);
+  color: var(--ink);
+  font-size: 0.64rem;
+  font-weight: 900;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.apostle-bulk-group-title small {
+  margin-top: 2px;
+  text-align: center;
+}
+
+.apostle-bulk-skills,
+.apostle-bulk-equipments {
+  display: grid;
+  grid-template-columns: auto repeat(3, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.apostle-bulk-equipments {
+  grid-template-columns: auto repeat(6, minmax(0, 1fr));
+}
+
+.apostle-bulk-equipment.is-off select {
+  color: color-mix(in srgb, var(--muted) 82%, transparent);
+  background: rgba(234, 238, 232, 0.66);
+}
+
+.apostle-bulk-group select:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+:root[data-theme="dark"] .apostle-bulk-row {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(14, 24, 38, 0.68);
+}
+
+:root[data-theme="dark"] .apostle-bulk-identity {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--apostle-bulk-personality-color) 20%, rgba(14, 24, 38, 0.45)),
+    color-mix(in srgb, var(--apostle-bulk-personality-color) 7%, transparent));
+  box-shadow: inset 2px 0 color-mix(in srgb, var(--apostle-bulk-personality-color) 68%, transparent);
+}
+
+:root[data-theme="dark"] .apostle-bulk-search input,
+:root[data-theme="dark"] .apostle-bulk-sort select,
+:root[data-theme="dark"] .apostle-bulk-field :is(select, input),
+:root[data-theme="dark"] .apostle-bulk-group select {
+  color: rgba(248, 250, 252, 0.95);
+  border-color: rgba(148, 177, 160, 0.24);
+  background: rgba(18, 31, 48, 0.9);
+}
+
+:root[data-theme="dark"] .apostle-bulk-group {
+  border-color: rgba(148, 163, 184, 0.17);
+}
+
+:root[data-theme="dark"] .apostle-bulk-field.is-star {
+  border-color: rgba(247, 196, 91, 0.26);
+  background: rgba(190, 135, 26, 0.12);
+}
+
+:root[data-theme="dark"] .apostle-bulk-field.is-level {
+  border-color: rgba(105, 181, 235, 0.24);
+  background: rgba(54, 126, 181, 0.12);
+}
+
+:root[data-theme="dark"] .apostle-bulk-skills {
+  border-color: rgba(178, 139, 235, 0.24);
+  background: rgba(121, 84, 181, 0.12);
+}
+
+:root[data-theme="dark"] .apostle-bulk-equipments {
+  border-color: rgba(101, 201, 185, 0.24);
+  background: rgba(45, 137, 124, 0.12);
+}
+
+:root[data-theme="dark"] .apostle-bulk-group-title {
+  border-right-color: rgba(148, 163, 184, 0.17);
+}
+
+:root[data-theme="dark"] .apostle-bulk-equipment.is-off select {
+  color: rgba(190, 202, 215, 0.65);
+  background: rgba(15, 23, 42, 0.72);
+}
+
+:root[data-theme="dark"] .apostle-bulk-search input::placeholder {
+  color: rgba(190, 202, 215, 0.58);
+}
+
+@media (max-width: 850px) {
+  .apostle-bulk-row {
+    grid-template-columns: minmax(140px, 1fr) 58px 64px minmax(180px, 1fr);
+  }
+
+  .apostle-bulk-equipments {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .apostle-bulk-row {
+    grid-template-columns: minmax(120px, 1fr) 54px 60px minmax(155px, 1fr);
+  }
+
+  .apostle-bulk-identity {
+    align-self: center;
+  }
+
+  .apostle-bulk-equipments {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .apostle-bulk-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+  }
+
+  .apostle-bulk-search {
+    grid-column: 1 / -1;
+  }
+
+  .apostle-bulk-sort {
+    width: min(164px, 100%);
+  }
+
+  .apostle-bulk-count {
+    align-self: flex-end;
+  }
+
+  .apostle-bulk-row {
+    grid-template-columns: minmax(0, 1fr) 56px 62px;
+    gap: 5px;
+    padding: 5px;
+  }
+
+  .apostle-bulk-identity img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .apostle-bulk-skills,
+  .apostle-bulk-equipments {
+    grid-column: 1 / -1;
+  }
+
+  .apostle-bulk-equipments {
+    grid-template-columns: auto repeat(6, minmax(0, 1fr));
+  }
+}
+
+
 :root[data-theme="dark"] .refined-follow-toggle:has(input:checked),
 :root[data-theme="dark"] .board-mode-switch button.is-active,
 :root[data-theme="dark"] .card-manager-tabs button.is-active {

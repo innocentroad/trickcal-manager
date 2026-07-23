@@ -237,6 +237,12 @@
     researchLevelSelect: document.getElementById('research-level-select'),
     researchGrid: document.getElementById('research-grid'),
     activeResearch: document.getElementById('active-research-list'),
+    apostleBulkSearch: document.getElementById('apostle-bulk-search'),
+    apostleBulkSort: document.getElementById('apostle-bulk-sort'),
+    apostleBulkCount: document.getElementById('apostle-bulk-count'),
+    apostleBulkFilters: document.getElementById('apostle-bulk-filters'),
+    apostleBulkFilterCount: document.getElementById('apostle-bulk-filter-count'),
+    apostleBulkList: document.getElementById('apostle-bulk-list'),
     rankOverviewSummary: document.getElementById('rank-overview-summary'),
     rankOverviewGrid: document.getElementById('rank-overview-grid'),
     rankOverviewSort: document.getElementById('rank-overview-sort'),
@@ -301,6 +307,14 @@
       position: new Set()
     },
     apostleSort: 'name',
+    apostleBulkSearch: '',
+    apostleBulkSort: 'name',
+    apostleBulkFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
     rankFilters: {
       personality: new Set(),
       species: new Set(),
@@ -356,6 +370,7 @@
   let renderTimer = 0;
   let pendingImportedState = null;
   const formationCoinHistoryActions = new WeakMap();
+  const apostleBulkLevelHistoryActions = new WeakMap();
   const historyState = {
     undoStack: [],
     redoStack: [],
@@ -1410,6 +1425,53 @@
       saveState();
       render();
       commitHistoryAction(history);
+    });
+
+    elements.apostleBulkSearch?.addEventListener('input', () => {
+      view.apostleBulkSearch = elements.apostleBulkSearch.value.trim();
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkSort?.addEventListener('change', () => {
+      view.apostleBulkSort = elements.apostleBulkSort.value || 'name';
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkFilters?.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-bulk-filter-clear]');
+      if (clearButton) {
+        Object.values(view.apostleBulkFilters).forEach(values => values.clear());
+        renderApostleBulkSettings();
+        return;
+      }
+      const button = event.target.closest('button[data-bulk-filter-group]');
+      if (!button) return;
+      const values = view.apostleBulkFilters[button.dataset.bulkFilterGroup];
+      const value = button.dataset.bulkFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkList?.addEventListener('change', event => {
+      const control = event.target.closest('[data-apostle-bulk-id]');
+      if (!control) return;
+      if (control.dataset.apostleBulkField === 'level') {
+        commitApostleBulkLevelInput(control);
+        return;
+      }
+      updateApostleBulkSetting(control);
+    });
+
+    elements.apostleBulkList?.addEventListener('input', event => {
+      const control = event.target.closest('[data-apostle-bulk-field="level"]');
+      if (control) updateApostleBulkLevelInput(control);
+    });
+
+    elements.apostleBulkList?.addEventListener('focusout', event => {
+      const control = event.target.closest('[data-apostle-bulk-field="level"]');
+      if (control && apostleBulkLevelHistoryActions.has(control)) commitApostleBulkLevelInput(control);
     });
 
     elements.rankOverviewGrid.addEventListener('change', event => {
@@ -3343,6 +3405,7 @@
 
   function renderActiveGlobalSettingPanel() {
     if (!isDashboardPanelActive('global')) return;
+    if (isGlobalSettingPanelActive('apostles')) renderApostleBulkSettings();
     if (isGlobalSettingPanelActive('rank')) renderRankOverview();
     if (isGlobalSettingPanelActive('bond')) renderBondOverview();
     if (isGlobalSettingPanelActive('aside')) renderAsideOverview();
@@ -3356,7 +3419,7 @@
       button.classList.toggle('is-active', !!tab && button.dataset.openGlobal === tab);
     });
     document.querySelectorAll('.bottom-global-menu').forEach(menu => {
-      menu.classList.toggle('is-active', ['rank', 'aside', 'research'].includes(tab));
+      menu.classList.toggle('is-active', ['apostles', 'rank', 'aside', 'research'].includes(tab));
     });
     if (tab !== 'cards') updateCardManagerQuickButtons('');
   }
@@ -3539,11 +3602,12 @@
     const level = Number(state.asideLevel) || 0;
     const attackType = String(basic.攻撃タイプ || basic['攻撃Type'] || '').trim();
     const attackLabel = attackType === '魔法' ? '魔法攻撃' : '物理攻撃';
+    const attackFields = getAsideAttackFieldNames(basic);
     const manifest = getAsideManifestBonus(basic) || {};
     const levelBonus = calculateAsideLevelBonus(basic, level, rank) || {};
     const rows = [
       ['HP', getFirstRowValue(tier, ['HPタイプ', 'HPTier', 'HP AsideTier', 'HP\nAsideTier']), manifest.hp, levelBonus.hp],
-      [attackLabel, getFirstRowValue(tier, ['攻撃力タイプ', 'ATKTier', 'ATK AsideTier', 'ATK\nAsideTier']), manifest.attack, levelBonus.attack],
+      [attackLabel, getFirstRowValue(tier, [attackFields.tier, '攻撃力タイプ', 'ATKTier', 'ATK AsideTier', 'ATK\nAsideTier']), manifest.attack, levelBonus.attack],
       ['物理防御', getFirstRowValue(tier, ['物理防御力タイプ', 'DEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.pdef, levelBonus.pdef],
       ['魔法防御', getFirstRowValue(tier, ['魔法防御力タイプ', 'MDEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.mdef, levelBonus.mdef]
     ];
@@ -4242,6 +4306,239 @@
       total += Number(row[`段階${index}`]) || 0;
     }
     return total;
+  }
+
+  function renderApostleBulkSettings() {
+    if (!elements.apostleBulkList) return;
+    const query = String(view.apostleBulkSearch || '').trim().toLocaleLowerCase('ja');
+    if (elements.apostleBulkSearch && elements.apostleBulkSearch.value !== view.apostleBulkSearch) {
+      elements.apostleBulkSearch.value = view.apostleBulkSearch;
+    }
+    if (elements.apostleBulkSort) elements.apostleBulkSort.value = view.apostleBulkSort;
+    const activeFilterCount = Object.values(view.apostleBulkFilters)
+      .reduce((total, values) => total + values.size, 0);
+    if (elements.apostleBulkFilterCount) {
+      elements.apostleBulkFilterCount.textContent = activeFilterCount ? `${activeFilterCount}件選択中` : '';
+    }
+    if (elements.apostleBulkFilters) {
+      elements.apostleBulkFilters.innerHTML = renderApostleFilterControls(
+        getApostleFilterGroups(),
+        view.apostleBulkFilters,
+        'bulk'
+      );
+    }
+    const rows = DATA.sheets.basicInfo
+      .filter(row => !query || [row.使徒名, row.id, row.性格, row.種族, row.役割, row.配列]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase('ja').includes(query)))
+      .filter(row => [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.apostleBulkFilters[group];
+        return selected.size === 0 || selected.has(value);
+      }))
+      .sort(compareApostleBulkRows);
+    if (elements.apostleBulkCount) {
+      elements.apostleBulkCount.textContent = `${rows.length}/${DATA.sheets.basicInfo.length}使徒`;
+    }
+    elements.apostleBulkList.innerHTML = rows.map(renderApostleBulkRow).join('')
+      || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function compareApostleBulkRows(a, b) {
+    const nameOrder = String(a.使徒名 || a.id).localeCompare(
+      String(b.使徒名 || b.id),
+      'ja',
+      { sensitivity: 'base' }
+    );
+    const stateA = ensureApostleState(a.id);
+    const stateB = ensureApostleState(b.id);
+    if (view.apostleBulkSort === 'combatPower') {
+      return getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id) || nameOrder;
+    }
+    if (view.apostleBulkSort === 'star') return stateB.star - stateA.star || nameOrder;
+    if (view.apostleBulkSort === 'level') return stateB.level - stateA.level || nameOrder;
+    if (view.apostleBulkSort === 'skillLevel') {
+      const total = state => ['low', 'high', 'passive']
+        .reduce((sum, key) => sum + (Number(state.skillLevels?.[key]) || 0), 0);
+      return total(stateB) - total(stateA) || nameOrder;
+    }
+    if (view.apostleBulkSort === 'equipment') {
+      const count = (basic, state) => getApostleBulkEquipmentDefinitions(basic)
+        .reduce((sum, item) => sum + Number(!!state.equipment?.[item.key]?.enabled), 0);
+      return count(b, stateB) - count(a, stateA) || nameOrder;
+    }
+    return nameOrder;
+  }
+
+  function renderApostleBulkRow(basic) {
+    const state = ensureApostleState(basic.id);
+    const combatPower = getApostleCombatPowerForSort(basic.id);
+    const identityMeta = [basic.性格, basic.種族].filter(Boolean).join(' / ');
+    const identityDetail = view.apostleBulkSort === 'combatPower'
+      ? `${identityMeta} · CP ${formatCompactCombatPower(combatPower)}`
+      : identityMeta;
+    const maxSkillLevel = getMaxSkillLevel(state.asideRank);
+    const starOptions = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => ({
+      value: index + 1,
+      label: `★${index + 1}`
+    }));
+    const skillOptions = createNumberOptions(1, maxSkillLevel);
+    const equipment = DATA.getById('equipment', basic.id);
+    const equipmentControls = getApostleBulkEquipmentDefinitions(basic).map(item => {
+      const tier = Number(equipment?.[`Equip_Rank${state.rank}_${item.key}`]);
+      const available = Number.isFinite(tier);
+      const saved = state.equipment?.[item.key] || { enabled: false, enhance: 0 };
+      const selected = available && saved.enabled
+        ? Math.max(0, Math.min(5, Number(saved.enhance) || 0))
+        : 'off';
+      const options = [
+        { value: 'off', label: 'なし' },
+        ...Array.from({ length: 6 }, (_, enhance) => ({ value: enhance, label: `+${enhance}` }))
+      ];
+      return `
+        <label class="apostle-bulk-equipment ${selected === 'off' ? 'is-off' : ''}" title="${escapeAttr(item.title)}">
+          <span>${escapeHtml(item.label)}</span>
+          <select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-equipment="${escapeAttr(item.key)}"
+            aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${item.title}`)}" ${available ? '' : 'disabled'}>
+            ${renderOptions(options, selected)}
+          </select>
+        </label>
+      `;
+    }).join('');
+    return `
+      <article class="apostle-bulk-row personality-${escapeAttr(basic.性格 || '')}" data-apostle-bulk-row="${escapeAttr(basic.id)}"
+        data-apostle-bulk-combat-power="${combatPower}">
+        <div class="apostle-bulk-identity">
+          <img loading="lazy" decoding="async" data-apostle-image data-apostle-skill-asset="${escapeAttr(getApostleAssetId(basic.id))}"
+            data-apostle-skill-fallback="passive" src="img/Chara/Skill/Skill_S_${escapeAttr(getApostleAssetId(basic.id))}.webp" alt="">
+          <span><strong>${escapeHtml(basic.使徒名 || basic.id)}</strong><small>${escapeHtml(identityDetail)}</small></span>
+        </div>
+        <label class="apostle-bulk-field is-star"><span>★</span>
+          <select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="star" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ★`)}">
+            ${renderOptions(starOptions, state.star)}
+          </select>
+        </label>
+        <label class="apostle-bulk-field is-level"><span>Lv</span>
+          <input type="number" min="1" max="${getLevelCapForStar(state.star)}" step="1" value="${state.level}"
+            data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="level" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} Lv`)}">
+        </label>
+        <div class="apostle-bulk-group apostle-bulk-skills" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} SLv`)}">
+          <span class="apostle-bulk-group-title">SLv${state.asideRank ? `<small>A${state.asideRank}<br>上限${maxSkillLevel}</small>` : ''}</span>
+          ${[
+            ['low', '低'],
+            ['high', '高'],
+            ['passive', 'P']
+          ].map(([key, label]) => `
+            <label><span>${label}</span><select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-skill="${key}"
+              aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${label}学年SLv`)}">${renderOptions(skillOptions, state.skillLevels[key])}</select></label>
+          `).join('')}
+        </div>
+        <div class="apostle-bulk-group apostle-bulk-equipments" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} 装備 Rank ${state.rank}`)}">
+          <span class="apostle-bulk-group-title">装備<small>R${state.rank}</small></span>
+          ${equipmentControls}
+        </div>
+      </article>
+    `;
+  }
+
+  function getApostleBulkEquipmentDefinitions(basic) {
+    const attackKey = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
+    return [
+      { key: 'HP', label: 'HP', title: 'HP装備' },
+      { key: attackKey, label: attackKey === '物理攻撃' ? '物攻' : '魔攻', title: `${attackKey}装備` },
+      { key: '物理防御', label: '物防', title: '物理防御装備' },
+      { key: '魔法防御', label: '魔防', title: '魔法防御装備' },
+      { key: '会心/会心DMG', label: '会心', title: '会心・会心DMG装備' },
+      { key: '会心抵抗/会心DMG抵抗', label: '抵抗', title: '会心抵抗・会心DMG抵抗装備' }
+    ];
+  }
+
+  function updateApostleBulkLevelInput(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    const rawValue = Number(control.value);
+    if (!id || !basic || !Number.isFinite(rawValue) || rawValue < 1) return;
+    if (!apostleBulkLevelHistoryActions.has(control)) {
+      apostleBulkLevelHistoryActions.set(control, beginHistoryAction('使徒設定一覧変更'));
+    }
+    const state = ensureApostleState(id);
+    state.level = normalizeApostleLevel(rawValue, state.star);
+    if (String(state.level) !== control.value) control.value = String(state.level);
+    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+    }
+  }
+
+  function commitApostleBulkLevelInput(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    if (!id || !basic) return;
+    const history = apostleBulkLevelHistoryActions.get(control) || beginHistoryAction('使徒設定一覧変更');
+    apostleBulkLevelHistoryActions.delete(control);
+    const state = ensureApostleState(id);
+    state.level = normalizeApostleLevel(control.value, state.star);
+    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+    }
+    if (['level', 'combatPower'].includes(view.apostleBulkSort)) renderApostleBulkSettings();
+    else updateApostleBulkRow(id);
+    commitHistoryAction(history);
+  }
+
+  function updateApostleBulkSetting(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    if (!id || !basic) return;
+    const state = ensureApostleState(id);
+    const history = beginHistoryAction('使徒設定一覧変更');
+    const field = control.dataset.apostleBulkField;
+    const skill = control.dataset.apostleBulkSkill;
+    const equipmentKey = control.dataset.apostleBulkEquipment;
+
+    if (field === 'star') {
+      state.star = normalizeApostleStar(control.value);
+      state.level = normalizeApostleLevel(state.level, state.star);
+    } else if (skill && ['low', 'high', 'passive'].includes(skill)) {
+      state.skillLevels = normalizeSkillLevels({ ...state.skillLevels, [skill]: control.value }, state.asideRank);
+    } else if (equipmentKey && getApostleBulkEquipmentDefinitions(basic).some(item => item.key === equipmentKey)) {
+      const rawValue = control.value;
+      state.equipment[equipmentKey] = {
+        ...(state.equipment[equipmentKey] || {}),
+        enabled: rawValue !== 'off',
+        enhance: rawValue === 'off' ? 0 : Math.max(0, Math.min(5, Number(rawValue) || 0))
+      };
+    } else {
+      return;
+    }
+
+    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+      renderSkillLevelChange();
+    }
+    const shouldResort = (field === 'star' && view.apostleBulkSort === 'star')
+      || (skill && view.apostleBulkSort === 'skillLevel')
+      || (equipmentKey && view.apostleBulkSort === 'equipment')
+      || view.apostleBulkSort === 'combatPower';
+    if (shouldResort) renderApostleBulkSettings();
+    else updateApostleBulkRow(id);
+    commitHistoryAction(history);
+  }
+
+  function updateApostleBulkRow(id) {
+    const row = Array.from(elements.apostleBulkList?.querySelectorAll('[data-apostle-bulk-row]') || [])
+      .find(element => element.dataset.apostleBulkRow === id);
+    const basic = DATA.getById('basicInfo', id);
+    if (row && basic) row.outerHTML = renderApostleBulkRow(basic);
   }
 
   function renderRankOverviewControls() {
@@ -7251,9 +7548,10 @@
     if (!basic) return null;
     const asideTier = DATA.getById('asideTiers', basic.id);
     if (asideTier) {
+      const attackFields = getAsideAttackFieldNames(basic);
       const sheetValues = {
         hp: Number(asideTier.HP発現値) || 0,
-        attack: Number(asideTier.攻撃力発現値) || 0,
+        attack: Number(asideTier[attackFields.manifest] ?? asideTier.攻撃力発現値) || 0,
         pdef: Number(asideTier.物理防御力発現値) || 0,
         mdef: Number(asideTier.魔法防御力発現値) || 0
       };
@@ -7305,9 +7603,10 @@
 
   function getAsideStarBonus(basic) {
     const asideTier = DATA.getById('asideTiers', basic?.id);
+    const attackFields = getAsideAttackFieldNames(basic);
     return {
       hp: Number(asideTier?.HP星上昇値) || 0,
-      attack: Number(asideTier?.攻撃力星上昇値) || 0,
+      attack: Number(asideTier?.[attackFields.star] ?? asideTier?.攻撃力星上昇値) || 0,
       pdef: Number(asideTier?.物理防御力星上昇値) || 0,
       mdef: Number(asideTier?.魔法防御力星上昇値) || 0
     };
@@ -7315,12 +7614,13 @@
 
   function getAsideStatTiers(basic) {
     const override = DATA.getById('asideTiers', basic?.id);
+    const attackFields = getAsideAttackFieldNames(basic);
     const baseAttackTier = basic?.攻撃タイプ === '物理'
       ? basic?.物理攻撃力タイプ
       : basic?.魔法攻撃力タイプ;
     return {
       hp: Number(override?.HPタイプ) || Number(basic?.HPタイプ) || 0,
-      attack: Number(override?.攻撃力タイプ) || Number(baseAttackTier) || 0,
+      attack: Number(override?.[attackFields.tier]) || Number(override?.攻撃力タイプ) || Number(baseAttackTier) || 0,
       pdef: Number(override?.物理防御力タイプ) || Number(basic?.物理防御力タイプ) || 0,
       mdef: Number(override?.魔法防御力タイプ) || Number(basic?.魔法防御力タイプ) || 0
     };
@@ -8028,6 +8328,16 @@
       breakdown: cloneJson(breakdown),
       globalPercentRates: mapTotalsForSnapshot(globalPercentRates),
       updatedAt: new Date().toISOString()
+    };
+  }
+
+  function getAsideAttackFieldNames(basic) {
+    const physical = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理';
+    return {
+      tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ',
+      manifest: physical ? '物理攻撃力発現値' : '魔法攻撃力発現値',
+      growth: physical ? '物理攻撃力_A1成長値' : '魔法攻撃力_A1成長値',
+      star: physical ? '物理攻撃力星上昇値' : '魔法攻撃力星上昇値'
     };
   }
 

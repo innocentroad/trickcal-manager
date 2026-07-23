@@ -334,6 +334,19 @@ def normalize_aside_tiers(
         if row.get("使徒名", "") != "" and row.get("id", "") != ""
     }
     valid_ids = set(ids_by_name.values())
+    basic_by_id = {
+        str(row.get("id", "")): row
+        for row in basic_info
+        if row.get("id", "") != ""
+    }
+
+    def first_value(row: dict[str, object], *keys: str) -> object:
+        for key in keys:
+            value = row.get(key, "")
+            if value not in ("", None):
+                return value
+        return ""
+
     normalized: list[dict[str, object]] = []
     for row in rows:
         name = str(row.get("使徒名", ""))
@@ -342,25 +355,55 @@ def normalize_aside_tiers(
             row_id = ids_by_name.get(name, row_id)
         if row_id == "":
             continue
+        basic = basic_by_id.get(row_id, {})
+        attack_type = str(basic.get("攻撃タイプ", basic.get("攻撃Type", "")))
+        physical_attack_tier_legacy = ("ATK\nAsideTier",) if attack_type == "物理" else ()
+        magic_attack_tier_legacy = ("ATK\nAsideTier",) if attack_type == "魔法" else ()
+        physical_attack_bonus_legacy = ("ATK\nAsideBonus",) if attack_type == "物理" else ()
+        magic_attack_bonus_legacy = ("ATK\nAsideBonus",) if attack_type == "魔法" else ()
+        physical_attack_growth_legacy = ("ATK\nAsideGrowth",) if attack_type == "物理" else ()
+        magic_attack_growth_legacy = ("ATK\nAsideGrowth",) if attack_type == "魔法" else ()
+        physical_attack_star_legacy = ("ATK\nAsideStarBonus",) if attack_type == "物理" else ()
+        magic_attack_star_legacy = ("ATK\nAsideStarBonus",) if attack_type == "魔法" else ()
         normalized.append({
             "id": row_id,
             "使徒名": name,
-            "HPタイプ": row.get("HP\nAsideTier", ""),
-            "攻撃力タイプ": row.get("ATK\nAsideTier", ""),
-            "物理防御力タイプ": row.get("DEF\nAsideTier", ""),
-            "魔法防御力タイプ": row.get("DEF\nAsideTier", ""),
-            "HP発現値": row.get("HP\nAsideBonus", ""),
-            "攻撃力発現値": row.get("ATK\nAsideBonus", ""),
-            "物理防御力発現値": row.get("DEF\nAsideBonus", ""),
-            "魔法防御力発現値": row.get("DEF\nAsideBonus", ""),
-            "HP_A1成長値": row.get("HP\nAsideGrowth", ""),
-            "攻撃力_A1成長値": row.get("ATK\nAsideGrowth", ""),
-            "物理防御力_A1成長値": row.get("DEF\nAsideGrowth", ""),
-            "魔法防御力_A1成長値": row.get("DEF\nAsideGrowth", ""),
-            "HP星上昇値": row.get("HP\nAsideStarBonus", ""),
-            "攻撃力星上昇値": row.get("ATK\nAsideStarBonus", ""),
-            "物理防御力星上昇値": row.get("DEF\nAsideStarBonus", ""),
-            "魔法防御力星上昇値": row.get("DEF\nAsideStarBonus", ""),
+            "HPタイプ": first_value(row, "HP_AsideTier", "HP\nAsideTier"),
+            "物理攻撃力タイプ": first_value(
+                row, "物理攻撃力_AsideTier", *physical_attack_tier_legacy
+            ),
+            "魔法攻撃力タイプ": first_value(
+                row, "魔法攻撃力_AsideTier", *magic_attack_tier_legacy
+            ),
+            "物理防御力タイプ": first_value(row, "物理防御力_AsideTier", "DEF\nAsideTier"),
+            "魔法防御力タイプ": first_value(row, "魔法防御力_AsideTier", "DEF\nAsideTier"),
+            "HP発現値": first_value(row, "HP_AsideBonus", "HP\nAsideBonus"),
+            "物理攻撃力発現値": first_value(
+                row, "物理攻撃力_AsideBonus", *physical_attack_bonus_legacy
+            ),
+            "魔法攻撃力発現値": first_value(
+                row, "魔法攻撃力_AsideBonus", *magic_attack_bonus_legacy
+            ),
+            "物理防御力発現値": first_value(row, "物理防御力_AsideBonus", "DEF\nAsideBonus"),
+            "魔法防御力発現値": first_value(row, "魔法防御力_AsideBonus", "DEF\nAsideBonus"),
+            "HP_A1成長値": first_value(row, "HP_AsideGrowth", "HP\nAsideGrowth"),
+            "物理攻撃力_A1成長値": first_value(
+                row, "物理攻撃力_AsideGrowth", *physical_attack_growth_legacy
+            ),
+            "魔法攻撃力_A1成長値": first_value(
+                row, "魔法攻撃力_AsideGrowth", *magic_attack_growth_legacy
+            ),
+            "物理防御力_A1成長値": first_value(row, "物理防御力_AsideGrowth", "DEF\nAsideGrowth"),
+            "魔法防御力_A1成長値": first_value(row, "魔法防御力_AsideGrowth", "DEF\nAsideGrowth"),
+            "HP星上昇値": first_value(row, "HP_AsideStarBonus", "HP\nAsideStarBonus"),
+            "物理攻撃力星上昇値": first_value(
+                row, "物理攻撃力_AsideStarBonus", *physical_attack_star_legacy
+            ),
+            "魔法攻撃力星上昇値": first_value(
+                row, "魔法攻撃力_AsideStarBonus", *magic_attack_star_legacy
+            ),
+            "物理防御力星上昇値": first_value(row, "物理防御力_AsideStarBonus", "DEF\nAsideStarBonus"),
+            "魔法防御力星上昇値": first_value(row, "魔法防御力_AsideStarBonus", "DEF\nAsideStarBonus"),
         })
     return normalized
 

@@ -8,7 +8,7 @@
   const globalTabs = Array.from(document.querySelectorAll('#global-setting-tabs [data-setting-tab]'));
   const profileTopButton = document.querySelector('[data-dashboard-profile-top]');
   const topGlobalMenu = document.querySelector('.dashboard-top-tabs .topbar-global-menu');
-  const bulkGlobalTabs = new Set(['rank', 'bond', 'aside', 'research']);
+  const bulkGlobalTabs = new Set(['apostles', 'rank', 'bond', 'aside', 'research']);
   const apostleSelect = document.getElementById('apostle-select');
   const bottomApostleButton = document.querySelector('.bottom-apostle-button');
   const bottomApostleImage = document.getElementById('bottom-apostle-image');

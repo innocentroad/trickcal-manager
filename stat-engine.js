@@ -240,15 +240,27 @@
       || null;
   }
 
+  function getAsideAttackFields(basic) {
+    const physical = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理';
+    return {
+      key: physical ? 'patk' : 'matk',
+      tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ',
+      manifest: physical ? '物理攻撃力発現値' : '魔法攻撃力発現値',
+      star: physical ? '物理攻撃力星上昇値' : '魔法攻撃力星上昇値'
+    };
+  }
+
   function calculateAsideManifestTotals(data, basic, state) {
     const totals = createEmptyTotals();
     if (!(Number(state?.asideRank) || 0)) return totals;
     const row = getAsideTierRow(data, basic);
-    const attackKey = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理' ? 'patk' : 'matk';
+    const attackFields = getAsideAttackFields(basic);
+    const attackKey = attackFields.key;
     const baseAttackTier = attackKey === 'patk' ? basic?.物理攻撃力タイプ : basic?.魔法攻撃力タイプ;
     const values = {
       hp: Number(row?.HP発現値) || (Number(findBaseStatValue(data, Number(row?.HPタイプ) || basic?.HPタイプ, 'hp')?.base) || 0) * 3,
-      attack: Number(row?.攻撃力発現値) || (Number(findBaseStatValue(data, Number(row?.攻撃力タイプ) || baseAttackTier, 'attack')?.base) || 0) * 3,
+      attack: Number(row?.[attackFields.manifest]) || Number(row?.攻撃力発現値)
+        || (Number(findBaseStatValue(data, Number(row?.[attackFields.tier]) || Number(row?.攻撃力タイプ) || baseAttackTier, 'attack')?.base) || 0) * 3,
       pdef: Number(row?.物理防御力発現値) || (Number(findBaseStatValue(data, Number(row?.物理防御力タイプ) || basic?.物理防御力タイプ, 'defense')?.base) || 0) * 3,
       mdef: Number(row?.魔法防御力発現値) || (Number(findBaseStatValue(data, Number(row?.魔法防御力タイプ) || basic?.魔法防御力タイプ, 'defense')?.base) || 0) * 3
     };
@@ -266,7 +278,8 @@
     const multiplier = ({ 1: 3, 2: 3.09, 3: 3.18 })[rank] || 0;
     if (!rank || !level || !multiplier) return totals;
     const row = getAsideTierRow(data, basic);
-    const attackKey = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理' ? 'patk' : 'matk';
+    const attackFields = getAsideAttackFields(basic);
+    const attackKey = attackFields.key;
     const baseAttackTier = attackKey === 'patk' ? basic?.物理攻撃力タイプ : basic?.魔法攻撃力タイプ;
     const growthLevels = Math.max(0, level - 1);
     const starBonusCount = Math.max(0, Math.min(2, rank - 1));
@@ -274,7 +287,11 @@
       Math.floor((Number(findBaseStatValue(data, tier, group)?.coeff) || 0) * multiplier * growthLevels)
       + (Number(starBonus) || 0) * starBonusCount;
     totals.hp = calculate(Number(row?.HPタイプ) || basic?.HPタイプ, 'hp', row?.HP星上昇値);
-    totals[attackKey] = calculate(Number(row?.攻撃力タイプ) || baseAttackTier, 'attack', row?.攻撃力星上昇値);
+    totals[attackKey] = calculate(
+      Number(row?.[attackFields.tier]) || Number(row?.攻撃力タイプ) || baseAttackTier,
+      'attack',
+      row?.[attackFields.star] ?? row?.攻撃力星上昇値
+    );
     totals.pdef = calculate(Number(row?.物理防御力タイプ) || basic?.物理防御力タイプ, 'defense', row?.物理防御力星上昇値);
     totals.mdef = calculate(Number(row?.魔法防御力タイプ) || basic?.魔法防御力タイプ, 'defense', row?.魔法防御力星上昇値);
     return totals;

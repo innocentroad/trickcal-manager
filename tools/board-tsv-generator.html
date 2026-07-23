@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>新規使徒ボードTSV生成</title>
+  <link rel="stylesheet" href="board-tsv-generator.css?v=20260722b">
+</head>
+<body>
+  <main class="tool-shell">
+    <header class="tool-head">
+      <div>
+        <p class="eyebrow">LOCAL TOOL</p>
+        <h1>新規使徒ボードTSV生成</h1>
+        <p>datasheetの「ボード設定」へ貼り付ける91行を生成します。</p>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="section-head">
+        <h2>入力</h2>
+        <label class="source-field">
+          <span>既存使徒から初期値を取得</span>
+          <select id="board-tsv-source-apostle"></select>
+        </label>
+      </div>
+      <div class="basic-grid">
+        <label class="field"><span>id</span><input type="text" id="board-tsv-id" placeholder="例: NewApostle" autocomplete="off"></label>
+        <label class="field"><span>使徒名</span><input type="text" id="board-tsv-name" placeholder="例: 新規使徒" autocomplete="off"></label>
+        <label class="field"><span>種族</span><select id="board-tsv-species"></select></label>
+        <label class="field"><span>特殊マスタイプ</span><select id="board-tsv-special-type"></select></label>
+        <label class="field"><span>攻撃タイプ</span><select id="board-tsv-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
+        <div class="reference"><span>使用テンプレート</span><strong id="board-tsv-reference">-</strong></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head compact">
+        <h2>ボード用使徒Tier</h2>
+        <small>「使徒基礎設定」ではなく「ボードtier設定」のTier</small>
+      </div>
+      <div class="tier-grid">
+        <label class="field"><span>HP</span><select data-board-tsv-tier="hp"></select></label>
+        <label class="field"><span>攻撃力</span><select data-board-tsv-tier="attack"></select></label>
+        <label class="field"><span>物理防御力</span><select data-board-tsv-tier="physicalDefense"></select></label>
+        <label class="field"><span>魔法防御力</span><select data-board-tsv-tier="magicDefense"></select></label>
+        <label class="field"><span>会心</span><select data-board-tsv-tier="crit"></select></label>
+        <label class="field"><span>会心DMG</span><select data-board-tsv-tier="critDmg"></select></label>
+        <label class="field"><span>会心抵抗</span><select data-board-tsv-tier="critRes"></select></label>
+        <label class="field"><span>会心DMG抵抗</span><select data-board-tsv-tier="critDmgRes"></select></label>
+      </div>
+    </section>
+
+    <section class="panel output-panel">
+      <div class="output-head">
+        <label class="header-toggle"><input type="checkbox" id="board-tsv-include-header" checked><span>ヘッダーを含める</span></label>
+        <span id="board-tsv-status" class="status" aria-live="polite"></span>
+      </div>
+      <textarea id="board-tsv-output" readonly spellcheck="false" placeholder="条件を設定して「TSV生成」を押してください。"></textarea>
+      <div class="actions">
+        <button type="button" id="board-tsv-generate" class="primary">TSV生成</button>
+        <button type="button" id="board-tsv-copy">コピー</button>
+        <button type="button" id="board-tsv-download">ダウンロード</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="../statData.js"></script>
+  <script src="board-tsv-generator.js?v=20260722c"></script>
+</body>
+</html>

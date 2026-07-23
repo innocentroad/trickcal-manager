@@ -35,7 +35,7 @@
   <link rel="prefetch" href="formation-damage-calc.html" as="document">
   <link rel="prefetch" href="formation-damage-calc.css?v=20260720j" as="style">
   <link rel="prefetch" href="formation-damage-calc.js?v=20260721a" as="script">
-  <link rel="prefetch" href="stat-engine.js?v=20260718b" as="script">
+  <link rel="prefetch" href="stat-engine.js?v=20260723a" as="script">
   <link rel="prefetch" href="enemy-presets.js" as="script">
   <script>
     (() => {
@@ -44,7 +44,7 @@
     })();
   </script>
   <link rel="stylesheet" href="stat-prototype.css?v=20260715b">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260722a">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260723b">
   <link rel="stylesheet" href="shared-topbar.css?v=20260718a">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -72,6 +72,7 @@
       <details class="topbar-global-menu">
         <summary><span class="topbar-label">一括<br>設定</span></summary>
         <div class="topbar-global-popover" aria-label="一括設定メニュー">
+          <button type="button" data-open-global="apostles">使徒設定</button>
           <button type="button" data-open-global="rank">Rank</button>
           <button type="button" data-open-global="bond">好感度</button>
           <button type="button" data-open-global="aside">アサイド</button>
@@ -317,6 +318,32 @@
 
       <section class="dashboard-view" data-dashboard-panel="global">
         <article class="dashboard-card global-settings-panel">
+          <div class="setting-panel" data-setting-panel="apostles">
+            <p class="panel-note">使徒ごとの★・Lv・SLv・装備を一覧でまとめて変更します。</p>
+            <div class="apostle-bulk-toolbar">
+              <label class="apostle-bulk-search">
+                <span>検索</span>
+                <input type="search" id="apostle-bulk-search" placeholder="使徒名・性格・種族・役割">
+              </label>
+              <label class="apostle-bulk-sort">
+                <span>並び順</span>
+                <select id="apostle-bulk-sort">
+                  <option value="name">50音順</option>
+                  <option value="combatPower">戦闘力が高い順</option>
+                  <option value="star">★が高い順</option>
+                  <option value="level">Lvが高い順</option>
+                  <option value="skillLevel">SLv合計が高い順</option>
+                  <option value="equipment">装備数が多い順</option>
+                </select>
+              </label>
+              <span id="apostle-bulk-count" class="apostle-bulk-count" aria-live="polite"></span>
+            </div>
+            <details class="apostle-filter-details apostle-bulk-filter-details">
+              <summary><span>絞り込み</span><span id="apostle-bulk-filter-count" class="apostle-filter-count"></span></summary>
+              <div id="apostle-bulk-filters" class="apostle-picker-filters" aria-label="使徒設定一覧の絞り込み"></div>
+            </details>
+            <div id="apostle-bulk-list" class="apostle-bulk-list"></div>
+          </div>
           <div class="setting-panel is-active" data-setting-panel="research">
             <p class="panel-note">研究は使徒設定ではなく、アカウント全体の設定として扱います。</p>
             <div class="research-controls">
@@ -648,13 +675,13 @@
     <div id="formation-picker-grid" class="formation-picker-grid"></div>
   </dialog>
 
-  <script src="statData.js?v=20260713e"></script>
+  <script src="statData.js?v=20260723a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="cards.js?v=20260720b"></script>
-  <script src="app-cache.js?v=20260722b"></script>
+  <script src="app-cache.js?v=20260723c"></script>
   <script src="image-preload.js"></script>
-  <script src="stat-prototype.js?v=20260722a"></script>
-  <script src="stat-dashboard.js?v=20260717a"></script>
+  <script src="stat-prototype.js?v=20260723c"></script>
+  <script src="stat-dashboard.js?v=20260722b"></script>
 </body>
 </html>

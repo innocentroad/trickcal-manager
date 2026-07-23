@@ -1579,6 +1579,48 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "relic_rudd_exercise_manual",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "ルードのトレーニング教本",
+            "signature": true,
+            "favoriteCharacter": "ルード",
+            "cost": 19,
+            "bonusesByStar": [
+                {
+                    "hpP": 33
+                },
+                {
+                    "hpP": 41.3
+                },
+                {
+                    "hpP": 49.6
+                },
+                {
+                    "hpP": 57.9
+                },
+                {
+                    "hpP": 66.2
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "rudd_hp_recovery",
+                    "type": "info",
+                    "label": "HP回復量増加",
+                    "valueClass": "倍率",
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "HP回復量増加30% (自分)",
+                        "HP回復量増加33% (自分)",
+                        "HP回復量増加36% (自分)",
+                        "HP回復量増加39% (自分)",
+                        "HP回復量増加42% (自分)"
+                    ]
+                }
+            ]
+        },
+        {
             "id": "relic_dragon_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -4982,6 +5024,14 @@ const CARD_SOLDER_DATA = {
         "2": {
             "atkP": 9.9,
             "critDmgP": 7.4
+        }
+    },
+    "relic_rudd_exercise_manual": {
+        "1": {
+            "hpP": 4.8
+        },
+        "2": {
+            "hpP": 9.7
         }
     },
     "relic_dragon_sword": {
