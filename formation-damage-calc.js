@@ -259,6 +259,7 @@
     },
     statDirty: false,
     selectedSkillCategory: '',
+    selectedSkillOptionKey: '',
     skillLevelOverrides: {},
     selfSkillEffectEnabled: {},
     conditionalEffectEnabled: {},
@@ -829,7 +830,10 @@
     Object.values(el.inputs).forEach(input => {
       if (!input || isEnemyCorrectionInput(input) || [el.inputs.selfHp, el.inputs.atk, el.inputs.selfDef, el.inputs.crit, el.inputs.critDmg, el.inputs.selfCritResBase, el.inputs.selfCritDmgResBase].includes(input)) return;
       input.addEventListener('input', () => {
-        if (input === el.inputs.selfSkill) view.selectedSkillCategory = '';
+        if (input === el.inputs.selfSkill) {
+          view.selectedSkillCategory = '';
+          view.selectedSkillOptionKey = '';
+        }
         if (input === el.inputs.enemySkill) {
           view.enemySkillIndex = -2;
           view.enemySelectedSkillCategory = '';
@@ -1857,6 +1861,7 @@
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         selectedSkillCategory: view.selectedSkillCategory || '',
+        selectedSkillOptionKey: view.selectedSkillOptionKey || '',
         statDirty: !!view.statDirty,
         effectSources: pickBooleanMap(view.effectSources),
         resultDisplays: pickBooleanMap(view.resultDisplays),
@@ -1920,6 +1925,7 @@
       if (['self', 'enemy'].includes(savedView.perspective)) view.perspective = savedView.perspective;
       if (['self', 'enemy'].includes(savedView.mobileVisibleSide)) view.mobileVisibleSide = savedView.mobileVisibleSide;
       if (typeof savedView.selectedSkillCategory === 'string') view.selectedSkillCategory = savedView.selectedSkillCategory;
+      if (typeof savedView.selectedSkillOptionKey === 'string') view.selectedSkillOptionKey = savedView.selectedSkillOptionKey;
       if (savedView.effectSources && typeof savedView.effectSources === 'object') view.effectSources = { ...view.effectSources, ...pickBooleanMap(savedView.effectSources, Object.keys(view.effectSources)) };
       if (savedView.resultDisplays && typeof savedView.resultDisplays === 'object') view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(savedView.resultDisplays, Object.keys(view.resultDisplays)) };
       view.selfSkillEffectEnabled = savedView.selfSkillEffectEnabled && typeof savedView.selfSkillEffectEnabled === 'object' ? pickBooleanMap(savedView.selfSkillEffectEnabled) : {};
@@ -2070,6 +2076,7 @@
       if (Number.isFinite(Number(saved.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(saved.enemyPhaseIndex));
       if (Number.isFinite(Number(saved.enemySkillIndex))) view.enemySkillIndex = Number(saved.enemySkillIndex);
       if (typeof saved.selectedSkillCategory === 'string') view.selectedSkillCategory = saved.selectedSkillCategory;
+      if (typeof saved.selectedSkillOptionKey === 'string') view.selectedSkillOptionKey = saved.selectedSkillOptionKey;
       if (saved.effectSources && typeof saved.effectSources === 'object') {
         view.effectSources = { ...view.effectSources, ...pickBooleanMap(saved.effectSources, Object.keys(view.effectSources)) };
       }
@@ -2127,6 +2134,7 @@
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         selectedSkillCategory: view.selectedSkillCategory || '',
+        selectedSkillOptionKey: view.selectedSkillOptionKey || '',
         effectSources: pickBooleanMap(view.effectSources),
         resultDisplays: pickBooleanMap(view.resultDisplays),
         selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
@@ -2906,9 +2914,13 @@
       return;
     }
     let current = readNumber(el.inputs.selfSkill);
-    const selectedOption = view.selectedSkillCategory
-      ? options.find(option => option.category === view.selectedSkillCategory)
+    const selectedOptionByKey = view.selectedSkillOptionKey
+      ? options.find(option => option.key === view.selectedSkillOptionKey)
       : null;
+    if (view.selectedSkillOptionKey && !selectedOptionByKey) view.selectedSkillOptionKey = '';
+    const selectedOption = selectedOptionByKey || (view.selectedSkillCategory
+      ? options.find(option => option.category === view.selectedSkillCategory)
+      : null);
     if (selectedOption && el.inputs.selfSkill) {
       current = Number(selectedOption.value) || current;
       el.inputs.selfSkill.value = String(selectedOption.value);
@@ -2922,7 +2934,7 @@
         <span></span>
       </div>
       ${options.map(option => `
-        <button type="button" class="fdc-skill-choice ${Math.abs(Number(option.value) - current) < 0.001 && view.selectedSkillCategory === option.category ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}">
+        <button type="button" class="fdc-skill-choice ${(view.selectedSkillOptionKey ? view.selectedSkillOptionKey === option.key : Math.abs(Number(option.value) - current) < 0.001 && view.selectedSkillCategory === option.category) ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}" data-fdc-skill-key="${escapeAttr(option.key)}">
           <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
           <span class="fdc-skill-choice-mult">${escapeHtml(formatPlainNumber(option.value))}%</span>
           <span class="fdc-skill-choice-kind" title="${escapeAttr(option.detailText || '')}">${escapeHtml([option.kind, option.shortDetail].filter(Boolean).join(' / '))}</span>
@@ -2938,6 +2950,7 @@
         const nextSkillCategory = button.dataset.fdcSkillCategory || '';
         view.selfSkillEffectEnabled = {};
         view.selectedSkillCategory = nextSkillCategory;
+        view.selectedSkillOptionKey = button.dataset.fdcSkillKey || '';
         el.selfSkillChoices.querySelectorAll('.fdc-skill-choice').forEach(row => row.classList.remove('is-active'));
         button.classList.add('is-active');
         saveCalcSettings();
@@ -4001,6 +4014,9 @@
     else if (/会心/.test(valueKind)) add('critP');
     else if (/被ダメージ|被ダメ/.test(valueKind) && !targetEnemy) addDamageTakenMod('takenDmgP');
     else if (/自爆ダメージ/.test(valueKind)) addSigned('specialP');
+    else if (/(?:通常|普通)攻撃.*ダメージ/.test(valueKind)) addSigned('normalAttackAddP');
+    else if (/基本攻撃.*ダメージ/.test(valueKind)) addSigned('basicAddP');
+    else if (/強化攻撃.*ダメージ/.test(valueKind)) addSigned('enhancedAddP');
     else if (/スキル.*ダメージ|ダメージ量|与ダメージ|与ダメ/.test(valueKind)) addSigned('addP');
     else if (/HP回復/.test(valueKind)) add('hpRecoveryP');
     else if (/治癒|回復量/.test(valueKind)) add('healingP');
@@ -4077,8 +4093,8 @@
     const personalityEnabled = enemyPersonalityState?.hasCondition
       ? !!enemyPersonalityState.defaultEnabled
       : true;
-    // 行動条件は効果名やスキル説明ではなく、datasheet の条件/対象スキルだけを見る。
-    // 「普通攻撃ダメージ量増加」は効果名に普通攻撃を含むが、発動条件ではない。
+    // 発動条件は datasheet の条件/対象スキルから、効果の適用範囲は値の種類から判定する。
+    // 例: 「普通攻撃ダメージ量増加」は基本攻撃・強化攻撃だけに適用する。
     const explicitCondition = String(effect?.condition || '').trim();
     // 編成側の対象判定（getFormationSkillTargetState）が性格一致を確認している
     // 場合もあるため、ここでは味方性格条件を未対応イベント条件としてOFFにしない。
@@ -4089,6 +4105,8 @@
     }
     const actionText = [effect?.condition, effect?.targetSkill].filter(Boolean).join(' ');
     const selectedActionCategory = actionCategory || view.selectedSkillCategory || '';
+    const valueKindActionMatch = judgeFdcEffectValueActionScope(effect, selectedActionCategory);
+    if (valueKindActionMatch.hasActionScope) return personalityEnabled && valueKindActionMatch.matched;
     const actionMatch = judgeActionCondition(actionText, selectedActionCategory);
     if (actionMatch.hasActionCondition) return personalityEnabled && actionMatch.matched;
     if (enemyPersonalityState?.hasCondition) return personalityEnabled;
@@ -4098,6 +4116,21 @@
     if (explicitCondition && !/^(?:バフ|デバフ|常時|無条件|なし)$/.test(explicitCondition)) return false;
     if (isTimedOrManualEffect(text, effect)) return false;
     return true;
+  }
+
+  function judgeFdcEffectValueActionScope(effect = {}, actionCategory = '') {
+    const valueKind = String(effect.valueKind || '');
+    const category = getFdcSkillBaseCategory(actionCategory);
+    if (/(?:通常|普通)攻撃.*ダメージ/.test(valueKind)) {
+      return { hasActionScope: true, matched: category === '基本攻撃' || category === '強化攻撃' };
+    }
+    if (/基本攻撃.*ダメージ/.test(valueKind)) {
+      return { hasActionScope: true, matched: category === '基本攻撃' };
+    }
+    if (/強化攻撃.*ダメージ/.test(valueKind)) {
+      return { hasActionScope: true, matched: category === '強化攻撃' };
+    }
+    return { hasActionScope: false, matched: true };
   }
 
   function isDeterministicPassiveSpTiming(text, effect, sourceCategory = '') {
@@ -5312,6 +5345,7 @@
         rows: [
           ['防御側HP', formatNumber(stat.finalHp)],
           ['攻撃', formatNumber(stat.finalAtk)],
+          ...(stat.damageReference ? [['ダメージ参照', stat.damageReference], ['参照値', formatNumber(stat.damageSource)]] : []),
           ['防御', formatNumber(stat.finalDef)],
           ['会心', formatNumber(stat.finalCrit)],
           ['会心DMG', formatNumber(stat.finalCritDmg)],
@@ -5388,7 +5422,9 @@
     const isEnemyAttack = view.perspective === 'enemy';
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
-    if (!isEnemyAttack) attacker.skill = resolveSelectedSelfSkillMultiplier(context, attacker.skill);
+    const selectedSkillOption = isEnemyAttack ? null : resolveSelectedSelfSkillOption(context);
+    const selectedSkillValue = Number(selectedSkillOption?.value);
+    if (!isEnemyAttack && Number.isFinite(selectedSkillValue)) attacker.skill = selectedSkillValue;
     attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
     applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack);
     applyEffectSummaryToDamageMods(
@@ -5430,7 +5466,9 @@
     const type = Math.max(0, attacker.type) / 100;
     const special = Math.max(0, attacker.special) / 100;
     const other = Math.max(0, attacker.other) / 100;
-    const normal = finalAtk * defRate * skill * addRate * type * special * other;
+    const damageReference = selectedSkillOption?.damageReference || '';
+    const damageSource = damageReference === 'enemyMaxHp' ? finalHp : finalAtk;
+    const normal = damageSource * defRate * skill * addRate * type * special * other;
     const baseCritRate = calcCritRate(finalCrit, finalCritRes);
     const rawCritRate = baseCritRate + attacker.critRateP / 100 - defender.critResAddP / 100;
     const critRate = clamp(rawCritRate, 0.05, 0.8);
@@ -5463,6 +5501,8 @@
           finalCritDmg,
           finalCritRes,
           finalCritDmgRes,
+          damageReference: damageReference === 'enemyMaxHp' ? '敵最大HP' : '',
+          damageSource,
           critMult
         },
         mods: {
@@ -5561,12 +5601,16 @@
     };
   }
 
-  function resolveSelectedSelfSkillMultiplier(context, fallbackValue) {
-    if (!view.selectedSkillCategory || !context?.target) return fallbackValue;
+  function resolveSelectedSelfSkillOption(context) {
+    if (!context?.target) return null;
     const options = buildFdcApostleSkillOptions(context.target, context);
-    const option = options.find(item => item.category === view.selectedSkillCategory);
-    const value = Number(option?.value);
-    return Number.isFinite(value) ? value : fallbackValue;
+    if (view.selectedSkillOptionKey) {
+      const selected = options.find(item => item.key === view.selectedSkillOptionKey);
+      if (selected) return selected;
+    }
+    return view.selectedSkillCategory
+      ? options.find(item => item.category === view.selectedSkillCategory) || null
+      : null;
   }
 
   function getDebuffDamageP(side) {
@@ -7020,6 +7064,8 @@
         if (!levelInfo || !Number.isFinite(levelInfo.value)) return;
         const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) : null;
         const calcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
+        const damageReference = getFdcApostleDamageReference(effect);
+        const referenceLabel = damageReference === 'enemyMaxHp' ? '敵最大HP参照' : '';
         const kind = effect.valueKind || 'ダメージ';
         const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, category);
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
@@ -7033,13 +7079,20 @@
           requiredSp: getFdcLowSkillRequiredSp(skill),
           cooldownSeconds,
           kind,
+          damageReference,
+          reference: effect.reference || '',
+          condition: effect.condition || '',
           shortDetail: [
+            referenceLabel,
+            effect.condition || '',
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
             cooldownSeconds ? `CT ${formatPlainNumber(cooldownSeconds)}秒` : ''
           ].filter(Boolean).join(' / '),
           detailText: [
             skill.skillName || skill.name || '',
             detailText,
+            effect.reference ? `参照: ${effect.reference}` : '',
+            effect.condition ? `条件: ${effect.condition}` : '',
             levelInfo.isRange
               ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
               : ''
@@ -7063,6 +7116,11 @@
       });
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcApostleDamageReference(effect = {}) {
+    const reference = String(effect.reference || '').replace(/\s/g, '');
+    return /敵(?:の)?最大HP|対象(?:の)?最大HP/.test(reference) ? 'enemyMaxHp' : '';
   }
 
   function getFdcLowSkillRequiredSp(skill = {}) {
