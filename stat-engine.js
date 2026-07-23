@@ -83,7 +83,8 @@
     const levelValue = Math.max(1, Number(level) || 1);
     const starValue = normalizeApostleStar(star);
     const gradeRate = getGradeStatBonusRate(data, grade, statKey, basic);
-    return Math.floor((Number(base) + Number(coeff) * (levelValue - 1)) * (1 + 0.2 * (starValue - 1)) * (1 + gradeRate));
+    const starRate = statKey === 'spRegen' ? 0 : 0.2 * (starValue - 1);
+    return Math.floor((Number(base) + Number(coeff) * (levelValue - 1)) * (1 + starRate) * (1 + gradeRate));
   }
 
   function createEmptyTotals() {
