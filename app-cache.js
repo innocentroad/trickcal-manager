@@ -25,12 +25,12 @@
       'shared-topbar.css?v=20260718a',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
-      'stat-engine.js?v=20260723a',
+      'stat-engine.js?v=20260725m',
       'apostles.js',
       'cards.js?v=20260725a',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260725j',
+      'formation-damage-calc.js?v=20260725m',
       'image-preload.js'
     ]
   };

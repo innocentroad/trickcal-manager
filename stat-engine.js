@@ -15,6 +15,17 @@
   };
 
   const TOTAL_KEYS = Object.keys(INTERNAL_TO_SNAPSHOT);
+  const COMBAT_POWER_BASE_BY_RARITY = {
+    1: 1.015,
+    2: 1.03,
+    3: 1.06
+  };
+  const COMBAT_POWER_ASIDE_BONUS = 0.7;
+  const COMBAT_POWER_SKILL_VALUE_BY_RARITY = {
+    1: 0.005,
+    2: 0.01,
+    3: 0.02
+  };
 
   function cloneJson(value) {
     return JSON.parse(JSON.stringify(value || {}));
@@ -170,6 +181,49 @@
 
   function mapInternalTotalsToSnapshot(totals) {
     return Object.fromEntries(TOTAL_KEYS.map(key => [INTERNAL_TO_SNAPSHOT[key], Math.floor(Number(totals?.[key]) || 0)]));
+  }
+
+  function calculateCombatPower(basic, apostleState = {}, stats = {}) {
+    if (!basic) return 0;
+    const activeAttack = String(basic.攻撃タイプ || basic.攻撃Type || '') === '魔法'
+      ? Number(stats.magicAtk) || 0
+      : Number(stats.physicalAtk) || 0;
+    const defensesAndCrit = (Number(stats.physicalDef) || 0)
+      + (Number(stats.magicDef) || 0)
+      + (Number(stats.crit) || 0)
+      + (Number(stats.critDmg) || 0)
+      + (Number(stats.critRes) || 0)
+      + (Number(stats.critDmgRes) || 0);
+    const correctionA = Number(
+      basic.戦闘力補正値A
+      ?? basic.combatPowerCorrectionA
+      ?? basic.combat_power_correction_a
+    ) || 0;
+    const rarity = Number(basic.レア度) || 3;
+    const rarityCorrection = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
+    const correctionB = Number(
+      basic.戦闘力補正値B
+      ?? basic.combatPowerCorrectionB
+      ?? basic.combat_power_correction_b
+      ?? basic.戦闘力補正
+      ?? basic.combatPowerCorrection
+      ?? basic.weight_value_a
+    ) || 0;
+    const skillCorrection = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity]
+      ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
+    const skills = apostleState.skillLevels || apostleState.skills || {};
+    const skillLevelSum = ['low', 'high', 'passive']
+      .map(key => Math.max(1, Number(skills[key]) || 1))
+      .reduce((total, value) => total + value, 0);
+    const asideBonus = (Number(apostleState.asideRank) || 0) >= 2 ? COMBAT_POWER_ASIDE_BONUS : 0;
+    const basePower = (Number(stats.hp) || 0) * 0.08
+      + activeAttack * 2.1
+      + (defensesAndCrit + correctionA) * 0.7;
+    const multiplier = rarityCorrection
+      + correctionB
+      + asideBonus
+      + skillCorrection * Math.max(0, skillLevelSum - 3);
+    return Math.max(0, Math.floor(basePower * multiplier));
   }
 
   function calculateRankUpTotals(data, basic, rankValue) {
@@ -380,11 +434,24 @@
     return next;
   }
 
+  function createInitialSnapshot(data, basic, apostleState = {}) {
+    if (!basic) return null;
+    const snapshot = applyApostleOverridesToSnapshot(data, basic, apostleState, {
+      kind: 'initialDefault'
+    });
+    if (snapshot?.stats) {
+      snapshot.stats.combatPower = calculateCombatPower(basic, apostleState, snapshot.stats);
+    }
+    return snapshot;
+  }
+
   window.TRICKCAL_SHARED_STAT_ENGINE = {
-    version: 3,
+    version: 4,
     normalizeGrade,
     getGradeStatBonusRate,
     calculateBaseTotals,
+    calculateCombatPower,
+    createInitialSnapshot,
     applyGradeOverrideToSnapshot,
     applyApostleOverridesToSnapshot
   };

@@ -2300,7 +2300,8 @@
     if (!id) return;
     try {
       const raw = localStorage.getItem(STAT_STORAGE_KEY);
-      const state = raw ? JSON.parse(raw) : {};
+      if (!raw) return;
+      const state = JSON.parse(raw);
       if (!state || typeof state !== 'object') return;
       if (state.activeId === id) return;
       state.activeId = id;
@@ -7175,9 +7176,21 @@
 
   function getGradeAdjustedSnapshot(apostleState = {}, basic = null, gradeOverride = 'saved', statMode = 'current') {
     const mode = statMode === 'planned' ? 'planned' : 'current';
-    const snapshot = mode === 'planned'
+    let snapshot = mode === 'planned'
       ? apostleState.statSnapshots?.planned || apostleState.statSnapshots?.current || null
       : apostleState.statSnapshots?.current || null;
+    if (
+      !snapshot
+      && basic
+      && typeof TRICKCAL_SHARED_STAT_ENGINE !== 'undefined'
+      && typeof TRICKCAL_SHARED_STAT_ENGINE.createInitialSnapshot === 'function'
+    ) {
+      snapshot = TRICKCAL_SHARED_STAT_ENGINE.createInitialSnapshot(
+        TRICKCAL_STAT_DATA,
+        basic,
+        apostleState
+      );
+    }
     if (gradeOverride === 'saved' || !basic || typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined') return snapshot;
     return TRICKCAL_SHARED_STAT_ENGINE.applyGradeOverrideToSnapshot(
       TRICKCAL_STAT_DATA,
