@@ -348,7 +348,12 @@ def build_descriptions(row: dict[str, object], values: list[int | float | None],
             descriptions.append("")
             continue
         suffix = "%" if value_class == "倍率" else ""
-        text = f"{effect_label}{value}{suffix}"
+        value_text = clean(value)
+        has_embedded_value = bool(re.search(
+            rf"(?<!\d)[+-]?{re.escape(value_text)}(?:%|秒|回)?$",
+            effect_label,
+        ))
+        text = effect_label if has_embedded_value else f"{effect_label}{value_text}{suffix}"
         details = [part for part in [condition, target] if part]
         if details:
             text += f" ({' / '.join(details)})"

@@ -115,6 +115,9 @@
     artifactCategory: document.getElementById('fdc-artifact-category'),
     artifactEffectsToggle: document.getElementById('fdc-artifact-effects-toggle'),
     spellCategory: document.getElementById('fdc-spell-category'),
+    cardCostController: document.getElementById('fdc-card-cost-controller'),
+    cardCost: document.getElementById('fdc-card-cost'),
+    cardCostPanel: document.getElementById('fdc-card-cost-panel'),
     applyFloat: document.getElementById('fdc-apply-float-controller'),
     applyFloatPanel: document.getElementById('fdc-apply-float-panel'),
     applyFloatToggle: document.getElementById('fdc-apply-float-toggle'),
@@ -206,6 +209,7 @@
       enemyCritDmgResDownP: document.getElementById('fdc-enemy-crit-dmg-res-down-p')
     },
     result: {
+      bar: document.querySelector('.fdc-result-bar'),
       normal: document.getElementById('fdc-result-normal'),
       crit: document.getElementById('fdc-result-crit'),
       expected: document.getElementById('fdc-result-expected'),
@@ -265,6 +269,7 @@
     conditionalEffectEnabled: {},
     conditionalEffectStackCounts: {},
     tempMembers: {},
+    tempSpells: null,
     pendingTempMemberId: '',
     spellDetailsOpen: false,
     tempArtifacts: {
@@ -318,11 +323,27 @@
   initTheme();
   setupCollapsibleStatCategories();
   bindEvents();
+  setupResultBarOffsetSync();
   populateEnemyPresets();
   populateEnemyApostles();
   renderDamageSaveActionPanel();
   applyEnemyPreset();
   render();
+
+  function setupResultBarOffsetSync() {
+    if (!el.result.bar) return;
+    const sync = () => {
+      const height = Math.ceil(el.result.bar.getBoundingClientRect().height || 0);
+      document.documentElement.style.setProperty('--fdc-result-bar-height', `${height}px`);
+    };
+    sync();
+    if (typeof ResizeObserver === 'function') {
+      const observer = new ResizeObserver(sync);
+      observer.observe(el.result.bar);
+    } else {
+      window.addEventListener('resize', sync, { passive: true });
+    }
+  }
 
   function bindEvents() {
     window.addEventListener('storage', event => {
@@ -359,6 +380,7 @@
       const context = buildContext();
       renderResultDetail(context, calculateDamage(context));
     });
+    el.cardCost?.addEventListener('click', () => toggleCardCostPanel());
     el.applyFloatToggle?.addEventListener('click', () => toggleApplyFloatPanel());
     el.applyFloatInputs.forEach(input => {
       input.addEventListener('change', () => {
@@ -401,6 +423,10 @@
       setStatCategoryCollapsed(category, !category.classList.contains('is-collapsed'));
     });
     document.addEventListener('click', event => {
+      if (!el.cardCostController || el.cardCostController.contains(event.target)) return;
+      closeCardCostPanel();
+    });
+    document.addEventListener('click', event => {
       if (!el.applyFloat || el.applyFloat.contains(event.target)) return;
       closeApplyFloatPanel();
     });
@@ -410,15 +436,42 @@
     });
     document.addEventListener('click', event => {
       if (!el.skillPopover || el.skillPopover.hidden) return;
-      if (el.skillPopover.contains(event.target) || event.target.closest('.fdc-skill-choice-info')) return;
+      if (el.skillPopover.contains(event.target) || event.target.closest('.fdc-skill-choice-info, [data-fdc-spell-details-toggle], [data-fdc-spell-edit-toggle]')) return;
       hideFdcSkillPopover();
     });
     document.addEventListener('click', event => {
+      const spellPopoverClose = event.target.closest('[data-fdc-spell-details-close], [data-fdc-spell-editor-close]');
+      if (spellPopoverClose) {
+        event.preventDefault();
+        hideFdcSkillPopover();
+        return;
+      }
+      const spellEditorReset = event.target.closest('[data-fdc-spell-editor-reset]');
+      if (spellEditorReset) {
+        event.preventDefault();
+        resetFdcTempSpells();
+        return;
+      }
+      const spellStepButton = event.target.closest('[data-fdc-spell-edit-step]');
+      if (spellStepButton) {
+        event.preventDefault();
+        adjustFdcTempSpellCount(
+          spellStepButton.dataset.fdcSpellId || '',
+          Number(spellStepButton.dataset.fdcSpellEditStep) || 0,
+          buildContext()
+        );
+        return;
+      }
+      const spellEditButton = event.target.closest('[data-fdc-spell-edit-toggle]');
+      if (spellEditButton) {
+        event.preventDefault();
+        toggleFdcSpellEditorPopover(spellEditButton, buildContext());
+        return;
+      }
       const spellDetailsButton = event.target.closest('[data-fdc-spell-details-toggle]');
       if (spellDetailsButton) {
         event.preventDefault();
-        view.spellDetailsOpen = !view.spellDetailsOpen;
-        renderSpellCategory(buildContext());
+        toggleFdcSpellDetailsPopover(spellDetailsButton, buildContext());
         return;
       }
       const button = event.target.closest('[data-fdc-artifact-detail]');
@@ -495,6 +548,7 @@
       view.formationPresetId = el.formationPreset.value || '';
       view.tempMembers = {};
       view.tempArtifacts = { formation: {}, target: {} };
+      view.tempSpells = null;
       view.pendingTempMemberId = '';
       const state = loadStatState();
       const formation = normalizeFormation(getSelectedFormationSource(state).formation);
@@ -849,7 +903,7 @@
     });
   }
 
-  function render() {
+  function render(options = {}) {
     const context = buildContext();
     syncApplyFloatUi();
     syncPerspectiveUi();
@@ -875,7 +929,8 @@
     renderSynergyCategory(context);
     renderFormationPicker(context);
     renderArtifactCategory(context);
-    renderSpellCategory(context);
+    renderSpellCategory(context, { keepPopover: !!options.keepSpellPopover });
+    syncCardCostUi(context);
     renderResult(context);
   }
 
@@ -1526,7 +1581,7 @@
   function buildContext() {
     const state = getEffectiveStatState();
     const formationSource = getSelectedFormationSource(state);
-    const formation = applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(formationSource.formation)));
+    const formation = applyTempSpellOverrides(applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(formationSource.formation))));
     const members = getFormationMembers(formation, state);
     const allMembers = getAllApostleMembers(state);
     if (formationSource.preset && !members.some(member => member.id === view.targetId)) {
@@ -1649,6 +1704,11 @@
       .find(Boolean) || '';
   }
 
+  function applyTempSpellOverrides(formation) {
+    const next = normalizeFormation(formation);
+    if (Array.isArray(view.tempSpells)) next.spells = view.tempSpells.filter(Boolean);
+    return next;
+  }
   function applyTempArtifactOverrides(formation) {
     const next = normalizeFormation(formation);
     Object.entries(view.tempArtifacts.formation || {}).forEach(([key, id]) => {
@@ -1871,6 +1931,7 @@
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
         tempMembers: view.tempMembers || {},
         tempArtifacts: view.tempArtifacts || { formation: {}, target: {} },
+        tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
         spellDetailsOpen: !!view.spellDetailsOpen
       }),
       inputs: readDamageCalculationInputs(),
@@ -1936,6 +1997,7 @@
       view.tempArtifacts = savedView.tempArtifacts && typeof savedView.tempArtifacts === 'object'
         ? clonePlain(savedView.tempArtifacts)
         : { formation: {}, target: {} };
+      view.tempSpells = Array.isArray(savedView.tempSpells) ? savedView.tempSpells.filter(Boolean) : null;
       view.spellDetailsOpen = !!savedView.spellDetailsOpen;
     }
     if (options.enemy) {
@@ -2095,6 +2157,7 @@
       if (saved.skillLevelOverrides && typeof saved.skillLevelOverrides === 'object') {
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
+      view.tempSpells = Array.isArray(saved.tempSpells) ? saved.tempSpells.filter(Boolean) : null;
       if (saved.extraCrayon && typeof saved.extraCrayon === 'object') {
         writeExtraCrayonInputs(saved.extraCrayon);
       }
@@ -2141,6 +2204,7 @@
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
         conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
+        tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
         extraCrayon: readExtraCrayonInputs()
       }));
     } catch (error) {
@@ -3271,10 +3335,31 @@
 
   function formatArtifactEffectDetail(effect, star = 1) {
     const title = effect.label || effect.shortLabel || '特殊効果';
-    const detailText = getDisplayEffectDescription(effect, star);
     const judgeText = getEffectText(effect);
     const bonusText = formatBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[star - 1], 'unknown', judgeText));
-    return [title, bonusText, detailText].filter(Boolean).join('\n');
+    const parts = [title];
+    let detailText = String(getDisplayEffectDescription(effect, star) || '').replace(/\s+/g, ' ');
+    const combinedText = [title, effect.shortLabel, bonusText, detailText].filter(Boolean).join(' ');
+    if (/性格判定/.test(combinedText)) {
+      return `${title}${/性格シナジー/.test(combinedText) ? ' (性格シナジー)' : ''}`;
+    }
+    if (
+      bonusText
+      && ![title, detailText].some(text => String(text || '').replace(/\s+/g, ' ').includes(bonusText))
+    ) parts.push(bonusText);
+    const shortLabel = String(effect.shortLabel || '').replace(/\s+/g, ' ');
+    if (shortLabel && title.includes(shortLabel) && detailText.startsWith(shortLabel + ' (') && detailText.endsWith(')')) {
+      const details = detailText
+        .slice(shortLabel.length + 2, -1)
+        .split(' / ')
+        .filter(detail => detail && !title.includes(detail));
+      detailText = details.length ? `(${details.join(' / ')})` : '';
+    }
+    if (detailText) {
+      if (detailText.startsWith('(')) parts[parts.length - 1] += ` ${detailText}`;
+      else parts.push(detailText);
+    }
+    return parts.join(': ');
   }
 
   function getDisplayEffectDescription(effect, star = 1) {
@@ -3295,6 +3380,8 @@
     if (!el.skillPopover) return;
     const title = el.skillPopover.querySelector('.fdc-skill-popover-title');
     const body = el.skillPopover.querySelector('.fdc-skill-popover-body');
+    el.skillPopover.classList.remove('is-spell-details', 'is-spell-editor');
+    delete el.skillPopover.dataset.fdcPopoverKind;
     if (title) title.textContent = titleText;
     if (body) body.innerHTML = lines.map(line => `<p>${escapeHtml(line).replace(/\n/g, '<br>')}</p>`).join('');
     const rect = anchor.getBoundingClientRect();
@@ -3308,7 +3395,13 @@
 
   function hideFdcSkillPopover() {
     el.skillPopover = el.skillPopover || document.getElementById('fdc-skill-popover');
-    if (el.skillPopover) el.skillPopover.hidden = true;
+    if (el.skillPopover) {
+      el.skillPopover.hidden = true;
+      el.skillPopover.classList.remove('is-spell-details', 'is-spell-editor');
+      delete el.skillPopover.dataset.fdcPopoverKind;
+    }
+    document.querySelector('[data-fdc-spell-details-toggle]')?.setAttribute('aria-expanded', 'false');
+    document.querySelector('[data-fdc-spell-edit-toggle]')?.setAttribute('aria-expanded', 'false');
   }
 
   function bindFdcSkillLevelControls(target) {
@@ -3711,7 +3804,7 @@
       const memberName = member.name || apostle?.name || member.id;
       const memberLevels = getFdcEffectiveSkillLevels(member);
       collectFdcApostleSkillSources(apostle, memberLevels, member, context).forEach(({ skill, sourceKey, sourceLabel }) => {
-        if (String(sourceKey || '').startsWith('aside:')) return;
+        if (String(sourceKey || '') === 'aside:3') return;
         const category = getFdcApostleSkillCategory(skill, sourceLabel);
         const skillLevel = getFdcSkillLevelForCategory(memberLevels, category);
         normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
@@ -4102,6 +4195,10 @@
     if (isAllyPersonalityConditionText(explicitCondition)) {
       return personalityEnabled
         && (!allyPersonalityState?.hasCondition || !!allyPersonalityState.defaultEnabled);
+    }
+    const namedTargetState = getNamedApostleTargetState(explicitCondition, context?.target);
+    if (namedTargetState.hasCondition) {
+      return personalityEnabled && namedTargetState.matched;
     }
     const actionText = [effect?.condition, effect?.targetSkill].filter(Boolean).join(' ');
     const selectedActionCategory = actionCategory || view.selectedSkillCategory || '';
@@ -4744,6 +4841,25 @@
     return card.cost || 0;
   }
 
+  function syncCardCostUi(context) {
+    if (!el.cardCost) return;
+    const artifactCost = getFormationArtifactRows(context)
+      .reduce((sum, row) => sum + getCardCostById(row.id, row.star) * row.qty, 0);
+    const spellCost = getFdcSelectedSpellRows(context)
+      .reduce((sum, row) => sum + getCardCostById(row.id, row.star) * row.qty, 0);
+    const totalCost = artifactCost + spellCost;
+    el.cardCost.querySelectorAll('.fdc-card-cost-text').forEach(value => {
+      value.textContent = formatNumber(totalCost);
+    });
+    const costs = { artifact: artifactCost, spell: spellCost, total: totalCost };
+    el.cardCostPanel?.querySelectorAll('[data-fdc-card-cost-value]').forEach(value => {
+      value.textContent = formatNumber(costs[value.dataset.fdcCardCostValue] || 0);
+    });
+    const detail = `カード合計コスト ${formatNumber(totalCost)}（遺物 ${formatNumber(artifactCost)} / スペル ${formatNumber(spellCost)}）`;
+    el.cardCost.title = detail;
+    el.cardCost.setAttribute('aria-label', detail);
+  }
+
   function getFormationArtifactBg(card) {
     if (!card) return 'img/遺物bg_0.png';
     if (card.signature) return 'img/遺物bg_4.png';
@@ -4968,13 +5084,10 @@
     `;
   }
 
-  function renderSpellCategory(context) {
+  function renderSpellCategory(context, options = {}) {
     if (!el.spellCategory) return;
-    const spellRows = countIds(context.formation?.spells || [])
-      .map(({ id, qty }) => createCardRow(id, qty, context.state?.cards?.[id]))
-      .map(row => ({ ...row, card: getCard(row.id) }))
-      .filter(row => row.card?.kind === 'spell')
-      .sort(compareSpellDisplayRow);
+    if (!options.keepPopover) hideFdcSpellPopover();
+    const spellRows = getFdcSelectedSpellRows(context);
     const spellEffects = getSpellEffectRows(context.effects);
     const spellAutoEffects = spellEffects.filter(isAutomaticBonusEffect);
     const spellDetailEffects = spellEffects.filter(item => !isAutomaticBonusEffect(item));
@@ -4982,20 +5095,16 @@
     el.spellCategory.innerHTML = `
       <section class="fdc-spell-section">
         <h4>
-          <span>編成スペルカード</span>
-          <button type="button" class="fdc-spell-detail-toggle" data-fdc-spell-details-toggle>
-            詳細 ${view.spellDetailsOpen ? '▲' : '▼'}
-          </button>
-          <span>${spellRows.length}</span>
+          <span class="fdc-spell-heading">編成スペルカード${Array.isArray(view.tempSpells) ? '<em>一時変更</em>' : ''}</span>
+          <span class="fdc-spell-head-actions">
+            <button type="button" class="fdc-spell-detail-toggle" data-fdc-spell-edit-toggle aria-haspopup="dialog" aria-expanded="false">編集</button>
+            <button type="button" class="fdc-spell-detail-toggle" data-fdc-spell-details-toggle aria-haspopup="dialog" aria-expanded="false" ${spellRows.length ? '' : 'disabled'}>詳細</button>
+            <span>${context.formation?.spells?.length || 0}枚</span>
+          </span>
         </h4>
         <div class="fdc-spell-strip">
           ${spellRows.length ? spellRows.map(renderSpellMini).join('') : '<p class="fdc-empty">スペルカードなし</p>'}
         </div>
-        ${spellRows.length && view.spellDetailsOpen ? `
-          <div class="fdc-selected-spell-list">
-            ${spellRows.map(renderSelectedSpellDetailRow).join('')}
-          </div>
-        ` : ''}
       </section>
       <section class="fdc-artifact-effect-box ${enabled ? '' : 'is-disabled'}">
         <h4>スペル補正 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
@@ -5008,6 +5117,195 @@
     `;
   }
 
+  function getFdcSelectedSpellRows(context) {
+    return countIds(context.formation?.spells || [])
+      .map(({ id, qty }) => createCardRow(id, qty, context.state?.cards?.[id]))
+      .map(row => ({ ...row, card: getCard(row.id) }))
+      .filter(row => row.card?.kind === 'spell')
+      .sort(compareSpellDisplayRow);
+  }
+
+  function toggleFdcSpellDetailsPopover(anchor, context) {
+    el.skillPopover = el.skillPopover || document.getElementById('fdc-skill-popover');
+    if (!el.skillPopover || !anchor) return;
+    if (!el.skillPopover.hidden && el.skillPopover.dataset.fdcPopoverKind === 'spell-details') {
+      hideFdcSkillPopover();
+      return;
+    }
+    const rows = getFdcSelectedSpellRows(context);
+    if (!rows.length) return;
+    const title = el.skillPopover.querySelector('.fdc-skill-popover-title');
+    const body = el.skillPopover.querySelector('.fdc-skill-popover-body');
+    if (title) {
+      title.innerHTML = `
+        <span>選択中スペルの詳細</span>
+        <button type="button" data-fdc-spell-details-close aria-label="閉じる">×</button>
+      `;
+    }
+    if (body) body.innerHTML = `<div class="fdc-selected-spell-list">${rows.map(renderSelectedSpellDetailRow).join('')}</div>`;
+    el.skillPopover.classList.remove('is-spell-editor');
+    el.skillPopover.classList.add('is-spell-details');
+    el.skillPopover.dataset.fdcPopoverKind = 'spell-details';
+    el.skillPopover.hidden = false;
+    anchor.setAttribute('aria-expanded', 'true');
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(640, window.innerWidth - 24);
+    el.skillPopover.style.width = `${width}px`;
+    const popRect = el.skillPopover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.right - width), window.innerWidth - width - 12);
+    const below = rect.bottom + 8;
+    const top = below + popRect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, rect.top - popRect.height - 8);
+    el.skillPopover.style.left = `${left}px`;
+    el.skillPopover.style.top = `${top}px`;
+  }
+
+  function toggleFdcSpellEditorPopover(anchor, context) {
+    el.skillPopover = el.skillPopover || document.getElementById('fdc-skill-popover');
+    if (!el.skillPopover || !anchor) return;
+    if (!el.skillPopover.hidden && el.skillPopover.dataset.fdcPopoverKind === 'spell-editor') {
+      hideFdcSkillPopover();
+      return;
+    }
+    showFdcSpellEditorPopover(anchor, context);
+  }
+
+  function showFdcSpellEditorPopover(anchor, context) {
+    el.skillPopover = el.skillPopover || document.getElementById('fdc-skill-popover');
+    if (!el.skillPopover || !anchor) return;
+    const rows = getFdcSpellCatalogRows(context);
+    const selectedCount = context.formation?.spells?.length || 0;
+    const totalCost = getFdcSelectedSpellRows(context)
+      .reduce((sum, row) => sum + getCardCostById(row.id, row.star) * row.qty, 0);
+    const title = el.skillPopover.querySelector('.fdc-skill-popover-title');
+    const body = el.skillPopover.querySelector('.fdc-skill-popover-body');
+    if (title) {
+      title.innerHTML = `
+        <span>スペル編成</span>
+        <span class="fdc-spell-editor-title-actions">
+          <button type="button" class="fdc-spell-editor-reset" data-fdc-spell-editor-reset ${Array.isArray(view.tempSpells) ? '' : 'disabled'}>編成に戻す</button>
+          <button type="button" data-fdc-spell-editor-close aria-label="閉じる">×</button>
+        </span>
+      `;
+    }
+    if (body) {
+      body.innerHTML = `
+        <div class="fdc-spell-editor-summary"><span data-fdc-spell-editor-total>${selectedCount}枚</span><span data-fdc-spell-editor-cost>コスト ${formatNumber(totalCost)}</span></div>
+        <div class="fdc-spell-editor-grid">${rows.map(renderFdcSpellEditorCard).join('')}</div>
+      `;
+    }
+    el.skillPopover.classList.remove('is-spell-details');
+    el.skillPopover.classList.add('is-spell-editor');
+    el.skillPopover.dataset.fdcPopoverKind = 'spell-editor';
+    el.skillPopover.hidden = false;
+    anchor.setAttribute('aria-expanded', 'true');
+    positionFdcSpellPopover(anchor, 700);
+  }
+
+  function getFdcSpellCatalogRows(context) {
+    const counts = Object.fromEntries(countIds(context.formation?.spells || []).map(row => [row.id, row.qty]));
+    return (typeof CARD_LIBRARY === 'undefined' ? [] : CARD_LIBRARY.spells || [])
+      .map(card => ({
+        ...createCardRow(card.id, counts[card.id] || 0, context.state?.cards?.[card.id]),
+        card,
+        qty: counts[card.id] || 0
+      }))
+      .sort(compareSpellDisplayRow);
+  }
+
+  function renderFdcSpellEditorCard(row) {
+    return `
+      <article class="fdc-spell-editor-card ${row.qty ? 'is-selected' : ''} ${getCardRarityClass({ rarity: row.card?.rarity, signature: row.card?.signature })}" data-fdc-spell-editor-card="${escapeAttr(row.id)}">
+        <span class="fdc-spell-editor-art">
+          <img src="${escapeAttr(getCardImagePath(row.card))}" alt="${escapeAttr(row.name)}">
+          <b>★${escapeHtml(row.star)}</b>
+        </span>
+        <strong title="${escapeAttr(row.name)}">${escapeHtml(row.name)}</strong>
+        <small>コスト${escapeHtml(getCardCostById(row.id, row.star))}</small>
+        <span class="fdc-spell-editor-qty" aria-label="${escapeAttr(`${row.name}の枚数`)}">
+          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="-1" ${row.qty ? '' : 'disabled'}>−</button>
+          <b data-fdc-spell-editor-qty-value>${escapeHtml(row.qty)}</b>
+          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="1">＋</button>
+        </span>
+      </article>
+    `;
+  }
+
+  function adjustFdcTempSpellCount(id, step, context) {
+    if (!id || !step) return;
+    const spells = Array.isArray(view.tempSpells)
+      ? view.tempSpells.slice()
+      : (context.formation?.spells || []).slice();
+    if (step > 0) {
+      spells.push(id);
+    } else {
+      const index = spells.lastIndexOf(id);
+      if (index < 0) return;
+      spells.splice(index, 1);
+    }
+    view.tempSpells = spells;
+    saveCalcSettings();
+    renderAfterFdcSpellEdit();
+  }
+
+  function resetFdcTempSpells() {
+    view.tempSpells = null;
+    saveCalcSettings();
+    renderAfterFdcSpellEdit();
+  }
+
+  function renderAfterFdcSpellEdit() {
+    render({ keepSpellPopover: true });
+    const context = buildContext();
+    const anchor = document.querySelector('[data-fdc-spell-edit-toggle]');
+    refreshFdcSpellEditorContents(context);
+    if (anchor) {
+      anchor.setAttribute('aria-expanded', 'true');
+      positionFdcSpellPopover(anchor, 700);
+    }
+  }
+
+  function refreshFdcSpellEditorContents(context) {
+    if (!el.skillPopover || el.skillPopover.hidden || el.skillPopover.dataset.fdcPopoverKind !== 'spell-editor') return;
+    const counts = Object.fromEntries(countIds(context.formation?.spells || []).map(row => [row.id, row.qty]));
+    const selectedRows = getFdcSelectedSpellRows(context);
+    const selectedCount = context.formation?.spells?.length || 0;
+    const totalCost = selectedRows.reduce((sum, row) => sum + getCardCostById(row.id, row.star) * row.qty, 0);
+    const total = el.skillPopover.querySelector('[data-fdc-spell-editor-total]');
+    const cost = el.skillPopover.querySelector('[data-fdc-spell-editor-cost]');
+    const reset = el.skillPopover.querySelector('[data-fdc-spell-editor-reset]');
+    if (total) total.textContent = `${selectedCount}枚`;
+    if (cost) cost.textContent = `コスト ${formatNumber(totalCost)}`;
+    if (reset) reset.disabled = !Array.isArray(view.tempSpells);
+    el.skillPopover.querySelectorAll('[data-fdc-spell-editor-card]').forEach(card => {
+      const id = card.dataset.fdcSpellEditorCard || '';
+      const qty = counts[id] || 0;
+      card.classList.toggle('is-selected', qty > 0);
+      const value = card.querySelector('[data-fdc-spell-editor-qty-value]');
+      const minus = card.querySelector('[data-fdc-spell-edit-step="-1"]');
+      if (value) value.textContent = String(qty);
+      if (minus) minus.disabled = qty <= 0;
+    });
+  }
+
+  function positionFdcSpellPopover(anchor, preferredWidth = 640) {
+    const rect = anchor.getBoundingClientRect();
+    const width = Math.min(preferredWidth, window.innerWidth - 24);
+    el.skillPopover.style.width = `${width}px`;
+    const popRect = el.skillPopover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.right - width), window.innerWidth - width - 12);
+    const below = rect.bottom + 8;
+    const top = below + popRect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, rect.top - popRect.height - 8);
+    el.skillPopover.style.left = `${left}px`;
+    el.skillPopover.style.top = `${top}px`;
+  }
+
+  function hideFdcSpellPopover() {
+    if (String(el.skillPopover?.dataset.fdcPopoverKind || '').startsWith('spell-')) hideFdcSkillPopover();
+  }
   function renderSpellMini(row) {
     return `
       <span class="fdc-spell-mini ${getCardRarityClass({ rarity: row.card?.rarity, signature: row.card?.signature })}" title="${escapeAttr(row.name)}">
@@ -5404,9 +5702,13 @@
     if (!cap) return [label, value];
     const tone = cap.type === 'upper' ? 'is-cap-upper' : cap.type === 'lower' ? 'is-cap-lower' : 'is-cap';
     const suffix = cap.type === 'upper' ? '上限到達' : cap.type === 'lower' ? '下限到達' : 'キャップ到達';
+    const difference = Number(cap.difference);
+    const differenceText = Number.isFinite(difference) && difference > 0
+      ? `（${cap.type === 'upper' ? '超過' : '下限未満'} ${cap.differencePrefix || ''}${formatPlainNumber(difference)}${cap.differenceSuffix || ''}）`
+      : '';
     return {
       label,
-      value,
+      value: `${value}${differenceText}`,
       className: `is-capped ${tone}`,
       title: `${suffix}: ${cap.limitText || ''}`.trim()
     };
@@ -5522,9 +5824,39 @@
           critDmgResAddP: defender.critDmgResAddP
         },
         caps: {
-          addRate: rawAddRate < 0.2 ? { type: 'lower', limitText: '20%' } : null,
-          critRate: rawCritRate >= 0.8 ? { type: 'upper', limitText: '80%' } : rawCritRate <= 0.05 ? { type: 'lower', limitText: '5%' } : null,
-          critMult: rawCritMult >= 2.5 ? { type: 'upper', limitText: '2.5x' } : rawCritMult <= 1.2 ? { type: 'lower', limitText: '1.2x' } : null
+          addRate: rawAddRate < 0.2 ? {
+            type: 'lower',
+            limitText: '20%',
+            difference: (0.2 - rawAddRate) * 100,
+            differencePrefix: '-',
+            differenceSuffix: '%'
+          } : null,
+          critRate: rawCritRate >= 0.8 ? {
+            type: 'upper',
+            limitText: '80%',
+            difference: (rawCritRate - 0.8) * 100,
+            differencePrefix: '+',
+            differenceSuffix: '%'
+          } : rawCritRate <= 0.05 ? {
+            type: 'lower',
+            limitText: '5%',
+            difference: (0.05 - rawCritRate) * 100,
+            differencePrefix: '-',
+            differenceSuffix: '%'
+          } : null,
+          critMult: rawCritMult >= 2.5 ? {
+            type: 'upper',
+            limitText: '2.5x',
+            difference: rawCritMult - 2.5,
+            differencePrefix: '+',
+            differenceSuffix: 'x'
+          } : rawCritMult <= 1.2 ? {
+            type: 'lower',
+            limitText: '1.2x',
+            difference: 1.2 - rawCritMult,
+            differencePrefix: '-',
+            differenceSuffix: 'x'
+          } : null
         }
       }
     };
@@ -5757,6 +6089,19 @@
       el.enemyPersonalityIcon.src = personality ? `img/性格_${personality}.webp` : 'img/性格_なし.webp';
       el.enemyPersonalityIcon.alt = personality || 'なし';
     }
+  }
+
+  function toggleCardCostPanel() {
+    if (!el.cardCostPanel || !el.cardCost) return;
+    const open = !!el.cardCostPanel.hidden;
+    el.cardCostPanel.hidden = !open;
+    el.cardCost.setAttribute('aria-expanded', String(open));
+  }
+
+  function closeCardCostPanel() {
+    if (!el.cardCostPanel || !el.cardCost || el.cardCostPanel.hidden) return;
+    el.cardCostPanel.hidden = true;
+    el.cardCost.setAttribute('aria-expanded', 'false');
   }
 
   function toggleApplyFloatPanel() {
@@ -6421,6 +6766,10 @@
   function judgeTargetText(text, target, damageType = '') {
     const checks = [];
     const resolvedType = damageType || resolveDamageType('auto', target);
+    const namedTargetState = getNamedApostleTargetState(text, target);
+    if (namedTargetState.hasCondition) {
+      checks.push(['対象使徒', namedTargetState.matched, namedTargetState.names.join('・')]);
+    }
     if (/前列|前衛/.test(text)) checks.push(['隊列', target.position === '前列', '前列']);
     if (/中列/.test(text)) checks.push(['隊列', target.position === '中列', '中列']);
     if (/後列|後衛/.test(text)) checks.push(['隊列', target.position === '後列', '後列']);
@@ -6440,6 +6789,20 @@
       matched: failed.length === 0,
       reason: failed.length ? `対象外: ${failed.map(([type, , value]) => `${type}=${value}`).join(' / ')}` : checks.map(([type, , value]) => `${type}=${value}`).join(' / ')
     };
+  }
+
+  function getNamedApostleTargetState(text, target) {
+    const match = String(text || '').match(/対象使徒\s*[（(]([^）)]+)[）)]/);
+    if (!match) return { hasCondition: false, matched: true, names: [] };
+    const names = match[1]
+      .split(/[、,，／/・\s]+/)
+      .map(name => name.trim())
+      .filter(Boolean);
+    const targetNames = [target?.name, target?.id]
+      .map(normalizeComparableName)
+      .filter(Boolean);
+    const matched = names.some(name => targetNames.includes(normalizeComparableName(name)));
+    return { hasCondition: true, matched, names };
   }
 
   function pushSynergyEffects(list, formation, target, state = {}) {
@@ -7552,12 +7915,27 @@
       attackerDmgDownP: '攻撃低下',
       enemyDefDownP: '敵防御低下',
       enemyCritResDownP: '敵会心抵抗低下',
-      enemyCritDmgResDownP: '敵会心DMG抵抗低下'
+      enemyCritDmgResDownP: '敵会心DMG抵抗低下',
+      personalityMadnessPlus: '狂気性格判定',
+      personalityVivaciousPlus: '活発性格判定',
+      personalityPurePlus: '純粋性格判定',
+      personalityGloomyPlus: '憂鬱性格判定',
+      personalityCoolPlus: '冷静性格判定'
     };
+    const fixedValueKeys = new Set([
+      'spRecovery',
+      'spRegen',
+      'initialSp',
+      'personalityMadnessPlus',
+      'personalityVivaciousPlus',
+      'personalityPurePlus',
+      'personalityGloomyPlus',
+      'personalityCoolPlus'
+    ]);
     return Object.entries(map || {})
       .filter(([, value]) => Number(value))
       .map(([key, value]) => {
-        const suffix = ['spRecovery', 'spRegen', 'initialSp'].includes(key) ? '' : '%';
+        const suffix = fixedValueKeys.has(key) ? '' : '%';
         const number = Number(value) || 0;
         return `${labels[key] || key}${number > 0 ? '+' : ''}${formatPlainNumber(number)}${suffix}`;
       })

@@ -5490,6 +5490,35 @@ body.dashboard-page.is-booting::after {
   line-height: 1.35;
 }
 
+.formation-spell-summary-popover {
+  width: min(640px, calc(100vw - 24px));
+  max-height: min(68vh, 620px);
+  animation: formation-spell-popover-in 140ms ease-out;
+  transform-origin: top right;
+}
+
+.formation-spell-summary-popover-body {
+  max-height: min(60vh, 540px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.formation-spell-summary-popover .formation-spell-detail-list {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  padding: 0;
+  background: transparent;
+}
+
+@keyframes formation-spell-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
 .formation-spell-catalog {
   justify-content: flex-start;
   max-height: 420px;
@@ -5582,6 +5611,104 @@ body.dashboard-page.is-booting::after {
     linear-gradient(135deg,
       color-mix(in srgb, var(--formation-spell-color) 20%, white),
       rgba(255, 255, 255, 0.72));
+}
+
+.formation-spell-card-effects {
+  position: absolute;
+  z-index: 3;
+  top: 2px;
+  left: 2px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  pointer-events: auto;
+}
+
+.formation-spell-info-btn {
+  position: absolute;
+  z-index: 4;
+  top: 2px;
+  right: 2px;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.76);
+  border-radius: 50%;
+  padding: 0;
+  color: #fff;
+  background: rgba(20, 34, 54, 0.78);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-family: Georgia, serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.formation-spell-info-btn:hover,
+.formation-spell-info-btn:focus-visible {
+  border-color: #fff;
+  background: rgba(38, 77, 119, 0.94);
+  transform: scale(1.08);
+}
+
+.formation-spell-card-effects > span {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  padding: 1px 4px;
+  color: #fff;
+  background: rgba(8, 15, 28, 0.74);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.34);
+  font-size: 0.48rem;
+  font-weight: 950;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
+  white-space: nowrap;
+}
+
+.formation-spell-card-effects > .is-hp {
+  border-color: rgba(107, 218, 137, 0.72);
+  background: rgba(24, 105, 55, 0.82);
+}
+
+.formation-spell-card-effects > .is-recovery {
+  border-color: rgba(184, 235, 113, 0.76);
+  color: #f1ffd9;
+  background: rgba(76, 119, 31, 0.84);
+}
+
+.formation-spell-card-effects > .is-attack {
+  border-color: rgba(255, 124, 124, 0.76);
+  background: rgba(137, 39, 42, 0.84);
+}
+
+.formation-spell-card-effects > .is-attack-speed {
+  border-color: rgba(255, 177, 91, 0.8);
+  background: rgba(151, 77, 19, 0.84);
+}
+
+.formation-spell-card-effects > .is-defense {
+  border-color: rgba(117, 177, 255, 0.78);
+  background: rgba(31, 77, 139, 0.84);
+}
+
+.formation-spell-card-effects > .is-crit {
+  border-color: rgba(255, 224, 98, 0.84);
+  color: #fffbd8;
+  background: rgba(126, 97, 10, 0.86);
+}
+
+.formation-spell-card-effects > .is-crit-resist {
+  border-color: rgba(198, 139, 255, 0.8);
+  background: rgba(91, 44, 137, 0.86);
 }
 
 .formation-spell-card-art .formation-spell-img {

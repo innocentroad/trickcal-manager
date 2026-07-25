@@ -37,7 +37,7 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260723c" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260720j">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260725k">
   <link rel="stylesheet" href="shared-topbar.css?v=20260718a">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -640,6 +640,20 @@
 
   </main>
 
+  <div id="fdc-card-cost-controller" class="fdc-card-cost-controller">
+    <button type="button" id="fdc-card-cost" class="fdc-card-cost" aria-label="カード合計コスト 0" aria-expanded="false" aria-controls="fdc-card-cost-panel" title="カード合計コスト 0">
+      <img src="img/Card/cost.webp" alt="" aria-hidden="true">
+      <span class="fdc-card-cost-text fdc-card-cost-text-stroke">0</span>
+      <span class="fdc-card-cost-text fdc-card-cost-text-fill">0</span>
+    </button>
+    <div id="fdc-card-cost-panel" class="fdc-card-cost-panel" hidden>
+      <strong>カードコスト</strong>
+      <span><em>遺物</em><b data-fdc-card-cost-value="artifact">0</b></span>
+      <span><em>スペル</em><b data-fdc-card-cost-value="spell">0</b></span>
+      <span class="is-total"><em>合計</em><b data-fdc-card-cost-value="total">0</b></span>
+    </div>
+  </div>
+
   <div id="fdc-apply-float-controller" class="fdc-apply-float-controller">
     <div id="fdc-apply-float-panel" class="fdc-apply-float-panel" hidden>
       <div class="fdc-apply-float-head">
@@ -708,6 +722,7 @@
         </div>
       </div>
     </details>
+
     <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
       <span>計算</span>
       <span class="fdc-apply-float-dots">
@@ -765,8 +780,8 @@
   <script src="cards.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js"></script>
-  <script src="app-cache.js?v=20260723c"></script>
+  <script src="app-cache.js?v=20260725k"></script>
   <script src="image-preload.js"></script>
-  <script src="formation-damage-calc.js?v=20260721a"></script>
+  <script src="formation-damage-calc.js?v=20260725j"></script>
 </body>
 </html>

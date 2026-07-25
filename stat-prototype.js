@@ -1118,10 +1118,17 @@
     });
 
     elements.formationSpellList?.addEventListener('click', event => {
+      const effectButton = event.target.closest('[data-formation-spell-info]');
+      if (effectButton) {
+        event.preventDefault();
+        openCardManagerEffectPopover(effectButton.dataset.cardId || '', effectButton);
+        return;
+      }
+
       const detailsButton = event.target.closest('[data-formation-spell-details]');
       if (detailsButton) {
-        view.formationSpellDetailsOpen = !view.formationSpellDetailsOpen;
-        renderFormationSpells();
+        event.preventDefault();
+        toggleFormationSpellDetailsPopover(detailsButton);
         return;
       }
 
@@ -5780,6 +5787,7 @@
 
   function renderFormationSpells(formation = ensureFormationState(), options = {}) {
     if (!elements.formationSpellList) return;
+    closeFormationSpellDetailsPopover();
     const deferCatalog = options.deferCatalog !== false;
     const spells = normalizeFormationSpells(formation.spells);
     const cards = getCardManagerCards('spell').slice().sort(compareCardManagerCards);
@@ -5791,8 +5799,8 @@
         <span>スペル</span>
         <div class="formation-spell-head-actions">
           <small>${spells.length ? `${spells.length}枚選択中` : '未選択'}</small>
-          <button type="button" class="formation-spell-detail-toggle" data-formation-spell-details ${spells.length ? '' : 'disabled'}>
-            詳細を${view.formationSpellDetailsOpen ? '閉じる' : '表示'}
+          <button type="button" class="formation-spell-detail-toggle" data-formation-spell-details aria-haspopup="dialog" aria-expanded="false" ${spells.length ? '' : 'disabled'}>
+            詳細を表示
           </button>
         </div>
       </div>
@@ -5801,7 +5809,6 @@
           ? selectedRows.map(row => renderFormationSelectedSpell(row.card, row.id, row.count)).join('')
           : '<span class="formation-spell-empty">下のカードを押すと追加されます</span>'}
       </div>
-      ${spells.length && view.formationSpellDetailsOpen ? renderFormationSpellDetails(selectedRows) : ''}
       <div class="formation-spell-catalog" aria-label="スペル一覧">
         ${deferCatalog ? '<span class="formation-spell-empty">スペル一覧を準備中...</span>' : cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('')}
       </div>
@@ -5835,6 +5842,37 @@
         ${count > 1 ? `<span class="formation-spell-count">x${escapeHtml(count)}</span>` : ''}
       </button>
     `;
+  }
+  function getFormationSpellBaseEffects(card) {
+    const state = getCardState(card?.id);
+    const star = normalizeCardStar(state.star);
+    const baseBonus = Array.isArray(card?.bonusesByStar) ? card.bonusesByStar[star - 1] : null;
+    const summary = formatCardManagerBonuses(baseBonus);
+    const texts = summary === '補正なし' ? ['特殊効果'] : summary.split(' / ').slice(0, 2);
+    return texts.map(text => ({
+      label: String(text)
+        .replace(/[+-]?\d+(?:\.\d+)?%$/, '')
+        .replace(/会心DMG抵抗/g, '会心D抵')
+        .replace(/会心DMG/g, '会心D')
+        .replace(/会心抵抗/g, '会心抵')
+        .replace(/HP治癒/g, '治癒'),
+      tone: /回復|治癒/.test(text)
+        ? 'recovery'
+        : /攻撃速度|攻速/.test(text)
+          ? 'attack-speed'
+          : /会心.*抵抗/.test(text)
+            ? 'crit-resist'
+            : /会心/.test(text)
+              ? 'crit'
+              : /防御/.test(text)
+                ? 'defense'
+                : /攻撃/.test(text)
+                  ? 'attack'
+                  : /HP/.test(text)
+                    ? 'hp'
+                    : 'other',
+      detail: summary === '補正なし' ? '基礎補正なし（特殊効果のみ）' : `★${star} ${text}`
+    }));
   }
 
   function getSortedFormationSpellRows(spells, cardById) {
@@ -5872,12 +5910,76 @@
     `;
   }
 
+  function toggleFormationSpellDetailsPopover(anchorEl) {
+    if (!anchorEl) return;
+    const popover = ensureFormationSpellDetailsPopover();
+    if (!popover.hidden) {
+      closeFormationSpellDetailsPopover();
+      return;
+    }
+    const formation = ensureFormationState();
+    const spells = normalizeFormationSpells(formation.spells);
+    const cards = getCardManagerCards('spell');
+    const cardById = new Map(cards.map(card => [card.id, card]));
+    const rows = getSortedFormationSpellRows(spells, cardById);
+    if (!rows.length) return;
+    popover.innerHTML = `
+      <div class="resource-effect-popover-head">
+        <strong>選択中スペルの詳細</strong>
+        <button type="button" data-close-formation-spell-details aria-label="閉じる">×</button>
+      </div>
+      <div class="formation-spell-summary-popover-body">
+        ${renderFormationSpellDetails(rows)}
+      </div>
+    `;
+    popover.querySelector('[data-close-formation-spell-details]')?.addEventListener('click', closeFormationSpellDetailsPopover);
+    popover.hidden = false;
+    anchorEl.setAttribute('aria-expanded', 'true');
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.right - popRect.width), window.innerWidth - popRect.width - 12);
+    const below = rect.bottom + 8;
+    const top = below + popRect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, rect.top - popRect.height - 8);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+
+  function ensureFormationSpellDetailsPopover() {
+    let popover = document.getElementById('formation-spell-summary-popover');
+    if (!popover) {
+      popover = document.createElement('div');
+      popover.id = 'formation-spell-summary-popover';
+      popover.className = 'resource-effect-popover formation-spell-summary-popover';
+      popover.hidden = true;
+      document.body.appendChild(popover);
+      document.addEventListener('click', event => {
+        if (popover.hidden) return;
+        if (popover.contains(event.target) || event.target.closest('[data-formation-spell-details]')) return;
+        closeFormationSpellDetailsPopover();
+      });
+    }
+    return popover;
+  }
+
+  function closeFormationSpellDetailsPopover() {
+    const popover = document.getElementById('formation-spell-summary-popover');
+    if (popover) popover.hidden = true;
+    elements.formationSpellList
+      ?.querySelector('[data-formation-spell-details]')
+      ?.setAttribute('aria-expanded', 'false');
+  }
   function renderFormationSpellCard(card, count, index = 0) {
     const priority = getCardManagerImagePriority(index);
     return `
       <div class="formation-spell-card ${getCardManagerRarityClass(card)} ${count ? 'is-selected' : ''}" title="${escapeAttr(card.name)}">
         <span class="formation-spell-card-art">
           <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="${priority.loading}" decoding="async" fetchpriority="${priority.fetchPriority}">
+          <span class="formation-spell-card-effects" title="${escapeAttr(`${card.name}の基礎効果`)}">
+            ${getFormationSpellBaseEffects(card).map(effect => `<span class="is-${effect.tone}" title="${escapeAttr(effect.detail)}">${escapeHtml(effect.label)}</span>`).join('')}
+          </span>
+          <button type="button" class="formation-spell-info-btn" data-formation-spell-info data-card-effect-overlay data-card-id="${escapeAttr(card.id)}" aria-label="${escapeAttr(`${card.name}の詳細を表示`)}" title="詳細">i</button>
           ${renderFormationCostBadge(card.cost)}
         </span>
         <span class="formation-spell-name">${escapeHtml(card.name)}</span>
@@ -6368,8 +6470,23 @@
       const desc = Array.isArray(effect.descriptionByStar) ? effect.descriptionByStar[star - 1] : effect.description;
       const parts = [label];
       const bonusText = formatCardManagerBonuses(bonus);
-      if (bonusText !== '補正なし') parts.push(bonusText);
-      if (desc) parts.push(String(desc).replace(/\s+/g, ' '));
+      if (
+        bonusText !== '補正なし'
+        && ![label, desc].some(text => String(text || '').replace(/\s+/g, ' ').includes(bonusText))
+      ) parts.push(bonusText);
+      let descText = String(desc || '').replace(/\s+/g, ' ');
+      const shortLabel = String(effect.shortLabel || '').replace(/\s+/g, ' ');
+      if (shortLabel && label.includes(shortLabel) && descText.startsWith(shortLabel + ' (') && descText.endsWith(')')) {
+        const details = descText
+          .slice(shortLabel.length + 2, -1)
+          .split(' / ')
+          .filter(detail => detail && !label.includes(detail));
+        descText = details.length ? '(' + details.join(' / ') + ')' : '';
+      }
+      if (descText) {
+        if (descText.startsWith('(') && parts.length) parts[parts.length - 1] += ' ' + descText;
+        else parts.push(descText);
+      }
       lines.push(parts.join(': '));
     });
     return lines.length ? lines : ['効果データなし'];
@@ -6523,11 +6640,48 @@
       specialP: '特殊',
       otherP: 'その他',
       basicAddP: '普通攻撃ダメージ',
-      skillAddP: 'スキルダメージ'
+      skillAddP: 'スキルダメージ',
+      coin: 'コイン',
+      cooltime: 'クールタイム',
+      debuffResistP: 'デバフ抵抗',
+      gradePlus: '学年',
+      maxStack: '最大スタック',
+      personalityMadnessPlus: '狂気性格判定',
+      personalityVivaciousPlus: '活発性格判定',
+      personalityPurePlus: '純粋性格判定',
+      personalityGloomyPlus: '憂鬱性格判定',
+      personalityCoolPlus: '冷静性格判定',
+      poisonDuration: '毒持続時間',
+      shieldEffectP: 'シールド効果',
+      shieldP: 'シールド',
+      spRecovery: 'SP回復',
+      spRegen: '毎秒SP'
     };
+    const units = {
+      cooltime: '秒',
+      poisonDuration: '秒'
+    };
+    const fixedValueKeys = new Set([
+      'coin',
+      'cooltime',
+      'gradePlus',
+      'maxStack',
+      'personalityMadnessPlus',
+      'personalityVivaciousPlus',
+      'personalityPurePlus',
+      'personalityGloomyPlus',
+      'personalityCoolPlus',
+      'poisonDuration',
+      'spRecovery',
+      'spRegen'
+    ]);
     const text = Object.entries(bonuses)
       .filter(([, value]) => value !== undefined && value !== null && value !== '')
-      .map(([key, value]) => `${labels[key] || key}+${value}%`)
+      .map(([key, value]) => {
+        const sign = Number(value) >= 0 ? '+' : '';
+        const suffix = fixedValueKeys.has(key) ? (units[key] || '') : '%';
+        return `${labels[key] || key}${sign}${value}${suffix}`;
+      })
       .join(' / ');
     return text || '補正なし';
   }

@@ -425,7 +425,7 @@ const ENEMY_PRESETS = {
         ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
-            { action: "攻撃", name: "叩きつけ", mult: 100, note: "AoE / 2段" },
+            { action: "攻撃", name: "叩きつけ 2段hit", mult: 100, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
             { action: "攻撃", name: "張り手 2段hit", mult: 300, note: "AoE" },
             { action: "攻撃", name: "ランチャー", mult: 240, note: "AoE / RNG / 3発" },
