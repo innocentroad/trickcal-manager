@@ -8,8 +8,8 @@
     stat: [
       'stat-dashboard.html',
       'stat-prototype.css?v=20260715b',
-      'stat-dashboard.css?v=20260725l',
-      'shared-topbar.css?v=20260718a',
+      'stat-dashboard.css?v=20260725m',
+      'shared-topbar.css?v=20260725b',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
       'synergy.js',
@@ -22,7 +22,7 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260725n',
-      'shared-topbar.css?v=20260718a',
+      'shared-topbar.css?v=20260725b',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
       'stat-engine.js?v=20260725m',
@@ -30,7 +30,7 @@
       'cards.js?v=20260725a',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260725n',
+      'formation-damage-calc.js?v=20260725p',
       'image-preload.js'
     ]
   };

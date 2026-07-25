@@ -5662,7 +5662,7 @@
           ['会心抵抗', formatNumber(stat.finalCritRes)],
           ['会心DMG抵抗', formatNumber(stat.finalCritDmgRes)],
           createCapDetailRow('会心率', `${(result.critRate * 100).toFixed(1)}%`, caps.critRate),
-          createCapDetailRow('会心倍率', `${stat.critMult?.toFixed ? stat.critMult.toFixed(2) : formatPlainNumber(stat.critMult)}x`, caps.critMult)
+          createCapDetailRow('会心DMG倍率', `${stat.critMult?.toFixed ? stat.critMult.toFixed(2) : formatPlainNumber(stat.critMult)}x`, caps.critMult)
         ]
       },
       {
