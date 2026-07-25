@@ -78,6 +78,7 @@
     enemySourcePresetFields: Array.from(document.querySelectorAll('.fdc-enemy-source-preset')),
     enemySourceApostleFields: Array.from(document.querySelectorAll('.fdc-enemy-source-apostle')),
     enemyPreset: document.getElementById('fdc-enemy-preset'),
+    enemyStatusLink: document.getElementById('fdc-enemy-status-link'),
     enemyPresetName: document.getElementById('fdc-enemy-preset-name'),
     enemyPresetSave: document.getElementById('fdc-enemy-preset-save'),
     enemyPresetDelete: document.getElementById('fdc-enemy-preset-delete'),
@@ -823,6 +824,16 @@
         syncApplyFloatUi();
         render();
       });
+    });
+    el.enemyStatusLink?.addEventListener('click', () => {
+      const url = new URL('enemy-status.html', location.href);
+      const key = view.enemyPresetKey || el.enemyPreset?.value || '';
+      const isBuiltInPreset = typeof ENEMY_PRESETS !== 'undefined' && !!ENEMY_PRESETS[key];
+      if (isBuiltInPreset) {
+        url.searchParams.set('preset', key);
+        if (view.enemyPhaseIndex > 0) url.searchParams.set('phase', String(view.enemyPhaseIndex));
+      }
+      el.enemyStatusLink.href = `${url.pathname.split('/').pop()}${url.search}`;
     });
     el.enemyPreset?.addEventListener('change', () => {
       view.enemyPresetKey = el.enemyPreset.value || '';

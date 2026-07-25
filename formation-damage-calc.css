@@ -1038,6 +1038,34 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
   min-width: 0;
 }
 
+.fdc-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.fdc-enemy-status-link {
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 42%, var(--fdc-border));
+  border-radius: 999px;
+  padding: 0.1rem 0.48rem;
+  color: color-mix(in srgb, var(--fdc-primary) 72%, var(--fdc-text));
+  background: color-mix(in srgb, var(--fdc-primary) 10%, transparent);
+  font-size: 0.62rem;
+  font-weight: 950;
+  line-height: 1.35;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.fdc-enemy-status-link:hover,
+.fdc-enemy-status-link:focus-visible {
+  border-color: var(--fdc-primary);
+  background: color-mix(in srgb, var(--fdc-primary) 18%, var(--fdc-input));
+}
+
 .fdc-enemy-source-preset[hidden],
 .fdc-enemy-source-apostle[hidden] {
   display: none !important;

@@ -37,7 +37,7 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260723c" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260725k">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260725n">
   <link rel="stylesheet" href="shared-topbar.css?v=20260718a">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -374,12 +374,15 @@
                   <option value="apostle">使徒 / PVP</option>
                 </select>
               </label>
-              <label class="fdc-field fdc-enemy-preset-field fdc-enemy-source-preset">
-                <span>敵プリセット</span>
-                <select id="fdc-enemy-preset">
+              <div class="fdc-field fdc-enemy-preset-field fdc-enemy-source-preset">
+                <div class="fdc-field-label-row">
+                  <span>敵プリセット</span>
+                  <a id="fdc-enemy-status-link" class="fdc-enemy-status-link" href="enemy-status.html">敵データ</a>
+                </div>
+                <select id="fdc-enemy-preset" aria-label="敵プリセット">
                   <option value="">手動入力</option>
                 </select>
-              </label>
+              </div>
               <label class="fdc-field fdc-enemy-apostle-field fdc-enemy-source-apostle" hidden>
                 <span>敵使徒</span>
                 <span class="fdc-enemy-apostle-control">
@@ -780,8 +783,8 @@
   <script src="cards.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js"></script>
-  <script src="app-cache.js?v=20260725m"></script>
+  <script src="app-cache.js?v=20260725n"></script>
   <script src="image-preload.js"></script>
-  <script src="formation-damage-calc.js?v=20260725m"></script>
+  <script src="formation-damage-calc.js?v=20260725n"></script>
 </body>
 </html>

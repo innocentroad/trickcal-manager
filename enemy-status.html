@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>敵ステータス確認 | Trickcal Manager</title>
+  <link rel="stylesheet" href="enemy-status.css?v=20260725a">
+</head>
+<body>
+  <header class="enemy-status-header">
+    <div>
+      <p class="eyebrow">Trickcal Manager</p>
+      <h1>敵ステータス確認</h1>
+    </div>
+    <div class="header-actions">
+      <a href="formation-damage-calc.html">ダメージ計算へ</a>
+      <button type="button" id="enemy-status-theme" aria-label="テーマ切替">☾</button>
+    </div>
+  </header>
+
+  <main class="enemy-status-shell">
+    <aside class="enemy-browser" aria-label="敵プリセット一覧">
+      <div class="enemy-browser-controls">
+        <label>
+          <span>検索</span>
+          <input id="enemy-status-search" type="search" placeholder="敵名・コンテンツ名">
+        </label>
+        <label>
+          <span>分類</span>
+          <select id="enemy-status-group">
+            <option value="all">すべて</option>
+            <option value="dimension">次元</option>
+            <option value="ef">エルフロンティア</option>
+            <option value="gta">GTA</option>
+            <option value="other">その他</option>
+          </select>
+        </label>
+      </div>
+      <div id="enemy-status-count" class="enemy-count"></div>
+      <div id="enemy-status-list" class="enemy-list"></div>
+    </aside>
+
+    <section id="enemy-status-detail" class="enemy-detail" aria-live="polite">
+      <div class="empty-state">敵プリセットを選択してください。</div>
+    </section>
+  </main>
+
+  <script src="enemy-presets.js"></script>
+  <script src="enemy-status.js?v=20260725a"></script>
+</body>
+</html>
