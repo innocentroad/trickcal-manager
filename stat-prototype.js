@@ -1838,11 +1838,8 @@
     return Number(state.statSnapshots?.current?.stats?.combatPower ?? state.finalStats?.combatPower) || 0;
   }
 
-  function formatCompactCombatPower(value) {
-    const num = Math.max(0, Math.floor(Number(value) || 0));
-    if (num >= 1000000) return `${(num / 1000000).toFixed(num >= 10000000 ? 0 : 1).replace(/\.0$/, '')}M`;
-    if (num >= 10000) return `${(num / 1000).toFixed(num >= 100000 ? 0 : 1).replace(/\.0$/, '')}K`;
-    return formatNumber(num);
+  function formatApostleListCombatPower(value) {
+    return formatNumber(Math.max(0, Math.floor(Number(value) || 0)));
   }
 
   function renderApostlePickerFilters() {
@@ -1952,7 +1949,7 @@
       : view.apostleSort === 'rank'
         ? `Rank ${state.rank}`
         : view.apostleSort === 'combatPower'
-          ? `CP ${formatCompactCombatPower(getApostleCombatPowerForSort(basic.id))}`
+          ? `CP ${formatApostleListCombatPower(getApostleCombatPowerForSort(basic.id))}`
           : '';
     return `
       <button
@@ -4385,9 +4382,9 @@
     const state = ensureApostleState(basic.id);
     const combatPower = getApostleCombatPowerForSort(basic.id);
     const identityMeta = [basic.性格, basic.種族].filter(Boolean).join(' / ');
-    const identityDetail = view.apostleBulkSort === 'combatPower'
-      ? `${identityMeta} · CP ${formatCompactCombatPower(combatPower)}`
-      : identityMeta;
+    const combatPowerDetail = view.apostleBulkSort === 'combatPower'
+      ? `CP ${formatApostleListCombatPower(combatPower)}`
+      : '';
     const maxSkillLevel = getMaxSkillLevel(state.asideRank);
     const starOptions = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => ({
       value: index + 1,
@@ -4422,7 +4419,11 @@
         <div class="apostle-bulk-identity">
           <img loading="lazy" decoding="async" data-apostle-image data-apostle-skill-asset="${escapeAttr(getApostleAssetId(basic.id))}"
             data-apostle-skill-fallback="passive" src="img/Chara/Skill/Skill_S_${escapeAttr(getApostleAssetId(basic.id))}.webp" alt="">
-          <span><strong>${escapeHtml(basic.使徒名 || basic.id)}</strong><small>${escapeHtml(identityDetail)}</small></span>
+          <span>
+            <strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>
+            <small>${escapeHtml(identityMeta)}</small>
+            ${combatPowerDetail ? `<small class="apostle-bulk-combat-power">${escapeHtml(combatPowerDetail)}</small>` : ''}
+          </span>
         </div>
         <label class="apostle-bulk-field is-star"><span>★</span>
           <select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="star" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ★`)}">
@@ -6220,7 +6221,7 @@
       : view.formationSort === 'rank'
         ? `Rank ${state.rank}`
         : view.formationSort === 'combatPower'
-          ? `CP ${formatCompactCombatPower(getApostleCombatPowerForSort(basic.id))}`
+          ? `CP ${formatApostleListCombatPower(getApostleCombatPowerForSort(basic.id))}`
         : basic.配列 || '';
     return [main, basic.性格, basic.種族, basic.役割]
       .filter(Boolean)

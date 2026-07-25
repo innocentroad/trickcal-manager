@@ -9028,6 +9028,12 @@ button.apostle-picker-card[class*="personality-"] > strong.has-sort-value .apost
   font-weight: 800;
 }
 
+.apostle-bulk-identity .apostle-bulk-combat-power {
+  color: color-mix(in srgb, var(--apostle-bulk-personality-color) 72%, var(--ink));
+  font-weight: 950;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
 .apostle-bulk-field,
 .apostle-bulk-group label {
   min-width: 0;
