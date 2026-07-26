@@ -3212,6 +3212,8 @@ h3 {
     border-radius: 999px;
     flex-wrap: nowrap;
     justify-content: flex-end;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 
   .board-global-floating-mode button {
@@ -3240,6 +3242,22 @@ h3 {
     width: auto;
     max-width: none;
     border-radius: 18px;
+  }
+
+  .board-global-floating-panel {
+    box-sizing: border-box;
+    max-height: min(70dvh, calc(100dvh - var(--dashboard-bar-height, 68px) - 88px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .board-global-floating-panel .rank-summary-tables,
+  .board-global-floating-panel .summary-table-grid,
+  .board-global-floating-panel .board-change-section {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .board-global-summary-actions-floating {

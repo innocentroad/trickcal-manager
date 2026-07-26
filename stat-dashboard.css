@@ -6131,9 +6131,10 @@ body.dashboard-page.is-booting::after {
 }
 
 .formation-picker-option {
+  position: relative;
   min-width: 0;
   display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
+  grid-template-columns: 52px minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   border: 1px solid rgba(36, 83, 59, 0.14);
@@ -6268,6 +6269,10 @@ body.dashboard-page.is-booting::after {
 }
 
 .formation-picker-option-tools {
+  position: absolute;
+  z-index: 6;
+  top: -3px;
+  right: -3px;
   display: grid;
   place-items: center;
 }
@@ -6728,6 +6733,34 @@ body.dashboard-page.is-booting::after {
 
   .formation-picker-grid {
     grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+  }
+
+  .formation-picker-option {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 6px;
+    min-height: 54px;
+    padding: 5px;
+  }
+
+  .formation-picker-option-image-wrap,
+  .formation-picker-option-empty {
+    width: 44px;
+    height: 44px;
+  }
+
+  .formation-picker-effect-btn {
+    width: 20px;
+    height: 20px;
+    font-size: 0.64rem;
+  }
+
+  .formation-picker-option strong {
+    font-size: 0.74rem;
+    line-height: 1.18;
+  }
+
+  .formation-picker-option small {
+    font-size: 0.62rem;
   }
 }
 

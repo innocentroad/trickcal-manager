@@ -7,21 +7,21 @@
   const ROUTE_ASSETS = {
     stat: [
       'stat-dashboard.html',
-      'stat-prototype.css?v=20260715b',
-      'stat-dashboard.css?v=20260726zc',
+      'stat-prototype.css?v=20260715c',
+      'stat-dashboard.css?v=20260726zd',
       'shared-topbar.css?v=20260726b',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260725a',
-      'stat-prototype.js?v=20260726d',
+      'stat-prototype.js?v=20260726g',
       'stat-dashboard.js?v=20260722b',
       'image-preload.js'
     ],
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260726m',
+      'formation-damage-calc.css?v=20260726p',
       'shared-topbar.css?v=20260726b',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
@@ -30,7 +30,7 @@
       'cards.js?v=20260725a',
       'synergy.js',
       'enemy-presets.js',
-      'formation-damage-calc.js?v=20260725p',
+      'formation-damage-calc.js?v=20260726r',
       'image-preload.js'
     ]
   };

@@ -3227,6 +3227,10 @@ body.theme-light .fdc-field select {
   backdrop-filter: blur(12px);
 }
 
+.fdc-skill-popover.is-temp-artifact-detail {
+  z-index: 4100;
+}
+
 .fdc-skill-popover[hidden] {
   display: none;
 }
@@ -3940,6 +3944,44 @@ button.fdc-artifact-slot {
   height: 2.25rem;
 }
 
+.fdc-temp-artifact-info {
+  position: absolute;
+  z-index: 7;
+  top: -0.22rem;
+  right: -0.22rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid rgba(196, 181, 253, 0.36);
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #ec4899);
+  font-size: 0.64rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+.fdc-temp-artifact-info:hover,
+.fdc-temp-artifact-info:focus-visible {
+  filter: brightness(1.12);
+  outline: 2px solid color-mix(in srgb, #c4b5fd 72%, transparent);
+  outline-offset: 1px;
+}
+
+body.theme-light .fdc-temp-artifact-info {
+  color: #f8fff7;
+  border-color: rgba(49, 115, 71, 0.28);
+  background: linear-gradient(135deg, #5da569, #3b7f4f);
+  box-shadow: 0 2px 5px rgba(30, 80, 47, 0.24);
+}
+
+body.theme-light .fdc-temp-artifact-info:hover,
+body.theme-light .fdc-temp-artifact-info:focus-visible {
+  outline-color: color-mix(in srgb, #5da569 72%, transparent);
+}
+
 .fdc-temp-artifact-empty {
   display: grid;
   place-items: center;
@@ -3973,6 +4015,32 @@ button.fdc-artifact-slot {
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 460px) {
+  .fdc-temp-artifact-option {
+    gap: 0.3rem;
+    min-height: 3.3rem;
+    padding: 0.3rem;
+  }
+
+  .fdc-temp-artifact-option .fdc-artifact-slot,
+  .fdc-temp-artifact-empty {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+
+  .fdc-temp-artifact-text strong {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+    line-height: 1.15;
+  }
+
+  .fdc-temp-artifact-text small {
+    font-size: 0.58rem;
+  }
 }
 
 .fdc-equipped-artifact-action,

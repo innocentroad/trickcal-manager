@@ -42,6 +42,16 @@
   const FORMATION_COIN_BONUS = 30;
   const FORMATION_COIN_CP_RATE = 0.000012;
 
+  function shouldAutofocusTextInput() {
+    return window.innerWidth > 700
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  }
+
+  function focusDialogControl(input, fallback) {
+    const target = shouldAutofocusTextInput() ? input : fallback;
+    target?.focus({ preventScroll: true });
+  }
+
   const STAT_GROUPS = [
     { key: 'HP', label: 'HP', total: 'hp', tone: 'hp' },
     { key: '物理攻撃', lookup: '物理攻撃力', label: '物攻', total: 'patk', tone: 'attack' },
@@ -1096,9 +1106,7 @@
         const expanded = openButton.getAttribute('aria-expanded') === 'true';
         if (popover) popover.hidden = expanded;
         openButton.setAttribute('aria-expanded', String(!expanded));
-        const canAutofocusCoinInput = window.innerWidth > 700
-          && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-        if (!expanded && canAutofocusCoinInput) {
+        if (!expanded && shouldAutofocusTextInput()) {
           popover?.querySelector('[data-formation-coin-input]')?.focus({ preventScroll: true });
         }
         return;
@@ -1968,7 +1976,7 @@
     renderApostlePickerFilters();
     renderApostlePicker();
     elements.apostlePickerDialog.showModal();
-    elements.apostlePickerSearch.focus();
+    focusDialogControl(elements.apostlePickerSearch, elements.apostlePickerClose);
   }
 
   function renderCurrentApostlePicker() {
@@ -2284,7 +2292,9 @@
     if (view.stateSlotMode !== 'import') pendingImportedState = null;
     if (view.stateSlotMode === 'save' && elements.stateSaveName) {
       elements.stateSaveName.value = '';
-      setTimeout(() => elements.stateSaveName?.focus(), 0);
+      if (shouldAutofocusTextInput()) {
+        setTimeout(() => elements.stateSaveName?.focus({ preventScroll: true }), 0);
+      }
     }
     renderStateManager();
     const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択', import: 'インポート先番号を選択' };
@@ -5209,8 +5219,10 @@
       const now = new Date();
       elements.formationSaveName.value = `編成 ${now.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
     }
-    elements.formationSaveName?.focus();
-    elements.formationSaveName?.select();
+    if (shouldAutofocusTextInput()) {
+      elements.formationSaveName?.focus({ preventScroll: true });
+      elements.formationSaveName?.select();
+    }
   }
 
   function closeFormationSaveEditor() {
@@ -5415,7 +5427,9 @@
     const tags = parseFormationTags(elements.formationSaveTags.value);
     if (!tags.includes(value)) tags.push(value);
     elements.formationSaveTags.value = tags.slice(0, 8).join(', ');
-    elements.formationSaveTags.focus();
+    if (shouldAutofocusTextInput()) {
+      elements.formationSaveTags.focus({ preventScroll: true });
+    }
   }
 
   function renderFormationSynergySummary(formation) {
@@ -6292,7 +6306,7 @@
     }
     renderFormationPickerOptions();
     elements.formationPickerDialog.showModal();
-    elements.formationPickerSearch.focus();
+    focusDialogControl(elements.formationPickerSearch, elements.formationPickerClose);
   }
 
   function renderFormationPickerOptions() {
@@ -6329,16 +6343,16 @@
             ${item.card && item.card.kind === 'artifact' ? `<img class="formation-picker-option-bg" src="${escapeAttr(getFormationArtifactBg(item.card))}" alt="">` : ''}
             <img ${item.imageAttrs || ''} src="${escapeAttr(item.image)}" alt="">
             ${item.card ? renderFormationCostBadge(item.card.cost) : ''}
+            ${item.card ? `
+              <span class="formation-picker-option-tools">
+                <span class="formation-picker-effect-btn ${getCardManagerEffectCount(item.card) ? 'has-effect' : ''}" role="button" tabindex="0" data-formation-picker-effect="${escapeAttr(item.card.id)}" aria-label="${escapeAttr(`${item.card.name}の効果`)}">i</span>
+              </span>
+            ` : ''}
           </span>
           <span class="formation-picker-option-text">
             <strong>${escapeHtml(item.label)}</strong>
             <small>${escapeHtml(item.sub || '')}</small>
           </span>
-          ${item.card ? `
-            <span class="formation-picker-option-tools">
-              <span class="formation-picker-effect-btn ${getCardManagerEffectCount(item.card) ? 'has-effect' : ''}" role="button" tabindex="0" data-formation-picker-effect="${escapeAttr(item.card.id)}" aria-label="${escapeAttr(`${item.card.name}の効果`)}">i</span>
-            </span>
-          ` : ''}
         </button>
       `).join('')}
     `;

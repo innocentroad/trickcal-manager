@@ -3395,6 +3395,7 @@
     const title = el.skillPopover.querySelector('.fdc-skill-popover-title');
     const body = el.skillPopover.querySelector('.fdc-skill-popover-body');
     el.skillPopover.classList.remove('is-spell-details', 'is-spell-editor');
+    el.skillPopover.classList.toggle('is-temp-artifact-detail', !!anchor.closest('.fdc-temp-artifact-picker'));
     delete el.skillPopover.dataset.fdcPopoverKind;
     if (title) title.textContent = titleText;
     if (body) body.innerHTML = lines.map(line => `<p>${escapeHtml(line).replace(/\n/g, '<br>')}</p>`).join('');
@@ -3411,7 +3412,7 @@
     el.skillPopover = el.skillPopover || document.getElementById('fdc-skill-popover');
     if (el.skillPopover) {
       el.skillPopover.hidden = true;
-      el.skillPopover.classList.remove('is-spell-details', 'is-spell-editor');
+      el.skillPopover.classList.remove('is-spell-details', 'is-spell-editor', 'is-temp-artifact-detail');
       delete el.skillPopover.dataset.fdcPopoverKind;
     }
     document.querySelector('[data-fdc-spell-details-toggle]')?.setAttribute('aria-expanded', 'false');
@@ -4720,7 +4721,14 @@
         </button>
         ${options.map(row => `
           <button type="button" class="fdc-temp-artifact-option ${getCardRarityClass(row)} ${row.owned ? '' : 'is-unowned'} ${row.id === currentId ? 'is-active' : ''}" data-fdc-temp-artifact-value="${escapeAttr(row.id)}">
-            <span class="fdc-artifact-slot is-filled ${getCardRarityClass(row)}">${renderArtifactIcon(row, 0)}</span>
+            <span class="fdc-artifact-slot is-filled ${getCardRarityClass(row)}">
+              ${renderArtifactIcon(row, 0)}
+              <span class="fdc-temp-artifact-info" role="button" tabindex="0"
+                data-fdc-artifact-detail="${escapeAttr(row.id)}"
+                data-fdc-artifact-star="${escapeAttr(row.star)}"
+                data-fdc-artifact-solder="${escapeAttr(row.solder || 0)}"
+                aria-label="${escapeAttr(`${row.name}の効果詳細`)}" title="効果詳細">i</span>
+            </span>
             <span class="fdc-temp-artifact-text">
               <strong>${escapeHtml(row.name)}</strong>
               <small>${escapeHtml(`${row.rarity || ''} / コスト${getCardCostById(row.id, row.star)} / ★${row.star}${row.solder ? ` / +${row.solder}` : ''}`)}</small>
@@ -4732,9 +4740,18 @@
     picker.hidden = false;
     picker.querySelector('[data-fdc-temp-artifact-close]')?.addEventListener('click', closeTempArtifactPicker);
     picker.querySelectorAll('[data-fdc-temp-artifact-value]').forEach(button => {
-      button.addEventListener('click', () => {
+      button.addEventListener('click', event => {
+        if (event.target.closest('[data-fdc-artifact-detail]')) return;
         applyTempArtifactValue(button.dataset.fdcTempArtifactValue || '');
         closeTempArtifactPicker();
+      });
+    });
+    picker.querySelectorAll('[data-fdc-artifact-detail]').forEach(button => {
+      button.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        event.stopPropagation();
+        showFdcArtifactPopover(button);
       });
     });
   }
