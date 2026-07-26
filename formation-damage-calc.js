@@ -1732,13 +1732,18 @@
     }];
     if (apostleMode) {
       getEnemyApostleSkillOptions(context || buildContext()).forEach((option, index) => {
+        const classificationLabel = getFdcApostleSkillClassificationLabel(option);
         rows.push({
           index,
           value: option.value || 100,
           category: option.category || '',
-          action: getFdcApostleSkillActionLabel(option.category),
-          name: option.skillName || option.category || '',
-          note: [option.kind || '', option.cooldownSeconds ? `CT ${formatPlainNumber(option.cooldownSeconds)}秒` : ''].filter(Boolean).join(' / ')
+          action: getFdcApostleSkillActionLabel(option.sourceCategory || option.category),
+          name: option.skillName || option.sourceCategory || option.category || '',
+          note: [
+            classificationLabel ? `攻撃分類: ${classificationLabel}` : '',
+            option.kind || '',
+            option.cooldownSeconds ? `CT ${formatPlainNumber(option.cooldownSeconds)}秒` : ''
+          ].filter(Boolean).join(' / ')
         });
       });
     } else {
@@ -3222,14 +3227,21 @@
         <span>値の種類</span>
         <span></span>
       </div>
-      ${options.map(option => `
+      ${options.map(option => {
+        const sourceCategory = option.sourceCategory || option.category;
+        const classificationLabel = getFdcApostleSkillClassificationLabel(option);
+        return `
         <button type="button" class="fdc-skill-choice ${(view.selectedSkillOptionKey ? view.selectedSkillOptionKey === option.key : Math.abs(Number(option.value) - current) < 0.001 && view.selectedSkillCategory === option.category) ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}" data-fdc-skill-key="${escapeAttr(option.key)}">
-          <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
+          <span class="fdc-skill-choice-action-cell">
+            <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(sourceCategory))}">${escapeHtml(getFdcApostleSkillActionLabel(sourceCategory))}</span>
+            ${classificationLabel ? `<small class="fdc-skill-choice-classification" title="${escapeAttr(`攻撃分類: ${classificationLabel}`)}">分類: ${escapeHtml(classificationLabel)}</small>` : ''}
+          </span>
           <span class="fdc-skill-choice-mult">${escapeHtml(formatPlainNumber(option.value))}%</span>
           <span class="fdc-skill-choice-kind" title="${escapeAttr(option.detailText || '')}">${escapeHtml([option.kind, option.shortDetail].filter(Boolean).join(' / '))}</span>
           <span class="fdc-skill-choice-info" data-fdc-skill-info="${escapeAttr(option.key)}" title="詳細">i</span>
         </button>
-      `).join('')}
+      `;
+      }).join('')}
     `;
     const optionsByKey = new Map(options.map(option => [option.key, option]));
     el.selfSkillChoices.querySelectorAll('[data-fdc-skill-value]').forEach(button => {
@@ -3266,16 +3278,18 @@
     const lines = [
       option.skillName ? `スキル名: ${option.skillName}` : '',
       option.label ? `候補: ${option.label}` : '',
+      option.sourceCategory ? `由来行動: ${option.sourceCategory}` : '',
+      option.attackCategory ? `攻撃分類: ${getFdcApostleSkillClassificationLabel(option) || option.attackCategory}` : '',
       option.sourceLabel && option.sourceLabel !== '通常' ? `由来: ${option.sourceLabel}` : '',
       option.cooldownSeconds ? `クールタイム: ${formatPlainNumber(option.cooldownSeconds)}秒` : '',
       option.detailText || '',
       ...getFdcLowSkillSpInfoLines(option, target, context)
     ].filter(Boolean);
-    showFdcInfoPopover(anchor, option.category || 'スキル詳細', lines);
+    showFdcInfoPopover(anchor, option.sourceCategory || option.category || 'スキル詳細', lines);
   }
 
   function getFdcLowSkillSpInfoLines(option, target, context = null) {
-    if (getFdcSkillBaseCategory(option?.category) !== '低学年スキル') return [];
+    if (getFdcSkillBaseCategory(option?.sourceCategory || option?.category) !== '低学年スキル') return [];
     if (!target || typeof TRICKCAL_SP_ENGINE === 'undefined') return [];
     const apostle = getApostleSkillData(target) || getApostle(target.id) || {};
     const baseState = TRICKCAL_SP_ENGINE.createApostleState(apostle, target.stats || {}, {
@@ -4312,7 +4326,9 @@
       return bonuses;
     }
 
-    if (isOtherMultiplier) addSigned('otherP');
+    if (valueClass === '与ダメージ量増加') add('addP');
+    else if (valueClass === '被ダメージ量減少') add('takenDmgP');
+    else if (isOtherMultiplier) addSigned('otherP');
     else if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
     else if (/攻撃力/.test(valueKind) && !targetEnemy) addSigned('atkP');
     else if (/防御力/.test(valueKind)) {
@@ -4443,6 +4459,23 @@
   }
 
   function judgeFdcEffectValueActionScope(effect = {}, actionCategory = '') {
+    const explicitCategories = getFdcDeclaredAttackCategories(effect.attackCategory);
+    if (explicitCategories.length) {
+      const selectedCategories = getFdcActionCategories(actionCategory);
+      const matched = explicitCategories.some(expected =>
+        selectedCategories.some(selected => matchesFdcAttackCategory(expected, selected))
+      );
+      return { hasActionScope: true, matched };
+    }
+    const targetSkillCategories = getFdcDeclaredAttackCategories(effect.targetSkill)
+      .filter(item => /攻撃|スキル|自爆|状態異常|毒|苦痛|火傷|凍傷/.test(item));
+    if (targetSkillCategories.length) {
+      const selectedCategories = getFdcActionCategories(actionCategory);
+      const matched = targetSkillCategories.some(expected =>
+        selectedCategories.some(selected => matchesFdcAttackCategory(expected, selected))
+      );
+      return { hasActionScope: true, matched };
+    }
     const valueKind = String(effect.valueKind || '');
     const category = getFdcSkillBaseCategory(actionCategory);
     if (/(?:通常|普通)攻撃.*ダメージ/.test(valueKind)) {
@@ -7701,8 +7734,8 @@
     const options = [];
     const statusMultipliers = new Map();
     collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }, skillIndex) => {
-      const category = getFdcApostleSkillCategory(skill, sourceLabel);
-      const skillLevel = getFdcSkillLevelForCategory(levels, category);
+      const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
+      const skillLevel = getFdcSkillLevelForCategory(levels, sourceCategory);
       getFdcSkillStatusMultipliers(skill).forEach(({ status, multiplier }) => {
         statusMultipliers.set(status, multiplier);
       });
@@ -7710,18 +7743,22 @@
         if (!isFdcApostleAttackMultiplierEffect(effect)) return;
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
         if (!levelInfo || !Number.isFinite(levelInfo.value)) return;
-        const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) : null;
+        const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, sourceCategory) : null;
         const calcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
         const damageReference = getFdcApostleDamageReference(effect);
         const referenceLabel = damageReference === 'enemyMaxHp' ? '敵最大HP参照' : '';
         const kind = effect.valueKind || 'ダメージ';
-        const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, category);
+        const attackCategory = String(effect.attackCategory || '').trim();
+        const category = attackCategory || sourceCategory;
+        const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory);
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
           value: String(calcValue),
-          label: `${category} / ${kind} (${formatPlainNumber(calcValue)}%)`,
+          label: `${sourceCategory}${attackCategory ? ` / 攻撃分類: ${attackCategory}` : ''} / ${kind} (${formatPlainNumber(calcValue)}%)`,
           category,
+          sourceCategory,
+          attackCategory,
           sourceLabel,
           skillName: skill.skillName || skill.name || '',
           requiredSp: getFdcLowSkillRequiredSp(skill),
@@ -7745,7 +7782,7 @@
               ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
               : ''
           ].filter(Boolean).join('\n'),
-          order: getFdcApostleSkillOrder(category)
+          order: getFdcApostleSkillOrder(sourceCategory)
         });
       });
     });
@@ -7755,6 +7792,8 @@
         value: String(multiplier),
         label: `${status} (${multiplier}%)`,
         category: `状態異常::${status}`,
+        sourceCategory: `状態異常::${status}`,
+        attackCategory: '',
         sourceLabel: '状態異常',
         skillName: '',
         kind: status,
@@ -7985,7 +8024,8 @@
   }
 
   function isFdcSkillActionCategory(category = '') {
-    return /低学年|高学年|アサイド|^A[1-3]$/.test(String(category || ''));
+    return getFdcActionCategories(category)
+      .some(item => item === 'スキル' || /低学年|高学年|アサイド|^A[1-3]$/.test(item));
   }
 
   function getFdcApostleSkillCategory(skill, sourceLabel = '') {
@@ -8001,7 +8041,38 @@
   }
 
   function getFdcSkillBaseCategory(category = '') {
-    return String(category || '').split('::')[0];
+    return getFdcActionCategories(category)[0] || '';
+  }
+
+  function getFdcActionCategories(category = '') {
+    const categories = getFdcDeclaredAttackCategories(category);
+    const statusPart = String(category || '').split('::')[1];
+    if (statusPart) categories.push('状態異常');
+    if (categories.includes('基本攻撃') || categories.includes('強化攻撃')) categories.push('普通攻撃');
+    if (categories.includes('低学年スキル') || categories.includes('高学年スキル')) categories.push('スキル');
+    return [...new Set(categories.filter(Boolean))];
+  }
+
+  function getFdcDeclaredAttackCategories(category = '') {
+    const [categoryPart, statusPart] = String(category || '').split('::');
+    const categories = categoryPart
+      .split(/[,、]/)
+      .map(item => item.trim())
+      .filter(Boolean);
+    if (statusPart) categories.push(statusPart.trim());
+    return [...new Set(categories.filter(Boolean))];
+  }
+
+  function matchesFdcAttackCategory(expected = '', selected = '') {
+    const expectedKey = String(expected).replace(/[\s　・_]/g, '').replace(/の/g, '');
+    const selectedKey = String(selected).replace(/[\s　・_]/g, '').replace(/の/g, '');
+    if (!expectedKey || !selectedKey) return false;
+    if (expectedKey === selectedKey) return true;
+    if (/(?:通常|普通)攻撃基本/.test(expectedKey)) return selected === '基本攻撃';
+    if (/(?:通常|普通)攻撃強化/.test(expectedKey)) return selected === '強化攻撃';
+    if (expectedKey === 'スキル') return isFdcSkillActionCategory(selected);
+    if (/(?:通常|普通)攻撃/.test(expectedKey)) return selected === '基本攻撃' || selected === '強化攻撃';
+    return false;
   }
 
   function getFdcApostleSkillOrder(category) {
@@ -8018,7 +8089,8 @@
 
   function getFdcApostleSkillActionLabel(category = '') {
     const rawCategory = String(category || '');
-    const [baseCategory, status] = rawCategory.split('::');
+    const [categoryPart, status] = rawCategory.split('::');
+    const baseCategory = getFdcActionCategories(categoryPart)[0] || categoryPart;
     if (status) return status;
     if (baseCategory === '基本攻撃') return '基本';
     if (baseCategory === '強化攻撃') return '強化';
@@ -8027,6 +8099,15 @@
     if (baseCategory.startsWith('愛用品')) return baseCategory.replace('愛用品', '愛用');
     if (/^A[1-3]$/.test(baseCategory)) return baseCategory;
     return baseCategory || 'スキル';
+  }
+
+  function getFdcApostleSkillClassificationLabel(option = {}) {
+    const attackCategory = String(option.attackCategory || '').trim();
+    if (!attackCategory) return '';
+    const declared = getFdcDeclaredAttackCategories(attackCategory);
+    const sourceCategories = new Set(getFdcActionCategories(option.sourceCategory || ''));
+    if (declared.length && declared.every(category => sourceCategories.has(category))) return '';
+    return declared.join('・') || attackCategory;
   }
 
   function getFdcApostleSkillTone(category = '') {

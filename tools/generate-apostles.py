@@ -107,6 +107,13 @@ KEY_MAP = {
     "種族タイプ": "raceBoardType",
 }
 
+EFFECT_ATTACK_CATEGORY_HEADERS = {
+    "攻撃タイプ",
+    "攻撃分類",
+    "攻撃分類上書き",
+    "対象攻撃種別",
+}
+
 ALLOWED_VALUE_CLASSES = {
     "倍率",
     "与ダメージ量増加",
@@ -165,7 +172,12 @@ def key_text(value: Any) -> str:
     return str(value)
 
 
-def read_sheet_rows(workbook: Any, sheet_name: str) -> list[dict[str, Any]]:
+def read_sheet_rows(
+    workbook: Any,
+    sheet_name: str,
+    *,
+    effect_rows: bool = False,
+) -> list[dict[str, Any]]:
     if sheet_name not in workbook.sheetnames:
         raise KeyError(f"sheet not found: {sheet_name}")
 
@@ -181,7 +193,11 @@ def read_sheet_rows(workbook: Any, sheet_name: str) -> list[dict[str, Any]]:
         for raw_key, raw_value in zip(headers, row):
             if not raw_key:
                 continue
-            key = KEY_MAP.get(raw_key, raw_key)
+            key = (
+                "attackCategory"
+                if effect_rows and raw_key in EFFECT_ATTACK_CATEGORY_HEADERS
+                else KEY_MAP.get(raw_key, raw_key)
+            )
             value = clean_value(raw_value)
             if key == "effectStack" and value is False:
                 continue
@@ -211,6 +227,7 @@ def has_effect_payload(data: dict[str, Any]) -> bool:
         "valueKind",
         "valueClass",
         "effectType",
+        "attackCategory",
         "effectStack",
         "stackCount",
         "maxStack",
@@ -396,7 +413,11 @@ def add_favorite_card_effect(apostle: dict[str, Any], row: dict[str, Any]) -> No
 
 
 def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
-    rows = {key: read_sheet_rows(workbook, sheet_name) for key, sheet_name in SHEETS.items()}
+    effect_sheets = {"skills", "favoriteCard", "asideSpecials"}
+    rows = {
+        key: read_sheet_rows(workbook, sheet_name, effect_rows=key in effect_sheets)
+        for key, sheet_name in SHEETS.items()
+    }
     warnings: list[str] = []
     by_id: dict[str, dict[str, Any]] = {}
 

@@ -2782,6 +2782,30 @@ body.theme-light .fdc-field select {
   white-space: nowrap;
 }
 
+.fdc-skill-choice-action-cell {
+  display: inline-flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.16rem;
+}
+
+.fdc-skill-choice-action-cell .fdc-skill-choice-action {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fdc-skill-choice-classification {
+  max-width: 100%;
+  color: var(--fdc-muted);
+  font-size: 0.58rem;
+  font-weight: 850;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-align: center;
+}
+
 .fdc-skill-choice-action.tone-basic { background: #64748b; }
 .fdc-skill-choice-action.tone-enhanced { background: #f97316; }
 .fdc-skill-choice-action.tone-low { background: #22c55e; }

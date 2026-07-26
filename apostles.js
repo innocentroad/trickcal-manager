@@ -3374,6 +3374,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "基本攻撃",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": 200.0,
@@ -3394,6 +3395,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "基本攻撃扱い",
             "valueClass": "状態付与",
             "effectType": "攻撃",
+            "attackCategory": "基本攻撃",
             "effectTarget": "召喚獣物理ダメージ"
           },
           {
@@ -7486,26 +7488,18 @@ const APOSTLE_LIBRARY = [
           ],
           "effects": [
             {
-              "valueKind": "後列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。",
+              "valueKind": "与ダメージ量増加",
               "valueClass": "与ダメージ量増加",
               "effectType": "倍率",
-              "condition": "バフ",
               "targetSkill": "味方/後列",
-              "fixedValue": 19.5,
-              "levels": {
-                "1": 13.6
-              }
+              "fixedValue": 19.5
             },
             {
-              "valueKind": "後列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。",
+              "valueKind": "被ダメージ量減少",
               "valueClass": "被ダメージ量減少",
               "effectType": "倍率",
-              "condition": "バフ",
               "targetSkill": "味方/後列",
-              "fixedValue": 8.8,
-              "levels": {
-                "1": 5.9
-              }
+              "fixedValue": 8.8
             }
           ],
           "description": "後列の味方の敵への与ダメージ量を増加させる。\n後列の味方の敵からの被ダメージ量を減少させる。"
@@ -8139,6 +8133,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "基本攻撃",
             "effectTarget": "HP割合が最も低い敵",
             "levels": {
               "1": 40.0,
@@ -17204,6 +17199,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "基本攻撃",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": 30.0,
@@ -17227,6 +17223,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の自爆ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "スキル,召喚獣の自爆",
             "condition": "召喚獣破壊時",
             "effectTarget": "周囲の敵",
             "levels": {
@@ -17345,6 +17342,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "基本攻撃",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": 30.0,
@@ -17368,6 +17366,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "召喚獣の自爆ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "attackCategory": "スキル,召喚獣の自爆",
             "condition": "召喚獣破壊時",
             "effectTarget": "周囲の敵",
             "levels": {

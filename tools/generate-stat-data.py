@@ -304,6 +304,10 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
             "発動条件値": "triggerValue",
             "スタック数": "stackCount",
             "最大スタック数": "maxStack",
+            "攻撃タイプ": "attackCategory",
+            "攻撃分類": "attackCategory",
+            "攻撃分類上書き": "attackCategory",
+            "対象攻撃種別": "attackCategory",
         }
         for old, new in renames.items():
             if new not in item and old in item:
@@ -314,6 +318,8 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
             item["effectStack"] = effect_stack
         if max_stack not in ("", None, False, 0):
             item["maxStack"] = max_stack
+        for alias in ("攻撃タイプ", "攻撃分類", "攻撃分類上書き", "対象攻撃種別"):
+            item.pop(alias, None)
         if "condition" not in item:
             for key in ("条件", "発動条件"):
                 value = item.get(key, "")
