@@ -20133,14 +20133,14 @@ const APOSTLE_LIBRARY = [
                 "fixedValue": 9.0
               },
               {
-                "valueKind": "会心増加",
+                "valueKind": "会心抵抗増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
                 "effectTarget": "自身",
                 "fixedValue": 9.0
               },
               {
-                "valueKind": "会心ダメージ増加",
+                "valueKind": "会心ダメージ抵抗増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
                 "effectTarget": "自身",

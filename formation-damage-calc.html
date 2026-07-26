@@ -37,8 +37,8 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260723c" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260725n">
-  <link rel="stylesheet" href="shared-topbar.css?v=20260725b">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260726m">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260726b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
   <script>
@@ -66,6 +66,7 @@
         <details class="topbar-global-menu">
           <summary><span class="topbar-label">一括<br>設定</span></summary>
           <div class="topbar-global-popover" aria-label="一括設定メニュー">
+            <a href="stat-dashboard.html?global=apostles">使徒設定</a>
             <a href="stat-dashboard.html?global=rank">Rank</a>
             <a href="stat-dashboard.html?global=bond">好感度</a>
             <a href="stat-dashboard.html?global=aside">アサイド</a>
@@ -298,6 +299,10 @@
             <label class="fdc-field fdc-attack-only">
               <span>会心率加算(%)</span>
               <input id="fdc-self-crit-rate-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>会心DMG量加算(%)</span>
+              <input id="fdc-self-crit-dmg-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
               <span>防御力(%)</span>
@@ -624,6 +629,10 @@
               <span>会心率加算(%)</span>
               <input id="fdc-enemy-crit-rate-p" type="number" value="0">
             </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>会心DMG量加算(%)</span>
+              <input id="fdc-enemy-crit-dmg-add-p" type="number" value="0">
+            </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
               <span>防御力(%)</span>
               <input id="fdc-enemy-def-p" type="number" value="0">
@@ -642,6 +651,9 @@
     </section>
 
       <footer class="site-rights-footer">
+        <a class="site-footer-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
+          <img src="img/icon/note.svg" alt="" width="14" height="14">
+        </a>
         <div class="site-rights-summary">非公式ファンサイト｜© EPIDGames Inc.｜日本版提供：BILIBILI HK LIMITED｜ゲーム内コンテンツの権利は各権利者に帰属します。</div>
         <details class="site-rights-details">
           <summary>権利表記・免責事項</summary>

@@ -44,8 +44,8 @@
     })();
   </script>
   <link rel="stylesheet" href="stat-prototype.css?v=20260715b">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260725m">
-  <link rel="stylesheet" href="shared-topbar.css?v=20260725b">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260726zc">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260726b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
   <script>
@@ -476,27 +476,31 @@
                 </select>
               </label>
               <label class="card-manager-owned-filter"><input type="checkbox" id="card-manager-owned-only"> 所持のみ</label>
-              <span class="card-manager-bulk-tools" aria-label="カード一括操作">
-                <button type="button" id="card-manager-own-visible">表示中を全所持</button>
-                <label class="card-manager-select"><span>全レア度</span>
-                  <select id="card-manager-bulk-star">
-                    <option value="">変更なし</option>
-                    <option value="1">★1</option>
-                    <option value="2">★2</option>
-                    <option value="3">★3</option>
-                    <option value="4">★4</option>
-                    <option value="5">★5</option>
-                  </select>
-                </label>
-                <label class="card-manager-select"><span>全はんだ</span>
-                  <select id="card-manager-bulk-solder">
-                    <option value="">変更なし</option>
-                    <option value="0">+0</option>
-                    <option value="1">+1</option>
-                    <option value="2">+2</option>
-                  </select>
-                </label>
-              </span>
+              <details id="card-manager-bulk-menu" class="card-manager-bulk-menu">
+                <summary>全カード変更</summary>
+                <div class="card-manager-bulk-popover" aria-label="カード一括操作">
+                  <p>検索・絞り込みで現在表示中のカードに適用します。</p>
+                  <button type="button" id="card-manager-own-visible">表示中を全所持</button>
+                  <label class="card-manager-select"><span>★一括</span>
+                    <select id="card-manager-bulk-star">
+                      <option value="">選択</option>
+                      <option value="1">★1</option>
+                      <option value="2">★2</option>
+                      <option value="3">★3</option>
+                      <option value="4">★4</option>
+                      <option value="5">★5</option>
+                    </select>
+                  </label>
+                  <label class="card-manager-select"><span>はんだ一括</span>
+                    <select id="card-manager-bulk-solder">
+                      <option value="">選択</option>
+                      <option value="0">+0</option>
+                      <option value="1">+1</option>
+                      <option value="2">+2</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
             </div>
             <div id="card-manager-summary" class="card-manager-summary"></div>
             <div id="card-manager-grid" class="card-manager-grid"></div>
@@ -561,6 +565,9 @@
         </article>
       </section>
       <footer class="site-rights-footer">
+        <a class="site-footer-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
+          <img src="img/icon/note.svg" alt="" width="14" height="14">
+        </a>
         <div class="site-rights-summary">非公式ファンサイト｜© EPIDGames Inc.｜日本版提供：BILIBILI HK LIMITED｜ゲーム内コンテンツの権利は各権利者に帰属します。</div>
         <details class="site-rights-details">
           <summary>権利表記・免責事項</summary>
@@ -689,13 +696,35 @@
     <div id="formation-picker-grid" class="formation-picker-grid"></div>
   </dialog>
 
+  <dialog id="board-off-mode-dialog" class="board-off-mode-dialog" aria-labelledby="board-off-mode-title">
+    <div class="board-off-mode-head">
+      <span class="board-off-mode-kicker">特殊マスをOFFにした時</span>
+      <h2 id="board-off-mode-title">OFF時の動作を切り替えますか？</h2>
+      <p>この設定は特殊マスを解除する時だけ使われます。マスをONにする時の経路作成には影響しません。</p>
+    </div>
+    <div class="board-off-mode-options">
+      <article data-board-off-mode-option="node">
+        <div><strong>マスのみ</strong><span data-board-off-mode-badge></span></div>
+        <p>選んだ特殊マスだけを解除します。すでに通った経路マスはそのまま残します。</p>
+      </article>
+      <article data-board-off-mode-option="route">
+        <div><strong>経路整理</strong><span data-board-off-mode-badge></span></div>
+        <p>特殊マスを解除し、そのマスにしか使われていない不要な経路も自動で解除します。</p>
+      </article>
+    </div>
+    <div class="board-off-mode-actions">
+      <button type="button" id="board-off-mode-cancel">キャンセル</button>
+      <button type="button" id="board-off-mode-confirm" class="primary">切り替える</button>
+    </div>
+  </dialog>
+
   <script src="statData.js?v=20260723a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="cards.js?v=20260725a"></script>
   <script src="app-cache.js?v=20260725q"></script>
   <script src="image-preload.js"></script>
-  <script src="stat-prototype.js?v=20260725l"></script>
+  <script src="stat-prototype.js?v=20260726d"></script>
   <script src="stat-dashboard.js?v=20260722b"></script>
 </body>
 </html>

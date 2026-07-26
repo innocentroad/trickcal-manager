@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>スマホ表示チェック</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0b1220; color: #e5edf8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 18px; }
+    header { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 14px; }
+    label { display: grid; gap: 4px; font-size: 12px; color: #9fb0c7; }
+    select, button { min-height: 36px; border: 1px solid #334664; border-radius: 9px; padding: 0 11px; background: #111d31; color: inherit; }
+    button { cursor: pointer; font-weight: 700; }
+    .workspace { display: grid; grid-template-columns: minmax(320px, auto) minmax(280px, 1fr); gap: 18px; align-items: start; }
+    .viewport { overflow: auto; max-width: 100%; padding: 10px; border: 1px solid #2c3d58; border-radius: 12px; background: #050a12; }
+    iframe { display: block; border: 0; background: white; transform-origin: top left; }
+    .report { display: grid; gap: 12px; position: sticky; top: 12px; }
+    section { border: 1px solid #2c3d58; border-radius: 12px; padding: 12px; background: #101a2b; }
+    h2 { margin: 0 0 8px; font-size: 15px; }
+    ol { margin: 0; padding-left: 21px; font-size: 12px; line-height: 1.55; overflow-wrap: anywhere; }
+    .critical h2 { color: #ff8b8b; }
+    .candidate h2 { color: #ffd56b; }
+    .ok { color: #75dda2; font-size: 12px; }
+    .hint { margin: 0; color: #91a3bb; font-size: 11px; line-height: 1.5; }
+    @media (max-width: 760px) { body { padding: 10px; } .workspace { grid-template-columns: 1fr; } .report { position: static; } }
+  </style>
+</head>
+<body>
+  <header>
+    <label>ページ
+      <select id="page">
+        <option value="../formation-damage-calc.html">ダメージ計算</option>
+        <option value="../stat-dashboard.html">ステータス管理</option>
+        <option value="../enemy-status.html">敵ステータス</option>
+        <option value="../board-preview.html">ボードプレビュー</option>
+      </select>
+    </label>
+    <label>画面サイズ
+      <select id="size">
+        <option value="320x800">320 × 800</option>
+        <option value="360x800" selected>360 × 800</option>
+        <option value="390x844">390 × 844</option>
+        <option value="412x915">412 × 915</option>
+      </select>
+    </label>
+    <button id="load" type="button">読み込み</button>
+    <button id="scan" type="button">再チェック</button>
+  </header>
+  <main class="workspace">
+    <div class="viewport"><iframe id="preview" title="スマホ表示プレビュー"></iframe></div>
+    <div class="report">
+      <section class="critical"><h2>要修正</h2><div id="critical"></div></section>
+      <section class="candidate"><h2>修正候補</h2><div id="candidate"></div></section>
+      <section><p class="hint">横スクロールを明示した表・ボードは除外します。黄色枠は軽微な文字切れや小さすぎる操作部、赤枠は画面外へのはみ出しです。自動判定なので最後は実画面でも確認してください。</p></section>
+    </div>
+  </main>
+  <script>
+    const preview = document.querySelector('#preview');
+    const sizeSelect = document.querySelector('#size');
+    const pageSelect = document.querySelector('#page');
+
+    function setSize() {
+      const [width, height] = sizeSelect.value.split('x').map(Number);
+      preview.style.width = `${width}px`;
+      preview.style.height = `${height}px`;
+    }
+
+    function describe(element) {
+      const id = element.id ? `#${element.id}` : '';
+      const classes = [...element.classList].slice(0, 2).map(name => `.${name}`).join('');
+      return `${element.tagName.toLowerCase()}${id}${classes}`;
+    }
+
+    function hasScrollContainer(element, axis) {
+      let current = element.parentElement;
+      while (current && current !== element.ownerDocument.body) {
+        const style = getComputedStyle(current);
+        const overflow = axis === 'x' ? style.overflowX : style.overflowY;
+        if ((overflow === 'auto' || overflow === 'scroll') && current[`scroll${axis === 'x' ? 'Width' : 'Height'}`] > current[`client${axis === 'x' ? 'Width' : 'Height'}`]) return true;
+        current = current.parentElement;
+      }
+      return false;
+    }
+
+    function addResult(target, items, emptyText) {
+      target.innerHTML = items.length
+        ? `<ol>${items.map(item => `<li>${item}</li>`).join('')}</ol>`
+        : `<span class="ok">${emptyText}</span>`;
+    }
+
+    function scan() {
+      const doc = preview.contentDocument;
+      if (!doc?.body) return;
+      doc.querySelectorAll('[data-responsive-check]').forEach(element => {
+        element.style.outline = element.dataset.responsiveCheckOutline || '';
+        delete element.dataset.responsiveCheck;
+        delete element.dataset.responsiveCheckOutline;
+      });
+
+      const critical = [];
+      const candidate = [];
+      const root = doc.documentElement;
+      if (root.scrollWidth > root.clientWidth + 2) critical.push(`ページ全体に横スクロールあり（${root.scrollWidth}px / ${root.clientWidth}px）`);
+
+      [...doc.body.querySelectorAll('*')].forEach(element => {
+        const style = getComputedStyle(element);
+        const rect = element.getBoundingClientRect();
+        if (style.display === 'none' || style.visibility === 'hidden' || rect.width < 1 || rect.height < 1) return;
+        const name = describe(element);
+        let severity = '';
+        let message = '';
+
+        if ((rect.left < -2 || rect.right > root.clientWidth + 2) && !hasScrollContainer(element, 'x')) {
+          severity = 'critical';
+          message = `${name}: 横方向に見切れ（left ${Math.round(rect.left)}, right ${Math.round(rect.right)}）`;
+        } else {
+          const textClipped = element.childElementCount === 0 && element.textContent.trim() &&
+            ((element.scrollWidth > element.clientWidth + 2 && style.overflowX !== 'visible') ||
+             (element.scrollHeight > element.clientHeight + 2 && style.overflowY !== 'visible'));
+          if (textClipped) {
+            severity = 'candidate';
+            message = `${name}: 文字が省略・切り抜きされている可能性`;
+          } else if (element.matches('button, input, select, summary, [role="button"]') &&
+                     !element.disabled && (rect.height < 32 || rect.width < 32)) {
+            severity = 'candidate';
+            message = `${name}: 操作領域が小さい（${Math.round(rect.width)} × ${Math.round(rect.height)}px）`;
+          }
+        }
+
+        if (!severity) return;
+        const original = element.style.outline;
+        element.dataset.responsiveCheck = severity;
+        element.dataset.responsiveCheckOutline = original;
+        element.style.outline = severity === 'critical' ? '2px solid #ff4d5f' : '2px solid #f5c84c';
+        (severity === 'critical' ? critical : candidate).push(message);
+      });
+
+      addResult(document.querySelector('#critical'), [...new Set(critical)].slice(0, 50), '自動検出なし');
+      addResult(document.querySelector('#candidate'), [...new Set(candidate)].slice(0, 80), '自動検出なし');
+    }
+
+    function load() {
+      setSize();
+      preview.src = `${pageSelect.value}?responsive-check=${Date.now()}`;
+    }
+
+    preview.addEventListener('load', () => setTimeout(scan, 900));
+    document.querySelector('#load').addEventListener('click', load);
+    document.querySelector('#scan').addEventListener('click', scan);
+    sizeSelect.addEventListener('change', load);
+    pageSelect.addEventListener('change', load);
+    load();
+  </script>
+</body>
+</html>

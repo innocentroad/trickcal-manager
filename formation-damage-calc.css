@@ -4986,6 +4986,34 @@ body.theme-light .fdc-result-diff.is-negative {
     height: 4.35rem;
   }
 
+  .fdc-floating-target .fdc-personality-badge {
+    top: 0.08rem !important;
+    left: 0.08rem !important;
+  }
+
+  .fdc-floating-target .fdc-role-badge,
+  .fdc-floating-target .fdc-attack-badge,
+  .fdc-floating-target .fdc-position-badge {
+    bottom: 0.1rem !important;
+  }
+
+  .fdc-floating-target .fdc-role-badge {
+    left: 0.08rem !important;
+  }
+
+  .fdc-floating-target .fdc-attack-badge {
+    left: 0.74rem !important;
+  }
+
+  .fdc-floating-target .fdc-position-badge {
+    left: 1.4rem !important;
+  }
+
+  .fdc-picker-all-grid {
+    padding: 0.5rem 0.42rem 0.46rem;
+    scroll-padding-top: 0.5rem;
+  }
+
   .fdc-artifact-board-cell {
     grid-template-columns: 1.7rem minmax(0, 1fr);
     padding: 0.22rem;
@@ -5090,8 +5118,69 @@ body.theme-light .fdc-result-diff.is-negative {
 }
 
 @media (max-width: 420px) {
+  .fdc-shell {
+    gap: 0.5rem;
+    padding-inline: 0;
+  }
+
+  .fdc-panel {
+    border-radius: 12px;
+    padding: 0.48rem 0.35rem;
+  }
+
+  .fdc-side-panels {
+    gap: 0;
+  }
+
+  .fdc-side-panels > .side-panel {
+    border: 0;
+    border-radius: 0;
+  }
+
+  body.formation-damage-calc::after {
+    content: "";
+    position: fixed;
+    top: 3rem;
+    right: 0;
+    bottom: var(--fdc-result-bar-height, 4.2rem);
+    left: 0;
+    z-index: 999;
+    border: 2px solid rgba(239, 68, 68, 0.64);
+    pointer-events: none;
+  }
+
+  body.formation-damage-calc:not(.is-defense-mode)[data-fdc-mobile-side="enemy"]::after,
+  body.formation-damage-calc.is-defense-mode[data-fdc-mobile-side="self"]::after {
+    border-color: rgba(59, 130, 246, 0.66);
+  }
+
+  .fdc-panel .stat-category {
+    margin-top: 0.5rem;
+    border-radius: 8px;
+    padding: 0.32rem;
+  }
+
   .fdc-stat-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+
+  .fdc-field {
+    gap: 0.2rem;
+    font-size: 0.64rem;
+    line-height: 1.2;
+  }
+
+  .fdc-field input,
+  .fdc-field select {
+    min-height: 2.08rem;
+    padding-inline: 0.42rem;
+    border-radius: 9px;
+    font-size: 0.72rem;
+  }
+
+  .fdc-stat-field {
+    padding: 0.3rem;
   }
 
   .fdc-result-detail-panel {
@@ -5157,6 +5246,24 @@ body.theme-light .fdc-result-diff.is-negative {
   }
 }
 
+@media (max-width: 350px) {
+  .fdc-artifact-board-cell {
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: 0.16rem;
+    padding: 0.16rem;
+  }
+
+  .fdc-artifact-cell-apostle {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .fdc-artifact-tiny {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
 @media (max-width: 360px) {
   .fdc-result-bar .bottom-results-grid .result-card {
     flex: 1 1 calc(50% - 0.18rem);
@@ -5166,5 +5273,25 @@ body.theme-light .fdc-result-diff.is-negative {
   .fdc-detail-toggle {
     flex: 0 0 2.55rem !important;
     min-width: 2.55rem !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .fdc-skill-effect-list {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: min(36dvh, 280px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.18rem;
+    scrollbar-width: thin;
+  }
+
+  #fdc-artifact-category .fdc-artifact-effect-chips,
+  #fdc-spell-category .fdc-artifact-effect-chips {
+    max-height: min(36dvh, 280px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-right: 0.18rem;
+    scrollbar-width: thin;
   }
 }

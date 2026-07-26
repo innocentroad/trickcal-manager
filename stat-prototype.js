@@ -203,6 +203,7 @@
     cardManagerEffect: document.getElementById('card-manager-effect'),
     cardManagerOwnedOnly: document.getElementById('card-manager-owned-only'),
     cardManagerOwnVisible: document.getElementById('card-manager-own-visible'),
+    cardManagerBulkMenu: document.getElementById('card-manager-bulk-menu'),
     cardManagerBulkStar: document.getElementById('card-manager-bulk-star'),
     cardManagerBulkSolder: document.getElementById('card-manager-bulk-solder'),
     cardManagerSummary: document.getElementById('card-manager-summary'),
@@ -282,6 +283,11 @@
     boardModeCurrent: document.getElementById('board-mode-current'),
     boardModePlan: document.getElementById('board-mode-plan'),
     boardShortcutOffToggle: document.getElementById('board-shortcut-off-toggle'),
+    boardOffModeDialog: document.getElementById('board-off-mode-dialog'),
+    boardOffModeTitle: document.getElementById('board-off-mode-title'),
+    boardOffModeConfirm: document.getElementById('board-off-mode-confirm'),
+    boardOffModeCancel: document.getElementById('board-off-mode-cancel'),
+    boardOffModeOptions: Array.from(document.querySelectorAll('[data-board-off-mode-option]')),
     boardDraftSummary: document.getElementById('board-draft-summary'),
     boardFloatingSummary: document.getElementById('board-floating-summary'),
     boardSelectionSummary: document.getElementById('board-selection-summary'),
@@ -451,7 +457,29 @@
   }
 
   function toggleBoardShortcutOffMode() {
-    setBoardShortcutOffMode(view.boardShortcutOffMode === 'route' ? 'node' : 'route');
+    const nextMode = view.boardShortcutOffMode === 'route' ? 'node' : 'route';
+    const currentLabel = view.boardShortcutOffMode === 'route' ? '経路整理' : 'マスのみ';
+    const nextLabel = nextMode === 'route' ? '経路整理' : 'マスのみ';
+    if (!elements.boardOffModeDialog?.showModal) {
+      const confirmed = window.confirm(
+        `特殊マスをOFFにした時の動作を「${currentLabel}」から「${nextLabel}」へ切り替えますか？\n\n`
+        + 'マスのみ：選んだ特殊マスだけ解除し、経路は残します。\n'
+        + '経路整理：特殊マスに加え、不要になった経路も自動で解除します。'
+      );
+      if (confirmed) setBoardShortcutOffMode(nextMode);
+      return;
+    }
+    elements.boardOffModeTitle.textContent = `OFF時の動作を「${nextLabel}」に切り替えますか？`;
+    elements.boardOffModeConfirm.textContent = `${nextLabel}に切り替える`;
+    elements.boardOffModeConfirm.dataset.boardOffMode = nextMode;
+    elements.boardOffModeOptions.forEach(option => {
+      const mode = option.dataset.boardOffModeOption;
+      option.classList.toggle('is-current', mode === view.boardShortcutOffMode);
+      option.classList.toggle('is-next', mode === nextMode);
+      const badge = option.querySelector('[data-board-off-mode-badge]');
+      if (badge) badge.textContent = mode === view.boardShortcutOffMode ? '現在' : '切替後';
+    });
+    elements.boardOffModeDialog.showModal();
   }
 
   function syncBoardShortcutOffToggle() {
@@ -541,6 +569,18 @@
     elements.themeToggles.forEach(button => button.addEventListener('click', () => {
       setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
     }));
+
+    elements.boardOffModeCancel?.addEventListener('click', () => {
+      elements.boardOffModeDialog.close();
+    });
+    elements.boardOffModeConfirm?.addEventListener('click', () => {
+      const nextMode = elements.boardOffModeConfirm.dataset.boardOffMode;
+      elements.boardOffModeDialog.close();
+      setBoardShortcutOffMode(nextMode);
+    });
+    elements.boardOffModeDialog?.addEventListener('click', event => {
+      if (event.target === elements.boardOffModeDialog) elements.boardOffModeDialog.close();
+    });
 
     elements.topReload?.addEventListener('click', () => {
       flushPendingStateSave();
@@ -897,6 +937,7 @@
       });
       persistCardManagerChange();
       commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
     });
 
     elements.cardManagerBulkStar?.addEventListener('change', () => {
@@ -911,6 +952,7 @@
       elements.cardManagerBulkStar.value = '';
       persistCardManagerChange();
       commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
     });
 
     elements.cardManagerBulkSolder?.addEventListener('change', () => {
@@ -924,6 +966,7 @@
       elements.cardManagerBulkSolder.value = '';
       persistCardManagerChange();
       commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
     });
 
     elements.cardManagerGrid?.addEventListener('change', event => {
@@ -1053,7 +1096,11 @@
         const expanded = openButton.getAttribute('aria-expanded') === 'true';
         if (popover) popover.hidden = expanded;
         openButton.setAttribute('aria-expanded', String(!expanded));
-        if (!expanded) popover?.querySelector('[data-formation-coin-input]')?.focus();
+        const canAutofocusCoinInput = window.innerWidth > 700
+          && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        if (!expanded && canAutofocusCoinInput) {
+          popover?.querySelector('[data-formation-coin-input]')?.focus({ preventScroll: true });
+        }
         return;
       }
       const autoButton = event.target.closest('[data-formation-coin-auto]');

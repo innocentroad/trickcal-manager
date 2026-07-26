@@ -155,6 +155,7 @@
       selfNoise: document.getElementById('fdc-self-noise'),
       selfWeaknessP: document.getElementById('fdc-self-weakness-p'),
       selfCritRateP: document.getElementById('fdc-self-crit-rate-p'),
+      selfCritDmgAddP: document.getElementById('fdc-self-crit-dmg-add-p'),
       selfAttackerDmgDownP: document.getElementById('fdc-self-attacker-dmg-down-p'),
       selfDefDownP: document.getElementById('fdc-self-def-down-p'),
       selfCritResDownP: document.getElementById('fdc-self-crit-res-down-p'),
@@ -204,6 +205,7 @@
       enemyNoise: document.getElementById('fdc-enemy-noise'),
       enemyWeaknessP: document.getElementById('fdc-enemy-weakness-p'),
       enemyCritRateP: document.getElementById('fdc-enemy-crit-rate-p'),
+      enemyCritDmgAddP: document.getElementById('fdc-enemy-crit-dmg-add-p'),
       enemyAttackerDmgDownP: document.getElementById('fdc-enemy-attacker-dmg-down-p'),
       enemyDefDownP: document.getElementById('fdc-enemy-def-down-p'),
       enemyCritResDownP: document.getElementById('fdc-enemy-crit-res-down-p'),
@@ -5926,7 +5928,7 @@
         other: readNumber(el.inputs.enemyOther),
         addP: readNumber(el.inputs.enemyAddP) + getDebuffDamageP('enemy'),
         critRateP: readNumber(el.inputs.enemyCritRateP),
-        critDmgAddP: 0,
+        critDmgAddP: readNumber(el.inputs.enemyCritDmgAddP),
         atkDownP: readNumber(el.inputs.enemyAttackerDmgDownP)
       };
     }
@@ -5940,7 +5942,7 @@
       other: readNumber(el.inputs.selfOther),
       addP: readNumber(el.inputs.selfAddP) + getDebuffDamageP('self'),
       critRateP: readNumber(el.inputs.selfCritRateP),
-      critDmgAddP: 0,
+      critDmgAddP: readNumber(el.inputs.selfCritDmgAddP),
       atkDownP: readNumber(el.inputs.selfAttackerDmgDownP)
     };
   }
