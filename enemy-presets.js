@@ -1,9 +1,150 @@
 // Trickcal Damage Calculator - Enemy Preset Data
 // Keep this file enemy-only for formation damage pages.
 
+const ENEMY_PRESET_CONTENTS = Object.freeze({
+    crusade: Object.freeze({
+        label: "進軍",
+        englishLabel: "Crusade",
+        difficulties: Object.freeze({
+            mild: Object.freeze({ label: "微辛" }),
+            medium: Object.freeze({ label: "中辛" }),
+            hot: Object.freeze({ label: "激辛" })
+        })
+    }),
+    dimensionalClash: Object.freeze({
+        label: "次元の衝突",
+        shortLabel: "次元",
+        englishLabel: "Dimensional Clash",
+        rules: Object.freeze({
+            fixedGrade: 6,
+            disabledEffectSources: Object.freeze(["spell"]),
+            artifactLimitCycle: Object.freeze([5, 9, 13])
+        })
+    }),
+    eliasFrontier: Object.freeze({
+        label: "エーリアスフロンティア",
+        shortLabel: "EF",
+        englishLabel: "Elias Frontier",
+        stageLabels: Object.freeze(["微辛1", "微辛2", "小辛1", "小辛2", "中辛1", "中辛2", "麻辣1", "麻辣2", "激辛1", "激辛2"]),
+        rules: Object.freeze({
+            fixedGrade: 4,
+            disabledEffectSources: Object.freeze(["synergy"])
+        })
+    }),
+    yggdrasilDigSite: Object.freeze({ label: "世界樹採掘基地", englishLabel: "Yggdrasil Dig Site" }),
+    crashCourse: Object.freeze({ label: "短期速成コース", englishLabel: "Crash Course" }),
+    dollyDelightBusters: Object.freeze({ label: "ヌウリングバスターズ", englishLabel: "Dolly Delight Busters" }),
+    dungeon: Object.freeze({
+        label: "ダンジョン",
+        englishLabel: "Dungeon",
+        hideInSelection: true,
+        modes: Object.freeze({
+            secretBakery: Object.freeze({ label: "秘密ベーカリー", englishLabel: "Secret Bakery" }),
+            goldThiefAttack: Object.freeze({ label: "GTA", englishLabel: "Gold Thief Attack" }),
+            sugarFree: Object.freeze({ label: "Sugar Free", englishLabel: "Sugar Free" }),
+            getYourCrayon: Object.freeze({ label: "Crazy on クレヨン", englishLabel: "Get Your Crayon" }),
+            cloneFactory: Object.freeze({ label: "Clone Factory", englishLabel: "Clone Factory" })
+        })
+    })
+});
+
+const ENEMY_PRESET_CONTENT_ALIASES = Object.freeze({
+    dimension: Object.freeze({ type: "dimensionalClash" }),
+    ef: Object.freeze({ type: "eliasFrontier" }),
+    gta: Object.freeze({ type: "dungeon", mode: "goldThiefAttack" })
+});
+
+function getEnemyPresetMetadata(preset = {}, key = "") {
+    const rawName = String(preset.name || key || "").trim();
+    const legacyDimension = rawName.match(/^\[次元(\d+)\]\s*(.*)$/);
+    const legacyEf = rawName.match(/^\[EF\/([^\]]+)\]\s*(.*)$/i);
+    const legacyGta = rawName.match(/^\[GTA(\d+)\]\s*(.*)$/i);
+    const legacyType = legacyDimension ? "dimensionalClash" : legacyEf ? "eliasFrontier" : legacyGta ? "dungeon" : "";
+    const legacyMode = legacyGta ? "goldThiefAttack" : "";
+    const legacyStage = legacyDimension
+        ? Number(legacyDimension[1])
+        : legacyEf
+            ? ENEMY_PRESET_CONTENTS.eliasFrontier.stageLabels.indexOf(legacyEf[1]) + 1
+            : legacyGta
+                ? Number(legacyGta[1])
+                : 0;
+    const content = preset.content && typeof preset.content === "object" ? preset.content : {};
+    const rawType = String(content.type || legacyType || "other");
+    const alias = ENEMY_PRESET_CONTENT_ALIASES[rawType] || {};
+    const type = String(alias.type || rawType || "other");
+    const mode = String(content.mode || alias.mode || legacyMode || "");
+    const difficulty = String(content.difficulty || "");
+    const world = Math.max(0, Number(content.world) || 0);
+    const stage = Math.max(0, Number(content.stage ?? legacyStage) || 0);
+    const definition = ENEMY_PRESET_CONTENTS[type] || {};
+    const modeDefinition = definition.modes?.[mode] || {};
+    const difficultyDefinition = definition.difficulties?.[difficulty] || {};
+    const contentShortLabel = String(content.shortLabel || definition.shortLabel || content.label || definition.label || "");
+    const definitionRules = definition.rules || {};
+    const artifactLimitCycle = definitionRules.artifactLimitCycle || [];
+    const artifactLimit = stage && artifactLimitCycle.length
+        ? Number(artifactLimitCycle[(stage - 1) % artifactLimitCycle.length]) || 0
+        : Number(definitionRules.artifactLimit) || 0;
+    const rules = {
+        fixedGrade: Number(definitionRules.fixedGrade) || 0,
+        disabledEffectSources: Array.from(definitionRules.disabledEffectSources || []),
+        artifactLimit
+    };
+    const name = String(
+        legacyDimension?.[2]
+        || legacyEf?.[2]
+        || legacyGta?.[2]
+        || rawName.replace(/^\[保存\]\s*/, "")
+        || key
+    ).trim();
+    const customStageLabel = String(content.stageLabel || "");
+    const stageLabel = customStageLabel || (type === "eliasFrontier"
+        ? definition.stageLabels?.[stage - 1] || (stage ? `${stage}段階` : "")
+        : type === "dimensionalClash"
+            ? (stage ? `${stage}段階` : "")
+            : type === "crusade"
+                ? (stage ? `Stage ${stage}` : "")
+            : (stage ? String(stage) : ""));
+    return {
+        type,
+        mode,
+        difficulty,
+        world,
+        stage,
+        name,
+        personality: String(preset.personality || ""),
+        contentLabel: String(content.label || definition.label || ""),
+        contentShortLabel,
+        selectionContentLabel: definition.hideInSelection ? "" : contentShortLabel,
+        contentEnglishLabel: String(definition.englishLabel || ""),
+        modeLabel: String(content.modeLabel || modeDefinition.label || ""),
+        modeEnglishLabel: String(modeDefinition.englishLabel || ""),
+        difficultyLabel: String(content.difficultyLabel || difficultyDefinition.label || ""),
+        worldLabel: world ? `World ${world}` : "",
+        stageLabel,
+        rules
+    };
+}
+
+function formatEnemyPresetDisplayName(preset = {}, key = "") {
+    const metadata = getEnemyPresetMetadata(preset, key);
+    const context = [metadata.selectionContentLabel, metadata.modeLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel].filter(Boolean).join(" ");
+    const subject = metadata.personality ? `${metadata.name}［${metadata.personality}］` : metadata.name;
+    const display = context ? `${context} / ${subject}` : subject;
+    return `${preset.isCustom ? "[保存] " : ""}${display}`;
+}
+
+function getEnemyPresetSearchText(preset = {}, key = "") {
+    const metadata = getEnemyPresetMetadata(preset, key);
+    return [key, metadata.name, metadata.personality, metadata.contentLabel, metadata.contentShortLabel, metadata.contentEnglishLabel, metadata.modeLabel, metadata.modeEnglishLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel, formatEnemyPresetDisplayName(preset, key)]
+        .filter(Boolean)
+        .join(" ");
+}
+
 const ENEMY_PRESETS = {
     "lily_d_15": {
-        name: "[次元15] リリ一",
+        name: "リリ一",
+        content: { type: "dimensionalClash", stage: 15 },
         hp: 661796770,
         atk_p: 28120,
         atk_m: 28120,
@@ -16,7 +157,7 @@ const ENEMY_PRESETS = {
         critDmgRes: 36146,
         special: 2385.714,
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 100 },
@@ -31,7 +172,8 @@ const ENEMY_PRESETS = {
         ]
     },
         "lily_d_18": {
-        name: "[次元18] リリ一",
+        name: "リリ一",
+        content: { type: "dimensionalClash", stage: 18 },
         hp: 1486382912,
         atk_p: 42150,
         atk_m: 42150,
@@ -44,7 +186,7 @@ const ENEMY_PRESETS = {
         critDmgRes: 54146,
         special: 3528.571,
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 100 },
@@ -59,7 +201,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "Kérberos_d_15": {
-        name: "[次元15] ケルベロス",
+        name: "ケルベロス",
+        content: { type: "dimensionalClash", stage: 15 },
         hp: 860335869,
         atk_p: 24090,
         atk_m: 24090,
@@ -71,8 +214,11 @@ const ENEMY_PRESETS = {
         critRes: 36146,
         critDmgRes: 36146,
         special: 2385.714,
+        weakness: {
+            statusDamage: { otherP: 1000 }
+        },
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 100, note: "2段: 50%*2" },
@@ -85,7 +231,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "Kérberos_d_18": {
-        name: "[次元18] ケルベロス",
+        name: "ケルベロス",
+        content: { type: "dimensionalClash", stage: 18 },
         hp: 1932297888,
         atk_p: 36090,
         atk_m: 36090,
@@ -97,8 +244,11 @@ const ENEMY_PRESETS = {
         critRes: 54146,
         critDmgRes: 54146,
         special: 3528.571,
+        weakness: {
+            statusDamage: { otherP: 1000 }
+        },
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 100, note: "2段: 50%×2" },
@@ -111,7 +261,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "Isamurayon_d_15": {
-        name: "[次元15] イサムレヨン",
+        name: "イサムレヨン",
+        content: { type: "dimensionalClash", stage: 15 },
         hp: 1323593540,
         atk_p: 28105,
         atk_m: 28105,
@@ -124,7 +275,7 @@ const ENEMY_PRESETS = {
         critDmgRes: 32115,
         special: 3528.571,
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { name: "普通攻撃", mult:100  },
@@ -133,7 +284,8 @@ const ENEMY_PRESETS = {
         ]
     },
 "Isamurayon_d_18": {
-        name: "[次元18] イサムレヨン",
+        name: "イサムレヨン",
+        content: { type: "dimensionalClash", stage: 18 },
         hp: 2972765824,
         atk_p: 42105,
         atk_m: 42105,
@@ -146,7 +298,7 @@ const ENEMY_PRESETS = {
         critDmgRes: 48115,
         special: 3528.571,
         modifiers: {
-            debuffs: { anger: 200 }
+            buffs: { anger: { perStack: 40, maxStacks: 5 } }
         },
         skills: [
             { name: "普通攻撃", mult:100  },
@@ -155,7 +307,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_11": {
-        name: "[EF/微辛1] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 1 },
         hp: 401524,
         atk_p: 1501,
         atk_m: 1501,
@@ -168,7 +321,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 1945,
         special: 214.286,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -190,7 +344,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_12": {
-        name: "[EF/微辛2] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 2 },
         hp: 2179702,
         atk_p: 3619,
         atk_m: 3619,
@@ -203,7 +358,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 4645,
         special: 385.714,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -225,7 +381,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_21": {
-        name: "[EF/小辛1] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 3 },
         hp: 4745749,
         atk_p: 5384,
         atk_m: 5384,
@@ -238,7 +395,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 6895,
         special: 528.571,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -260,7 +418,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_22": {
-        name: "[EF/小辛2] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 4 },
         hp: 11848508,
         atk_p: 8560,
         atk_m: 8560,
@@ -273,7 +432,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 10945,
         special: 785.714,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -295,7 +455,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_31": {
-        name: "[EF/中辛1] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 5 },
         hp: 26286605,
         atk_p: 12795,
         atk_m: 12795,
@@ -308,7 +469,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 16345,
         special: 1128.571,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -330,7 +492,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_32": {
-        name: "[EF/中辛2] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 6 },
         hp: 58588935,
         atk_p: 19148,
         atk_m: 19148,
@@ -343,7 +506,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 24445,
         special: 1642.857,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -365,7 +529,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_41": {
-        name: "[EF/麻辣1] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 7 },
         hp: 127799868,
         atk_p: 28325,
         atk_m: 28325,
@@ -378,7 +543,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 36145,
         special: 2385.714,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -400,7 +566,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "meow_ef_42": {
-        name: "[EF/麻辣2] M.E.O.W",
+        name: "M.E.O.W",
+        content: { type: "eliasFrontier", stage: 8 },
         hp: 286321339,
         atk_p: 42442,
         atk_m: 42442,
@@ -413,7 +580,8 @@ const ENEMY_PRESETS = {
         critDmgRes: 54145,
         special: 3528.571,
         weakness: {
-            phys: { add: 75 }
+            phys: { add: 75 },
+            statusTakenDamage: { status: "感電", add: 30 }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -443,7 +611,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "R41Renewa_ef_31": {
-        name: "[EF/中辛1] R41リニュア",
+        name: "R41リニュア",
+        content: { type: "eliasFrontier", stage: 5 },
         hp: 26286605,
         atk_p: 12795,
         atk_m: 12795,
@@ -456,11 +625,11 @@ const ENEMY_PRESETS = {
         critDmgRes: 16345,
         special: 1128.571,
         weakness: {
-            mag: { add: 75 }
+            mag: { add: 75 },
+            statusTakenDamage: { status: "苦痛", add: 30 }
         },
         modifiers: {
-            debuffs: { takenDmg: 30, painTakenDmg: 30 },
-            targetDebuffs: { breakTakenDmg: 45 }
+            targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -487,7 +656,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "R41Renewa_ef_32": {
-        name: "[EF/中辛2] R41リニュア",
+        name: "R41リニュア",
+        content: { type: "eliasFrontier", stage: 6 },
         hp: 58588935,
         atk_p: 19148,
         atk_m: 19148,
@@ -500,11 +670,11 @@ const ENEMY_PRESETS = {
         critDmgRes: 24445,
         special: 1642.857,
         weakness: {
-            mag: { add: 75 }
+            mag: { add: 75 },
+            statusTakenDamage: { status: "苦痛", add: 30 }
         },
         modifiers: {
-            debuffs: { takenDmg: 30, painTakenDmg: 30 },
-            targetDebuffs: { breakTakenDmg: 45 }
+            targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -531,7 +701,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "R41Renewa_ef_41": {
-        name: "[EF/麻辣1] R41リニュア",
+        name: "R41リニュア",
+        content: { type: "eliasFrontier", stage: 7 },
         hp: 127799868,
         atk_p: 28325,
         atk_m: 28325,
@@ -544,11 +715,11 @@ const ENEMY_PRESETS = {
         critDmgRes: 36145,
         special: 2385.714,
         weakness: {
-            mag: { add: 75 }
+            mag: { add: 75 },
+            statusTakenDamage: { status: "苦痛", add: 30 }
         },
         modifiers: {
-            debuffs: { takenDmg: 30, painTakenDmg: 30 },
-            targetDebuffs: { breakTakenDmg: 45 }
+            targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -575,7 +746,8 @@ const ENEMY_PRESETS = {
         ]
     },
     "R41Renewa_ef_42": {
-        name: "[EF/麻辣2] R41リニュア",
+        name: "R41リニュア",
+        content: { type: "eliasFrontier", stage: 8 },
         hp: 286321339,
         atk_p: 42442,
         atk_m: 42442,
@@ -588,11 +760,11 @@ const ENEMY_PRESETS = {
         critDmgRes: 54145,
         special: 3528.571,
         weakness: {
-            mag: { add: 75 }
+            mag: { add: 75 },
+            statusTakenDamage: { status: "苦痛", add: 30 }
         },
         modifiers: {
-            debuffs: { takenDmg: 30, painTakenDmg: 30 },
-            targetDebuffs: { breakTakenDmg: 45 }
+            targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
         phases: [
             { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
@@ -620,7 +792,9 @@ const ENEMY_PRESETS = {
         ]
     },
     "GTA_24": {
-        name: "[GTA24] バンク蔵-憂鬱",
+        name: "バンク蔵",
+        personality: "憂鬱",
+        content: { type: "dungeon", mode: "goldThiefAttack", stage: 24 },
         hp: 4231046,
         atk_p: 1,
         atk_m: 1,

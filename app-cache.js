@@ -21,7 +21,7 @@
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260726p',
+      'formation-damage-calc.css?v=20260727l',
       'shared-topbar.css?v=20260726b',
       'statData.js?v=20260723a',
       'sp-engine.js?v=20260720b',
@@ -29,8 +29,8 @@
       'apostles.js',
       'cards.js?v=20260725a',
       'synergy.js',
-      'enemy-presets.js',
-      'formation-damage-calc.js?v=20260726r',
+      'enemy-presets.js?v=20260727n',
+      'formation-damage-calc.js?v=20260727n',
       'image-preload.js'
     ]
   };

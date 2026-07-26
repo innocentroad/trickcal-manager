@@ -50,6 +50,49 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 生成前のファイルと元Excelは `backups/generated/<timestamp>/` にバックアップされます。
 生成スクリプトを個別に実行する場合は、`tools` ディレクトリから各Pythonスクリプトを実行してください。
 
+### 敵プリセットの追加
+
+`enemy-presets.js` の敵名は `name` に純粋な名前だけを記述し、コンテンツと段階は `content` で分けます。
+
+```js
+{
+    name: "M.E.O.W",
+    content: { type: "eliasFrontier", stage: 6 }
+}
+```
+
+`type` は英語版のコンテンツ名に由来するIDを使用します。ダンジョンだけは `type: "dungeon"` とし、`mode` に `secretBakery`、`goldThiefAttack`、`sugarFree`、`getYourCrayon`、`cloneFactory` のいずれかを指定します。
+
+進軍は難易度・World・ステージを別々に指定します。`difficulty` は `mild`（微辛）、`medium`（中辛）、`hot`（激辛）です。
+
+```js
+{
+    name: "敵名",
+    content: { type: "crusade", difficulty: "medium", world: 12, stage: 7 }
+}
+```
+
+```js
+{
+    name: "バンク蔵-憂鬱",
+    content: { type: "dungeon", mode: "goldThiefAttack", stage: 24 }
+}
+```
+
+エーリアスフロンティアの `stage` は微辛1・微辛2・小辛1・小辛2・中辛1・中辛2・麻辣1・麻辣2の順に1～8です。将来用の表示定義として、9を激辛1、10を激辛2に割り当てています。旧IDの `dimension`、`ef`、`gta` と、名前に分類を含めた旧形式も読み込み時に変換されます。
+
+敵の詳細では正式なコンテンツ名を表示し、敵選択リストでは次元の衝突を「次元」、エーリアスフロンティアを「EF」と省略します。
+ダンジョンは内部の親分類としてのみ扱い、選択リストと分類欄にはGTAなどの各`mode`名を表示します。
+敵の性格は名前に含めず、プリセット直下の `personality` に「純粋」「冷静」「狂気」「活発」「憂鬱」のいずれかを指定します。
+
+コンテンツ固有ルールは `ENEMY_PRESET_CONTENTS` 側に定義します。エーリアスフロンティアはシナジー無効・4年生固定、次元の衝突はスペル使用不可・6年生固定です。次元の衝突の遺物上限はstageを3で割った余りが1なら5、2なら9、0なら13です。
+
+状態異常ダメージ弱点は `weakness.statusDamage.otherP` にその他倍率の加算値を記述します。ケルベロスは火傷・毒・苦痛・凍傷の行動選択時のみ、その他倍率へ1000%を加算します。
+
+特定の状態異常中に被ダメージ量が増える弱点は `weakness.statusTakenDamage` に `{ status: "感電", add: 30 }` の形式で記述します。ダメージ計算では防御側の状態を選択した場合のみ被ダメージ量へ加算します。
+
+敵の攻撃で防御側へ付くスタック式デバフは `modifiers.targetDebuffs` に記述します。R41リニュアの破壊は `breakTakenDmg: { perStack: 5, maxStacks: 9 }` とし、1スタックごとに自キャラの被ダメージ量を5%増加させます。
+
 ## ローカル確認
 
 ビルドツールは使用していないため、静的ファイルをHTTPサーバーで配信して確認します。例えばPythonがある場合は、プロジェクトディレクトリで次を実行します。

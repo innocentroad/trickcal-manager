@@ -92,6 +92,15 @@
     selfWeaknessLabel: document.getElementById('fdc-self-weakness-label'),
     enemyWeaknessField: document.getElementById('fdc-enemy-weakness-field'),
     enemyWeaknessLabel: document.getElementById('fdc-enemy-weakness-label'),
+    enemyStatusDamageWeaknessField: document.getElementById('fdc-enemy-status-damage-weakness-field'),
+    enemyStatusDamageWeaknessLabel: document.getElementById('fdc-enemy-status-damage-weakness-label'),
+    enemyStatusDamageWeaknessValue: document.getElementById('fdc-enemy-status-damage-weakness-value'),
+    enemyStatusTakenDamageWeaknessField: document.getElementById('fdc-enemy-status-taken-damage-weakness-field'),
+    enemyStatusTakenDamageWeaknessLabel: document.getElementById('fdc-enemy-status-taken-damage-weakness-label'),
+    selfTargetDebuffLabel: document.getElementById('fdc-self-target-debuff-label'),
+    selfBreakField: document.getElementById('fdc-self-break-field'),
+    selfBreakLabel: document.getElementById('fdc-self-break-label'),
+    enemyAngerField: document.getElementById('fdc-enemy-anger-field'),
     enemyFinalStats: document.getElementById('fdc-enemy-final-stats'),
     enemyFinalStatsHeading: document.getElementById('fdc-enemy-final-stats-heading'),
     enemyIndividualSettings: document.getElementById('fdc-enemy-individual-settings'),
@@ -106,6 +115,7 @@
     enemyAdditivePresetApply: document.getElementById('fdc-enemy-additive-preset-apply'),
     selfBuffCategory: document.getElementById('fdc-self-buff-category'),
     enemyBuffCategory: document.getElementById('fdc-enemy-buff-category'),
+    enemyPresetBuffLabel: document.getElementById('fdc-enemy-preset-buff-label'),
     formationPreset: document.getElementById('fdc-formation-preset'),
     targetPreview: document.getElementById('fdc-target-preview'),
     floatingTarget: document.getElementById('fdc-floating-target'),
@@ -154,6 +164,7 @@
       selfPoisonStack: document.getElementById('fdc-self-poison-stack'),
       selfNoise: document.getElementById('fdc-self-noise'),
       selfWeaknessP: document.getElementById('fdc-self-weakness-p'),
+      selfBreakStack: document.getElementById('fdc-self-break-stack'),
       selfCritRateP: document.getElementById('fdc-self-crit-rate-p'),
       selfCritDmgAddP: document.getElementById('fdc-self-crit-dmg-add-p'),
       selfAttackerDmgDownP: document.getElementById('fdc-self-attacker-dmg-down-p'),
@@ -203,7 +214,9 @@
       enemyAddP: document.getElementById('fdc-enemy-add-p'),
       enemyPoisonStack: document.getElementById('fdc-enemy-poison-stack'),
       enemyNoise: document.getElementById('fdc-enemy-noise'),
+      enemyAngerStack: document.getElementById('fdc-enemy-anger-stack'),
       enemyWeaknessP: document.getElementById('fdc-enemy-weakness-p'),
+      enemyStatusTakenDamageWeakness: document.getElementById('fdc-enemy-status-taken-damage-weakness'),
       enemyCritRateP: document.getElementById('fdc-enemy-crit-rate-p'),
       enemyCritDmgAddP: document.getElementById('fdc-enemy-crit-dmg-add-p'),
       enemyAttackerDmgDownP: document.getElementById('fdc-enemy-attacker-dmg-down-p'),
@@ -839,6 +852,8 @@
     });
     el.enemyPreset?.addEventListener('change', () => {
       view.enemyPresetKey = el.enemyPreset.value || '';
+      view.enemyPersonality = normalizePersonalityName(getSelectedEnemyPreset()?.personality);
+      syncEnemyPersonalityUi();
       view.enemyPhaseIndex = 0;
       view.enemySkillIndex = -1;
       syncEnemyPresetManagement();
@@ -846,7 +861,7 @@
       applyEnemyPreset();
       syncDamageTypeUi(buildContext());
       saveCalcSettings();
-      renderResult(buildContext());
+      render();
     });
     el.enemyPresetSave?.addEventListener('click', () => {
       saveCustomEnemyPreset();
@@ -901,6 +916,12 @@
           view.selectedSkillCategory = '';
           view.selectedSkillOptionKey = '';
         }
+        if (input === el.inputs.enemyStatusTakenDamageWeakness) {
+          syncWeaknessFields(resolveSelfDamageType(buildContext().target));
+        }
+        if (input === el.inputs.selfBreakStack) {
+          syncWeaknessFields(resolveSelfDamageType(buildContext().target));
+        }
         if (input === el.inputs.enemySkill) {
           view.enemySkillIndex = -2;
           view.enemySelectedSkillCategory = '';
@@ -926,7 +947,12 @@
     if (el.enemyDamageType) el.enemyDamageType.value = view.enemyDamageType;
     syncDamageTypeUi(context);
     syncWeaknessFields(context.damageType);
-    if (el.gradeOverride) el.gradeOverride.value = view.gradeOverride;
+    if (el.gradeOverride) {
+      const fixedGrade = Number(getActiveEnemyContentRules().fixedGrade) || 0;
+      el.gradeOverride.value = getEffectiveGradeOverride();
+      el.gradeOverride.disabled = fixedGrade > 0;
+      el.gradeOverride.title = fixedGrade ? `敵コンテンツにより${fixedGrade}年生固定` : '';
+    }
     if (el.statMode) el.statMode.value = view.statMode;
     populateEnemyPhases();
     syncEnemyGlobalPercentInputs(context);
@@ -1176,7 +1202,7 @@
         </div>
         <div class="fdc-enemy-artifact-effects">
           ${enemyArtifactEffects.length
-            ? renderGroupedArtifactEffectChips(enemyArtifactEffects, view.effectSources.artifact !== false)
+            ? renderGroupedArtifactEffectChips(enemyArtifactEffects, isEffectSourceActive('artifact'))
             : '<p class="fdc-empty">遺物効果なし</p>'}
         </div>
       </details>
@@ -1203,7 +1229,7 @@
               </div>`).join('') : '<p class="fdc-empty">スペルなし</p>'}
           </div>
           <div class="fdc-enemy-artifact-effects">
-            ${enemySpellEffects.length ? renderGroupedArtifactEffectChips(enemySpellEffects, view.effectSources.spell !== false) : '<p class="fdc-empty">スペル効果なし</p>'}
+            ${enemySpellEffects.length ? renderGroupedArtifactEffectChips(enemySpellEffects, isEffectSourceActive('spell')) : '<p class="fdc-empty">スペル効果なし</p>'}
           </div>
         </div>
       </details>`;
@@ -1255,7 +1281,7 @@
     const presets = getEnemyPresets();
     el.enemyPreset.innerHTML = [
       '<option value="">手動入力</option>',
-      ...Object.entries(presets).map(([key, preset]) => `<option value="${escapeAttr(key)}">${escapeHtml(preset.name || key)}</option>`)
+      ...Object.entries(presets).map(([key, preset]) => `<option value="${escapeAttr(key)}">${escapeHtml(formatEnemyPresetDisplayName(preset, key))}</option>`)
     ].join('');
     el.enemyPreset.value = presets[previous] ? previous : '';
     view.enemyPresetKey = el.enemyPreset.value;
@@ -1292,6 +1318,7 @@
   }
 
   function applyEnemyPreset() {
+    syncEnemyPresetBuffFields(view.enemySourceMode === 'apostle' ? null : getSelectedEnemyPreset());
     if (view.enemySourceMode === 'apostle') {
       const context = buildContext();
       syncEnemyGlobalPercentInputs(context);
@@ -1305,6 +1332,10 @@
       if (el.inputs.enemyWeaknessP) el.inputs.enemyWeaknessP.value = '0';
       syncWeaknessFields();
       return;
+    }
+    if (!view.enemyPersonality && preset.personality) {
+      view.enemyPersonality = normalizePersonalityName(preset.personality);
+      syncEnemyPersonalityUi();
     }
     const scaled = scaleEnemyPresetByPhase(preset, view.enemyPhaseIndex);
     const contextTarget = buildContext().target;
@@ -1340,6 +1371,35 @@
     renderEnemySkillChoices(preset);
   }
 
+  function getEnemyPresetAngerConfig(preset = getSelectedEnemyPreset()) {
+    const anger = preset?.modifiers?.buffs?.anger;
+    if (!anger || typeof anger !== 'object') return null;
+    const perStack = Math.max(0, Number(anger.perStack) || 0);
+    const maxStacks = Math.max(0, Math.floor(Number(anger.maxStacks) || 0));
+    return perStack && maxStacks ? { perStack, maxStacks } : null;
+  }
+
+  function syncEnemyPresetBuffFields(preset = getSelectedEnemyPreset()) {
+    const anger = getEnemyPresetAngerConfig(preset);
+    const showAnger = !!anger && view.perspective === 'enemy';
+    if (el.enemyPresetBuffLabel) el.enemyPresetBuffLabel.hidden = !showAnger;
+    if (el.enemyAngerField) el.enemyAngerField.hidden = !showAnger;
+    if (!el.inputs.enemyAngerStack) return;
+    if (!anger) {
+      el.inputs.enemyAngerStack.value = '0';
+      return;
+    }
+    const current = clamp(Math.floor(readNumber(el.inputs.enemyAngerStack)), 0, anger.maxStacks);
+    el.inputs.enemyAngerStack.innerHTML = [
+      '<option value="0">なし</option>',
+      ...Array.from({ length: anger.maxStacks }, (_, index) => {
+        const stacks = index + 1;
+        return `<option value="${stacks}">${stacks}スタック / 与ダメージ+${formatPlainNumber(anger.perStack * stacks)}%</option>`;
+      })
+    ].join('');
+    el.inputs.enemyAngerStack.value = String(current);
+  }
+
   function getEnemyPresetWeaknessAdd(preset, damageType = '') {
     return getEnemyPresetWeaknessInfo(preset, damageType).add;
   }
@@ -1347,7 +1407,8 @@
   function getEnemyPresetWeaknessInfo(preset, damageType = '') {
     const key = damageType === 'magic' ? 'mag' : damageType === 'physical' ? 'phys' : '';
     const weakness = key ? preset?.weakness?.[key] : null;
-    const weaknessEntries = Object.entries(preset?.weakness || {});
+    const weaknessEntries = Object.entries(preset?.weakness || {})
+      .filter(([weaknessKey]) => weaknessKey === 'phys' || weaknessKey === 'mag');
     const availableLabel = weaknessEntries
       .filter(([, value]) => Number(value?.add) > 0)
       .map(([weaknessKey]) => weaknessKey === 'mag' ? '魔法弱点' : weaknessKey === 'phys' ? '物理弱点' : '弱点')
@@ -1360,6 +1421,53 @@
       add: Number(weakness?.add) || 0,
       hasAny: weaknessEntries.length > 0
     };
+  }
+
+  function getEnemyPresetStatusDamageWeaknessInfo(preset = getSelectedEnemyPreset(), actionCategory = view.selectedSkillCategory) {
+    const otherP = Math.max(0, Number(preset?.weakness?.statusDamage?.otherP) || 0);
+    return {
+      otherP,
+      hasAny: otherP > 0,
+      active: otherP > 0 && String(actionCategory || '').startsWith('状態異常::')
+    };
+  }
+
+  function getEnemyPresetStatusDamageWeaknessOtherP(actionCategory = view.selectedSkillCategory) {
+    const info = getEnemyPresetStatusDamageWeaknessInfo(getSelectedEnemyPreset(), actionCategory);
+    return info.active ? info.otherP : 0;
+  }
+
+  function getEnemyPresetStatusTakenDamageWeaknessInfo(preset = getSelectedEnemyPreset()) {
+    const weakness = preset?.weakness?.statusTakenDamage;
+    const status = String(weakness?.status || '').trim();
+    const add = Math.max(0, Number(weakness?.add) || 0);
+    const hasAny = !!status && add > 0;
+    return {
+      status,
+      add,
+      hasAny,
+      active: hasAny && readNumber(el.inputs.enemyStatusTakenDamageWeakness) > 0
+    };
+  }
+
+  function getEnemyPresetStatusTakenDamageWeaknessAdd() {
+    const info = getEnemyPresetStatusTakenDamageWeaknessInfo();
+    return info.active ? info.add : 0;
+  }
+
+  function getEnemyPresetBreakDebuffConfig(preset = getSelectedEnemyPreset()) {
+    const breakTakenDmg = preset?.modifiers?.targetDebuffs?.breakTakenDmg;
+    if (!breakTakenDmg || typeof breakTakenDmg !== 'object') return null;
+    const perStack = Math.max(0, Number(breakTakenDmg.perStack) || 0);
+    const maxStacks = Math.max(0, Math.floor(Number(breakTakenDmg.maxStacks) || 0));
+    return perStack > 0 && maxStacks > 0 ? { perStack, maxStacks } : null;
+  }
+
+  function getEnemyPresetBreakDebuffTakenDmgP() {
+    const config = getEnemyPresetBreakDebuffConfig();
+    if (!config || view.perspective !== 'enemy') return 0;
+    const stacks = clamp(Math.floor(readNumber(el.inputs.selfBreakStack)), 0, config.maxStacks);
+    return config.perStack * stacks;
   }
 
   function syncWeaknessFields(damageType = resolveSelfDamageType(buildContext().target)) {
@@ -1379,20 +1487,113 @@
       el.enemyWeaknessField.classList.toggle('is-active', weaknessInfo.add > 0);
       el.enemyWeaknessField.classList.toggle('is-inactive', weaknessInfo.hasAny && weaknessInfo.add <= 0);
     }
+    const statusDamageWeaknessInfo = getEnemyPresetStatusDamageWeaknessInfo();
+    if (el.enemyStatusDamageWeaknessLabel) {
+      el.enemyStatusDamageWeaknessLabel.textContent = statusDamageWeaknessInfo.active
+        ? '状態異常ダメージ弱点 適用'
+        : '状態異常ダメージ弱点（状態異常行動選択時）';
+    }
+    if (el.enemyStatusDamageWeaknessValue) {
+      el.enemyStatusDamageWeaknessValue.textContent = `その他倍率 +${formatPlainNumber(statusDamageWeaknessInfo.otherP)}%`;
+    }
+    if (el.enemyStatusDamageWeaknessField) {
+      el.enemyStatusDamageWeaknessField.hidden = !statusDamageWeaknessInfo.hasAny;
+      el.enemyStatusDamageWeaknessField.classList.toggle('is-active', statusDamageWeaknessInfo.active);
+      el.enemyStatusDamageWeaknessField.classList.toggle('is-inactive', statusDamageWeaknessInfo.hasAny && !statusDamageWeaknessInfo.active);
+    }
+    let statusTakenDamageWeaknessInfo = getEnemyPresetStatusTakenDamageWeaknessInfo();
+    const statusTakenDamageKey = statusTakenDamageWeaknessInfo.hasAny
+      ? `${statusTakenDamageWeaknessInfo.status}:${statusTakenDamageWeaknessInfo.add}`
+      : '';
+    if (el.inputs.enemyStatusTakenDamageWeakness) {
+      const previousKey = el.inputs.enemyStatusTakenDamageWeakness.dataset.weaknessKey || '';
+      if (previousKey !== statusTakenDamageKey) {
+        el.inputs.enemyStatusTakenDamageWeakness.dataset.weaknessKey = statusTakenDamageKey;
+        el.inputs.enemyStatusTakenDamageWeakness.innerHTML = statusTakenDamageWeaknessInfo.hasAny
+          ? `<option value="0">なし</option><option value="1">${escapeHtml(statusTakenDamageWeaknessInfo.status)}状態 / 被ダメージ量+${escapeHtml(formatPlainNumber(statusTakenDamageWeaknessInfo.add))}%</option>`
+          : '<option value="0">なし</option>';
+        el.inputs.enemyStatusTakenDamageWeakness.value = '0';
+        statusTakenDamageWeaknessInfo = getEnemyPresetStatusTakenDamageWeaknessInfo();
+      }
+    }
+    if (el.enemyStatusTakenDamageWeaknessLabel) {
+      el.enemyStatusTakenDamageWeaknessLabel.textContent = `${statusTakenDamageWeaknessInfo.status || '状態'}弱点${statusTakenDamageWeaknessInfo.active ? ' 適用' : ''}`;
+    }
+    if (el.enemyStatusTakenDamageWeaknessField) {
+      el.enemyStatusTakenDamageWeaknessField.hidden = !statusTakenDamageWeaknessInfo.hasAny;
+      el.enemyStatusTakenDamageWeaknessField.classList.toggle('is-active', statusTakenDamageWeaknessInfo.active);
+      el.enemyStatusTakenDamageWeaknessField.classList.toggle('is-inactive', statusTakenDamageWeaknessInfo.hasAny && !statusTakenDamageWeaknessInfo.active);
+    }
+    const breakDebuffConfig = getEnemyPresetBreakDebuffConfig();
+    const breakDebuffKey = breakDebuffConfig ? `${breakDebuffConfig.perStack}:${breakDebuffConfig.maxStacks}` : '';
+    if (el.inputs.selfBreakStack) {
+      const previousKey = el.inputs.selfBreakStack.dataset.debuffKey || '';
+      if (previousKey !== breakDebuffKey) {
+        el.inputs.selfBreakStack.dataset.debuffKey = breakDebuffKey;
+        el.inputs.selfBreakStack.innerHTML = breakDebuffConfig
+          ? [
+              '<option value="0">なし</option>',
+              ...Array.from({ length: breakDebuffConfig.maxStacks }, (_, index) => {
+                const stacks = index + 1;
+                return `<option value="${stacks}">${stacks}スタック / 被ダメージ量+${formatPlainNumber(breakDebuffConfig.perStack * stacks)}%</option>`;
+              })
+            ].join('')
+          : '<option value="0">なし</option>';
+        el.inputs.selfBreakStack.value = '0';
+      }
+    }
+    const breakTakenDmgP = getEnemyPresetBreakDebuffTakenDmgP();
+    if (el.selfTargetDebuffLabel) el.selfTargetDebuffLabel.hidden = !breakDebuffConfig;
+    if (el.selfBreakLabel) el.selfBreakLabel.textContent = `破壊${breakTakenDmgP > 0 ? ' 適用' : ''}`;
+    if (el.selfBreakField) {
+      el.selfBreakField.hidden = !breakDebuffConfig;
+      el.selfBreakField.classList.toggle('is-active', breakTakenDmgP > 0);
+      el.selfBreakField.classList.toggle('is-inactive', !!breakDebuffConfig && breakTakenDmgP <= 0);
+    }
     if (!getSelectedEnemyPreset() && el.inputs.enemyWeaknessP) el.inputs.enemyWeaknessP.value = '0';
-    syncBuffDebuffCategoryVisibility(weaknessInfo);
+    syncBuffDebuffCategoryVisibility(weaknessInfo, statusDamageWeaknessInfo, statusTakenDamageWeaknessInfo, breakDebuffConfig);
   }
 
-  function syncBuffDebuffCategoryVisibility(enemyWeaknessInfo = getEnemyPresetWeaknessInfo(getSelectedEnemyPreset(), resolveSelfDamageType(buildContext().target))) {
+  function syncBuffDebuffCategoryVisibility(
+    enemyWeaknessInfo = getEnemyPresetWeaknessInfo(getSelectedEnemyPreset(), resolveSelfDamageType(buildContext().target)),
+    enemyStatusDamageWeaknessInfo = getEnemyPresetStatusDamageWeaknessInfo(),
+    enemyStatusTakenDamageWeaknessInfo = getEnemyPresetStatusTakenDamageWeaknessInfo(),
+    enemyBreakDebuffConfig = getEnemyPresetBreakDebuffConfig()
+  ) {
     const selfIsAttacker = view.perspective !== 'enemy';
     const enemyIsAttacker = view.perspective === 'enemy';
-    if (el.selfBuffCategory) el.selfBuffCategory.hidden = !selfIsAttacker;
-    if (el.enemyBuffCategory) el.enemyBuffCategory.hidden = !enemyIsAttacker && !enemyWeaknessInfo.hasAny;
+    if (el.selfBuffCategory) el.selfBuffCategory.hidden = !selfIsAttacker && !enemyBreakDebuffConfig;
+    const enemyHasRelevantDefenseEffect = enemyWeaknessInfo.hasAny
+      || enemyStatusDamageWeaknessInfo.hasAny
+      || enemyStatusTakenDamageWeaknessInfo.hasAny;
+    if (el.enemyBuffCategory) el.enemyBuffCategory.hidden = !enemyIsAttacker && !enemyHasRelevantDefenseEffect;
+    const showAnger = enemyIsAttacker && !!getEnemyPresetAngerConfig();
+    if (el.enemyPresetBuffLabel) el.enemyPresetBuffLabel.hidden = !showAnger;
+    if (el.enemyAngerField) el.enemyAngerField.hidden = !showAnger;
   }
 
   function getSelectedEnemyPreset() {
     if (view.enemySourceMode === 'apostle') return null;
     return getEnemyPresets()[view.enemyPresetKey || el.enemyPreset?.value || ''] || null;
+  }
+
+  function getActiveEnemyContentRules() {
+    const preset = getSelectedEnemyPreset();
+    if (!preset || typeof getEnemyPresetMetadata !== 'function') return {};
+    return getEnemyPresetMetadata(preset, view.enemyPresetKey || el.enemyPreset?.value || '').rules || {};
+  }
+
+  function isEffectSourceBlockedByContent(key) {
+    return !!key && (getActiveEnemyContentRules().disabledEffectSources || []).includes(key);
+  }
+
+  function isEffectSourceActive(key) {
+    return !key || (!isEffectSourceBlockedByContent(key) && view.effectSources[key] !== false);
+  }
+
+  function getEffectiveGradeOverride() {
+    const fixedGrade = Number(getActiveEnemyContentRules().fixedGrade) || 0;
+    return fixedGrade ? String(fixedGrade) : view.gradeOverride;
   }
 
   function getEnemyPresets() {
@@ -1411,7 +1612,8 @@
         .filter(([, preset]) => preset && typeof preset === 'object')
         .map(([key, preset]) => [key.startsWith('custom:') ? key : `custom:${key}`, {
           ...preset,
-          name: preset.name?.startsWith('[保存]') ? preset.name : `[保存] ${preset.name || key}`
+          name: String(preset.name || key).replace(/^\[保存\]\s*/, ''),
+          isCustom: true
         }]));
     } catch (error) {
       console.warn('Failed to load custom enemy presets', error);
@@ -1422,7 +1624,7 @@
   function saveCustomEnemyPreset() {
     const base = getSelectedEnemyPreset();
     const rawName = (el.enemyPresetName?.value || '').trim();
-    const name = rawName || base?.name?.replace(/^\[保存\]\s*/, '') || '敵プリセット';
+    const name = rawName || getEnemyPresetMetadata(base || {}).name || '敵プリセット';
     const id = `custom:${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
     const damageType = resolveEnemyDamageType(base);
     const enemyAtk = readNumber(el.inputs.enemyAtk);
@@ -1440,12 +1642,18 @@
       critRes: readNumber(el.inputs.critRes),
       critDmgRes: readNumber(el.inputs.critDmgRes),
       special: readNumber(el.inputs.enemySpecial) || 100,
+      personality: normalizePersonalityName(view.enemyPersonality || base?.personality),
+      content: base?.content ? JSON.parse(JSON.stringify(base.content)) : undefined,
+      modifiers: base?.modifiers ? JSON.parse(JSON.stringify(base.modifiers)) : undefined,
       weakness: base?.weakness ? JSON.parse(JSON.stringify(base.weakness)) : undefined,
       skills: Array.isArray(base?.skills) ? JSON.parse(JSON.stringify(base.skills)) : []
     };
     try {
       const current = getCustomEnemyPresets();
-      const stored = Object.fromEntries(Object.entries(current).map(([key, value]) => [key, { ...value, name: value.name?.replace(/^\[保存\]\s*/, '') || key }]));
+      const stored = Object.fromEntries(Object.entries(current).map(([key, value]) => {
+        const { isCustom, ...preset } = value;
+        return [key, { ...preset, name: String(preset.name || key).replace(/^\[保存\]\s*/, '') }];
+      }));
       stored[id] = preset;
       localStorage.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
       view.enemyPresetKey = id;
@@ -1463,13 +1671,16 @@
     const key = view.enemyPresetKey || el.enemyPreset?.value || '';
     if (!key.startsWith('custom:')) return;
     const preset = getEnemyPresets()[key];
-    const name = preset?.name?.replace(/^\[保存\]\s*/, '') || '保存プリセット';
+    const name = getEnemyPresetMetadata(preset || {}, key).name || '保存プリセット';
     if (!window.confirm(`${name} を削除しますか？`)) return;
     try {
       const current = getCustomEnemyPresets();
       const stored = Object.fromEntries(Object.entries(current)
         .filter(([customKey]) => customKey !== key)
-        .map(([customKey, value]) => [customKey, { ...value, name: value.name?.replace(/^\[保存\]\s*/, '') || customKey }]));
+        .map(([customKey, value]) => {
+          const { isCustom, ...presetValue } = value;
+          return [customKey, { ...presetValue, name: String(presetValue.name || customKey).replace(/^\[保存\]\s*/, '') }];
+        }));
       localStorage.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
       view.enemyPresetKey = '';
       view.enemyPhaseIndex = 0;
@@ -1896,7 +2107,7 @@
     const preset = getSelectedEnemyPreset();
     const enemy = view.enemySourceMode === 'apostle'
       ? context.enemyMember?.name || '敵使徒未選択'
-      : preset?.name?.replace(/^\[保存\]\s*/, '') || '手動敵';
+      : preset ? formatEnemyPresetDisplayName(preset, view.enemyPresetKey || '') : '手動敵';
     return `${target} vs ${enemy}`;
   }
 
@@ -2377,11 +2588,11 @@
       level: Number(apostleState.level) || 1,
       star: Number(apostleState.star) || Number(basic.レア度) || 1,
       grade: getDisplayGrade(apostleState),
-      gradeOverride: view.gradeOverride,
+      gradeOverride: getEffectiveGradeOverride(),
       statMode: view.statMode,
       hasPlannedSnapshot,
       rank: Number(apostleState.rank) || 1,
-      stats: readMemberStats(apostleState, basic, view.gradeOverride, view.statMode),
+      stats: readMemberStats(apostleState, basic, getEffectiveGradeOverride(), view.statMode),
       artifactIds: getEffectiveMemberArtifactIds(id, artifactIds),
       managerSyncRevision: Math.max(0, Number(state.syncRevision) || 0),
       skillLevels: apostleState.skillLevels || apostleState.skills || {},
@@ -2655,7 +2866,7 @@
     const basic = getApostle(member.id);
     const override = getEnemyIndividualOverride(context, member.id) || normalizeEnemyIndividualSettings({}, context, member.id);
     if (typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' || typeof TRICKCAL_SHARED_STAT_ENGINE.applyApostleOverridesToSnapshot !== 'function') {
-      return getGradeAdjustedSnapshot(apostleState, basic, view.gradeOverride, view.statMode);
+      return getGradeAdjustedSnapshot(apostleState, basic, getEffectiveGradeOverride(), view.statMode);
     }
     const snapshot = getGradeAdjustedSnapshot(apostleState, basic, 'saved', view.statMode);
     return TRICKCAL_SHARED_STAT_ENGINE.applyApostleOverridesToSnapshot(
@@ -3033,6 +3244,7 @@
         button.classList.add('is-active');
         saveCalcSettings();
         const context = buildContext();
+        syncWeaknessFields(context.damageType);
         renderResult(context);
         renderSelfSkillEffects(context);
         renderArtifactCategory(context);
@@ -3603,7 +3815,7 @@
   function renderSynergyCategory(context) {
     if (!el.synergyCategory) return;
     const rows = getActiveSynergyRows(context);
-    const enabled = view.effectSources.synergy !== false;
+    const enabled = isEffectSourceActive('synergy');
     el.synergyCategory.innerHTML = `
       <div class="fdc-synergy-card ${enabled ? '' : 'is-disabled'}">
         <div class="fdc-synergy-head">
@@ -4465,6 +4677,10 @@
   function renderArtifactCategory(context) {
     if (!el.artifactCategory) return;
     const targetSlots = getTargetArtifactSlots(context);
+    const artifactLimit = Number(getActiveEnemyContentRules().artifactLimit) || 0;
+    const artifactCount = getFormationArtifactRows(context)
+      .reduce((sum, row) => sum + Math.max(1, Number(row.qty) || 1), 0);
+    const artifactLimitExceeded = artifactLimit > 0 && artifactCount > artifactLimit;
     const equippedEffects = getArtifactEffectRows(context.effects, true).filter(isEffectRelevantToPerspective);
     const formationEffects = getFormationArtifactEffectRows(context.effects).filter(isEffectRelevantToPerspective);
     const equippedAutoEffects = equippedEffects.filter(isAutomaticBonusEffect);
@@ -4472,8 +4688,13 @@
     const formationAutoEffects = formationEffects.filter(isAutomaticBonusEffect);
     const formationDetailEffects = formationEffects.filter(item => !isAutomaticBonusEffect(item));
     const allDetailEffects = [...equippedDetailEffects, ...formationDetailEffects];
-    const enabled = view.effectSources.artifact !== false;
+    const enabled = isEffectSourceActive('artifact');
     el.artifactCategory.innerHTML = `
+      ${artifactLimit ? `
+        <div class="fdc-artifact-limit ${artifactLimitExceeded ? 'is-over' : ''}">
+          <span>次元の遺物制限</span>
+          <strong>${formatNumber(artifactCount)} / ${formatNumber(artifactLimit)}</strong>
+        </div>` : ''}
       <section class="fdc-artifact-section">
         <h4>編成</h4>
         <div class="fdc-artifact-board">
@@ -5122,7 +5343,7 @@
     const spellEffects = getSpellEffectRows(context.effects);
     const spellAutoEffects = spellEffects.filter(isAutomaticBonusEffect);
     const spellDetailEffects = spellEffects.filter(item => !isAutomaticBonusEffect(item));
-    const enabled = view.effectSources.spell !== false;
+    const enabled = isEffectSourceActive('spell');
     el.spellCategory.innerHTML = `
       <section class="fdc-spell-section">
         <h4>
@@ -5397,7 +5618,7 @@
 
   function isEffectSourceEnabled(item) {
     const key = getEffectSourceKey(item);
-    return !key || view.effectSources[key] !== false;
+    return isEffectSourceActive(key);
   }
 
   function isEffectRelevantToPerspective(item) {
@@ -5691,6 +5912,8 @@
           ['攻撃補正', formatSignedPercent(mods.attackP)],
           ['防御補正', formatSignedPercent(mods.defenseP)],
           createCapDetailRow('与ダメ補正', `${(mods.addRate * 100).toFixed(1)}%`, caps.addRate),
+          ...(Number(mods.conditionalTakenDmgP) ? [['状態弱点の被ダメージ増加', formatSignedPercent(mods.conditionalTakenDmgP)]] : []),
+          ...(Number(mods.targetDebuffTakenDmgP) ? [['破壊による被ダメージ増加', formatSignedPercent(mods.targetDebuffTakenDmgP)]] : []),
           ['スキル倍率', `${formatPlainNumber(mods.skillP)}%`],
           ['タイプ補正', `${formatPlainNumber(mods.typeP)}%`],
           ['特殊補正', `${formatPlainNumber(mods.specialP)}%`],
@@ -5757,7 +5980,14 @@
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
     const selectedSkillOption = isEnemyAttack ? null : resolveSelectedSelfSkillOption(context);
     const selectedSkillValue = Number(selectedSkillOption?.value);
+    const conditionalTakenDmgP = !isEnemyAttack ? getEnemyPresetStatusTakenDamageWeaknessAdd() : 0;
+    const targetDebuffTakenDmgP = isEnemyAttack ? getEnemyPresetBreakDebuffTakenDmgP() : 0;
     if (!isEnemyAttack && Number.isFinite(selectedSkillValue)) attacker.skill = selectedSkillValue;
+    if (!isEnemyAttack) {
+      attacker.other += getEnemyPresetStatusDamageWeaknessOtherP(selectedSkillOption?.category || context.actionCategory);
+      attacker.addP += conditionalTakenDmgP;
+    }
+    if (isEnemyAttack) attacker.addP += targetDebuffTakenDmgP;
     attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
     applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack);
     applyEffectSummaryToDamageMods(
@@ -5843,6 +6073,8 @@
           hpP,
           defenseP,
           addRate,
+          conditionalTakenDmgP,
+          targetDebuffTakenDmgP,
           skillP: attacker.skill,
           typeP: attacker.type,
           specialP: attacker.special,
@@ -5943,7 +6175,7 @@
         type: readNumber(el.inputs.enemyType),
         special: readNumber(el.inputs.enemySpecial),
         other: readNumber(el.inputs.enemyOther),
-        addP: readNumber(el.inputs.enemyAddP) + getDebuffDamageP('enemy'),
+        addP: readNumber(el.inputs.enemyAddP) + getDebuffDamageP('enemy') + getEnemyPresetBuffDamageP(),
         critRateP: readNumber(el.inputs.enemyCritRateP),
         critDmgAddP: readNumber(el.inputs.enemyCritDmgAddP),
         atkDownP: readNumber(el.inputs.enemyAttackerDmgDownP)
@@ -5984,6 +6216,13 @@
       ? readNumber(el.inputs.enemyNoise)
       : readNumber(el.inputs.selfNoise);
     return -11 * clamp(poisonStack, 0, 9) - (noise ? 50 : 0);
+  }
+
+  function getEnemyPresetBuffDamageP() {
+    const anger = getEnemyPresetAngerConfig();
+    if (!anger) return 0;
+    const stacks = clamp(Math.floor(readNumber(el.inputs.enemyAngerStack)), 0, anger.maxStacks);
+    return anger.perStack * stacks;
   }
 
   function getWeaknessDamageP(defenderSide, damageType = resolveActiveDamageType(buildContext().target)) {
@@ -6158,11 +6397,13 @@
     });
     el.applyFloatInputs.forEach(input => {
       const key = input.dataset.fdcApplySource;
-      input.checked = view.effectSources[key] !== false;
+      input.checked = isEffectSourceActive(key);
+      input.disabled = isEffectSourceBlockedByContent(key);
     });
     el.categorySourceInputs.forEach(input => {
       const key = input.dataset.fdcCategorySource;
-      input.checked = view.effectSources[key] !== false;
+      input.checked = isEffectSourceActive(key);
+      input.disabled = isEffectSourceBlockedByContent(key);
     });
     el.resultDisplayInputs.forEach(input => {
       const key = input.dataset.fdcResultDisplay;
@@ -6173,10 +6414,10 @@
     });
     el.applyFloatDots.forEach(dot => {
       const key = dot.dataset.fdcApplyDot;
-      dot.classList.toggle('is-on', view.effectSources[key] !== false);
-      dot.classList.toggle('is-off', view.effectSources[key] === false);
+      dot.classList.toggle('is-on', isEffectSourceActive(key));
+      dot.classList.toggle('is-off', !isEffectSourceActive(key));
     });
-    const enabledCount = Object.values(view.effectSources).filter(Boolean).length;
+    const enabledCount = Object.keys(view.effectSources).filter(isEffectSourceActive).length;
     el.applyFloat?.classList.toggle('is-all-enabled', enabledCount === Object.keys(view.effectSources).length);
     el.applyFloat?.classList.toggle('is-all-disabled', enabledCount === 0);
     el.applyFloat?.classList.toggle('is-partial-enabled', enabledCount > 0 && enabledCount < Object.keys(view.effectSources).length);
@@ -7231,13 +7472,14 @@
   }
 
   function getDisplayGrade(apostleState = {}) {
-    if (view.gradeOverride !== 'saved') return Number(view.gradeOverride) || 1;
+    const gradeOverride = getEffectiveGradeOverride();
+    if (gradeOverride !== 'saved') return Number(gradeOverride) || 1;
     return Number(apostleState.grade) || 1;
   }
 
   function formatGradeLabel(member) {
     const grade = Number(member?.grade) || 1;
-    return view.gradeOverride === 'saved' ? `学年:保存値(${grade})` : `${grade}年生`;
+    return getEffectiveGradeOverride() === 'saved' ? `学年:保存値(${grade})` : `${grade}年生`;
   }
 
   function formatStatModeLabel(member = null) {
@@ -7251,8 +7493,8 @@
     const target = context.target;
     if (!target || !target.hasPlannedSnapshot) return target ? [['状態', '予定なし']] : [];
     const state = context.state?.apostles?.[target.id] || {};
-    const current = readMemberStats(state, getApostle(target.id), view.gradeOverride, 'current');
-    const planned = readMemberStats(state, getApostle(target.id), view.gradeOverride, 'planned');
+    const current = readMemberStats(state, getApostle(target.id), getEffectiveGradeOverride(), 'current');
+    const planned = readMemberStats(state, getApostle(target.id), getEffectiveGradeOverride(), 'planned');
     const attackKey = context.damageType === 'magic' ? 'magicAtk' : 'physicalAtk';
     const defenseKey = context.damageType === 'magic' ? 'magicDef' : 'physicalDef';
     return [
@@ -7288,7 +7530,7 @@
     const target = context.target;
     if (!target) return null;
     const apostleState = context.state?.apostles?.[target.id] || {};
-    const stats = readMemberStats(apostleState, getApostle(target.id), view.gradeOverride, mode);
+    const stats = readMemberStats(apostleState, getApostle(target.id), getEffectiveGradeOverride(), mode);
     const saved = snapshotSelfStatInputs();
     try {
       writeSelfStatInputsForStats(context, stats);

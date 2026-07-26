@@ -22,6 +22,7 @@
   const numberFormat = new Intl.NumberFormat('ja-JP');
 
   initTheme();
+  renderGroupOptions();
   bindEvents();
   render();
 
@@ -65,7 +66,7 @@
     const filtered = entries.filter(([key, preset]) => {
       if (state.group !== 'all' && getPresetGroup(key, preset) !== state.group) return false;
       if (!state.query) return true;
-      return `${key} ${preset.name || ''}`.toLocaleLowerCase('ja').includes(state.query);
+      return getEnemyPresetSearchText(preset, key).toLocaleLowerCase('ja').includes(state.query);
     });
     if (el.count) el.count.textContent = `${filtered.length} / ${entries.length}件`;
     if (!el.list) return;
@@ -73,10 +74,17 @@
       const selected = key === state.key;
       const phase = selected ? getPhase(preset, state.phase) : null;
       const scaled = scalePreset(preset, phase);
+      const metadata = getEnemyPresetMetadata(preset, key);
       return `
         <button type="button" class="enemy-list-button${selected ? ' is-selected' : ''}" data-enemy-key="${escapeAttr(key)}" aria-pressed="${selected}">
-          <span class="enemy-list-name">${escapeHtml(preset.name || key)}</span>
+          <span class="enemy-list-name">${escapeHtml(metadata.name || key)}</span>
           <span class="enemy-list-meta">
+            ${metadata.selectionContentLabel ? `<span>${escapeHtml(metadata.selectionContentLabel)}</span>` : ''}
+            ${metadata.modeLabel ? `<span>${escapeHtml(metadata.modeLabel)}</span>` : ''}
+            ${metadata.personality ? `<span>${escapeHtml(metadata.personality)}</span>` : ''}
+            ${metadata.difficultyLabel ? `<span>${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
+            ${metadata.worldLabel ? `<span>${escapeHtml(metadata.worldLabel)}</span>` : ''}
+            ${metadata.stageLabel ? `<span>${escapeHtml(metadata.stageLabel)}</span>` : ''}
             <span>${formatDamageType(preset.dmgType)}</span>
             <span>HP ${formatNumber(scaled.hp)}</span>
             ${preset.phases?.length ? `<span>${escapeHtml(phase?.name || `${preset.phases.length} phases`)}</span>` : ''}
@@ -96,6 +104,8 @@
     state.phase = Math.min(state.phase, Math.max(0, phases.length - 1));
     const phase = getPhase(preset, state.phase);
     const scaled = scalePreset(preset, phase);
+    const metadata = getEnemyPresetMetadata(preset, state.key);
+    const ruleLabels = formatContentRules(metadata.rules);
     const weakness = formatWeakness(preset.weakness);
     const modifiers = formatModifiers(preset.modifiers);
     const stats = [
@@ -114,8 +124,15 @@
     el.detail.innerHTML = `
       <div class="detail-head">
         <div>
-          <h2>${escapeHtml(preset.name || state.key)}</h2>
+          <h2>${escapeHtml(metadata.name || state.key)}</h2>
           <div class="detail-chips">
+            ${metadata.contentLabel ? `<span class="detail-chip">${escapeHtml(metadata.contentLabel)}</span>` : ''}
+            ${metadata.modeLabel ? `<span class="detail-chip">${escapeHtml(metadata.modeLabel)}</span>` : ''}
+            ${metadata.personality ? `<span class="detail-chip">${escapeHtml(metadata.personality)}</span>` : ''}
+            ${metadata.difficultyLabel ? `<span class="detail-chip">${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
+            ${metadata.worldLabel ? `<span class="detail-chip">${escapeHtml(metadata.worldLabel)}</span>` : ''}
+            ${metadata.stageLabel ? `<span class="detail-chip">${escapeHtml(metadata.stageLabel)}</span>` : ''}
+            ${ruleLabels.map(label => `<span class="detail-chip">${escapeHtml(label)}</span>`).join('')}
             <span class="detail-chip ${preset.dmgType === 'mag' ? 'is-magic' : 'is-physical'}">${formatDamageType(preset.dmgType)}</span>
             ${weakness.map(item => `<span class="detail-chip">${escapeHtml(item)}</span>`).join('')}
             ${phases.length ? `<span class="detail-chip">${phases.length}フェーズ</span>` : ''}
@@ -138,7 +155,7 @@
       </div>
       ${modifiers.length ? `
         <section class="detail-section">
-          <h3>固有補正</h3>
+          <h3>固有バフ/デバフ</h3>
           <div class="note-list">${modifiers.map(item => `<span class="note-item">${escapeHtml(item)}</span>`).join('')}</div>
         </section>` : ''}
       <section class="detail-section">
@@ -175,15 +192,40 @@
   }
 
   function getPresetGroup(key, preset) {
-    const text = `${key} ${preset?.name || ''}`;
-    if (/次元|_d_/.test(text)) return 'dimension';
-    if (/\[EF|_ef_/.test(text)) return 'ef';
-    if (/GTA/i.test(text)) return 'gta';
-    return 'other';
+    const metadata = getEnemyPresetMetadata(preset, key);
+    return metadata.type === 'dungeon' && metadata.mode ? `dungeon:${metadata.mode}` : metadata.type || 'other';
+  }
+
+  function formatContentRules(rules = {}) {
+    return [
+      rules.fixedGrade ? `${rules.fixedGrade}年生固定` : '',
+      rules.disabledEffectSources?.includes('synergy') ? 'シナジー無効' : '',
+      rules.disabledEffectSources?.includes('spell') ? 'スペル使用不可' : '',
+      rules.artifactLimit ? `遺物上限 ${rules.artifactLimit}` : ''
+    ].filter(Boolean);
+  }
+
+  function renderGroupOptions() {
+    if (!el.group) return;
+    const groups = new Map();
+    entries.forEach(([key, preset]) => {
+      const metadata = getEnemyPresetMetadata(preset, key);
+      const group = metadata.type === 'dungeon' && metadata.mode ? `dungeon:${metadata.mode}` : metadata.type || 'other';
+      const label = metadata.type === 'dungeon'
+        ? metadata.modeLabel || metadata.contentLabel || 'その他'
+        : metadata.contentShortLabel || metadata.contentLabel || 'その他';
+      groups.set(group, label);
+    });
+    el.group.innerHTML = [
+      '<option value="all">すべて</option>',
+      ...Array.from(groups, ([value, label]) => `<option value="${escapeAttr(value)}">${escapeHtml(label)}</option>`)
+    ].join('');
   }
 
   function formatWeakness(weakness = {}) {
     return Object.entries(weakness || {}).map(([key, value]) => {
+      if (key === 'statusDamage') return `状態異常ダメージ弱点 その他倍率+${formatPlainNumber(value?.otherP)}%`;
+      if (key === 'statusTakenDamage') return `${value?.status || '状態'}状態弱点 被ダメージ量+${formatPlainNumber(value?.add)}%`;
       const label = key === 'phys' ? '物理弱点' : key === 'mag' ? '魔法弱点' : `${key}弱点`;
       return `${label} +${formatPlainNumber(value?.add)}%`;
     });
@@ -191,18 +233,31 @@
 
   function formatModifiers(modifiers = {}) {
     const labels = {
-      anger: '憤怒',
+      anger: '怒り',
       takenDmg: '被ダメージ',
       painTakenDmg: '苦痛被ダメージ',
       breakTakenDmg: '破壊被ダメージ'
     };
     const groups = {
+      buffs: '敵バフ',
       debuffs: '敵側',
       targetDebuffs: '対象側'
     };
     const result = [];
     Object.entries(modifiers || {}).forEach(([groupKey, values]) => {
       Object.entries(values || {}).forEach(([key, value]) => {
+        if (key === 'anger' && value && typeof value === 'object') {
+          const perStack = Number(value.perStack) || 0;
+          const maxStacks = Math.max(0, Number(value.maxStacks) || 0);
+          result.push(`${groups[groupKey] || groupKey}: ${labels[key]} 1スタックごとに与ダメージ+${formatPlainNumber(perStack)}% / 最大${maxStacks}スタック (+${formatPlainNumber(perStack * maxStacks)}%)`);
+          return;
+        }
+        if (key === 'breakTakenDmg' && value && typeof value === 'object') {
+          const perStack = Number(value.perStack) || 0;
+          const maxStacks = Math.max(0, Number(value.maxStacks) || 0);
+          result.push(`${groups[groupKey] || groupKey}: 破壊 1スタックごとに被ダメージ量+${formatPlainNumber(perStack)}% / 最大${maxStacks}スタック (+${formatPlainNumber(perStack * maxStacks)}%)`);
+          return;
+        }
         result.push(`${groups[groupKey] || groupKey}: ${labels[key] || key} ${formatSignedPercent(value)}`);
       });
     });

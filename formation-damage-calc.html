@@ -37,7 +37,7 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260723c" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260726p">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260727l">
   <link rel="stylesheet" href="shared-topbar.css?v=20260726b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -252,9 +252,16 @@
         <div class="stat-category" id="fdc-self-buff-category">
           <h3>バフ/デバフ</h3>
           <div class="fdc-stat-grid">
+            <div class="fdc-status-subgroup-label fdc-defense-only" id="fdc-self-target-debuff-label" hidden>防御側デバフ</div>
             <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-self-weakness-field" hidden>
               <span id="fdc-self-weakness-label">弱点(%)</span>
               <input id="fdc-self-weakness-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-self-break-field" hidden>
+              <span id="fdc-self-break-label">破壊</span>
+              <select id="fdc-self-break-stack">
+                <option value="0">なし</option>
+              </select>
             </label>
             <label class="fdc-field fdc-attack-only">
               <span>毒</span>
@@ -581,9 +588,27 @@
         <div class="stat-category" id="fdc-enemy-buff-category">
           <h3>バフ/デバフ</h3>
           <div class="fdc-stat-grid">
+            <div class="fdc-status-subgroup-label" id="fdc-enemy-preset-buff-label" hidden>敵バフ</div>
+            <label class="fdc-field fdc-attack-only" id="fdc-enemy-anger-field" hidden>
+              <span>怒り</span>
+              <select id="fdc-enemy-anger-stack">
+                <option value="0">なし</option>
+              </select>
+            </label>
+            <div class="fdc-status-subgroup-label">デバフ/弱点</div>
             <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-enemy-weakness-field" hidden>
               <span id="fdc-enemy-weakness-label">弱点(%)</span>
               <input id="fdc-enemy-weakness-p" type="number" value="0">
+            </label>
+            <div class="fdc-field fdc-defense-only fdc-weakness-field fdc-status-damage-weakness-field" id="fdc-enemy-status-damage-weakness-field" hidden>
+              <span id="fdc-enemy-status-damage-weakness-label">状態異常ダメージ弱点</span>
+              <strong id="fdc-enemy-status-damage-weakness-value">その他倍率 +0%</strong>
+            </div>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-enemy-status-taken-damage-weakness-field" hidden>
+              <span id="fdc-enemy-status-taken-damage-weakness-label">状態弱点</span>
+              <select id="fdc-enemy-status-taken-damage-weakness">
+                <option value="0">なし</option>
+              </select>
             </label>
             <label class="fdc-field fdc-attack-only">
               <span>毒</span>
@@ -676,6 +701,7 @@
       <strong>カードコスト</strong>
       <span><em>遺物</em><b data-fdc-card-cost-value="artifact">0</b></span>
       <span><em>スペル</em><b data-fdc-card-cost-value="spell">0</b></span>
+      <span data-fdc-artifact-limit-row hidden><em>遺物枚数</em><b data-fdc-artifact-limit-value>0 / 0</b></span>
       <span class="is-total"><em>合計</em><b data-fdc-card-cost-value="total">0</b></span>
     </div>
   </div>
@@ -805,9 +831,9 @@
   <script src="apostles.js"></script>
   <script src="cards.js?v=20260720b"></script>
   <script src="synergy.js"></script>
-  <script src="enemy-presets.js"></script>
+  <script src="enemy-presets.js?v=20260727n"></script>
   <script src="app-cache.js?v=20260725q"></script>
   <script src="image-preload.js"></script>
-  <script src="formation-damage-calc.js?v=20260726r"></script>
+  <script src="formation-damage-calc.js?v=20260727n"></script>
 </body>
 </html>

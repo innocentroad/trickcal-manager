@@ -2481,6 +2481,10 @@ body.theme-light .fdc-formation-loader select {
   background: transparent !important;
 }
 
+.fdc-weakness-field[hidden] {
+  display: none !important;
+}
+
 .fdc-weakness-field.is-active {
   color: color-mix(in srgb, #fb923c 74%, var(--fdc-text));
 }
@@ -2503,8 +2507,25 @@ body.theme-light .fdc-formation-loader select {
   font-weight: 950;
 }
 
-.fdc-weakness-field input {
+.fdc-weakness-field input,
+.fdc-weakness-field select {
   border-color: color-mix(in srgb, #f97316 28%, var(--fdc-border));
+}
+
+.fdc-status-damage-weakness-field strong {
+  min-height: 2.1rem;
+  display: flex;
+  align-items: center;
+  border: 1px solid color-mix(in srgb, #f97316 28%, var(--fdc-border));
+  border-radius: 0.66rem;
+  padding: 0.42rem 0.58rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font-size: 0.8rem;
+}
+
+.fdc-status-damage-weakness-field.is-inactive strong {
+  color: var(--fdc-muted);
 }
 
 .fdc-stat-field {
@@ -3304,6 +3325,43 @@ body.theme-light .fdc-field select {
 .fdc-artifact-category {
   display: grid;
   gap: 0.64rem;
+}
+
+.fdc-status-subgroup-label {
+  grid-column: 1 / -1;
+  border-bottom: 1px solid color-mix(in srgb, var(--fdc-border) 72%, transparent);
+  padding: 0.08rem 0.12rem 0.22rem;
+  color: var(--fdc-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.fdc-artifact-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--fdc-primary) 44%, var(--fdc-border));
+  border-radius: 0.65rem;
+  padding: 0.34rem 0.58rem;
+  background: color-mix(in srgb, var(--fdc-primary) 9%, var(--fdc-input));
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.fdc-artifact-limit strong {
+  color: var(--fdc-text);
+  font-size: 0.82rem;
+}
+
+.fdc-artifact-limit.is-over {
+  border-color: color-mix(in srgb, #ef4444 68%, var(--fdc-border));
+  background: color-mix(in srgb, #ef4444 12%, var(--fdc-input));
+}
+
+.fdc-artifact-limit.is-over strong {
+  color: #ef4444;
 }
 
 .fdc-artifact-section,
