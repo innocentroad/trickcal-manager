@@ -37,7 +37,7 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260723c" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260727n">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260727p">
   <link rel="stylesheet" href="shared-topbar.css?v=20260726b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -144,7 +144,7 @@
 
         <div class="stat-category">
           <h3>ステータス</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-primary-stat-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
               <span>HP</span>
               <input id="fdc-self-hp" type="number" min="0" value="0">
@@ -223,9 +223,9 @@
 
         <div class="stat-category">
           <h3>倍率 (%)</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
             <label class="fdc-field fdc-attack-only">
-              <span>属性相性(%)</span>
+              <span>属性相性</span>
               <select id="fdc-self-type">
                 <option value="50">50</option>
                 <option value="75">75</option>
@@ -235,15 +235,15 @@
               </select>
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>その他(%)</span>
+              <span>その他</span>
               <input id="fdc-self-other" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>与ダメ増減(%)</span>
+              <span>与ダメ増減</span>
               <input id="fdc-self-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-defense-only">
-              <span>被ダメ増減(%)</span>
+              <span>被ダメ増減</span>
               <input id="fdc-self-taken-dmg-p" type="number" value="0">
             </label>
           </div>
@@ -290,37 +290,37 @@
 
         <div class="stat-category">
           <h3>追加 (%)</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-mixed-percent-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
-              <span>攻撃力(%)</span>
+              <span>攻撃力</span>
               <input id="fdc-self-atk-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit">
-              <span>会心(%)</span>
+              <span>会心</span>
               <input id="fdc-self-crit-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit-dmg">
-              <span>会心DMG(%)</span>
+              <span>会心DMG</span>
               <input id="fdc-self-crit-dmg-p" type="number" value="0">
             </label>
-            <label class="fdc-field fdc-attack-only">
-              <span>会心率加算(%)</span>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心率加算</span>
               <input id="fdc-self-crit-rate-p" type="number" value="0">
             </label>
-            <label class="fdc-field fdc-attack-only">
-              <span>会心DMG量加算(%)</span>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心DMG量加算</span>
               <input id="fdc-self-crit-dmg-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
-              <span>防御力(%)</span>
+              <span>防御力</span>
               <input id="fdc-self-def-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-res">
-              <span>会心抵抗(%)</span>
+              <span>会心抵抗</span>
               <input id="fdc-self-crit-res-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-dmg-res">
-              <span>会心DMG抵抗(%)</span>
+              <span>会心DMG抵抗</span>
               <input id="fdc-self-crit-dmg-res-p" type="number" value="0">
             </label>
           </div>
@@ -334,33 +334,33 @@
               <span>追加クレヨン</span>
             </label>
           </div>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
-              <span>HP(%)</span>
+              <span>HP</span>
               <input id="fdc-extra-crayon-hp-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack">
-              <span>攻撃力(%)</span>
+              <span>攻撃力</span>
               <input id="fdc-extra-crayon-atk-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense">
-              <span>防御力(%)</span>
+              <span>防御力</span>
               <input id="fdc-extra-crayon-def-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit">
-              <span>会心(%)</span>
+              <span>会心</span>
               <input id="fdc-extra-crayon-crit-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg">
-              <span>会心DMG(%)</span>
+              <span>会心DMG</span>
               <input id="fdc-extra-crayon-crit-dmg-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res">
-              <span>会心抵抗(%)</span>
+              <span>会心抵抗</span>
               <input id="fdc-extra-crayon-crit-res-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res">
-              <span>会心DMG抵抗(%)</span>
+              <span>会心DMG抵抗</span>
               <input id="fdc-extra-crayon-crit-dmg-res-p" type="number" value="0">
             </label>
           </div>
@@ -448,7 +448,7 @@
 
         <div class="stat-category" id="fdc-enemy-final-stats">
           <h3 id="fdc-enemy-final-stats-heading">ステータス</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-primary-stat-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
               <span>HP</span>
               <input id="fdc-enemy-hp" type="number" min="0" value="0">
@@ -555,9 +555,9 @@
 
         <div class="stat-category">
           <h3>倍率 (%)</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
             <label class="fdc-field fdc-attack-only">
-              <span>属性相性(%)</span>
+              <span>属性相性</span>
               <select id="fdc-enemy-type">
                 <option value="50">50</option>
                 <option value="75">75</option>
@@ -567,19 +567,19 @@
               </select>
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>敵用補正(%)</span>
+              <span>敵用補正</span>
               <input id="fdc-enemy-special" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>その他(%)</span>
+              <span>その他</span>
               <input id="fdc-enemy-other" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>与ダメ増減(%)</span>
+              <span>与ダメ増減</span>
               <input id="fdc-enemy-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-defense-only">
-              <span>被ダメ増減(%)</span>
+              <span>被ダメ増減</span>
               <input id="fdc-enemy-taken-dmg-p" type="number" value="0">
             </label>
           </div>
@@ -637,37 +637,37 @@
 
         <div class="stat-category">
           <h3>追加 (%)</h3>
-          <div class="fdc-stat-grid">
+          <div class="fdc-stat-grid fdc-mixed-percent-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
-              <span>攻撃力(%)</span>
+              <span>攻撃力</span>
               <input id="fdc-enemy-atk-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit">
-              <span>会心(%)</span>
+              <span>会心</span>
               <input id="fdc-enemy-crit-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit-dmg">
-              <span>会心DMG(%)</span>
+              <span>会心DMG</span>
               <input id="fdc-enemy-crit-dmg-p" type="number" value="0">
             </label>
-            <label class="fdc-field fdc-attack-only">
-              <span>会心率加算(%)</span>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心率加算</span>
               <input id="fdc-enemy-crit-rate-p" type="number" value="0">
             </label>
-            <label class="fdc-field fdc-attack-only">
-              <span>会心DMG量加算(%)</span>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心DMG量加算</span>
               <input id="fdc-enemy-crit-dmg-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
-              <span>防御力(%)</span>
+              <span>防御力</span>
               <input id="fdc-enemy-def-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-res">
-              <span>会心抵抗(%)</span>
+              <span>会心抵抗</span>
               <input id="fdc-enemy-crit-res-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-dmg-res">
-              <span>会心DMG抵抗(%)</span>
+              <span>会心DMG抵抗</span>
               <input id="fdc-enemy-crit-dmg-res-p" type="number" value="0">
             </label>
           </div>

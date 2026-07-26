@@ -21,7 +21,7 @@
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260727n',
+      'formation-damage-calc.css?v=20260727p',
       'shared-topbar.css?v=20260726b',
       'statData.js?v=20260727b',
       'sp-engine.js?v=20260720b',

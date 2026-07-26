@@ -2468,6 +2468,19 @@ body.theme-light .fdc-formation-loader select {
   gap: 0.52rem;
 }
 
+.fdc-mixed-percent-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.fdc-mixed-percent-grid > * {
+  grid-column: span 2;
+}
+
+.fdc-mixed-percent-grid > .fdc-wide-percent-field {
+  grid-column: span 3;
+  order: 10;
+}
+
 .fdc-field {
   display: grid;
   gap: 0.28rem;
@@ -5443,5 +5456,55 @@ body.theme-light .fdc-result-diff.is-negative {
     overscroll-behavior: contain;
     padding-right: 0.18rem;
     scrollbar-width: thin;
+  }
+}
+
+@media (max-width: 980px) {
+  .fdc-stat-grid.fdc-primary-stat-grid,
+  .fdc-stat-grid.fdc-compact-percent-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fdc-stat-grid.fdc-mixed-percent-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 420px) {
+  .fdc-primary-stat-grid .fdc-stat-field > span {
+    min-width: 0;
+    gap: 0.16rem;
+    font-size: 0.59rem;
+    white-space: nowrap;
+  }
+
+  .fdc-primary-stat-grid .fdc-stat-field > span::before {
+    width: 0.92rem;
+    height: 0.92rem;
+    flex: 0 0 0.92rem;
+  }
+
+  .fdc-primary-stat-grid .fdc-stat-field[data-stat="crit-dmg-res"] > span {
+    font-size: 0.56rem;
+  }
+
+  .fdc-compact-percent-grid .fdc-stat-field > span,
+  .fdc-mixed-percent-grid .fdc-stat-field > span {
+    min-width: 0;
+    gap: 0.16rem;
+    font-size: 0.59rem;
+    white-space: nowrap;
+  }
+
+  .fdc-compact-percent-grid .fdc-stat-field > span::before,
+  .fdc-mixed-percent-grid .fdc-stat-field > span::before {
+    width: 0.92rem;
+    height: 0.92rem;
+    flex: 0 0 0.92rem;
+  }
+
+  .fdc-compact-percent-grid .fdc-stat-field[data-stat="crit-dmg-res"] > span,
+  .fdc-mixed-percent-grid .fdc-stat-field[data-stat="crit-dmg-res"] > span {
+    font-size: 0.56rem;
   }
 }
