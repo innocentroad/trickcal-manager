@@ -3395,7 +3395,7 @@ h3 {
   }
 }
 
-@media (max-width: 360px) {
+@media (max-width: 339px) {
   .board-global-list {
     grid-template-columns: 1fr;
   }

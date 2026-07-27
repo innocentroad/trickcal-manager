@@ -43,8 +43,8 @@
       document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
     })();
   </script>
-  <link rel="stylesheet" href="stat-prototype.css?v=20260727m">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260727zzc">
+  <link rel="stylesheet" href="stat-prototype.css?v=20260728a">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260728e">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -725,13 +725,24 @@
     </div>
   </dialog>
 
+  <dialog id="board-progress-dialog" class="board-progress-dialog" aria-labelledby="board-progress-title">
+    <div class="board-progress-dialog-head">
+      <div>
+        <span class="board-progress-dialog-kicker">全体ボード集計</span>
+        <h2 id="board-progress-title">達成率・100%までの必要素材</h2>
+      </div>
+      <button type="button" id="board-progress-close" class="apostle-picker-close">閉じる</button>
+    </div>
+    <div id="board-progress-dialog-body" class="board-progress-dialog-body"></div>
+  </dialog>
+
   <script src="statData.js?v=20260727b"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="cards.js?v=20260725a"></script>
-  <script src="app-cache.js?v=20260727zg"></script>
+  <script src="app-cache.js?v=20260727zh"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="stat-prototype.js?v=20260727zb"></script>
+  <script src="stat-prototype.js?v=20260728c"></script>
   <script src="stat-dashboard.js?v=20260722b"></script>
 </body>
 </html>

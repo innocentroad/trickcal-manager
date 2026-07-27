@@ -89,6 +89,11 @@
     { key: 'critRes', label: '会心抵抗系', stats: ['critRes', 'critDmgRes'], icon: 'Tile_CritResBoth_On.webp', parts: ['抵', 'DMG'] }
   ];
 
+  const BOARD_PROGRESS_CATEGORIES = [
+    { key: 'all', label: '全体効果マス', icon: 'Tileicon_3.webp' },
+    ...BOARD_GLOBAL_STAT_GROUPS
+  ];
+
   const BREAKDOWN_SOURCES = [
     { key: 'base', label: '基礎' },
     { key: 'rankUp', label: 'Rank補正' },
@@ -279,6 +284,9 @@
     boardGlobalSearch: document.getElementById('board-global-search'),
     boardGlobalSort: document.getElementById('board-global-sort'),
     boardGlobalProgressSummary: document.getElementById('board-global-progress-summary'),
+    boardProgressDialog: document.getElementById('board-progress-dialog'),
+    boardProgressClose: document.getElementById('board-progress-close'),
+    boardProgressDialogBody: document.getElementById('board-progress-dialog-body'),
     boardGlobalFilters: document.getElementById('board-global-filters'),
     boardGlobalFilterCount: document.getElementById('board-global-filter-count'),
     boardGlobalCancel: document.getElementById('board-global-cancel'),
@@ -364,6 +372,9 @@
       layers: new Set(),
       stats: new Set()
     },
+    boardProgressLayer: 'all',
+    boardProgressCategory: 'all',
+    boardProgressTileTypes: new Set(['special']),
     cardManager: {
       kind: 'artifact',
       search: '',
@@ -393,6 +404,8 @@
   const apostleBulkLevelHistoryActions = new WeakMap();
   let formationPointerDragState = null;
   let formationSuppressClickUntil = 0;
+  let boardProgressCountsCache = {};
+  let boardProgressRequirementCache = {};
   const historyState = {
     undoStack: [],
     redoStack: [],
@@ -1691,6 +1704,46 @@
 
     elements.boardGlobalModeCurrent.addEventListener('click', () => switchGlobalBoardMode('current'));
     elements.boardGlobalModePlan.addEventListener('click', () => switchGlobalBoardMode('plan'));
+
+    elements.boardGlobalProgressSummary.addEventListener('click', event => {
+      if (!event.target.closest('[data-board-progress-open]')) return;
+      openBoardProgressDialog();
+    });
+
+    elements.boardProgressClose?.addEventListener('click', () => elements.boardProgressDialog.close());
+    elements.boardProgressDialog?.addEventListener('click', event => {
+      if (event.target === elements.boardProgressDialog) {
+        elements.boardProgressDialog.close();
+        return;
+      }
+      const layerButton = event.target.closest('[data-board-progress-layer]');
+      if (layerButton) {
+        view.boardProgressLayer = layerButton.dataset.boardProgressLayer || 'all';
+        renderBoardProgressDialog();
+        return;
+      }
+      const categoryButton = event.target.closest('[data-board-progress-category]');
+      if (categoryButton) {
+        view.boardProgressCategory = categoryButton.dataset.boardProgressCategory || 'all';
+        renderBoardProgressDialog();
+        return;
+      }
+      const tileTypeButton = event.target.closest('[data-board-progress-tile-type]');
+      if (tileTypeButton) {
+        const tileType = tileTypeButton.dataset.boardProgressTileType;
+        if (!['special', 'advanced'].includes(tileType)) return;
+        if (view.boardProgressTileTypes.has(tileType)) {
+          if (view.boardProgressTileTypes.size === 1) return;
+          view.boardProgressTileTypes.delete(tileType);
+        } else {
+          view.boardProgressTileTypes.add(tileType);
+        }
+        boardProgressCountsCache = {};
+        boardProgressRequirementCache = {};
+        renderBoardProgressDialog();
+        elements.boardGlobalProgressSummary.innerHTML = renderBoardGlobalProgressSummary();
+      }
+    });
 
     elements.boardGlobalSearch.addEventListener('input', () => {
       renderBoardGlobalOverview();
@@ -6941,6 +6994,7 @@
     const query = elements.boardGlobalSearch.value.trim().toLocaleLowerCase('ja');
     renderBoardGlobalFilters();
     elements.boardGlobalProgressSummary.innerHTML = renderBoardGlobalProgressSummary();
+    if (elements.boardProgressDialog?.open) renderBoardProgressDialog();
     const rows = DATA.sheets.basicInfo
       .filter(basic => !query || [basic.使徒名, basic.id, basic.性格, basic.種族, basic.役割]
         .filter(Boolean)
@@ -7235,9 +7289,12 @@
   }
 
   function renderBoardGlobalProgressSummary() {
+    const progressTileTypes = new Set(view.boardProgressTileTypes);
     const createLayerSummary = () => ({
       filled: 0,
       total: 0,
+      progressFilled: 0,
+      progressTotal: 0,
       flat: createEmptyTotals(),
       percent: createEmptyTotals(),
       specialCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }]))
@@ -7253,6 +7310,10 @@
         const layer = layers[Number(row.ボード階層)];
         if (!layer || (row.マス_type !== '上級' && row.マス_type !== '特殊')) return;
         const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+        if (matchesBoardProgressTileType(row, progressTileTypes)) {
+          layer.progressTotal += 1;
+          if (filled) layer.progressFilled += 1;
+        }
         if (row.マス_type === '特殊') {
           layer.total += 1;
           if (filled) layer.filled += 1;
@@ -7264,29 +7325,24 @@
         if (filled) addBoardRowToSummary(row, layer.flat, layer.percent);
       });
     });
-    const totalFilled = Object.values(layers).reduce((sum, layer) => sum + layer.filled, 0);
-    const totalCount = Object.values(layers).reduce((sum, layer) => sum + layer.total, 0);
+    const totalFilled = Object.values(layers).reduce((sum, layer) => sum + layer.progressFilled, 0);
+    const totalCount = Object.values(layers).reduce((sum, layer) => sum + layer.progressTotal, 0);
+    const totalPercent = totalCount ? totalFilled / totalCount * 100 : 0;
+    const targetLabel = getBoardProgressTileTypeLabel(progressTileTypes);
     return `
-      <div class="board-global-ratio-list">
-        ${renderBoardGlobalRatio('全体', totalFilled, totalCount)}
-        ${Object.entries(layers).map(([layer, value]) =>
-          renderBoardGlobalRatio(`B${layer}`, value.filled, value.total)
-        ).join('')}
-      </div>
+      <button type="button" class="board-progress-overview" data-board-progress-open>
+        ${renderBoardProgressTileTypeIcon(progressTileTypes, 'board-progress-overview-icons')}
+        <span class="board-progress-overview-label">
+          <small>${escapeHtml(targetLabel)}</small>
+          <strong>全体効果マス</strong>
+        </span>
+        <span class="board-progress-overview-count"><strong>${formatNumber(totalFilled)}</strong> / ${formatNumber(totalCount)}</span>
+        <span class="board-progress-overview-rate">${formatBoardProgressPercent(totalPercent)}</span>
+        <span class="board-progress-overview-detail">詳細</span>
+      </button>
+      <div class="board-global-effect-summary-heading"><strong>現在の全体効果値</strong><span>上級 / 特殊</span></div>
       <div class="board-global-stat-matrices">
         ${Object.entries(layers).map(([layer, value]) => renderBoardGlobalStatMatrix(layer, value)).join('')}
-      </div>
-    `;
-  }
-
-  function renderBoardGlobalRatio(label, filled, total) {
-    const percent = total ? Math.round(filled / total * 100) : 0;
-    const layerClass = /^B[123]$/.test(label) ? ` board-global-ratio-layer-${label.slice(1)}` : '';
-    return `
-      <div class="board-global-ratio${layerClass}">
-        <span>${escapeHtml(label)}</span>
-        <strong>${formatNumber(filled)} / ${formatNumber(total)}</strong>
-        <small>${percent}%</small>
       </div>
     `;
   }
@@ -7656,9 +7712,370 @@
     `;
   }
 
+  function renderBoardProgressDialog() {
+    if (!elements.boardProgressDialogBody) return;
+    const layer = ['1', '2', '3'].includes(String(view.boardProgressLayer))
+      ? String(view.boardProgressLayer)
+      : 'all';
+    const category = BOARD_PROGRESS_CATEGORIES.some(item => item.key === view.boardProgressCategory)
+      ? view.boardProgressCategory
+      : 'all';
+    view.boardProgressLayer = layer;
+    view.boardProgressCategory = category;
+    const tileTypes = new Set(view.boardProgressTileTypes);
+    const tileTypeKey = Array.from(tileTypes).sort().join('+');
+    const countsKey = `${layer}:${tileTypeKey}`;
+    const counts = boardProgressCountsCache[countsKey]
+      || (boardProgressCountsCache[countsKey] = collectBoardProgressCounts(layer, tileTypes));
+    const selected = counts[category] || { filled: 0, total: 0 };
+    const requirementKey = `${view.boardGlobalMode}:${layer}:${category}:${tileTypeKey}`;
+    const requirement = boardProgressRequirementCache[requirementKey]
+      || (boardProgressRequirementCache[requirementKey] = collectBoardProgressRequirement(category, layer, tileTypes));
+    const percent = selected.total ? selected.filled / selected.total * 100 : 0;
+    const layerLabel = layer === 'all' ? '全ボード' : `ボード${layer}`;
+    const categoryLabel = BOARD_PROGRESS_CATEGORIES.find(item => item.key === category)?.label || '全体効果マス';
+    const tileTypeLabel = getBoardProgressTileTypeLabel(tileTypes);
+    const modeLabel = view.boardGlobalMode === 'plan' ? '予定状態' : '現在状態';
+    const hasDrafts = Object.keys(globalBoardDrafts).length > 0;
+
+    elements.boardProgressDialogBody.innerHTML = `
+      <div class="board-progress-context">
+        <span class="board-progress-mode ${view.boardGlobalMode === 'plan' ? 'is-plan' : ''}">${escapeHtml(modeLabel)}</span>
+        ${hasDrafts ? '<span class="board-progress-editing">未確定変更を含む</span>' : ''}
+        <span>全使徒を集計</span>
+      </div>
+      <div class="board-progress-layer-tabs" aria-label="集計ボード">
+        ${[
+          ['all', '全体'],
+          ['1', 'B1'],
+          ['2', 'B2'],
+          ['3', 'B3']
+        ].map(([value, label]) => `
+          <button type="button" class="${layer === value ? 'is-active' : ''}" data-board-progress-layer="${value}">${label}</button>
+        `).join('')}
+      </div>
+      <div class="board-progress-tile-filter" aria-label="集計する全体効果マス">
+        <span>対象マス</span>
+        <button type="button" class="${tileTypes.has('special') ? 'is-active' : ''}" data-board-progress-tile-type="special"
+          aria-pressed="${tileTypes.has('special')}">
+          <img src="img/Board/Tileicon_3.webp" alt="">特殊
+        </button>
+        <button type="button" class="${tileTypes.has('advanced') ? 'is-active' : ''}" data-board-progress-tile-type="advanced"
+          aria-pressed="${tileTypes.has('advanced')}">
+          <img src="img/Board/Tileicon_2.webp" alt="">上級
+        </button>
+      </div>
+      <div class="board-progress-category-grid">
+        ${BOARD_PROGRESS_CATEGORIES.map(item => {
+          const value = counts[item.key] || { filled: 0, total: 0 };
+          const rate = value.total ? value.filled / value.total * 100 : 0;
+          return `
+            <button type="button" class="board-progress-category ${category === item.key ? 'is-active' : ''}"
+              data-board-progress-category="${escapeAttr(item.key)}">
+              ${item.key === 'all'
+                ? renderBoardProgressTileTypeIcon(tileTypes, 'board-progress-category-target-icons')
+                : `<img src="img/Board/${escapeAttr(item.icon)}" alt="">`}
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${formatBoardProgressPercent(rate)}</strong>
+              <small>${formatNumber(value.filled)} / ${formatNumber(value.total)}</small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <section class="board-progress-resource-panel ${layer === 'all' ? '' : `board-progress-resource-layer-${escapeAttr(layer)}`}">
+        <div class="board-progress-resource-head">
+          <div>
+            <span>${escapeHtml(layerLabel)}・${escapeHtml(tileTypeLabel)}・${escapeHtml(categoryLabel)}</span>
+            <strong>100%まで</strong>
+          </div>
+        </div>
+        <div class="board-progress-resource-main">
+          <div class="board-progress-ring" style="--board-progress:${Math.max(0, Math.min(100, percent))}" aria-label="達成率 ${escapeAttr(formatBoardProgressPercent(percent))}">
+            <span><strong>${formatBoardProgressPercent(percent)}</strong><small>達成率</small></span>
+          </div>
+          <div class="board-progress-resource-detail">
+            <div class="board-progress-counts">
+              <span>未解放マス <strong>${formatNumber(requirement.targetRemaining)}</strong></span>
+              <span>経路追加マス <strong>${formatNumber(requirement.routeExtra)}</strong></span>
+              <span>解放必要マス <strong>${formatNumber(requirement.requiredCount)}</strong></span>
+            </div>
+            <div class="board-progress-resource-list">
+              ${renderGlobalBoardCostSummary(requirement.costs, {
+                signed: false,
+                emptyText: '100%達成済みです',
+                ariaLabel: '100%までに必要な素材'
+              })}
+            </div>
+          </div>
+        </div>
+        ${requirement.unreachable
+          ? `<p class="board-progress-warning">経路を特定できない対象が${formatNumber(requirement.unreachable)}マスあります。</p>`
+          : '<p class="board-progress-note">現在の解放状態から、対象マスへ到達する経路を含めて集計しています。</p>'}
+      </section>
+    `;
+  }
+
+  function openBoardProgressDialog() {
+    boardProgressCountsCache = {};
+    boardProgressRequirementCache = {};
+    elements.boardProgressDialogBody.innerHTML = `
+      <div class="board-progress-loading" role="status">
+        <span aria-hidden="true"></span>
+        <strong>ボード進捗を集計中</strong>
+      </div>
+    `;
+    elements.boardProgressDialog.showModal();
+    window.requestAnimationFrame(() => window.setTimeout(() => {
+      if (elements.boardProgressDialog.open) renderBoardProgressDialog();
+    }, 0));
+  }
+
+  function formatBoardProgressPercent(value) {
+    const rounded = Math.round((Number(value) || 0) * 10) / 10;
+    return `${rounded.toFixed(Number.isInteger(rounded) ? 0 : 1)}%`;
+  }
+
+  function collectBoardProgressCounts(layerFilter = 'all', tileTypes = new Set(['special'])) {
+    const counts = Object.fromEntries(BOARD_PROGRESS_CATEGORIES.map(item => [item.key, { filled: 0, total: 0 }]));
+    DATA.sheets.basicInfo.forEach(basic => {
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        if (!matchesBoardProgressTileType(row, tileTypes)
+          || (layerFilter !== 'all' && String(row.ボード階層) !== layerFilter)) return;
+        const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+        const categoryKeys = ['all', ...getBoardRowStatGroupKeys(row)];
+        new Set(categoryKeys).forEach(key => {
+          if (!counts[key]) return;
+          counts[key].total += 1;
+          if (filled) counts[key].filled += 1;
+        });
+      });
+    });
+    return counts;
+  }
+
+  function matchesBoardProgressTileType(row, tileTypes) {
+    if (!row) return false;
+    if (row.マス_type === '特殊') return tileTypes.has('special');
+    if (row.マス_type === '上級') return tileTypes.has('advanced');
+    return false;
+  }
+
+  function getBoardProgressTileTypeLabel(tileTypes) {
+    if (tileTypes.has('special') && tileTypes.has('advanced')) return '特殊＋上級';
+    return tileTypes.has('advanced') ? '上級' : '特殊';
+  }
+
+  function renderBoardProgressTileTypeIcon(tileTypes, className = '') {
+    const icons = [];
+    if (tileTypes.has('special')) icons.push(['Tileicon_3.webp', '特殊マス']);
+    if (tileTypes.has('advanced')) icons.push(['Tileicon_2.webp', '上級マス']);
+    return `
+      <span class="board-progress-target-icons ${escapeAttr(className)} ${icons.length > 1 ? 'is-multiple' : ''}" aria-label="${escapeAttr(getBoardProgressTileTypeLabel(tileTypes))}">
+        ${icons.map(([icon, label]) => `<img src="img/Board/${escapeAttr(icon)}" alt="${escapeAttr(label)}">`).join('')}
+      </span>
+    `;
+  }
+
+  function matchesBoardProgressCategory(row, category, tileTypes) {
+    if (!matchesBoardProgressTileType(row, tileTypes)) return false;
+    if (category === 'all') return true;
+    return getBoardRowStatGroupKeys(row).includes(category);
+  }
+
+  function createBoardProgressCosts() {
+    return {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+  }
+
+  function addBoardProgressCost(costs, row, basic) {
+    const rare1Board3Gate = Number(basic?.レア度) === 1
+      && Number(row?.ボード階層) === 2
+      && row?.マス_type === 'ゲート';
+    costs.gold += Number(row?.ゴールド) || 0;
+    costs.lower += Number(row?.下級) || 0;
+    costs.middle += Number(row?.中級) || 0;
+    costs.upper += Number(row?.上級) || 0;
+    costs.special += Number(row?.特級) || 0;
+    costs.sharedToken += rare1Board3Gate ? 5 : (Number(row?.['★1共同教団証']) || 0);
+    costs.apostleToken += rare1Board3Gate ? 0 : (Number(row?.使徒証) || 0);
+  }
+
+  function collectBoardProgressRequirement(category, layerFilter = 'all', tileTypes = new Set(['special'])) {
+    const costs = createBoardProgressCosts();
+    let targetRemaining = 0;
+    let routeExtra = 0;
+    let requiredCount = 0;
+    let unreachable = 0;
+
+    DATA.sheets.basicInfo.forEach(basic => {
+      const rows = DATA.getById('board', basic.id) || [];
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      const filledByLayer = { 1: new Set(), 2: new Set(), 3: new Set() };
+      rows.forEach(row => {
+        const layer = Number(row.ボード階層);
+        if (!filledByLayer[layer]) return;
+        if (row.マス_type === 'スタート' || boards?.[String(layer)]?.filled?.[boardKey(row)]) {
+          filledByLayer[layer].add(boardKey(row));
+        }
+      });
+
+      const targetsByLayer = { 1: new Set(), 2: new Set(), 3: new Set() };
+      const categoryTargetKeys = new Set();
+      rows.forEach(row => {
+        const layer = Number(row.ボード階層);
+        if (layerFilter !== 'all' && String(layer) !== layerFilter) return;
+        if (!matchesBoardProgressCategory(row, category, tileTypes)) return;
+        const key = boardKey(row);
+        categoryTargetKeys.add(key);
+        if (!filledByLayer[layer].has(key)) {
+          targetsByLayer[layer].add(key);
+          targetRemaining += 1;
+        }
+      });
+
+      const highestNeededLayer = [3, 2, 1].find(layer => targetsByLayer[layer].size) || 0;
+      for (let layer = 1; layer < highestNeededLayer; layer++) {
+        const gate = rows.find(row => Number(row.ボード階層) === layer && row.マス_type === 'ゲート');
+        if (gate && !filledByLayer[layer].has(boardKey(gate))) targetsByLayer[layer].add(boardKey(gate));
+      }
+
+      const requiredRows = new Map();
+      for (let layer = 1; layer <= 3; layer++) {
+        if (!targetsByLayer[layer].size) continue;
+        const layerRows = rows.filter(row => Number(row.ボード階層) === layer);
+        const previousGate = layer > 1
+          ? rows.find(row => Number(row.ボード階層) === layer - 1 && row.マス_type === 'ゲート')
+          : null;
+        const previousGateFilled = layer === 1 || !!(previousGate && filledByLayer[layer - 1].has(boardKey(previousGate)));
+        const result = fillBoardProgressTargets(
+          layerRows,
+          filledByLayer[layer],
+          targetsByLayer[layer],
+          previousGateFilled,
+          previousGate
+        );
+        result.added.forEach(key => {
+          const row = layerRows.find(item => boardKey(item) === key);
+          if (row && row.マス_type !== 'スタート') requiredRows.set(key, row);
+        });
+        unreachable += result.unreachable;
+      }
+
+      let addedTargets = 0;
+      requiredRows.forEach((row, key) => {
+        if (categoryTargetKeys.has(key)) addedTargets += 1;
+        addBoardProgressCost(costs, row, basic);
+      });
+      requiredCount += requiredRows.size;
+      routeExtra += Math.max(0, requiredRows.size - addedTargets);
+    });
+
+    return { costs, targetRemaining, routeExtra, requiredCount, unreachable };
+  }
+
+  function fillBoardProgressTargets(rows, filled, targets, previousGateFilled, previousGate) {
+    const added = new Set();
+    const remaining = Array.from(targets).filter(key => !filled.has(key));
+    let unreachable = 0;
+    while (remaining.length) {
+      const candidates = remaining
+        .map(targetKey => ({
+          targetKey,
+          path: findBoardProgressPath(rows, filled, targetKey, previousGateFilled, previousGate)
+        }))
+        .filter(item => item.path.length || filled.has(item.targetKey))
+        .sort((a, b) => scoreBoardProgressPath(rows, a.path) - scoreBoardProgressPath(rows, b.path)
+          || a.path.length - b.path.length
+          || compareBoardKeys(a.targetKey, b.targetKey));
+      const best = candidates[0];
+      if (!best) {
+        unreachable += remaining.length;
+        break;
+      }
+      best.path.forEach(key => {
+        if (!filled.has(key)) added.add(key);
+        filled.add(key);
+      });
+      const index = remaining.indexOf(best.targetKey);
+      if (index >= 0) remaining.splice(index, 1);
+    }
+    return { added, unreachable };
+  }
+
+  function scoreBoardProgressPath(rows, path) {
+    return path.reduce((sum, key) => {
+      const row = rows.find(item => boardKey(item) === key);
+      return sum + (Number(row?.ゴールド) || 0);
+    }, 0);
+  }
+
+  function findBoardProgressPath(rows, filled, targetKey, previousGateFilled, previousGate) {
+    if (filled.has(targetKey)) return [];
+    const virtualStart = '__board_progress_start__';
+    const rowKeys = new Set(rows.map(boardKey));
+    const starts = Array.from(filled).filter(key => rowKeys.has(key));
+    if (!starts.length && previousGateFilled) starts.push(virtualStart);
+    if (!starts.length) return [];
+    const best = new Map(starts.map(key => [key, { gold: 0, steps: 0 }]));
+    const previous = new Map();
+    const queue = starts.map(key => ({ key, score: { gold: 0, steps: 0 } }));
+
+    while (queue.length) {
+      queue.sort((a, b) => comparePathScore(a.score, b.score));
+      const current = queue.shift();
+      if (comparePathScore(current.score, best.get(current.key)) > 0) continue;
+      if (current.key === targetKey) break;
+      getBoardProgressNeighbors(rows, current.key, virtualStart, previousGate).forEach(next => {
+        const key = boardKey(next);
+        const score = {
+          gold: current.score.gold + (Number(next.ゴールド) || 0),
+          steps: current.score.steps + 1
+        };
+        if (best.has(key) && comparePathScore(score, best.get(key)) >= 0) return;
+        best.set(key, score);
+        previous.set(key, current.key);
+        queue.push({ key, score });
+      });
+    }
+
+    if (!best.has(targetKey)) return [];
+    const path = [];
+    let cursor = targetKey;
+    while (cursor && !starts.includes(cursor)) {
+      path.push(cursor);
+      cursor = previous.get(cursor);
+    }
+    return path.reverse();
+  }
+
+  function getBoardProgressNeighbors(rows, key, virtualStart, previousGate) {
+    if (key !== virtualStart) {
+      const row = rows.find(item => boardKey(item) === key);
+      return row ? getNeighborBoardRows(rows, row) : [];
+    }
+    const minY = Math.min(...rows.map(row => Number(row.Y_pos)).filter(Number.isFinite));
+    const candidates = rows
+      .filter(row => Number(row.Y_pos) === minY)
+      .sort((a, b) => Number(a.X_pos) - Number(b.X_pos));
+    if (!previousGate) return candidates.slice(0, 1);
+    const gateX = Number(previousGate.X_pos);
+    const entry = candidates.find(row => Number(row.X_pos) === gateX)
+      || candidates.slice().sort((a, b) => Math.abs(Number(a.X_pos) - gateX) - Math.abs(Number(b.X_pos) - gateX))[0];
+    return entry ? [entry] : [];
+  }
+
   function renderGlobalBoardCostSummary(costs, options = {}) {
     const signed = options.signed !== false;
     const emptyText = options.emptyText || 'コスト変更なし';
+    const ariaLabel = options.ariaLabel || '消費アイテム差分';
     const items = [
       ['gold', 'ゴールド', 'img/ゴールド.webp'],
       ['lower', '下級くれよん', 'img/下級くれよん.webp'],
@@ -7670,7 +8087,7 @@
     ].filter(([key]) => costs[key]);
     if (!items.length) return `<p class="empty-note board-global-cost-empty">${escapeHtml(emptyText)}</p>`;
     return `
-      <div class="board-global-cost-summary" aria-label="消費アイテム差分">
+      <div class="board-global-cost-summary" aria-label="${escapeAttr(ariaLabel)}">
         ${items.map(([key, label, icon]) => `
           <span class="board-global-cost-chip ${costs[key] < 0 ? 'is-negative' : ''}" title="${escapeAttr(label)}">
             <img src="${escapeAttr(icon)}" alt="${escapeAttr(label)}">
