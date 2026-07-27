@@ -2183,6 +2183,32 @@ h3 {
   filter: brightness(0.98) saturate(1.08);
 }
 
+:is(.apostle-bulk-row, .rank-overview-card, .board-global-card).is-sort-followed {
+  z-index: 2;
+  animation: sorted-apostle-follow 2.2s ease-out;
+}
+
+@keyframes sorted-apostle-follow {
+  0%, 30% {
+    outline: 2px solid rgba(56, 189, 248, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.2), 0 10px 24px rgba(14, 116, 144, 0.2);
+  }
+  100% {
+    outline-color: transparent;
+    outline-offset: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.apostle-bulk-row, .rank-overview-card, .board-global-card).is-sort-followed {
+    outline: 2px solid rgba(56, 189, 248, 0.9);
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px rgba(56, 189, 248, 0.2), 0 10px 24px rgba(14, 116, 144, 0.2);
+    animation: none;
+  }
+}
+
 .rank-overview-card.rank-gray {
   background: rgba(225, 228, 226, 0.66);
 }
@@ -2526,6 +2552,51 @@ h3 {
   position: relative;
 }
 
+.board-floating-cancel-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 3px;
+  min-width: 52px;
+  min-height: 34px;
+  border: 1px solid rgba(151, 45, 52, 0.36);
+  border-radius: 999px;
+  padding: 0 8px;
+  color: #fff;
+  background: #b94d55;
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.35),
+    0 4px 10px rgba(185, 77, 85, 0.24);
+}
+
+.board-floating-cancel-button small {
+  font-size: 0.66rem;
+  font-weight: 950;
+}
+
+.board-floating-cancel-button .ui-icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}
+
+.board-floating-cancel-button:hover:not(:disabled),
+.board-floating-cancel-button:focus-visible {
+  filter: brightness(1.08) saturate(1.05);
+  outline: 2px solid rgba(185, 77, 85, 0.22);
+  outline-offset: 2px;
+}
+
+.board-floating-cancel-button:disabled {
+  opacity: 0.68;
+  cursor: default;
+}
+
 .board-global-floating-mode {
   display: inline-flex;
   overflow: hidden;
@@ -2579,11 +2650,15 @@ h3 {
   max-width: 34px;
   padding: 0;
   background: #2f8f58;
-  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
-  font-size: 0.92rem;
   box-shadow:
     inset 0 1px rgba(255, 255, 255, 0.35),
     0 4px 10px rgba(47, 143, 88, 0.22);
+}
+
+.board-global-floating-save summary .ui-icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.15;
 }
 
 .board-global-floating-summary summary:hover,
@@ -3266,9 +3341,20 @@ h3 {
   }
 
   .board-global-floating-summary summary,
-  .board-global-floating-save summary {
+  .board-global-floating-save summary,
+  .board-floating-cancel-button {
     min-width: 32px;
     min-height: 32px;
+  }
+
+  .board-floating-cancel-button {
+    width: 32px;
+    max-width: 32px;
+    padding: 0;
+  }
+
+  .board-floating-cancel-button small {
+    display: none;
   }
 
   .board-global-floating-save summary {
@@ -3501,6 +3587,18 @@ h3 {
   transition: transform 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 
+.history-floating-icon {
+  display: block;
+  width: 24px;
+  height: 24px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .history-floating-button:hover:not(:disabled),
 .history-floating-button:focus-visible:not(:disabled) {
   transform: translateY(-1px);
@@ -3533,5 +3631,10 @@ h3 {
     height: 36px;
     border-radius: 10px;
     font-size: 22px;
+  }
+
+  .history-floating-icon {
+    width: 23px;
+    height: 23px;
   }
 }

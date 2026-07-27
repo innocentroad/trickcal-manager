@@ -80,6 +80,20 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
   cursor: pointer;
 }
 .header-actions button { width: 38px; padding: 0; }
+.enemy-ui-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.enemy-theme-icon-moon { display: none; }
+#enemy-status-theme[aria-pressed="true"] .enemy-theme-icon-sun { display: none; }
+#enemy-status-theme[aria-pressed="true"] .enemy-theme-icon-moon { display: block; }
 
 .enemy-status-shell {
   width: min(1480px, 100%);

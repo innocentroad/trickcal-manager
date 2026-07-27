@@ -327,7 +327,7 @@
     },
     apostleSort: 'name',
     apostleBulkSearch: '',
-    apostleBulkSort: 'name',
+    apostleBulkSort: 'combatPower',
     apostleBulkFilters: {
       personality: new Set(),
       species: new Set(),
@@ -340,21 +340,21 @@
       role: new Set(),
       position: new Set()
     },
-    rankSort: 'name',
+    rankSort: 'rank',
     bondFilters: {
       personality: new Set(),
       species: new Set(),
       role: new Set(),
       position: new Set()
     },
-    bondSort: 'name',
+    bondSort: 'bond',
     asideFilters: {
       personality: new Set(),
       species: new Set(),
       role: new Set(),
       position: new Set()
     },
-    asideSort: 'name',
+    asideSort: 'aside',
     boardGlobalMode: 'current',
     boardShortcutOffMode: loadBoardShortcutOffMode(),
     boardGlobalSort: 'name',
@@ -528,7 +528,6 @@
   function syncThemeToggle() {
     const isDark = getCurrentTheme() === 'dark';
     elements.themeToggles.forEach(button => {
-      button.textContent = button.matches('[data-dashboard-theme-toggle]') ? (isDark ? '☾' : '☀') : '';
       button.setAttribute('aria-pressed', String(isDark));
       button.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
       button.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
@@ -586,8 +585,18 @@
       controls.className = 'history-floating-controls';
       controls.setAttribute('aria-label', '履歴操作');
       controls.innerHTML = `
-        <button type="button" id="history-undo" class="history-floating-button" aria-label="元に戻す" title="元に戻す" disabled>↶</button>
-        <button type="button" id="history-redo" class="history-floating-button" aria-label="やり直す" title="やり直す" disabled>↷</button>
+        <button type="button" id="history-undo" class="history-floating-button" aria-label="元に戻す" title="元に戻す" disabled>
+          <svg class="history-floating-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 14 4 9l5-5"></path>
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path>
+          </svg>
+        </button>
+        <button type="button" id="history-redo" class="history-floating-button" aria-label="やり直す" title="やり直す" disabled>
+          <svg class="history-floating-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m15 14 5-5-5-5"></path>
+            <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path>
+          </svg>
+        </button>
       `;
       document.body.appendChild(controls);
     }
@@ -1755,6 +1764,15 @@
         button.dataset.boardGlobalKey
       );
       render();
+      const shouldFollow = view.boardGlobalSort === 'progress'
+        || (view.boardGlobalSort === 'planned' && view.boardGlobalMode === 'plan');
+      if (shouldFollow) {
+        followResortedApostle(
+          elements.boardGlobalOverviewList,
+          'data-board-global-card-id',
+          button.dataset.boardGlobalApostleId
+        );
+      }
     });
 
     elements.boardGlobalOverviewSummary.addEventListener('click', event => {
@@ -4443,6 +4461,25 @@
       || '<p class="empty-note">一致する使徒がいません。</p>';
   }
 
+  function followResortedApostle(container, dataAttribute, id) {
+    if (!container || !id) return;
+    window.requestAnimationFrame(() => {
+      const item = Array.from(container.querySelectorAll(`[${dataAttribute}]`))
+        .find(element => element.getAttribute(dataAttribute) === String(id));
+      if (!item) return;
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      item.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: reduceMotion ? 'auto' : 'smooth'
+      });
+      item.classList.remove('is-sort-followed');
+      void item.offsetWidth;
+      item.classList.add('is-sort-followed');
+      window.setTimeout(() => item.classList.remove('is-sort-followed'), 2200);
+    });
+  }
+
   function compareApostleBulkRows(a, b) {
     const nameOrder = String(a.使徒名 || a.id).localeCompare(
       String(b.使徒名 || b.id),
@@ -4479,7 +4516,7 @@
     const maxSkillLevel = getMaxSkillLevel(state.asideRank);
     const starOptions = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => ({
       value: index + 1,
-      label: `★${index + 1}`
+      label: String(index + 1)
     }));
     const skillOptions = createNumberOptions(1, maxSkillLevel);
     const equipment = DATA.getById('equipment', basic.id);
@@ -4582,12 +4619,16 @@
     apostleBulkLevelHistoryActions.delete(control);
     const state = ensureApostleState(id);
     state.level = normalizeApostleLevel(control.value, state.star);
-    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    refreshSingleStatSnapshotImmediately(basic);
+    saveState({ renderStateManager: false, refreshSnapshots: false });
     if (id === view.id) {
       syncControlsFromState();
       renderProfileQuick();
     }
-    if (['level', 'combatPower'].includes(view.apostleBulkSort)) renderApostleBulkSettings();
+    if (['level', 'combatPower'].includes(view.apostleBulkSort)) {
+      renderApostleBulkSettings();
+      followResortedApostle(elements.apostleBulkList, 'data-apostle-bulk-row', id);
+    }
     else updateApostleBulkRow(id);
     commitHistoryAction(history);
   }
@@ -4618,7 +4659,8 @@
       return;
     }
 
-    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    refreshSingleStatSnapshotImmediately(basic);
+    saveState({ renderStateManager: false, refreshSnapshots: false });
     if (id === view.id) {
       syncControlsFromState();
       renderProfileQuick();
@@ -4628,7 +4670,10 @@
       || (skill && view.apostleBulkSort === 'skillLevel')
       || (equipmentKey && view.apostleBulkSort === 'equipment')
       || view.apostleBulkSort === 'combatPower';
-    if (shouldResort) renderApostleBulkSettings();
+    if (shouldResort) {
+      renderApostleBulkSettings();
+      followResortedApostle(elements.apostleBulkList, 'data-apostle-bulk-row', id);
+    }
     else updateApostleBulkRow(id);
     commitHistoryAction(history);
   }
@@ -4693,7 +4738,9 @@
           return getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id) || nameOrder;
         }
         if (view.rankSort !== 'rank') return nameOrder;
-        return ensureApostleState(b.id).rank - ensureApostleState(a.id).rank || nameOrder;
+        return ensureApostleState(b.id).rank - ensureApostleState(a.id).rank
+          || getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id)
+          || nameOrder;
       });
 
     elements.rankOverviewGrid.innerHTML = rows.map(renderRankOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
@@ -4730,6 +4777,7 @@
     renderRankOverviewSummaryFromState();
     if (view.rankSort === 'rank' || view.rankSort === 'combatPower') {
       renderRankOverviewCards();
+      followResortedApostle(elements.rankOverviewGrid, 'data-rank-card-id', id);
       return;
     }
     const basic = DATA.getById('basicInfo', id);
@@ -4836,6 +4884,7 @@
     renderBondOverviewSummary();
     if (view.bondSort === 'bond') {
       renderBondOverviewCards();
+      followResortedApostle(elements.bondOverviewGrid, 'data-bond-card-id', id);
       return;
     }
     const basic = DATA.getById('basicInfo', id);
@@ -4954,6 +5003,7 @@
     renderAsideOverviewSummaryFromState();
     if (view.asideSort === 'aside') {
       renderAsideOverviewCards();
+      followResortedApostle(elements.asideOverviewGrid, 'data-aside-card-id', id);
       return;
     }
     const basic = DATA.getById('basicInfo', id);
@@ -5176,7 +5226,7 @@
     popover.innerHTML = `
       <div class="resource-effect-popover-head">
         <strong>${escapeHtml(card.name)}</strong>
-        <button type="button" data-close-card-effect>×</button>
+        <button type="button" data-close-card-effect aria-label="閉じる">${renderUiIcon('close')}</button>
       </div>
       <div class="resource-effect-popover-body">
         ${getCardManagerEffectSummary(card, star, solder).map(text => `<p>${escapeHtml(text)}</p>`).join('')}
@@ -5493,14 +5543,9 @@
 
   function renderFormationMemberSummary(formation) {
     if (!elements.formationMemberSummary) return;
-    const count = getFormationMemberCount(formation);
     const formationCombatPower = calculateFormationCombatPower(formation);
     const totalCombatPower = getSavedTotalCombatPower();
     elements.formationMemberSummary.innerHTML = `
-      <span class="formation-member-count">
-        <span>編成</span>
-        <strong>${escapeHtml(count)}</strong>
-      </span>
       ${renderFormationCombatPowerMetric('編成戦闘力', formationCombatPower, 'formation')}
       ${renderFormationCombatPowerMetric('総合戦闘力', totalCombatPower, 'total')}
     `;
@@ -5670,7 +5715,7 @@
     popover.innerHTML = `
       <div class="resource-effect-popover-head">
         <strong>${escapeHtml(title)}</strong>
-        <button type="button" data-close-formation-synergy>×</button>
+        <button type="button" data-close-formation-synergy aria-label="閉じる">${renderUiIcon('close')}</button>
       </div>
       <div class="resource-effect-popover-body formation-synergy-popover-body">
         ${lines.length
@@ -5837,7 +5882,7 @@
     return `
       <section class="formation-column formation-column-${rowIndex + 1}">
         <div class="formation-column-head">
-        <button type="button" data-formation-clear-row="${rowIndex}" title="この列をクリア" aria-label="${escapeAttr(position)}をクリア">×</button>
+        <button type="button" data-formation-clear-row="${rowIndex}" title="この列をクリア" aria-label="${escapeAttr(position)}をクリア">${renderUiIcon('close')}</button>
         </div>
         ${Array.from({ length: 3 }, (_, index) => renderFormationLine(row, rowIndex, index)).join('')}
       </section>
@@ -6022,7 +6067,7 @@
     popover.innerHTML = `
       <div class="resource-effect-popover-head">
         <strong>選択中スペルの詳細</strong>
-        <button type="button" data-close-formation-spell-details aria-label="閉じる">×</button>
+        <button type="button" data-close-formation-spell-details aria-label="閉じる">${renderUiIcon('close')}</button>
       </div>
       <div class="formation-spell-summary-popover-body">
         ${renderFormationSpellDetails(rows)}
@@ -6080,9 +6125,9 @@
         </span>
         <span class="formation-spell-name">${escapeHtml(card.name)}</span>
         <span class="formation-spell-qty" aria-label="${escapeAttr(`${card.name}の選択枚数`)}">
-          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="-1" ${count ? '' : 'disabled'}>−</button>
+          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="-1" aria-label="1枚減らす" ${count ? '' : 'disabled'}>${renderUiIcon('minus')}</button>
           <span class="formation-spell-qty-value ${count ? 'is-on' : ''}">${escapeHtml(count)}</span>
-          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="1">+</button>
+          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="1" aria-label="1枚増やす">${renderUiIcon('plus')}</button>
         </span>
       </div>
     `;
@@ -6187,6 +6232,7 @@
 
   function renderFormationCostSummary(formation) {
     if (!elements.formationCostSummary) return;
+    const memberCount = getFormationMemberCount(formation);
     const totalCost = calculateFormationCost(formation);
     ensureFormationCoinState(formation);
     const ownedCoins = normalizeFormationCoins(formation.coins);
@@ -6195,6 +6241,10 @@
     const autoCoins = calculateFormationAutoCoins(totalCombatPower);
     const isAuto = formation.coinMode === 'auto';
     elements.formationCostSummary.innerHTML = `
+      <span class="formation-member-count formation-member-count-cost">
+        <span>編成</span>
+        <strong>${escapeHtml(memberCount)}</strong>
+      </span>
       <div class="formation-coin-box ${remainingCoins < 0 ? 'is-short' : ''} ${isAuto ? 'is-auto' : 'is-manual'}">
         <span class="formation-coin-owned">
           <span>所持${isAuto ? '<em>自動</em>' : ''}</span>
@@ -7018,7 +7068,8 @@
     }).join('');
     const assetId = getApostleAssetId(basic.id);
     return `
-      <section class="board-global-card personality-${escapeAttr(basic.性格 || '')}">
+      <section class="board-global-card personality-${escapeAttr(basic.性格 || '')}"
+        data-board-global-card-id="${escapeAttr(basic.id)}">
         <div class="board-global-card-head">
           <button
             type="button"
@@ -7496,8 +7547,12 @@
             ` : '<p class="empty-note board-global-no-change">現在状態からの変更はありません。</p>'}
           </div>
         </details>
+        <button type="button" class="board-floating-cancel-button" data-board-global-summary-action="cancel"
+          title="変更を取消" aria-label="変更を取消"${hasChanges ? '' : ' disabled'}>
+          ${renderUiIcon('close')}<small>取消</small>
+        </button>
         <details class="board-global-floating-save">
-          <summary title="保存・反映" aria-label="保存・反映">💾</summary>
+          <summary title="保存・反映" aria-label="保存・反映">${renderUiIcon('save')}</summary>
           <div class="board-global-floating-save-panel">
             ${renderBoardGlobalSummaryActions('floating', !hasChanges)}
           </div>
@@ -7511,7 +7566,6 @@
     const disabledAttr = disabled ? ' disabled' : '';
     return `
       <div class="board-global-summary-actions board-global-summary-actions-${escapeAttr(placement)}" aria-label="全体ボード変更操作">
-        <button type="button" class="secondary" data-board-global-summary-action="cancel"${disabledAttr}>変更を取消</button>
         <button type="button" class="plan" data-board-global-summary-action="plan"${disabledAttr}>${planMode ? '予定を保存' : '予定として保存'}</button>
         ${planMode
           ? `<button type="button" class="primary" data-board-global-summary-action="apply-plan-current"${disabledAttr}>予定を現在に反映</button>`
@@ -7914,6 +7968,9 @@
     const sections = getBoardDraftSummarySections(rows);
     const draftChanged = hasBoardDraftChanges();
     const canCancel = hasBoardDraft() || (view.boardEditMode === 'plan' && hasSavedBoardPlan());
+    const cancelLabel = hasBoardDraft()
+      ? '編集を取消'
+      : (view.boardEditMode === 'plan' && hasSavedBoardPlan() ? '予定を削除' : '変更を取消');
     const hasChanges = sections.length > 0;
     elements.boardFloatingSummary.innerHTML = `
       <div class="board-global-floating-host board-floating-host">
@@ -7931,8 +7988,12 @@
               ${hasChanges ? sections.join('') : '<p class="empty-note board-global-no-change">現在状態からの変更はありません。</p>'}
             </div>
           </details>
+          <button type="button" class="board-floating-cancel-button" data-board-floating-action="cancel"
+            title="${cancelLabel}" aria-label="${cancelLabel}"${canCancel ? '' : ' disabled'}>
+            ${renderUiIcon('close')}<small>取消</small>
+          </button>
           <details class="board-global-floating-save">
-            <summary title="保存・反映" aria-label="保存・反映">💾</summary>
+            <summary title="保存・反映" aria-label="保存・反映">${renderUiIcon('save')}</summary>
             <div class="board-global-floating-save-panel">
               ${renderBoardFloatingActions({ draftChanged, canCancel })}
             </div>
@@ -7944,13 +8005,11 @@
 
   function renderBoardFloatingActions({ draftChanged, canCancel }) {
     const planMode = view.boardEditMode === 'plan';
-    const cancelDisabled = canCancel ? '' : ' disabled';
     const saveDisabled = draftChanged ? '' : ' disabled';
     const currentDisabled = !planMode && draftChanged ? '' : ' disabled';
     const applyPlanDisabled = planMode && (draftChanged || hasSavedBoardPlan()) ? '' : ' disabled';
     return `
       <div class="board-global-summary-actions board-global-summary-actions-floating" aria-label="ボード変更操作">
-        <button type="button" class="secondary" data-board-floating-action="cancel"${cancelDisabled}>${hasBoardDraft() ? '編集を取消' : '予定を削除'}</button>
         <button type="button" class="plan" data-board-floating-action="plan"${saveDisabled}>${planMode ? '予定を保存' : (hasSavedBoardPlan() ? '予定に追加保存' : '予定として保存')}</button>
         ${planMode
           ? `<button type="button" class="primary" data-board-floating-action="apply-plan-current"${applyPlanDisabled}>予定を現在に反映</button>`
@@ -8428,6 +8487,23 @@
     state.finalStats = state.statSnapshots.current.stats;
     updateTotalCombatPowerFromSnapshots();
     updateProfileCombatPowerDisplay(state.statSnapshots.current.stats.combatPower);
+    updateFormationCoinSummary();
+  }
+
+  function refreshSingleStatSnapshotImmediately(basic) {
+    if (!basic?.id) return;
+    const state = ensureApostleState(basic.id);
+    const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
+    if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+    state.statSnapshots.current = current;
+    const planned = hasAnySavedBoardPlan() ? createPlannedStatSnapshot(basic, state, current) : null;
+    if (planned) state.statSnapshots.planned = planned;
+    else delete state.statSnapshots.planned;
+    state.finalStats = current.stats;
+    updateTotalCombatPowerFromSnapshots();
+    if (basic.id === view.id) {
+      updateProfileCombatPowerDisplay(current.stats.combatPower);
+    }
     updateFormationCoinSummary();
   }
 
@@ -9950,6 +10026,17 @@
     if (!increaseValue && !percentValue) return '';
     const percentLabel = `${formatBoardSummaryValue(percentValue)}%`;
     return increaseValue ? `${formatNumber(increaseValue)} (${percentLabel})` : `0 (${percentLabel})`;
+  }
+
+  function renderUiIcon(name, className = '') {
+    const paths = {
+      close: '<path d="M6 6l12 12M18 6 6 18"></path>',
+      minus: '<path d="M5 12h14"></path>',
+      plus: '<path d="M12 5v14M5 12h14"></path>',
+      save: '<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3M8 21v-7h8v7"></path>'
+    };
+    const extraClass = className ? ` ${escapeAttr(className)}` : '';
+    return `<svg class="ui-icon${extraClass}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name] || ''}</svg>`;
   }
 
   function escapeHtml(value) {

@@ -124,7 +124,6 @@
 
   function syncThemeToggle() {
     const isDark = document.documentElement.dataset.theme === 'dark';
-    elements.themeToggle.textContent = isDark ? '☾' : '☀';
     elements.themeToggle.setAttribute('aria-pressed', String(isDark));
     elements.themeToggle.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
     elements.themeToggle.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';

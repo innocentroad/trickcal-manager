@@ -303,7 +303,7 @@
   function applyTheme(theme) {
     document.documentElement.dataset.theme = theme;
     if (el.theme) {
-      el.theme.textContent = theme === 'light' ? '☀' : '☾';
+      el.theme.setAttribute('aria-pressed', String(theme !== 'light'));
       el.theme.setAttribute('aria-label', theme === 'light' ? 'ダークモードに切替' : 'ライトモードに切替');
     }
   }

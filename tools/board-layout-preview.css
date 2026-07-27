@@ -35,6 +35,20 @@ button, select { font: inherit; }
   font-weight: 950;
   line-height: 1;
 }
+.tool-ui-icon {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.tool-theme-icon-moon { display: none; }
+.tool-theme-toggle[aria-pressed="true"] .tool-theme-icon-sun { display: none; }
+.tool-theme-toggle[aria-pressed="true"] .tool-theme-icon-moon { display: block; }
 .tool-theme-toggle:hover { border-color: #91ad9a; background: #f5faf6; }
 
 .panel {

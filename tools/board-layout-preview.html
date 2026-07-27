@@ -14,7 +14,7 @@
       document.documentElement.dataset.theme = 'light';
     }
   </script>
-  <link rel="stylesheet" href="board-layout-preview.css?v=20260725j">
+  <link rel="stylesheet" href="board-layout-preview.css?v=20260727a">
 </head>
 <body>
   <main class="tool-shell">
@@ -24,7 +24,10 @@
         <h1>ボードプレビュー</h1>
         <p>種族・特殊マスタイプ・ボードTierから、3階層の配置をまとめて確認します。</p>
       </div>
-      <button type="button" id="board-preview-theme-toggle" class="tool-theme-toggle" aria-label="テーマ切替">☀</button>
+      <button type="button" id="board-preview-theme-toggle" class="tool-theme-toggle" aria-label="テーマ切替">
+        <svg class="tool-ui-icon tool-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+        <svg class="tool-ui-icon tool-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
+      </button>
     </header>
 
     <section class="panel controls-panel">
@@ -81,13 +84,13 @@
         <div id="board-preview-canvas" class="board-canvas"></div>
       </div>
       <div id="board-preview-popover" class="tile-popover" role="dialog" aria-label="マス詳細" hidden>
-        <button type="button" id="board-preview-popover-close" class="tile-popover-close" aria-label="閉じる">×</button>
+        <button type="button" id="board-preview-popover-close" class="tile-popover-close" aria-label="閉じる"><svg class="tool-ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
         <div id="board-preview-detail" class="tile-popover-content"></div>
       </div>
     </section>
   </main>
 
   <script src="../statData.js"></script>
-  <script src="board-layout-preview.js?v=20260727a"></script>
+  <script src="board-layout-preview.js?v=20260727b"></script>
 </body>
 </html>

@@ -1246,7 +1246,7 @@
               <div class="fdc-enemy-spell-item ${getCardRarityClass(row)}">
                 <img src="${escapeAttr(row.image)}" alt="">
                 <span class="fdc-enemy-spell-name"><strong>${escapeHtml(row.name)}</strong><small>${escapeHtml(row.rarity)}</small></span>
-                <button type="button" data-fdc-enemy-spell-remove="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.name)}を削除">×</button>
+                <button type="button" data-fdc-enemy-spell-remove="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.name)}を削除">${renderUiIcon('close')}</button>
                 <div class="fdc-enemy-spell-controls">
                   <label><span>枚数</span><input type="number" min="1" max="99" value="${row.qty}" data-fdc-enemy-spell-id="${escapeAttr(row.id)}" data-fdc-enemy-spell-field="count"></label>
                   <label><span>★</span><select data-fdc-enemy-spell-id="${escapeAttr(row.id)}" data-fdc-enemy-spell-field="star">${renderEnemyIndividualOptions(5, row.star, value => `★${value}`)}</select></label>
@@ -3159,7 +3159,7 @@
           <button type="button" class="${view.pickerMode === 'formation' ? 'is-active' : ''}" data-fdc-picker-mode="formation">編成</button>
           <button type="button" class="${view.pickerMode === 'all' ? 'is-active' : ''}" data-fdc-picker-mode="all">一覧</button>
         </div>
-        <button type="button" class="fdc-picker-close" data-fdc-picker-close aria-label="使徒選択を閉じる">×</button>
+        <button type="button" class="fdc-picker-close" data-fdc-picker-close aria-label="使徒選択を閉じる">${renderUiIcon('close')}</button>
       </div>
       ${pendingMember ? renderPendingTempMemberNotice(pendingMember) : ''}
       <div class="fdc-picker-body ${view.pickerMode === 'all' ? 'is-all' : 'is-formation'}">${body}</div>
@@ -5067,7 +5067,7 @@
     picker.innerHTML = `
       <div class="fdc-temp-artifact-head">
         <strong>${view.artifactPicker?.type === 'enemy' ? '敵遺物を入替' : '遺物を一時入替'}</strong>
-        <button type="button" data-fdc-temp-artifact-close aria-label="閉じる">×</button>
+        <button type="button" data-fdc-temp-artifact-close aria-label="閉じる">${renderUiIcon('close')}</button>
       </div>
       <div class="fdc-temp-artifact-grid">
         <button type="button" class="fdc-temp-artifact-option is-clear ${currentId ? '' : 'is-active'}" data-fdc-temp-artifact-value="">
@@ -5525,7 +5525,7 @@
     if (title) {
       title.innerHTML = `
         <span>選択中スペルの詳細</span>
-        <button type="button" data-fdc-spell-details-close aria-label="閉じる">×</button>
+        <button type="button" data-fdc-spell-details-close aria-label="閉じる">${renderUiIcon('close')}</button>
       `;
     }
     if (body) body.innerHTML = `<div class="fdc-selected-spell-list">${rows.map(renderSelectedSpellDetailRow).join('')}</div>`;
@@ -5571,7 +5571,7 @@
         <span>スペル編成</span>
         <span class="fdc-spell-editor-title-actions">
           <button type="button" class="fdc-spell-editor-reset" data-fdc-spell-editor-reset ${Array.isArray(view.tempSpells) ? '' : 'disabled'}>編成に戻す</button>
-          <button type="button" data-fdc-spell-editor-close aria-label="閉じる">×</button>
+          <button type="button" data-fdc-spell-editor-close aria-label="閉じる">${renderUiIcon('close')}</button>
         </span>
       `;
     }
@@ -5610,9 +5610,9 @@
         <strong title="${escapeAttr(row.name)}">${escapeHtml(row.name)}</strong>
         <small>コスト${escapeHtml(getCardCostById(row.id, row.star))}</small>
         <span class="fdc-spell-editor-qty" aria-label="${escapeAttr(`${row.name}の枚数`)}">
-          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="-1" ${row.qty ? '' : 'disabled'}>−</button>
+          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="-1" aria-label="1枚減らす" ${row.qty ? '' : 'disabled'}>${renderUiIcon('minus')}</button>
           <b data-fdc-spell-editor-qty-value>${escapeHtml(row.qty)}</b>
-          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="1">＋</button>
+          <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="1" aria-label="1枚増やす">${renderUiIcon('plus')}</button>
         </span>
       </article>
     `;
@@ -5963,7 +5963,7 @@
       heading.classList.add('fdc-category-heading');
       heading.innerHTML = `
         <span>${escapeHtml(title)}</span>
-        <button type="button" class="fdc-category-toggle" data-fdc-category-toggle aria-expanded="true" aria-label="${escapeAttr(title)}を閉じる">－</button>
+        <button type="button" class="fdc-category-toggle" data-fdc-category-toggle aria-expanded="true" aria-label="${escapeAttr(title)}を閉じる">${renderUiIcon('minus', 'ui-icon-minus')}${renderUiIcon('plus', 'ui-icon-plus')}</button>
       `;
     });
   }
@@ -5972,7 +5972,6 @@
     const toggle = category.querySelector('[data-fdc-category-toggle]');
     category.classList.toggle('is-collapsed', collapsed);
     if (!toggle) return;
-    toggle.textContent = collapsed ? '＋' : '－';
     toggle.setAttribute('aria-expanded', String(!collapsed));
     const title = category.querySelector('.fdc-category-heading span')?.textContent || '項目';
     toggle.setAttribute('aria-label', `${title}を${collapsed ? '開く' : '閉じる'}`);
@@ -8508,10 +8507,20 @@
   function setTheme(theme, persist = true) {
     document.body.classList.toggle('theme-light', theme === 'light');
     document.body.classList.toggle('theme-dark', theme !== 'light');
-    if (el.themeToggle) el.themeToggle.textContent = theme === 'light' ? '☀' : '☾';
+    if (el.themeToggle) el.themeToggle.setAttribute('aria-pressed', String(theme !== 'light'));
     if (!persist) return;
     localStorage.setItem(THEME_KEY, theme);
     localStorage.setItem(LEGACY_THEME_KEY, theme);
+  }
+
+  function renderUiIcon(name, className = '') {
+    const paths = {
+      close: '<path d="M6 6l12 12M18 6 6 18"></path>',
+      minus: '<path d="M5 12h14"></path>',
+      plus: '<path d="M12 5v14M5 12h14"></path>'
+    };
+    const extraClass = className ? ` ${escapeAttr(className)}` : '';
+    return `<svg class="ui-icon${extraClass}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name] || ''}</svg>`;
   }
 
   function escapeHtml(value) {
