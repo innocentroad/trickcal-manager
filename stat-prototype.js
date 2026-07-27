@@ -604,6 +604,7 @@
     elements.historyRedo = document.getElementById('history-redo');
   }
   function bindEvents() {
+    bindBottomSavePopover();
     window.addEventListener('storage', event => {
       if (event.key !== COMMON_THEME_STORAGE_KEY || !['light', 'dark'].includes(event.newValue)) return;
       document.documentElement.dataset.theme = event.newValue;
@@ -1301,12 +1302,13 @@
 
     document.addEventListener('click', event => {
       const clickedBottomMenu = event.target.closest('.bottom-save-menu, .bottom-global-menu');
+      const clickedSavePopover = event.target.closest('.bottom-save-popover.is-portaled');
       const clickedBottomButton = event.target.closest('.dashboard-bottom-bar button');
-      if (clickedBottomMenu) {
-        closeBottomMenus(clickedBottomMenu);
+      if (clickedBottomMenu || clickedSavePopover) {
+        closeBottomMenus(clickedBottomMenu || document.querySelector('.bottom-save-menu'));
         return;
       }
-      if (clickedBottomButton || !clickedBottomMenu) closeBottomMenus();
+      if (clickedBottomButton || (!clickedBottomMenu && !clickedSavePopover)) closeBottomMenus();
     });
 
     elements.formationPickerClose?.addEventListener('click', () => {
@@ -1861,6 +1863,43 @@
     });
   }
 
+  function bindBottomSavePopover() {
+    const menu = document.querySelector('.bottom-save-menu');
+    const trigger = menu?.querySelector('.bottom-save-trigger');
+    const popover = menu?.querySelector('.bottom-save-popover');
+    if (!menu || !trigger || !popover) return;
+
+    const positionPopover = () => {
+      if (!menu.open || !popover.classList.contains('is-open')) return;
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverWidth = popover.getBoundingClientRect().width || 268;
+      const margin = 2;
+      const left = Math.max(margin, Math.min(window.innerWidth - popoverWidth - margin, triggerRect.right - popoverWidth));
+      popover.style.setProperty('--bottom-save-popover-left', `${left}px`);
+    };
+
+    const syncPopover = () => {
+      trigger.setAttribute('aria-expanded', String(menu.open));
+      if (menu.open) {
+        if (!getStateSlotMode()) elements.saveStateSlot?.click();
+        popover.classList.add('is-open');
+        positionPopover();
+      } else {
+        popover.classList.remove('is-open');
+        popover.style.removeProperty('--bottom-save-popover-left');
+      }
+    };
+
+    document.body.appendChild(popover);
+    popover.classList.add('is-portaled');
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      menu.open = !menu.open;
+      syncPopover();
+    });
+    menu.addEventListener('toggle', syncPopover);
+    window.addEventListener('resize', positionPopover);
+  }
   function closeBottomMenus(exceptMenu = null) {
     document.querySelectorAll('.bottom-save-menu[open], .bottom-global-menu[open]').forEach(menu => {
       if (exceptMenu && menu === exceptMenu) return;
@@ -2310,6 +2349,11 @@
     if (saveMenu) {
       if (mode) saveMenu.dataset.slotMode = mode;
       else delete saveMenu.dataset.slotMode;
+    }
+    const savePopover = document.querySelector('.bottom-save-popover');
+    if (savePopover) {
+      if (mode) savePopover.dataset.slotMode = mode;
+      else delete savePopover.dataset.slotMode;
     }
     if (elements.stateSlotSection) elements.stateSlotSection.hidden = !mode;
     if (elements.stateSlotSectionTitle) elements.stateSlotSectionTitle.textContent = modeLabels[mode] || '操作を選択';
