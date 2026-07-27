@@ -13,6 +13,7 @@
   const COMMON_THEME_STORAGE_KEY = 'trickcal_theme';
   const THEME_STORAGE_KEY = 'trickcal_stat_theme';
   const BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY = 'trickcal_board_shortcut_off_mode';
+  const BOARD_ORIENTATION_STORAGE_KEY = 'trickcal_board_orientation';
   const DASHBOARD_RELOAD_CONTEXT_KEY = 'trickcal_dashboard_reload_context_v1';
   const EXPORT_SCHEMA = 'trickcal-stat-state';
   const EXPORT_VERSION = 1;
@@ -284,6 +285,7 @@
     boardGlobalConfirm: document.getElementById('board-global-confirm'),
     boardGlobalDiscardPlan: document.getElementById('board-global-discard-plan'),
     boardTabs: Array.from(document.querySelectorAll('#board-tabs button')),
+    boardOrientationButtons: Array.from(document.querySelectorAll('#board-orientation-switch button')),
     boardStage: document.getElementById('board-stage'),
     fillBoard: document.getElementById('fill-board'),
     clearBoard: document.getElementById('clear-board'),
@@ -313,6 +315,7 @@
   const view = {
     id: '',
     board: 1,
+    boardOrientation: loadBoardOrientation(),
     boardEditMode: 'current',
     stateSlot: normalizeStateSlot(appState.activeStateSlot),
     stateSlotMode: '',
@@ -459,6 +462,22 @@
     return localStorage.getItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY) === 'route' ? 'route' : 'node';
   }
 
+  function loadBoardOrientation() {
+    try {
+      return localStorage.getItem(BOARD_ORIENTATION_STORAGE_KEY) === 'vertical' ? 'vertical' : 'horizontal';
+    } catch {
+      return 'horizontal';
+    }
+  }
+
+  function setBoardOrientation(orientation) {
+    view.boardOrientation = orientation === 'vertical' ? 'vertical' : 'horizontal';
+    try {
+      localStorage.setItem(BOARD_ORIENTATION_STORAGE_KEY, view.boardOrientation);
+    } catch {}
+    render();
+  }
+
   function setBoardShortcutOffMode(mode) {
     view.boardShortcutOffMode = mode === 'route' ? 'route' : 'node';
     localStorage.setItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY, view.boardShortcutOffMode);
@@ -576,6 +595,11 @@
     elements.historyRedo = document.getElementById('history-redo');
   }
   function bindEvents() {
+    window.addEventListener('storage', event => {
+      if (event.key !== COMMON_THEME_STORAGE_KEY || !['light', 'dark'].includes(event.newValue)) return;
+      document.documentElement.dataset.theme = event.newValue;
+      syncThemeToggle();
+    });
     elements.themeToggles.forEach(button => button.addEventListener('click', () => {
       setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
     }));
@@ -1329,6 +1353,10 @@
         view.board = nextBoard;
         render();
       });
+    });
+
+    elements.boardOrientationButtons.forEach(button => {
+      button.addEventListener('click', () => setBoardOrientation(button.dataset.boardOrientation));
     });
 
     elements.fillBoard.addEventListener('click', () => {
@@ -2833,8 +2861,14 @@
     });
     elements.boardStage.classList.remove('board-layer-1', 'board-layer-2', 'board-layer-3');
     elements.boardStage.classList.add(`board-layer-${view.board}`);
+    elements.boardStage.classList.toggle('is-vertical', view.boardOrientation === 'vertical');
     elements.boardStage.classList.toggle('is-plan-mode', view.boardEditMode === 'plan');
     elements.boardStage.classList.toggle('is-preview', !isBoardLayerUnlocked(view.board));
+    elements.boardOrientationButtons.forEach(button => {
+      const active = button.dataset.boardOrientation === view.boardOrientation;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
     elements.fillBoard.disabled = false;
     elements.clearBoard.disabled = false;
     const draftChanged = hasBoardDraftChanges();
@@ -7633,20 +7667,30 @@
     const hasVirtualStart = Number(view.board) > 1 && entry;
     const boardUnlocked = isBoardLayerUnlocked(view.board);
     const byPos = new Map(filtered.map(row => [`${Number(row.X_pos)}:${getBoardDisplayY(row)}`, row]));
+    const vertical = view.boardOrientation === 'vertical';
+    const positions = [];
+    if (vertical) {
+      for (let y = maxY; y >= minY; y--) {
+        for (let x = maxX; x >= minX; x--) positions.push([x, y]);
+      }
+    } else {
+      for (let x = maxX; x >= minX; x--) {
+        for (let y = minY; y <= maxY; y++) positions.push([x, y]);
+      }
+    }
     const nodes = [];
-    for (let x = maxX; x >= minX; x--) {
-      for (let y = minY; y <= maxY; y++) {
+    positions.forEach(([x, y]) => {
         if (hasVirtualStart && x === Number(entry.X_pos) && y === minY) {
           nodes.push(`
             <div class="board-node type-gate ${boardUnlocked ? 'is-filled' : 'is-locked'} is-virtual-start" title="${boardUnlocked ? '前階層ゲート' : '前階層ゲート（未解放）'}" style="--tile-base: url('img/Board/Tile_gate.webp');">
             </div>
           `);
-          continue;
+          return;
         }
         const row = byPos.get(`${x}:${y}`);
         if (!row) {
           nodes.push('<div class="board-node is-empty"></div>');
-          continue;
+          return;
         }
         const key = boardKey(row);
         const filled = row.マス_type === 'スタート' || !!boardState.filled[key];
@@ -7658,16 +7702,17 @@
         const text = row.表示用 || formatBoardEffect(row);
         const displayOn = filled;
         const baseIcon = getBoardTileBasePath(row, displayOn);
-        const icon = getBoardIconPath(row, displayOn);
+        const icon = getBoardIconPath(row, displayOn, view.boardOrientation);
         nodes.push(`
           <button type="button" class="board-node ${boardNodeClass(row)} ${filled ? 'is-filled' : 'is-locked'} ${planned ? 'is-planned' : ''} ${pending ? 'is-pending' : ''} ${pendingType}" data-node-key="${escapeAttr(key)}" title="${escapeAttr(text)}" style="--tile-base: url('${escapeAttr(baseIcon)}'); ${icon ? `--tile-icon: url('${escapeAttr(icon)}');` : ''}">
             <span class="board-node-label">${escapeHtml(shortBoardLabel(row))}</span>
           </button>
         `);
-      }
-    }
-    elements.boardGrid.style.gridTemplateColumns = `repeat(${maxY - minY + 1}, var(--board-cell-size))`;
-    elements.boardGrid.style.gridTemplateRows = `repeat(${maxX - minX + 1}, var(--board-cell-size))`;
+    });
+    const columnCount = vertical ? maxX - minX + 1 : maxY - minY + 1;
+    const rowCount = vertical ? maxY - minY + 1 : maxX - minX + 1;
+    elements.boardGrid.style.gridTemplateColumns = `repeat(${columnCount}, var(--board-cell-size))`;
+    elements.boardGrid.style.gridTemplateRows = `repeat(${rowCount}, var(--board-cell-size))`;
     elements.boardGrid.innerHTML = nodes.join('');
     renderBoardDraftSummary(rows);
     renderBoardFloatingSummary(rows);
@@ -9621,10 +9666,13 @@
     return `img/Board/Tile_1_${enabled ? 'On' : 'Off'}.webp`;
   }
 
-  function getBoardIconPath(row, enabled = false) {
+  function getBoardIconPath(row, enabled = false, orientation = 'horizontal') {
     const types = [row.効果1_type, row.効果2_type].filter(Boolean).join('/');
     const state = enabled ? 'On' : 'Off';
-    if (row.マス_type === 'スタート') return `img/Board/Tile_Start_${BOARD_START_DIRECTION}.webp`;
+    if (row.マス_type === 'スタート') {
+      const direction = orientation === 'vertical' ? 'Up' : BOARD_START_DIRECTION;
+      return `img/Board/Tile_Start_${direction}.webp`;
+    }
     if (row.マス_type === 'ゲート') return '';
     if (types.includes('HP')) return `img/Board/Tile_Hp_${state}.webp`;
     if (types.includes('物理攻撃') && types.includes('魔法攻撃')) return `img/Board/Tile_AtkBoth_${state}.webp`;

@@ -317,7 +317,22 @@ body.theme-dark .fdc-top-control-bar .fdc-theme-toggle {
   }
 
   :is(.dashboard-top-tabs, .fdc-top-tabs) {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 0.12rem;
+    width: 100%;
+    max-width: 27rem;
+  }
+
+  :is(.dashboard-top-tabs, .fdc-top-tabs) > :is(button, a, .topbar-global-menu) {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  :is(.dashboard-top-tabs, .fdc-top-tabs) > .topbar-global-menu > summary {
+    box-sizing: border-box;
+    width: 100%;
   }
 
   :is(.dashboard-top-tabs, .fdc-top-tabs) button,
@@ -391,6 +406,15 @@ body.theme-dark .fdc-top-control-bar .fdc-theme-toggle {
     transform: none;
   }
 }
+
+@media (max-width: 360px) {
+  :is(.dashboard-top-tabs, .fdc-top-tabs) > button,
+  :is(.dashboard-top-tabs, .fdc-top-tabs) > a,
+  :is(.dashboard-top-tabs, .fdc-top-tabs) > .topbar-global-menu > summary {
+    padding-inline: 0.1rem;
+  }
+}
+
 .site-rights-footer {
   grid-column: 1 / -1;
   width: 100%;

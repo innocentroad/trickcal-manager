@@ -1138,6 +1138,151 @@ body.theme-dark .fdc-stat-mode-toggle button.is-active {
   font-weight: 750;
 }
 
+.fdc-pvp-rank-calculator {
+  margin-top: 0.68rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 42%, var(--fdc-border));
+  border-radius: 0.86rem;
+  padding: 0.68rem;
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, #f59e0b 10%, var(--fdc-panel-strong)),
+      color-mix(in srgb, var(--fdc-panel) 92%, transparent));
+}
+
+.fdc-pvp-rank-head {
+  display: flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+
+.fdc-pvp-rank-head strong {
+  color: color-mix(in srgb, #fbbf24 78%, var(--fdc-text));
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.fdc-pvp-rank-head button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.24rem;
+  height: 1.24rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 48%, var(--fdc-border));
+  border-radius: 50%;
+  padding: 0;
+  color: color-mix(in srgb, #fbbf24 82%, var(--fdc-text));
+  background: color-mix(in srgb, #f59e0b 13%, var(--fdc-input));
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.fdc-pvp-rank-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+  margin-top: 0.48rem;
+}
+
+.fdc-pvp-rank-card {
+  display: grid;
+  grid-template-rows: auto minmax(1.8rem, 1fr);
+  gap: 0.14rem;
+  align-items: center;
+  min-width: 0;
+  min-height: 3.5rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, var(--fdc-border));
+  border-radius: 0.66rem;
+  padding: 0.38rem 0.46rem;
+  color: var(--fdc-muted);
+  background: color-mix(in srgb, #f59e0b 7%, var(--fdc-input));
+  text-align: center;
+}
+
+.fdc-pvp-rank-card > span:first-child {
+  overflow: hidden;
+  font-size: 0.62rem;
+  font-weight: 850;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fdc-pvp-rank-card > strong {
+  align-self: center;
+  color: var(--fdc-text);
+  font-size: 0.88rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.fdc-pvp-rank-number > span:last-child {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.fdc-pvp-rank-number input {
+  width: 100%;
+  min-width: 0;
+  min-height: 1.8rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 34%, var(--fdc-border));
+  border-radius: 0.5rem;
+  padding: 0.24rem 0.34rem;
+  color: var(--fdc-text);
+  background: var(--fdc-input);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-align: right;
+}
+
+.fdc-pvp-rank-number b {
+  color: var(--fdc-text);
+  font-size: 0.68rem;
+}
+
+.fdc-pvp-rank-slider-wrap {
+  display: grid;
+  gap: 0.06rem;
+  min-width: 0;
+  margin-top: 0.28rem;
+}
+
+.fdc-pvp-rank-slider-labels {
+  display: flex;
+  justify-content: space-between;
+  color: var(--fdc-muted);
+}
+
+.fdc-pvp-rank-slider-wrap input[type="range"] {
+  width: 100%;
+  margin: 0;
+  direction: rtl;
+  accent-color: #f59e0b;
+}
+
+.fdc-pvp-rank-card strong b {
+  color: color-mix(in srgb, #fbbf24 82%, var(--fdc-text));
+  font: inherit;
+}
+
+.fdc-pvp-eliph-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+}
+
+.fdc-pvp-eliph-value img {
+  width: 1rem;
+  height: 1rem;
+  object-fit: contain;
+  flex: 0 0 1rem;
+}
+
 .fdc-enemy-apostle-control {
   position: relative;
   display: block;
@@ -5321,6 +5466,41 @@ body.theme-light .fdc-result-diff.is-negative {
     margin-top: 0.5rem;
     border-radius: 8px;
     padding: 0.32rem;
+  }
+
+  .fdc-pvp-rank-calculator {
+    margin-top: 0.5rem;
+    border-radius: 0.7rem;
+    padding: 0.48rem;
+  }
+
+  .fdc-pvp-rank-summary {
+    gap: 0.24rem;
+    margin-top: 0.38rem;
+  }
+
+  .fdc-pvp-rank-card {
+    min-height: 3.2rem;
+    padding: 0.3rem 0.24rem;
+  }
+
+  .fdc-pvp-rank-card > strong {
+    font-size: 0.72rem;
+  }
+
+  .fdc-pvp-rank-card > span:first-child {
+    font-size: 0.54rem;
+  }
+
+  .fdc-pvp-rank-number input {
+    padding-inline: 0.2rem;
+    font-size: 0.7rem;
+  }
+
+  .fdc-pvp-eliph-value img {
+    width: 0.86rem;
+    height: 0.86rem;
+    flex-basis: 0.86rem;
   }
 
   .fdc-stat-grid {

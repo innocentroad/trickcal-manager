@@ -4,6 +4,9 @@
   const DATA = window.TRICKCAL_STAT_DATA;
   if (!DATA) return;
 
+  const COMMON_THEME_KEY = 'trickcal_theme';
+  const LEGACY_PREVIEW_THEME_KEY = 'trickcal-board-preview-theme';
+
   const BOARD_TIER_VALUES = {
     hp: { 1: [50, 99], 2: [71, 141], 3: [92, 183], 4: [113, 225], 5: [134, 267] },
     attack: { 1: [5, 11], 2: [5, 12], 3: [6, 13], 4: [7, 14], 5: [7, 15] },
@@ -94,6 +97,10 @@
     elements.themeToggle.addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     });
+    window.addEventListener('storage', event => {
+      if (event.key !== COMMON_THEME_KEY || !['light', 'dark'].includes(event.newValue)) return;
+      applyTheme(event.newValue, false);
+    });
     elements.canvas.addEventListener('click', event => {
       const button = event.target.closest('.board-node[data-row-index]');
       if (!button || button.classList.contains('is-virtual')) return;
@@ -122,12 +129,14 @@
     elements.themeToggle.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
     elements.themeToggle.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
   }
-  function applyTheme(theme) {
+  function applyTheme(theme, persist = true) {
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.dataset.theme = nextTheme;
     syncThemeToggle();
+    if (!persist) return;
     try {
-      localStorage.setItem('trickcal-board-preview-theme', nextTheme);
+      localStorage.setItem(COMMON_THEME_KEY, nextTheme);
+      localStorage.setItem(LEGACY_PREVIEW_THEME_KEY, nextTheme);
     } catch (error) {
       // file://など保存できない環境でも、その場の切り替えは維持する。
     }

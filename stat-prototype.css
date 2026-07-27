@@ -1390,16 +1390,21 @@ h3 {
 }
 
 .board-stage.is-preview::after {
-  content: "未解放・閲覧のみ";
+  content: "未解放";
   position: absolute;
-  top: 7px;
-  right: 9px;
+  top: 3px;
+  left: 50%;
+  z-index: 2;
+  transform: translateX(-50%);
   border-radius: 999px;
-  padding: 3px 8px;
+  padding: 3px 7px;
   color: #5f6661;
   background: rgba(255, 255, 255, 0.7);
   font-size: 0.65rem;
   font-weight: 900;
+  line-height: 1.08;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .board-stage.is-preview .board-grid {
@@ -1423,6 +1428,45 @@ h3 {
 
 .board-stage .board-tabs button:last-child {
   border-right: 0;
+}
+
+.board-orientation-switch {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: flex;
+  overflow: hidden;
+  border-bottom: 1px solid var(--board-frame);
+  border-left: 1px solid var(--board-frame);
+  border-radius: 0 11px 0 9px;
+  background: var(--board-tab);
+}
+
+.board-orientation-switch button {
+  min-width: 34px;
+  border: 0;
+  border-right: 1px solid var(--board-frame);
+  border-radius: 0;
+  padding: 6px 9px;
+  color: var(--green-dark);
+  background: var(--board-tab);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.board-orientation-switch button:last-child {
+  border-right: 0;
+}
+
+.board-orientation-switch button.is-active {
+  color: var(--board-accent-text);
+  background: var(--board-surface);
+  box-shadow: inset 0 -2px var(--board-accent-text);
+}
+
+.board-stage.is-vertical {
+  justify-content: center;
 }
 
 .board-canvas {

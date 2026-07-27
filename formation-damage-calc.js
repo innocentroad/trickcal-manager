@@ -14,6 +14,13 @@
     '苦痛': 12,
     '凍傷': 9
   });
+  const PVP_ELIPH_REWARD_TIERS = Object.freeze([
+    { minRank: 1001, maxRank: 3000, perRank: 0.8 },
+    { minRank: 501, maxRank: 1000, perRank: 1 },
+    { minRank: 201, maxRank: 500, perRank: 1.5 },
+    { minRank: 51, maxRank: 200, perRank: 3 },
+    { minRank: 1, maxRank: 50, perRank: 7 }
+  ]);
   const PERSONALITY_ADVANTAGE = {
     '純粋': '冷静',
     '冷静': '狂気',
@@ -73,6 +80,12 @@
     enemyAttackTypeChip: document.getElementById('fdc-enemy-attack-type-chip'),
     enemySourceMode: document.getElementById('fdc-enemy-source-mode'),
     pvpAffinityEnabled: document.getElementById('fdc-pvp-affinity-enabled'),
+    pvpRankCalculator: document.getElementById('fdc-pvp-rank-calculator'),
+    pvpRankInfo: document.getElementById('fdc-pvp-rank-info'),
+    pvpRankInput: document.getElementById('fdc-pvp-rank-input'),
+    pvpRankSlider: document.getElementById('fdc-pvp-rank-slider'),
+    pvpMaxRank: document.getElementById('fdc-pvp-max-rank'),
+    pvpChallengeEliph: document.getElementById('fdc-pvp-challenge-eliph'),
     enemyApostle: document.getElementById('fdc-enemy-apostle'),
     enemyApostleImage: document.getElementById('fdc-enemy-apostle-image'),
     enemySourcePresetFields: Array.from(document.querySelectorAll('.fdc-enemy-source-preset')),
@@ -254,6 +267,7 @@
     enemyPersonality: '',
     enemySourceMode: 'preset',
     pvpAffinityEnabled: false,
+    pvpRank: 3001,
     enemyApostleId: '',
     enemyPresetKey: '',
     enemySelectedSkillCategory: '',
@@ -363,6 +377,10 @@
 
   function bindEvents() {
     window.addEventListener('storage', event => {
+      if (event.key === THEME_KEY && ['light', 'dark'].includes(event.newValue)) {
+        setTheme(event.newValue, false);
+        return;
+      }
       if (event.key !== STAT_STORAGE_KEY) return;
       view.enemyStatDirty = false;
       view.enemyGlobalPercentDirty = false;
@@ -452,7 +470,7 @@
     });
     document.addEventListener('click', event => {
       if (!el.skillPopover || el.skillPopover.hidden) return;
-      if (el.skillPopover.contains(event.target) || event.target.closest('.fdc-skill-choice-info, [data-fdc-spell-details-toggle], [data-fdc-spell-edit-toggle]')) return;
+      if (el.skillPopover.contains(event.target) || event.target.closest('.fdc-skill-choice-info, #fdc-pvp-rank-info, [data-fdc-spell-details-toggle], [data-fdc-spell-edit-toggle]')) return;
       hideFdcSkillPopover();
     });
     document.addEventListener('click', event => {
@@ -593,6 +611,16 @@
       view.pvpAffinityEnabled = !!el.pvpAffinityEnabled.checked;
       saveCalcSettings();
       render();
+    });
+    el.pvpRankInput?.addEventListener('input', () => {
+      if (el.pvpRankInput.value === '') return;
+      setPvpRank(el.pvpRankInput.value);
+    });
+    el.pvpRankInput?.addEventListener('change', () => setPvpRank(el.pvpRankInput.value));
+    el.pvpRankSlider?.addEventListener('input', () => setPvpRank(el.pvpRankSlider.value));
+    el.pvpRankInfo?.addEventListener('click', event => {
+      event.stopPropagation();
+      showPvpRankInfoPopover();
     });
     el.enemyApostle?.addEventListener('change', () => {
       view.enemyApostleId = el.enemyApostle.value || '';
@@ -1256,6 +1284,7 @@
     if (el.pvpAffinityEnabled) el.pvpAffinityEnabled.checked = !!view.pvpAffinityEnabled;
     el.enemySourcePresetFields.forEach(field => { field.hidden = apostleMode; });
     el.enemySourceApostleFields.forEach(field => { field.hidden = !apostleMode; });
+    renderPvpRankCalculator();
     if (el.enemyApostle) el.enemyApostle.value = view.enemyApostleId || '';
     const member = context?.enemyMember || null;
     if (el.enemyApostleImage) {
@@ -1273,6 +1302,67 @@
     syncEnemyResearchPresetFromState(context);
     renderEnemyBoardPresetUi(context);
     syncEnemyPresetManagement();
+  }
+
+  function normalizePvpRank(value) {
+    const rank = Math.floor(Number(value));
+    return Math.max(1, Math.min(3001, Number.isFinite(rank) ? rank : 3001));
+  }
+
+  function getPvpMaxChallengeRank(rankValue) {
+    const rank = normalizePvpRank(rankValue);
+    const ratio = rank >= 100 ? 0.92 : 0.35;
+    return {
+      rank: Math.max(1, Math.floor(rank * ratio)),
+      ratio
+    };
+  }
+
+  function calculatePvpEliphBetween(fromRankValue, toRankValue) {
+    const fromRank = normalizePvpRank(fromRankValue);
+    const toRank = Math.min(fromRank, normalizePvpRank(toRankValue));
+    return PVP_ELIPH_REWARD_TIERS.reduce((total, tier) => {
+      const firstRank = Math.max(toRank, tier.minRank);
+      const lastRank = Math.min(fromRank - 1, tier.maxRank);
+      const rankCount = Math.max(0, lastRank - firstRank + 1);
+      return total + rankCount * tier.perRank;
+    }, 0);
+  }
+
+  function setPvpRank(value, options = {}) {
+    view.pvpRank = normalizePvpRank(value);
+    renderPvpRankCalculator();
+    if (options.save !== false) saveCalcSettings();
+  }
+
+  function renderPvpRankCalculator() {
+    if (!el.pvpRankCalculator) return;
+    const currentRank = normalizePvpRank(view.pvpRank);
+    view.pvpRank = currentRank;
+    const challenge = getPvpMaxChallengeRank(currentRank);
+    const challengeEliph = Math.floor(calculatePvpEliphBetween(currentRank, challenge.rank) + 1e-9);
+    if (el.pvpRankInput && el.pvpRankInput.value !== String(currentRank)) el.pvpRankInput.value = String(currentRank);
+    if (el.pvpRankSlider && el.pvpRankSlider.value !== String(currentRank)) el.pvpRankSlider.value = String(currentRank);
+    if (el.pvpMaxRank) el.pvpMaxRank.textContent = `${formatNumber(challenge.rank)}位`;
+    if (el.pvpChallengeEliph) el.pvpChallengeEliph.textContent = formatPlainNumber(challengeEliph);
+  }
+
+  function showPvpRankInfoPopover() {
+    if (!el.pvpRankInfo) return;
+    const currentRank = normalizePvpRank(view.pvpRank);
+    const challenge = getPvpMaxChallengeRank(currentRank);
+    const rawChallengeRank = currentRank * challenge.ratio;
+    const rawEliph = calculatePvpEliphBetween(currentRank, challenge.rank);
+    const finalEliph = Math.floor(rawEliph + 1e-9);
+    showFdcInfoPopover(el.pvpRankInfo, 'PvP挑戦可能範囲', [
+      '挑戦可能順位: 3001～100位は現在順位×92%、99～1位は現在順位×35%',
+      '順位計算: 掛け算後の小数点以下を切り捨て、最低1位まで',
+      '獲得エリーフ: 現在順位から挑戦可能順位まで上昇する各順位を、到達順位帯ごとの単価で合算',
+      '順位帯単価: 3000～1001位=0.8 / 1000～501位=1 / 500～201位=1.5 / 200～51位=3 / 50～1位=7',
+      'エリーフ計算: 順位帯をまたぐ場合も全区間を合算してから、小数点以下を切り捨て',
+      `現在の順位計算: ${formatNumber(currentRank)}×${formatPlainNumber(challenge.ratio * 100)}%=${formatPlainNumber(rawChallengeRank)} → ${formatNumber(challenge.rank)}位`,
+      `現在の獲得計算: ${formatPlainNumber(rawEliph)} → ${formatNumber(finalEliph)}エリーフ`
+    ]);
   }
 
   function populateEnemyPresets() {
@@ -2133,6 +2223,7 @@
         enemyPersonality: view.enemyPersonality || '',
         enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
+        pvpRank: normalizePvpRank(view.pvpRank),
         enemyApostleId: view.enemyApostleId || '',
         enemyPresetKey: view.enemyPresetKey || '',
         enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
@@ -2234,6 +2325,7 @@
       if (typeof savedView.enemyPersonality === 'string') view.enemyPersonality = savedView.enemyPersonality;
       if (['preset', 'apostle'].includes(savedView.enemySourceMode)) view.enemySourceMode = savedView.enemySourceMode;
       view.pvpAffinityEnabled = !!savedView.pvpAffinityEnabled;
+      if (savedView.pvpRank != null) view.pvpRank = normalizePvpRank(savedView.pvpRank);
       if (typeof savedView.enemyApostleId === 'string') view.enemyApostleId = savedView.enemyApostleId;
       if (typeof savedView.enemySelectedSkillCategory === 'string') view.enemySelectedSkillCategory = savedView.enemySelectedSkillCategory;
       view.enemyStatDirty = !!savedView.enemyStatDirty;
@@ -2350,6 +2442,7 @@
       if (typeof saved.enemyPersonality === 'string') view.enemyPersonality = saved.enemyPersonality;
       if (['preset', 'apostle'].includes(saved.enemySourceMode)) view.enemySourceMode = saved.enemySourceMode;
       view.pvpAffinityEnabled = !!saved.pvpAffinityEnabled;
+      if (saved.pvpRank != null) view.pvpRank = normalizePvpRank(saved.pvpRank);
       if (typeof saved.enemyApostleId === 'string') view.enemyApostleId = saved.enemyApostleId;
       if (typeof saved.enemySelectedSkillCategory === 'string') view.enemySelectedSkillCategory = saved.enemySelectedSkillCategory;
       view.enemyStatDirty = !!saved.enemyStatDirty;
@@ -2409,6 +2502,7 @@
         enemyPersonality: view.enemyPersonality || '',
         enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
+        pvpRank: normalizePvpRank(view.pvpRank),
         enemyApostleId: view.enemyApostleId || '',
         enemyPresetKey: view.enemyPresetKey || '',
         enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
@@ -3631,7 +3725,14 @@
     const width = Math.min(preferredWidth, window.innerWidth - 24);
     el.skillPopover.style.width = `${width}px`;
     el.skillPopover.style.left = `${Math.min(window.innerWidth - width - 12, Math.max(12, rect.right - width))}px`;
-    el.skillPopover.style.top = `${Math.min(window.innerHeight - 80, rect.bottom + 8)}px`;
+    const popRect = el.skillPopover.getBoundingClientRect();
+    const below = rect.bottom + 8;
+    const above = rect.top - popRect.height - 8;
+    const maxTop = Math.max(12, window.innerHeight - popRect.height - 12);
+    const top = below + popRect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, Math.min(above, maxTop));
+    el.skillPopover.style.top = `${top}px`;
   }
 
   function hideFdcSkillPopover() {
@@ -8404,10 +8505,11 @@
     setTheme(document.body.classList.contains('theme-dark') ? 'light' : 'dark');
   }
 
-  function setTheme(theme) {
+  function setTheme(theme, persist = true) {
     document.body.classList.toggle('theme-light', theme === 'light');
     document.body.classList.toggle('theme-dark', theme !== 'light');
     if (el.themeToggle) el.themeToggle.textContent = theme === 'light' ? '☀' : '☾';
+    if (!persist) return;
     localStorage.setItem(THEME_KEY, theme);
     localStorage.setItem(LEGACY_THEME_KEY, theme);
   }
