@@ -102,6 +102,28 @@
   const preloadCache = [];
   const requestedUrls = new Set();
 
+  function disableImageInteraction(root) {
+    const images = root instanceof HTMLImageElement
+      ? [root]
+      : Array.from(root?.querySelectorAll?.('img:not([data-allow-image-interaction])') || []);
+    images.forEach(image => {
+      image.draggable = false;
+    });
+  }
+
+  disableImageInteraction(document);
+  const imageInteractionObserver = new MutationObserver(records => {
+    records.forEach(record => {
+      record.addedNodes.forEach(node => {
+        if (node.nodeType === Node.ELEMENT_NODE) disableImageInteraction(node);
+      });
+    });
+  });
+  imageInteractionObserver.observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('contextmenu', event => {
+    if (event.target?.closest?.('img:not([data-allow-image-interaction])')) event.preventDefault();
+  }, { capture: true });
+
   function readJson(key) {
     try {
       return JSON.parse(localStorage.getItem(key) || '{}') || {};
