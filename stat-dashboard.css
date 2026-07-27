@@ -5327,6 +5327,12 @@ body.dashboard-page.is-booting::after {
   overflow: hidden;
 }
 
+@media (pointer: coarse) {
+  .formation-apostle-slot {
+    touch-action: none;
+  }
+}
+
 .formation-apostle-slot.is-filled {
   border: 2px solid color-mix(in srgb, var(--formation-personality-color) 62%, white);
   background:

@@ -42,6 +42,7 @@
   const FORMATION_COIN_BASE = 216;
   const FORMATION_COIN_BONUS = 30;
   const FORMATION_COIN_CP_RATE = 0.000012;
+  const FORMATION_POINTER_DRAG_THRESHOLD = 8;
 
   function shouldAutofocusTextInput() {
     return window.innerWidth > 700
@@ -390,6 +391,8 @@
   let pendingImportedState = null;
   const formationCoinHistoryActions = new WeakMap();
   const apostleBulkLevelHistoryActions = new WeakMap();
+  let formationPointerDragState = null;
+  let formationSuppressClickUntil = 0;
   const historyState = {
     undoStack: [],
     redoStack: [],
@@ -1061,6 +1064,11 @@
     });
 
     elements.formationBoard?.addEventListener('click', event => {
+      if (Date.now() < formationSuppressClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       const clearButton = event.target.closest('[data-formation-clear-row]');
       if (clearButton) {
         clearFormationRow(Number(clearButton.dataset.formationClearRow) || 0);
@@ -1088,50 +1096,10 @@
       }
     });
 
-    elements.formationBoard?.addEventListener('dragstart', event => {
-      const slot = event.target.closest('[data-formation-apostle-row]');
-      if (!slot) return;
-      const rowIndex = Number(slot.dataset.formationApostleRow) || 0;
-      const lineIndex = Number(slot.dataset.formationLine) || 0;
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', `${rowIndex}:${lineIndex}`);
-      elements.formationBoard.classList.add('is-dragging-apostle');
-      elements.formationBoard.dataset.dragFormationRow = String(rowIndex);
-      slot.classList.add('is-dragging');
-      elements.formationBoard.querySelectorAll(`[data-formation-apostle-row="${rowIndex}"]`).forEach(button => {
-        if (button !== slot) button.classList.add('is-drop-compatible');
-      });
-    });
-
-    elements.formationBoard?.addEventListener('dragover', event => {
-      const slot = event.target.closest('[data-formation-apostle-row]');
-      if (!slot) return;
-      const sourceRow = Number(elements.formationBoard.dataset.dragFormationRow);
-      const targetRow = Number(slot.dataset.formationApostleRow) || 0;
-      if (Number.isFinite(sourceRow) && sourceRow === targetRow) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        slot.classList.add('is-drop-target');
-      }
-    });
-
-    elements.formationBoard?.addEventListener('dragleave', event => {
-      const slot = event.target.closest('[data-formation-apostle-row]');
-      if (slot) slot.classList.remove('is-drop-target');
-    });
-
-    elements.formationBoard?.addEventListener('drop', event => {
-      const slot = event.target.closest('[data-formation-apostle-row]');
-      if (!slot) return;
-      event.preventDefault();
-      const [sourceRow, sourceLine] = String(event.dataTransfer.getData('text/plain') || '').split(':').map(Number);
-      const targetRow = Number(slot.dataset.formationApostleRow) || 0;
-      const targetLine = Number(slot.dataset.formationLine) || 0;
-      clearFormationDragState();
-      swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine);
-    });
-
-    elements.formationBoard?.addEventListener('dragend', clearFormationDragState);
+    elements.formationBoard?.addEventListener('pointerdown', beginFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointermove', updateFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointerup', finishFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointercancel', cancelFormationPointerDrag);
 
     elements.formationCostSummary?.addEventListener('click', event => {
       const openButton = event.target.closest('[data-formation-coin-open]');
@@ -5942,7 +5910,7 @@
     const attackIcon = basic?.攻撃タイプ ? `img/Attack_${basic.攻撃タイプ === '物理' ? 'phys' : 'mag'}.webp` : '';
     return `
       <div class="formation-line">
-        <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} personality-${escapeAttr(basic?.性格 || '')}" data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="true" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
+        <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} personality-${escapeAttr(basic?.性格 || '')}" data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="false" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
           ${basic ? '' : '<img class="formation-slot-bg" src="img/使徒bg.png" alt="">'}
           ${basic ? `<span class="formation-apostle-clip"><img data-apostle-image class="formation-apostle-img" src="${escapeAttr(getApostleImagePath(basic.id))}" alt="${escapeAttr(basic.使徒名 || basic.id)}"></span>` : '<span class="formation-empty-icon">?</span>'}
           ${basic?.性格 ? `<img class="formation-apostle-badge formation-personality-badge" src="img/性格_${escapeAttr(basic.性格)}.webp" alt="${escapeAttr(basic.性格)}" title="${escapeAttr(basic.性格)}">` : ''}
@@ -6529,9 +6497,78 @@
     commitHistoryAction(history);
   }
 
+  function beginFormationPointerDrag(event) {
+    if (!elements.formationBoard || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    const slot = event.target.closest('[data-formation-apostle-row]');
+    if (!slot || formationPointerDragState) return;
+    formationPointerDragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      sourceRow: Number(slot.dataset.formationApostleRow) || 0,
+      sourceLine: Number(slot.dataset.formationLine) || 0,
+      sourceSlot: slot,
+      targetSlot: null,
+      dragging: false
+    };
+    try {
+      slot.setPointerCapture(event.pointerId);
+    } catch (_) {
+      // Touch pointers are normally captured implicitly.
+    }
+  }
+
+  function updateFormationPointerDrag(event) {
+    const drag = formationPointerDragState;
+    if (!drag || drag.pointerId !== event.pointerId || !elements.formationBoard) return;
+    if (!drag.dragging) {
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (distance < FORMATION_POINTER_DRAG_THRESHOLD) return;
+      drag.dragging = true;
+      formationSuppressClickUntil = Date.now() + 500;
+      elements.formationBoard.classList.add('is-dragging-apostle', 'is-pointer-dragging');
+      elements.formationBoard.dataset.dragFormationRow = String(drag.sourceRow);
+      drag.sourceSlot.classList.add('is-dragging');
+      elements.formationBoard.querySelectorAll(`[data-formation-apostle-row="${drag.sourceRow}"]`).forEach(button => {
+        if (button !== drag.sourceSlot) button.classList.add('is-drop-compatible');
+      });
+    }
+    event.preventDefault();
+    elements.formationBoard.querySelectorAll('.is-drop-target').forEach(slot => slot.classList.remove('is-drop-target'));
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-formation-apostle-row]');
+    const targetRow = Number(target?.dataset.formationApostleRow);
+    drag.targetSlot = target && elements.formationBoard.contains(target) && targetRow === drag.sourceRow
+      ? target
+      : null;
+    if (drag.targetSlot && drag.targetSlot !== drag.sourceSlot) drag.targetSlot.classList.add('is-drop-target');
+  }
+
+  function finishFormationPointerDrag(event) {
+    const drag = formationPointerDragState;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    formationPointerDragState = null;
+    if (!drag.dragging) return;
+    event.preventDefault();
+    formationSuppressClickUntil = Date.now() + 500;
+    const targetSlot = drag.targetSlot;
+    const targetRow = Number(targetSlot?.dataset.formationApostleRow);
+    const targetLine = Number(targetSlot?.dataset.formationLine);
+    clearFormationDragState();
+    if (!targetSlot || targetSlot === drag.sourceSlot) return;
+    swapFormationApostlesInRow(drag.sourceRow, drag.sourceLine, targetRow, targetLine);
+  }
+
+  function cancelFormationPointerDrag(event) {
+    if (!formationPointerDragState || formationPointerDragState.pointerId !== event.pointerId) return;
+    const wasDragging = formationPointerDragState.dragging;
+    formationPointerDragState = null;
+    if (wasDragging) formationSuppressClickUntil = Date.now() + 500;
+    clearFormationDragState();
+  }
+
   function clearFormationDragState() {
     if (!elements.formationBoard) return;
-    elements.formationBoard.classList.remove('is-dragging-apostle');
+    elements.formationBoard.classList.remove('is-dragging-apostle', 'is-pointer-dragging');
     delete elements.formationBoard.dataset.dragFormationRow;
     elements.formationBoard.querySelectorAll('.is-dragging, .is-drop-compatible, .is-drop-target').forEach(node => {
       node.classList.remove('is-dragging', 'is-drop-compatible', 'is-drop-target');

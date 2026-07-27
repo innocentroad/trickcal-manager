@@ -4695,10 +4695,10 @@
           <span>並び</span>
           <select data-fdc-picker-sort>
             ${renderSelectOption('name', '50音順', view.pickerSort)}
-            ${renderSelectOption('combatPower', '戦闘力高い順', view.pickerSort)}
-            ${renderSelectOption('level', 'Lv高い順', view.pickerSort)}
-            ${renderSelectOption('rank', 'Rank高い順', view.pickerSort)}
-            ${renderSelectOption('star', '★多い順', view.pickerSort)}
+            ${renderSelectOption('combatPower', '戦闘力順', view.pickerSort)}
+            ${renderSelectOption('level', 'Lv順', view.pickerSort)}
+            ${renderSelectOption('rank', 'Rank順', view.pickerSort)}
+            ${renderSelectOption('star', '★順', view.pickerSort)}
             ${renderSelectOption('position', '配置順', view.pickerSort)}
           </select>
         </label>
@@ -4769,7 +4769,7 @@
     if (!el.formationPicker) return;
     const shouldOpen = forceOpen === null ? el.formationPicker.hidden : !!forceOpen;
     el.formationPicker.hidden = !shouldOpen;
-    el.formationPicker.classList.toggle('is-floating-picker', shouldOpen && forceOpen === true);
+    el.formationPicker.classList.toggle('is-floating-picker', shouldOpen);
     if (shouldOpen) {
       renderFormationPicker(buildContext());
     }
