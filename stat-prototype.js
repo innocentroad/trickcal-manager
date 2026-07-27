@@ -1881,7 +1881,6 @@
     const syncPopover = () => {
       trigger.setAttribute('aria-expanded', String(menu.open));
       if (menu.open) {
-        if (!getStateSlotMode()) elements.saveStateSlot?.click();
         popover.classList.add('is-open');
         positionPopover();
       } else {
@@ -1894,7 +1893,9 @@
     popover.classList.add('is-portaled');
     trigger.addEventListener('click', event => {
       event.preventDefault();
-      menu.open = !menu.open;
+      const opening = !menu.open;
+      if (opening) setStateSlotMode('');
+      menu.open = opening;
       syncPopover();
     });
     menu.addEventListener('toggle', syncPopover);
