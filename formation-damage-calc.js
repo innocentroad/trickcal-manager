@@ -3662,7 +3662,7 @@
       `コスト: ${getCardCostById(id, star)} / ★${star}${solder ? ` / はんだ+${solder}` : ''}`,
       formatArtifactBonusLine('基礎補正', card.bonusesByStar?.[star - 1]),
       solder ? formatArtifactBonusLine(`はんだ+${solder}`, card.solderBonuses?.[solder]) : '',
-      ...(card.conditionalEffects || []).map(effect => formatArtifactEffectDetail(effect, star))
+      ...formatArtifactConditionalEffectLines(card.conditionalEffects || [], star)
     ].filter(Boolean);
     showFdcInfoPopover(anchor, card.name || '遺物詳細', lines);
   }
@@ -3671,29 +3671,69 @@
     const title = effect.label || effect.shortLabel || '特殊効果';
     const judgeText = getEffectText(effect);
     const bonusText = formatBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[star - 1], 'unknown', judgeText));
-    const parts = [title];
-    let detailText = String(getDisplayEffectDescription(effect, star) || '').replace(/\s+/g, ' ');
-    const combinedText = [title, effect.shortLabel, bonusText, detailText].filter(Boolean).join(' ');
-    if (/性格判定/.test(combinedText)) {
-      return `${title}${/性格シナジー/.test(combinedText) ? ' (性格シナジー)' : ''}`;
+    const detailText = String(getDisplayEffectDescription(effect, star) || '').replace(/\s+/g, ' ').trim();
+    if (detailText) return detailText;
+    return bonusText ? `${title}: ${bonusText}` : title;
+  }
+
+  function formatArtifactConditionalEffectLines(effects, star = 1) {
+    const consumed = new Set();
+    return effects.flatMap((effect, index) => {
+      if (consumed.has(index)) return [];
+      const bound = getArtifactRandomEffectBound(effect);
+      if (bound) {
+        const pairKey = getArtifactRandomEffectPairKey(effect);
+        const pairIndex = effects.findIndex((candidate, candidateIndex) => (
+          candidateIndex !== index
+          && !consumed.has(candidateIndex)
+          && getArtifactRandomEffectBound(candidate)
+          && getArtifactRandomEffectBound(candidate) !== bound
+          && getArtifactRandomEffectPairKey(candidate) === pairKey
+        ));
+        if (pairIndex >= 0) {
+          consumed.add(index);
+          consumed.add(pairIndex);
+          const pair = effects[pairIndex];
+          const minEffect = bound === 'min' ? effect : pair;
+          const maxEffect = bound === 'max' ? effect : pair;
+          return [formatArtifactRandomEffectRange(
+            getDisplayEffectDescription(minEffect, star),
+            getDisplayEffectDescription(maxEffect, star)
+          )];
+        }
+      }
+      consumed.add(index);
+      return [formatArtifactEffectDetail(effect, star)];
+    });
+  }
+
+  function getArtifactRandomEffectBound(effect) {
+    const label = String(effect?.label || '');
+    if (label.includes('ランダム最低値')) return 'min';
+    if (label.includes('ランダム最大値')) return 'max';
+    return '';
+  }
+
+  function getArtifactRandomEffectPairKey(effect) {
+    return `${String(effect?.label || '')
+      .replace('ランダム最低値', 'ランダム値')
+      .replace('ランダム最大値', 'ランダム値')
+      .replace(/\s+/g, ' ')
+      .trim()}|${String(effect?.valueClass || '')}`;
+  }
+
+  function formatArtifactRandomEffectRange(minText, maxText) {
+    const normalizedMin = String(minText || '').replace(/\s+/g, ' ').trim();
+    const normalizedMax = String(maxText || '').replace(/\s+/g, ' ').trim();
+    const pattern = /^(.*?)(-?\d+(?:\.\d+)?)(%?)(\s*\([^)]*\))$/;
+    const minMatch = normalizedMin.match(pattern);
+    const maxMatch = normalizedMax.match(pattern);
+    if (minMatch && maxMatch && minMatch[1] === maxMatch[1] && minMatch[3] === maxMatch[3] && minMatch[4] === maxMatch[4]) {
+      const range = minMatch[2] === maxMatch[2] ? minMatch[2] : `${minMatch[2]}～${maxMatch[2]}`;
+      const context = minMatch[4].trim().slice(1, -1).trim();
+      return `${minMatch[1]}${range}${minMatch[3]} (${context}${context ? ' / ' : ''}ランダム)`;
     }
-    if (
-      bonusText
-      && ![title, detailText].some(text => String(text || '').replace(/\s+/g, ' ').includes(bonusText))
-    ) parts.push(bonusText);
-    const shortLabel = String(effect.shortLabel || '').replace(/\s+/g, ' ');
-    if (shortLabel && title.includes(shortLabel) && detailText.startsWith(shortLabel + ' (') && detailText.endsWith(')')) {
-      const details = detailText
-        .slice(shortLabel.length + 2, -1)
-        .split(' / ')
-        .filter(detail => detail && !title.includes(detail));
-      detailText = details.length ? `(${details.join(' / ')})` : '';
-    }
-    if (detailText) {
-      if (detailText.startsWith('(')) parts[parts.length - 1] += ` ${detailText}`;
-      else parts.push(detailText);
-    }
-    return parts.join(': ');
+    return `ランダム最低: ${normalizedMin} / 最大: ${normalizedMax}`;
   }
 
   function getDisplayEffectDescription(effect, star = 1) {
@@ -5731,7 +5771,7 @@
     return [
       formatArtifactBonusLine('基礎補正', card.bonusesByStar?.[row.star - 1]),
       row.solder ? formatArtifactBonusLine(`はんだ+${row.solder}`, card.solderBonuses?.[row.solder]) : '',
-      ...(card.conditionalEffects || []).map(effect => formatArtifactEffectDetail(effect, row.star))
+      ...formatArtifactConditionalEffectLines(card.conditionalEffects || [], row.star)
     ].filter(Boolean);
   }
 

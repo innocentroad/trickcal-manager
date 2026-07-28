@@ -3578,6 +3578,10 @@ body.dashboard-page.is-booting::after {
   transition: filter 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
+.resource-card-mobile-controls {
+  display: none;
+}
+
 .resource-card.rarity-signature {
   --card-rarity-color: rgba(250, 204, 21, 0.82);
   --card-rarity-glow: rgba(234, 179, 8, 0.22);
@@ -3821,12 +3825,31 @@ body.dashboard-page.is-booting::after {
   border: 0;
   background: transparent;
   cursor: pointer;
+  transition: filter 140ms ease, opacity 140ms ease;
 }
 
 .resource-solder-overlay.is-disabled {
   cursor: default;
   filter: grayscale(0.9);
   opacity: 0.55;
+}
+
+@media (min-width: 701px) {
+  .resource-solder-overlay.is-disabled {
+    visibility: hidden;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .resource-solder-overlay:not(.is-disabled):not(.has-solder) {
+    filter: grayscale(0.55) saturate(0.65);
+    opacity: 0.7;
+  }
+
+  .resource-solder-overlay.has-solder {
+    filter: none;
+    opacity: 1;
+  }
 }
 
 .resource-solder-token-icon {
@@ -3877,8 +3900,8 @@ body.dashboard-page.is-booting::after {
 }
 
 .resource-solder-overlay[data-card-solder-overlay][aria-label="はんだ+1"]:not(.is-disabled) .resource-solder-token-value {
-  color: #0284c7;
-  text-shadow: 0 0 4px rgba(14, 165, 233, 0.28);
+  color: #3b82a0;
+  text-shadow: 0 0 4px rgba(59, 130, 160, 0.22);
 }
 
 .resource-solder-overlay[data-card-solder-overlay][aria-label="はんだ+1"]:not(.is-disabled) .resource-solder-token-value-fill {
@@ -3886,12 +3909,12 @@ body.dashboard-page.is-booting::after {
 }
 
 .resource-solder-overlay[data-card-solder-overlay][aria-label="はんだ+2"]:not(.is-disabled) .resource-solder-token-value {
-  color: #15803d;
-  text-shadow: 0 0 4px rgba(34, 197, 94, 0.3);
+  color: #c026d3;
+  text-shadow: none;
 }
 
 .resource-solder-overlay[data-card-solder-overlay][aria-label="はんだ+2"]:not(.is-disabled) .resource-solder-token-value-fill {
-  color: rgba(220, 252, 231, 0.98);
+  color: rgba(255, 255, 255, 0.98);
 }
 
 .resource-solder-overlay[data-card-solder-overlay] .resource-solder-token-plus {
@@ -6684,20 +6707,75 @@ body.dashboard-page.is-booting::after {
   }
 
   .resource-card-star-overlay {
-    bottom: calc(var(--card-name-panel-height) - 13px);
-    transform: translateX(-50%) scale(0.76);
-    transform-origin: center bottom;
+    display: none;
   }
 
   .resource-solder-overlay {
-    right: 3px;
-    width: 22px;
-    height: 22px;
+    display: none;
   }
 
-  .resource-solder-token-icon {
-    width: 22px;
-    height: 22px;
+  .resource-solder-overlay.has-solder {
+    right: 3px;
+    bottom: calc(var(--card-name-panel-height) + 2px);
+    width: 24px;
+    height: 24px;
+    display: block;
+    cursor: default;
+  }
+
+  .resource-solder-overlay.has-solder .resource-solder-token-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .resource-card-mobile-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+    margin-top: 5px;
+  }
+
+  .resource-card-mobile-controls select {
+    width: 100%;
+    min-width: 0;
+    min-height: 36px;
+    padding: 0 3px;
+    border: 1px solid rgba(97, 74, 52, 0.26);
+    border-radius: 8px;
+    color: #3f342c;
+    background: rgba(255, 250, 235, 0.94);
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 900;
+    text-align: center;
+    touch-action: manipulation;
+  }
+
+  .resource-card-mobile-controls select:disabled {
+    color: rgba(63, 52, 44, 0.46);
+    background: rgba(226, 232, 240, 0.72);
+    opacity: 0.72;
+  }
+
+  .resource-card-mobile-solder {
+    position: relative;
+    min-width: 0;
+  }
+
+  .resource-card-mobile-solder img {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 3px;
+    width: 13px;
+    height: 13px;
+    object-fit: contain;
+    pointer-events: none;
+    transform: translateY(-50%);
+  }
+
+  .resource-card-mobile-solder select {
+    padding-left: 14px;
   }
 
   .formation-board {
@@ -8799,6 +8877,22 @@ body.dashboard-page.is-booting::after {
 :root[data-theme="dark"] .formation-artifact-img,
 :root[data-theme="dark"] .formation-slot-bg {
   background: transparent !important;
+}
+
+:root[data-theme="dark"] .resource-card-mobile-controls select {
+  color: #f8fafc;
+  border-color: rgba(148, 163, 184, 0.34);
+  background: rgba(30, 41, 59, 0.94);
+}
+
+:root[data-theme="dark"] .resource-card-mobile-controls select:disabled {
+  color: rgba(226, 232, 240, 0.44);
+  background: rgba(15, 23, 42, 0.76);
+}
+
+:root[data-theme="dark"] .resource-solder-overlay[data-card-solder-overlay][aria-label="はんだ+2"]:not(.is-disabled) .resource-solder-token-value {
+  color: #c026d3;
+  text-shadow: none;
 }
 
 :root[data-theme="dark"] .apostle-picker-current-image,

@@ -1037,8 +1037,13 @@
       const history = beginHistoryAction(historyLabels[control.dataset.cardControl] || 'カード変更');
       const entry = ensureCardState(cardId);
       if (control.dataset.cardControl === 'owned') entry.owned = !!control.checked;
-      if (control.dataset.cardControl === 'star') entry.star = normalizeCardStar(control.value);
-      if (control.dataset.cardControl === 'solder') entry.solder = normalizeCardSolder(control.value);
+      if (control.dataset.cardControl === 'star') {
+        entry.star = normalizeCardStar(control.value);
+        if (entry.star < 5) entry.solder = 0;
+      }
+      if (control.dataset.cardControl === 'solder' && normalizeCardStar(entry.star) >= 5) {
+        entry.solder = normalizeCardSolder(control.value);
+      }
       persistCardManagerChange(cardId);
       commitHistoryAction(history);
     });
@@ -1052,6 +1057,11 @@
       const cardId = (starButton || solderButton || effectButton)?.dataset.cardId || cardElement?.dataset.cardId;
       const entry = ensureCardState(cardId);
       let history = null;
+      if (solderButton?.classList.contains('has-solder') && window.matchMedia('(max-width: 700px)').matches) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (starButton) {
         event.preventDefault();
         history = beginHistoryAction('カード星変更');
@@ -5248,12 +5258,23 @@
           <div class="resource-card-star-overlay" aria-label="★${star}">
             ${renderCardManagerStars(card.id, star)}
           </div>
-          <button type="button" class="resource-solder-overlay ${star >= 5 ? '' : 'is-disabled'}" data-card-id="${escapeAttr(card.id)}" data-card-solder-overlay aria-label="はんだ+${solder}" ${star >= 5 ? '' : 'disabled'}>
+          <button type="button" class="resource-solder-overlay ${star >= 5 ? '' : 'is-disabled'} ${solder > 0 ? 'has-solder' : ''}" data-card-id="${escapeAttr(card.id)}" data-card-solder-overlay aria-label="はんだ+${solder}" ${star >= 5 ? '' : 'disabled'}>
             ${renderCardManagerSolderToken(solder)}
           </button>
           <div class="resource-card-name-panel">
             <span style="font-size: ${getCardManagerNameFontSize(card.name)}">${escapeHtml(card.name)}</span>
           </div>
+        </div>
+        <div class="resource-card-mobile-controls" aria-label="${escapeAttr(`${card.name}の育成設定`)}">
+          <select data-card-id="${escapeAttr(card.id)}" data-card-control="star" aria-label="${escapeAttr(`${card.name}のスター`)}">
+            ${createNumberOptions(1, 5).map(option => `<option value="${option.value}" ${option.value === star ? 'selected' : ''}>★${option.value}</option>`).join('')}
+          </select>
+          <label class="resource-card-mobile-solder">
+            <img src="img/Card/sunshine_token.webp" alt="" aria-hidden="true">
+            <select data-card-id="${escapeAttr(card.id)}" data-card-control="solder" aria-label="${escapeAttr(`${card.name}のはんだ`)}" ${star >= 5 ? '' : 'disabled'}>
+              ${createNumberOptions(0, 2).map(option => `<option value="${option.value}" ${option.value === solder ? 'selected' : ''}>+${option.value}</option>`).join('')}
+            </select>
+          </label>
         </div>
       </article>
     `;
@@ -6745,32 +6766,87 @@
     lines.push(`★${star}: ${formatCardManagerBonuses(baseBonus)}`);
     const solderBonus = card.solderBonuses?.[solder];
     lines.push(`はんだ+${solder}: ${solder > 0 ? formatCardManagerBonuses(solderBonus) : '追加効果なし'}`);
-    (card.conditionalEffects || []).forEach(effect => {
-      const label = effect.label || effect.shortLabel || effect.id || '特殊効果';
-      const bonus = Array.isArray(effect.bonusesByStar) ? effect.bonusesByStar[star - 1] : null;
-      const desc = Array.isArray(effect.descriptionByStar) ? effect.descriptionByStar[star - 1] : effect.description;
-      const parts = [label];
-      const bonusText = formatCardManagerBonuses(bonus);
-      if (
-        bonusText !== '補正なし'
-        && ![label, desc].some(text => String(text || '').replace(/\s+/g, ' ').includes(bonusText))
-      ) parts.push(bonusText);
-      let descText = String(desc || '').replace(/\s+/g, ' ');
-      const shortLabel = String(effect.shortLabel || '').replace(/\s+/g, ' ');
-      if (shortLabel && label.includes(shortLabel) && descText.startsWith(shortLabel + ' (') && descText.endsWith(')')) {
-        const details = descText
-          .slice(shortLabel.length + 2, -1)
-          .split(' / ')
-          .filter(detail => detail && !label.includes(detail));
-        descText = details.length ? '(' + details.join(' / ') + ')' : '';
-      }
-      if (descText) {
-        if (descText.startsWith('(') && parts.length) parts[parts.length - 1] += ' ' + descText;
-        else parts.push(descText);
-      }
-      lines.push(parts.join(': '));
+    lines.push(...formatCardManagerConditionalEffectLines(card.conditionalEffects || [], star));
+    const seen = new Set();
+    const uniqueLines = lines.filter(line => {
+      const key = String(line || '').replace(/\s+/g, ' ').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
-    return lines.length ? lines : ['効果データなし'];
+    return uniqueLines.length ? uniqueLines : ['効果データなし'];
+  }
+
+  function formatCardManagerConditionalEffectLines(effects, star) {
+    const consumed = new Set();
+    return effects.flatMap((effect, index) => {
+      if (consumed.has(index)) return [];
+      const bound = getRandomEffectBound(effect);
+      if (bound) {
+        const pairKey = getRandomEffectPairKey(effect);
+        const pairIndex = effects.findIndex((candidate, candidateIndex) => (
+          candidateIndex !== index
+          && !consumed.has(candidateIndex)
+          && getRandomEffectBound(candidate)
+          && getRandomEffectBound(candidate) !== bound
+          && getRandomEffectPairKey(candidate) === pairKey
+        ));
+        if (pairIndex >= 0) {
+          consumed.add(index);
+          consumed.add(pairIndex);
+          const pair = effects[pairIndex];
+          const minEffect = bound === 'min' ? effect : pair;
+          const maxEffect = bound === 'max' ? effect : pair;
+          return [formatRandomEffectRange(
+            getCardEffectDescriptionForStar(minEffect, star),
+            getCardEffectDescriptionForStar(maxEffect, star)
+          )];
+        }
+      }
+      consumed.add(index);
+      return [formatCardManagerConditionalEffectLine(effect, star)];
+    });
+  }
+
+  function formatCardManagerConditionalEffectLine(effect, star) {
+    const label = effect.label || effect.shortLabel || effect.id || '特殊効果';
+    const descText = getCardEffectDescriptionForStar(effect, star);
+    if (descText) return descText;
+    const bonus = Array.isArray(effect.bonusesByStar) ? effect.bonusesByStar[star - 1] : null;
+    const bonusText = formatCardManagerBonuses(bonus);
+    return bonusText === '補正なし' ? label : `${label}: ${bonusText}`;
+  }
+
+  function getCardEffectDescriptionForStar(effect, star) {
+    const desc = Array.isArray(effect.descriptionByStar) ? effect.descriptionByStar[star - 1] : effect.description;
+    return String(desc || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getRandomEffectBound(effect) {
+    const label = String(effect?.label || '');
+    if (label.includes('ランダム最低値')) return 'min';
+    if (label.includes('ランダム最大値')) return 'max';
+    return '';
+  }
+
+  function getRandomEffectPairKey(effect) {
+    return `${String(effect?.label || '')
+      .replace('ランダム最低値', 'ランダム値')
+      .replace('ランダム最大値', 'ランダム値')
+      .replace(/\s+/g, ' ')
+      .trim()}|${String(effect?.valueClass || '')}`;
+  }
+
+  function formatRandomEffectRange(minText, maxText) {
+    const pattern = /^(.*?)(-?\d+(?:\.\d+)?)(%?)(\s*\([^)]*\))$/;
+    const minMatch = String(minText || '').match(pattern);
+    const maxMatch = String(maxText || '').match(pattern);
+    if (minMatch && maxMatch && minMatch[1] === maxMatch[1] && minMatch[3] === maxMatch[3] && minMatch[4] === maxMatch[4]) {
+      const range = minMatch[2] === maxMatch[2] ? minMatch[2] : `${minMatch[2]}～${maxMatch[2]}`;
+      const context = minMatch[4].trim().slice(1, -1).trim();
+      return `${minMatch[1]}${range}${minMatch[3]} (${context}${context ? ' / ' : ''}ランダム)`;
+    }
+    return `ランダム最低: ${minText} / 最大: ${maxText}`;
   }
 
   function getCardManagerEffectCount(card) {
