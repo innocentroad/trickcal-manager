@@ -47,6 +47,7 @@
   let viewOrientation = 'horizontal';
 
   initialize();
+  applyUrlState();
   bindEvents();
   renderPreview();
 
@@ -91,6 +92,7 @@
       button.addEventListener('click', () => {
         viewOrientation = button.dataset.boardOrientation === 'vertical' ? 'vertical' : 'horizontal';
         elements.orientationButtons.forEach(item => item.classList.toggle('is-active', item === button));
+        updatePreviewUrl();
         renderPreview();
       });
     });
@@ -142,11 +144,39 @@
   }
   function markCustomSelection() {
     elements.apostle.value = '';
+    updatePreviewUrl();
   }
 
-  function syncFromApostle() {
+  function applyUrlState() {
+    const params = new URLSearchParams(window.location.search);
+    const apostleId = String(params.get('apostle') || '');
+    if (basicById.has(apostleId)) {
+      elements.apostle.value = apostleId;
+      syncFromApostle({ updateUrl: false, render: false });
+    }
+    viewOrientation = params.get('orientation') === 'vertical' ? 'vertical' : 'horizontal';
+    elements.orientationButtons.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.boardOrientation === viewOrientation);
+    });
+  }
+
+  function updatePreviewUrl() {
+    const url = new URL(window.location.href);
+    const apostleId = String(elements.apostle.value || '');
+    if (apostleId) url.searchParams.set('apostle', apostleId);
+    else url.searchParams.delete('apostle');
+    if (viewOrientation === 'vertical') url.searchParams.set('orientation', 'vertical');
+    else url.searchParams.delete('orientation');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+
+  function syncFromApostle({ updateUrl = true, render = true } = {}) {
     const basic = basicById.get(String(elements.apostle.value || ''));
-    if (!basic) return;
+    if (!basic) {
+      if (updateUrl) updatePreviewUrl();
+      if (render) renderPreview();
+      return;
+    }
     const rows = DATA.getById('board', basic.id) || [];
     const specialType = inferSpecialType(rows);
     const attackType = normalizeAttackType(basic.攻撃タイプ || basic.攻撃Type);
@@ -157,7 +187,8 @@
     elements.tierSelects.forEach(select => {
       select.value = String(tiers[select.dataset.boardPreviewTier] || 3);
     });
-    renderPreview();
+    if (updateUrl) updatePreviewUrl();
+    if (render) renderPreview();
   }
   function buildReferenceCatalog() {
     const exact = new Map();
