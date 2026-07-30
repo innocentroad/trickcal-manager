@@ -2310,6 +2310,38 @@ body.dashboard-page.is-booting::after {
   right: 0;
   left: auto;
   transform: none;
+  font-family: inherit;
+}
+
+.bottom-save-popover button {
+  appearance: none;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 83, 59, 0.16);
+  border-radius: 11px;
+  padding: 0 10px;
+  color: var(--green-dark);
+  background: rgba(255, 255, 255, 0.66);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1.12;
+  cursor: pointer;
+}
+
+.bottom-save-popover button:hover:not(:disabled) {
+  border-color: rgba(36, 83, 59, 0.38);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+:root[data-theme="dark"] .bottom-save-popover button {
+  color: var(--green-dark);
+  border-color: rgba(166, 180, 197, 0.22);
+  background: rgba(20, 34, 52, 0.84);
+}
+
+:root[data-theme="dark"] .bottom-save-popover button:hover:not(:disabled) {
+  border-color: rgba(196, 181, 253, 0.42);
+  background: rgba(35, 48, 70, 0.96);
 }
 
 .bottom-save-popover.is-portaled {

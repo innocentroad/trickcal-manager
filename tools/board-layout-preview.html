@@ -14,7 +14,7 @@
       document.documentElement.dataset.theme = 'light';
     }
   </script>
-  <link rel="stylesheet" href="board-layout-preview.css?v=20260727a">
+  <link rel="stylesheet" href="board-layout-preview.css?v=20260731e">
 </head>
 <body>
   <main class="tool-shell">
@@ -67,9 +67,16 @@
           <p>各ゲートを基準にボード1～3を一体化して表示します。</p>
         </div>
         <div class="preview-tools">
-          <div class="orientation-switch" role="group" aria-label="ボードの表示方向">
-            <button type="button" class="is-active" data-board-orientation="horizontal">横</button>
-            <button type="button" data-board-orientation="vertical">縦</button>
+          <div class="preview-control-row">
+            <div class="orientation-switch" role="group" aria-label="ボードの表示方向">
+              <button type="button" class="is-active" data-board-orientation="horizontal">横</button>
+              <button type="button" data-board-orientation="vertical">縦</button>
+            </div>
+            <div class="zoom-switch" role="group" aria-label="ボードの表示サイズ">
+              <button type="button" id="board-preview-zoom-out" aria-label="表示を縮小" title="表示を縮小">−</button>
+              <button type="button" id="board-preview-zoom-reset" class="zoom-value" aria-label="表示サイズを100%に戻す" title="100%に戻す">100%</button>
+              <button type="button" id="board-preview-zoom-in" aria-label="表示を拡大" title="表示を拡大">＋</button>
+            </div>
           </div>
           <div class="legend" aria-label="マス種別">
             <span><i class="legend-start"></i>開始</span>
@@ -80,9 +87,10 @@
           </div>
         </div>
       </div>
-      <div class="board-viewport">
+      <div id="board-preview-viewport" class="board-viewport">
         <div id="board-preview-canvas" class="board-canvas"></div>
       </div>
+      <div id="board-preview-special-summary" class="special-summary" aria-label="特殊マス一覧"></div>
       <div id="board-preview-popover" class="tile-popover" role="dialog" aria-label="マス詳細" hidden>
         <button type="button" id="board-preview-popover-close" class="tile-popover-close" aria-label="閉じる"><svg class="tool-ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
         <div id="board-preview-detail" class="tile-popover-content"></div>
@@ -91,6 +99,6 @@
   </main>
 
   <script src="../statData.js"></script>
-  <script src="board-layout-preview.js?v=20260730a"></script>
+  <script src="board-layout-preview.js?v=20260731j"></script>
 </body>
 </html>

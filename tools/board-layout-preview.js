@@ -6,6 +6,10 @@
 
   const COMMON_THEME_KEY = 'trickcal_theme';
   const LEGACY_PREVIEW_THEME_KEY = 'trickcal-board-preview-theme';
+  const PREVIEW_SCALE_KEY = 'trickcal-board-preview-scale';
+  const MIN_VIEW_SCALE = 0.6;
+  const MAX_VIEW_SCALE = 1.6;
+  const VIEW_SCALE_STEP = 0.1;
 
   const BOARD_TIER_VALUES = {
     hp: { 1: [50, 99], 2: [71, 141], 3: [92, 183], 4: [113, 225], 5: [134, 267] },
@@ -29,11 +33,16 @@
     specialType: document.getElementById('board-preview-special-type'),
     attackType: document.getElementById('board-preview-attack-type'),
     orientationButtons: Array.from(document.querySelectorAll('[data-board-orientation]')),
+    zoomOut: document.getElementById('board-preview-zoom-out'),
+    zoomReset: document.getElementById('board-preview-zoom-reset'),
+    zoomIn: document.getElementById('board-preview-zoom-in'),
     themeToggle: document.getElementById('board-preview-theme-toggle'),
     tierSelects: Array.from(document.querySelectorAll('[data-board-preview-tier]')),
     reference: document.getElementById('board-preview-reference'),
     status: document.getElementById('board-preview-status'),
+    viewport: document.getElementById('board-preview-viewport'),
     canvas: document.getElementById('board-preview-canvas'),
+    specialSummary: document.getElementById('board-preview-special-summary'),
     detail: document.getElementById('board-preview-detail'),
     popover: document.getElementById('board-preview-popover'),
     popoverClose: document.getElementById('board-preview-popover-close')
@@ -45,6 +54,7 @@
   const referenceCatalog = buildReferenceCatalog();
   let selectedNode = null;
   let viewOrientation = 'horizontal';
+  let viewScale = 1;
 
   initialize();
   applyUrlState();
@@ -65,6 +75,7 @@
     });
     updateSpecialTypeOptions();
     syncThemeToggle();
+    applyViewScale(readSavedViewScale(), { persist: false, updateUrl: false });
   }
 
   function bindEvents() {
@@ -96,6 +107,9 @@
         renderPreview();
       });
     });
+    elements.zoomOut.addEventListener('click', () => applyViewScale(viewScale - VIEW_SCALE_STEP));
+    elements.zoomReset.addEventListener('click', () => applyViewScale(1));
+    elements.zoomIn.addEventListener('click', () => applyViewScale(viewScale + VIEW_SCALE_STEP));
     elements.themeToggle.addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     });
@@ -158,6 +172,10 @@
     elements.orientationButtons.forEach(button => {
       button.classList.toggle('is-active', button.dataset.boardOrientation === viewOrientation);
     });
+    const urlScale = Number(params.get('zoom')) / 100;
+    if (Number.isFinite(urlScale) && urlScale > 0) {
+      applyViewScale(urlScale, { persist: true, updateUrl: false });
+    }
   }
 
   function updatePreviewUrl() {
@@ -167,7 +185,43 @@
     else url.searchParams.delete('apostle');
     if (viewOrientation === 'vertical') url.searchParams.set('orientation', 'vertical');
     else url.searchParams.delete('orientation');
+    if (viewScale !== 1) url.searchParams.set('zoom', String(Math.round(viewScale * 100)));
+    else url.searchParams.delete('zoom');
     window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+
+  function readSavedViewScale() {
+    try {
+      return Number(localStorage.getItem(PREVIEW_SCALE_KEY)) || 1;
+    } catch (error) {
+      return 1;
+    }
+  }
+
+  function applyViewScale(value, { persist = true, updateUrl = true } = {}) {
+    const nextScale = Math.round(Math.min(MAX_VIEW_SCALE, Math.max(MIN_VIEW_SCALE, Number(value) || 1)) * 10) / 10;
+    viewScale = nextScale;
+    document.documentElement.style.setProperty('--board-preview-scale', String(nextScale));
+    elements.zoomReset.textContent = `${Math.round(nextScale * 100)}%`;
+    elements.zoomOut.disabled = nextScale <= MIN_VIEW_SCALE;
+    elements.zoomIn.disabled = nextScale >= MAX_VIEW_SCALE;
+    closeTilePopover();
+    centerBoardViewport();
+    if (persist) {
+      try {
+        localStorage.setItem(PREVIEW_SCALE_KEY, String(nextScale));
+      } catch (error) {
+        // 保存できない環境でも、その場の表示倍率は変更する。
+      }
+    }
+    if (updateUrl) updatePreviewUrl();
+  }
+
+  function centerBoardViewport() {
+    requestAnimationFrame(() => {
+      if (!elements.viewport) return;
+      elements.viewport.scrollLeft = Math.max(0, (elements.viewport.scrollWidth - elements.viewport.clientWidth) / 2);
+    });
   }
 
   function syncFromApostle({ updateUrl = true, render = true } = {}) {
@@ -406,9 +460,12 @@
     elements.canvas.classList.toggle('is-vertical', viewOrientation === 'vertical');
     if (!preview.rows.length) {
       elements.canvas.innerHTML = '';
+      elements.specialSummary.innerHTML = '';
       return;
     }
     elements.canvas.innerHTML = renderUnifiedBoard(preview.rows, viewOrientation);
+    elements.specialSummary.innerHTML = renderSpecialSummary(preview.rows);
+    centerBoardViewport();
   }
 
   function renderUnifiedBoard(allRows, orientation) {
@@ -454,6 +511,7 @@
     }
     const columnCount = orientation === 'vertical' ? maxX - minX + 1 : maxY;
     const rowCount = orientation === 'vertical' ? maxY : maxX - minX + 1;
+    const layerBackgrounds = renderLayerBackgrounds(positioned, orientation, maxX, maxY);
     const heading = orientation === 'vertical'
       ? '<span>上から ボード3（25）・ボード2（25）・ボード1（41）</span>'
       : '<span>ボード1 <small>41マス</small></span><span>ボード2 <small>25マス</small></span><span>ボード3 <small>25マス</small></span>';
@@ -461,10 +519,78 @@
       <section class="unified-board is-${orientation}">
         <div class="unified-board-head">${heading}</div>
         <div class="board-grid" style="grid-template-columns: repeat(${columnCount}, var(--cell-size)); grid-template-rows: repeat(${rowCount}, var(--cell-size));">
+          ${layerBackgrounds}
           ${cells.join('')}
         </div>
       </section>
     `;
+  }
+  function renderLayerBackgrounds(positioned, orientation, maxX, maxY) {
+    const bounds = [1, 2, 3].map(layer => {
+      const layerItems = positioned.filter(item => Number(item.row.ボード階層) === layer);
+      if (!layerItems.length) return null;
+      const xs = layerItems.map(item => item.x);
+      const ys = layerItems.map(item => item.y);
+      const minLayerX = Math.min(...xs);
+      const maxLayerX = Math.max(...xs);
+      const minLayerY = Math.min(...ys);
+      const maxLayerY = Math.max(...ys);
+      return {
+        layer,
+        crossStart: maxX - maxLayerX,
+        crossSize: maxLayerX - minLayerX + 1,
+        progressSize: maxLayerY - minLayerY + 1
+      };
+    });
+    const visibleBounds = bounds.filter(Boolean);
+    const sharedCrossSize = Math.max(...visibleBounds.map(item => item.crossSize)) + 1;
+    const sharedProgressSize = Math.max(...visibleBounds.map(item => item.progressSize));
+    const crossMin = Math.min(...visibleBounds.map(item => item.crossStart));
+    const crossMax = Math.max(...visibleBounds.map(item => item.crossStart + item.crossSize));
+    const sharedCrossStart = crossMin - (sharedCrossSize - (crossMax - crossMin)) / 2;
+    return bounds.map(item => {
+      if (!item) return '';
+      const { layer } = item;
+      const left = orientation === 'vertical' ? sharedCrossStart : (layer - 1) * sharedProgressSize - 0.5;
+      const top = orientation === 'vertical' ? (3 - layer) * sharedProgressSize - 0.5 : sharedCrossStart;
+      const width = orientation === 'vertical' ? sharedCrossSize : sharedProgressSize;
+      const height = orientation === 'vertical' ? sharedProgressSize : sharedCrossSize;
+      return `<span class="board-layer-background board-layer-b${layer}" aria-hidden="true"
+        style="--layer-left:${left};--layer-top:${top};--layer-width:${width};--layer-height:${height}"></span>`;
+    }).join('');
+  }  function formatSpecialSummaryEffect(row) {
+    return formatBoardEffect({
+      ...row,
+      効果1_type: String(row.効果1_type || '').replace(/^全体/, ''),
+      効果2_type: String(row.効果2_type || '').replace(/^全体/, '')
+    });
+  }
+  function renderSpecialSummary(rows) {
+    return [1, 2, 3].map(layer => {
+      const grouped = new Map();
+      rows.filter(row => Number(row.ボード階層) === layer && row.マス_type === '特殊').forEach(row => {
+        const effect = formatSpecialSummaryEffect(row);
+        const existing = grouped.get(effect);
+        if (existing) existing.count += 1;
+        else grouped.set(effect, { row, count: 1 });
+      });
+      const items = Array.from(grouped.values()).map(({ row, count }) => {
+        const icon = getBoardIconPath(row);
+        return `
+          <span class="special-board-item">
+            <span class="special-board-tile" style="--tile-base:url('${escapeHtml(getBoardTileBasePath(row))}');${icon ? `--tile-icon:url('${escapeHtml(icon)}')` : ''}"></span>
+            <span>${escapeHtml(formatSpecialSummaryEffect(row))}</span>
+            ${count > 1 ? `<span class="special-board-count">×${count}</span>` : ''}
+          </span>
+        `;
+      }).join('');
+      return `
+        <section class="special-board-group special-board-b${layer}">
+          <h3><span>B${layer}</span><small>特殊マス</small></h3>
+          <div class="special-board-items">${items}</div>
+        </section>
+      `;
+    }).join('');
   }
   function getBoardEntryRow(rows, previousGate) {
     const minY = Math.min(...rows.map(row => Number(row.Y_pos)).filter(Number.isFinite));
