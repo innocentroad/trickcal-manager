@@ -7013,7 +7013,7 @@
 
   function isTimedOrManualEffect(text, effect) {
     if (effect.type === 'info') return true;
-    return /ウェーブ|開始時|毎に|ごと|(?:低学年|高学年|スキル|通常|普通|基本|強化|アサイド|攻撃).{0,8}使用時|発動時|発動中|命中時|攻撃時|被撃時|被弾時|敵1体|クールタイム|CT/.test(text);
+    return /ウェーブ|開始時|毎に|ごと|(?:低学年|高学年|スキル|通常|普通|基本|強化|アサイド|攻撃).{0,8}使用時|発動時|発動中|命中時|攻撃時|被撃時|被弾時|敵(?:が)?\d+体(?:以上|以下|のみ|の場合)?|クールタイム|CT/.test(text);
   }
 
   function isUnresolvedCardTriggerEffect(text) {

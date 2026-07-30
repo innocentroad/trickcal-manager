@@ -587,6 +587,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "levels": {
               "1": 270.0,
@@ -610,6 +611,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 2.0
           },
@@ -617,12 +619,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]感電",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵"
           },
           {
             "valueKind": "[傘持参]感電",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 4.0
           },
@@ -630,6 +634,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[残り火注意]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "levels": {
               "1": 600.0,
@@ -655,6 +660,7 @@ const APOSTLE_LIBRARY = [
             "effectType": "デバフ",
             "effectStack": true,
             "maxStack": 9.0,
+            "condition": "ランダム",
             "effectTarget": "敵"
           },
           {
@@ -663,6 +669,7 @@ const APOSTLE_LIBRARY = [
             "effectType": "デバフ",
             "effectStack": true,
             "maxStack": 9.0,
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 7.0
           },
@@ -670,6 +677,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "levels": {
               "1": 180.0,
@@ -693,6 +701,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "対象数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 3.0
           },
@@ -700,6 +709,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 4.0
           },
@@ -707,12 +717,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム"
           },
           {
             "valueKind": "[かすり傷注意]気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 3.0
           }
@@ -727,6 +739,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "levels": {
               "1": 405.0,
@@ -750,6 +763,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 2.0
           },
@@ -757,12 +771,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[傘持参]感電",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵"
           },
           {
             "valueKind": "[傘持参]感電",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 6.0
           },
@@ -770,6 +786,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[残り火注意]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵",
             "levels": {
               "1": 1200.0,
@@ -795,6 +812,7 @@ const APOSTLE_LIBRARY = [
             "effectType": "デバフ",
             "effectStack": true,
             "maxStack": 9.0,
+            "condition": "ランダム",
             "effectTarget": "敵"
           },
           {
@@ -803,6 +821,7 @@ const APOSTLE_LIBRARY = [
             "effectType": "デバフ",
             "effectStack": true,
             "maxStack": 9.0,
+            "condition": "ランダム",
             "effectTarget": "敵",
             "fixedValue": 10.0
           },
@@ -810,6 +829,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "levels": {
               "1": 270.0,
@@ -833,6 +853,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "対象数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 3.0
           },
@@ -840,6 +861,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 4.0
           },
@@ -847,12 +869,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "[かすり傷注意]気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム"
           },
           {
             "valueKind": "[かすり傷注意]気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "condition": "ランダム",
             "effectTarget": "敵/ランダム",
             "fixedValue": 4.0
           }
@@ -1137,7 +1161,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 19.5
             }
           ],
-          "description": "中列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+          "description": "中列の味方の与ダメージ量を増加させる。"
         }
       }
     },
@@ -2385,7 +2409,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 14.0
             }
           ],
-          "description": "中列の味方の敵からの被ダメージ量が減少する。"
+          "description": "中列の味方の敵からの被ダメージ量を減少させる。"
         }
       }
     },
@@ -7491,18 +7515,18 @@ const APOSTLE_LIBRARY = [
               "valueKind": "与ダメージ量増加",
               "valueClass": "与ダメージ量増加",
               "effectType": "倍率",
-              "targetSkill": "味方/後列",
+              "effectTarget": "味方/後列",
               "fixedValue": 19.5
             },
             {
               "valueKind": "被ダメージ量減少",
               "valueClass": "被ダメージ量減少",
               "effectType": "倍率",
-              "targetSkill": "味方/後列",
+              "effectTarget": "味方/後列",
               "fixedValue": 8.8
             }
           ],
-          "description": "後列の味方の敵への与ダメージ量を増加させる。\n後列の味方の敵からの被ダメージ量を減少させる。"
+          "description": "後列の味方の敵への与ダメージ量を増加させ、後列の味方の敵からの被ダメージ量を減少させる。"
         }
       }
     },
@@ -10465,7 +10489,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "会心被ダメージ量減少",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "味方/狂気/自身除く",
+              "effectTarget": "味方（自身除く）/狂気",
               "fixedValue": 66.0
             }
           ],
@@ -10501,7 +10525,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 5.9
             }
           ],
-          "description": "中列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+          "description": "中列の味方の与ダメージ量を増加させ、被ダメージ量を減少させる。"
         }
       }
     },
@@ -10933,7 +10957,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 5.0
             }
           ],
-          "description": "前列の味方の与ダメージ量を増加し、前列の味方の攻撃速度を増加させる。"
+          "description": "前列の味方の与ダメージ量を増加させ、前列の味方の攻撃速度を増加させる。"
         }
       }
     },
@@ -11585,7 +11609,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 4.5
             }
           ],
-          "description": "味方全員の与ダメージ量を増加し、被ダメージ量を減少させる。"
+          "description": "味方全員の与ダメージ量を増加させ、被ダメージ量を減少させる。"
         }
       }
     },
@@ -12511,7 +12535,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 5.9
             }
           ],
-          "description": "前列の味方の与ダメージ量を増加し、被ダメージ量を減少させる。"
+          "description": "前列の味方の与ダメージ量を増加させ、被ダメージ量を減少させる。"
         }
       }
     },
@@ -13607,7 +13631,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 10.5
             }
           ],
-          "description": "味方全員の敵からの魔法被ダメージ量が減少する。"
+          "description": "味方全員の敵からの魔法被ダメージ量を減少させる。"
         }
       }
     },
@@ -15849,7 +15873,7 @@ const APOSTLE_LIBRARY = [
               "valueClass": "固定値",
               "effectType": "回復",
               "condition": "低学年スキル使用時",
-              "effectTarget": "後列の味方",
+              "effectTarget": "味方/後列",
               "targetSkill": "低学年スキル",
               "fixedValue": "20～50"
             },
@@ -15869,16 +15893,32 @@ const APOSTLE_LIBRARY = [
           "stats": [
             {
               "statApplyTo": "全体",
-              "statName": "会心抵抗",
+              "statName": "会心ダメージ",
               "increaseP": 3.0
             },
             {
               "statApplyTo": "全体",
-              "statName": "会心ダメージ抵抗",
+              "statName": "会心抵抗",
               "increaseP": 3.0
             }
           ],
-          "effects": []
+          "effects": [
+            {
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            },
+            {
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "味方全員の会心抵抗と会心ダメージ抵抗を増加させる。"
         }
       }
     },
@@ -17554,6 +17594,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "召喚獣の自爆ダメージ増加(その他倍率)",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "attackCategory": "召喚獣の自爆",
               "condition": "召喚獣破壊時",
               "effectTarget": "召喚獣",
               "targetSkill": "召喚獣自爆",
@@ -19244,6 +19285,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "effectTarget": "範囲内の敵",
             "fixedValue": 360.0
           },
@@ -19251,6 +19294,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 25.0
@@ -19259,6 +19304,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "n回ごと",
+            "triggerValue": 4.0,
             "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 6.0
@@ -20442,6 +20489,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
             "effectTarget": "敵",
             "fixedValue": 200.0
           },
@@ -20449,6 +20497,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目くらまし",
             "valueClass": "状態付与",
             "effectType": "バフ",
+            "triggerType": "一定確率",
             "condition": "強化攻撃時",
             "effectTarget": "自身"
           },
@@ -20456,6 +20505,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "目くらまし",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "一定確率",
             "condition": "強化攻撃時",
             "effectTarget": "自身",
             "fixedValue": 4.0
@@ -21110,6 +21160,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
+            "triggerType": "一定確率",
             "effectTarget": "敵",
             "fixedValue": 150.0
           },
@@ -21117,12 +21168,14 @@ const APOSTLE_LIBRARY = [
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
             "effectTarget": "敵"
           },
           {
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
+            "triggerType": "一定確率",
             "effectTarget": "敵",
             "fixedValue": 2.0
           }
@@ -21135,6 +21188,433 @@ const APOSTLE_LIBRARY = [
     "favoriteCard": {},
     "aside": {
       "levels": {}
+    },
+    "board": null
+  },
+  {
+    "id": "rollett",
+    "name": "ロレット",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "狂気",
+      "race": "魔女",
+      "role": "攻撃",
+      "position": "後列",
+      "attackType": "魔法",
+      "initialSp": 100.0,
+      "spRecoveryPerSecond": 30.0,
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.35
+    },
+    "statTypes": {
+      "hp": 3.0,
+      "atkP": 0.0,
+      "atkM": 4.0,
+      "defP": 3.0,
+      "defM": 3.0,
+      "crit": 4.0,
+      "critDmg": 4.0,
+      "critRes": 2.0,
+      "critDmgRes": 2.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 250.0,
+              "2": 275.0,
+              "3": 300.0,
+              "4": 325.0,
+              "5": 350.0,
+              "6": 375.0,
+              "7": 400.0,
+              "8": 425.0,
+              "9": 450.0,
+              "10": 475.0,
+              "11": 500.0,
+              "12": 525.0,
+              "13": 550.0,
+              "14": 575.0,
+              "15": 600.0
+            }
+          }
+        ],
+        "skillType": "低学年",
+        "skillName": "喝采を浴びるエンターテイナー",
+        "description": "鳩を飛ばした後、鳩の復活マジックを披露する。鳩は指定範囲内で最も遠い敵に飛んでいき、範囲魔法ダメージを与える。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "condition": "箱到着時（爆発時）",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 360.0,
+              "2": 393.0,
+              "3": 426.0,
+              "4": 459.0,
+              "5": 492.0,
+              "6": 525.0,
+              "7": 558.0,
+              "8": 591.0,
+              "9": 624.0,
+              "10": 657.0,
+              "11": 690.0,
+              "12": 723.0,
+              "13": 756.0,
+              "14": 789.0,
+              "15": 822.0
+            }
+          },
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "最大対象数",
+            "effectType": "対象制限",
+            "condition": "箱到着時（爆発時）",
+            "effectTarget": "範囲内の敵",
+            "fixedValue": 6.0
+          },
+          {
+            "valueKind": "好奇心",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "condition": "箱通過",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "好奇心",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "condition": "箱通過",
+            "effectTarget": "敵",
+            "fixedValue": 4.0
+          },
+          {
+            "valueKind": "気絶",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "condition": "箱到着時（爆発時）",
+            "effectTarget": "敵"
+          },
+          {
+            "valueKind": "気絶",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "condition": "箱到着時（爆発時）",
+            "effectTarget": "敵",
+            "fixedValue": 3.0
+          },
+          {
+            "valueKind": "気絶",
+            "valueClass": "最大対象数",
+            "effectType": "対象制限",
+            "condition": "箱到着時（爆発時）",
+            "effectTarget": "範囲内の敵",
+            "fixedValue": 6.0
+          }
+        ],
+        "skillType": "高学年",
+        "skillName": "観客を魅了するトリックスター",
+        "description": "箱を取り出して指定範囲内で最も遠い敵に届ける。\n箱は通り過ぎながら周囲の敵に好奇心を付与する。\n箱が目標地点に到着すると、爆発し、範囲魔法ダメージを与え、気絶を付与する。気絶とダメージは最大6名に適用される。",
+        "cooldownSeconds": 32.0
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "味方現在高学年クールタイム減少",
+            "valueClass": "クールタイム",
+            "effectType": "クールタイム",
+            "condition": "低学年スキル発動時（鳩の復活マジックを披露時）",
+            "effectTarget": "ランダムな味方1名（自身以外）",
+            "levels": {
+              "1": 2.0,
+              "2": 2.5,
+              "3": 3.0,
+              "4": 3.5,
+              "5": 4.0,
+              "6": 4.5,
+              "7": 5.0,
+              "8": 5.5,
+              "9": 6.0,
+              "10": 6.5,
+              "11": 7.0,
+              "12": 7.5,
+              "13": 8.0,
+              "14": 8.5,
+              "15": 9.0
+            }
+          }
+        ],
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "低学年スキルを使用して鳩の復活マジックを披露すると、自身を除くランダムな味方1名の現在の高学年スキルのクールタイムを即時減少させる。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "指定範囲内で最も遠い敵",
+            "fixedValue": 90.0
+          }
+        ],
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "指定範囲内で最も遠い敵に火の玉を飛ばして魔法ダメージを与える。"
+      },
+      {
+        "effects": [
+          {
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "一定確率",
+            "effectTarget": "指定範囲内で最も遠い敵とその周囲の範囲内の敵",
+            "fixedValue": 120.0
+          },
+          {
+            "valueKind": "火傷",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率"
+          },
+          {
+            "valueKind": "火傷",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectStack": true,
+            "maxStack": 9.0,
+            "triggerType": "一定確率",
+            "fixedValue": 4.0
+          }
+        ],
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "一定確率で、指定範囲内で最も遠い敵に火の玉を飛ばして、範囲魔法ダメージを与え、火傷を付与する。"
+      }
+    ],
+    "favoriteCard": {
+      "name": "ロレットのマジックハット",
+      "kind": "遺物",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "valueKind": "総魔法ダメージ",
+                "effectType": "攻撃",
+                "effectTarget": "範囲内の敵",
+                "levels": {
+                  "1": 750.0,
+                  "2": 825.0,
+                  "3": 900.0,
+                  "4": 975.0,
+                  "5": 1050.0,
+                  "6": 1125.0,
+                  "7": 1200.0,
+                  "8": 1275.0,
+                  "9": 1350.0,
+                  "10": 1425.0,
+                  "11": 1500.0,
+                  "12": 1575.0,
+                  "13": 1650.0,
+                  "14": 1725.0,
+                  "15": 1800.0
+                },
+                "valueClass": "倍率"
+              },
+              {
+                "valueKind": "SP回復量",
+                "valueClass": "固定値",
+                "effectType": "回復",
+                "condition": "低学年スキル発動時（鳩の復活マジックを披露時）",
+                "effectTarget": "自身",
+                "fixedValue": 100.0
+              }
+            ],
+            "targetSkill": "低学年",
+            "skillName": "歓声を浴びるエンターテイナー",
+            "description": "鳩を3体飛ばした後、鳩の復活マジックを披露する。鳩は指定範囲内で最も遠い敵に飛んでいき、範囲魔法ダメージを与える。\n鳩の復活マジックを披露すると、自身のSPを回復する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "valueKind": "魔法攻撃力増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "valueKind": "会心ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              }
+            ],
+            "skillName": "愛用Lv3",
+            "description": "ロレットの魔法攻撃力、会心、会心ダメージが9%増加する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "ロレットの黄金チケット",
+      "levels": {
+        "1": {
+          "name": "最高のエンターテインメント",
+          "stats": [
+            {
+              "statApplyTo": "本人",
+              "statName": "最大HP",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "魔法攻撃力",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心",
+              "increaseP": 6.0
+            },
+            {
+              "statApplyTo": "本人",
+              "statName": "会心ダメージ",
+              "increaseP": 6.0
+            }
+          ],
+          "effects": []
+        },
+        "2": {
+          "name": "舞台を掌握するイリュージョニスト",
+          "stats": [],
+          "effects": [
+            {
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 50.0
+            },
+            {
+              "valueKind": "自身のSPを回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "ウェーブ開始時",
+              "effectTarget": "自身",
+              "fixedValue": 100.0
+            },
+            {
+              "valueKind": "変異",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵2体/ランダム",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "valueKind": "変異",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵2体/ランダム",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "valueKind": "毎秒SP回復中断",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "valueKind": "毎秒SP回復中断",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 10.0
+            },
+            {
+              "valueKind": "攻撃力減少",
+              "valueClass": "倍率",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 30.0
+            },
+            {
+              "valueKind": "攻撃力減少",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "condition": "低学年スキルが命中時/ランダム発動",
+              "effectTarget": "低学年スキルが命中した敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 10.0
+            }
+          ],
+          "description": "スキルダメージ量が増加する。\nウェーブ開始時、自身のSPを回復する。\n低学年スキルが命中した敵へ以下の効果のうち一つを発動する。\n- ランダムな敵2体に変異を付与する。\n- 1秒ごとのSP回復を中断させる。\n- 攻撃力を減少させる。"
+        },
+        "3": {
+          "name": "フィナーレ",
+          "stats": [
+            {
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "statApplyTo": "全体",
+              "statName": "魔法防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "与ダメージ量増加",
+              "effectType": "倍率",
+              "effectTarget": "味方/後列",
+              "fixedValue": 13.6
+            },
+            {
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "被ダメージ量減少",
+              "effectType": "倍率",
+              "effectTarget": "味方/後列",
+              "fixedValue": 5.9
+            }
+          ],
+          "description": "後列の味方の敵への与ダメージ量を増加させ、後列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   }

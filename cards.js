@@ -1621,6 +1621,71 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "relic_rollett_magic_hat",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "ロレットのマジックハット",
+            "signature": true,
+            "favoriteCharacter": "ロレット",
+            "cost": 18,
+            "bonusesByStar": [
+                {
+                    "atkP": 14.1,
+                    "critRateP": 14.1
+                },
+                {
+                    "atkP": 17.6,
+                    "critRateP": 17.6
+                },
+                {
+                    "atkP": 21.1,
+                    "critRateP": 21.1
+                },
+                {
+                    "atkP": 24.6,
+                    "critRateP": 24.6
+                },
+                {
+                    "atkP": 28.1,
+                    "critRateP": 28.1
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "triple_enemy_skill_damage_boost",
+                    "type": "toggle",
+                    "label": "敵が3体以上の場合 スキルダメージ スキル 与ダメージ増加",
+                    "shortLabel": "スキル 与ダメージ増加",
+                    "valueClass": "倍率",
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "与ダメージ増加45% (敵が3体以上の場合 / 自分)",
+                        "与ダメージ増加56% (敵が3体以上の場合 / 自分)",
+                        "与ダメージ増加67% (敵が3体以上の場合 / 自分)",
+                        "与ダメージ増加78% (敵が3体以上の場合 / 自分)",
+                        "与ダメージ増加89% (敵が3体以上の場合 / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "addP": 45
+                        },
+                        {
+                            "addP": 56
+                        },
+                        {
+                            "addP": 67
+                        },
+                        {
+                            "addP": 78
+                        },
+                        {
+                            "addP": 89
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "relic_dragon_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -5032,6 +5097,16 @@ const CARD_SOLDER_DATA = {
         },
         "2": {
             "hpP": 9.7
+        }
+    },
+    "relic_rollett_magic_hat": {
+        "1": {
+            "atkP": 3.8,
+            "critRateP": 2
+        },
+        "2": {
+            "atkP": 7.5,
+            "critRateP": 4
         }
     },
     "relic_dragon_sword": {

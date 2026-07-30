@@ -1,0 +1,61 @@
+状態効果ID	表示名	英語名	分類	解除区分	アイコン分類	タグ	最大スタック	スタック方式	スタック集約範囲	持続更新方式	ボス有効	計算対応段階	検証状態	発動条件状態効果ID	条件スタック参照	備考	出典URL
+giant	巨大化	Giant	バフ	解除可能	青	固有/攻撃速度/与ダメージ			付与元単位	付与元依存		一部対応	要検証			コミー固有。攻撃速度と与ダメージ量が増加	https://wikiwiki.jp/thetrickal/戦闘システム
+swift_ruse	才気煥発	Swift Ruse	バフ	解除可能	青	固有/対象外			付与元単位	付与元依存		表示のみ	要検証			モモ固有。後方移動し敵の目標にならない	https://wikiwiki.jp/thetrickal/戦闘システム
+shield	シールド	Shield	バフ	解除可能	青	シールド		個別耐久	対象単位	個別管理		将来対応	一部検証済			複数枚を別々の耐久値として保持。魔法ダメージのみ肩代わりする派生あり	https://wikiwiki.jp/thetrickal/戦闘システム
+very_healthy	とても健康になった！	Becoming So Healthy!	バフ	解除可能	青	固有/攻撃速度			付与元単位	付与元依存		一部対応	要検証			ヒルデ固有	https://wikiwiki.jp/thetrickal/戦闘システム
+invincible	無敵	Invincible	バフ	解除可能	青	無敵/免疫	1	非スタック	対象単位	上書き		将来対応	一部検証済			全ダメージと状態異常を無効化するがバフ解除は受ける	https://wikiwiki.jp/thetrickal/戦闘システム
+trickery	目くらまし	Trickery	バフ	解除可能	青	対象外	1	非スタック	対象単位	上書き		表示のみ	要検証			他の味方がいる間は敵の攻撃目標にならない	https://wikiwiki.jp/thetrickal/戦闘システム
+atk_up	攻撃力の増加割合	Increased ATK Percentage	バフ	解除可能	青	ステータス/攻撃力			付与元依存	付与元依存		対応	要検証			物理・魔法共通の攻撃力%	https://wikiwiki.jp/thetrickal/戦闘システム
+phys_atk_up	物理攻撃力の増加割合	Increased Physical ATK Percentage	バフ	解除可能	青	ステータス/物理攻撃力			付与元依存	付与元依存		対応	要検証			物理攻撃力のみ	https://wikiwiki.jp/thetrickal/戦闘システム
+mag_atk_up	魔法攻撃力の増加割合	Increased Magical ATK Percentage	バフ	解除可能	青	ステータス/魔法攻撃力			付与元依存	付与元依存		対応	要検証			魔法攻撃力のみ。Wiki戦闘中説明は物理攻撃力と誤記	https://wikiwiki.jp/thetrickal/戦闘システム
+def_up	防御力の増加割合	Increased DEF Percentage	バフ	解除可能	青	ステータス/防御力			付与元依存	付与元依存		対応	要検証			物理・魔法共通の防御力%	https://wikiwiki.jp/thetrickal/戦闘システム
+mag_def_up	魔法防御力の増加割合	Increased Magical DEF Percentage	バフ	解除可能	青	ステータス/魔法防御力			付与元依存	付与元依存		対応	要検証			魔法防御力のみ	https://wikiwiki.jp/thetrickal/戦闘システム
+crit_rate_up	会心率の増加割合	Increased CRIT Rate Percentage	バフ	解除可能	青	会心率/直接加算			付与元依存	付与元依存		対応	要検証			会心ステータスではなく最終会心率への直接加算として扱う	https://wikiwiki.jp/thetrickal/戦闘システム
+crit_dmg_amount_up	会心ダメージ量の増加割合	CRIT DMG Increase Percentage	バフ	解除可能	青	会心DMG量/直接加算			付与元依存	付与元依存		対応	要検証			会心ダメージステータス加算とは分離。最終倍率上限2.5	https://wikiwiki.jp/thetrickal/戦闘システム
+outgoing_dmg_up	与ダメージ増加	DMG Increase	バフ	解除可能	青	与ダメージ量			付与元依存	付与元依存		対応	要検証			ダメージ量倍率グループへ加算	https://wikiwiki.jp/thetrickal/戦闘システム
+normal_attack_dmg_up	普通攻撃ダメージ増加	Normal Attack DMG Increase	バフ	解除可能	青	普通攻撃/与ダメージ量	9	加算スタック	対象単位	再付与更新		対応	要検証			クロエの例では1スタック7%、10秒、最大9	https://wikiwiki.jp/thetrickal/戦闘システム
+incoming_dmg_down	被ダメージ減少	Reduced Incoming Damage	バフ	解除可能	青	被ダメージ量			付与元依存	付与元依存		対応	要検証			ダメージ量倍率グループへ負数加算	https://wikiwiki.jp/thetrickal/戦闘システム
+atk_spd_up	攻撃速度の増加割合	Increased ATK SPD Percentage	バフ	解除可能	青	攻撃速度			付与元依存	付与元依存		一部対応	要検証			一発ダメージには表示のみ、SP・時間計算で使用	https://wikiwiki.jp/thetrickal/戦闘システム
+electrocution	感電	Electrocution	デバフ	解除可能	赤	状態異常/攻撃速度/移動速度		加算スタック	対象単位	個別管理		一部対応	一部検証済			攻撃速度-20%/スタック。移動速度量と最大スタックは要検証	https://wikiwiki.jp/thetrickal/戦闘システム
+stun	気絶	Stun	デバフ	解除可能	赤	よろよろ/行動不能/SP停止	1	非スタック	対象単位	上書き	不可	表示のみ	一部検証済			行動不能。SP自然回復が一時停止	https://wikiwiki.jp/thetrickal/戦闘システム
+pain	苦痛	Stinging	デバフ	解除可能	赤	状態異常/DOT/回復量減少		加算スタック	対象単位	個別管理		対応	一部検証済			戦闘中に出血と表示される場合あり	https://wikiwiki.jp/thetrickal/戦闘システム
+time_stop	時間停止	Time Stop	デバフ	解除可能	赤	行動不能	1	非スタック	対象単位	上書き		表示のみ	要検証			R41リニュア小型ドローンの専用デバフ	https://wikiwiki.jp/thetrickal/戦闘システム
+taunt	挑発	Taunt	デバフ	解除可能	赤	よろよろ/対象固定/スキル禁止	1	非スタック	対象単位	上書き	不可	表示のみ	一部検証済			付与元への基本攻撃以外を禁止	https://wikiwiki.jp/thetrickal/戦闘システム
+silence	沈黙	Silence	デバフ	解除可能	赤	スキル禁止	1	非スタック	対象単位	上書き	可	表示のみ	一部検証済			スキル使用不可。SP回復は継続	https://wikiwiki.jp/thetrickal/戦闘システム
+frostbite	凍傷	Freeze	デバフ	解除可能	赤	状態異常/DOT/冷静弱点		加算スタック	対象単位	個別管理		対応	一部検証済			毎秒9%ダメージ、冷静からの被ダメージ+8%/スタック	https://wikiwiki.jp/thetrickal/戦闘システム
+poison	毒	Poison	デバフ	解除可能	赤	状態異常/DOT/与ダメージ量減少	9	加算スタック	対象単位	個別管理		対応	検証済			毎秒6%ダメージ、与ダメージ量-11%/スタック	https://wikiwiki.jp/thetrickal/戦闘システム
+noise	ノイズ	Noise	デバフ	解除可能	赤	与ダメージ量減少		独立付与	付与元単位	個別管理		対応	検証済			異なる使徒からの付与は別アイコンかつ効果加算	https://wikiwiki.jp/thetrickal/戦闘システム
+curse	呪い	Curse	デバフ	解除可能	赤	ダメージ転移	1	非スタック	対象単位	上書き		将来対応	検証済			受けたダメージの40%を別対象へ魔法ダメージとして転移	https://wikiwiki.jp/thetrickal/戦闘システム
+bind	バインド	Numb Feet	デバフ	解除可能	赤	移動禁止	1	非スタック	対象単位	上書き	可	表示のみ	要検証			歩行移動不可	https://wikiwiki.jp/thetrickal/戦闘システム
+blindfold	目隠し	Blindfold	デバフ	解除可能	赤	普通攻撃/命中不可	1	非スタック	対象単位	上書き	不可	将来対応	検証済			普通攻撃が命中せずダメージと効果が発生しない	https://wikiwiki.jp/thetrickal/戦闘システム
+burn	火傷	Scorch	デバフ	解除可能	赤	状態異常/DOT		加算スタック	対象単位	個別管理		対応	検証済			毎秒30%ダメージ	https://wikiwiki.jp/thetrickal/戦闘システム
+atk_down	攻撃力の減少割合	Reduced ATK Percentage	デバフ	解除可能	赤	ステータス/攻撃力			付与元依存	付与元依存		対応	要検証			物理・魔法共通の攻撃力%低下	https://wikiwiki.jp/thetrickal/戦闘システム
+def_down	防御力の減少割合	Reduced DEF Percentage	デバフ	解除可能	赤	ステータス/防御力			付与元依存	付与元依存		対応	要検証			物理・魔法共通の防御力%低下	https://wikiwiki.jp/thetrickal/戦闘システム
+mag_def_down	魔法防御力の減少割合	Reduced Magical DEF Percentage	デバフ	解除可能	赤	ステータス/魔法防御力	9	付与元依存	付与元依存	付与元依存		対応	要検証			ブランセの花束は最大9スタック	https://wikiwiki.jp/thetrickal/戦闘システム
+outgoing_dmg_down	与える会心ダメージの減少割合	Outgoing DMG Reduction Percentage	デバフ	解除可能	赤	与ダメージ量減少			付与元依存	付与元依存		対応	検証済			日本語効果名は誤訳。実効果は与ダメージ量減少	https://wikiwiki.jp/thetrickal/戦闘システム
+skill_dmg_down	スキルダメージ量の減少割合	Skill DMG Reduction Percentage	デバフ	解除可能	赤	スキル/与ダメージ量減少			付与元依存	付与元依存		対応	要検証			低学年・高学年スキルを対象	https://wikiwiki.jp/thetrickal/戦闘システム
+incoming_dmg_up	被ダメージの増加割合	Incoming DMG Increase Percentage	デバフ	解除可能	赤	被ダメージ量増加			付与元依存	付与元依存		対応	要検証			イサムレヨン盾破壊時など。ギミック依存の持続あり	https://wikiwiki.jp/thetrickal/戦闘システム
+atk_spd_down	攻撃速度の減少割合	Reduced ATK SPD Percentage	デバフ	解除可能	赤	攻撃速度			付与元依存	付与元依存		一部対応	要検証			一発ダメージには表示のみ、SP・時間計算で使用	https://wikiwiki.jp/thetrickal/戦闘システム
+rage	怒り	Rage	バフ	解除不能	黄	敵バフ/与ダメージ量	5	加算スタック	対象単位	永続	可	対応	検証済			次元ボス。30秒ごとに1スタック、1スタック+40%、最大+200%	https://wikiwiki.jp/thetrickal/戦闘システム
+overcharge	オーバーチャージ	Overcharge	バフ	解除不能	黄	敵固有/クールタイム/スキル強化	3	加算スタック	対象単位	個別管理	可	表示のみ	要検証			R41リニュア固有	https://wikiwiki.jp/thetrickal/戦闘システム
+healthy_bunny	元気になったウサギさん	Healthy Bunny	バフ	解除不能	黄	固有/物理防御力/会心抵抗	1	非スタック	対象単位	上書き		対応	一部検証済			ピコラ固有。値はスキル行参照	https://wikiwiki.jp/thetrickal/戦闘システム
+time_is_ally	時間は味方！		バフ	解除不能	黄	コンテンツ/体格/与ダメージ量/被ダメージ量		加算スタック	対象単位	永続		一部対応	要検証			遊び場ギミック。初期★で1スタック値が変わる	https://wikiwiki.jp/thetrickal/戦闘システム
+damage_fix	ダメージ固定	DMG Fix	バフ	解除不能	黄	敵固有/ダメージ固定	1	非スタック	対象単位	上書き	可	対応	検証済			イサムレヨン。被ダメージを1に固定	https://wikiwiki.jp/thetrickal/戦闘システム
+jade_force	翡翠玉	JadeForce	バフ	解除不能	黄	固有/スキル強化		加算スタック	対象単位	個別管理		表示のみ	一部検証済			ジェイド固有。値と最大数はスキル行参照	https://wikiwiki.jp/thetrickal/戦闘システム
+magic_bullets	魔弾	Magic Bullets	バフ	解除不能	黄	固有/物理ダメージ量/ヒット数		加算スタック	対象単位	個別管理		対応	一部検証済			シオン・ザ・DB固有。低学年スキルの攻撃回数も増加	https://wikiwiki.jp/thetrickal/戦闘システム
+outgoing_mag_dmg_up_unremovable	魔法与ダメージの増加割合	Increased Outgoing Magical DMG Percentage	バフ	解除不能	黄	魔法/与ダメージ量	1	非スタック	対象単位	上書き		対応	一部検証済			エルフィンのアイスケーキ固有。敵撃破で消滅	https://wikiwiki.jp/thetrickal/戦闘システム
+incoming_dmg_down_unremovable	被ダメージ減少	Reduced Incoming Damage	バフ	解除不能	黄	被ダメージ量			付与元依存	付与元依存		対応	要検証			エレナ固有条件など	https://wikiwiki.jp/thetrickal/戦闘システム
+incoming_damage_fixed_down	被ダメージ固定値減少	Incoming Damage Fixed Reduction	バフ	解除不能	黄	固定値軽減	1	非スタック	対象単位	永続	可	将来対応	要検証			一口草固有	https://wikiwiki.jp/thetrickal/戦闘システム
+handle_with_care	取扱注意	Handle With Care	デバフ	解除不能	紫	敵弱点/被ダメージ回数/最大HP割合		加算カウント	対象単位	永続	可	将来対応	要検証			一定回数被ダメージ時に最大HP比例の追加ダメージ	https://wikiwiki.jp/thetrickal/戦闘システム
+electrocution_weakness	感電状態の場合の被ダメージ量増加	Incoming DMG Rate Increase if Electrocution has been applied	デバフ	解除不能	紫	敵弱点/感電/被ダメージ量	1	条件連動	対象単位	条件連動	可	対応	一部検証済	electrocution	しない	M.E.O.Wは30%、進軍のドローンS型は50%。感電スタック数は参照しない	https://wikiwiki.jp/thetrickal/戦闘システム
+pain_weakness	苦痛状態の場合の被ダメージ量増加	Incoming DMG Rate Increase if Stinging has been applied	デバフ	解除不能	紫	敵弱点/苦痛/被ダメージ量	1	条件連動	対象単位	条件連動	可	対応	一部検証済	pain	しない	R41リニュアは30%。苦痛スタック数は参照しない	https://wikiwiki.jp/thetrickal/戦闘システム
+status_damage_weakness	状態異常による被ダメージ増加	Status Effect Incoming DMG Increase	デバフ	解除不能	紫	敵弱点/状態異常ダメージ/その他倍率	1	非スタック	対象単位	永続	可	対応	要検証			ケルベロス等。具体値は敵プリセット参照	https://wikiwiki.jp/thetrickal/戦闘システム
+burn_status_weakness	火傷状態の場合の被ダメージ量増加	Incoming DMG Rate Increase if Scorch has been applied	デバフ	解除不能	紫	敵弱点/火傷/被ダメージ量	1	条件連動	対象単位	条件連動	可	対応	要検証	burn	しない	火傷状態中のみ有効。火傷終了時に消滅	https://wikiwiki.jp/thetrickal/戦闘システム
+burn_damage_weakness	火傷による被ダメージ増加	Scorch Incoming DMG Increase	デバフ	解除不能	紫	敵弱点/火傷ダメージ/その他倍率	1	非スタック	対象単位	永続	可	対応	要検証			火傷DOTそのものへの倍率。火傷状態条件の被ダメージ増加とは別	https://wikiwiki.jp/thetrickal/戦闘システム
+relic_def_up	防御力の増加割合	Increased DEF Percentage	バフ	付与元依存	遺物	遺物/防御力			付与元依存	付与元依存		対応	一部検証済			ヴィヴィの銀色の指揮棒など。遺物用四角アイコン	https://wikiwiki.jp/thetrickal/戦闘システム
+yomi_moonflower	ヨミの向月葵の花	Yomi's Moonflower	バフ	付与元依存	遺物	遺物/魔法攻撃力/被ダメージ量		独立付与	付与元単位	永続		対応	検証済			同列へ付与。同じ使徒が複数装備してもスタック	https://wikiwiki.jp/thetrickal/戦闘システム
+cleanse_debuff	デバフ解除	Disable Debuff	特殊	対象外	なし	解除	1	即時効果	発動単位	即時		将来対応	要検証			赤アイコンの解除を基本とするが個別文言は要確認	https://wikiwiki.jp/thetrickal/戦闘システム
+dolls_will	ぬいぐるみの意志	Doll's Will	バフ	解除不能	なし	固有/基本攻撃変更	1	非スタック	対象単位	上書き		表示のみ	一部検証済			クロエ固有。派生するシールドと普通攻撃ダメージ増加は解除可能	https://wikiwiki.jp/thetrickal/戦闘システム
+knockback	ノックバック	Knockback	デバフ	対象外	なし	よろよろ/行動中断/位置移動	1	即時効果	対象単位	即時		表示のみ	要検証			行動不能状態にして後方へ押し戻す	https://wikiwiki.jp/thetrickal/戦闘システム
+dispel_buff	バフ解除	Disable Buff	特殊	対象外	なし	解除	1	即時効果	発動単位	即時		将来対応	検証済			青アイコンを無敵含め解除。黄アイコンは解除しない	https://wikiwiki.jp/thetrickal/戦闘システム
+mutate	変異	Mutate	デバフ	対象外	なし	よろよろ/行動不能	1	非スタック	対象単位	上書き	不可	表示のみ	要検証			物体に変化して行動不能	https://wikiwiki.jp/thetrickal/戦闘システム

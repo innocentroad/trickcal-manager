@@ -10318,7 +10318,9 @@
   }
 
   function getBoardIconPath(row, enabled = false, orientation = 'horizontal') {
-    const types = [row.効果1_type, row.効果2_type].filter(Boolean).join('/');
+    const types = [row.効果1_type, row.効果2_type]
+      .filter(Boolean)
+      .map(type => String(type).replace(/^全体/, '').replace(/力$/, ''));
     const state = enabled ? 'On' : 'Off';
     if (row.マス_type === 'スタート') {
       const direction = orientation === 'vertical' ? 'Up' : BOARD_START_DIRECTION;

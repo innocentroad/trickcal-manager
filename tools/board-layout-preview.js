@@ -545,7 +545,9 @@
   }
 
   function getBoardIconPath(row) {
-    const types = [row.効果1_type, row.効果2_type].filter(Boolean).join('/');
+    const types = [row.効果1_type, row.効果2_type]
+      .filter(Boolean)
+      .map(type => String(type).replace(/^全体/, '').replace(/力$/, ''));
     if (row.マス_type === 'スタート') return viewOrientation === 'vertical'
       ? '../img/Board/Tile_Start_Up.webp'
       : '../img/Board/Tile_Start_Right.webp';
