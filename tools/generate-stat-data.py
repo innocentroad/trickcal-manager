@@ -33,12 +33,16 @@ SHEET_KEYS = {
     "ボード情報": "board",
     "ボード設定": "board",
     "スキル": "skills",
+    "スキル基礎設定": "skillBasics",
+    "スキル効果": "skillEffects",
     "愛用カード": "favoriteCards",
     "アサイド ステ効果": "asideStatEffects",
     "アサイド 特殊効果": "asideSpecialEffects",
     "アサイド基礎設定": "asideTiers",
     "アサイドTier": "asideTiers",
     "ボード特殊効果まとめ": "boardSpecialEffects",
+    "教主の権能基礎設定": "masterPowerBasics",
+    "教主の権能効果": "masterPowerEffects",
 }
 
 INDEX_BY_ID = {
@@ -47,6 +51,7 @@ INDEX_BY_ID = {
     "equipment",
     "asideTiers",
     "boardSpecialEffects",
+    "masterPowers",
 }
 
 GROUP_BY_ID = {
@@ -330,6 +335,70 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
     return normalized
 
 
+def merge_skill_sheets(
+    basics: list[dict[str, object]],
+    effects: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    basics_by_skill_id = {
+        str(row.get("skillId", "")): row
+        for row in basics
+        if row.get("skillId", "") != ""
+    }
+    merged: list[dict[str, object]] = []
+    used_skill_ids: set[str] = set()
+    for effect in effects:
+        skill_id = str(effect.get("skillId", ""))
+        if not skill_id:
+            continue
+        basic = basics_by_skill_id.get(skill_id)
+        if basic is None:
+            raise ValueError(f"skill effect references missing skillId: {skill_id}")
+        basic_apostle_id = str(basic.get("id", ""))
+        effect_apostle_id = str(effect.get("id", ""))
+        if basic_apostle_id and effect_apostle_id and basic_apostle_id != effect_apostle_id:
+            raise ValueError(
+                f"skill apostle id mismatch: {skill_id} / {basic_apostle_id} != {effect_apostle_id}"
+            )
+        merged.append({**basic, **effect})
+        used_skill_ids.add(skill_id)
+    for skill_id, basic in basics_by_skill_id.items():
+        if skill_id not in used_skill_ids:
+            merged.append(dict(basic))
+    return merged
+
+
+def build_master_powers(
+    basics: list[dict[str, object]],
+    effects: list[dict[str, object]],
+) -> list[dict[str, object]]:
+    effects_by_id: dict[str, list[dict[str, object]]] = {}
+    for raw_effect in normalize_skill_rows(effects):
+        item = dict(raw_effect)
+        power_id = str(item.pop("id", ""))
+        if not power_id:
+            continue
+        if item.get("適用条件種別", "") != "":
+            item["conditionType"] = item["適用条件種別"]
+        if item.get("適用条件値", "") != "":
+            item["conditionValue"] = item["適用条件値"]
+        if item.get("持続時間秒", "") != "":
+            item["durationSeconds"] = item["持続時間秒"]
+        effects_by_id.setdefault(power_id, []).append(item)
+
+    powers: list[dict[str, object]] = []
+    known_ids: set[str] = set()
+    for basic in basics:
+        power_id = str(basic.get("id", ""))
+        if not power_id:
+            continue
+        known_ids.add(power_id)
+        powers.append({**basic, "effects": effects_by_id.get(power_id, [])})
+    missing = sorted(set(effects_by_id).difference(known_ids))
+    if missing:
+        raise ValueError(f"master power effects reference missing ids: {', '.join(missing)}")
+    return powers
+
+
 def normalize_aside_tiers(
     rows: list[dict[str, object]],
     basic_info: list[dict[str, object]],
@@ -443,6 +512,18 @@ def generate(input_path: Path, output_path: Path) -> None:
             ignored_sheets.append(sheet_name)
             continue
         sheets[key] = rows_to_objects(rows)
+
+    if "skillBasics" in sheets or "skillEffects" in sheets:
+        sheets["skills"] = merge_skill_sheets(
+            sheets.pop("skillBasics", []),
+            sheets.pop("skillEffects", []),
+        )
+
+    if "masterPowerBasics" in sheets or "masterPowerEffects" in sheets:
+        sheets["masterPowers"] = build_master_powers(
+            sheets.pop("masterPowerBasics", []),
+            sheets.pop("masterPowerEffects", []),
+        )
 
     if "basicInfo" in sheets:
         sheets["basicInfo"] = normalize_basic_info(sheets["basicInfo"])

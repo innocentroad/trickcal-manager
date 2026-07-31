@@ -203,6 +203,57 @@ def unique_nonblank(values: list[object]) -> list[object]:
     return result
 
 
+def read_tsv(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        return list(csv.DictReader(handle, delimiter="\t"))
+
+
+def build_id_aliases(
+    base_rows: list[dict[str, object]],
+    special_rows: list[dict[str, object]],
+    card_map_path: Path,
+    effect_map_path: Path,
+) -> tuple[dict[str, str], dict[str, dict[str, str]]]:
+    card_rows = read_tsv(card_map_path)
+    effect_rows = read_tsv(effect_map_path)
+    current_card_ids = {clean(row.get("id")) for row in base_rows if clean(row.get("id"))}
+    mapped_card_ids = {clean(row.get("newId")) for row in card_rows if clean(row.get("newId"))}
+    if current_card_ids != mapped_card_ids:
+        missing = sorted(current_card_ids - mapped_card_ids)
+        extra = sorted(mapped_card_ids - current_card_ids)
+        raise ValueError(f"card id replacement mismatch: missing={missing}, extra={extra}")
+
+    current_effect_ids = {
+        (clean(row.get("id")), clean(row.get("effectId")))
+        for row in special_rows
+        if clean(row.get("id")) and clean(row.get("effectId"))
+    }
+    mapped_effect_ids = {
+        (clean(row.get("newCardId")), clean(row.get("newEffectId")))
+        for row in effect_rows
+        if clean(row.get("newCardId")) and clean(row.get("newEffectId"))
+    }
+    if current_effect_ids != mapped_effect_ids:
+        missing = sorted(current_effect_ids - mapped_effect_ids)
+        extra = sorted(mapped_effect_ids - current_effect_ids)
+        raise ValueError(f"card effect id replacement mismatch: missing={missing}, extra={extra}")
+
+    card_aliases = {
+        clean(row.get("oldId")): clean(row.get("newId"))
+        for row in card_rows
+        if clean(row.get("oldId")) and clean(row.get("newId"))
+    }
+    effect_aliases = {
+        f"{clean(row.get('oldCardId'))}|{clean(row.get('oldEffectId'))}": {
+            "cardId": clean(row.get("newCardId")),
+            "effectId": clean(row.get("newEffectId")),
+        }
+        for row in effect_rows
+        if clean(row.get("oldCardId")) and clean(row.get("oldEffectId"))
+    }
+    return card_aliases, effect_aliases
+
+
 def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str, object]], key_map: dict[str, str]):
     cards_by_id: dict[str, dict[str, object]] = {}
     solder_data: dict[str, dict[int, dict[str, int | float]]] = {}
@@ -365,12 +416,55 @@ def stringify_js(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=4)
 
 
-def render_cards_js(card_library: dict[str, list[dict[str, object]]], solder_data: dict[str, dict[int, dict[str, int | float]]]) -> str:
+def render_cards_js(
+    card_library: dict[str, list[dict[str, object]]],
+    solder_data: dict[str, dict[int, dict[str, int | float]]],
+    card_id_aliases: dict[str, str],
+    card_effect_id_aliases: dict[str, dict[str, str]],
+) -> str:
     return (
         "// Trickcal Damage Calculator - Card Data (generated from datasheet)\n"
         "// Edit tools/trickcal_datasheet.xlsx and rebuild with tools/generate-card-data.py.\n\n"
         f"const CARD_LIBRARY = {stringify_js(card_library)};\n\n"
         f"const CARD_SOLDER_DATA = {stringify_js(solder_data)};\n\n"
+        f"const CARD_ID_ALIASES = {stringify_js(card_id_aliases)};\n\n"
+        f"const CARD_EFFECT_ID_ALIASES = {stringify_js(card_effect_id_aliases)};\n\n"
+        "function resolveCardIdAlias(id) {\n"
+        "    const key = String(id || '');\n"
+        "    return CARD_ID_ALIASES[key] || key;\n"
+        "}\n\n"
+        "function migrateCardStateMap(source) {\n"
+        "    const input = source && typeof source === 'object' ? source : {};\n"
+        "    const result = {};\n"
+        "    for (const [id, value] of Object.entries(input)) {\n"
+        "        if (!CARD_ID_ALIASES[id]) result[id] = value;\n"
+        "    }\n"
+        "    for (const [id, value] of Object.entries(input)) {\n"
+        "        const currentId = resolveCardIdAlias(id);\n"
+        "        if (!Object.prototype.hasOwnProperty.call(result, currentId)) result[currentId] = value;\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n\n"
+        "function migrateCardEffectStateMap(source) {\n"
+        "    const input = source && typeof source === 'object' ? source : {};\n"
+        "    const result = {};\n"
+        "    for (const [rawKey, value] of Object.entries(input)) {\n"
+        "        let key = String(rawKey || '');\n"
+        "        for (const [legacyKey, current] of Object.entries(CARD_EFFECT_ID_ALIASES)) {\n"
+        "            const separator = legacyKey.indexOf('|');\n"
+        "            const oldCardId = legacyKey.slice(0, separator);\n"
+        "            const oldEffectId = legacyKey.slice(separator + 1);\n"
+        "            const cardToken = `:${oldCardId}:`;\n"
+        "            const effectToken = `:${oldEffectId}:`;\n"
+        "            if (!key.includes(cardToken) || !key.includes(effectToken)) continue;\n"
+        "            key = key.replace(cardToken, `:${current.cardId}:`);\n"
+        "            key = key.replace(effectToken, `:${current.effectId}:`);\n"
+        "            break;\n"
+        "        }\n"
+        "        result[key] = value;\n"
+        "    }\n"
+        "    return result;\n"
+        "}\n\n"
         "for (const card of [...CARD_LIBRARY.artifacts, ...CARD_LIBRARY.spells]) {\n"
         "    if (CARD_SOLDER_DATA[card.id]) {\n"
         "        card.solderBonuses = CARD_SOLDER_DATA[card.id];\n"
@@ -382,14 +476,26 @@ def render_cards_js(card_library: dict[str, list[dict[str, object]]], solder_dat
     )
 
 
-def generate(input_path: Path, output_path: Path, key_map_path: Path) -> None:
+def generate(
+    input_path: Path,
+    output_path: Path,
+    key_map_path: Path,
+    card_map_path: Path,
+    effect_map_path: Path,
+) -> None:
     workbook = load_workbook(input_path, read_only=True, data_only=True)
     key_map = load_key_map(key_map_path)
     base_rows = sheet_to_objects(workbook, CARD_EFFECT_SHEET)
     special_rows = sheet_to_objects(workbook, CARD_SPECIAL_SHEET)
     card_library, solder_data = build_cards(base_rows, special_rows, key_map)
+    card_id_aliases, card_effect_id_aliases = build_id_aliases(
+        base_rows, special_rows, card_map_path, effect_map_path
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(render_cards_js(card_library, solder_data), encoding="utf-8")
+    output_path.write_text(
+        render_cards_js(card_library, solder_data, card_id_aliases, card_effect_id_aliases),
+        encoding="utf-8",
+    )
     print(f"Built {output_path} from {input_path}")
     print(f"Cards: artifacts={len(card_library['artifacts'])}, spells={len(card_library['spells'])}, solder={len(solder_data)}")
 
@@ -399,19 +505,33 @@ def main() -> None:
     parser.add_argument("--input", default="trickcal_datasheet.xlsx", help="Path to trickcal_datasheet.xlsx")
     parser.add_argument("--output", default="../cards.generated.js", help="Path to generated cards.js")
     parser.add_argument("--key-map", default="card-effect-key-map.tsv", help="Path to card effect key map TSV")
+    parser.add_argument("--card-id-map", default="replacement/cardId.tsv", help="Path to card ID replacement TSV")
+    parser.add_argument("--card-effect-id-map", default="replacement/cardEffectId.tsv", help="Path to card effect ID replacement TSV")
     args = parser.parse_args()
 
     script_dir = Path(__file__).resolve().parent
     input_path = Path(args.input)
     output_path = Path(args.output)
     key_map_path = Path(args.key_map)
+    card_map_path = Path(args.card_id_map)
+    effect_map_path = Path(args.card_effect_id_map)
     if not input_path.exists():
         input_path = script_dir / args.input
     if not output_path.is_absolute():
         output_path = script_dir / output_path
     if not key_map_path.exists():
         key_map_path = script_dir / args.key_map
-    generate(input_path.resolve(), output_path.resolve(), key_map_path.resolve())
+    if not card_map_path.exists():
+        card_map_path = script_dir / args.card_id_map
+    if not effect_map_path.exists():
+        effect_map_path = script_dir / args.card_effect_id_map
+    generate(
+        input_path.resolve(),
+        output_path.resolve(),
+        key_map_path.resolve(),
+        card_map_path.resolve(),
+        effect_map_path.resolve(),
+    )
 
 
 if __name__ == "__main__":

@@ -1041,7 +1041,10 @@
         enhance: Math.max(0, Math.min(5, Number(value?.enhance) || 0))
       };
     });
-    const artifactIds = Array.from({ length: 3 }, (_, index) => String(settings.artifactIds?.[index] ?? base.artifactIds?.[index] ?? ''));
+    const artifactIds = Array.from(
+      { length: 3 },
+      (_, index) => resolveCardIdAlias(String(settings.artifactIds?.[index] ?? base.artifactIds?.[index] ?? ''))
+    );
     const cards = context?.state?.cards || {};
     const artifactSettings = artifactIds.map((artifactId, index) => {
       const manager = cards[artifactId] || {};
@@ -1052,11 +1055,14 @@
         solder: artifactStar >= 5 ? Math.max(0, Math.min(2, Number(saved.solder ?? manager.solder) || 0)) : 0
       };
     });
-    const spellIds = Array.isArray(settings.spellIds) ? settings.spellIds.map(String).filter(spellId => getCard(spellId)?.kind === 'spell') : [];
+    const spellIds = Array.isArray(settings.spellIds)
+      ? settings.spellIds.map(id => resolveCardIdAlias(String(id))).filter(spellId => getCard(spellId)?.kind === 'spell')
+      : [];
+    const savedSpellSettings = migrateCardStateMap(settings.spellSettings);
     const spellSettings = {};
     new Set(spellIds).forEach(spellId => {
       const manager = cards[spellId] || {};
-      const saved = settings.spellSettings?.[spellId] || {};
+      const saved = savedSpellSettings[spellId] || {};
       const spellStar = Math.max(1, Math.min(5, Number(saved.star ?? manager.star) || 1));
       spellSettings[spellId] = {
         star: spellStar,
@@ -2279,6 +2285,16 @@
     view.referenceState = snapshot.referenceState && typeof snapshot.referenceState === 'object'
       ? clonePlain(snapshot.referenceState)
       : null;
+    if (view.referenceState) {
+      view.referenceState.cards = migrateCardStateMap(view.referenceState.cards);
+      view.referenceState.formation = normalizeFormation(view.referenceState.formation || {});
+      if (Array.isArray(view.referenceState.savedFormations)) {
+        view.referenceState.savedFormations = view.referenceState.savedFormations.map(item => ({
+          ...item,
+          formation: normalizeFormation(item?.formation || {})
+        }));
+      }
+    }
     view.referenceOptions = { cards: loadOptions.cards, global: loadOptions.global, apostles: loadOptions.apostles };
     applyDamageSnapshotView(savedView, loadOptions);
     view.pendingTempMemberId = '';
@@ -2310,14 +2326,14 @@
       if (savedView.effectSources && typeof savedView.effectSources === 'object') view.effectSources = { ...view.effectSources, ...pickBooleanMap(savedView.effectSources, Object.keys(view.effectSources)) };
       if (savedView.resultDisplays && typeof savedView.resultDisplays === 'object') view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(savedView.resultDisplays, Object.keys(view.resultDisplays)) };
       view.selfSkillEffectEnabled = savedView.selfSkillEffectEnabled && typeof savedView.selfSkillEffectEnabled === 'object' ? pickBooleanMap(savedView.selfSkillEffectEnabled) : {};
-      view.conditionalEffectEnabled = savedView.conditionalEffectEnabled && typeof savedView.conditionalEffectEnabled === 'object' ? pickBooleanMap(savedView.conditionalEffectEnabled) : {};
-      view.conditionalEffectStackCounts = savedView.conditionalEffectStackCounts && typeof savedView.conditionalEffectStackCounts === 'object' ? pickNumberMap(savedView.conditionalEffectStackCounts) : {};
+      view.conditionalEffectEnabled = savedView.conditionalEffectEnabled && typeof savedView.conditionalEffectEnabled === 'object' ? migrateCardEffectStateMap(pickBooleanMap(savedView.conditionalEffectEnabled)) : {};
+      view.conditionalEffectStackCounts = savedView.conditionalEffectStackCounts && typeof savedView.conditionalEffectStackCounts === 'object' ? migrateCardEffectStateMap(pickNumberMap(savedView.conditionalEffectStackCounts)) : {};
       view.skillLevelOverrides = savedView.skillLevelOverrides && typeof savedView.skillLevelOverrides === 'object' ? sanitizeSkillLevelOverrides(savedView.skillLevelOverrides) : {};
       view.tempMembers = savedView.tempMembers && typeof savedView.tempMembers === 'object' ? clonePlain(savedView.tempMembers) : {};
       view.tempArtifacts = savedView.tempArtifacts && typeof savedView.tempArtifacts === 'object'
-        ? clonePlain(savedView.tempArtifacts)
+        ? migrateTempArtifactOverrides(savedView.tempArtifacts)
         : { formation: {}, target: {} };
-      view.tempSpells = Array.isArray(savedView.tempSpells) ? savedView.tempSpells.filter(Boolean) : null;
+      view.tempSpells = Array.isArray(savedView.tempSpells) ? savedView.tempSpells.filter(Boolean).map(resolveCardIdAlias) : null;
       view.spellDetailsOpen = !!savedView.spellDetailsOpen;
     }
     if (options.enemy) {
@@ -2471,15 +2487,15 @@
         view.selfSkillEffectEnabled = pickBooleanMap(saved.selfSkillEffectEnabled);
       }
       if (saved.conditionalEffectEnabled && typeof saved.conditionalEffectEnabled === 'object') {
-        view.conditionalEffectEnabled = pickBooleanMap(saved.conditionalEffectEnabled);
+        view.conditionalEffectEnabled = migrateCardEffectStateMap(pickBooleanMap(saved.conditionalEffectEnabled));
       }
       if (saved.conditionalEffectStackCounts && typeof saved.conditionalEffectStackCounts === 'object') {
-        view.conditionalEffectStackCounts = pickNumberMap(saved.conditionalEffectStackCounts);
+        view.conditionalEffectStackCounts = migrateCardEffectStateMap(pickNumberMap(saved.conditionalEffectStackCounts));
       }
       if (saved.skillLevelOverrides && typeof saved.skillLevelOverrides === 'object') {
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
-      view.tempSpells = Array.isArray(saved.tempSpells) ? saved.tempSpells.filter(Boolean) : null;
+      view.tempSpells = Array.isArray(saved.tempSpells) ? saved.tempSpells.filter(Boolean).map(resolveCardIdAlias) : null;
       if (saved.extraCrayon && typeof saved.extraCrayon === 'object') {
         writeExtraCrayonInputs(saved.extraCrayon);
       }
@@ -2613,7 +2629,17 @@
   function loadStatState() {
     try {
       const raw = localStorage.getItem(STAT_STORAGE_KEY);
-      return raw ? { ...JSON.parse(raw), found: true } : { found: false };
+      if (!raw) return { found: false };
+      const state = JSON.parse(raw);
+      state.cards = migrateCardStateMap(state.cards);
+      state.formation = normalizeFormation(state.formation || {});
+      if (Array.isArray(state.savedFormations)) {
+        state.savedFormations = state.savedFormations.map(item => ({
+          ...item,
+          formation: normalizeFormation(item?.formation || {})
+        }));
+      }
+      return { ...state, found: true };
     } catch {
       return { found: false };
     }
@@ -2638,8 +2664,22 @@
   function normalizeFormation(formation = {}) {
     return {
       rows: Array.from({ length: 3 }, (_, rowIndex) => normalizeFormationRow(formation.rows?.[rowIndex])),
-      spells: Array.isArray(formation.spells) ? formation.spells.filter(Boolean) : []
+      spells: Array.isArray(formation.spells) ? formation.spells.filter(Boolean).map(resolveCardIdAlias) : [],
+      masterPowers: normalizeFormationMasterPowers(formation.masterPowers || formation.masterPowerId)
     };
+  }
+
+  function normalizeFormationMasterPowers(value) {
+    const powers = typeof TRICKCAL_STAT_DATA === 'undefined'
+      ? []
+      : (TRICKCAL_STAT_DATA?.sheets?.masterPowers || []);
+    const validIds = new Set(powers.map(power => String(power.id || '')).filter(Boolean));
+    const limits = powers
+      .map(power => Number(power['最大選択数']))
+      .filter(limit => Number.isFinite(limit) && limit > 0);
+    const limit = Math.max(1, limits.length ? Math.max(...limits) : 1);
+    const source = Array.isArray(value) ? value : (value ? [value] : []);
+    return Array.from(new Set(source.map(String).filter(id => validIds.has(id)))).slice(0, limit);
   }
 
   function normalizeFormationRow(row = {}) {
@@ -2647,10 +2687,22 @@
       apostles: Array.from({ length: 3 }, (_, index) => row.apostles?.[index] || ''),
       artifacts: Array.from({ length: 3 }, (_, lineIndex) => {
         const line = row.artifacts?.[lineIndex];
-        if (Array.isArray(line)) return Array.from({ length: 3 }, (_, index) => line[index] || '');
-        return [line || '', '', ''];
+        if (Array.isArray(line)) return Array.from({ length: 3 }, (_, index) => resolveCardIdAlias(line[index] || ''));
+        return [resolveCardIdAlias(line || ''), '', ''];
       })
     };
+  }
+
+  function migrateTempArtifactOverrides(source) {
+    const migrated = clonePlain(source || { formation: {}, target: {} });
+    migrated.formation = Object.fromEntries(
+      Object.entries(migrated.formation || {}).map(([key, id]) => [key, resolveCardIdAlias(id)])
+    );
+    migrated.target = Object.fromEntries(Object.entries(migrated.target || {}).map(([apostleId, slots]) => [
+      apostleId,
+      Object.fromEntries(Object.entries(slots || {}).map(([slot, id]) => [slot, resolveCardIdAlias(id)]))
+    ]));
+    return migrated;
   }
 
   function getFormationMembers(formation, state = {}) {
@@ -7891,6 +7943,7 @@
         const attackCategory = String(effect.attackCategory || '').trim();
         const category = attackCategory || sourceCategory;
         const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory);
+        const triggerProbability = getFdcSkillTriggerProbabilityLabel(skill);
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
@@ -7908,6 +7961,7 @@
           reference: effect.reference || '',
           condition: effect.condition || '',
           shortDetail: [
+            triggerProbability,
             referenceLabel,
             effect.condition || '',
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
@@ -7915,6 +7969,7 @@
           ].filter(Boolean).join(' / '),
           detailText: [
             skill.skillName || skill.name || '',
+            triggerProbability ? `発動確率: ${triggerProbability.replace(/^発動率\s*/, '')}` : '',
             detailText,
             effect.reference ? `参照: ${effect.reference}` : '',
             effect.condition ? `条件: ${effect.condition}` : '',
@@ -7943,6 +7998,14 @@
       });
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcSkillTriggerProbabilityLabel(skill = {}) {
+    const triggerType = String(skill.triggerType || skill['スキル発動条件種別'] || skill['発動条件種別'] || '').trim();
+    const rawValue = skill.triggerValue ?? skill['スキル発動条件値'] ?? skill['発動条件値'];
+    if (!/一定確率/.test(triggerType) || rawValue === '' || rawValue == null) return '';
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? `発動率 ${formatPlainNumber(value)}%` : '';
   }
 
   function getFdcApostleDamageReference(effect = {}) {
@@ -8313,7 +8376,9 @@
 
   function getCard(id) {
     if (typeof CARD_LIBRARY === 'undefined') return null;
-    return (CARD_LIBRARY.artifacts || []).concat(CARD_LIBRARY.spells || []).find(card => card.id === id) || null;
+    const currentId = resolveCardIdAlias(id);
+    if (typeof CARD_INDEX !== 'undefined' && CARD_INDEX[currentId]) return CARD_INDEX[currentId];
+    return (CARD_LIBRARY.artifacts || []).concat(CARD_LIBRARY.spells || []).find(card => card.id === currentId) || null;
   }
 
   function getApostleImage(id, name = '') {

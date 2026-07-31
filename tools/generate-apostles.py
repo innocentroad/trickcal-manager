@@ -14,7 +14,8 @@ from openpyxl import load_workbook
 
 SHEETS = {
     "basic": "使徒基礎設定",
-    "skills": "スキル",
+    "skillBasics": "スキル基礎設定",
+    "skillEffects": "スキル効果",
     "favoriteCard": "愛用カード",
     "asideStats": "アサイド ステ効果",
     "asideSpecials": "アサイド 特殊効果",
@@ -292,6 +293,39 @@ def add_grouped_effect(
     return items
 
 
+def merge_skill_rows(
+    basics: list[dict[str, Any]],
+    effects: list[dict[str, Any]],
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    basics_by_skill_id = {
+        str(row.get("skillId", "")): row
+        for row in basics
+        if has_value(row.get("skillId"))
+    }
+    merged: list[dict[str, Any]] = []
+    used_skill_ids: set[str] = set()
+    for effect in effects:
+        skill_id = str(effect.get("skillId", ""))
+        if not skill_id:
+            continue
+        basic = basics_by_skill_id.get(skill_id)
+        if basic is None:
+            warnings.append(f"skill effect references missing skillId: {skill_id}")
+            continue
+        if basic.get("id") and effect.get("id") and basic["id"] != effect["id"]:
+            warnings.append(
+                f"skill apostle id mismatch: {skill_id} / {basic['id']} != {effect['id']}"
+            )
+            continue
+        merged.append({**basic, **effect})
+        used_skill_ids.add(skill_id)
+    for skill_id, basic in basics_by_skill_id.items():
+        if skill_id not in used_skill_ids:
+            merged.append(dict(basic))
+    return merged
+
+
 def remove_internal_group_keys(items: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if not items:
         return []
@@ -414,12 +448,13 @@ def add_favorite_card_effect(apostle: dict[str, Any], row: dict[str, Any]) -> No
 
 
 def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
-    effect_sheets = {"skills", "favoriteCard", "asideSpecials"}
+    effect_sheets = {"skillEffects", "favoriteCard", "asideSpecials"}
     rows = {
         key: read_sheet_rows(workbook, sheet_name, effect_rows=key in effect_sheets)
         for key, sheet_name in SHEETS.items()
     }
     warnings: list[str] = []
+    rows["skills"] = merge_skill_rows(rows["skillBasics"], rows["skillEffects"], warnings)
     by_id: dict[str, dict[str, Any]] = {}
 
     for row in rows["basic"]:
@@ -453,9 +488,9 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
         apostle["skills"] = add_grouped_effect(
             apostle["skills"],
             row,
-            ("skillType", "skillName"),
-            ("no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds"),
-            ("no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds"),
+            ("skillId",),
+            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "triggerType", "triggerValue"),
+            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "triggerType", "triggerValue"),
         )
 
     for row in rows["favoriteCard"]:

@@ -4,7 +4,7 @@
 const CARD_LIBRARY = {
     "artifacts": [
         {
-            "id": "relic_yomi_flower",
+            "id": "artifact_yomi_moonflower",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ヨミの向月葵の花",
@@ -35,7 +35,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "same_lane_taken_reduction",
+                    "id": "artifact_yomi_moonflower_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
@@ -67,7 +67,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "magic_attack_power_up",
+                    "id": "artifact_yomi_moonflower_e02",
                     "type": "toggle",
                     "label": "戦闘開始時 魔法 攻撃力増加",
                     "shortLabel": "魔法 攻撃力増加",
@@ -102,7 +102,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_elfin_ice_cake",
+            "id": "artifact_erpin_ice_cream_cake",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "エルフィンのアイスケーキ",
@@ -133,7 +133,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "zero_kill_magic_damage",
+                    "id": "artifact_erpin_ice_cream_cake_e01",
                     "type": "toggle",
                     "label": "敵を1体も倒していない時 魔法ダメージ 魔法 与ダメージ増加",
                     "shortLabel": "魔法 与ダメージ増加",
@@ -170,7 +170,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_butter_yellow_card",
+            "id": "artifact_butter_yellow_card",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "バターのイエローカード",
@@ -201,7 +201,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "enhanced_attack_damage",
+                    "id": "artifact_butter_yellow_card_e01",
                     "type": "toggle",
                     "label": "強化攻撃ダメージ 強化攻撃 与ダメージ増加",
                     "shortLabel": "強化攻撃 与ダメージ増加",
@@ -235,7 +235,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_vivi_baton",
+            "id": "artifact_vivi_silver_staff",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ヴィヴィの銀色の指揮棒",
@@ -266,7 +266,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_stack_defense",
+                    "id": "artifact_vivi_silver_staff_e01",
                     "type": "toggle",
                     "label": "普通攻撃1回ごとに 防御力増加",
                     "shortLabel": "防御力増加",
@@ -300,7 +300,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "max_stack",
+                    "id": "artifact_vivi_silver_staff_e02",
                     "type": "toggle",
                     "label": "最大スタック数",
                     "valueClass": "スタック数",
@@ -333,7 +333,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "max_stack_defense",
+                    "id": "artifact_vivi_silver_staff_e03",
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 防御力増加",
                     "shortLabel": "防御力増加",
@@ -367,7 +367,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "max_stack_hp",
+                    "id": "artifact_vivi_silver_staff_e04",
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 最大HP増加",
                     "shortLabel": "最大HP増加",
@@ -403,7 +403,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_elena_drone",
+            "id": "artifact_elena_enhanced_drone",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "エレナの強化ドローン",
@@ -434,7 +434,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "low_grade_skill_haste",
+                    "id": "artifact_elena_enhanced_drone_e01",
                     "type": "toggle",
                     "label": "低学年スキル使用時 攻撃速度",
                     "shortLabel": "攻撃速度",
@@ -471,7 +471,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_ritz_whetstone",
+            "id": "artifact_leets_worn_whetstone",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "リッツのすり減った砥石",
@@ -502,7 +502,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_attack_taken_reduction",
+                    "id": "artifact_leets_worn_whetstone_e01",
                     "type": "toggle",
                     "label": "被普通攻撃時 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
@@ -536,7 +536,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "normal_twice_heal",
+                    "id": "artifact_leets_worn_whetstone_e02",
                     "type": "toggle",
                     "label": "基本攻撃が2回命中するたび HP回復",
                     "shortLabel": "HP回復",
@@ -572,7 +572,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_blanse_bouquet",
+            "id": "artifact_blanchet_bouquet",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ブランセの花束",
@@ -603,7 +603,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "low_grade_magic_def_down",
+                    "id": "artifact_blanchet_bouquet_e01",
                     "type": "toggle",
                     "label": "低学年スキルが敵に命中するたび 魔法 敵防御力減少",
                     "shortLabel": "魔法 敵防御力減少",
@@ -639,7 +639,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "max_stack",
+                    "id": "artifact_blanchet_bouquet_e02",
                     "type": "toggle",
                     "label": "最大スタック数",
                     "valueClass": "スタック数",
@@ -674,7 +674,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_picola_pouch",
+            "id": "artifact_picora_fashion_pouch",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ピコラのファッションポーチ",
@@ -705,7 +705,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "target_defense_up",
+                    "id": "artifact_picora_fashion_pouch_e01",
                     "type": "toggle",
                     "label": "対象を回復させた場合（カード効果を除く） 防御力増加",
                     "shortLabel": "防御力増加",
@@ -742,7 +742,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_shion_black_cloak",
+            "id": "artifact_xion_black_cape",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "シオンの黒マント",
@@ -773,7 +773,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "single_enemy_damage_up",
+                    "id": "artifact_xion_black_cape_e01",
                     "type": "toggle",
                     "label": "敵が1体しかいない場合 与ダメージ増加",
                     "shortLabel": "与ダメージ増加",
@@ -809,7 +809,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_naia_watergun",
+            "id": "artifact_naia_dolphin_watergun",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ナイアのイルカ水鉄砲",
@@ -840,7 +840,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "after_skill_healing_up",
+                    "id": "artifact_naia_dolphin_watergun_e01",
                     "type": "toggle",
                     "label": "スキル使用時 着用者のHP治癒量",
                     "shortLabel": "着用者のHP治癒量",
@@ -873,7 +873,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "cool_time",
+                    "id": "artifact_naia_dolphin_watergun_e02",
                     "type": "toggle",
                     "label": "クールタイム",
                     "valueClass": "クールタイム",
@@ -906,7 +906,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_shupan_backpack",
+            "id": "artifact_shoupan_magical_backpack",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "シュパンの魔法リュック",
@@ -937,7 +937,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "same_lane_taken_reduction",
+                    "id": "artifact_shoupan_magical_backpack_e01",
                     "type": "toggle",
                     "label": "普通攻撃2回ごとに 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
@@ -972,7 +972,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "cool_time",
+                    "id": "artifact_shoupan_magical_backpack_e02",
                     "type": "toggle",
                     "label": "クールタイム",
                     "valueClass": "クールタイム",
@@ -1007,7 +1007,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_snoky_fedora",
+            "id": "artifact_snorky_fedora",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "スノキーのフェドーラ",
@@ -1038,7 +1038,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "hp50_max_hp_up",
+                    "id": "artifact_snorky_fedora_e01",
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 最大HP増加",
                     "shortLabel": "最大HP増加",
@@ -1072,7 +1072,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "hp50_max_def_up",
+                    "id": "artifact_snorky_fedora_e02",
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 防御力増加",
                     "shortLabel": "防御力増加",
@@ -1108,7 +1108,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_serine_night_mirage",
+            "id": "artifact_selene_midnight_mirage",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "セリーネの夜幻影",
@@ -1139,7 +1139,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "skill_self_recover",
+                    "id": "artifact_selene_midnight_mirage_e01",
                     "type": "toggle",
                     "label": "スキル使用時 HP回復",
                     "shortLabel": "HP回復",
@@ -1173,7 +1173,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "skill_self_shield",
+                    "id": "artifact_selene_midnight_mirage_e02",
                     "type": "toggle",
                     "label": "スキル使用時 最大HPを超えたHP回復量 シールド付与",
                     "shortLabel": "シールド付与",
@@ -1210,7 +1210,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_carrot_cane",
+            "id": "artifact_kyarot_sugarcane",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "キャロットのサトウキビ",
@@ -1241,7 +1241,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "same_lane_sp_recover",
+                    "id": "artifact_kyarot_sugarcane_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
@@ -1276,7 +1276,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_chloe_sewing_chest",
+            "id": "artifact_chloe_sewing_chest",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "クロエの万能裁縫箱",
@@ -1307,7 +1307,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "shield_taken_reduction",
+                    "id": "artifact_chloe_sewing_chest_e01",
                     "type": "toggle",
                     "label": "着用者にシールドが付与されている場合 被ダメージ減少",
                     "shortLabel": "被ダメージ減少",
@@ -1343,7 +1343,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_listy_replica_glove",
+            "id": "artifact_risty_replica_glove",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "リスティの模造グローブ",
@@ -1374,7 +1374,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_attack_6_crit_rate_up",
+                    "id": "artifact_risty_replica_glove_e01",
                     "type": "toggle",
                     "label": "普通攻撃6回ごとに 会心率",
                     "shortLabel": "会心率",
@@ -1411,7 +1411,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_barong_cursed_doll",
+            "id": "artifact_barong_cursed_doll",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "バロンの呪いのぬいぐるみ",
@@ -1442,7 +1442,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "target_debuff_enhanced_attack_damage",
+                    "id": "artifact_barong_cursed_doll_e01",
                     "type": "toggle",
                     "label": "着用者が敵に状態異常を付与した時 強化攻撃 与ダメージ増加",
                     "shortLabel": "強化攻撃 与ダメージ増加",
@@ -1479,7 +1479,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_tig_blazing_sword",
+            "id": "artifact_tig_blazing_sword",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ティグの燃え盛る剣",
@@ -1510,7 +1510,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_attack_3_haste",
+                    "id": "artifact_tig_blazing_sword_e01",
                     "type": "toggle",
                     "label": "普通攻撃3回ごとに 攻撃速度",
                     "shortLabel": "攻撃速度",
@@ -1544,7 +1544,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "max_stack",
+                    "id": "artifact_tig_blazing_sword_e02",
                     "type": "toggle",
                     "label": "最大スタック数",
                     "valueClass": "スタック数",
@@ -1579,7 +1579,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_rudd_exercise_manual",
+            "id": "artifact_rudd_exercise_manual",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ルードのトレーニング教本",
@@ -1605,7 +1605,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "rudd_hp_recovery",
+                    "id": "artifact_rudd_exercise_manual_e01",
                     "type": "info",
                     "label": "HP回復量増加",
                     "valueClass": "倍率",
@@ -1621,7 +1621,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_rollett_magic_hat",
+            "id": "artifact_rollett_magic_hat",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ロレットのマジックハット",
@@ -1652,7 +1652,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "triple_enemy_skill_damage_boost",
+                    "id": "artifact_rollett_magic_hat_e01",
                     "type": "toggle",
                     "label": "敵が3体以上の場合 スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
@@ -1686,7 +1686,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_dragon_sword",
+            "id": "artifact_dragonlight_sword",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "竜光剣",
@@ -1710,7 +1710,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "time_haste",
+                    "id": "artifact_dragonlight_sword_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 攻撃速度増加",
                     "shortLabel": "攻撃速度増加",
@@ -1746,7 +1746,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_life_gem",
+            "id": "artifact_life_gem",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ライフジェム",
@@ -1775,7 +1775,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "low_hp_self_heal",
+                    "id": "artifact_life_gem_e01",
                     "type": "toggle",
                     "label": "HPが40%以下になった場合 HP回復",
                     "shortLabel": "HP回復",
@@ -1811,7 +1811,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_30kg_kettlebell",
+            "id": "artifact_30kg_kettlebell",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "30KGケトルベル",
@@ -1840,7 +1840,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "skill_damage_up",
+                    "id": "artifact_30kg_kettlebell_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ上昇",
                     "shortLabel": "スキル 与ダメージ上昇",
@@ -1874,7 +1874,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "normal_damage_down",
+                    "id": "artifact_30kg_kettlebell_e02",
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ上昇",
                     "shortLabel": "普通攻撃 与ダメージ上昇",
@@ -1910,7 +1910,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_nisril_knife",
+            "id": "artifact_mithril_knife",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ニスリルのパン切り包丁",
@@ -1939,7 +1939,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_fuwafuwa_vest",
+            "id": "artifact_fluffy_vest",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "ふわふわチョッキ",
@@ -1963,7 +1963,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_eldain_lamp",
+            "id": "artifact_eldyne_lamp",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "エルダインランプ",
@@ -1992,7 +1992,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_assassin_book",
+            "id": "artifact_assassin_scroll",
             "kind": "artifact",
             "rarity": "伝説",
             "name": "暗殺者の秘伝書",
@@ -2021,7 +2021,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "blind_effect",
+                    "id": "artifact_assassin_scroll_e01",
                     "type": "info",
                     "label": "普通攻撃5回ごとに 目くらまし",
                     "shortLabel": "目くらまし",
@@ -2032,7 +2032,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_sword_staff",
+            "id": "artifact_sword_and_staff",
             "kind": "artifact",
             "rarity": "希少",
             "name": "剣と杖",
@@ -2061,7 +2061,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_safety_belt",
+            "id": "artifact_safety_harness",
             "kind": "artifact",
             "rarity": "希少",
             "name": "安全帯",
@@ -2085,7 +2085,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "opening_lane_shield",
+                    "id": "artifact_safety_harness_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
                     "shortLabel": "シールド付与",
@@ -2120,7 +2120,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_battle_manual",
+            "id": "artifact_combat_manual",
             "kind": "artifact",
             "rarity": "希少",
             "name": "バトルマニュアル",
@@ -2149,7 +2149,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_blue_grimoire",
+            "id": "artifact_jade_codex",
             "kind": "artifact",
             "rarity": "希少",
             "name": "青玉色の魔導書",
@@ -2173,7 +2173,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "skill_damage_boost",
+                    "id": "artifact_jade_codex_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
@@ -2207,7 +2207,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_scale_armor",
+            "id": "artifact_scale_armor",
             "kind": "artifact",
             "rarity": "希少",
             "name": "スケイルアーマー",
@@ -2236,7 +2236,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_blessed_pauldron",
+            "id": "artifact_blessed_pauldrons",
             "kind": "artifact",
             "rarity": "希少",
             "name": "祝福された肩鎧",
@@ -2265,7 +2265,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "hp_regen",
+                    "id": "artifact_blessed_pauldrons_e01",
                     "type": "toggle",
                     "label": "1秒ごとに HP回復",
                     "shortLabel": "HP回復",
@@ -2299,7 +2299,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_origin_grail",
+            "id": "artifact_chalice_of_origins",
             "kind": "artifact",
             "rarity": "希少",
             "name": "起源の聖杯",
@@ -2328,7 +2328,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_hit_sp_recover",
+                    "id": "artifact_chalice_of_origins_e01",
                     "type": "toggle",
                     "label": "通常攻撃命中時 SP回復",
                     "shortLabel": "SP回復",
@@ -2364,7 +2364,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_high_priest_censer",
+            "id": "artifact_grail_of_origins",
             "kind": "artifact",
             "rarity": "希少",
             "name": "祭司長の香炉",
@@ -2388,7 +2388,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "shield_received_up",
+                    "id": "artifact_grail_of_origins_e01",
                     "type": "toggle",
                     "label": "シールド付与時 シールド効果増加",
                     "shortLabel": "シールド効果増加",
@@ -2422,7 +2422,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_madness_mask",
+            "id": "artifact_fanatic_mask",
             "kind": "artifact",
             "rarity": "希少",
             "name": "狂気の仮面",
@@ -2446,7 +2446,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "aoe_fixed_damage",
+                    "id": "artifact_fanatic_mask_e01",
                     "type": "info",
                     "label": "1秒ごとに ダメージ効果",
                     "shortLabel": "ダメージ効果",
@@ -2465,7 +2465,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_healing_pendant",
+            "id": "artifact_healing_pendant",
             "kind": "artifact",
             "rarity": "希少",
             "name": "癒やしのペンダント",
@@ -2489,7 +2489,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "sp_regen",
+                    "id": "artifact_healing_pendant_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
@@ -2525,7 +2525,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_obsidian_shuriken",
+            "id": "artifact_obsidian_shuriken",
             "kind": "artifact",
             "rarity": "高級",
             "name": "黒曜石の手裏剣",
@@ -2549,7 +2549,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "normal_attack_damage_up",
+                    "id": "artifact_obsidian_shuriken_e01",
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ増加",
                     "shortLabel": "普通攻撃 与ダメージ増加",
@@ -2583,7 +2583,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_greed_ring",
+            "id": "artifact_ring_of_greed",
             "kind": "artifact",
             "rarity": "高級",
             "name": "強欲の指輪",
@@ -2607,7 +2607,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "status_damage_up",
+                    "id": "artifact_ring_of_greed_e01",
                     "type": "toggle",
                     "label": "状態異常ダメージ 状態異常 与ダメージ増加",
                     "shortLabel": "状態異常 与ダメージ増加",
@@ -2641,7 +2641,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_oldwood_dagger",
+            "id": "artifact_old_wooden_dagger",
             "kind": "artifact",
             "rarity": "高級",
             "name": "古木のダガー",
@@ -2665,7 +2665,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "sp_regen",
+                    "id": "artifact_old_wooden_dagger_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
                     "shortLabel": "毎秒SP回復量増加",
@@ -2701,7 +2701,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_elf_staff",
+            "id": "artifact_elven_wand",
             "kind": "artifact",
             "rarity": "高級",
             "name": "エルフ製の杖",
@@ -2725,7 +2725,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "opening_shield",
+                    "id": "artifact_elven_wand_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
                     "shortLabel": "シールド付与",
@@ -2760,7 +2760,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_gem_ring",
+            "id": "artifact_gemstone_ring",
             "kind": "artifact",
             "rarity": "高級",
             "name": "宝石の指輪",
@@ -2789,7 +2789,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_thorn_crown",
+            "id": "artifact_crown_of_thorns",
             "kind": "artifact",
             "rarity": "高級",
             "name": "茨の冠",
@@ -2813,7 +2813,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "skill_damage_up",
+                    "id": "artifact_crown_of_thorns_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
@@ -2847,7 +2847,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_old_arrow",
+            "id": "artifact_weathered_arrow",
             "kind": "artifact",
             "rarity": "高級",
             "name": "古びた矢",
@@ -2871,7 +2871,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_frost_charm",
+            "id": "artifact_icy_charm",
             "kind": "artifact",
             "rarity": "高級",
             "name": "霜のお守り",
@@ -2895,7 +2895,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "debuff_resist",
+                    "id": "artifact_icy_charm_e01",
                     "type": "toggle",
                     "label": "デバフ抵抗効果",
                     "valueClass": "回数",
@@ -2928,7 +2928,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "cool_time",
+                    "id": "artifact_icy_charm_e02",
                     "type": "toggle",
                     "label": "クールタイム",
                     "valueClass": "クールタイム",
@@ -2963,7 +2963,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_furoshiki_robe",
+            "id": "artifact_cotton_cloak",
             "kind": "artifact",
             "rarity": "高級",
             "name": "風呂敷のローブ",
@@ -2987,7 +2987,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_shining_tiara",
+            "id": "artifact_shining_tiara",
             "kind": "artifact",
             "rarity": "高級",
             "name": "シャイニングティアラ",
@@ -3016,7 +3016,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_cardboard_armor",
+            "id": "artifact_cardboard_armor",
             "kind": "artifact",
             "rarity": "高級",
             "name": "段ボールのアーマー",
@@ -3040,7 +3040,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_head_towel",
+            "id": "artifact_head_wrap",
             "kind": "artifact",
             "rarity": "高級",
             "name": "頭巻きタオル",
@@ -3064,7 +3064,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "relic_rusty_awl",
+            "id": "artifact_rusty_awl",
             "kind": "artifact",
             "rarity": "高級",
             "name": "錆びついた錐",
@@ -3090,7 +3090,7 @@ const CARD_LIBRARY = {
     ],
     "spells": [
         {
-            "id": "spell_alice_hex",
+            "id": "spell_alice_fake_magic",
             "kind": "spell",
             "rarity": "伝説",
             "name": "アリスのデタラメな呪術",
@@ -3121,7 +3121,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "alice_party_heal_min",
+                    "id": "spell_alice_fake_magic_e01",
                     "type": "toggle",
                     "label": "5秒ごと ランダム最低値 HP回復",
                     "shortLabel": "HP回復",
@@ -3153,7 +3153,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "alice_party_heal_max",
+                    "id": "spell_alice_fake_magic_e02",
                     "type": "toggle",
                     "label": "5秒ごと ランダム最大値 HP回復",
                     "shortLabel": "HP回復",
@@ -3185,7 +3185,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "alice_party_sp_min",
+                    "id": "spell_alice_fake_magic_e03",
                     "type": "toggle",
                     "label": "5秒ごと ランダム最低値 SP回復",
                     "shortLabel": "SP回復",
@@ -3217,7 +3217,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "alice_party_sp_max",
+                    "id": "spell_alice_fake_magic_e04",
                     "type": "toggle",
                     "label": "5秒ごと ランダム最大値 SP回復",
                     "shortLabel": "SP回復",
@@ -3251,7 +3251,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_epica_anthem",
+            "id": "spell_epica_hero_exaltation",
             "kind": "spell",
             "rarity": "伝説",
             "name": "エピカの高貴なる英雄讃歌",
@@ -3282,7 +3282,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "epica_grade_up",
+                    "id": "spell_epica_hero_exaltation_e01",
                     "type": "toggle",
                     "label": "ウェーブ開始時 学年+",
                     "shortLabel": "学年+",
@@ -3316,7 +3316,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_yiide_dream",
+            "id": "spell_luc_ed_dream",
             "kind": "spell",
             "rarity": "伝説",
             "name": "ルシ - イードドリーム",
@@ -3347,7 +3347,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "yiide_frontline_reduce",
+                    "id": "spell_luc_ed_dream_e01",
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
@@ -3378,7 +3378,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "yiide_guard_def",
+                    "id": "spell_luc_ed_dream_e02",
                     "type": "toggle",
                     "label": "防御力増加",
                     "valueClass": "倍率",
@@ -3442,7 +3442,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "renewa_wave_damage_up",
+                    "id": "spell_renewa_time_paradox_e01",
                     "type": "toggle",
                     "label": "ウェーブ開始時 与ダメージ増加",
                     "shortLabel": "与ダメージ増加",
@@ -3479,7 +3479,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_beauty_is_sin",
+            "id": "spell_fatal_charm",
             "kind": "spell",
             "rarity": "伝説",
             "name": "美しいって罪ね",
@@ -3508,7 +3508,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_suspicious_potion",
+            "id": "spell_strange_elixir",
             "kind": "spell",
             "rarity": "伝説",
             "name": "怪しいポーション",
@@ -3522,7 +3522,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "suspicious_poison",
+                    "id": "spell_strange_elixir_e01",
                     "type": "info",
                     "label": "ウェーブ開始時 毒",
                     "shortLabel": "毒",
@@ -3531,7 +3531,7 @@ const CARD_LIBRARY = {
                     "description": "敵全体 / 持続:星で変動 / 状態付与"
                 },
                 {
-                    "id": "suspicious_poisonDuration",
+                    "id": "spell_strange_elixir_e02",
                     "type": "toggle",
                     "label": "ウェーブ開始時 毒持続時間",
                     "shortLabel": "毒持続時間",
@@ -3566,7 +3566,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_battle_master",
+            "id": "spell_combat_master",
             "kind": "spell",
             "rarity": "伝説",
             "name": "バトルの達人",
@@ -3590,7 +3590,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "battle_master_skill_damage",
+                    "id": "spell_combat_master_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
                     "shortLabel": "スキル 与ダメージ増加",
@@ -3624,7 +3624,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_aromatherapy",
+            "id": "spell_aroma_therapy",
             "kind": "spell",
             "rarity": "伝説",
             "name": "アロマセラピー",
@@ -3660,7 +3660,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "aroma_full_sp",
+                    "id": "spell_aroma_therapy_e01",
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
                     "shortLabel": "SP回復",
@@ -3694,7 +3694,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_motivation_up",
+            "id": "spell_cheer_up",
             "kind": "spell",
             "rarity": "希少",
             "name": "やる気アップ",
@@ -3723,7 +3723,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_caring",
+            "id": "spell_warm_hearted",
             "kind": "spell",
             "rarity": "希少",
             "name": "世話好き",
@@ -3752,7 +3752,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_center_best",
+            "id": "spell_stealth_slacker",
             "kind": "spell",
             "rarity": "希少",
             "name": "センター最高！",
@@ -3776,7 +3776,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "center_row_damage",
+                    "id": "spell_stealth_slacker_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
@@ -3807,7 +3807,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "center_row_reduce",
+                    "id": "spell_stealth_slacker_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
@@ -3840,7 +3840,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_frontline",
+            "id": "spell_vanguard",
             "kind": "spell",
             "rarity": "希少",
             "name": "前衛隊",
@@ -3864,7 +3864,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "frontline_row_damage",
+                    "id": "spell_vanguard_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
@@ -3895,7 +3895,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "frontline_row_reduce",
+                    "id": "spell_vanguard_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
@@ -3928,7 +3928,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_backline",
+            "id": "spell_rear_guard",
             "kind": "spell",
             "rarity": "希少",
             "name": "後衛隊",
@@ -3952,7 +3952,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "backline_row_damage",
+                    "id": "spell_rear_guard_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
@@ -3983,7 +3983,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "backline_row_reduce",
+                    "id": "spell_rear_guard_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
@@ -4016,7 +4016,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_personality_madness",
+            "id": "spell_personality_mad",
             "kind": "spell",
             "rarity": "希少",
             "name": "性格カード【狂気】",
@@ -4040,7 +4040,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "madness_personality",
+                    "id": "spell_personality_mad_e01",
                     "type": "toggle",
                     "label": "カード選択時 狂気性格判定+1",
                     "shortLabel": "狂気性格判定+1",
@@ -4074,7 +4074,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_personality_lively",
+            "id": "spell_personality_vivacious",
             "kind": "spell",
             "rarity": "希少",
             "name": "性格カード【活発】",
@@ -4098,7 +4098,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "lively_personality",
+                    "id": "spell_personality_vivacious_e01",
                     "type": "toggle",
                     "label": "カード選択時 活発性格判定+1",
                     "shortLabel": "活発性格判定+1",
@@ -4132,7 +4132,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_personality_pure",
+            "id": "spell_personality_innocent",
             "kind": "spell",
             "rarity": "希少",
             "name": "性格カード【純粋】",
@@ -4156,7 +4156,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "pure_personality",
+                    "id": "spell_personality_innocent_e01",
                     "type": "toggle",
                     "label": "カード選択時 純粋性格判定+1",
                     "shortLabel": "純粋性格判定+1",
@@ -4190,7 +4190,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_personality_gloomy",
+            "id": "spell_personality_depressed",
             "kind": "spell",
             "rarity": "希少",
             "name": "性格カード【憂鬱】",
@@ -4214,7 +4214,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "gloomy_personality",
+                    "id": "spell_personality_depressed_e01",
                     "type": "toggle",
                     "label": "カード選択時 憂鬱性格判定+1",
                     "shortLabel": "憂鬱性格判定+1",
@@ -4248,7 +4248,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_personality_calm",
+            "id": "spell_personality_composed",
             "kind": "spell",
             "rarity": "希少",
             "name": "性格カード【冷静】",
@@ -4272,7 +4272,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "calm_personality",
+                    "id": "spell_personality_composed_e01",
                     "type": "toggle",
                     "label": "カード選択時 冷静性格判定+1",
                     "shortLabel": "冷静性格判定+1",
@@ -4306,7 +4306,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_speedy_movement",
+            "id": "spell_swift_move",
             "kind": "spell",
             "rarity": "高級",
             "name": "神速の身のこなし",
@@ -4335,7 +4335,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_firm_conviction",
+            "id": "spell_firm_belief",
             "kind": "spell",
             "rarity": "高級",
             "name": "堅固な信念",
@@ -4364,7 +4364,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_critical_strike",
+            "id": "spell_fatal_blow",
             "kind": "spell",
             "rarity": "高級",
             "name": "会心の一撃",
@@ -4393,7 +4393,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_hp_training",
+            "id": "spell_keeping_fit",
             "kind": "spell",
             "rarity": "高級",
             "name": "体力強化",
@@ -4451,7 +4451,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_health_best",
+            "id": "spell_robust_health",
             "kind": "spell",
             "rarity": "高級",
             "name": "健康が一番",
@@ -4475,7 +4475,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_afterimage",
+            "id": "spell_where_you_lookin",
             "kind": "spell",
             "rarity": "高級",
             "name": "これ、残像だよ",
@@ -4528,7 +4528,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_you_can_do_it",
+            "id": "spell_empower",
             "kind": "spell",
             "rarity": "高級",
             "name": "やればできる",
@@ -4552,7 +4552,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_apprentice_mage",
+            "id": "spell_wizard_apprentice",
             "kind": "spell",
             "rarity": "高級",
             "name": "見習い魔法使い",
@@ -4581,7 +4581,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_catch_him",
+            "id": "spell_get_her",
             "kind": "spell",
             "rarity": "高級",
             "name": "あいつを捕まえろ！",
@@ -4610,7 +4610,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "catch_him_wave",
+                    "id": "spell_get_her_e01",
                     "type": "toggle",
                     "label": "1ウェーブ中 攻撃力増加",
                     "shortLabel": "攻撃力増加",
@@ -4668,7 +4668,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "random_coin_coin_min",
+                    "id": "spell_random_coin_e01",
                     "type": "toggle",
                     "label": "カード選択時 ランダム最低値 コイン獲得",
                     "shortLabel": "コイン獲得",
@@ -4700,7 +4700,7 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "random_coin_coin_max",
+                    "id": "spell_random_coin_e02",
                     "type": "toggle",
                     "label": "カード選択時 ランダム最大値 コイン獲得",
                     "shortLabel": "コイン獲得",
@@ -4734,7 +4734,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_tree_bark",
+            "id": "spell_big_tree_bark",
             "kind": "spell",
             "rarity": "高級",
             "name": "巨木の皮",
@@ -4763,7 +4763,7 @@ const CARD_LIBRARY = {
             ]
         },
         {
-            "id": "spell_rookie_fighter",
+            "id": "spell_trainee",
             "kind": "spell",
             "rarity": "高級",
             "name": "新人ファイター",
@@ -4816,7 +4816,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "soda_capsule_sp",
+                    "id": "spell_soda_capsule_e01",
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
                     "shortLabel": "SP回復",
@@ -4874,7 +4874,7 @@ const CARD_LIBRARY = {
             ],
             "conditionalEffects": [
                 {
-                    "id": "strawberry_capsule_heal",
+                    "id": "spell_strawberry_capsule_e01",
                     "type": "toggle",
                     "label": "カード選択時 HP回復",
                     "shortLabel": "HP回復",
@@ -4911,7 +4911,7 @@ const CARD_LIBRARY = {
 };
 
 const CARD_SOLDER_DATA = {
-    "relic_yomi_flower": {
+    "artifact_yomi_moonflower": {
         "1": {
             "critDmgP": 2.8,
             "critRateP": 5.2
@@ -4921,7 +4921,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 10.5
         }
     },
-    "relic_elfin_ice_cake": {
+    "artifact_erpin_ice_cream_cake": {
         "1": {
             "atkP": 3.8,
             "hpP": 4.9
@@ -4931,7 +4931,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 9.9
         }
     },
-    "relic_butter_yellow_card": {
+    "artifact_butter_yellow_card": {
         "1": {
             "atkP": 4.4,
             "hasteP": 3.5
@@ -4941,7 +4941,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 7
         }
     },
-    "relic_vivi_baton": {
+    "artifact_vivi_silver_staff": {
         "1": {
             "critDmgResP": 1.6,
             "hpP": 6.4
@@ -4951,7 +4951,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 12.8
         }
     },
-    "relic_elena_drone": {
+    "artifact_elena_enhanced_drone": {
         "1": {
             "atkP": 3.4,
             "hpP": 4.1
@@ -4961,7 +4961,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 8.3
         }
     },
-    "relic_ritz_whetstone": {
+    "artifact_leets_worn_whetstone": {
         "1": {
             "defP": 4.6,
             "hpP": 4.6
@@ -4971,7 +4971,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 9.2
         }
     },
-    "relic_blanse_bouquet": {
+    "artifact_blanchet_bouquet": {
         "1": {
             "critDmgP": 1.1,
             "critRateP": 1.7
@@ -4981,7 +4981,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 3.3
         }
     },
-    "relic_picola_pouch": {
+    "artifact_picora_fashion_pouch": {
         "1": {
             "atkP": 4.6,
             "healingP": 3.7
@@ -4991,7 +4991,7 @@ const CARD_SOLDER_DATA = {
             "healingP": 7.4
         }
     },
-    "relic_shion_black_cloak": {
+    "artifact_xion_black_cape": {
         "1": {
             "atkP": 7.9,
             "critRateP": 3.3
@@ -5001,7 +5001,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 6.6
         }
     },
-    "relic_naia_watergun": {
+    "artifact_naia_dolphin_watergun": {
         "1": {
             "defP": 3.8,
             "hpP": 4.9
@@ -5011,7 +5011,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 9.9
         }
     },
-    "relic_shupan_backpack": {
+    "artifact_shoupan_magical_backpack": {
         "1": {
             "atkP": 4.8,
             "hpP": 6.4
@@ -5021,7 +5021,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 12.8
         }
     },
-    "relic_snoky_fedora": {
+    "artifact_snorky_fedora": {
         "1": {
             "hasteP": 2.8,
             "hpP": 4.7
@@ -5031,7 +5031,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 9.4
         }
     },
-    "relic_serine_night_mirage": {
+    "artifact_selene_midnight_mirage": {
         "1": {
             "critDmgResP": 1.9,
             "critResP": 3.4
@@ -5041,7 +5041,7 @@ const CARD_SOLDER_DATA = {
             "critResP": 6.9
         }
     },
-    "relic_carrot_cane": {
+    "artifact_kyarot_sugarcane": {
         "1": {
             "defP": 3.3,
             "hasteP": 2.6
@@ -5051,7 +5051,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 5.3
         }
     },
-    "relic_chloe_sewing_chest": {
+    "artifact_chloe_sewing_chest": {
         "1": {
             "critResP": 3.7,
             "hasteP": 4.9
@@ -5061,7 +5061,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 9.9
         }
     },
-    "relic_listy_replica_glove": {
+    "artifact_risty_replica_glove": {
         "1": {
             "atkP": 3.8,
             "critDmgP": 2
@@ -5071,7 +5071,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 4
         }
     },
-    "relic_barong_cursed_doll": {
+    "artifact_barong_cursed_doll": {
         "1": {
             "atkP": 4.8,
             "defP": 4.8
@@ -5081,7 +5081,7 @@ const CARD_SOLDER_DATA = {
             "defP": 9.6
         }
     },
-    "relic_tig_blazing_sword": {
+    "artifact_tig_blazing_sword": {
         "1": {
             "atkP": 4.9,
             "critDmgP": 3.7
@@ -5091,7 +5091,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 7.4
         }
     },
-    "relic_rudd_exercise_manual": {
+    "artifact_rudd_exercise_manual": {
         "1": {
             "hpP": 4.8
         },
@@ -5099,7 +5099,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 9.7
         }
     },
-    "relic_rollett_magic_hat": {
+    "artifact_rollett_magic_hat": {
         "1": {
             "atkP": 3.8,
             "critRateP": 2
@@ -5109,7 +5109,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 4
         }
     },
-    "relic_dragon_sword": {
+    "artifact_dragonlight_sword": {
         "1": {
             "atkP": 10
         },
@@ -5117,7 +5117,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 20.1
         }
     },
-    "relic_life_gem": {
+    "artifact_life_gem": {
         "1": {
             "critDmgResP": 1.6,
             "hpP": 6.1
@@ -5127,7 +5127,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 12.3
         }
     },
-    "relic_30kg_kettlebell": {
+    "artifact_30kg_kettlebell": {
         "1": {
             "critDmgP": 2.3,
             "critRateP": 4.4
@@ -5137,7 +5137,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 8.8
         }
     },
-    "relic_nisril_knife": {
+    "artifact_mithril_knife": {
         "1": {
             "atkP": 4.1,
             "hasteP": 3.4
@@ -5147,7 +5147,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 6.7
         }
     },
-    "relic_fuwafuwa_vest": {
+    "artifact_fluffy_vest": {
         "1": {
             "defP": 6.6
         },
@@ -5155,7 +5155,7 @@ const CARD_SOLDER_DATA = {
             "defP": 13.2
         }
     },
-    "relic_eldain_lamp": {
+    "artifact_eldyne_lamp": {
         "1": {
             "hpP": 4.1,
             "healingP": 2.5
@@ -5165,7 +5165,7 @@ const CARD_SOLDER_DATA = {
             "healingP": 5
         }
     },
-    "relic_assassin_book": {
+    "artifact_assassin_scroll": {
         "1": {
             "atkP": 2,
             "critRateP": 2
@@ -5175,7 +5175,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 4.1
         }
     },
-    "relic_sword_staff": {
+    "artifact_sword_and_staff": {
         "1": {
             "atkP": 3.4,
             "hasteP": 2.7
@@ -5185,7 +5185,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 5.5
         }
     },
-    "relic_safety_belt": {
+    "artifact_safety_harness": {
         "1": {
             "hpP": 8.8
         },
@@ -5193,7 +5193,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 17.5
         }
     },
-    "relic_battle_manual": {
+    "artifact_combat_manual": {
         "1": {
             "critDmgP": 1.6,
             "critRateP": 2.9
@@ -5203,7 +5203,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 5.9
         }
     },
-    "relic_blue_grimoire": {
+    "artifact_jade_codex": {
         "1": {
             "atkP": 5.9
         },
@@ -5211,7 +5211,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 11.8
         }
     },
-    "relic_scale_armor": {
+    "artifact_scale_armor": {
         "1": {
             "defP": 2.5,
             "hpRecoveryP": 1.3
@@ -5221,7 +5221,7 @@ const CARD_SOLDER_DATA = {
             "hpRecoveryP": 2.6
         }
     },
-    "relic_blessed_pauldron": {
+    "artifact_blessed_pauldrons": {
         "1": {
             "defP": 2.3,
             "hpP": 3
@@ -5231,7 +5231,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 6.1
         }
     },
-    "relic_origin_grail": {
+    "artifact_chalice_of_origins": {
         "1": {
             "critDmgP": 1.2,
             "hasteP": 1.7
@@ -5241,7 +5241,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 3.4
         }
     },
-    "relic_high_priest_censer": {
+    "artifact_grail_of_origins": {
         "1": {
             "defP": 4.3
         },
@@ -5249,7 +5249,7 @@ const CARD_SOLDER_DATA = {
             "defP": 8.7
         }
     },
-    "relic_madness_mask": {
+    "artifact_fanatic_mask": {
         "1": {
             "critDmgResP": 1.3
         },
@@ -5257,7 +5257,7 @@ const CARD_SOLDER_DATA = {
             "critDmgResP": 2.7
         }
     },
-    "relic_healing_pendant": {
+    "artifact_healing_pendant": {
         "1": {
             "healingP": 3.2
         },
@@ -5265,7 +5265,7 @@ const CARD_SOLDER_DATA = {
             "healingP": 6.4
         }
     },
-    "relic_obsidian_shuriken": {
+    "artifact_obsidian_shuriken": {
         "1": {
             "atkP": 3.3
         },
@@ -5273,7 +5273,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 6.7
         }
     },
-    "relic_greed_ring": {
+    "artifact_ring_of_greed": {
         "1": {
             "critDmgResP": 0.8
         },
@@ -5281,7 +5281,7 @@ const CARD_SOLDER_DATA = {
             "critDmgResP": 1.7
         }
     },
-    "relic_oldwood_dagger": {
+    "artifact_old_wooden_dagger": {
         "1": {
             "critDmgP": 1.3
         },
@@ -5289,7 +5289,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 2.6
         }
     },
-    "relic_elf_staff": {
+    "artifact_elven_wand": {
         "1": {
             "hpRecoveryP": 1.1
         },
@@ -5297,7 +5297,7 @@ const CARD_SOLDER_DATA = {
             "hpRecoveryP": 2.2
         }
     },
-    "relic_gem_ring": {
+    "artifact_gemstone_ring": {
         "1": {
             "atkP": 1,
             "critDmgP": 0.6
@@ -5307,7 +5307,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 1.1
         }
     },
-    "relic_thorn_crown": {
+    "artifact_crown_of_thorns": {
         "1": {
             "defP": 1.9
         },
@@ -5315,7 +5315,7 @@ const CARD_SOLDER_DATA = {
             "defP": 3.8
         }
     },
-    "relic_old_arrow": {
+    "artifact_weathered_arrow": {
         "1": {
             "hasteP": 1.5
         },
@@ -5323,7 +5323,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 3
         }
     },
-    "relic_frost_charm": {
+    "artifact_icy_charm": {
         "1": {
             "critResP": 1.1
         },
@@ -5331,7 +5331,7 @@ const CARD_SOLDER_DATA = {
             "critResP": 2.2
         }
     },
-    "relic_furoshiki_robe": {
+    "artifact_cotton_cloak": {
         "1": {
             "critResP": 1.1
         },
@@ -5339,7 +5339,7 @@ const CARD_SOLDER_DATA = {
             "critResP": 2.2
         }
     },
-    "relic_shining_tiara": {
+    "artifact_shining_tiara": {
         "1": {
             "hpP": 1.1,
             "healingP": 0.7
@@ -5349,7 +5349,7 @@ const CARD_SOLDER_DATA = {
             "healingP": 1.4
         }
     },
-    "relic_cardboard_armor": {
+    "artifact_cardboard_armor": {
         "1": {
             "defP": 1.6
         },
@@ -5357,7 +5357,7 @@ const CARD_SOLDER_DATA = {
             "defP": 3.3
         }
     },
-    "relic_head_towel": {
+    "artifact_head_wrap": {
         "1": {
             "hpP": 2
         },
@@ -5365,7 +5365,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 4
         }
     },
-    "relic_rusty_awl": {
+    "artifact_rusty_awl": {
         "1": {
             "critRateP": 1.1
         },
@@ -5373,7 +5373,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 2.2
         }
     },
-    "spell_alice_hex": {
+    "spell_alice_fake_magic": {
         "1": {
             "atkP": 1.9,
             "critRateP": 1.9
@@ -5383,7 +5383,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 3.9
         }
     },
-    "spell_epica_anthem": {
+    "spell_epica_hero_exaltation": {
         "1": {
             "atkP": 2.6,
             "critDmgP": 1.3
@@ -5393,7 +5393,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 2.7
         }
     },
-    "spell_yiide_dream": {
+    "spell_luc_ed_dream": {
         "1": {
             "critDmgResP": 1,
             "critResP": 1.9
@@ -5413,7 +5413,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 4.6
         }
     },
-    "spell_beauty_is_sin": {
+    "spell_fatal_charm": {
         "1": {
             "critDmgP": 1.2,
             "critRateP": 2.4
@@ -5423,7 +5423,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 4.8
         }
     },
-    "spell_suspicious_potion": {
+    "spell_strange_elixir": {
         "1": {
             "critDmgP": 2.9,
             "critRateP": 4.7
@@ -5433,7 +5433,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 5.9
         }
     },
-    "spell_battle_master": {
+    "spell_combat_master": {
         "1": {
             "atkP": 4
         },
@@ -5441,7 +5441,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 8.1
         }
     },
-    "spell_aromatherapy": {
+    "spell_aroma_therapy": {
         "1": {
             "healingP": 0.6,
             "hpRecoveryP": 0.4
@@ -5451,7 +5451,7 @@ const CARD_SOLDER_DATA = {
             "hpRecoveryP": 0.9
         }
     },
-    "spell_motivation_up": {
+    "spell_cheer_up": {
         "1": {
             "critRateP": 1.5,
             "hasteP": 1.2
@@ -5461,7 +5461,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 2.4
         }
     },
-    "spell_caring": {
+    "spell_warm_hearted": {
         "1": {
             "healingP": 1.1,
             "hpP": 1.8
@@ -5471,7 +5471,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 3.6
         }
     },
-    "spell_center_best": {
+    "spell_stealth_slacker": {
         "1": {
             "critDmgP": 1.3
         },
@@ -5479,7 +5479,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 2.7
         }
     },
-    "spell_frontline": {
+    "spell_vanguard": {
         "1": {
             "defP": 2.5
         },
@@ -5487,7 +5487,7 @@ const CARD_SOLDER_DATA = {
             "defP": 4.9
         }
     },
-    "spell_backline": {
+    "spell_rear_guard": {
         "1": {
             "hasteP": 2
         },
@@ -5495,7 +5495,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 3.9
         }
     },
-    "spell_personality_madness": {
+    "spell_personality_mad": {
         "1": {
             "atkP": 1.9
         },
@@ -5503,7 +5503,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 3.9
         }
     },
-    "spell_personality_lively": {
+    "spell_personality_vivacious": {
         "1": {
             "critRateP": 1.9
         },
@@ -5511,7 +5511,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 3.9
         }
     },
-    "spell_personality_pure": {
+    "spell_personality_innocent": {
         "1": {
             "hpRecoveryP": 1
         },
@@ -5519,7 +5519,7 @@ const CARD_SOLDER_DATA = {
             "hpRecoveryP": 2
         }
     },
-    "spell_personality_gloomy": {
+    "spell_personality_depressed": {
         "1": {
             "defP": 1.9
         },
@@ -5527,7 +5527,7 @@ const CARD_SOLDER_DATA = {
             "defP": 3.9
         }
     },
-    "spell_personality_calm": {
+    "spell_personality_composed": {
         "1": {
             "critDmgP": 1
         },
@@ -5535,7 +5535,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 2
         }
     },
-    "spell_speedy_movement": {
+    "spell_swift_move": {
         "1": {
             "critDmgP": 0.5,
             "hasteP": 0.8
@@ -5545,7 +5545,7 @@ const CARD_SOLDER_DATA = {
             "hasteP": 1.5
         }
     },
-    "spell_firm_conviction": {
+    "spell_firm_belief": {
         "1": {
             "critDmgResP": 0.3,
             "critResP": 0.5
@@ -5555,7 +5555,7 @@ const CARD_SOLDER_DATA = {
             "critResP": 1
         }
     },
-    "spell_critical_strike": {
+    "spell_fatal_blow": {
         "1": {
             "critDmgP": 0.4,
             "critRateP": 0.7
@@ -5565,7 +5565,7 @@ const CARD_SOLDER_DATA = {
             "critRateP": 1.4
         }
     },
-    "spell_hp_training": {
+    "spell_keeping_fit": {
         "1": {
             "defP": 0.7,
             "hpP": 1
@@ -5585,7 +5585,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 1.9
         }
     },
-    "spell_health_best": {
+    "spell_robust_health": {
         "1": {
             "defP": 1.2
         },
@@ -5593,7 +5593,7 @@ const CARD_SOLDER_DATA = {
             "defP": 2.4
         }
     },
-    "spell_afterimage": {
+    "spell_where_you_lookin": {
         "1": {
             "hasteP": 0.8
         },
@@ -5611,7 +5611,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 1.3
         }
     },
-    "spell_you_can_do_it": {
+    "spell_empower": {
         "1": {
             "atkP": 0.9
         },
@@ -5619,7 +5619,7 @@ const CARD_SOLDER_DATA = {
             "atkP": 1.9
         }
     },
-    "spell_apprentice_mage": {
+    "spell_wizard_apprentice": {
         "1": {
             "atkP": 0.5,
             "critDmgP": 0.3
@@ -5629,7 +5629,7 @@ const CARD_SOLDER_DATA = {
             "critDmgP": 0.5
         }
     },
-    "spell_catch_him": {
+    "spell_get_her": {
         "1": {
             "critRateP": 0.5,
             "hasteP": 0.3
@@ -5647,7 +5647,7 @@ const CARD_SOLDER_DATA = {
             "hpP": 2.3
         }
     },
-    "spell_tree_bark": {
+    "spell_big_tree_bark": {
         "1": {
             "defP": 0.5,
             "hpRecoveryP": 0.3
@@ -5657,7 +5657,7 @@ const CARD_SOLDER_DATA = {
             "hpRecoveryP": 0.5
         }
     },
-    "spell_rookie_fighter": {
+    "spell_trainee": {
         "1": {
             "atkP": 0.4,
             "critRateP": 0.4
@@ -5684,6 +5684,447 @@ const CARD_SOLDER_DATA = {
         }
     }
 };
+
+const CARD_ID_ALIASES = {
+    "relic_yomi_flower": "artifact_yomi_moonflower",
+    "relic_elfin_ice_cake": "artifact_erpin_ice_cream_cake",
+    "relic_butter_yellow_card": "artifact_butter_yellow_card",
+    "relic_vivi_baton": "artifact_vivi_silver_staff",
+    "relic_elena_drone": "artifact_elena_enhanced_drone",
+    "relic_ritz_whetstone": "artifact_leets_worn_whetstone",
+    "relic_blanse_bouquet": "artifact_blanchet_bouquet",
+    "relic_picola_pouch": "artifact_picora_fashion_pouch",
+    "relic_shion_black_cloak": "artifact_xion_black_cape",
+    "relic_naia_watergun": "artifact_naia_dolphin_watergun",
+    "relic_shupan_backpack": "artifact_shoupan_magical_backpack",
+    "relic_snoky_fedora": "artifact_snorky_fedora",
+    "relic_serine_night_mirage": "artifact_selene_midnight_mirage",
+    "relic_carrot_cane": "artifact_kyarot_sugarcane",
+    "relic_chloe_sewing_chest": "artifact_chloe_sewing_chest",
+    "relic_listy_replica_glove": "artifact_risty_replica_glove",
+    "relic_barong_cursed_doll": "artifact_barong_cursed_doll",
+    "relic_tig_blazing_sword": "artifact_tig_blazing_sword",
+    "relic_rudd_exercise_manual": "artifact_rudd_exercise_manual",
+    "relic_rollett_magic_hat": "artifact_rollett_magic_hat",
+    "relic_dragon_sword": "artifact_dragonlight_sword",
+    "relic_life_gem": "artifact_life_gem",
+    "relic_30kg_kettlebell": "artifact_30kg_kettlebell",
+    "relic_nisril_knife": "artifact_mithril_knife",
+    "relic_fuwafuwa_vest": "artifact_fluffy_vest",
+    "relic_eldain_lamp": "artifact_eldyne_lamp",
+    "relic_assassin_book": "artifact_assassin_scroll",
+    "relic_sword_staff": "artifact_sword_and_staff",
+    "relic_safety_belt": "artifact_safety_harness",
+    "relic_battle_manual": "artifact_combat_manual",
+    "relic_blue_grimoire": "artifact_jade_codex",
+    "relic_scale_armor": "artifact_scale_armor",
+    "relic_blessed_pauldron": "artifact_blessed_pauldrons",
+    "relic_origin_grail": "artifact_chalice_of_origins",
+    "relic_high_priest_censer": "artifact_grail_of_origins",
+    "relic_madness_mask": "artifact_fanatic_mask",
+    "relic_healing_pendant": "artifact_healing_pendant",
+    "relic_obsidian_shuriken": "artifact_obsidian_shuriken",
+    "relic_greed_ring": "artifact_ring_of_greed",
+    "relic_oldwood_dagger": "artifact_old_wooden_dagger",
+    "relic_elf_staff": "artifact_elven_wand",
+    "relic_gem_ring": "artifact_gemstone_ring",
+    "relic_thorn_crown": "artifact_crown_of_thorns",
+    "relic_old_arrow": "artifact_weathered_arrow",
+    "relic_frost_charm": "artifact_icy_charm",
+    "relic_furoshiki_robe": "artifact_cotton_cloak",
+    "relic_shining_tiara": "artifact_shining_tiara",
+    "relic_cardboard_armor": "artifact_cardboard_armor",
+    "relic_head_towel": "artifact_head_wrap",
+    "relic_rusty_awl": "artifact_rusty_awl",
+    "spell_alice_hex": "spell_alice_fake_magic",
+    "spell_epica_anthem": "spell_epica_hero_exaltation",
+    "spell_yiide_dream": "spell_luc_ed_dream",
+    "spell_renewa_time_paradox": "spell_renewa_time_paradox",
+    "spell_beauty_is_sin": "spell_fatal_charm",
+    "spell_suspicious_potion": "spell_strange_elixir",
+    "spell_battle_master": "spell_combat_master",
+    "spell_aromatherapy": "spell_aroma_therapy",
+    "spell_motivation_up": "spell_cheer_up",
+    "spell_caring": "spell_warm_hearted",
+    "spell_center_best": "spell_stealth_slacker",
+    "spell_frontline": "spell_vanguard",
+    "spell_backline": "spell_rear_guard",
+    "spell_personality_madness": "spell_personality_mad",
+    "spell_personality_lively": "spell_personality_vivacious",
+    "spell_personality_pure": "spell_personality_innocent",
+    "spell_personality_gloomy": "spell_personality_depressed",
+    "spell_personality_calm": "spell_personality_composed",
+    "spell_speedy_movement": "spell_swift_move",
+    "spell_firm_conviction": "spell_firm_belief",
+    "spell_critical_strike": "spell_fatal_blow",
+    "spell_hp_training": "spell_keeping_fit",
+    "spell_bulletproof": "spell_bulletproof",
+    "spell_health_best": "spell_robust_health",
+    "spell_afterimage": "spell_where_you_lookin",
+    "spell_personal_training": "spell_personal_training",
+    "spell_you_can_do_it": "spell_empower",
+    "spell_apprentice_mage": "spell_wizard_apprentice",
+    "spell_catch_him": "spell_get_her",
+    "spell_random_coin": "spell_random_coin",
+    "spell_tree_bark": "spell_big_tree_bark",
+    "spell_rookie_fighter": "spell_trainee",
+    "spell_soda_capsule": "spell_soda_capsule",
+    "spell_strawberry_capsule": "spell_strawberry_capsule"
+};
+
+const CARD_EFFECT_ID_ALIASES = {
+    "relic_yomi_flower|same_lane_taken_reduction": {
+        "cardId": "artifact_yomi_moonflower",
+        "effectId": "artifact_yomi_moonflower_e01"
+    },
+    "relic_yomi_flower|magic_attack_power_up": {
+        "cardId": "artifact_yomi_moonflower",
+        "effectId": "artifact_yomi_moonflower_e02"
+    },
+    "relic_elfin_ice_cake|zero_kill_magic_damage": {
+        "cardId": "artifact_erpin_ice_cream_cake",
+        "effectId": "artifact_erpin_ice_cream_cake_e01"
+    },
+    "relic_butter_yellow_card|enhanced_attack_damage": {
+        "cardId": "artifact_butter_yellow_card",
+        "effectId": "artifact_butter_yellow_card_e01"
+    },
+    "relic_vivi_baton|normal_stack_defense": {
+        "cardId": "artifact_vivi_silver_staff",
+        "effectId": "artifact_vivi_silver_staff_e01"
+    },
+    "relic_vivi_baton|max_stack": {
+        "cardId": "artifact_vivi_silver_staff",
+        "effectId": "artifact_vivi_silver_staff_e02"
+    },
+    "relic_vivi_baton|max_stack_defense": {
+        "cardId": "artifact_vivi_silver_staff",
+        "effectId": "artifact_vivi_silver_staff_e03"
+    },
+    "relic_vivi_baton|max_stack_hp": {
+        "cardId": "artifact_vivi_silver_staff",
+        "effectId": "artifact_vivi_silver_staff_e04"
+    },
+    "relic_elena_drone|low_grade_skill_haste": {
+        "cardId": "artifact_elena_enhanced_drone",
+        "effectId": "artifact_elena_enhanced_drone_e01"
+    },
+    "relic_ritz_whetstone|normal_attack_taken_reduction": {
+        "cardId": "artifact_leets_worn_whetstone",
+        "effectId": "artifact_leets_worn_whetstone_e01"
+    },
+    "relic_ritz_whetstone|normal_twice_heal": {
+        "cardId": "artifact_leets_worn_whetstone",
+        "effectId": "artifact_leets_worn_whetstone_e02"
+    },
+    "relic_blanse_bouquet|low_grade_magic_def_down": {
+        "cardId": "artifact_blanchet_bouquet",
+        "effectId": "artifact_blanchet_bouquet_e01"
+    },
+    "relic_blanse_bouquet|max_stack": {
+        "cardId": "artifact_blanchet_bouquet",
+        "effectId": "artifact_blanchet_bouquet_e02"
+    },
+    "relic_picola_pouch|target_defense_up": {
+        "cardId": "artifact_picora_fashion_pouch",
+        "effectId": "artifact_picora_fashion_pouch_e01"
+    },
+    "relic_shion_black_cloak|single_enemy_damage_up": {
+        "cardId": "artifact_xion_black_cape",
+        "effectId": "artifact_xion_black_cape_e01"
+    },
+    "relic_naia_watergun|after_skill_healing_up": {
+        "cardId": "artifact_naia_dolphin_watergun",
+        "effectId": "artifact_naia_dolphin_watergun_e01"
+    },
+    "relic_naia_watergun|cool_time": {
+        "cardId": "artifact_naia_dolphin_watergun",
+        "effectId": "artifact_naia_dolphin_watergun_e02"
+    },
+    "relic_shupan_backpack|same_lane_taken_reduction": {
+        "cardId": "artifact_shoupan_magical_backpack",
+        "effectId": "artifact_shoupan_magical_backpack_e01"
+    },
+    "relic_shupan_backpack|cool_time": {
+        "cardId": "artifact_shoupan_magical_backpack",
+        "effectId": "artifact_shoupan_magical_backpack_e02"
+    },
+    "relic_snoky_fedora|hp50_max_hp_up": {
+        "cardId": "artifact_snorky_fedora",
+        "effectId": "artifact_snorky_fedora_e01"
+    },
+    "relic_snoky_fedora|hp50_max_def_up": {
+        "cardId": "artifact_snorky_fedora",
+        "effectId": "artifact_snorky_fedora_e02"
+    },
+    "relic_serine_night_mirage|skill_self_recover": {
+        "cardId": "artifact_selene_midnight_mirage",
+        "effectId": "artifact_selene_midnight_mirage_e01"
+    },
+    "relic_serine_night_mirage|skill_self_shield": {
+        "cardId": "artifact_selene_midnight_mirage",
+        "effectId": "artifact_selene_midnight_mirage_e02"
+    },
+    "relic_carrot_cane|same_lane_sp_recover": {
+        "cardId": "artifact_kyarot_sugarcane",
+        "effectId": "artifact_kyarot_sugarcane_e01"
+    },
+    "relic_chloe_sewing_chest|shield_taken_reduction": {
+        "cardId": "artifact_chloe_sewing_chest",
+        "effectId": "artifact_chloe_sewing_chest_e01"
+    },
+    "relic_listy_replica_glove|normal_attack_6_crit_rate_up": {
+        "cardId": "artifact_risty_replica_glove",
+        "effectId": "artifact_risty_replica_glove_e01"
+    },
+    "relic_barong_cursed_doll|target_debuff_enhanced_attack_damage": {
+        "cardId": "artifact_barong_cursed_doll",
+        "effectId": "artifact_barong_cursed_doll_e01"
+    },
+    "relic_tig_blazing_sword|normal_attack_3_haste": {
+        "cardId": "artifact_tig_blazing_sword",
+        "effectId": "artifact_tig_blazing_sword_e01"
+    },
+    "relic_tig_blazing_sword|max_stack": {
+        "cardId": "artifact_tig_blazing_sword",
+        "effectId": "artifact_tig_blazing_sword_e02"
+    },
+    "relic_rudd_exercise_manual|rudd_hp_recovery": {
+        "cardId": "artifact_rudd_exercise_manual",
+        "effectId": "artifact_rudd_exercise_manual_e01"
+    },
+    "relic_rollett_magic_hat|triple_enemy_skill_damage_boost": {
+        "cardId": "artifact_rollett_magic_hat",
+        "effectId": "artifact_rollett_magic_hat_e01"
+    },
+    "relic_dragon_sword|time_haste": {
+        "cardId": "artifact_dragonlight_sword",
+        "effectId": "artifact_dragonlight_sword_e01"
+    },
+    "relic_life_gem|low_hp_self_heal": {
+        "cardId": "artifact_life_gem",
+        "effectId": "artifact_life_gem_e01"
+    },
+    "relic_30kg_kettlebell|skill_damage_up": {
+        "cardId": "artifact_30kg_kettlebell",
+        "effectId": "artifact_30kg_kettlebell_e01"
+    },
+    "relic_30kg_kettlebell|normal_damage_down": {
+        "cardId": "artifact_30kg_kettlebell",
+        "effectId": "artifact_30kg_kettlebell_e02"
+    },
+    "relic_assassin_book|blind_effect": {
+        "cardId": "artifact_assassin_scroll",
+        "effectId": "artifact_assassin_scroll_e01"
+    },
+    "relic_safety_belt|opening_lane_shield": {
+        "cardId": "artifact_safety_harness",
+        "effectId": "artifact_safety_harness_e01"
+    },
+    "relic_blue_grimoire|skill_damage_boost": {
+        "cardId": "artifact_jade_codex",
+        "effectId": "artifact_jade_codex_e01"
+    },
+    "relic_blessed_pauldron|hp_regen": {
+        "cardId": "artifact_blessed_pauldrons",
+        "effectId": "artifact_blessed_pauldrons_e01"
+    },
+    "relic_origin_grail|normal_hit_sp_recover": {
+        "cardId": "artifact_chalice_of_origins",
+        "effectId": "artifact_chalice_of_origins_e01"
+    },
+    "relic_high_priest_censer|shield_received_up": {
+        "cardId": "artifact_grail_of_origins",
+        "effectId": "artifact_grail_of_origins_e01"
+    },
+    "relic_madness_mask|aoe_fixed_damage": {
+        "cardId": "artifact_fanatic_mask",
+        "effectId": "artifact_fanatic_mask_e01"
+    },
+    "relic_healing_pendant|sp_regen": {
+        "cardId": "artifact_healing_pendant",
+        "effectId": "artifact_healing_pendant_e01"
+    },
+    "relic_obsidian_shuriken|normal_attack_damage_up": {
+        "cardId": "artifact_obsidian_shuriken",
+        "effectId": "artifact_obsidian_shuriken_e01"
+    },
+    "relic_greed_ring|status_damage_up": {
+        "cardId": "artifact_ring_of_greed",
+        "effectId": "artifact_ring_of_greed_e01"
+    },
+    "relic_oldwood_dagger|sp_regen": {
+        "cardId": "artifact_old_wooden_dagger",
+        "effectId": "artifact_old_wooden_dagger_e01"
+    },
+    "relic_elf_staff|opening_shield": {
+        "cardId": "artifact_elven_wand",
+        "effectId": "artifact_elven_wand_e01"
+    },
+    "relic_frost_charm|debuff_resist": {
+        "cardId": "artifact_icy_charm",
+        "effectId": "artifact_icy_charm_e01"
+    },
+    "relic_frost_charm|cool_time": {
+        "cardId": "artifact_icy_charm",
+        "effectId": "artifact_icy_charm_e02"
+    },
+    "relic_thorn_crown|skill_damage_up": {
+        "cardId": "artifact_crown_of_thorns",
+        "effectId": "artifact_crown_of_thorns_e01"
+    },
+    "spell_alice_hex|alice_party_heal_min": {
+        "cardId": "spell_alice_fake_magic",
+        "effectId": "spell_alice_fake_magic_e01"
+    },
+    "spell_alice_hex|alice_party_heal_max": {
+        "cardId": "spell_alice_fake_magic",
+        "effectId": "spell_alice_fake_magic_e02"
+    },
+    "spell_alice_hex|alice_party_sp_min": {
+        "cardId": "spell_alice_fake_magic",
+        "effectId": "spell_alice_fake_magic_e03"
+    },
+    "spell_alice_hex|alice_party_sp_max": {
+        "cardId": "spell_alice_fake_magic",
+        "effectId": "spell_alice_fake_magic_e04"
+    },
+    "spell_epica_anthem|epica_grade_up": {
+        "cardId": "spell_epica_hero_exaltation",
+        "effectId": "spell_epica_hero_exaltation_e01"
+    },
+    "spell_yiide_dream|yiide_frontline_reduce": {
+        "cardId": "spell_luc_ed_dream",
+        "effectId": "spell_luc_ed_dream_e01"
+    },
+    "spell_yiide_dream|yiide_guard_def": {
+        "cardId": "spell_luc_ed_dream",
+        "effectId": "spell_luc_ed_dream_e02"
+    },
+    "spell_renewa_time_paradox|renewa_wave_damage_up": {
+        "cardId": "spell_renewa_time_paradox",
+        "effectId": "spell_renewa_time_paradox_e01"
+    },
+    "spell_suspicious_potion|suspicious_poison": {
+        "cardId": "spell_strange_elixir",
+        "effectId": "spell_strange_elixir_e01"
+    },
+    "spell_suspicious_potion|suspicious_poisonDuration": {
+        "cardId": "spell_strange_elixir",
+        "effectId": "spell_strange_elixir_e02"
+    },
+    "spell_battle_master|battle_master_skill_damage": {
+        "cardId": "spell_combat_master",
+        "effectId": "spell_combat_master_e01"
+    },
+    "spell_aromatherapy|aroma_full_sp": {
+        "cardId": "spell_aroma_therapy",
+        "effectId": "spell_aroma_therapy_e01"
+    },
+    "spell_center_best|center_row_damage": {
+        "cardId": "spell_stealth_slacker",
+        "effectId": "spell_stealth_slacker_e01"
+    },
+    "spell_center_best|center_row_reduce": {
+        "cardId": "spell_stealth_slacker",
+        "effectId": "spell_stealth_slacker_e02"
+    },
+    "spell_frontline|frontline_row_damage": {
+        "cardId": "spell_vanguard",
+        "effectId": "spell_vanguard_e01"
+    },
+    "spell_frontline|frontline_row_reduce": {
+        "cardId": "spell_vanguard",
+        "effectId": "spell_vanguard_e02"
+    },
+    "spell_backline|backline_row_damage": {
+        "cardId": "spell_rear_guard",
+        "effectId": "spell_rear_guard_e01"
+    },
+    "spell_backline|backline_row_reduce": {
+        "cardId": "spell_rear_guard",
+        "effectId": "spell_rear_guard_e02"
+    },
+    "spell_personality_madness|madness_personality": {
+        "cardId": "spell_personality_mad",
+        "effectId": "spell_personality_mad_e01"
+    },
+    "spell_personality_lively|lively_personality": {
+        "cardId": "spell_personality_vivacious",
+        "effectId": "spell_personality_vivacious_e01"
+    },
+    "spell_personality_pure|pure_personality": {
+        "cardId": "spell_personality_innocent",
+        "effectId": "spell_personality_innocent_e01"
+    },
+    "spell_personality_gloomy|gloomy_personality": {
+        "cardId": "spell_personality_depressed",
+        "effectId": "spell_personality_depressed_e01"
+    },
+    "spell_personality_calm|calm_personality": {
+        "cardId": "spell_personality_composed",
+        "effectId": "spell_personality_composed_e01"
+    },
+    "spell_catch_him|catch_him_wave": {
+        "cardId": "spell_get_her",
+        "effectId": "spell_get_her_e01"
+    },
+    "spell_random_coin|random_coin_coin_min": {
+        "cardId": "spell_random_coin",
+        "effectId": "spell_random_coin_e01"
+    },
+    "spell_random_coin|random_coin_coin_max": {
+        "cardId": "spell_random_coin",
+        "effectId": "spell_random_coin_e02"
+    },
+    "spell_soda_capsule|soda_capsule_sp": {
+        "cardId": "spell_soda_capsule",
+        "effectId": "spell_soda_capsule_e01"
+    },
+    "spell_strawberry_capsule|strawberry_capsule_heal": {
+        "cardId": "spell_strawberry_capsule",
+        "effectId": "spell_strawberry_capsule_e01"
+    }
+};
+
+function resolveCardIdAlias(id) {
+    const key = String(id || '');
+    return CARD_ID_ALIASES[key] || key;
+}
+
+function migrateCardStateMap(source) {
+    const input = source && typeof source === 'object' ? source : {};
+    const result = {};
+    for (const [id, value] of Object.entries(input)) {
+        if (!CARD_ID_ALIASES[id]) result[id] = value;
+    }
+    for (const [id, value] of Object.entries(input)) {
+        const currentId = resolveCardIdAlias(id);
+        if (!Object.prototype.hasOwnProperty.call(result, currentId)) result[currentId] = value;
+    }
+    return result;
+}
+
+function migrateCardEffectStateMap(source) {
+    const input = source && typeof source === 'object' ? source : {};
+    const result = {};
+    for (const [rawKey, value] of Object.entries(input)) {
+        let key = String(rawKey || '');
+        for (const [legacyKey, current] of Object.entries(CARD_EFFECT_ID_ALIASES)) {
+            const separator = legacyKey.indexOf('|');
+            const oldCardId = legacyKey.slice(0, separator);
+            const oldEffectId = legacyKey.slice(separator + 1);
+            const cardToken = `:${oldCardId}:`;
+            const effectToken = `:${oldEffectId}:`;
+            if (!key.includes(cardToken) || !key.includes(effectToken)) continue;
+            key = key.replace(cardToken, `:${current.cardId}:`);
+            key = key.replace(effectToken, `:${current.effectId}:`);
+            break;
+        }
+        result[key] = value;
+    }
+    return result;
+}
 
 for (const card of [...CARD_LIBRARY.artifacts, ...CARD_LIBRARY.spells]) {
     if (CARD_SOLDER_DATA[card.id]) {

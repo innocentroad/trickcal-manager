@@ -251,6 +251,7 @@
     formationCostSummary: document.getElementById('formation-cost-summary'),
     formationMemberSummary: document.getElementById('formation-member-summary'),
     formationSpellList: document.getElementById('formation-spell-list'),
+    formationMasterPower: document.getElementById('formation-master-power'),
     researchProgressSelect: document.getElementById('research-progress-select'),
     researchLevelSelect: document.getElementById('research-level-select'),
     researchGrid: document.getElementById('research-grid'),
@@ -1225,6 +1226,25 @@
         stepButton.dataset.formationSpellCard || '',
         Number(stepButton.dataset.formationSpellStep) || 0
       );
+    });
+
+    elements.formationMasterPower?.addEventListener('click', event => {
+      const button = event.target.closest('[data-formation-master-power]');
+      if (!button) return;
+      const powerId = button.dataset.formationMasterPower || '';
+      if (!getFormationMasterPowerById(powerId)) return;
+      const history = beginHistoryAction('教主の権能変更');
+      const formation = ensureFormationState();
+      const selected = normalizeFormationMasterPowers(formation.masterPowers);
+      formation.masterPowers = selected.includes(powerId)
+        ? selected.filter(id => id !== powerId)
+        : [...selected, powerId].slice(-getFormationMasterPowerSelectionLimit());
+      saveState({ refreshSnapshots: false });
+      renderFormationMasterPowers(formation);
+      renderFormationCostSummary(formation);
+      renderFormationActivePreset();
+      renderFormationPresetList();
+      commitHistoryAction(history);
     });
 
     elements.formationSynergySummary?.addEventListener('click', event => {
@@ -2741,7 +2761,7 @@
       ? cloneJson(snapshot.research)
       : {};
     const cards = snapshot.cards && typeof snapshot.cards === 'object'
-      ? cloneJson(snapshot.cards)
+      ? migrateCardStateMap(cloneJson(snapshot.cards))
       : {};
     const formation = snapshot.formation && typeof snapshot.formation === 'object'
       ? normalizeFormationState(snapshot.formation)
@@ -3692,6 +3712,7 @@
       const level = getSkillLevelForKind(kind, state);
       const label = getSkillKindLabel(kind);
       const cooldownSeconds = getSkillInfoCooldownSeconds(kind, first);
+      const triggerProbability = getSkillTriggerProbabilityLabel(first);
       const iconHtml = getSkillInfoIconHtml(kind, basic);
       const effectRows = items
         .map(row => formatEffectSummary(row, level))
@@ -3704,7 +3725,7 @@
             <div class="skill-info-title">
               <strong>${escapeHtml(label || 'スキル')}</strong>
               ${name && name !== label ? `<span>${escapeHtml(name)}</span>` : ''}
-              ${level || cooldownSeconds ? `<em>${escapeHtml([cooldownSeconds ? `CT ${formatNumber(cooldownSeconds)}秒` : '', level ? `SLv ${level}` : ''].filter(Boolean).join(' / '))}</em>` : ''}
+              ${level || cooldownSeconds || triggerProbability ? `<em>${escapeHtml([triggerProbability, cooldownSeconds ? `CT ${formatNumber(cooldownSeconds)}秒` : '', level ? `SLv ${level}` : ''].filter(Boolean).join(' / '))}</em>` : ''}
             </div>
             ${first.説明 ? `<p>${escapeHtml(first.説明)}</p>` : ''}
             ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
@@ -3712,6 +3733,14 @@
         </article>
       `;
     }).join('');
+  }
+
+  function getSkillTriggerProbabilityLabel(skill = {}) {
+    const triggerType = String(skill.triggerType || skill['スキル発動条件種別'] || skill['発動条件種別'] || '').trim();
+    const rawValue = skill.triggerValue ?? skill['スキル発動条件値'] ?? skill['発動条件値'];
+    if (!/一定確率/.test(triggerType) || rawValue === '' || rawValue == null) return '';
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? `発動率 ${formatNumber(value)}%` : '';
   }
 
   function renderAsideInfoList(basic) {
@@ -5352,6 +5381,7 @@
     const formation = ensureFormationState();
     elements.formationBoard.innerHTML = formation.rows.map((row, rowIndex) => renderFormationColumn(row, rowIndex)).join('');
     renderFormationSpells(formation, { deferCatalog: options.deferSpellCatalog });
+    renderFormationMasterPowers(formation);
     renderFormationCostSummary(formation);
     renderFormationMemberSummary(formation);
     renderFormationSynergySummary(formation);
@@ -6394,6 +6424,87 @@
       .forEach(node => { node.textContent = formatNumber(remainingCoins); });
   }
 
+  function getFormationMasterPowers() {
+    return Array.isArray(DATA?.sheets?.masterPowers) ? DATA.sheets.masterPowers : [];
+  }
+
+  function getFormationMasterPowerById(id) {
+    return getFormationMasterPowers().find(power => power.id === id) || null;
+  }
+
+  function getFormationMasterPowerSelectionLimit() {
+    const limits = getFormationMasterPowers()
+      .map(power => Number(power['最大選択数']))
+      .filter(value => Number.isFinite(value) && value > 0);
+    return Math.max(1, limits.length ? Math.max(...limits) : 1);
+  }
+
+  function normalizeFormationMasterPowers(value) {
+    const source = Array.isArray(value) ? value : (value ? [value] : []);
+    const validIds = new Set(getFormationMasterPowers().map(power => power.id));
+    return Array.from(new Set(source.map(String).filter(id => validIds.has(id))))
+      .slice(0, getFormationMasterPowerSelectionLimit());
+  }
+
+  function getFormationMasterPowerMediaPath(power) {
+    return `img/Card/権能_${power?.['権能名'] || ''}.mp4`;
+  }
+
+  function formatFormationMasterPowerEffect(effect = {}) {
+    const name = effect['値の種類'] || effect.effectId || '効果';
+    const value = effect['固定値'];
+    const classification = effect['値分類'] || '';
+    const duration = Number(effect.durationSeconds || effect['持続時間秒']) || 0;
+    const valueText = value !== '' && value != null
+      ? `${value}${/倍率/.test(classification) ? '%' : ''}`
+      : '';
+    return [name, valueText, duration ? `${duration}秒` : ''].filter(Boolean).join(' ');
+  }
+
+  function renderFormationMasterPowers(formation = ensureFormationState()) {
+    if (!elements.formationMasterPower) return;
+    const powers = getFormationMasterPowers();
+    const selected = normalizeFormationMasterPowers(formation.masterPowers);
+    formation.masterPowers = selected;
+    const selectedPower = selected.length ? getFormationMasterPowerById(selected[0]) : null;
+    const limit = getFormationMasterPowerSelectionLimit();
+    elements.formationMasterPower.innerHTML = `
+      <div class="formation-master-power-head">
+        <span>教主の権能</span>
+        <small>${selected.length}/${limit} 選択中</small>
+      </div>
+      <div class="formation-master-power-grid">
+        ${powers.map(power => {
+          const isSelected = selected.includes(power.id);
+          const name = power['権能名'] || power.id;
+          return `
+            <button type="button" class="formation-master-power-card ${isSelected ? 'is-selected' : ''}" data-formation-master-power="${escapeAttr(power.id)}" aria-pressed="${isSelected}" title="${escapeAttr(power['説明'] || name)}">
+              <span class="formation-master-power-media">
+                <video src="${escapeAttr(getFormationMasterPowerMediaPath(power))}#t=0.1" muted loop playsinline preload="metadata" draggable="false" ${isSelected ? 'autoplay' : ''}></video>
+                ${renderFormationCostBadge(power['コスト'])}
+                <span class="formation-master-power-check" aria-hidden="true">✓</span>
+              </span>
+              <strong>${escapeHtml(name)}</strong>
+              <small><span>CT ${escapeHtml(power['クールタイム秒'] ?? '-')}秒</span></small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <div class="formation-master-power-detail ${selectedPower ? 'is-selected' : ''}">
+        ${selectedPower ? `
+          <div>
+            <strong>${escapeHtml(selectedPower['権能名'] || selectedPower.id)}</strong>
+            <span>${escapeHtml(selectedPower['コンテンツ'] || '')}</span>
+          </div>
+          <p>${escapeHtml(selectedPower['説明'] || '')}</p>
+          <div class="formation-master-power-effects">
+            ${(selectedPower.effects || []).map(effect => `<span>${escapeHtml(formatFormationMasterPowerEffect(effect))}</span>`).join('')}
+          </div>
+        ` : '<p>権能を押すと編成にセットされます。現在は1つまで選択できます。</p>'}
+      </div>
+    `;
+  }
+
   function closeFormationCoinPopover() {
     const popover = elements.formationCostSummary?.querySelector('[data-formation-coin-popover]');
     const button = elements.formationCostSummary?.querySelector('[data-formation-coin-open]');
@@ -6415,7 +6526,9 @@
       const card = id ? spells.find(item => item.id === id) : null;
       return sum + (Number(card?.cost) || 0);
     }, 0);
-    return artifactCost + spellCost;
+    const masterPowerCost = normalizeFormationMasterPowers(formation.masterPowers || formation.masterPowerId)
+      .reduce((sum, id) => sum + (Number(getFormationMasterPowerById(id)?.['コスト']) || 0), 0);
+    return artifactCost + spellCost + masterPowerCost;
   }
 
   function getFormationApostleFilterGroups() {
@@ -6665,6 +6778,8 @@
     while (appState.formation.rows.length < 3) appState.formation.rows.push(createDefaultFormationRow());
     appState.formation.rows = appState.formation.rows.slice(0, 3).map(row => normalizeFormationRow(row));
     appState.formation.spells = normalizeFormationSpells(appState.formation.spells);
+    appState.formation.masterPowers = normalizeFormationMasterPowers(appState.formation.masterPowers || appState.formation.masterPowerId);
+    delete appState.formation.masterPowerId;
     ensureFormationCoinState(appState.formation);
     return appState.formation;
   }
@@ -6674,6 +6789,7 @@
       cardKind: formation?.cardKind === 'spell' ? 'spell' : 'artifact',
       rows: Array.isArray(formation?.rows) ? formation.rows.slice(0, 3).map(row => normalizeFormationRow(row)) : [],
       spells: normalizeFormationSpells(formation?.spells),
+      masterPowers: normalizeFormationMasterPowers(formation?.masterPowers || formation?.masterPowerId),
       coins: normalizeFormationCoins(formation?.coins),
       coinMode: formation?.coinMode === 'auto' ? 'auto' : 'manual'
     };
@@ -6682,7 +6798,7 @@
   }
 
   function createDefaultFormation() {
-    return { cardKind: 'artifact', rows: Array.from({ length: 3 }, createDefaultFormationRow), spells: [], coins: 0, coinMode: 'manual' };
+    return { cardKind: 'artifact', rows: Array.from({ length: 3 }, createDefaultFormationRow), spells: [], masterPowers: [], coins: 0, coinMode: 'manual' };
   }
 
   function createDefaultFormationRow() {
@@ -6695,14 +6811,14 @@
       apostles: Array.from({ length: 3 }, (_, index) => row?.apostles?.[index] || ''),
       artifacts: Array.from({ length: 3 }, (_, lineIndex) => {
         const line = sourceArtifacts[lineIndex];
-        if (Array.isArray(line)) return Array.from({ length: 3 }, (_, artifactSlot) => line[artifactSlot] || '');
-        return [line || '', '', ''];
+        if (Array.isArray(line)) return Array.from({ length: 3 }, (_, artifactSlot) => resolveCardIdAlias(line[artifactSlot] || ''));
+        return [resolveCardIdAlias(line || ''), '', ''];
       })
     };
   }
 
   function normalizeFormationSpells(spells) {
-    return Array.isArray(spells) ? spells.filter(Boolean) : [];
+    return Array.isArray(spells) ? spells.filter(Boolean).map(resolveCardIdAlias) : [];
   }
 
   function normalizeFormationCoins(value) {
@@ -10432,6 +10548,22 @@
     };
   }
 
+  function migrateSavedStateSlots(source) {
+    if (!source || typeof source !== 'object') return {};
+    return Object.fromEntries(Object.entries(source).map(([slot, snapshot]) => {
+      if (!snapshot || typeof snapshot !== 'object') return [slot, snapshot];
+      const migrated = cloneJson(snapshot);
+      migrated.cards = migrateCardStateMap(migrated.cards);
+      if (migrated.formation && typeof migrated.formation === 'object') {
+        migrated.formation = normalizeFormationState(migrated.formation);
+      }
+      if (Array.isArray(migrated.savedFormations)) {
+        migrated.savedFormations = normalizeFormationPresetList(migrated.savedFormations);
+      }
+      return [slot, migrated];
+    }));
+  }
+
   function loadState() {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
@@ -10440,11 +10572,11 @@
         syncRevision: Math.max(0, Number(parsed.syncRevision) || 0),
         apostles: parsed.apostles && typeof parsed.apostles === 'object' ? parsed.apostles : {},
         research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
-        cards: parsed.cards && typeof parsed.cards === 'object' ? parsed.cards : {},
+        cards: parsed.cards && typeof parsed.cards === 'object' ? migrateCardStateMap(parsed.cards) : {},
         formation: parsed.formation && typeof parsed.formation === 'object' ? normalizeFormationState(parsed.formation) : createDefaultFormation(),
         totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
         activeFormationPresetId: parsed.activeFormationPresetId || '',
-        savedStates: parsed.savedStates && typeof parsed.savedStates === 'object' ? parsed.savedStates : {},
+        savedStates: parsed.savedStates && typeof parsed.savedStates === 'object' ? migrateSavedStateSlots(parsed.savedStates) : {},
         activeStateSlot: normalizeStateSlot(parsed.activeStateSlot),
         savedFormations: normalizeFormationPresetList(parsed.savedFormations)
       };
