@@ -16,9 +16,11 @@ SHEETS = {
     "basic": "使徒基礎設定",
     "skillBasics": "スキル基礎設定",
     "skillEffects": "スキル効果",
-    "favoriteCard": "愛用カード",
-    "asideStats": "アサイド ステ効果",
-    "asideSpecials": "アサイド 特殊効果",
+    "favoriteCardBasics": "愛用カード基礎設定",
+    "favoriteCardEffects": "愛用カード効果",
+    "asideBasics": "アサイド基礎設定",
+    "asideStats": "アサイド全体補正",
+    "asideSpecials": "アサイド特殊効果",
     "board": "ボード設定",
 }
 
@@ -66,6 +68,7 @@ KEY_MAP = {
     "no": "no",
     "スキル種別": "skillType",
     "スキル名": "skillName",
+    "効果名": "skillName",
     "説明": "description",
     "硬直秒": "stunSeconds",
     "クールタイム秒": "cooldownSeconds",
@@ -85,6 +88,7 @@ KEY_MAP = {
     "条件": "condition",
     "効果対象": "effectTarget",
     "対象スキル": "targetSkill",
+    "対象スキル名": "targetSkillName",
     "参照": "reference",
     "持続時間": "duration",
     "固定値": "fixedValue",
@@ -102,8 +106,11 @@ KEY_MAP = {
     "SLv": "level",
     "Lv内名前": "levelName",
     "効果説明": "effectDescription",
+    "効果区分": "effectCategory",
     "ステ適用": "statApplyTo",
+    "ステータス適用": "statApplyTo",
     "ステ能力値": "statName",
+    "上昇ステータス": "statName",
     "上昇%": "increaseP",
     "種族タイプ": "raceBoardType",
 }
@@ -179,6 +186,7 @@ def read_sheet_rows(
     sheet_name: str,
     *,
     effect_rows: bool = False,
+    key_overrides: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     if sheet_name not in workbook.sheetnames:
         raise KeyError(f"sheet not found: {sheet_name}")
@@ -195,11 +203,13 @@ def read_sheet_rows(
         for raw_key, raw_value in zip(headers, row):
             if not raw_key:
                 continue
-            key = (
-                "attackCategory"
-                if effect_rows and raw_key in EFFECT_ATTACK_CATEGORY_HEADERS
-                else KEY_MAP.get(raw_key, raw_key)
-            )
+            key = (key_overrides or {}).get(raw_key)
+            if key is None:
+                key = (
+                    "attackCategory"
+                    if effect_rows and raw_key in EFFECT_ATTACK_CATEGORY_HEADERS
+                    else KEY_MAP.get(raw_key, raw_key)
+                )
             value = clean_value(raw_value)
             if key == "effectStack" and value is False:
                 continue
@@ -293,10 +303,12 @@ def add_grouped_effect(
     return items
 
 
-def merge_skill_rows(
+def merge_effect_rows(
     basics: list[dict[str, Any]],
     effects: list[dict[str, Any]],
     warnings: list[str],
+    source_name: str,
+    include_unmatched_basics: bool = True,
 ) -> list[dict[str, Any]]:
     basics_by_skill_id = {
         str(row.get("skillId", "")): row
@@ -311,18 +323,19 @@ def merge_skill_rows(
             continue
         basic = basics_by_skill_id.get(skill_id)
         if basic is None:
-            warnings.append(f"skill effect references missing skillId: {skill_id}")
+            warnings.append(f"{source_name} effect references missing skillId: {skill_id}")
             continue
         if basic.get("id") and effect.get("id") and basic["id"] != effect["id"]:
             warnings.append(
-                f"skill apostle id mismatch: {skill_id} / {basic['id']} != {effect['id']}"
+                f"{source_name} apostle id mismatch: {skill_id} / {basic['id']} != {effect['id']}"
             )
             continue
         merged.append({**basic, **effect})
         used_skill_ids.add(skill_id)
-    for skill_id, basic in basics_by_skill_id.items():
-        if skill_id not in used_skill_ids:
-            merged.append(dict(basic))
+    if include_unmatched_basics:
+        for skill_id, basic in basics_by_skill_id.items():
+            if skill_id not in used_skill_ids:
+                merged.append(dict(basic))
     return merged
 
 
@@ -385,7 +398,7 @@ def add_aside_stat(apostle: dict[str, Any], row: dict[str, Any]) -> None:
     if level_item is None:
         return
     data = compact_row(row)
-    for key in ("asideName", "level", "levelName", "effectDescription"):
+    for key in ("asideName", "level", "levelName", "effectDescription", "effectCategory"):
         data.pop(key, None)
     levels = extract_levels(data)
     if levels:
@@ -401,7 +414,7 @@ def add_aside_special(apostle: dict[str, Any], row: dict[str, Any]) -> None:
     if row.get("effectDescription"):
         level_item["description"] = row["effectDescription"]
     data = compact_row(row)
-    for key in ("asideName", "level", "levelName", "effectDescription"):
+    for key in ("asideName", "level", "levelName", "effectDescription", "effectCategory"):
         data.pop(key, None)
     levels = extract_levels(data)
     if levels:
@@ -428,18 +441,20 @@ def ensure_favorite_card_level(apostle: dict[str, Any], row: dict[str, Any]) -> 
 def add_favorite_card_effect(apostle: dict[str, Any], row: dict[str, Any]) -> None:
     level_key = ensure_favorite_card_level(apostle, row)
     groups = apostle["favoriteCard"]["levels"][level_key]
-    group_key = new_group_key(row, ("unlockLevel", "targetSkill", "skillName", "lv1Description"))
+    group_key = new_group_key(row, ("skillId",))
     group = next((item for item in groups if item.get("_groupKey") == group_key), None)
     if group is None:
         group = {"_groupKey": group_key, "effects": []}
-        for key in ("targetSkill", "skillName", "lv1Description"):
+        if row.get("skillId"):
+            group["skillId"] = row["skillId"]
+        for key in ("skillName", "lv1Description"):
             value = row.get(key)
             if has_value(value):
                 group["description" if key == "lv1Description" else key] = value
         groups.append(group)
 
     data = compact_row(row)
-    for key in ("cardName", "cardKind", "unlockLevel", "targetSkill", "skillName", "lv1Description"):
+    for key in ("skillId", "cardName", "cardKind", "unlockLevel", "skillName", "lv1Description"):
         data.pop(key, None)
     levels = extract_levels(data)
     if levels:
@@ -448,13 +463,29 @@ def add_favorite_card_effect(apostle: dict[str, Any], row: dict[str, Any]) -> No
 
 
 def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
-    effect_sheets = {"skillEffects", "favoriteCard", "asideSpecials"}
+    effect_sheets = {"skillEffects", "favoriteCardEffects", "asideSpecials"}
     rows = {
-        key: read_sheet_rows(workbook, sheet_name, effect_rows=key in effect_sheets)
+        key: read_sheet_rows(
+            workbook,
+            sheet_name,
+            effect_rows=key in effect_sheets,
+            key_overrides={"説明": "lv1Description"} if key == "favoriteCardBasics" else None,
+        )
         for key, sheet_name in SHEETS.items()
     }
     warnings: list[str] = []
-    rows["skills"] = merge_skill_rows(rows["skillBasics"], rows["skillEffects"], warnings)
+    rows["skills"] = merge_effect_rows(
+        rows["skillBasics"], rows["skillEffects"], warnings, "skill"
+    )
+    rows["favoriteCard"] = merge_effect_rows(
+        rows["favoriteCardBasics"], rows["favoriteCardEffects"], warnings, "favorite card"
+    )
+    rows["asideStats"] = merge_effect_rows(
+        rows["asideBasics"], rows["asideStats"], warnings, "aside stat", False
+    )
+    rows["asideSpecials"] = merge_effect_rows(
+        rows["asideBasics"], rows["asideSpecials"], warnings, "aside special", False
+    )
     by_id: dict[str, dict[str, Any]] = {}
 
     for row in rows["basic"]:

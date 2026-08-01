@@ -35,10 +35,12 @@ SHEET_KEYS = {
     "スキル": "skills",
     "スキル基礎設定": "skillBasics",
     "スキル効果": "skillEffects",
-    "愛用カード": "favoriteCards",
-    "アサイド ステ効果": "asideStatEffects",
-    "アサイド 特殊効果": "asideSpecialEffects",
-    "アサイド基礎設定": "asideTiers",
+    "愛用カード基礎設定": "favoriteCardBasics",
+    "愛用カード効果": "favoriteCardEffects",
+    "アサイド基礎設定": "asideEffectBasics",
+    "アサイド全体補正": "asideStatEffects",
+    "アサイド特殊効果": "asideSpecialEffects",
+    "アサイドTier設定": "asideTiers",
     "アサイドTier": "asideTiers",
     "ボード特殊効果まとめ": "boardSpecialEffects",
     "教主の権能基礎設定": "masterPowerBasics",
@@ -335,9 +337,38 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
     return normalized
 
 
-def merge_skill_sheets(
+def normalize_favorite_card_basics(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    normalized: list[dict[str, object]] = []
+    for row in rows:
+        item = dict(row)
+        effect_name = item.pop("効果名", "")
+        description = item.pop("説明", "")
+        if item.get("スキル名", "") == "" and effect_name != "":
+            item["スキル名"] = effect_name
+        if item.get("Lv1_説明", "") == "" and description != "":
+            item["Lv1_説明"] = description
+        normalized.append(item)
+    return normalized
+
+
+def normalize_aside_stat_effects(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    normalized: list[dict[str, object]] = []
+    for row in rows:
+        item = dict(row)
+        stat_apply_to = item.pop("ステータス適用", "")
+        stat_name = item.pop("上昇ステータス", "")
+        if item.get("ステ適用", "") == "" and stat_apply_to != "":
+            item["ステ適用"] = stat_apply_to
+        if item.get("ステ能力値", "") == "" and stat_name != "":
+            item["ステ能力値"] = stat_name
+        normalized.append(item)
+    return normalized
+
+def merge_effect_sheets(
     basics: list[dict[str, object]],
     effects: list[dict[str, object]],
+    source_name: str,
+    include_unmatched_basics: bool = True,
 ) -> list[dict[str, object]]:
     basics_by_skill_id = {
         str(row.get("skillId", "")): row
@@ -352,18 +383,19 @@ def merge_skill_sheets(
             continue
         basic = basics_by_skill_id.get(skill_id)
         if basic is None:
-            raise ValueError(f"skill effect references missing skillId: {skill_id}")
+            raise ValueError(f"{source_name} effect references missing skillId: {skill_id}")
         basic_apostle_id = str(basic.get("id", ""))
         effect_apostle_id = str(effect.get("id", ""))
         if basic_apostle_id and effect_apostle_id and basic_apostle_id != effect_apostle_id:
             raise ValueError(
-                f"skill apostle id mismatch: {skill_id} / {basic_apostle_id} != {effect_apostle_id}"
+                f"{source_name} apostle id mismatch: {skill_id} / {basic_apostle_id} != {effect_apostle_id}"
             )
         merged.append({**basic, **effect})
         used_skill_ids.add(skill_id)
-    for skill_id, basic in basics_by_skill_id.items():
-        if skill_id not in used_skill_ids:
-            merged.append(dict(basic))
+    if include_unmatched_basics:
+        for skill_id, basic in basics_by_skill_id.items():
+            if skill_id not in used_skill_ids:
+                merged.append(dict(basic))
     return merged
 
 
@@ -514,9 +546,40 @@ def generate(input_path: Path, output_path: Path) -> None:
         sheets[key] = rows_to_objects(rows)
 
     if "skillBasics" in sheets or "skillEffects" in sheets:
-        sheets["skills"] = merge_skill_sheets(
+        sheets["skills"] = merge_effect_sheets(
             sheets.pop("skillBasics", []),
             sheets.pop("skillEffects", []),
+            "skill",
+        )
+
+    if "favoriteCardBasics" in sheets:
+        sheets["favoriteCardBasics"] = normalize_favorite_card_basics(
+            sheets["favoriteCardBasics"]
+        )
+
+    if "favoriteCardBasics" in sheets or "favoriteCardEffects" in sheets:
+        sheets["favoriteCards"] = merge_effect_sheets(
+            sheets.pop("favoriteCardBasics", []),
+            sheets.pop("favoriteCardEffects", []),
+            "favorite card",
+        )
+
+    if "asideEffectBasics" in sheets:
+        aside_basics = sheets.pop("asideEffectBasics")
+        sheets["asideStatEffects"] = normalize_aside_stat_effects(
+            sheets.get("asideStatEffects", [])
+        )
+        sheets["asideStatEffects"] = merge_effect_sheets(
+            aside_basics,
+            sheets.get("asideStatEffects", []),
+            "aside stat",
+            False,
+        )
+        sheets["asideSpecialEffects"] = merge_effect_sheets(
+            aside_basics,
+            sheets.get("asideSpecialEffects", []),
+            "aside special",
+            False,
         )
 
     if "masterPowerBasics" in sheets or "masterPowerEffects" in sheets:
