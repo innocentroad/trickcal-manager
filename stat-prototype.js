@@ -10,6 +10,10 @@
   }
 
   const STORAGE_KEY = 'trickcal_stat_prototype_v1';
+  const STATE_SLOT_STORAGE_KEY = 'trickcal_stat_slots_v2';
+  const STATE_WORKSPACE_STORAGE_KEY = 'trickcal_stat_workspace_v2';
+  const STATE_LIVE_STORAGE_KEY = 'trickcal_stat_live_v2';
+  const STATE_SYNC_CHANNEL_NAME = 'trickcal-stat-sync-v2';
   const COMMON_THEME_STORAGE_KEY = 'trickcal_theme';
   const THEME_STORAGE_KEY = 'trickcal_stat_theme';
   const BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY = 'trickcal_board_shortcut_off_mode';
@@ -317,6 +321,9 @@
     boardGrid: document.getElementById('board-grid')
   };
 
+  const TAB_INSTANCE_ID = createStateTabInstanceId();
+  let sharedStateSlotStore = null;
+  let initialWorkspaceState = null;
   const appState = loadState();
   let boardDraft = null;
   let globalBoardDrafts = {};
@@ -392,6 +399,10 @@
     },
     formationSpellDetailsOpen: false
   };
+  let stateSlotBaseRevision = Math.max(0, Number(initialWorkspaceState?.baseSlotRevision) || 0);
+  let stateExternalConflict = null;
+  let stateSyncChannel = null;
+  let isLiveStatePublisher = document.visibilityState !== 'hidden' && document.hasFocus();
   let stateStatusTimer = 0;
   let isRefreshingStatSnapshots = false;
   let stateSaveTimer = 0;
@@ -428,11 +439,20 @@
     syncControlsFromState();
     ensureHistoryControls();
     bindEvents();
+    setupMultiTabStateSync();
     installStatEngineApi();
-    window.addEventListener('beforeunload', flushPendingStateSave);
-    window.addEventListener('pagehide', flushPendingStateSave);
+    window.addEventListener('beforeunload', () => flushPendingStateSave());
+    window.addEventListener('pagehide', () => {
+      flushPendingStateSave();
+      isLiveStatePublisher = false;
+    });
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') flushPendingStateSave();
+      if (document.visibilityState === 'hidden') {
+        flushPendingStateSave();
+        isLiveStatePublisher = false;
+      } else {
+        claimLiveStatePublisher();
+      }
     });
     renderStateManager();
     render();
@@ -2379,6 +2399,8 @@
   function renderStateManager() {
     const slotKey = String(view.stateSlot);
     const dirty = isCurrentStateDirty();
+    const hasExternalConflict = stateExternalConflict?.slot === view.stateSlot;
+    const externalConflictSlotKey = stateExternalConflict ? String(stateExternalConflict.slot) : '';
     const mode = getStateSlotMode();
     const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択（空は新規）', delete: '削除する状態を選択', import: 'インポート先を選択' };
     elements.stateSlotButtons.forEach(button => {
@@ -2389,15 +2411,17 @@
       button.classList.toggle('is-selected', key === slotKey);
       button.classList.toggle('is-current', key === slotKey);
       button.classList.toggle('is-dirty', key === slotKey && dirty);
+      button.classList.toggle('has-external-conflict', key === externalConflictSlotKey);
       button.classList.toggle('has-data', !!snapshot);
       button.disabled = mode === 'delete' && !snapshot;
       button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
       button.title = snapshot
-        ? `${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
-        : `スロット${key}: 空${mode === 'load' ? '（新規状態として読み込み）' : ''}`;
+        ? `${key === externalConflictSlotKey ? '別タブ更新あり / ' : ''}${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
+        : `スロット${key}: 空${key === externalConflictSlotKey ? '（別タブで削除済み）' : ''}${mode === 'load' ? '（新規状態として読み込み）' : ''}`;
     });
     const saveMenu = document.querySelector('.bottom-save-menu');
     saveMenu?.classList.toggle('is-dirty', dirty);
+    saveMenu?.classList.toggle('has-external-conflict', hasExternalConflict);
     if (saveMenu) {
       if (mode) saveMenu.dataset.slotMode = mode;
       else delete saveMenu.dataset.slotMode;
@@ -2411,12 +2435,16 @@
     if (elements.stateSlotSectionTitle) elements.stateSlotSectionTitle.textContent = modeLabels[mode] || '操作を選択';
     if (elements.stateSaveNameWrap) elements.stateSaveNameWrap.hidden = mode !== 'save';
     if (elements.stateSlotIndicator) {
-      elements.stateSlotIndicator.textContent = dirty ? `${slotKey}*` : slotKey;
-      elements.stateSlotIndicator.title = dirty ? `スロット${slotKey}: 未保存変更あり` : `スロット${slotKey}`;
+      elements.stateSlotIndicator.textContent = hasExternalConflict ? `${slotKey}!` : (dirty ? `${slotKey}*` : slotKey);
+      elements.stateSlotIndicator.title = hasExternalConflict
+        ? `スロット${slotKey}: 別タブ更新あり`
+        : (dirty ? `スロット${slotKey}: 未保存変更あり` : `スロット${slotKey}`);
     }
     if (elements.stateCurrentSlot) {
-      elements.stateCurrentSlot.textContent = `${dirty ? '編集中' : '読み込み中'}: ${slotKey}`;
-      elements.stateCurrentSlot.classList.toggle('is-dirty', dirty);
+      elements.stateCurrentSlot.textContent = hasExternalConflict
+        ? `別タブ更新あり: ${slotKey}`
+        : `${dirty ? '編集中' : '読み込み中'}: ${slotKey}`;
+      elements.stateCurrentSlot.classList.toggle('is-dirty', dirty || hasExternalConflict);
     }
     [elements.saveStateSlot, elements.loadStateSlot, elements.deleteStateSlot].forEach(button => {
       button?.classList.toggle('is-selected', button.dataset.stateSlotMode === mode);
@@ -2470,7 +2498,7 @@
     }
   }
 
-  function importStateToSlot(slot) {
+  async function importStateToSlot(slot) {
     if (!pendingImportedState) {
       showStateStatus('インポートするファイルが選択されていません', true);
       setStateSlotMode('');
@@ -2486,32 +2514,64 @@
     const imported = pendingImportedState;
     pendingImportedState = null;
     setStateSlotMode('');
-    applyImportedState(imported, safeSlot);
+    const applied = await applyImportedState(imported, safeSlot);
+    if (!applied) return;
     commitHistoryAction(history);
     showStateStatus(`${slotLabel}にインポートしました`);
   }
 
-  function saveCurrentStateToSlot(slot, slotName = '') {
+  async function saveCurrentStateToSlot(slot, slotName = '') {
     persistCurrentControls();
     appState.activeId = view.id;
     const safeSlot = normalizeStateSlot(slot);
     const previousName = appState.savedStates[String(safeSlot)]?.slotName || '';
     const normalizedName = String(slotName || '').trim() || previousName;
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    const snapshot = {
+      ...createStateSnapshot(normalizedName),
+      activeStateSlot: safeSlot
+    };
+    let result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, expectedRevision));
+    if (result.conflict && isEquivalentStateSlotSnapshot(snapshot, result.latest?.slots?.[String(safeSlot)]?.snapshot)) {
+      syncSharedStateSlotStore(result.latest);
+      result = { ok: true, slotRevision: result.currentRevision };
+    }
+    if (result.conflict) {
+      const overwrite = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        '現在の編集内容で上書きしますか？\n\nキャンセルすると編集内容を保持します。'
+      );
+      if (!overwrite) {
+        syncSharedStateSlotStore(result.latest);
+        stateExternalConflict = { slot: safeSlot, type: 'updated', nextRevision: result.currentRevision };
+        renderStateManager();
+        showStateStatus(`スロット${safeSlot}への保存を中止しました`, true);
+        return false;
+      }
+      result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, result.currentRevision, { force: true }));
+    }
     view.stateSlot = safeSlot;
     appState.activeStateSlot = view.stateSlot;
-    appState.savedStates[String(view.stateSlot)] = createStateSnapshot(normalizedName);
+    stateSlotBaseRevision = result.slotRevision;
+    stateExternalConflict = null;
     saveState({ flush: true });
     setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${view.stateSlot}に保存しました`);
+    return true;
   }
 
   function loadStateSlot(slot) {
     const safeSlot = normalizeStateSlot(slot);
+    syncSharedStateSlotStore(readLatestSharedStateSlotStore());
     const snapshot = appState.savedStates[String(safeSlot)];
     const history = beginHistoryAction('ロード');
     view.stateSlot = safeSlot;
     appState.activeStateSlot = view.stateSlot;
+    stateSlotBaseRevision = getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    stateExternalConflict = null;
     setStateSlotMode('');
     applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot));
     commitHistoryAction(history);
@@ -2534,11 +2594,31 @@
     };
   }
 
-  function deleteStateSlot(slot) {
+  async function deleteStateSlot(slot) {
     const safeSlot = normalizeStateSlot(slot);
     if (!appState.savedStates[String(safeSlot)]) return;
     if (!window.confirm(`スロット${safeSlot}の保存内容を削除しますか？\nこの操作は元に戻せません。`)) return;
-    delete appState.savedStates[String(safeSlot)];
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    let result = await withStateSlotStoreLock(() => removeSharedStateSlot(safeSlot, expectedRevision));
+    if (result.conflict) {
+      const removeLatest = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        '別タブの最新保存内容も削除しますか？'
+      );
+      if (!removeLatest) {
+        syncSharedStateSlotStore(result.latest);
+        renderStateManager();
+        showStateStatus(`スロット${safeSlot}の削除を中止しました`, true);
+        return;
+      }
+      result = await withStateSlotStoreLock(() => removeSharedStateSlot(safeSlot, result.currentRevision, { force: true }));
+    }
+    if (view.stateSlot === safeSlot) {
+      stateSlotBaseRevision = 0;
+      stateExternalConflict = null;
+    }
     if (view.stateSlot === safeSlot) appState.activeStateSlot = view.stateSlot;
     saveState({ flush: true });
     setStateSlotMode('');
@@ -2624,6 +2704,15 @@
   }
   function stableStringify(value) {
     return JSON.stringify(stableValue(value));
+  }
+
+  function isEquivalentStateSlotSnapshot(left, right) {
+    if (!left || !right) return false;
+    try {
+      return stableStringify(createComparableSnapshot(left)) === stableStringify(createComparableSnapshot(right));
+    } catch {
+      return false;
+    }
   }
 
   function stableValue(value) {
@@ -2737,7 +2826,7 @@
     return { current };
   }
 
-  function applyImportedState(imported, slot = view.stateSlot) {
+  async function applyImportedState(imported, slot = view.stateSlot) {
     const safeSlot = normalizeStateSlot(slot);
     const basic = DATA.getById('basicInfo', imported.current.activeId);
     const snapshot = {
@@ -2746,10 +2835,29 @@
       slotName: appState.savedStates[String(safeSlot)]?.slotName || '',
       apostleName: basic?.使徒名 || ''
     };
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    let result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, expectedRevision));
+    if (result.conflict) {
+      const overwrite = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        'インポート内容で上書きしますか？'
+      );
+      if (!overwrite) {
+        syncSharedStateSlotStore(result.latest);
+        renderStateManager();
+        showStateStatus('インポートを中止しました', true);
+        return false;
+      }
+      result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, result.currentRevision, { force: true }));
+    }
     view.stateSlot = safeSlot;
     appState.activeStateSlot = view.stateSlot;
-    appState.savedStates[String(safeSlot)] = snapshot;
+    stateSlotBaseRevision = result.slotRevision;
+    stateExternalConflict = null;
     applyStateSnapshot(snapshot);
+    return true;
   }
 
   function normalizeStateSnapshot(snapshot) {
@@ -10564,25 +10672,299 @@
     }));
   }
 
-  function loadState() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      return {
-        activeId: parsed.activeId || '',
-        syncRevision: Math.max(0, Number(parsed.syncRevision) || 0),
-        apostles: parsed.apostles && typeof parsed.apostles === 'object' ? parsed.apostles : {},
-        research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
-        cards: parsed.cards && typeof parsed.cards === 'object' ? migrateCardStateMap(parsed.cards) : {},
-        formation: parsed.formation && typeof parsed.formation === 'object' ? normalizeFormationState(parsed.formation) : createDefaultFormation(),
-        totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
-        activeFormationPresetId: parsed.activeFormationPresetId || '',
-        savedStates: parsed.savedStates && typeof parsed.savedStates === 'object' ? migrateSavedStateSlots(parsed.savedStates) : {},
-        activeStateSlot: normalizeStateSlot(parsed.activeStateSlot),
-        savedFormations: normalizeFormationPresetList(parsed.savedFormations)
+  function createStateTabInstanceId() {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+    return 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  function normalizeSharedStateSlotStore(source) {
+    const parsed = source && typeof source === 'object' ? source : {};
+    const slots = {};
+    Object.entries(parsed.slots || {}).forEach(([slot, entry]) => {
+      const safeSlot = String(normalizeStateSlot(slot));
+      if (!entry || typeof entry !== 'object' || !entry.snapshot) return;
+      slots[safeSlot] = {
+        slotRevision: Math.max(1, Number(entry.slotRevision) || 1),
+        savedAt: String(entry.savedAt || entry.snapshot.savedAt || ''),
+        savedBy: String(entry.savedBy || ''),
+        snapshot: migrateSavedStateSlots({ [safeSlot]: entry.snapshot })[safeSlot]
       };
-    } catch (error) {
-      return { activeId: '', syncRevision: 0, apostles: {}, research: {}, cards: {}, formation: createDefaultFormation(), totalCombatPower: 0, activeFormationPresetId: '', savedStates: {}, activeStateSlot: 1, savedFormations: [] };
+    });
+    return {
+      schemaVersion: 2,
+      storeRevision: Math.max(0, Number(parsed.storeRevision) || 0),
+      slots
+    };
+  }
+
+  function loadSharedStateSlotStore(legacySavedStates = {}) {
+    try {
+      const raw = localStorage.getItem(STATE_SLOT_STORAGE_KEY);
+      if (raw) return normalizeSharedStateSlotStore(JSON.parse(raw));
+    } catch {}
+    const migratedSnapshots = migrateSavedStateSlots(
+      legacySavedStates && typeof legacySavedStates === 'object' ? legacySavedStates : {}
+    );
+    const slots = Object.fromEntries(Object.entries(migratedSnapshots).map(([slot, snapshot]) => [
+      String(normalizeStateSlot(slot)),
+      {
+        slotRevision: 1,
+        savedAt: String(snapshot?.savedAt || ''),
+        savedBy: 'migration-v1',
+        snapshot
+      }
+    ]));
+    const store = {
+      schemaVersion: 2,
+      storeRevision: Object.keys(slots).length ? 1 : 0,
+      slots
+    };
+    try {
+      localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(store));
+    } catch {}
+    return store;
+  }
+
+  function readLatestSharedStateSlotStore() {
+    try {
+      const raw = localStorage.getItem(STATE_SLOT_STORAGE_KEY);
+      if (raw) return normalizeSharedStateSlotStore(JSON.parse(raw));
+    } catch {}
+    return normalizeSharedStateSlotStore(sharedStateSlotStore);
+  }
+
+  function getSharedStateSnapshots(store = sharedStateSlotStore) {
+    return Object.fromEntries(Object.entries(store?.slots || {}).map(([slot, entry]) => [
+      slot,
+      cloneJson(entry.snapshot)
+    ]));
+  }
+
+  function getSharedSlotRevision(slot, store = sharedStateSlotStore) {
+    return Math.max(0, Number(store?.slots?.[String(normalizeStateSlot(slot))]?.slotRevision) || 0);
+  }
+
+  function syncSharedStateSlotStore(store) {
+    sharedStateSlotStore = normalizeSharedStateSlotStore(store);
+    appState.savedStates = getSharedStateSnapshots(sharedStateSlotStore);
+  }
+
+  function loadStateWorkspace() {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(STATE_WORKSPACE_STORAGE_KEY) || 'null');
+      if (!parsed || Number(parsed.workspaceVersion) !== 2 || !parsed.draft) return null;
+      return parsed;
+    } catch {
+      return null;
     }
+  }
+
+  function createStateWorkspaceDraft() {
+    const draft = cloneJson(appState);
+    delete draft.savedStates;
+    draft.activeStateSlot = view.stateSlot;
+    draft.activeId = view.id || draft.activeId || '';
+    return draft;
+  }
+
+  function persistStateWorkspace() {
+    try {
+      sessionStorage.setItem(STATE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        workspaceVersion: 2,
+        workspaceId: initialWorkspaceState?.workspaceId || ('workspace-' + Date.now().toString(36)),
+        activeSlot: view.stateSlot,
+        baseSlotRevision: stateSlotBaseRevision,
+        draft: createStateWorkspaceDraft()
+      }));
+    } catch {}
+  }
+
+  function publishLiveState() {
+    let previousRevision = 0;
+    try {
+      previousRevision = Math.max(0, Number(JSON.parse(localStorage.getItem(STATE_LIVE_STORAGE_KEY) || '{}').revision) || 0);
+    } catch {}
+    const revision = previousRevision + 1;
+    const snapshot = createStateWorkspaceDraft();
+    const liveState = {
+      schemaVersion: 2,
+      revision,
+      sourceTabInstanceId: TAB_INSTANCE_ID,
+      sourceSlot: String(view.stateSlot),
+      publishedAt: new Date().toISOString(),
+      snapshot
+    };
+    const legacyPayload = {
+      ...snapshot,
+      syncRevision: revision,
+      activeStateSlot: view.stateSlot
+    };
+    try {
+      localStorage.setItem(STATE_LIVE_STORAGE_KEY, JSON.stringify(liveState));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(legacyPayload));
+    } catch {}
+    postStateSyncMessage({ type: 'live-published', revision });
+  }
+
+  function postStateSyncMessage(message) {
+    try {
+      stateSyncChannel?.postMessage({
+        ...message,
+        sourceTabInstanceId: TAB_INSTANCE_ID,
+        sentAt: Date.now()
+      });
+    } catch {}
+  }
+
+  function withStateSlotStoreLock(task) {
+    if (navigator.locks?.request) {
+      return navigator.locks.request('trickcal-stat-slots-v2', { mode: 'exclusive' }, task);
+    }
+    return Promise.resolve().then(task);
+  }
+
+  function writeSharedStateSlot(slot, snapshot, expectedRevision, options = {}) {
+    const safeSlot = normalizeStateSlot(slot);
+    const key = String(safeSlot);
+    const latest = readLatestSharedStateSlotStore();
+    const currentRevision = getSharedSlotRevision(safeSlot, latest);
+    if (!options.force && currentRevision !== Math.max(0, Number(expectedRevision) || 0)) {
+      return { ok: false, conflict: true, latest, currentRevision };
+    }
+    const next = normalizeSharedStateSlotStore(latest);
+    const nextRevision = currentRevision + 1;
+    next.storeRevision = Math.max(0, Number(latest.storeRevision) || 0) + 1;
+    next.slots[key] = {
+      slotRevision: nextRevision,
+      savedAt: String(snapshot.savedAt || new Date().toISOString()),
+      savedBy: TAB_INSTANCE_ID,
+      snapshot: cloneJson(snapshot)
+    };
+    localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    syncSharedStateSlotStore(next);
+    postStateSyncMessage({ type: 'slots-changed', action: 'save', slot: safeSlot, storeRevision: next.storeRevision });
+    return { ok: true, store: next, slotRevision: nextRevision };
+  }
+
+  function removeSharedStateSlot(slot, expectedRevision, options = {}) {
+    const safeSlot = normalizeStateSlot(slot);
+    const key = String(safeSlot);
+    const latest = readLatestSharedStateSlotStore();
+    const currentRevision = getSharedSlotRevision(safeSlot, latest);
+    if (!options.force && currentRevision !== Math.max(0, Number(expectedRevision) || 0)) {
+      return { ok: false, conflict: true, latest, currentRevision };
+    }
+    const next = normalizeSharedStateSlotStore(latest);
+    next.storeRevision = Math.max(0, Number(latest.storeRevision) || 0) + 1;
+    delete next.slots[key];
+    localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    syncSharedStateSlotStore(next);
+    postStateSyncMessage({ type: 'slots-changed', action: 'delete', slot: safeSlot, storeRevision: next.storeRevision });
+    return { ok: true, store: next, slotRevision: 0 };
+  }
+
+  function setupMultiTabStateSync() {
+    if ('BroadcastChannel' in window) {
+      stateSyncChannel = new BroadcastChannel(STATE_SYNC_CHANNEL_NAME);
+      stateSyncChannel.addEventListener('message', event => {
+        const message = event.data || {};
+        if (message.sourceTabInstanceId === TAB_INSTANCE_ID) return;
+        if (message.type === 'slots-changed') handleExternalStateSlotStore(readLatestSharedStateSlotStore());
+        if (message.type === 'live-published' && !document.hasFocus()) isLiveStatePublisher = false;
+      });
+    }
+    window.addEventListener('storage', event => {
+      if (event.key === STATE_SLOT_STORAGE_KEY && event.newValue) {
+        try {
+          handleExternalStateSlotStore(normalizeSharedStateSlotStore(JSON.parse(event.newValue)));
+        } catch {}
+      }
+      if (event.key === STATE_LIVE_STORAGE_KEY && event.newValue && !document.hasFocus()) {
+        try {
+          const source = JSON.parse(event.newValue)?.sourceTabInstanceId;
+          if (source && source !== TAB_INSTANCE_ID) isLiveStatePublisher = false;
+        } catch {}
+      }
+    });
+    window.addEventListener('focus', claimLiveStatePublisher);
+    window.addEventListener('blur', () => {
+      flushPendingStateSave();
+      isLiveStatePublisher = false;
+    });
+  }
+
+  function claimLiveStatePublisher() {
+    if (document.visibilityState === 'hidden') return;
+    isLiveStatePublisher = true;
+    publishLiveState();
+  }
+
+  function handleExternalStateSlotStore(nextStore) {
+    const normalized = normalizeSharedStateSlotStore(nextStore);
+    if (normalized.storeRevision <= Math.max(0, Number(sharedStateSlotStore?.storeRevision) || 0)) return;
+    const slot = normalizeStateSlot(view.stateSlot);
+    const previousRevision = getSharedSlotRevision(slot, sharedStateSlotStore);
+    const nextRevision = getSharedSlotRevision(slot, normalized);
+    const currentWasDirty = isCurrentStateDirty();
+    const currentSlotChanged = previousRevision !== nextRevision;
+    syncSharedStateSlotStore(normalized);
+    if (!currentSlotChanged) {
+      renderStateManager();
+      return;
+    }
+    const nextSnapshot = appState.savedStates[String(slot)];
+    if (!currentWasDirty && nextSnapshot) {
+      stateSlotBaseRevision = nextRevision;
+      stateExternalConflict = null;
+      historyState.undoStack = [];
+      historyState.redoStack = [];
+      applyStateSnapshot(nextSnapshot);
+      showStateStatus(`別タブで更新されたスロット${slot}を反映しました`);
+      return;
+    }
+    stateExternalConflict = {
+      slot,
+      type: nextSnapshot ? 'updated' : 'deleted',
+      previousRevision,
+      nextRevision
+    };
+    persistStateWorkspace();
+    renderStateManager();
+    showStateStatus(`スロット${slot}が別タブで${nextSnapshot ? '更新' : '削除'}されました`, true);
+  }
+
+  function loadState() {
+    let legacy = {};
+    try {
+      legacy = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
+    } catch {}
+    sharedStateSlotStore = loadSharedStateSlotStore(legacy.savedStates);
+    initialWorkspaceState = loadStateWorkspace();
+    const parsed = initialWorkspaceState?.draft && typeof initialWorkspaceState.draft === 'object'
+      ? initialWorkspaceState.draft
+      : legacy;
+    const activeStateSlot = normalizeStateSlot(
+      initialWorkspaceState?.activeSlot ?? parsed.activeStateSlot ?? legacy.activeStateSlot
+    );
+    if (!initialWorkspaceState) {
+      initialWorkspaceState = {
+        activeSlot: activeStateSlot,
+        baseSlotRevision: getSharedSlotRevision(activeStateSlot)
+      };
+    }
+    return {
+      activeId: parsed.activeId || '',
+      syncRevision: Math.max(0, Number(parsed.syncRevision) || 0),
+      apostles: parsed.apostles && typeof parsed.apostles === 'object' ? parsed.apostles : {},
+      research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
+      cards: parsed.cards && typeof parsed.cards === 'object' ? migrateCardStateMap(parsed.cards) : {},
+      formation: parsed.formation && typeof parsed.formation === 'object' ? normalizeFormationState(parsed.formation) : createDefaultFormation(),
+      totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
+      activeFormationPresetId: parsed.activeFormationPresetId || '',
+      savedStates: getSharedStateSnapshots(sharedStateSlotStore),
+      activeStateSlot,
+      savedFormations: normalizeFormationPresetList(parsed.savedFormations)
+    };
   }
 
   function saveState(options = {}) {
@@ -10620,7 +11002,8 @@
 
   function persistState() {
     appState.syncRevision = Math.max(0, Number(appState.syncRevision) || 0) + 1;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+    persistStateWorkspace();
+    if (isLiveStatePublisher && document.visibilityState !== 'hidden') publishLiveState();
   }
 
   function scheduleStatSnapshotRefresh(ids = null) {

@@ -999,6 +999,9 @@
     renderSpellCategory(context, { keepPopover: !!options.keepSpellPopover });
     syncCardCostUi(context);
     renderResult(context);
+    window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
+      detail: { targetId: context.target?.id || '' }
+    }));
   }
 
   function getEnemyIndividualBaseState(context, id = view.enemyApostleId) {
@@ -7925,7 +7928,8 @@
     const levels = getFdcEffectiveSkillLevels(target);
     const options = [];
     const statusMultipliers = new Map();
-    collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }, skillIndex) => {
+    const skillSources = collectFdcApostleSkillSources(apostle, levels, target, context);
+    skillSources.forEach(({ skill, sourceKey, sourceLabel }, skillIndex) => {
       const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
       const skillLevel = getFdcSkillLevelForCategory(levels, sourceCategory);
       getFdcSkillStatusMultipliers(skill).forEach(({ status, multiplier }) => {
@@ -7936,12 +7940,16 @@
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
         if (!levelInfo || !Number.isFinite(levelInfo.value)) return;
         const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, sourceCategory) : null;
-        const calcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
+        const baseCalcValue = randomMaxLock ? levelInfo.max : levelInfo.value;
         const damageReference = getFdcApostleDamageReference(effect);
         const referenceLabel = damageReference === 'enemyMaxHp' ? '敵最大HP参照' : '';
         const kind = effect.valueKind || 'ダメージ';
         const attackCategory = String(effect.attackCategory || '').trim();
         const category = attackCategory || sourceCategory;
+        const repeatInfo = sourceLabel === '通常'
+          ? getFdcActionRepeatInfo(skillSources, levels, category)
+          : { count: 1, labels: [] };
+        const calcValue = baseCalcValue * repeatInfo.count;
         const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory);
         const triggerProbability = getFdcSkillTriggerProbabilityLabel(skill);
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
@@ -7957,12 +7965,15 @@
           requiredSp: getFdcLowSkillRequiredSp(skill),
           cooldownSeconds,
           kind,
+          baseValue: String(baseCalcValue),
+          actionRepeatCount: repeatInfo.count,
           damageReference,
           reference: effect.reference || '',
           condition: effect.condition || '',
           shortDetail: [
             triggerProbability,
             referenceLabel,
+            repeatInfo.count > 1 ? `${repeatInfo.count}回分（基礎 ${formatPlainNumber(baseCalcValue)}% ×${formatPlainNumber(repeatInfo.count)}）` : '',
             effect.condition || '',
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
             cooldownSeconds ? `CT ${formatPlainNumber(cooldownSeconds)}秒` : ''
@@ -7973,6 +7984,9 @@
             detailText,
             effect.reference ? `参照: ${effect.reference}` : '',
             effect.condition ? `条件: ${effect.condition}` : '',
+            repeatInfo.count > 1
+              ? `回数補正: ${repeatInfo.labels.join(' / ')}（${formatPlainNumber(baseCalcValue)}% × ${formatPlainNumber(repeatInfo.count)} = ${formatPlainNumber(calcValue)}%）`
+              : '',
             levelInfo.isRange
               ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
               : ''
@@ -7998,6 +8012,44 @@
       });
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function getFdcActionRepeatInfo(skillSources, levels, actionCategory) {
+    const matches = [];
+    normalizeFdcArray(skillSources).forEach(({ skill, sourceLabel }) => {
+      if (sourceLabel === '通常') return;
+      const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
+      const skillLevel = getFdcSkillLevelForCategory(levels, sourceCategory);
+      normalizeFdcArray(skill?.effects).forEach(effect => {
+        if (!isFdcActionRepeatCountEffect(effect)) return;
+        const scope = judgeFdcEffectValueActionScope(effect, actionCategory);
+        if (scope.hasActionScope && !scope.matched) return;
+        const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
+        const count = Number(levelInfo?.value);
+        if (!Number.isFinite(count) || count <= 1) return;
+        matches.push({
+          count,
+          label: `${sourceLabel} ${effect.valueKind || '行動回数'} ${formatPlainNumber(count)}回`
+        });
+      });
+    });
+    if (!matches.length) return { count: 1, labels: [] };
+    const count = Math.max(...matches.map(item => item.count));
+    return {
+      count,
+      labels: matches.filter(item => item.count === count).map(item => item.label)
+    };
+  }
+
+  function isFdcActionRepeatCountEffect(effect = {}) {
+    const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+    const valueClass = String(effect.valueClass || '').trim();
+    const effectType = String(effect.effectType || '').trim();
+    // 「召喚回数」は対象行動全体の反復数として扱う。
+    // 追加攻撃回数や最大使用回数は別ダメージ・使用制限なのでここでは掛けない。
+    return valueClass === '回数'
+      && /召喚回数$/.test(valueKind)
+      && (!effectType || /召喚/.test(effectType));
   }
 
   function getFdcSkillTriggerProbabilityLabel(skill = {}) {
@@ -8617,6 +8669,29 @@
     localStorage.setItem(THEME_KEY, theme);
     localStorage.setItem(LEGACY_THEME_KEY, theme);
   }
+
+  function createDpsPrototypeSnapshot() {
+    const context = buildContext();
+    const target = context.target;
+    const apostle = getApostleSkillData(target);
+    return {
+      targetId: target?.id || '',
+      targetName: target?.name || apostle?.name || '',
+      target,
+      apostle,
+      skillLevels: target ? getFdcEffectiveSkillLevels(target) : {},
+      damageType: context.damageType,
+      actionCategory: context.actionCategory,
+      selectedSkillOptionKey: view.selectedSkillOptionKey,
+      selectedSkillOptions: target ? buildFdcApostleSkillOptions(target, context) : [],
+      currentDamageResult: calculateDamage(context)
+    };
+  }
+
+  window.TRICKCAL_DAMAGE_CALC = Object.freeze({
+    version: 1,
+    createDpsSnapshot: createDpsPrototypeSnapshot
+  });
 
   function renderUiIcon(name, className = '') {
     const paths = {

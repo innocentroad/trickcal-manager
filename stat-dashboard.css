@@ -2313,6 +2313,14 @@ body.dashboard-page.is-booting::after {
   font-family: inherit;
 }
 
+.bottom-save-menu.has-external-conflict .state-slot-indicator,
+.bottom-save-slots button.has-external-conflict {
+  color: #fff;
+  border-color: rgba(177, 48, 48, 0.78);
+  background: linear-gradient(135deg, #c44b45, #8f2934);
+  box-shadow: 0 0 0 2px rgba(213, 77, 77, 0.24);
+}
+
 .bottom-save-popover button {
   appearance: none;
   box-sizing: border-box;
@@ -3608,6 +3616,13 @@ body.dashboard-page.is-booting::after {
   cursor: pointer;
   max-width: 166px;
   transition: filter 140ms ease, opacity 140ms ease, transform 140ms ease;
+}
+
+:root[data-theme="dark"] .bottom-save-menu.has-external-conflict .state-slot-indicator,
+:root[data-theme="dark"] .bottom-save-slots button.has-external-conflict {
+  color: #fff7f7 !important;
+  border-color: rgba(248, 113, 113, 0.58) !important;
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d) !important;
 }
 
 .resource-card-mobile-controls {

@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>トリッカル ダメージ計算ツール | Trickcal Manager</title>
+  <title>DPS計算プロトタイプ | Trickcal Manager</title>
   <meta name="description" content="トリッカル・もちもちほっペ大作戦の使徒、スキル、編成、遺物カード、スペルカード、クレヨンボード補正、バフ・デバフ、攻撃力、防御力、会心率、会心ダメージを反映できる非公式ダメージ計算ツールです。">
-  <meta name="robots" content="index,follow">
-  <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/formation-damage-calc.html">
+  <meta name="robots" content="noindex,nofollow">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ja_JP">
   <meta property="og:site_name" content="Trickcal Manager">
@@ -38,6 +37,7 @@
   <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260727w">
+  <link rel="stylesheet" href="formation-dps-calc.css?v=20260803a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -49,12 +49,12 @@
     gtag('config', 'G-J8GXV74KQY');
   </script>
 </head>
-<body class="formation-damage-calc theme-dark" data-fdc-mobile-side="self">
+<body class="formation-damage-calc formation-dps-prototype theme-dark" data-fdc-mobile-side="self">
   <main class="fdc-shell">
     <section class="fdc-top-control-bar" aria-label="計算操作">
       <div class="fdc-top-status">
-        <h1>ダメージ計算</h1>
-        <span>カード・クレヨンボード・シナジー込みで計算</span>
+        <h1>DPS試験</h1>
+        <span>既存設定を使った行動タイムライン試験</span>
       </div>
       <div class="fdc-top-tabs" aria-label="表示切替">
         <button type="button" class="is-active"><span class="topbar-label">ダメ<br>計算</span></button>
@@ -84,6 +84,48 @@
           <svg class="ui-icon ui-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
         </button>
       </div>
+    </section>
+    <section class="fdc-dps-lab" id="fdc-dps-lab" aria-labelledby="fdc-dps-title">
+      <div class="fdc-dps-lab-head">
+        <div>
+          <h2 id="fdc-dps-title">DPSシミュレーション</h2>
+          <p id="fdc-dps-target-note">使徒設定を読み込んでいます。</p>
+        </div>
+        <span class="fdc-dps-prototype-badge">PROTOTYPE</span>
+      </div>
+      <div class="fdc-dps-controls">
+        <label>
+          <span>計測時間</span>
+          <select id="fdc-dps-duration">
+            <option value="30">30秒</option>
+            <option value="60" selected>60秒</option>
+            <option value="120">120秒</option>
+            <option value="180">180秒</option>
+          </select>
+        </label>
+        <label>
+          <span>高学年</span>
+          <select id="fdc-dps-high-mode">
+            <option value="disabled">発動なし</option>
+            <option value="auto">オート発動</option>
+          </select>
+        </label>
+        <label>
+          <span>初動（秒）</span>
+          <input id="fdc-dps-initial-delay" type="number" value="1" min="0" max="30" step="0.1">
+        </label>
+        <label>
+          <span>乱数シード</span>
+          <input id="fdc-dps-seed" type="number" value="1" min="1" step="1">
+        </label>
+        <button type="button" id="fdc-dps-run">タイムライン計算</button>
+      </div>
+      <div class="fdc-dps-status" id="fdc-dps-status" role="status"></div>
+      <div class="fdc-dps-summary" id="fdc-dps-summary"></div>
+      <details class="fdc-dps-timeline-panel" open>
+        <summary>行動タイムライン</summary>
+        <div class="fdc-dps-timeline" id="fdc-dps-timeline"></div>
+      </details>
     </section>
     <button type="button" id="fdc-perspective-toggle" class="fdc-perspective-toggle" title="攻守切替" aria-label="攻守切替">
       <svg class="fdc-perspective-arrow fdc-arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M14 7l5 5-5 5"></path></svg>
@@ -862,6 +904,9 @@
   <script src="enemy-presets.js?v=20260727n"></script>
   <script src="app-cache.js?v=20260727zi"></script>
   <script src="image-preload.js?v=20260727a"></script>
+  <script src="dps-timing-data.js?v=20260803a"></script>
+  <script src="dps-simulator.js?v=20260803a"></script>
   <script src="formation-damage-calc.js?v=20260806a"></script>
+  <script src="formation-dps-calc.js?v=20260803a"></script>
 </body>
 </html>

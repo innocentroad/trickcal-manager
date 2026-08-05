@@ -80,7 +80,7 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Amelia_high_e01",
-            "valueKind": "物理ダメージ",
+            "valueKind": "総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
@@ -104,7 +104,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Amelia_high_e02",
-            "valueKind": "物理ダメージ",
+            "valueKind": "総物理ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
@@ -542,7 +542,7 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Aya_basic_e01",
-            "valueKind": "魔法ダメージ",
+            "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "effectTarget": "敵",
@@ -550,7 +550,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Aya_basic_e02",
-            "valueKind": "魔法ダメージ",
+            "valueKind": "総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
             "effectTarget": "敵",
@@ -566,7 +566,7 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Aya_enhanced_e01",
-            "valueKind": "魔法ダメージ",
+            "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
@@ -574,7 +574,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Aya_enhanced_e02",
-            "valueKind": "魔法ダメージ",
+            "valueKind": "総魔法ダメージ",
             "valueClass": "ヒット数",
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
@@ -697,7 +697,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Alice_low_e05",
-            "valueKind": "[残り火注意]総魔法ダメージ",
+            "valueKind": "[残り火注意]魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "condition": "ランダム",
@@ -862,7 +862,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Alice_high_e05",
-            "valueKind": "[残り火注意]総魔法ダメージ",
+            "valueKind": "[残り火注意]魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "condition": "ランダム",
@@ -4999,7 +4999,10 @@ const APOSTLE_LIBRARY = [
               "9": 594.0,
               "10": 627.0,
               "11": 660.0,
-              "12": 693.0
+              "12": 693.0,
+              "13": 726.0,
+              "14": 759.0,
+              "15": 792.0
             }
           }
         ],
@@ -5028,7 +5031,10 @@ const APOSTLE_LIBRARY = [
               "9": 885.0,
               "10": 930.0,
               "11": 975.0,
-              "12": 1020.0
+              "12": 1020.0,
+              "13": 1065.0,
+              "14": 1110.0,
+              "15": 1155.0
             }
           }
         ],
@@ -5058,7 +5064,10 @@ const APOSTLE_LIBRARY = [
               "9": 36.0,
               "10": 38.0,
               "11": 40.0,
-              "12": 42.0
+              "12": 42.0,
+              "13": 44.0,
+              "14": 46.0,
+              "15": 48.0
             }
           },
           {
@@ -5079,7 +5088,10 @@ const APOSTLE_LIBRARY = [
               "9": 18.0,
               "10": 19.0,
               "11": 20.0,
-              "12": 21.0
+              "12": 21.0,
+              "13": 22.0,
+              "14": 23.0,
+              "15": 24.0
             }
           }
         ],
@@ -5140,7 +5152,121 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "日光浴カンナ",
+      "levels": {
+        "1": {
+          "name": "完璧な休暇",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Canna_aside_1",
+              "effectId": "Canna_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Canna_aside_1",
+              "effectId": "Canna_aside_1_e02",
+              "valueKind": "物理攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Canna_aside_1",
+              "effectId": "Canna_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Canna_aside_1",
+              "effectId": "Canna_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "腕利き砲手のカンナ",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Canna_aside_2",
+              "effectId": "Canna_aside_2_e01",
+              "valueKind": "強化攻撃発動確率増加",
+              "valueClass": "倍率",
+              "effectType": "パッシブ",
+              "effectTarget": "自身",
+              "fixedValue": 15.0
+            },
+            {
+              "skillId": "Canna_aside_2",
+              "effectId": "Canna_aside_2_e02",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "低学年スキル使用後",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 60.0
+            },
+            {
+              "skillId": "Canna_aside_2",
+              "effectId": "Canna_aside_2_e03",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "condition": "低学年スキル使用後",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 8.0
+            }
+          ],
+          "description": "強化攻撃発動確率が増加する。\n低学年スキル使用後、攻撃速度が増加する。"
+        },
+        "3": {
+          "name": "後衛隊援護要請",
+          "stats": [
+            {
+              "skillId": "Canna_aside_3_global",
+              "effectId": "Canna_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "HP",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Canna_aside_3_global",
+              "effectId": "Canna_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Canna_aside_3_battle",
+              "effectId": "Canna_aside_3_battle_e01",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/後列",
+              "fixedValue": 9.7
+            }
+          ],
+          "description": "後列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -11718,7 +11844,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 5.9
             }
           ],
-          "description": "中列の味方の与ダメージ量を増加させ、被ダメージ量を減少させる。"
+          "description": "中列の味方の与ダメージ量を増加させ、中列の味方の敵からの被ダメージ量を減少させる。"
         }
       }
     },
@@ -12270,7 +12396,10 @@ const APOSTLE_LIBRARY = [
               "9": 18.0,
               "10": 19.0,
               "11": 20.0,
-              "12": 21.0
+              "12": 21.0,
+              "13": 22.0,
+              "14": 23.0,
+              "15": 24.0
             }
           },
           {
@@ -12315,7 +12444,10 @@ const APOSTLE_LIBRARY = [
               "9": 26.0,
               "10": 28.0,
               "11": 30.0,
-              "12": 32.0
+              "12": 32.0,
+              "13": 34.0,
+              "14": 36.0,
+              "15": 38.0
             }
           },
           {
@@ -12336,7 +12468,10 @@ const APOSTLE_LIBRARY = [
               "9": 648.0,
               "10": 684.0,
               "11": 720.0,
-              "12": 756.0
+              "12": 756.0,
+              "13": 792.0,
+              "14": 828.0,
+              "15": 864.0
             }
           }
         ],
@@ -12366,7 +12501,10 @@ const APOSTLE_LIBRARY = [
               "9": 5.0,
               "10": 5.5,
               "11": 6.0,
-              "12": 6.5
+              "12": 6.5,
+              "13": 7.0,
+              "14": 7.5,
+              "15": 8.0
             }
           }
         ],
@@ -12542,7 +12680,135 @@ const APOSTLE_LIBRARY = [
       }
     },
     "aside": {
-      "levels": {}
+      "name": "説教の竜族シルフィール",
+      "levels": {
+        "1": {
+          "name": "あなたの説教だけ聞こえる",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Naia_aside_1",
+              "effectId": "Naia_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Naia_aside_1",
+              "effectId": "Naia_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Naia_aside_1",
+              "effectId": "Naia_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Naia_aside_1",
+              "effectId": "Naia_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Naia_aside_1",
+              "effectId": "Naia_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "キュッキュッと洗うよ",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Naia_aside_2",
+              "effectId": "Naia_aside_2_e01",
+              "valueKind": "気絶",
+              "valueClass": "状態免疫",
+              "effectType": "バフ",
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "Naia_aside_2",
+              "effectId": "Naia_aside_2_e02",
+              "valueKind": "ノックバック",
+              "valueClass": "状態免疫",
+              "effectType": "バフ",
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "Naia_aside_2",
+              "effectId": "Naia_aside_2_e03",
+              "valueKind": "前進する波召喚回数",
+              "valueClass": "回数",
+              "effectType": "召喚",
+              "attackCategory": "高学年スキル",
+              "effectTarget": "前進する波",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 2.0
+            }
+          ],
+          "description": "気絶とノックバックに免疫を持つ。\n高学年スキルの前進する波を2回召喚する。"
+        },
+        "3": {
+          "name": "水が伝えるメッセージ",
+          "stats": [
+            {
+              "skillId": "Naia_aside_3_global",
+              "effectId": "Naia_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Naia_aside_3_global",
+              "effectId": "Naia_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心抵抗",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Naia_aside_3_battle",
+              "effectId": "Naia_aside_3_battle_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 7.2
+            },
+            {
+              "skillId": "Naia_aside_3_battle",
+              "effectId": "Naia_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 4.5
+            }
+          ],
+          "description": "味方全員の最大HPを増加させ、味方全員の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -12867,7 +13133,7 @@ const APOSTLE_LIBRARY = [
               "effectType": "バフ",
               "condition": "高学年スキル使用時",
               "effectTarget": "自身/前衛使徒",
-              "targetSkill": "高学年スキル"
+              "targetSkill": "高学年スキル使用時"
             },
             {
               "skillId": "Ner_aside_2",
@@ -12921,7 +13187,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 4.5
             }
           ],
-          "description": "味方全員の与ダメージ量を増加させ、被ダメージ量を減少させる。"
+          "description": "味方全員の与ダメージ量を増加させ、味方全員の敵からの被ダメージ量を減少させる。"
         }
       }
     },
@@ -13965,7 +14231,7 @@ const APOSTLE_LIBRARY = [
               "fixedValue": 5.9
             }
           ],
-          "description": "前列の味方の与ダメージ量を増加させ、被ダメージ量を減少させる。"
+          "description": "前列の味方の与ダメージ量を増加させ、前列の味方の敵からの被ダメージ量を減少させる。"
         }
       }
     },
@@ -15916,8 +16182,7 @@ const APOSTLE_LIBRARY = [
         "skillId": "Fricle_low",
         "skillType": "低学年",
         "skillName": "スティンギングゲートキーパー",
-        "description": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。 この棘の触手は、消滅時、敵により大きなダメージを与える。",
-        "stunSeconds": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。"
+        "description": "敵に範囲魔法ダメージを与え、召喚された棘の触手を全て消滅させる。 この棘の触手は、消滅時、敵により大きなダメージを与える。"
       },
       {
         "effects": [
@@ -22734,7 +22999,8 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
         "description": "一定確率で短剣を薙ぎ払って敵に物理ダメージを与える。 自身に目くらましを付与する。",
-        "triggerType": "一定確率"
+        "triggerType": "一定確率",
+        "triggerValue": 30.0
       }
     ],
     "favoriteCard": {},
@@ -23475,7 +23741,8 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
         "description": "一定確率で本気の攻撃を行い、敵に物理ダメージを与える。 気絶を付与する。",
-        "triggerType": "一定確率"
+        "triggerType": "一定確率",
+        "triggerValue": 30.0
       }
     ],
     "favoriteCard": {},
@@ -23710,7 +23977,8 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
         "description": "一定確率で、指定範囲内で最も遠い敵に火の玉を飛ばして、範囲魔法ダメージを与え、火傷を付与する。",
-        "triggerType": "一定確率"
+        "triggerType": "一定確率",
+        "triggerValue": 33.0
       }
     ],
     "favoriteCard": {

@@ -381,6 +381,15 @@ def merge_effect_sheets(
         skill_id = str(effect.get("skillId", ""))
         if not skill_id:
             continue
+        original_skill_id = skill_id
+        if source_name.startswith("aside ") and skill_id not in basics_by_skill_id:
+            match = re.fullmatch(r"(.+?)_(\d+)_(global|battle)", skill_id)
+            if match:
+                candidate = f"{match.group(1)}_aside_{match.group(2)}_{match.group(3)}"
+                if candidate in basics_by_skill_id:
+                    skill_id = candidate
+                    effect = {**effect, "skillId": candidate}
+                    print(f"WARN: {source_name} skillId normalized: {original_skill_id} -> {candidate}")
         basic = basics_by_skill_id.get(skill_id)
         if basic is None:
             raise ValueError(f"{source_name} effect references missing skillId: {skill_id}")
