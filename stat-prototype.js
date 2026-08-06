@@ -3609,6 +3609,7 @@
     elements.cardManagerTabs.forEach(item => item.classList.toggle('is-active', item.dataset.cardKind === view.cardManager.kind));
     updateGlobalOpenActiveButton(viewName === 'global' && globalPanel !== 'cards' ? globalPanel : '');
     updateCardManagerQuickButtons(viewName === 'global' && globalPanel === 'cards' ? view.cardManager.kind : '');
+    syncDashboardRouteToUrl();
   }
   function activateDashboardView(name, options = {}) {
     const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
@@ -3629,6 +3630,7 @@
     if (viewName === 'formation') renderFormation();
     if (viewName === 'board') render();
     if (viewName === 'global' && options.render !== false) renderActiveGlobalSettingPanel();
+    syncDashboardRouteToUrl();
     commitHistoryAction(history);
   }
 
@@ -3640,6 +3642,7 @@
     elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
     updateGlobalOpenActiveButton(tab);
     renderActiveGlobalSettingPanel();
+    syncDashboardRouteToUrl();
     if (options.scroll !== false) scrollGlobalSettingIntoView(tab);
     commitHistoryAction(history);
   }
@@ -3653,8 +3656,34 @@
     updateGlobalOpenActiveButton('');
     updateCardManagerQuickButtons(safeKind);
     renderCardManager();
+    syncDashboardRouteToUrl();
     if (options.scroll !== false) scrollGlobalSettingIntoView('cards');
     commitHistoryAction(history);
+  }
+
+  function syncDashboardRouteToUrl() {
+    if (!window.history?.replaceState) return;
+    const viewName = getActiveDashboardViewName();
+    const globalPanel = getActiveGlobalSettingPanelName();
+    const params = new URLSearchParams(window.location.search);
+    params.delete('view');
+    params.delete('global');
+    params.delete('card');
+
+    if (viewName === 'global') {
+      if (globalPanel === 'cards') {
+        params.set('card', view.cardManager.kind === 'spell' ? 'spell' : 'artifact');
+      } else {
+        params.set('global', globalPanel || 'research');
+      }
+    } else {
+      params.set('view', normalizeDashboardViewName(viewName));
+    }
+
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, '', nextUrl);
   }
 
   function applyInitialDashboardRoute() {
@@ -3672,6 +3701,7 @@
         document.querySelector('[data-dashboard-panel="formation"]')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
       }
     }
+    syncDashboardRouteToUrl();
   }
 
   function saveDashboardReloadContext() {
@@ -7597,6 +7627,7 @@
       progressTotal: 0,
       flat: createEmptyTotals(),
       percent: createEmptyTotals(),
+      advancedCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }])),
       specialCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }]))
     });
     const layers = {
@@ -7622,6 +7653,12 @@
             if (filled) layer.specialCounts[key].filled += 1;
           });
         }
+        if (row.マス_type === '上級') {
+          getBoardRowStatGroupKeys(row).forEach(key => {
+            layer.advancedCounts[key].total += 1;
+            if (filled) layer.advancedCounts[key].filled += 1;
+          });
+        }
         if (filled) addBoardRowToSummary(row, layer.flat, layer.percent);
       });
     });
@@ -7642,30 +7679,45 @@
       </button>
       <div class="board-global-effect-summary-heading"><strong>現在の全体効果値</strong><span>上級 / 特殊</span></div>
       <div class="board-global-stat-matrices">
-        ${Object.entries(layers).map(([layer, value]) => renderBoardGlobalStatMatrix(layer, value)).join('')}
+        ${renderBoardGlobalStatMatrix('special', layers)}
+        ${renderBoardGlobalStatMatrix('advanced', layers)}
       </div>
     `;
   }
 
-  function renderBoardGlobalStatMatrix(layer, values) {
+  function renderBoardGlobalStatMatrix(tileType, layers) {
+    const isSpecial = tileType === 'special';
+    const label = isSpecial ? '特殊マス' : '上級マス';
+    const icon = isSpecial ? 'Tileicon_3.webp' : 'Tileicon_2.webp';
+    const suffix = isSpecial ? '%' : '';
     return `
-      <table class="board-global-stat-matrix board-global-stat-matrix-${escapeAttr(layer)}">
+      <table class="board-global-stat-matrix board-global-effect-type-matrix is-${escapeAttr(tileType)}">
         <thead>
           <tr>
-            <th>B${escapeHtml(layer)}</th>
-            <th title="上級マス"><img src="img/Board/Tileicon_2.webp" alt="上級"></th>
-            <th title="特殊マス"><img src="img/Board/Tileicon_3.webp" alt="特殊"></th>
+            <th title="${escapeAttr(label)}">
+              <span class="board-global-effect-type-label"><img src="img/Board/${escapeAttr(icon)}" alt="${escapeAttr(label)}"></span>
+            </th>
+            ${[1, 2, 3].map(layer => `<th class="board-global-matrix-layer-${layer}">B${layer}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
           ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
             <tr>
               <th title="${escapeAttr(group.label)}"><img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}"></th>
-              <td>${renderBoardGlobalGroupedValue(values.flat, group, '')}</td>
-              <td class="board-global-special-value">
-                <strong>${renderBoardGlobalGroupedValue(values.percent, group, '%')}</strong>
-                <small title="特殊マス達成数">${values.specialCounts[group.key].filled}/${values.specialCounts[group.key].total}</small>
-              </td>
+              ${[1, 2, 3].map(layer => {
+                const values = layers[layer];
+                const counts = isSpecial ? values.specialCounts[group.key] : values.advancedCounts[group.key];
+                const totals = isSpecial ? values.percent : values.flat;
+                const isComplete = counts.total > 0 && counts.filled === counts.total;
+                return `
+                  <td class="board-global-special-value board-global-matrix-layer-${layer}${isComplete ? ' is-complete' : ''}">
+                    <strong>${renderBoardGlobalGroupedValue(totals, group, suffix)}</strong>
+                    <small${isComplete ? ' class="is-complete"' : ''} title="${escapeAttr(label)}達成数${isComplete ? '（100%達成）' : ''}">
+                      <span class="board-global-count-current">${counts.filled}</span><span class="board-global-count-separator">/</span><span class="board-global-count-total">${counts.total}</span>
+                    </small>
+                  </td>
+                `;
+              }).join('')}
             </tr>
           `).join('')}
         </tbody>

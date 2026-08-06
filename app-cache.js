@@ -7,14 +7,14 @@
   const ROUTE_ASSETS = {
     stat: [
       'stat-dashboard.html',
-      'stat-prototype.css?v=20260728a',
-      'stat-dashboard.css?v=20260801g',
+      'stat-prototype.css?v=20260806g',
+      'stat-dashboard.css?v=20260806g',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260727b',
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260725a',
-      'stat-prototype.js?v=20260728f',
+      'stat-prototype.js?v=20260806g',
       'stat-dashboard.js?v=20260722b',
       'image-preload.js?v=20260727a'
     ],

@@ -2785,9 +2785,23 @@ h3 {
 
 .board-global-stat-matrices {
   display: grid;
-  grid-template-columns: repeat(3, minmax(210px, 1fr));
+  grid-template-columns: repeat(2, minmax(300px, 1fr));
   gap: 7px;
   overflow-x: auto;
+}
+
+.board-global-effect-type-matrix.is-special {
+  --board-global-layer-border: rgba(126, 87, 184, 0.3);
+  --board-global-layer-bg: rgba(236, 224, 255, 0.52);
+  --board-global-layer-head: rgba(126, 87, 184, 0.18);
+  --board-global-layer-text: #6b4592;
+}
+
+.board-global-effect-type-matrix.is-advanced {
+  --board-global-layer-border: rgba(49, 111, 180, 0.3);
+  --board-global-layer-bg: rgba(216, 235, 255, 0.52);
+  --board-global-layer-head: rgba(49, 111, 180, 0.18);
+  --board-global-layer-text: #285d91;
 }
 
 .board-global-stat-matrix {
@@ -2796,8 +2810,12 @@ h3 {
   --board-global-layer-head: rgba(62, 119, 84, 0.08);
   --board-global-layer-text: var(--green-dark);
   width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   border-collapse: separate;
   border-spacing: 0;
+  table-layout: fixed;
   overflow: hidden;
   border: 1px solid var(--board-global-layer-border);
   border-radius: 10px;
@@ -2850,6 +2868,7 @@ h3 {
 
 .board-global-special-value small {
   min-width: 34px;
+  box-sizing: border-box;
   margin-left: 5px;
   border-radius: 999px;
   padding: 2px 5px;
@@ -2860,10 +2879,91 @@ h3 {
   text-align: center;
 }
 
+.board-global-count-current {
+  color: #15804f;
+  font-size: 0.68rem;
+  font-weight: 1000;
+}
+
+.board-global-count-separator,
+.board-global-count-total {
+  color: #66756b;
+}
+
+.board-global-count-separator {
+  margin: 0 1px;
+}
+
+.board-global-special-value small.is-complete {
+  position: relative;
+  color: #2f654b;
+  background: rgba(21, 128, 79, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(21, 128, 79, 0.2);
+}
+
+.board-global-special-value small.is-complete::before {
+  content: "✓";
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  display: grid;
+  width: 10px;
+  height: 10px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #369267;
+  font-size: 0.48rem;
+  line-height: 1;
+  font-weight: 1000;
+}
+
+.board-global-special-value small.is-complete .board-global-count-current,
+.board-global-special-value small.is-complete .board-global-count-separator,
+.board-global-special-value small.is-complete .board-global-count-total {
+  color: inherit;
+}
+
 .board-global-stat-matrix thead th {
   color: var(--board-global-layer-text);
   background: var(--board-global-layer-head);
   text-align: center;
+}
+
+.board-global-stat-matrix thead th:first-child,
+.board-global-stat-matrix tbody th {
+  width: 34px;
+  box-sizing: border-box;
+}
+
+.board-global-effect-type-matrix thead th:first-child,
+.board-global-effect-type-matrix tbody th {
+  width: 44px;
+}
+
+.board-global-effect-type-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.board-global-effect-type-label img {
+  width: 22px;
+  height: 22px;
+}
+
+.board-global-effect-type-matrix .board-global-matrix-layer-1 {
+  background-color: rgba(53, 139, 76, 0.07);
+}
+
+.board-global-effect-type-matrix .board-global-matrix-layer-2 {
+  background-color: rgba(49, 111, 180, 0.07);
+}
+
+.board-global-effect-type-matrix .board-global-matrix-layer-3 {
+  background-color: rgba(126, 87, 184, 0.07);
 }
 
 .board-global-stat-matrix thead img {
@@ -3239,7 +3339,35 @@ h3 {
   }
 
   .board-global-stat-matrices {
-    grid-template-columns: repeat(3, minmax(190px, 1fr));
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+  }
+
+  .board-global-stat-matrix th,
+  .board-global-stat-matrix td {
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .board-global-effect-type-matrix .board-global-special-value {
+    white-space: normal;
+    text-align: center;
+  }
+
+  .board-global-special-value strong,
+  .board-global-special-value small {
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .board-global-special-value strong {
+    overflow-wrap: anywhere;
+  }
+
+  .board-global-special-value small {
+    margin-top: 2px;
   }
 
   .board-global-filter-row > strong {

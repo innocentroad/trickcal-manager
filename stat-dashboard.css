@@ -8635,6 +8635,20 @@ body.dashboard-page.is-booting::after {
   margin-bottom: 10px;
 }
 
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-special {
+  --board-global-layer-border: rgba(196, 181, 253, 0.36);
+  --board-global-layer-bg: #321d4c;
+  --board-global-layer-label-bg: rgba(126, 34, 206, 0.86);
+  --board-global-layer-text: #e9d5ff;
+}
+
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-advanced {
+  --board-global-layer-border: rgba(96, 165, 250, 0.34);
+  --board-global-layer-bg: #17294f;
+  --board-global-layer-label-bg: rgba(37, 99, 235, 0.84);
+  --board-global-layer-text: #bfdbfe;
+}
+
 :root[data-theme="dark"] button.board-floating-cancel-button {
   color: #fff;
   border-color: rgba(252, 165, 165, 0.48);
@@ -9069,6 +9083,26 @@ body.dashboard-page.is-booting::after {
 
 :root[data-theme="dark"] .board-global-special-value small {
   color: color-mix(in srgb, var(--board-global-layer-text) 70%, rgba(226, 232, 240, 0.7));
+}
+
+:root[data-theme="dark"] .board-global-count-current {
+  color: #fde68a;
+}
+
+:root[data-theme="dark"] .board-global-count-separator,
+:root[data-theme="dark"] .board-global-count-total {
+  color: rgba(203, 213, 225, 0.72);
+}
+
+:root[data-theme="dark"] .board-global-special-value small.is-complete {
+  color: rgba(207, 250, 254, 0.92);
+  background: rgba(14, 116, 144, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(103, 232, 249, 0.25);
+}
+
+:root[data-theme="dark"] .board-global-special-value small.is-complete::before {
+  color: #ecfeff;
+  background: #287f99;
 }
 
 :root[data-theme="dark"] .board-global-tile,
