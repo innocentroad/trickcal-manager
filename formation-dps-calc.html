@@ -32,12 +32,12 @@
   <link rel="prefetch" href="stat-dashboard.html" as="document">
   <link rel="prefetch" href="index.html" as="document">
   <link rel="prefetch" href="stat-prototype.css?v=20260806g" as="style">
-  <link rel="prefetch" href="stat-dashboard.css?v=20260806g" as="style">
-  <link rel="prefetch" href="stat-prototype.js?v=20260806g" as="script">
-  <link rel="prefetch" href="stat-dashboard.js?v=20260722b" as="script">
+  <link rel="prefetch" href="stat-dashboard.css?v=20260808i" as="style">
+  <link rel="prefetch" href="stat-prototype.js?v=20260808j" as="script">
+  <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260727w">
-  <link rel="stylesheet" href="formation-dps-calc.css?v=20260803a">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260808i">
+  <link rel="stylesheet" href="formation-dps-calc.css?v=20260806e">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -58,7 +58,7 @@
       </div>
       <div class="fdc-top-tabs" aria-label="表示切替">
         <button type="button" class="is-active"><span class="topbar-label">ダメ<br>計算</span></button>
-        <a href="stat-dashboard.html"><span class="topbar-label">ステ<br>管理</span></a>
+        <a href="stat-dashboard.html?view=settings"><span class="topbar-label">ステ<br>管理</span></a>
         <a href="stat-dashboard.html?view=formation">編成</a>
         <a href="stat-dashboard.html?card=artifact">遺物</a>
         <a href="stat-dashboard.html?card=spell">スペル</a>
@@ -115,15 +115,59 @@
           <input id="fdc-dps-initial-delay" type="number" value="1" min="0" max="30" step="0.1">
         </label>
         <label>
-          <span>乱数シード</span>
+          <span>検証seed</span>
           <input id="fdc-dps-seed" type="number" value="1" min="1" step="1">
         </label>
-        <button type="button" id="fdc-dps-run">タイムライン計算</button>
+        <label>
+          <span>統計試行</span>
+          <select id="fdc-dps-trials">
+            <option value="16">16 seed（高速）</option>
+            <option value="64" selected>64 seed（標準）</option>
+            <option value="256">256 seed（精密）</option>
+          </select>
+        </label>
+        <button type="button" id="fdc-dps-run">DPS・タイムライン計算</button>
+      </div>
+      <div class="fdc-dps-compare-controls" aria-label="DPS設定比較">
+        <button type="button" id="fdc-dps-baseline-save">基準として保存</button>
+        <button type="button" id="fdc-dps-baseline-compare" disabled>基準と比較</button>
+        <button type="button" id="fdc-dps-baseline-clear" class="is-clear" disabled>基準を解除</button>
+        <span id="fdc-dps-baseline-note">基準は未保存です。</span>
       </div>
       <div class="fdc-dps-status" id="fdc-dps-status" role="status"></div>
+      <section id="fdc-dps-comparison-panel" class="fdc-dps-comparison-panel" aria-labelledby="fdc-dps-comparison-title" hidden>
+        <div class="fdc-dps-section-head">
+          <div>
+            <h3 id="fdc-dps-comparison-title">基準とのDPS差分</h3>
+            <p id="fdc-dps-comparison-note"></p>
+          </div>
+        </div>
+        <div id="fdc-dps-comparison"></div>
+      </section>
+      <section class="fdc-dps-contribution-panel" aria-labelledby="fdc-dps-contribution-title">
+        <div class="fdc-dps-section-head">
+          <div>
+            <h3 id="fdc-dps-contribution-title">行動別DPS寄与度</h3>
+            <p>同じ戦闘条件を連続seedで試行した期待値です。時限効果は現在、静的状態として評価します。</p>
+          </div>
+          <span id="fdc-dps-trial-note"></span>
+        </div>
+        <div class="fdc-dps-contribution" id="fdc-dps-contribution"></div>
+      </section>
+      <details class="fdc-dps-effect-audit-panel">
+        <summary>行動別適用効果 <span id="fdc-dps-effect-audit-note"></span></summary>
+        <p>各行動の静的ダメージ作成時に、実際に適用・除外された効果です。</p>
+        <div id="fdc-dps-effect-audit"></div>
+      </details>
+      <div class="fdc-dps-section-head is-single-seed">
+        <div>
+          <h3>単一seed検証</h3>
+          <p>行動順、SP回復、ランダム分岐の再現確認用です。</p>
+        </div>
+      </div>
       <div class="fdc-dps-summary" id="fdc-dps-summary"></div>
       <details class="fdc-dps-timeline-panel" open>
-        <summary>行動タイムライン</summary>
+        <summary>単一seed 行動タイムライン</summary>
         <div class="fdc-dps-timeline" id="fdc-dps-timeline"></div>
       </details>
     </section>
@@ -225,7 +269,7 @@
           <h3>スキル</h3>
           <div class="fdc-skill-config-grid">
             <label class="fdc-field">
-              <span>スキル倍率(%)</span>
+              <span>スキル倍率 (%)</span>
               <input id="fdc-self-skill" type="number" min="0" value="100">
             </label>
           </div>
@@ -267,7 +311,7 @@
         </div>
 
         <div class="stat-category">
-          <h3>倍率 (%)</h3>
+          <h3>ダメージ倍率 (%)</h3>
           <div class="fdc-stat-grid fdc-compact-percent-grid">
             <label class="fdc-field fdc-attack-only">
               <span>属性相性</span>
@@ -280,15 +324,15 @@
               </select>
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>その他</span>
+              <span>その他倍率</span>
               <input id="fdc-self-other" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>与ダメ増減</span>
+              <span>与ダメージ量増減</span>
               <input id="fdc-self-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-defense-only">
-              <span>被ダメ増減</span>
+              <span>被ダメージ量増減</span>
               <input id="fdc-self-taken-dmg-p" type="number" value="0">
             </label>
           </div>
@@ -334,7 +378,7 @@
         </div>
 
         <div class="stat-category">
-          <h3>追加 (%)</h3>
+          <h3>ステータス補正 (%)</h3>
           <div class="fdc-stat-grid fdc-mixed-percent-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
               <span>攻撃力</span>
@@ -371,12 +415,37 @@
           </div>
         </div>
 
-        <div class="stat-category">
-          <h3>追加クレヨン (%)</h3>
+        <div class="stat-category fdc-board-crayon-category">
+          <h3>ボード・追加クレヨン</h3>
+          <div class="fdc-board-stat-mode">
+            <span class="fdc-board-stat-mode-copy">
+              <strong>ボード状態</strong>
+              <small>現在値か、予定ボード反映後の値を使用</small>
+            </span>
+            <select id="fdc-stat-mode" aria-label="ボード状態">
+              <option value="current">現在</option>
+              <option value="planned">予定</option>
+            </select>
+            <span class="fdc-stat-mode-toggle" role="group" aria-label="ボード状態">
+              <button type="button" data-fdc-stat-mode-choice="current" aria-pressed="true">現在</button>
+              <button type="button" data-fdc-stat-mode-choice="planned" aria-pressed="false">予定</button>
+            </span>
+          </div>
+          <div id="fdc-board-plan-bonus" class="fdc-board-plan-bonus" hidden>
+            <span class="fdc-board-plan-bonus-title">予定で増減する全体効果</span>
+            <div class="fdc-board-plan-bonus-row">
+              <strong><img src="img/Board/Tileicon_3.webp" alt="">特殊 <small>(%)</small></strong>
+              <span id="fdc-board-plan-special">変化なし</span>
+            </div>
+            <div class="fdc-board-plan-bonus-row">
+              <strong><img src="img/Board/Tileicon_2.webp" alt="">上級 <small>(+)</small></strong>
+              <span id="fdc-board-plan-advanced">変化なし</span>
+            </div>
+          </div>
           <div class="fdc-category-actions">
             <label class="fdc-inline-toggle" data-fdc-category-row="globalStats">
               <input type="checkbox" data-fdc-category-source="globalStats" checked>
-              <span>追加クレヨン</span>
+              <span>手動追加 (%)</span>
             </label>
           </div>
           <div class="fdc-stat-grid fdc-compact-percent-grid">
@@ -524,7 +593,7 @@
               <input id="fdc-enemy-hp" type="number" min="0" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack">
-              <span>敵攻撃力</span>
+              <span>攻撃力</span>
               <input id="fdc-enemy-atk" type="number" min="0" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense">
@@ -532,11 +601,11 @@
               <input id="fdc-def" type="number" min="1" value="50000">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit">
-              <span>敵会心</span>
+              <span>会心</span>
               <input id="fdc-enemy-crit" type="number" min="0" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg">
-              <span>敵会心DMG</span>
+              <span>会心DMG</span>
               <input id="fdc-enemy-crit-dmg" type="number" min="0" value="0">
             </label>
             <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res">
@@ -613,7 +682,7 @@
           <h3>スキル</h3>
           <div class="fdc-skill-config-grid">
             <label class="fdc-field">
-              <span>スキル倍率(%)</span>
+              <span>スキル倍率 (%)</span>
               <input id="fdc-enemy-skill-value" type="number" min="0" value="100">
             </label>
           </div>
@@ -624,7 +693,7 @@
         </div>
 
         <div class="stat-category">
-          <h3>倍率 (%)</h3>
+          <h3>ダメージ倍率 (%)</h3>
           <div class="fdc-stat-grid fdc-compact-percent-grid">
             <label class="fdc-field fdc-attack-only">
               <span>属性相性</span>
@@ -637,19 +706,19 @@
               </select>
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>敵用補正</span>
+              <span>特殊倍率</span>
               <input id="fdc-enemy-special" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>その他</span>
+              <span>その他倍率</span>
               <input id="fdc-enemy-other" type="number" min="0" value="100">
             </label>
             <label class="fdc-field fdc-attack-only">
-              <span>与ダメ増減</span>
+              <span>与ダメージ量増減</span>
               <input id="fdc-enemy-add-p" type="number" value="0">
             </label>
             <label class="fdc-field fdc-defense-only">
-              <span>被ダメ増減</span>
+              <span>被ダメージ量増減</span>
               <input id="fdc-enemy-taken-dmg-p" type="number" value="0">
             </label>
           </div>
@@ -706,7 +775,7 @@
         </div>
 
         <div class="stat-category">
-          <h3>追加 (%)</h3>
+          <h3>ステータス補正 (%)</h3>
           <div class="fdc-stat-grid fdc-mixed-percent-grid">
             <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
               <span>攻撃力</span>
@@ -777,22 +846,22 @@
   </div>
 
   <div id="fdc-apply-float-controller" class="fdc-apply-float-controller">
+    <section id="fdc-compare-float-panel" class="fdc-compare-float-panel" aria-label="変更前との比較" hidden>
+      <div class="fdc-compare-float-head">
+        <strong>変更前と比較</strong>
+        <span id="fdc-pinned-compare-note">比較を開始していません</span>
+      </div>
+      <p id="fdc-compare-float-help" class="fdc-compare-float-help">今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージとDPSの差を確認できます。単発計算の行動は自動的に追従します。</p>
+      <div class="fdc-compare-float-actions">
+        <button type="button" id="fdc-pinned-compare-save">現在を変更前として記録</button>
+        <button type="button" id="fdc-pinned-compare-clear" class="is-clear" disabled>比較を終了</button>
+      </div>
+    </section>
     <div id="fdc-apply-float-panel" class="fdc-apply-float-panel" hidden>
       <div class="fdc-apply-float-head">
         <strong>計算設定</strong>
         <span>由来別 ON/OFF</span>
       </div>
-      <label class="fdc-apply-stat-mode fdc-board-compare-mode">
-        <span>ボード比較モード</span>
-        <select id="fdc-stat-mode">
-          <option value="current">現在</option>
-          <option value="planned">予定</option>
-        </select>
-        <span class="fdc-stat-mode-toggle" role="group" aria-label="ボード比較モード">
-          <button type="button" data-fdc-stat-mode-choice="current" aria-pressed="true">現在</button>
-          <button type="button" data-fdc-stat-mode-choice="planned" aria-pressed="false">予定</button>
-        </span>
-      </label>
       <label class="fdc-apply-float-row" data-fdc-apply-row="synergy">
         <input type="checkbox" data-fdc-apply-source="synergy" checked>
         <span>シナジー</span>
@@ -840,10 +909,22 @@
         <div class="fdc-save-actions" aria-label="保存操作">
           <button type="button" data-fdc-save-action="save">保存</button>
           <button type="button" data-fdc-save-action="load">読込</button>
+          <button type="button" data-fdc-save-action="compare">比較</button>
           <button type="button" data-fdc-save-action="delete" class="is-danger">削除</button>
         </div>
       </div>
     </details>
+
+    <button type="button" id="fdc-compare-float-toggle" class="fdc-compare-float-toggle" aria-expanded="false" aria-controls="fdc-compare-float-panel" aria-label="変更前と比較">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 7h11l-3-3"></path>
+        <path d="m18 7-3 3"></path>
+        <path d="M17 17H6l3 3"></path>
+        <path d="m6 17 3-3"></path>
+      </svg>
+      <span data-fdc-compare-toggle-label>比較</span>
+      <i aria-hidden="true"></i>
+    </button>
 
     <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
       <span>計算</span>
@@ -871,18 +952,26 @@
         <span id="fdc-result-normal-hp" class="fdc-result-hp-rate"></span>
       </div>
       <div class="result-card result-expected highlight">
-        <span class="label">期待値</span>
+        <span class="label">期待ダメージ</span>
         <span id="fdc-result-expected" class="value">0</span>
         <span id="fdc-result-expected-hp" class="fdc-result-hp-rate"></span>
       </div>
       <div class="result-card result-crit">
-        <span class="label">会心ダメージ</span>
+        <span class="label">会心時ダメージ</span>
         <span id="fdc-result-crit" class="value">0</span>
         <span id="fdc-result-crit-hp" class="fdc-result-hp-rate"></span>
       </div>
-      <div class="result-card result-crit-rate">
-        <span class="label">会心率</span>
+      <div id="fdc-result-metric-card" class="result-card result-crit-rate fdc-result-metric-card" data-fdc-result-metric="critRate">
+        <span id="fdc-result-metric-label" class="label">会心率</span>
         <span id="fdc-result-crit-rate" class="value">5.0%</span>
+        <button type="button" id="fdc-result-metric-toggle" class="fdc-result-metric-toggle" aria-label="右下の表示を切り替え" title="会心率・会心ダメージ量・基礎ダメージ係数を切り替え">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7 7h11l-3-3"></path>
+            <path d="m18 7-3 3"></path>
+            <path d="M17 17H6l3 3"></path>
+            <path d="m6 17 3-3"></path>
+          </svg>
+        </button>
       </div>
       <button type="button" class="result-card fdc-detail-toggle" id="fdc-result-detail-toggle" aria-expanded="false">
         <span class="label">詳細</span>
@@ -902,11 +991,12 @@
   <script src="cards.js?v=20260801a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260727n"></script>
-  <script src="app-cache.js?v=20260727zi"></script>
+  <script src="app-cache.js?v=20260808t"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="dps-timing-data.js?v=20260803a"></script>
-  <script src="dps-simulator.js?v=20260803a"></script>
-  <script src="formation-damage-calc.js?v=20260806a"></script>
-  <script src="formation-dps-calc.js?v=20260803a"></script>
+  <script src="dps-simulator.js?v=20260806c"></script>
+  <script src="combat-scenario.js?v=20260808b"></script>
+  <script src="formation-damage-calc.js?v=20260808o"></script>
+  <script src="formation-dps-calc.js?v=20260808c"></script>
 </body>
 </html>

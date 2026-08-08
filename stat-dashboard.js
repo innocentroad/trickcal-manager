@@ -66,6 +66,12 @@
     });
   }
 
+  function scrollToProfile(behavior = 'smooth') {
+    window.requestAnimationFrame(() => {
+      document.querySelector('.dashboard-persistent-profile')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior });
+    });
+  }
+
   function openGlobal(tabName) {
     showView('global');
     const tab = globalTabs.find(button => button.dataset.settingTab === tabName);
@@ -92,7 +98,8 @@
       scrollToDashboardMain('auto');
     } else if (routeView) {
       showView(routeView);
-      scrollToDashboardMain('auto');
+      if (routeView === 'settings') scrollToProfile('auto');
+      else scrollToDashboardMain('auto');
     }
   }
 
@@ -166,7 +173,10 @@
   });
 
   profileTopButton?.addEventListener('click', () => {
-    document.querySelector('.dashboard-persistent-profile')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
+    showView('settings');
+    setTopGlobalActive('');
+    topGlobalMenu?.removeAttribute('open');
+    scrollToProfile();
   });
 
   document.querySelector('[data-open-apostle-picker]').addEventListener('click', () => {

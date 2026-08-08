@@ -93,6 +93,10 @@
     const events = [];
     let observedDamageHits = 0;
 
+    if (damageEffects.length > 1 && !rows.some(row => row.effectId)) {
+      warnings.push(`${skill?.skillId || skill?.skillType}: 複数ダメージ効果のヒット配分が未調査です`);
+    }
+
     rows.forEach(row => {
       const effect = resolveEffect(skill, row.effectId);
       const damage = effect ? isDamageEffect(effect) : damageEffects.length > 0;
@@ -212,6 +216,49 @@
     return names[0];
   }
 
+  function getVariantDamageProfile(damageProfiles, actionKey, variant = '') {
+    const profile = damageProfiles?.[actionKey];
+    if (!profile) return null;
+    return profile.variants?.[variant || 'default']
+      || profile.variants?.default
+      || Object.values(profile.variants || {})[0]
+      || null;
+  }
+
+  function getEventExpectedDamage(current, event, damageProfiles) {
+    const variantProfile = getVariantDamageProfile(damageProfiles, current?.key, current?.variant);
+    if (!variantProfile) return 0;
+    const effects = Object.values(variantProfile.effects || {});
+    const damageEvents = current.events.filter(candidate => candidate.type === 'damage');
+    if (damageEvents.length === 1 && effects.length > 1) {
+      return Math.max(0, toFiniteNumber(variantProfile.totalExpectedDamage));
+    }
+    let effect = event.effectId ? variantProfile.effects?.[event.effectId] : null;
+    if (!effect && event.effectId) {
+      effect = effects.find(item => item?.effectId === event.effectId) || null;
+    }
+    if (!effect && effects.length === 1) effect = effects[0];
+    if (!effect) return 0;
+    const siblingEvents = current.events.filter(candidate => {
+      if (candidate.type !== 'damage') return false;
+      if (event.effectId) return candidate.effectId === event.effectId;
+      return true;
+    });
+    const totalWeight = siblingEvents.reduce((total, candidate) => total + Math.max(1, candidate.hitCount || 1), 0) || 1;
+    const eventWeight = Math.max(1, event.hitCount || 1);
+    return Math.max(0, toFiniteNumber(effect.expectedDamage)) * eventWeight / totalWeight;
+  }
+
+  function percentile(values, ratio) {
+    if (!values.length) return 0;
+    const sorted = values.slice().sort((a, b) => a - b);
+    const index = (sorted.length - 1) * Math.max(0, Math.min(1, ratio));
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    if (lower === upper) return sorted[lower];
+    return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+  }
+
   function simulate(config, options = {}) {
     const ticksPerFrame = Math.max(1, Math.floor(toFiniteNumber(options.ticksPerFrame, DEFAULT_TICKS_PER_FRAME)));
     const framesPerSecond = Math.max(1, toFiniteNumber(options.framesPerSecond, DEFAULT_FRAMES_PER_SECOND));
@@ -237,9 +284,13 @@
       0,
       toFiniteNumber(options.recurringHighSkillCooldownMultiplier, 1)
     );
+    const damageProfiles = options.damageProfiles || {};
+    const recordTimeline = options.recordTimeline !== false;
     const timeline = [];
     const counts = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const hits = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
+    const damagingActions = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
+    const expectedDamageByAction = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const state = {
       tick: 0,
       currentAction: null,
@@ -261,6 +312,7 @@
     };
 
     const log = (type, detail = {}) => {
+      if (!recordTimeline) return;
       if (timeline.length >= Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))) return;
       timeline.push({ tick: state.tick, frame: state.tick / ticksPerFrame, type, ...detail });
     };
@@ -271,13 +323,24 @@
       current.events.forEach(event => {
         if (event.emitted || current.startTick + event.relativeTick !== state.tick) return;
         event.emitted = true;
-        if (event.type === 'damage') hits[current.key] += Math.max(1, event.hitCount || 1);
+        const expectedDamage = event.type === 'damage'
+          ? getEventExpectedDamage(current, event, damageProfiles)
+          : 0;
+        if (event.type === 'damage') {
+          hits[current.key] += Math.max(1, event.hitCount || 1);
+          expectedDamageByAction[current.key] += expectedDamage;
+          if (expectedDamage > 0 && !current.hasExpectedDamage) {
+            current.hasExpectedDamage = true;
+            damagingActions[current.key] += 1;
+          }
+        }
         log(event.type === 'damage' ? 'hit' : 'effect', {
           actionKey: current.key,
           actionLabel: current.label,
           variant: current.variant,
           effectId: event.effectId,
           hitCount: event.hitCount || 0,
+          expectedDamage,
           timingQuality: event.timingQuality,
           note: event.note || ''
         });
@@ -299,7 +362,8 @@
           ...event,
           relativeTick: toTicks(event.frame, ticksPerFrame),
           emitted: false
-        }))
+        })),
+        hasExpectedDamage: false
       };
       counts[actionKey] += 1;
       if (actionKey === 'basicAttack' || actionKey === 'enhancedAttack') {
@@ -321,16 +385,23 @@
       return true;
     };
 
+    const tryStartNormalAttack = () => {
+      if (state.tick < state.nextNormalAttackTick) return false;
+      const enhanced = config.actions.enhancedAttack
+        && random() * 100 < config.actions.enhancedAttack.triggerProbability;
+      return startAction(enhanced ? 'enhancedAttack' : 'basicAttack');
+    };
+
     const tryStartAction = () => {
       if (state.currentAction) return;
       if (state.tick < state.actionStartAllowedTick) return;
-      if (highSkillMode === 'auto' && state.tick >= state.highSkillReadyTick && startAction('highSkill')) return;
       if (state.lowSkillQueued && state.lowSkillReadyTick < state.tick && startAction('lowSkill')) return;
-      if (state.tick >= state.nextNormalAttackTick) {
-        const enhanced = config.actions.enhancedAttack
-          && random() * 100 < config.actions.enhancedAttack.triggerProbability;
-        if (startAction(enhanced ? 'enhancedAttack' : 'basicAttack')) return;
+      if (state.lowSkillQueued && state.lowSkillReadyTick === state.tick) {
+        if (tryStartNormalAttack()) return;
+        if (startAction('lowSkill')) return;
       }
+      if (highSkillMode === 'auto' && state.tick >= state.highSkillReadyTick && startAction('highSkill')) return;
+      if (tryStartNormalAttack()) return;
       if (state.lowSkillQueued) startAction('lowSkill');
     };
 
@@ -372,6 +443,11 @@
       initialActionDelayFrames,
       counts,
       hits,
+      damagingActions,
+      damage: {
+        totalExpectedDamage: Object.values(expectedDamageByAction).reduce((total, value) => total + value, 0),
+        byAction: expectedDamageByAction
+      },
       timeline,
       finalState: {
         sp: state.sp,
@@ -383,11 +459,79 @@
     };
   }
 
+  function simulateMany(config, options = {}) {
+    const trials = Math.max(1, Math.min(4096, Math.floor(toFiniteNumber(options.trials, 64))));
+    const baseSeed = Math.max(1, Math.floor(toFiniteNumber(options.seed, 1)));
+    const durationSeconds = Math.max(1, Math.min(600, toFiniteNumber(options.durationSeconds, 60)));
+    const actionKeys = Object.keys(ACTION_SKILL_TYPES);
+    const totals = {
+      damage: 0,
+      counts: Object.fromEntries(actionKeys.map(key => [key, 0])),
+      hits: Object.fromEntries(actionKeys.map(key => [key, 0])),
+      damagingActions: Object.fromEntries(actionKeys.map(key => [key, 0])),
+      damageByAction: Object.fromEntries(actionKeys.map(key => [key, 0]))
+    };
+    const trialResults = [];
+    for (let index = 0; index < trials; index += 1) {
+      const seed = baseSeed + index;
+      const result = simulate(config, {
+        ...options,
+        seed,
+        durationSeconds,
+        recordTimeline: false
+      });
+      const totalDamage = toFiniteNumber(result.damage?.totalExpectedDamage);
+      const totalDps = totalDamage / durationSeconds;
+      totals.damage += totalDamage;
+      actionKeys.forEach(key => {
+        totals.counts[key] += toFiniteNumber(result.counts?.[key]);
+        totals.hits[key] += toFiniteNumber(result.hits?.[key]);
+        totals.damagingActions[key] += toFiniteNumber(result.damagingActions?.[key]);
+        totals.damageByAction[key] += toFiniteNumber(result.damage?.byAction?.[key]);
+      });
+      trialResults.push({ seed, totalDps });
+    }
+    const totalDpsValues = trialResults.map(item => item.totalDps);
+    const meanDps = totals.damage / trials / durationSeconds;
+    const byAction = Object.fromEntries(actionKeys.map(key => {
+      const expectedDamage = totals.damageByAction[key] / trials;
+      const contributionDps = expectedDamage / durationSeconds;
+      return [key, {
+        expectedDamage,
+        contributionDps,
+        damageShareP: totals.damage > 0 ? totals.damageByAction[key] / totals.damage * 100 : 0,
+        averageStarts: totals.counts[key] / trials,
+        averageDamagingActions: totals.damagingActions[key] / trials,
+        averageHits: totals.hits[key] / trials,
+        averageDamagePerDamagingAction: totals.damagingActions[key] > 0 ? totals.damageByAction[key] / totals.damagingActions[key] : 0
+      }];
+    }));
+    const medianDps = percentile(totalDpsValues, 0.5);
+    const representative = trialResults.reduce((best, item) => (
+      !best || Math.abs(item.totalDps - medianDps) < Math.abs(best.totalDps - medianDps) ? item : best
+    ), null);
+    return {
+      trials,
+      baseSeed,
+      durationSeconds,
+      meanDps,
+      totalExpectedDamage: totals.damage / trials,
+      range: {
+        p10: percentile(totalDpsValues, 0.1),
+        median: medianDps,
+        p90: percentile(totalDpsValues, 0.9)
+      },
+      representativeSeed: representative?.seed || baseSeed,
+      byAction
+    };
+  }
+
   return Object.freeze({
-    version: 1,
+    version: 2,
     buildCombatantConfig,
     createSeededRandom,
     simulate,
+    simulateMany,
     toTicks
   });
 });

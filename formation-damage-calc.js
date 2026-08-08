@@ -74,6 +74,9 @@
     gradeOverride: document.getElementById('fdc-grade-override'),
     statMode: document.getElementById('fdc-stat-mode'),
     statModeChoices: Array.from(document.querySelectorAll('[data-fdc-stat-mode-choice]')),
+    boardPlanBonus: document.getElementById('fdc-board-plan-bonus'),
+    boardPlanSpecial: document.getElementById('fdc-board-plan-special'),
+    boardPlanAdvanced: document.getElementById('fdc-board-plan-advanced'),
     selfRoleChip: document.getElementById('fdc-self-role-chip'),
     enemyRoleChip: document.getElementById('fdc-enemy-role-chip'),
     selfAttackTypeChip: document.getElementById('fdc-self-attack-type-chip'),
@@ -145,11 +148,18 @@
     applyFloat: document.getElementById('fdc-apply-float-controller'),
     applyFloatPanel: document.getElementById('fdc-apply-float-panel'),
     applyFloatToggle: document.getElementById('fdc-apply-float-toggle'),
+    compareFloatPanel: document.getElementById('fdc-compare-float-panel'),
+    compareFloatToggle: document.getElementById('fdc-compare-float-toggle'),
+    compareFloatToggleLabel: document.querySelector('[data-fdc-compare-toggle-label]'),
+    compareFloatHelp: document.getElementById('fdc-compare-float-help'),
     applyFloatInputs: Array.from(document.querySelectorAll('[data-fdc-apply-source]')),
     categorySourceInputs: Array.from(document.querySelectorAll('[data-fdc-category-source]')),
     resultDisplayInputs: Array.from(document.querySelectorAll('[data-fdc-result-display]')),
     applyFloatDots: Array.from(document.querySelectorAll('[data-fdc-apply-dot]')),
     applyFloatBulk: Array.from(document.querySelectorAll('[data-fdc-apply-bulk]')),
+    pinnedCompareSave: document.getElementById('fdc-pinned-compare-save'),
+    pinnedCompareClear: document.getElementById('fdc-pinned-compare-clear'),
+    pinnedCompareNote: document.getElementById('fdc-pinned-compare-note'),
     selfSkillChoices: document.getElementById('fdc-self-skill-choices'),
     inputs: {
       selfHp: document.getElementById('fdc-self-hp'),
@@ -243,7 +253,9 @@
       crit: document.getElementById('fdc-result-crit'),
       expected: document.getElementById('fdc-result-expected'),
       critRate: document.getElementById('fdc-result-crit-rate'),
-      defRate: document.getElementById('fdc-result-def-rate'),
+      metricCard: document.getElementById('fdc-result-metric-card'),
+      metricLabel: document.getElementById('fdc-result-metric-label'),
+      metricToggle: document.getElementById('fdc-result-metric-toggle'),
       hpRates: {
         normal: document.getElementById('fdc-result-normal-hp'),
         expected: document.getElementById('fdc-result-expected-hp'),
@@ -262,6 +274,7 @@
     enemyDamageType: 'auto',
     gradeOverride: 'saved',
     statMode: 'current',
+    resultMetric: 'critRate',
     perspective: 'self',
     mobileVisibleSide: 'self',
     enemyPersonality: '',
@@ -376,6 +389,7 @@
   }
 
   function bindEvents() {
+    window.addEventListener('trickcal:comparison-session-ui', () => syncPinnedComparisonUi(buildContext()));
     window.addEventListener('storage', event => {
       if (event.key === THEME_KEY && ['light', 'dark'].includes(event.newValue)) {
         setTheme(event.newValue, false);
@@ -402,7 +416,10 @@
     el.saveMenu?.addEventListener('toggle', () => {
       view.damageSaveAction = '';
       renderDamageSaveActionPanel();
-      if (el.saveMenu.open) closeApplyFloatPanel();
+      if (el.saveMenu.open) {
+        closeApplyFloatPanel();
+        closeCompareFloatPanel();
+      }
     });
     el.saveActionButtons.forEach(button => button.addEventListener('click', () => {
       const action = button.dataset.fdcSaveAction || '';
@@ -414,8 +431,19 @@
       const context = buildContext();
       renderResultDetail(context, calculateDamage(context));
     });
+    el.result.metricToggle?.addEventListener('click', event => {
+      event.stopPropagation();
+      const metrics = ['critRate', 'critDmg', 'defRate'];
+      const index = metrics.indexOf(view.resultMetric);
+      view.resultMetric = metrics[(index + 1) % metrics.length];
+      saveCalcSettings();
+      renderResult(buildContext());
+    });
     el.cardCost?.addEventListener('click', () => toggleCardCostPanel());
     el.applyFloatToggle?.addEventListener('click', () => toggleApplyFloatPanel());
+    el.compareFloatToggle?.addEventListener('click', () => toggleCompareFloatPanel());
+    el.pinnedCompareSave?.addEventListener('click', savePinnedComparisonBaseline);
+    el.pinnedCompareClear?.addEventListener('click', clearPinnedComparisonBaseline);
     el.applyFloatInputs.forEach(input => {
       input.addEventListener('change', () => {
         view.effectSources[input.dataset.fdcApplySource] = !!input.checked;
@@ -463,6 +491,7 @@
     document.addEventListener('click', event => {
       if (!el.applyFloat || el.applyFloat.contains(event.target)) return;
       closeApplyFloatPanel();
+      closeCompareFloatPanel();
     });
     document.addEventListener('click', event => {
       if (!el.saveMenu?.open || el.saveMenu.contains(event.target)) return;
@@ -968,6 +997,8 @@
   function render(options = {}) {
     const context = buildContext();
     syncApplyFloatUi();
+    renderBoardPlanBonus(context);
+    syncPinnedComparisonUi(context);
     syncPerspectiveUi();
     syncMobileSideUi();
     syncEnemySourceUi(context);
@@ -999,9 +1030,6 @@
     renderSpellCategory(context, { keepPopover: !!options.keepSpellPopover });
     syncCardCostUi(context);
     renderResult(context);
-    window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
-      detail: { targetId: context.target?.id || '' }
-    }));
   }
 
   function getEnemyIndividualBaseState(context, id = view.enemyApostleId) {
@@ -1906,7 +1934,7 @@
     return scaled;
   }
 
-  function buildContext() {
+  function buildContext(overrides = {}) {
     const state = getEffectiveStatState();
     const formationSource = getSelectedFormationSource(state);
     const formation = applyTempSpellOverrides(applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(formationSource.formation))));
@@ -1920,13 +1948,16 @@
     const enemyMember = getSelectedEnemyApostleMember(allMembers, state);
     const damageType = resolveActiveDamageType(target);
     const cards = state.cards && typeof state.cards === 'object' ? state.cards : {};
-    const actionCategory = view.selectedSkillCategory || '';
-    if (view._selfSkillEffectActionCategory !== actionCategory) {
+    const actionCategory = typeof overrides.actionCategory === 'string'
+      ? overrides.actionCategory
+      : view.selectedSkillCategory || '';
+    if (!overrides.detached && view._selfSkillEffectActionCategory !== actionCategory) {
       view.selfSkillEffectEnabled = {};
       view._selfSkillEffectActionCategory = actionCategory;
     }
     const effects = collectEffects({ target, formation, cards, damageType, state, actionCategory });
-    applyEnabledSelfSkillEffects(effects, { target, formation, cards, damageType, state, actionCategory, members, allMembers });
+    const skillEffectStateOverrides = overrides.skillEffectStateOverrides || null;
+    applyEnabledSelfSkillEffects(effects, { target, formation, cards, damageType, state, actionCategory, members, allMembers, skillEffectStateOverrides });
     const summary = summarizeEffects(getEnabledEffectRows(effects));
     const enemyAttackEffects = collectEnemyCardEffects({
       target: enemyMember,
@@ -1958,6 +1989,7 @@
       enemyMember,
       damageType,
       actionCategory,
+      skillEffectStateOverrides,
       effects,
       summary,
       enemyEffects: view.perspective === 'enemy' ? enemyAttackEffects : enemyDefenseEffects,
@@ -2130,6 +2162,7 @@
   function executeDamageSaveAction(action, id) {
     if (action === 'save') saveCurrentDamageCalculation(id);
     if (action === 'load') loadSelectedDamageCalculation(id);
+    if (action === 'compare') compareSelectedDamageCalculation(id);
     if (action === 'delete') deleteSelectedDamageCalculation(id);
   }
 
@@ -2182,6 +2215,104 @@
     closeDamageSaveMenu();
   }
 
+  function compareSelectedDamageCalculation(id) {
+    const selected = getDamageSaveById(id);
+    const scenarioApi = getCombatScenarioApi();
+    if (!selected || !scenarioApi?.savePinnedComparison) return;
+    const scenario = createCombatScenarioFromDamageSave(selected);
+    const session = scenarioApi.savePinnedComparison({
+      scenario,
+      singleActionResult: selected.snapshot?.result || {},
+      dpsSnapshot: selected.snapshot?.comparison?.dpsSnapshot || {}
+    });
+    if (!session) return;
+    closeDamageSaveMenu();
+    const context = buildContext();
+    syncPinnedComparisonUi(context);
+    renderResult(context);
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'pinned', source: 'damageSave', id: selected.id } }));
+  }
+
+  function createCombatScenarioFromDamageSave(item = {}) {
+    const snapshot = item.snapshot || {};
+    const savedView = snapshot.view || {};
+    const referenceState = snapshot.referenceState || {};
+    const targetId = savedView.targetId || referenceState.activeId || '';
+    const enemyId = savedView.enemyApostleId || '';
+    const targetBasic = getApostle(targetId) || {};
+    const enemyBasic = getApostle(enemyId) || {};
+    const source = {
+      capturedAt: Number(snapshot.savedAt || item.savedAt) || 0,
+      sourceMeta: {
+        type: 'damageSave',
+        id: item.id || '',
+        name: item.name || '無題の計算',
+        calculatorVersion: Number(snapshot.version) || 0
+      },
+      actors: {
+        self: { id: targetId, name: targetBasic.使徒名 || targetId },
+        enemy: {
+          sourceMode: savedView.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+          id: enemyId,
+          name: enemyBasic.使徒名 || '',
+          presetKey: savedView.enemyPresetKey || ''
+        }
+      },
+      characterState: {
+        targetId,
+        enemyApostleId: enemyId,
+        statMode: savedView.statMode === 'planned' ? 'planned' : 'current',
+        resultMetric: normalizeResultMetric(savedView.resultMetric),
+        gradeOverride: savedView.gradeOverride || 'saved',
+        apostles: clonePlain(referenceState.apostles || {}),
+        research: clonePlain(referenceState.research || {})
+      },
+      formationState: {
+        presetId: savedView.formationPresetId || '',
+        formation: clonePlain(referenceState.formation || {}),
+        tempMembers: clonePlain(savedView.tempMembers || {})
+      },
+      cardState: {
+        cards: clonePlain(referenceState.cards || {}),
+        tempArtifacts: clonePlain(savedView.tempArtifacts || { formation: {}, target: {} }),
+        tempSpells: Array.isArray(savedView.tempSpells) ? savedView.tempSpells.slice() : null
+      },
+      battleConditions: {
+        perspective: savedView.perspective === 'enemy' ? 'enemy' : 'self',
+        damageType: savedView.damageType || 'auto',
+        enemyDamageType: savedView.enemyDamageType || 'auto',
+        actionCategory: savedView.selectedSkillCategory || '',
+        selectedSkillCategory: savedView.selectedSkillCategory || '',
+        selectedSkillOptionKey: savedView.selectedSkillOptionKey || '',
+        enemySelectedSkillCategory: savedView.enemySelectedSkillCategory || '',
+        enemySourceMode: savedView.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+        enemyPresetKey: savedView.enemyPresetKey || '',
+        enemyPhaseIndex: Number(savedView.enemyPhaseIndex) || 0,
+        enemySkillIndex: Number.isFinite(Number(savedView.enemySkillIndex)) ? Number(savedView.enemySkillIndex) : -1,
+        enemyPersonality: savedView.enemyPersonality || '',
+        pvpAffinityEnabled: !!savedView.pvpAffinityEnabled,
+        pvpRank: normalizePvpRank(savedView.pvpRank),
+        inputs: clonePlain(snapshot.inputs || {})
+      },
+      effectAssumptions: {
+        effectSources: pickBooleanMap(savedView.effectSources || {}),
+        selfSkillEffectEnabled: pickBooleanMap(savedView.selfSkillEffectEnabled || {}),
+        conditionalEffectEnabled: pickBooleanMap(savedView.conditionalEffectEnabled || {}),
+        conditionalEffectStackCounts: pickNumberMap(savedView.conditionalEffectStackCounts || {}),
+        skillLevelOverrides: sanitizeSkillLevelOverrides(savedView.skillLevelOverrides || {}),
+        enemyGlobalPercentEnabled: savedView.enemyGlobalPercentEnabled !== false,
+        enemyGlobalAdditiveEnabled: savedView.enemyGlobalAdditiveEnabled !== false,
+        enemyBoardPresetSelections: clonePlain(savedView.enemyBoardPresetSelections || {}),
+        enemyIndividualOverrides: clonePlain(savedView.enemyIndividualOverrides || {}),
+        enemyRankPreset: normalizeEnemyRankPreset(savedView.enemyRankPreset),
+        enemyResearchPreset: clonePlain(savedView.enemyResearchPreset || {})
+      }
+    };
+    const scenario = getCombatScenarioApi()?.createScenario?.(source) || clonePlain(source);
+    if (getCombatScenarioApi()?.fingerprint) scenario.sourceMeta.fingerprint = getCombatScenarioApi().fingerprint(scenario);
+    return scenario;
+  }
+
   function deleteSelectedDamageCalculation(id) {
     const selected = getDamageSaveById(id);
     if (!selected) return;
@@ -2217,8 +2348,9 @@
 
   function createDamageCalculationSnapshot(context = buildContext()) {
     const result = calculateDamage(context);
+    const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot(context));
     return {
-      version: 3,
+      version: 4,
       savedAt: Date.now(),
       view: clonePlain({
         targetId: view.targetId || '',
@@ -2227,6 +2359,7 @@
         enemyDamageType: view.enemyDamageType || 'auto',
         gradeOverride: view.gradeOverride || 'saved',
         statMode: view.statMode === 'planned' ? 'planned' : 'current',
+        resultMetric: normalizeResultMetric(view.resultMetric),
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
@@ -2265,10 +2398,14 @@
       }),
       inputs: readDamageCalculationInputs(),
       referenceState: createReferenceStateSnapshot(context),
+      comparison: {
+        dpsSnapshot
+      },
       result: {
         normal: Math.round(Number(result.normal) || 0),
         crit: Math.round(Number(result.crit) || 0),
         expected: Math.round(Number(result.expected) || 0),
+        hp: Math.round(Number(result.hp) || 0),
         critRate: Number(result.critRate) || 0,
         defRate: Number(result.defRate) || 0
       }
@@ -2322,6 +2459,7 @@
       if (['auto', 'physical', 'magic'].includes(savedView.damageType)) view.damageType = savedView.damageType;
       if (['saved', '1', '2', '3', '4', '5', '6'].includes(String(savedView.gradeOverride))) view.gradeOverride = String(savedView.gradeOverride);
       if (['current', 'planned'].includes(savedView.statMode)) view.statMode = savedView.statMode;
+      if (savedView.resultMetric) view.resultMetric = normalizeResultMetric(savedView.resultMetric);
       if (['self', 'enemy'].includes(savedView.perspective)) view.perspective = savedView.perspective;
       if (['self', 'enemy'].includes(savedView.mobileVisibleSide)) view.mobileVisibleSide = savedView.mobileVisibleSide;
       if (typeof savedView.selectedSkillCategory === 'string') view.selectedSkillCategory = savedView.selectedSkillCategory;
@@ -2456,6 +2594,7 @@
       if (['auto', 'physical', 'magic'].includes(saved.enemyDamageType)) view.enemyDamageType = saved.enemyDamageType;
       if (['saved', '1', '2', '3', '4', '5', '6'].includes(String(saved.gradeOverride))) view.gradeOverride = String(saved.gradeOverride);
       if (['current', 'planned'].includes(saved.statMode)) view.statMode = saved.statMode;
+      if (saved.resultMetric) view.resultMetric = normalizeResultMetric(saved.resultMetric);
       if (['self', 'enemy'].includes(saved.perspective)) view.perspective = saved.perspective;
       if (['self', 'enemy'].includes(saved.mobileVisibleSide)) view.mobileVisibleSide = saved.mobileVisibleSide;
       if (typeof saved.enemyPersonality === 'string') view.enemyPersonality = saved.enemyPersonality;
@@ -2516,6 +2655,7 @@
         enemyDamageType: view.enemyDamageType || 'auto',
         gradeOverride: view.gradeOverride || 'saved',
         statMode: view.statMode === 'planned' ? 'planned' : 'current',
+        resultMetric: normalizeResultMetric(view.resultMetric),
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
@@ -2552,6 +2692,10 @@
     } catch (error) {
       console.warn('Failed to save formation damage settings', error);
     }
+  }
+
+  function normalizeResultMetric(value) {
+    return ['critRate', 'critDmg', 'defRate'].includes(value) ? value : 'critRate';
   }
 
   function pickBooleanMap(source = {}, allowedKeys = null) {
@@ -2959,6 +3103,69 @@
       });
     });
     return totals;
+  }
+
+  function calculateBoardPlanEffectDelta(context, tileType) {
+    const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
+    const rows = typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.board || [];
+    rows.forEach(row => {
+      if (row.マス_type !== tileType) return;
+      const id = String(row.id || '');
+      const apostleState = context?.state?.apostles?.[id]
+        || context?.state?.apostles?.[row.id]
+        || {};
+      const currentBoards = apostleState.boards || {};
+      const plannedBoards = apostleState.plannedBoards || currentBoards;
+      const layer = String(Number(row.ボード階層) || 0);
+      const key = String(row.ボード階層) + ':' + row.X_pos + ':' + row.Y_pos;
+      const currentFilled = !!currentBoards?.[layer]?.filled?.[key];
+      const plannedFilled = !!plannedBoards?.[layer]?.filled?.[key];
+      const direction = Number(plannedFilled) - Number(currentFilled);
+      if (!direction) return;
+      [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+        const statKey = getEnemyBoardPresetStatKey(row[typeKey]);
+        if (statKey) totals[statKey] += (Number(row[valueKey]) || 0) * direction;
+      });
+    });
+    return totals;
+  }
+
+  function formatBoardPlanEffectDelta(values = {}, suffix = '') {
+    const labels = {
+      hp: 'HP',
+      patk: '物攻',
+      matk: '魔攻',
+      pdef: '物防',
+      mdef: '魔防',
+      crit: '会心',
+      critDmg: '会心DMG',
+      critRes: '会心抵抗',
+      critDmgRes: '会心DMG抵抗'
+    };
+    return ENEMY_GLOBAL_PERCENT_CONFIG
+      .map(({ statKey }) => [labels[statKey] || statKey, Number(values[statKey]) || 0])
+      .filter(([, value]) => value)
+      .map(([label, value]) => label + (value > 0 ? '+' : '') + formatPlainNumber(value) + suffix)
+      .join(' / ');
+  }
+
+  function renderBoardPlanBonus(context) {
+    if (!el.boardPlanBonus) return;
+    const planned = view.statMode === 'planned';
+    el.boardPlanBonus.hidden = !planned;
+    if (!planned) return;
+    const hasPlan = Object.values(context?.state?.apostles || {}).some(apostle => (
+      apostle?.plannedBoards && typeof apostle.plannedBoards === 'object'
+    ));
+    if (!hasPlan) {
+      if (el.boardPlanSpecial) el.boardPlanSpecial.textContent = '予定なし';
+      if (el.boardPlanAdvanced) el.boardPlanAdvanced.textContent = '予定なし';
+      return;
+    }
+    const special = formatBoardPlanEffectDelta(calculateBoardPlanEffectDelta(context, '特殊'), '%');
+    const advanced = formatBoardPlanEffectDelta(calculateBoardPlanEffectDelta(context, '上級'));
+    if (el.boardPlanSpecial) el.boardPlanSpecial.textContent = special || '変化なし';
+    if (el.boardPlanAdvanced) el.boardPlanAdvanced.textContent = advanced || '変化なし';
   }
 
   function calculateEnemyApostleRankGlobal(id, rankValue) {
@@ -4143,7 +4350,7 @@
 
   function applyEnabledSelfSkillEffects(effects, context) {
     buildSelfSkillEffectOptions(context.target, context)
-      .filter(option => isSelfSkillEffectOptionEnabled(option))
+      .filter(option => isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides))
       .forEach(option => {
         const item = setEffectTags({
           source: option.group === 'formation' ? '編成スキル' : option.source || '本人スキル',
@@ -4157,12 +4364,41 @@
       });
   }
 
-  function isSelfSkillEffectOptionEnabled(option) {
+  function isSelfSkillEffectOptionEnabled(option, stateOverrides = null) {
     if (!option?.key) return !!option?.defaultEnabled;
+    const canonicalKey = getFdcSkillEffectCanonicalKey(option.key);
+    if (stateOverrides && Object.prototype.hasOwnProperty.call(stateOverrides, canonicalKey)) {
+      return stateOverrides[canonicalKey] === true;
+    }
+    const manualState = getSelfSkillEffectManualState(option);
+    if (manualState !== null) return manualState;
+    return !!option.defaultEnabled;
+  }
+
+  function getSelfSkillEffectManualState(option) {
+    if (!option?.key) return null;
     if (Object.prototype.hasOwnProperty.call(view.selfSkillEffectEnabled, option.key)) {
       return view.selfSkillEffectEnabled[option.key] === true;
     }
-    return !!option.defaultEnabled;
+    if (option.key.endsWith(':all')) {
+      const legacyPrefix = option.key.slice(0, -3);
+      const legacyKey = Object.keys(view.selfSkillEffectEnabled)
+        .reverse()
+        .find(key => key.startsWith(legacyPrefix));
+      if (legacyKey) return view.selfSkillEffectEnabled[legacyKey] === true;
+    }
+    return null;
+  }
+
+  function getFdcSkillEffectActionKey(effect, encodedActionKey = 'none') {
+    const valueScope = judgeFdcEffectValueActionScope(effect, '');
+    return valueScope.hasActionScope ? encodedActionKey : 'all';
+  }
+
+  function getFdcSkillEffectCanonicalKey(key = '') {
+    const parts = String(key).split(':');
+    parts.pop();
+    return parts.join(':');
   }
 
   function buildSelfSkillEffectOptions(target, context) {
@@ -4184,7 +4420,7 @@
           effectLabel: `${stat.statName || 'ステータス'}増加`
         });
         options.push({
-          key: `${target.id}:${sourceKey}:stat:${statIndex}:${actionKey}`,
+          key: `${target.id}:${sourceKey}:stat:${statIndex}:all`,
           category,
           label,
           bonuses,
@@ -4210,7 +4446,7 @@
           effectLabel: effect.valueKind || effect.effectType || '効果'
         });
         options.push({
-          key: `${target.id}:${sourceKey}:${effectIndex}:${actionKey}`,
+          key: `${target.id}:${sourceKey}:${effectIndex}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
           category,
           label,
           bonuses,
@@ -4220,6 +4456,7 @@
           durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
+          actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
           spSourceLabel: createFdcSpSourceLabel(target?.name || apostle?.name, sourceLabel, category),
           defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category),
           detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
@@ -4277,7 +4514,7 @@
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
     const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context, category);
     return {
-      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${encodeURIComponent(actionCategory || 'none')}`,
+      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'))}`,
       group: 'formation',
       category,
       source: '編成スキル',
@@ -4298,6 +4535,7 @@
       durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
       condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
+      actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
       spSourceLabel: createFdcSpSourceLabel(memberName, sourceLabel, category),
       detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
       ...getFdcEffectStackMeta(effect)
@@ -4322,7 +4560,7 @@
         const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
         if (!bonuses || !Object.keys(bonuses).length) return;
         options.push({
-          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${actionKey}`,
+          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
           group: 'formation',
           category: 'アサイド',
           source: '編成A3',
@@ -4342,6 +4580,7 @@
           durationText: getFdcSkillEffectDurationText(aside3, effect, skillLevel),
           condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
+          actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
           spSourceLabel: createFdcSpSourceLabel(memberName, 'A3', 'A3'),
           detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
           ...getFdcEffectStackMeta(effect)
@@ -5939,30 +6178,75 @@
 
   function renderResult(context) {
     const result = calculateDamage(context);
-    const currentResult = view.statMode === 'planned' && context.target?.hasPlannedSnapshot
+    const pinnedComparison = getPinnedSingleComparison(context);
+    syncPinnedComparisonUi(context);
+    const currentResult = pinnedComparison?.result || (view.statMode === 'planned' && context.target?.hasPlannedSnapshot
       ? calculateDamageWithStatMode(context, 'current')
-      : null;
-    renderResultValue(el.result.normal, result.normal, currentResult?.normal, { type: 'number' });
-    renderResultValue(el.result.crit, result.crit, currentResult?.crit, { type: 'number' });
-    renderResultValue(el.result.expected, result.expected, currentResult?.expected, { type: 'number' });
+      : null);
+    const beforeLabel = pinnedComparison ? '変更前' : '現在';
+    renderResultValue(el.result.normal, result.normal, currentResult?.normal, { type: 'number', beforeLabel });
+    renderResultValue(el.result.crit, result.crit, currentResult?.crit, { type: 'number', beforeLabel });
+    renderResultValue(el.result.expected, result.expected, currentResult?.expected, { type: 'number', beforeLabel });
     renderHpRateResults(result, currentResult);
-    renderResultValue(el.result.critRate, result.critRate * 100, currentResult ? currentResult.critRate * 100 : null, { type: 'percent', digits: 1, showPointDiff: true });
-    renderResultValue(el.result.defRate, result.defRate * 100, currentResult ? currentResult.defRate * 100 : null, { type: 'percent', digits: 2 });
-    syncCritRateCapTone(result);
+    renderResultMetricSwitch(result, currentResult, beforeLabel);
     renderResultDetail(context, result);
+    window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
+      detail: { targetId: context.target?.id || '' }
+    }));
   }
 
-  function syncCritRateCapTone(result) {
-    const card = el.result.critRate?.closest('.result-card');
+  function renderResultMetricSwitch(result, currentResult = null, beforeLabel = '変更前') {
+    const metric = normalizeResultMetric(view.resultMetric);
+    const definitions = {
+      critRate: {
+        label: '会心率',
+        value: Number(result?.critRate) * 100,
+        before: currentResult ? Number(currentResult.critRate) * 100 : null,
+        options: { type: 'percent', digits: 1, showPointDiff: true, beforeLabel }
+      },
+      critDmg: {
+        label: '会心DMG量',
+        value: getResultCritMultiplier(result) * 100,
+        before: currentResult ? getResultCritMultiplier(currentResult) * 100 : null,
+        options: { type: 'percent', digits: 1, showPointDiff: true, beforeLabel }
+      },
+      defRate: {
+        label: '基礎DMG係数',
+        value: Number(result?.defRate) * 100,
+        before: currentResult ? Number(currentResult.defRate) * 100 : null,
+        options: { type: 'percent', digits: 2, showPointDiff: true, beforeLabel }
+      }
+    };
+    const definition = definitions[metric];
+    if (el.result.metricLabel) el.result.metricLabel.textContent = definition.label;
+    if (el.result.metricCard) el.result.metricCard.dataset.fdcResultMetric = metric;
+    if (el.result.metricToggle) {
+      const keys = ['critRate', 'critDmg', 'defRate'];
+      const next = definitions[keys[(keys.indexOf(metric) + 1) % keys.length]];
+      el.result.metricToggle.setAttribute('aria-label', definition.label + 'を' + next.label + 'へ切り替え');
+      el.result.metricToggle.title = '表示中: ' + definition.label + ' / 次: ' + next.label;
+    }
+    renderResultValue(el.result.critRate, definition.value, definition.before, definition.options);
+    syncResultMetricCapTone(result, metric);
+  }
+
+  function getResultCritMultiplier(result = {}) {
+    return Number(result?.detail?.stats?.critMult ?? result?.critMult) || 0;
+  }
+
+  function syncResultMetricCapTone(result, metric) {
+    const card = el.result.metricCard;
     if (!card) return;
-    const capType = result?.detail?.caps?.critRate?.type || '';
+    const cap = metric === 'critRate'
+      ? result?.detail?.caps?.critRate
+      : metric === 'critDmg'
+        ? result?.detail?.caps?.critMult
+        : null;
+    const capType = cap?.type || '';
     card.classList.toggle('is-cap-upper', capType === 'upper');
     card.classList.toggle('is-cap-lower', capType === 'lower');
-    card.title = capType === 'upper'
-      ? '会心率上限 80% に到達'
-      : capType === 'lower'
-        ? '会心率下限 5% に到達'
-        : '';
+    const label = metric === 'critDmg' ? '会心ダメージ量' : '会心率';
+    card.title = capType ? label + (capType === 'upper' ? '上限' : '下限') + ' ' + cap.limitText + ' に到達' : '';
   }
 
   function renderResultValue(element, plannedValue, currentValue = null, options = {}) {
@@ -5982,7 +6266,7 @@
     element.classList.add('is-compare');
     element.innerHTML = `
       <span class="fdc-result-current">${escapeHtml(formatResultMetric(planned, options))}</span>
-      <span class="fdc-result-before">(${escapeHtml(formatResultMetric(current, options))})</span>
+      <span class="fdc-result-before">${escapeHtml(options.beforeLabel || '変更前')} ${escapeHtml(formatResultMetric(current, options))}</span>
       <span class="fdc-result-diff ${tone}">${escapeHtml(diffText)}</span>
     `;
   }
@@ -6083,9 +6367,11 @@
   function renderResultDetail(context, result = calculateDamage(context)) {
     if (!el.result.detailGrid || !el.result.detailNote) return;
     const target = context.target;
-    const stats = target?.stats || {};
-    const attackKey = context.damageType === 'magic' ? 'magicAtk' : 'physicalAtk';
-    const defenseKey = context.damageType === 'magic' ? 'magicDef' : 'physicalDef';
+    const attackLabel = context.damageType === 'magic' ? '魔法攻撃力' : '物理攻撃力';
+    const defenseLabel = context.damageType === 'magic' ? '魔法防御力' : '物理防御力';
+    const isEnemyAttack = view.perspective === 'enemy';
+    const attackerIsEnemy = isEnemyAttack;
+    const defenderIsEnemy = !isEnemyAttack;
     const detail = result.detail || {};
     const stat = detail.stats || {};
     const mods = detail.mods || {};
@@ -6093,74 +6379,81 @@
     el.result.detailNote.textContent = target
       ? `${target.name} / ${formatStatModeLabel(target)} / ${formatGradeLabel(target)}`
       : '使徒未選択';
+    const pinnedComparison = getPinnedSingleComparison(context);
     const groups = [
       {
         title: '計算結果',
         rows: [
-          ['通常', formatNumber(result.normal)],
-          ['会心', formatNumber(result.crit)],
-          ['期待値', formatNumber(result.expected)],
-          ['防御側HP', formatNumber(result.hp)],
+          ['通常ダメージ', formatNumber(result.normal)],
+          ['期待ダメージ', formatNumber(result.expected)],
+          ['会心時ダメージ', formatNumber(result.crit)],
+          createSideDetailRow('HP', formatNumber(result.hp), defenderIsEnemy),
           ['会心率', `${(result.critRate * 100).toFixed(1)}%`],
-          ['防御係数', `${(result.defRate * 100).toFixed(2)}%`]
+          ['会心ダメージ量', `${formatPlainNumber((Number(stat.critMult) || 0) * 100)}%`],
+          ['基礎ダメージ係数', `${(result.defRate * 100).toFixed(2)}%`]
         ]
       },
       {
         title: '基礎ステータス',
         rows: [
-          ...(Number(stats.combatPower) ? [['戦闘力', formatNumber(stats.combatPower)]] : []),
-          ['HP', formatNumber(stats.hp)],
-          ['攻撃', formatNumber(stats[attackKey])],
-          ['防御', formatNumber(stats[defenseKey])],
-          ['会心', formatNumber(stats.crit)],
-          ['会心DMG', formatNumber(stats.critDmg)],
-          ['会心抵抗', formatNumber(stats.critRes)],
-          ['会心DMG抵抗', formatNumber(stats.critDmgRes)]
+          createSideDetailRow(attackLabel, formatNumber(stat.baseAtk), attackerIsEnemy),
+          createSideDetailRow('会心', formatNumber(stat.baseCrit), attackerIsEnemy),
+          createSideDetailRow('会心DMG', formatNumber(stat.baseCritDmg), attackerIsEnemy),
+          createSideDetailRow('HP', formatNumber(stat.baseHp), defenderIsEnemy),
+          createSideDetailRow(defenseLabel, formatNumber(stat.baseDef), defenderIsEnemy),
+          createSideDetailRow('会心抵抗', formatNumber(stat.baseCritRes), defenderIsEnemy),
+          createSideDetailRow('会心DMG抵抗', formatNumber(stat.baseCritDmgRes), defenderIsEnemy)
         ]
       },
       {
         title: '補正後ステータス',
         rows: [
-          ['防御側HP', formatNumber(stat.finalHp)],
-          ['攻撃', formatNumber(stat.finalAtk)],
-          ...(stat.damageReference ? [['ダメージ参照', stat.damageReference], ['参照値', formatNumber(stat.damageSource)]] : []),
-          ['防御', formatNumber(stat.finalDef)],
-          ['会心', formatNumber(stat.finalCrit)],
-          ['会心DMG', formatNumber(stat.finalCritDmg)],
-          ['会心抵抗', formatNumber(stat.finalCritRes)],
-          ['会心DMG抵抗', formatNumber(stat.finalCritDmgRes)],
+          createSideDetailRow(attackLabel, formatNumber(stat.finalAtk), attackerIsEnemy),
+          createSideDetailRow('会心', formatNumber(stat.finalCrit), attackerIsEnemy),
+          createSideDetailRow('会心DMG', formatNumber(stat.finalCritDmg), attackerIsEnemy),
+          createSideDetailRow('HP', formatNumber(stat.finalHp), defenderIsEnemy),
+          createSideDetailRow(defenseLabel, formatNumber(stat.finalDef), defenderIsEnemy),
+          createSideDetailRow('会心抵抗', formatNumber(stat.finalCritRes), defenderIsEnemy),
+          createSideDetailRow('会心DMG抵抗', formatNumber(stat.finalCritDmgRes), defenderIsEnemy),
+          ...(stat.damageReference ? [['ダメージ参照', stat.damageReference], ['ダメージ参照値', formatNumber(stat.damageSource)]] : []),
           createCapDetailRow('会心率', `${(result.critRate * 100).toFixed(1)}%`, caps.critRate),
-          createCapDetailRow('会心DMG倍率', `${stat.critMult?.toFixed ? stat.critMult.toFixed(2) : formatPlainNumber(stat.critMult)}x`, caps.critMult)
+          createCapDetailRow('会心ダメージ量', `${formatPlainNumber((Number(stat.critMult) || 0) * 100)}%`, caps.critMult)
         ]
       },
       {
         title: '最終補正値',
         rows: [
-          ['防御側HP補正', formatSignedPercent(mods.hpP)],
-          ['攻撃補正', formatSignedPercent(mods.attackP)],
-          ['防御補正', formatSignedPercent(mods.defenseP)],
-          createCapDetailRow('与ダメ補正', `${(mods.addRate * 100).toFixed(1)}%`, caps.addRate),
-          ...(Number(mods.conditionalTakenDmgP) ? [['状態弱点の被ダメージ増加', formatSignedPercent(mods.conditionalTakenDmgP)]] : []),
-          ...(Number(mods.targetDebuffTakenDmgP) ? [['破壊による被ダメージ増加', formatSignedPercent(mods.targetDebuffTakenDmgP)]] : []),
+          createSideDetailRow('攻撃力ステ補正', formatSignedPercent(mods.attackP), attackerIsEnemy),
+          createSideDetailRow('会心ステ補正', formatSignedPercent(mods.critP), attackerIsEnemy),
+          createSideDetailRow('会心DMGステ補正', formatSignedPercent(mods.critDmgP), attackerIsEnemy),
+          createSideDetailRow('会心率加算', formatSignedPercent(mods.critRateP), attackerIsEnemy),
+          createSideDetailRow('会心DMG量加算', formatSignedPercent(mods.critDmgAddP), attackerIsEnemy),
+          createSideDetailRow('HPステ補正', formatSignedPercent(mods.hpP), defenderIsEnemy),
+          createSideDetailRow('防御力ステ補正', formatSignedPercent(mods.defenseP), defenderIsEnemy),
+          createSideDetailRow('会心抵抗ステ補正', formatSignedPercent(mods.critResP), defenderIsEnemy),
+          createSideDetailRow('会心DMG抵抗ステ補正', formatSignedPercent(mods.critDmgResP), defenderIsEnemy),
+          createSideDetailRow('会心率抵抗加算', formatSignedPercent(mods.critResAddP), defenderIsEnemy),
+          createSideDetailRow('会心DMG抵抗加算', formatSignedPercent(mods.critDmgResAddP), defenderIsEnemy),
+          createCapDetailRow('与ダメージ量補正', `${(mods.addRate * 100).toFixed(1)}%`, caps.addRate),
+          ...(Number(mods.conditionalTakenDmgP) ? [['状態弱点による被ダメージ量補正', formatSignedPercent(mods.conditionalTakenDmgP)]] : []),
+          ...(Number(mods.targetDebuffTakenDmgP) ? [['破壊による被ダメージ量補正', formatSignedPercent(mods.targetDebuffTakenDmgP)]] : []),
           ['スキル倍率', `${formatPlainNumber(mods.skillP)}%`],
-          ['タイプ補正', `${formatPlainNumber(mods.typeP)}%`],
-          ['特殊補正', `${formatPlainNumber(mods.specialP)}%`],
-          ['その他補正', `${formatPlainNumber(mods.otherP)}%`],
-          ['会心補正', formatSignedPercent(mods.critP)],
-          ['会心DMGステ補正', formatSignedPercent(mods.critDmgP)],
-          ['会心率加算', formatSignedPercent(mods.critRateP)],
-          ['会心DMG倍率加算', formatSignedPercent(mods.critDmgAddP)],
-          ['会心率抵抗加算', formatSignedPercent(mods.critResAddP)],
-          ['会心DMG抵抗加算', formatSignedPercent(mods.critDmgResAddP)]
+          ['属性相性倍率', `${formatPlainNumber(mods.typeP)}%`],
+          ['特殊倍率', `${formatPlainNumber(mods.specialP)}%`],
+          ['その他倍率', `${formatPlainNumber(mods.otherP)}%`]
         ]
       },
       {
-        title: '現在との差分',
-        rows: createCurrentPlannedDiffRows(context)
+        title: pinnedComparison ? '変更前の条件' : '現在との差分',
+        rows: pinnedComparison
+          ? createPinnedComparisonConditionRows(context, pinnedComparison.session)
+          : createCurrentPlannedDiffRows(context)
       },
       {
-        title: '現在/予定ダメージ比較',
-        rows: createCurrentPlannedDamageRows(context, result)
+        title: pinnedComparison ? '変更前/現在ダメージ比較' : '現在/予定ダメージ比較',
+        rows: pinnedComparison
+          ? createPinnedComparisonDamageRows(pinnedComparison.result, result)
+          : createCurrentPlannedDamageRows(context, result)
       }
     ];
     el.result.detailGrid.innerHTML = groups.map(group => `
@@ -6177,7 +6470,12 @@
     const normalized = Array.isArray(row) ? { label: row[0], value: row[1] } : row;
     const classes = ['fdc-result-detail-row', normalized.className || ''].filter(Boolean).join(' ');
     const title = normalized.title ? ` title="${escapeAttr(normalized.title)}"` : '';
-    return `<div class="${escapeAttr(classes)}"${title}><span>${escapeHtml(normalized.label)}</span><strong>${escapeHtml(normalized.value)}</strong></div>`;
+    const enemyBadge = normalized.isEnemy ? '<em class="fdc-result-enemy-badge">[敵]</em>' : '';
+    return `<div class="${escapeAttr(classes)}"${title}><span>${enemyBadge}${escapeHtml(normalized.label)}</span><strong>${escapeHtml(normalized.value)}</strong></div>`;
+  }
+
+  function createSideDetailRow(label, value, isEnemy = false) {
+    return { label, value, isEnemy };
   }
 
   function createCapDetailRow(label, value, cap = null) {
@@ -6206,7 +6504,7 @@
     const isEnemyAttack = view.perspective === 'enemy';
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
-    const selectedSkillOption = isEnemyAttack ? null : resolveSelectedSelfSkillOption(context);
+    const selectedSkillOption = isEnemyAttack ? null : context.selectedSkillOption || resolveSelectedSelfSkillOption(context);
     const selectedSkillValue = Number(selectedSkillOption?.value);
     const conditionalTakenDmgP = !isEnemyAttack ? getEnemyPresetStatusTakenDamageWeaknessAdd() : 0;
     const targetDebuffTakenDmgP = isEnemyAttack ? getEnemyPresetBreakDebuffTakenDmgP() : 0;
@@ -6243,13 +6541,15 @@
     const critDmgP = attacker.critDmgP;
     const critRateP = attacker.critRateP;
     const critDmgAddP = attacker.critDmgAddP;
+    const critResP = defender.critResP - defender.critResDownP;
+    const critDmgResP = defender.critDmgResP - defender.critDmgResDownP;
     const finalAtk = baseAtk * (1 + attackP / 100);
     const finalCrit = baseCrit * (1 + attacker.critP / 100);
     const finalCritDmg = baseCritDmg * (1 + attacker.critDmgP / 100);
     const finalHp = baseHp * (1 + hpP / 100);
     const finalDef = Math.max(1, baseDef * (1 + defenseP / 100));
-    const finalCritRes = Math.max(1, baseCritRes * (1 + (defender.critResP - defender.critResDownP) / 100));
-    const finalCritDmgRes = Math.max(1, baseCritDmgRes * (1 + (defender.critDmgResP - defender.critDmgResDownP) / 100));
+    const finalCritRes = Math.max(1, baseCritRes * (1 + critResP / 100));
+    const finalCritDmgRes = Math.max(1, baseCritDmgRes * (1 + critDmgResP / 100));
     const defRate = calcBaseDamageRate(finalAtk, finalDef);
     const rawAddRate = 1 + (attacker.addP - defender.takenDmgP) / 100;
     let addRate = Math.max(0.2, rawAddRate);
@@ -6309,6 +6609,8 @@
           otherP: attacker.other,
           critP,
           critDmgP,
+          critResP,
+          critDmgResP,
           critRateP,
           critDmgAddP,
           critResAddP: defender.critResAddP,
@@ -6337,16 +6639,16 @@
           } : null,
           critMult: rawCritMult >= 2.5 ? {
             type: 'upper',
-            limitText: '2.5x',
-            difference: rawCritMult - 2.5,
+            limitText: '250%',
+            difference: (rawCritMult - 2.5) * 100,
             differencePrefix: '+',
-            differenceSuffix: 'x'
+            differenceSuffix: '%'
           } : rawCritMult <= 1.2 ? {
             type: 'lower',
-            limitText: '1.2x',
-            difference: 1.2 - rawCritMult,
+            limitText: '120%',
+            difference: (1.2 - rawCritMult) * 100,
             differencePrefix: '-',
-            differenceSuffix: 'x'
+            differenceSuffix: '%'
           } : null
         }
       }
@@ -6606,6 +6908,7 @@
     if (!el.applyFloatPanel || !el.applyFloatToggle) return;
     const open = !!el.applyFloatPanel.hidden;
     if (open && el.saveMenu) el.saveMenu.open = false;
+    if (open) closeCompareFloatPanel();
     el.applyFloatPanel.hidden = !open;
     el.applyFloatToggle.setAttribute('aria-expanded', String(open));
   }
@@ -6614,6 +6917,172 @@
     if (!el.applyFloatPanel || !el.applyFloatToggle || el.applyFloatPanel.hidden) return;
     el.applyFloatPanel.hidden = true;
     el.applyFloatToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleCompareFloatPanel() {
+    if (!el.compareFloatPanel || !el.compareFloatToggle) return;
+    const open = !!el.compareFloatPanel.hidden;
+    if (open && el.saveMenu) el.saveMenu.open = false;
+    if (open) closeApplyFloatPanel();
+    el.compareFloatPanel.hidden = !open;
+    el.compareFloatToggle.setAttribute('aria-expanded', String(open));
+  }
+
+  function closeCompareFloatPanel() {
+    if (!el.compareFloatPanel || !el.compareFloatToggle || el.compareFloatPanel.hidden) return;
+    el.compareFloatPanel.hidden = true;
+    el.compareFloatToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function getCombatScenarioApi() {
+    return typeof TRICKCAL_COMBAT_SCENARIO === 'undefined' ? null : TRICKCAL_COMBAT_SCENARIO;
+  }
+
+  function getPinnedComparisonSession() {
+    return getCombatScenarioApi()?.loadComparisonSession?.() || null;
+  }
+
+  function createPinnedDpsSnapshot(snapshot = {}) {
+    return clonePlain({
+      targetId: snapshot.targetId || '',
+      targetName: snapshot.targetName || '',
+      apostle: snapshot.apostle || null,
+      skillLevels: snapshot.skillLevels || {},
+      damageType: snapshot.damageType || '',
+      actionCategory: snapshot.actionCategory || '',
+      selectedSkillOptionKey: snapshot.selectedSkillOptionKey || '',
+      boardState: snapshot.boardState || null,
+      singleActionProfiles: snapshot.singleActionProfiles || {},
+      actionDamageProfiles: snapshot.actionDamageProfiles || {},
+      actionEffectAudit: snapshot.actionEffectAudit || {}
+    });
+  }
+
+  function savePinnedComparisonBaseline() {
+    const api = getCombatScenarioApi();
+    if (!api?.savePinnedComparison) return;
+    const context = buildContext();
+    if (!context.target) {
+      if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '先に比較する使徒を選択してください';
+      return;
+    }
+    const scenario = captureCombatScenario(context);
+    const result = calculateDamage(context);
+    const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot());
+    const session = api.savePinnedComparison({
+      scenario,
+      singleActionResult: result,
+      dpsSnapshot
+    });
+    if (!session) {
+      if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '基準の保存に失敗しました';
+      return;
+    }
+    syncPinnedComparisonUi(context);
+    renderResult(context);
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'pinned' } }));
+  }
+
+  function clearPinnedComparisonBaseline() {
+    getCombatScenarioApi()?.clearComparisonSession?.();
+    const context = buildContext();
+    syncPinnedComparisonUi(context);
+    renderResult(context);
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'none' } }));
+  }
+
+  function getPinnedSingleComparison(context = buildContext()) {
+    const session = getPinnedComparisonSession();
+    if (!session?.baseline?.singleActionResult) return null;
+    const baselineScenario = session.baseline.scenario || {};
+    const baselineTargetId = baselineScenario.actors?.self?.id || baselineScenario.characterState?.targetId || '';
+    const baselinePerspective = baselineScenario.battleConditions?.perspective || 'self';
+    if (!context.target || baselineTargetId !== context.target.id || baselinePerspective !== view.perspective) return null;
+    const result = resolvePinnedSingleActionResult(session, context);
+    if (!result) return null;
+    return {
+      session,
+      result
+    };
+  }
+
+  function resolvePinnedSingleActionResult(session, context) {
+    const savedResult = session?.baseline?.singleActionResult || null;
+    const policy = session?.evaluationPolicy?.singleAction || 'followCandidateAction';
+    if (policy === 'fixedBaselineAction') return savedResult;
+    const baselineScenario = session?.baseline?.scenario || {};
+    const baselineAction = baselineScenario.battleConditions || {};
+    if (view.perspective === 'enemy') {
+      return baselineAction.enemySelectedSkillCategory === view.enemySelectedSkillCategory
+        ? savedResult
+        : null;
+    }
+    const selectedOption = context.selectedSkillOption || resolveSelectedSelfSkillOption(context);
+    if (!selectedOption) {
+      const sameCategory = (baselineAction.actionCategory || baselineAction.selectedSkillCategory || '') === (context.actionCategory || '');
+      return sameCategory ? savedResult : null;
+    }
+    const profiles = session?.baseline?.dpsSnapshot?.singleActionProfiles || {};
+    const exact = profiles[selectedOption.key];
+    if (exact?.damageResult) return exact.damageResult;
+    const compatible = Object.values(profiles).find(profile => {
+      if (!profile?.damageResult) return false;
+      if (selectedOption.effectId && profile.effectId === selectedOption.effectId) return true;
+      return profile.category === selectedOption.category
+        && profile.sourceCategory === selectedOption.sourceCategory
+        && profile.kind === selectedOption.kind;
+    });
+    if (compatible?.damageResult) return compatible.damageResult;
+    const sameOption = baselineAction.selectedSkillOptionKey
+      ? baselineAction.selectedSkillOptionKey === selectedOption.key
+      : (baselineAction.actionCategory || baselineAction.selectedSkillCategory || '') === (selectedOption.category || context.actionCategory || '');
+    return sameOption ? savedResult : null;
+  }
+
+  function syncPinnedComparisonUi(context = buildContext()) {
+    if (!el.pinnedCompareNote || !el.pinnedCompareClear) return;
+    const session = getPinnedComparisonSession();
+    el.pinnedCompareClear.disabled = !session;
+    el.compareFloatToggle?.classList.toggle('is-active', !!session);
+    if (el.compareFloatToggleLabel) el.compareFloatToggleLabel.textContent = session ? '比較中' : '比較';
+    if (el.compareFloatToggle) {
+      el.compareFloatToggle.setAttribute('aria-label', session ? '変更前と比較中' : '変更前と比較');
+      el.compareFloatToggle.title = session ? '変更前との比較を確認・更新・終了' : '今の状態を記録して変更後と比較';
+    }
+    if (el.pinnedCompareSave) el.pinnedCompareSave.textContent = session ? '変更前を現在の状態に更新' : '現在を変更前として記録';
+    if (el.compareFloatHelp) {
+      el.compareFloatHelp.textContent = session
+        ? '記録した育成・編成・計算設定と現在を比較しています。単発計算では、現在選択中の行動を変更前のスキルLvでも計算します。'
+        : '今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージの差を確認できます。選択する行動は自動的に追従します。';
+    }
+    if (!session) {
+      el.pinnedCompareNote.textContent = '比較を開始していません';
+      el.pinnedCompareNote.title = '';
+      return;
+    }
+    const scenario = session.baseline.scenario || {};
+    const name = scenario.actors?.self?.name || scenario.actors?.self?.id || '使徒未選択';
+    const baselineBoard = scenario.characterState?.boardState || session.baseline.dpsSnapshot?.boardState || {};
+    const baselineBoardLabel = formatBoardComparisonMode(baselineBoard);
+    const compatible = scenario.actors?.self?.id === context.target?.id
+      && (scenario.battleConditions?.perspective || 'self') === view.perspective;
+    const comparison = compatible ? getPinnedSingleComparison(context) : null;
+    const expected = Number(comparison?.result?.expected) || 0;
+    if (compatible && comparison) {
+      const contextText = `${name} / 基準:ボード${baselineBoardLabel} / 現在行動に追従`;
+      const expectedText = `期待値 ${formatCompactDamage(expected)}`;
+      el.pinnedCompareNote.innerHTML = `
+        <span class="fdc-pinned-compare-context">${escapeHtml(contextText)}</span>
+        <b class="fdc-pinned-compare-expected">${escapeHtml(expectedText)}</b>
+      `;
+      el.pinnedCompareNote.title = `${contextText} / ${expectedText}`;
+    } else {
+      const message = compatible
+        ? `${name} / 現在行動を基準側で解決できません`
+        : `${name} / 現在条件では比較停止`;
+      el.pinnedCompareNote.textContent = message;
+      el.pinnedCompareNote.title = message;
+    }
   }
 
   function syncApplyFloatUi() {
@@ -7754,6 +8223,75 @@
     ];
   }
 
+  function createPinnedComparisonDamageRows(baselineResult = {}, currentResult = {}) {
+    const baselineExpected = Number(baselineResult.expected) || 0;
+    const currentExpected = Number(currentResult.expected) || 0;
+    const diff = currentExpected - baselineExpected;
+    const ratio = baselineExpected ? diff / baselineExpected * 100 : currentExpected ? Number.POSITIVE_INFINITY : 0;
+    return [
+      ['変更前の期待値', formatNumber(baselineExpected)],
+      ['現在期待値', formatNumber(currentExpected)],
+      ['差分', formatSignedNumber(Math.round(diff))],
+      ['変化率', Number.isFinite(ratio) ? `${ratio > 0 ? '+' : ''}${ratio.toFixed(2)}%` : '+∞%']
+    ];
+  }
+
+  function createPinnedComparisonConditionRows(context, session) {
+    const baseline = session?.baseline?.scenario || {};
+    const currentScenario = captureCombatScenario(context);
+    const baselineBoard = baseline.characterState?.boardState || session?.baseline?.dpsSnapshot?.boardState || {};
+    const currentBoard = currentScenario.characterState?.boardState || {};
+    const rows = [
+      ['変更前の使徒', baseline.actors?.self?.name || baseline.actors?.self?.id || '-'],
+      ['現在使徒', currentScenario.actors?.self?.name || currentScenario.actors?.self?.id || '-'],
+      ['変更前の行動', session?.evaluationPolicy?.singleAction === 'fixedBaselineAction'
+        ? baseline.battleConditions?.actionCategory || '-'
+        : `${currentScenario.battleConditions?.actionCategory || '-'}（現在選択に追従）`],
+      ['現在行動', currentScenario.battleConditions?.actionCategory || '-'],
+      ['変更前のボード', formatBoardComparisonMode(baselineBoard)],
+      ['現在のボード', formatBoardComparisonMode(currentBoard)],
+      ['変更前のボード反映値', formatBoardComparisonStats(baselineBoard)],
+      ['現在のボード反映値', formatBoardComparisonStats(currentBoard)],
+      ['変更前のスキルLv', formatSkillLevelSummary(session?.baseline?.dpsSnapshot?.skillLevels)],
+      ['比較データ指紋', baseline.sourceMeta?.fingerprint || '-']
+    ];
+    return rows;
+  }
+
+  function formatBoardComparisonMode(boardState = {}) {
+    const mode = boardState.selectedMode === 'planned' ? '予定' : '現在';
+    return boardState.selectedMode === 'planned' && !boardState.hasPlannedSnapshot
+      ? '予定（予定なし→現在）'
+      : mode;
+  }
+
+  function formatBoardComparisonStats(boardState = {}) {
+    const stats = boardState.selectedStats || {};
+    const attackKey = boardState.damageType === 'magic' ? 'magicAtk' : 'physicalAtk';
+    const values = [
+      ['HP', stats.hp],
+      ['攻', stats[attackKey]],
+      ['会心', stats.crit],
+      ['会心DMG', stats.critDmg]
+    ].filter(([, value]) => Number.isFinite(Number(value)));
+    return values.length
+      ? values.map(([label, value]) => label + formatNumber(Math.round(Number(value) || 0))).join(' / ')
+      : '-';
+  }
+
+  function formatSkillLevelSummary(levels = {}) {
+    const labels = [
+      ['低', levels.low],
+      ['高', levels.high],
+      ['パ', levels.passive],
+      ['A段階', levels.asideRank],
+      ['ALv', levels.asideLevel]
+    ].filter(([, value]) => Number.isFinite(Number(value)));
+    return labels.length
+      ? labels.map(([label, value]) => `${label}${formatPlainNumber(value)}`).join(' / ')
+      : '-';
+  }
+
   function calculateDamageWithStatMode(context, mode) {
     const target = context.target;
     if (!target) return null;
@@ -7955,6 +8493,7 @@
         const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
+          effectId: effect.effectId || '',
           value: String(calcValue),
           label: `${sourceCategory}${attackCategory ? ` / 攻撃分類: ${attackCategory}` : ''} / ${kind} (${formatPlainNumber(calcValue)}%)`,
           category,
@@ -8670,11 +9209,152 @@
     localStorage.setItem(LEGACY_THEME_KEY, theme);
   }
 
-  function createDpsPrototypeSnapshot() {
+  function captureCombatScenario(context = buildContext()) {
+    const scenarioApi = typeof TRICKCAL_COMBAT_SCENARIO === 'undefined' ? null : TRICKCAL_COMBAT_SCENARIO;
+    const target = context.target;
+    const enemyMember = context.enemyMember;
+    const referenceState = createReferenceStateSnapshot(context);
+    const boardState = createBoardComparisonSnapshot(context);
+    const source = {
+      capturedAt: Date.now(),
+      sourceMeta: {
+        type: 'live',
+        calculatorVersion: 4,
+        managerSyncRevision: Math.max(0, Number(context.state?.syncRevision) || 0)
+      },
+      actors: {
+        self: target ? {
+          id: target.id || '',
+          name: target.name || '',
+          position: target.position || '',
+          line: target.line,
+          personality: target.personality || '',
+          role: target.role || '',
+          attackType: target.attackType || ''
+        } : {},
+        enemy: {
+          sourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+          id: enemyMember?.id || '',
+          name: enemyMember?.name || getSelectedEnemyPreset()?.name || '',
+          presetKey: view.enemyPresetKey || ''
+        }
+      },
+      characterState: {
+        targetId: target?.id || '',
+        enemyApostleId: enemyMember?.id || view.enemyApostleId || '',
+        statMode: view.statMode === 'planned' ? 'planned' : 'current',
+        boardState,
+        gradeOverride: view.gradeOverride || 'saved',
+        apostles: referenceState.apostles || {},
+        research: referenceState.research || {}
+      },
+      formationState: {
+        presetId: view.formationPresetId || '',
+        formation: clonePlain(context.formation || {}),
+        tempMembers: clonePlain(view.tempMembers || {})
+      },
+      cardState: {
+        cards: clonePlain(referenceState.cards || {}),
+        tempArtifacts: clonePlain(view.tempArtifacts || { formation: {}, target: {} }),
+        tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null
+      },
+      battleConditions: {
+        perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
+        damageType: view.damageType || 'auto',
+        resolvedDamageType: context.damageType || '',
+        enemyDamageType: view.enemyDamageType || 'auto',
+        actionCategory: context.actionCategory || '',
+        selectedSkillCategory: view.selectedSkillCategory || '',
+        selectedSkillOptionKey: view.selectedSkillOptionKey || '',
+        enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
+        enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
+        enemyPresetKey: view.enemyPresetKey || '',
+        enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
+        enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
+        enemyPersonality: view.enemyPersonality || '',
+        pvpAffinityEnabled: !!view.pvpAffinityEnabled,
+        pvpRank: normalizePvpRank(view.pvpRank),
+        inputs: readDamageCalculationInputs()
+      },
+      effectAssumptions: {
+        effectSources: pickBooleanMap(view.effectSources),
+        selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
+        conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
+        conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
+        skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
+        enemyGlobalPercentEnabled: view.enemyGlobalPercentEnabled !== false,
+        enemyGlobalAdditiveEnabled: view.enemyGlobalAdditiveEnabled !== false,
+        enemyBoardPresetSelections: clonePlain(view.enemyBoardPresetSelections),
+        enemyIndividualOverrides: clonePlain(view.enemyIndividualOverrides),
+        enemyRankPreset: normalizeEnemyRankPreset(view.enemyRankPreset),
+        enemyResearchPreset: clonePlain(view.enemyResearchPreset)
+      }
+    };
+    const scenario = scenarioApi?.createScenario ? scenarioApi.createScenario(source) : clonePlain(source);
+    if (scenarioApi?.fingerprint) scenario.sourceMeta.fingerprint = scenarioApi.fingerprint(scenario);
+    return scenario;
+  }
+
+  function createBoardComparisonSnapshot(context = buildContext()) {
+    const target = context.target;
+    if (!target) return {
+      selectedMode: view.statMode === 'planned' ? 'planned' : 'current',
+      hasPlannedSnapshot: false,
+      damageType: context.damageType || '',
+      currentStats: {},
+      plannedStats: {},
+      selectedStats: {}
+    };
+    const apostleState = context.state?.apostles?.[target.id] || {};
+    const basic = getApostle(target.id);
+    const currentStats = readMemberStats(apostleState, basic, getEffectiveGradeOverride(), 'current');
+    const plannedStats = readMemberStats(apostleState, basic, getEffectiveGradeOverride(), 'planned');
+    const selectedMode = view.statMode === 'planned' ? 'planned' : 'current';
+    const pickStats = stats => Object.fromEntries([
+      'hp',
+      'physicalAtk',
+      'magicAtk',
+      'physicalDef',
+      'magicDef',
+      'crit',
+      'critDmg',
+      'critRes',
+      'critDmgRes',
+      'spRegen',
+      'combatPower'
+    ].map(key => [key, Number(stats?.[key]) || 0]));
+    const normalizedCurrent = pickStats(currentStats);
+    const normalizedPlanned = pickStats(plannedStats);
+    return {
+      selectedMode,
+      hasPlannedSnapshot: !!target.hasPlannedSnapshot,
+      damageType: context.damageType || '',
+      currentStats: normalizedCurrent,
+      plannedStats: normalizedPlanned,
+      selectedStats: selectedMode === 'planned' ? normalizedPlanned : normalizedCurrent
+    };
+  }
+
+  function createCurrentSingleActionSnapshot() {
     const context = buildContext();
+    return {
+      scenario: captureCombatScenario(context),
+      result: calculateDamage(context)
+    };
+  }
+
+  function createDpsPrototypeSnapshot(contextOverride = null) {
+    const context = contextOverride || buildContext();
+    const scenario = captureCombatScenario(context);
     const target = context.target;
     const apostle = getApostleSkillData(target);
+    const selectedSkillOptions = target ? buildFdcApostleSkillOptions(target, context) : [];
+    const sharedSkillEffectStates = target ? createDpsSharedSkillEffectStates(target, context) : {};
+    const actionDamageData = target
+      ? createDpsActionDamageData(selectedSkillOptions, sharedSkillEffectStates)
+      : { profiles: {}, audit: {} };
     return {
+      scenario,
       targetId: target?.id || '',
       targetName: target?.name || apostle?.name || '',
       target,
@@ -8683,13 +9363,171 @@
       damageType: context.damageType,
       actionCategory: context.actionCategory,
       selectedSkillOptionKey: view.selectedSkillOptionKey,
-      selectedSkillOptions: target ? buildFdcApostleSkillOptions(target, context) : [],
+      boardState: scenario.characterState?.boardState || createBoardComparisonSnapshot(context),
+      selectedSkillOptions,
+      singleActionProfiles: actionDamageData.singleActionProfiles,
+      actionDamageProfiles: actionDamageData.profiles,
+      actionEffectAudit: actionDamageData.audit,
       currentDamageResult: calculateDamage(context)
     };
   }
 
+  function createDpsSharedSkillEffectStates(target, context) {
+    return Object.fromEntries(buildSelfSkillEffectOptions(target, context)
+      .filter(option => !option.actionScoped)
+      .map(option => [getFdcSkillEffectCanonicalKey(option.key), isSelfSkillEffectOptionEnabled(option)]));
+  }
+
+  function createDpsActionDamageData(skillOptions = [], sharedSkillEffectStates = {}) {
+    const profiles = {};
+    const singleActionProfiles = {};
+    const audit = {};
+    const actionCategories = {
+      basicAttack: '基本攻撃',
+      enhancedAttack: '強化攻撃',
+      lowSkill: '低学年スキル',
+      highSkill: '高学年スキル'
+    };
+    Object.entries(actionCategories).forEach(([actionKey, actionCategory]) => {
+      const actionContext = buildContext({
+        actionCategory,
+        detached: true,
+        skillEffectStateOverrides: sharedSkillEffectStates
+      });
+      audit[actionKey] = createDpsActionEffectAudit(actionContext);
+    });
+    skillOptions.forEach(option => {
+      const actionKey = getDpsActionKeyForSkillOption(option);
+      const actionContext = buildContext({
+        actionCategory: option.category || option.sourceCategory || '',
+        detached: true,
+        skillEffectStateOverrides: sharedSkillEffectStates
+      });
+      actionContext.selectedSkillOption = option;
+      const damage = calculateDamage(actionContext);
+      if (option.key) {
+        singleActionProfiles[option.key] = {
+          optionKey: option.key,
+          effectId: option.effectId || '',
+          category: option.category || '',
+          sourceCategory: option.sourceCategory || '',
+          kind: option.kind || '',
+          damageResult: createComparableDamageResult(damage)
+        };
+      }
+      if (!actionKey) return;
+      const branch = getDpsSkillOptionBranch(option);
+      const variantKey = branch || 'default';
+      const profile = profiles[actionKey] || (profiles[actionKey] = {
+        actionKey,
+        variants: {},
+        assumptions: ['戦闘中に変化しない効果として評価']
+      });
+      const variant = profile.variants[variantKey] || (profile.variants[variantKey] = {
+        branch,
+        effects: {},
+        totalExpectedDamage: 0
+      });
+      const effectKey = option.effectId || option.key;
+      const expectedDamage = Math.max(0, Number(damage.expected) || 0);
+      variant.effects[effectKey] = {
+        effectId: option.effectId || '',
+        optionKey: option.key,
+        label: option.label,
+        multiplier: Number(option.value) || 0,
+        expectedDamage,
+        damageResult: createComparableDamageResult(damage)
+      };
+      variant.totalExpectedDamage += expectedDamage;
+    });
+    return { profiles, singleActionProfiles, audit };
+  }
+
+  function createComparableDamageResult(result = {}) {
+    return {
+      normal: Number(result.normal) || 0,
+      crit: Number(result.crit) || 0,
+      expected: Number(result.expected) || 0,
+      hp: Number(result.hp) || 0,
+      critRate: Number(result.critRate) || 0,
+      defRate: Number(result.defRate) || 0,
+      critMult: Number(result.detail?.stats?.critMult) || 0
+    };
+  }
+
+  function createDpsActionEffectAudit(context) {
+    const rows = new Map();
+    const add = item => {
+      if (!item?.key || !item.label) return;
+      rows.set(item.key, item);
+    };
+    buildSelfSkillEffectOptions(context.target, context)
+      .filter(option => isBonusMapRelevantToPerspective(option.bonuses))
+      .forEach(option => {
+        const enabled = isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides);
+        const manualState = getSelfSkillEffectManualState(option);
+        const keyParts = String(option.key || '').split(':');
+        keyParts.pop();
+        add({
+          key: `skill:${keyParts.join(':')}`,
+          label: option.label,
+          source: option.group === 'formation' ? '編成スキル' : option.category || '本人スキル',
+          value: formatBonusMap(getRelevantBonusMap(getSkillEffectOptionBonuses(option))),
+          enabled,
+          reason: enabled
+            ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
+            : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')
+        });
+      });
+
+    const effectRows = [
+      ...(context.effects?.applied || []),
+      ...(context.effects?.globalStats || []),
+      ...(context.effects?.conditional || [])
+    ].filter(row => !hasAnySourceTag(row, ['スキル/アサイド']))
+      .filter(isEffectRelevantToPerspective);
+    effectRows.forEach(row => {
+      const sourceEnabled = isEffectSourceEnabled(row);
+      const toggleEnabled = !row.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled);
+      const enabled = sourceEnabled && toggleEnabled
+        && (context.effects.applied.includes(row) || context.effects.globalStats.includes(row) || row.canToggle);
+      const key = row.conditionKey
+        ? `effect:${row.conditionKey}`
+        : `effect:${[row.source, row.cardId, row.effectId, row.cardName, row.label].filter(Boolean).join(':')}`;
+      add({
+        key,
+        label: [row.cardName, row.label].filter(Boolean).join(' / ') || row.source || '効果',
+        source: row.source || '補正',
+        value: formatBonusMap(getRelevantBonusMap(row.bonuses || {})),
+        enabled,
+        reason: enabled
+          ? [row.canToggle ? 'ON' : '自動適用', row.reason].filter(Boolean).join(' / ')
+          : [!sourceEnabled ? '補正カテゴリOFF' : 'OFF', row.reason].filter(Boolean).join(' / ')
+      });
+    });
+    return {
+      actionCategory: context.actionCategory || '',
+      rows: Array.from(rows.values())
+    };
+  }
+
+  function getDpsActionKeyForSkillOption(option = {}) {
+    const categories = getFdcActionCategories(option.attackCategory || option.category || option.sourceCategory || '');
+    if (categories.includes('基本攻撃')) return 'basicAttack';
+    if (categories.includes('強化攻撃')) return 'enhancedAttack';
+    if (categories.includes('低学年スキル')) return 'lowSkill';
+    if (categories.includes('高学年スキル')) return 'highSkill';
+    return '';
+  }
+
+  function getDpsSkillOptionBranch(option = {}) {
+    return (String(option.kind || '').match(/^\[([^\]]+)\]/) || [])[1] || '';
+  }
+
   window.TRICKCAL_DAMAGE_CALC = Object.freeze({
-    version: 1,
+    version: 4,
+    captureCombatScenario,
+    createSingleActionSnapshot: createCurrentSingleActionSnapshot,
     createDpsSnapshot: createDpsPrototypeSnapshot
   });
 

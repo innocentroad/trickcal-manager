@@ -5595,6 +5595,53 @@ body.dashboard-page.is-booting::after {
   padding: 3px 4px;
 }
 
+.formation-spell-selected-effect-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.formation-spell-selected-effect-summary > span {
+  border: 1px solid rgba(255, 255, 255, 0.44);
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: #fff;
+  background: rgba(38, 54, 44, 0.78);
+  font-size: 0.6rem;
+  font-weight: 950;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.formation-spell-selected-effect-summary > .formation-spell-selected-effect-title {
+  border-color: rgba(49, 85, 60, 0.18);
+  color: rgba(42, 72, 51, 0.82);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.formation-spell-selected-effect-summary > .is-hp { background: rgba(24, 105, 55, 0.88); }
+.formation-spell-selected-effect-summary > .is-recovery { color: #f1ffd9; background: rgba(76, 119, 31, 0.9); }
+.formation-spell-selected-effect-summary > .is-attack { background: rgba(137, 39, 42, 0.9); }
+.formation-spell-selected-effect-summary > .is-attack-speed { background: rgba(151, 77, 19, 0.9); }
+.formation-spell-selected-effect-summary > .is-defense { background: rgba(31, 77, 139, 0.9); }
+.formation-spell-selected-effect-summary > .is-crit { color: #fffbd8; background: rgba(126, 97, 10, 0.92); }
+.formation-spell-selected-effect-summary > .is-crit-resist { background: rgba(91, 44, 137, 0.92); }
+
+:root[data-theme="dark"] .formation-spell-selected-effect-summary {
+  background: rgba(15, 23, 42, 0.62);
+}
+
+:root[data-theme="dark"] .formation-spell-selected-effect-summary > .formation-spell-selected-effect-title {
+  border-color: rgba(255, 255, 255, 0.14);
+  color: rgba(226, 232, 240, 0.84);
+  background: rgba(30, 41, 59, 0.9);
+}
+
 .formation-spell-detail-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

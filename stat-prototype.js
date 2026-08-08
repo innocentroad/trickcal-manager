@@ -6205,6 +6205,7 @@
           ? selectedRows.map(row => renderFormationSelectedSpell(row.card, row.id, row.count)).join('')
           : '<span class="formation-spell-empty">下のカードを押すと追加されます</span>'}
       </div>
+      ${renderFormationSelectedSpellEffects(selectedRows)}
       <div class="formation-spell-catalog" aria-label="スペル一覧">
         ${deferCatalog ? '<span class="formation-spell-empty">スペル一覧を準備中...</span>' : cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('')}
       </div>
@@ -6252,23 +6253,46 @@
         .replace(/会心DMG/g, '会心D')
         .replace(/会心抵抗/g, '会心抵')
         .replace(/HP治癒/g, '治癒'),
-      tone: /回復|治癒/.test(text)
-        ? 'recovery'
-        : /攻撃速度|攻速/.test(text)
-          ? 'attack-speed'
-          : /会心.*抵抗/.test(text)
-            ? 'crit-resist'
-            : /会心/.test(text)
-              ? 'crit'
-              : /防御/.test(text)
-                ? 'defense'
-                : /攻撃/.test(text)
-                  ? 'attack'
-                  : /HP/.test(text)
-                    ? 'hp'
-                    : 'other',
+      tone: getFormationSpellEffectTone(text),
       detail: summary === '補正なし' ? '基礎補正なし（特殊効果のみ）' : `★${star} ${text}`
     }));
+  }
+
+  function renderFormationSelectedSpellEffects(rows = []) {
+    if (!rows.length) return '';
+    const bonuses = {};
+    rows.forEach(({ card, count }) => {
+      if (!card) return;
+      const state = getCardState(card.id);
+      const star = normalizeCardStar(state.star);
+      const source = Array.isArray(card.bonusesByStar) ? card.bonusesByStar[star - 1] : null;
+      if (!source || typeof source !== 'object') return;
+      Object.entries(source).forEach(([key, value]) => {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return;
+        bonuses[key] = Math.round(((Number(bonuses[key]) || 0) + amount * Math.max(1, Number(count) || 1)) * 1000) / 1000;
+      });
+    });
+    const summary = formatCardManagerBonuses(bonuses);
+    if (summary === '補正なし') return '';
+    const effects = summary.split(' / ').filter(Boolean);
+    return `
+      <div class="formation-spell-selected-effect-summary" aria-label="選択中スペルの基礎効果合計">
+        <span class="formation-spell-selected-effect-title">選択効果</span>
+        ${effects.map(effect => `<span class="is-${getFormationSpellEffectTone(effect)}" title="${escapeAttr(effect)}">${escapeHtml(effect)}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  function getFormationSpellEffectTone(text = '') {
+    if (/回復|治癒/.test(text)) return 'recovery';
+    if (/攻撃速度|攻速/.test(text)) return 'attack-speed';
+    if (/会心.*抵抗/.test(text)) return 'crit-resist';
+    if (/会心/.test(text)) return 'crit';
+    if (/防御/.test(text)) return 'defense';
+    if (/攻撃/.test(text)) return 'attack';
+    if (/HP/.test(text)) return 'hp';
+    return 'other';
   }
 
   function getSortedFormationSpellRows(spells, cardById) {
