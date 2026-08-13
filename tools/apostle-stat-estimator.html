@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>新規使徒ステータス推定</title>
+  <link rel="stylesheet" href="apostle-stat-estimator.css?v=20260809c">
+</head>
+<body>
+  <main class="tool-shell">
+    <header class="tool-head">
+      <div>
+        <p class="eyebrow">LOCAL TOOL</p>
+        <h1>新規使徒ステータス推定</h1>
+        <p>表示ステータス・アサイド発現値・戦闘力から、datasheet用のtierと補正値候補を逆算します。</p>
+      </div>
+      <nav class="tool-links" aria-label="内部ツール">
+        <a href="board-tsv-generator.html">ボードTSV生成</a>
+      </nav>
+    </header>
+
+    <section class="panel">
+      <div class="section-head">
+        <div>
+          <h2>条件</h2>
+          <small>既存使徒を選ぶと検証用の既知値を読み込みます。</small>
+        </div>
+        <label class="source-field">
+          <span>既存使徒から入力</span>
+          <select id="estimator-source-apostle"><option value="">手動入力</option></select>
+        </label>
+      </div>
+      <div class="condition-grid">
+        <label class="field wide"><span>使徒名</span><input id="estimator-name" type="text" placeholder="新規使徒" autocomplete="off"></label>
+        <label class="field"><span>レア度</span><select id="estimator-rarity"><option value="1">★1</option><option value="2">★2</option><option value="3" selected>★3</option></select></label>
+        <label class="field"><span>攻撃タイプ</span><select id="estimator-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
+        <label class="field"><span>役割</span><select id="estimator-role"><option value="攻撃">攻撃</option><option value="守備">守備</option><option value="支援">支援</option></select></label>
+        <label class="field"><span>種族</span><select id="estimator-species"><option value="妖精">妖精</option><option value="エルフ">エルフ</option><option value="獣人">獣人</option><option value="精霊">精霊</option><option value="幽霊">幽霊</option><option value="魔女">魔女</option><option value="竜族">竜族</option></select></label>
+        <label class="field"><span>使徒Lv</span><input id="estimator-level" type="number" min="1" max="145" value="1"></label>
+        <label class="field"><span>★</span><select id="estimator-star"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option></select></label>
+        <label class="field"><span>学年</span><select id="estimator-grade"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
+      </div>
+      <div class="observation-settings">
+        <div class="observation-settings-head">
+          <strong>表示時の個別設定</strong>
+          <small>Rank補正・装備・好感度を候補tierごとに再計算します。</small>
+        </div>
+        <div class="observation-setting-grid">
+          <label class="field"><span>Rank</span><select id="estimator-rank"></select></label>
+          <label class="field"><span>好感度</span><select id="estimator-bond"></select></label>
+          <label class="field equipment-field"><span>HP装備</span><select data-equipment-enhance="hp"></select></label>
+          <label class="field equipment-field"><span>攻撃装備</span><select data-equipment-enhance="attack"></select></label>
+          <label class="field equipment-field"><span>物防装備</span><select data-equipment-enhance="pdef"></select></label>
+          <label class="field equipment-field"><span>魔防装備</span><select data-equipment-enhance="mdef"></select></label>
+          <label class="field equipment-field"><span>会心装備</span><select data-equipment-enhance="critPair"></select></label>
+          <label class="field equipment-field"><span>抵抗装備</span><select data-equipment-enhance="critResPair"></select></label>
+        </div>
+      </div>
+      <p class="notice">個人ボードの通常マスなど、下の全体加算以外の補正を含む場合は手動で加算値へ含めてください。</p>
+    </section>
+
+    <section class="panel">
+      <div class="section-head compact">
+        <div>
+          <h2>表示値に含まれる全体補正</h2>
+          <small>Rank全体・研究・上級マスは加算、クレヨン特殊マス・A3などは%として最終段階に適用します。</small>
+        </div>
+        <button type="button" id="estimator-load-global-percent">ステ管理から読込</button>
+      </div>
+      <div class="correction-block">
+        <strong>全体加算</strong>
+        <div class="correction-grid" id="estimator-global-additive-grid">
+          <label class="field"><span>HP</span><input type="number" data-global-additive="hp" value="0"></label>
+          <label class="field"><span>物理攻撃</span><input type="number" data-global-additive="patk" value="0"></label>
+          <label class="field"><span>魔法攻撃</span><input type="number" data-global-additive="matk" value="0"></label>
+          <label class="field"><span>物理防御</span><input type="number" data-global-additive="pdef" value="0"></label>
+          <label class="field"><span>魔法防御</span><input type="number" data-global-additive="mdef" value="0"></label>
+          <label class="field"><span>会心</span><input type="number" data-global-additive="crit" value="0"></label>
+          <label class="field"><span>会心DMG</span><input type="number" data-global-additive="critDmg" value="0"></label>
+          <label class="field"><span>会心抵抗</span><input type="number" data-global-additive="critRes" value="0"></label>
+          <label class="field"><span>会心DMG抵抗</span><input type="number" data-global-additive="critDmgRes" value="0"></label>
+        </div>
+      </div>
+      <div class="correction-block">
+        <strong>全体補正（%）</strong>
+        <div class="correction-grid" id="estimator-global-percent-grid">
+          <label class="field"><span>HP</span><input type="number" step="0.1" data-global-percent="hp" value="0"></label>
+          <label class="field"><span>物理攻撃</span><input type="number" step="0.1" data-global-percent="patk" value="0"></label>
+          <label class="field"><span>魔法攻撃</span><input type="number" step="0.1" data-global-percent="matk" value="0"></label>
+          <label class="field"><span>物理防御</span><input type="number" step="0.1" data-global-percent="pdef" value="0"></label>
+          <label class="field"><span>魔法防御</span><input type="number" step="0.1" data-global-percent="mdef" value="0"></label>
+          <label class="field"><span>会心</span><input type="number" step="0.1" data-global-percent="crit" value="0"></label>
+          <label class="field"><span>会心DMG</span><input type="number" step="0.1" data-global-percent="critDmg" value="0"></label>
+          <label class="field"><span>会心抵抗</span><input type="number" step="0.1" data-global-percent="critRes" value="0"></label>
+          <label class="field"><span>会心DMG抵抗</span><input type="number" step="0.1" data-global-percent="critDmgRes" value="0"></label>
+        </div>
+      </div>
+      <p id="estimator-global-percent-status" class="global-percent-status">全体補正なしとして計算します。</p>
+    </section>
+
+    <section class="panel">
+      <div class="section-head compact">
+        <div>
+          <h2>表示ステータス</h2>
+          <small>同じLv・★・学年条件で比較します。0または空欄は未調査扱いです。</small>
+        </div>
+      </div>
+      <div class="stat-input-grid">
+        <label class="field"><span>HP</span><input type="number" min="0" data-observed-stat="hp"></label>
+        <label class="field physical-only"><span>物理攻撃力</span><input type="number" min="0" data-observed-stat="patk"></label>
+        <label class="field magic-only"><span>魔法攻撃力</span><input type="number" min="0" data-observed-stat="matk"></label>
+        <label class="field"><span>物理防御力</span><input type="number" min="0" data-observed-stat="pdef"></label>
+        <label class="field"><span>魔法防御力</span><input type="number" min="0" data-observed-stat="mdef"></label>
+        <label class="field"><span>会心</span><input type="number" min="0" data-observed-stat="crit"></label>
+        <label class="field"><span>会心DMG</span><input type="number" min="0" data-observed-stat="critDmg"></label>
+        <label class="field"><span>会心抵抗</span><input type="number" min="0" data-observed-stat="critRes"></label>
+        <label class="field"><span>会心DMG抵抗</span><input type="number" min="0" data-observed-stat="critDmgRes"></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head compact">
+        <div>
+          <h2>アサイド発現時の上昇値</h2>
+          <small>A1 Lv1解放直後の表示差から、発現値・成長値・星上昇値をtierごとに予測します。</small>
+        </div>
+        <label class="source-field aside-value-mode">
+          <span>入力値の種類</span>
+          <select id="estimator-aside-value-mode">
+            <option value="final" selected>最終表示の上昇値</option>
+            <option value="raw">補正前の発現値</option>
+          </select>
+        </label>
+      </div>
+      <div class="aside-input-grid">
+        <label class="field"><span>HP</span><input type="number" min="0" data-aside-gain="hp"></label>
+        <label class="field"><span>攻撃力</span><input type="number" min="0" data-aside-gain="attack"></label>
+        <label class="field"><span>物理防御力</span><input type="number" min="0" data-aside-gain="pdef"></label>
+        <label class="field"><span>魔法防御力</span><input type="number" min="0" data-aside-gain="mdef"></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-head compact">
+        <div>
+          <h2>戦闘力観測</h2>
+          <small>2件以上あると補正A/Bを絞り込みやすくなります。</small>
+        </div>
+      </div>
+      <div id="estimator-cp-observations" class="cp-observations"></div>
+      <p class="notice">「基礎+A1発現」は上の表示ステータスにアサイド上昇値を加えます。A2以降の星上昇やアサイドLv成長を含む場合は誤差が残ります。</p>
+    </section>
+
+    <section class="panel result-panel">
+      <div class="result-head">
+        <div>
+          <h2>推定結果</h2>
+          <small id="estimator-summary">入力すると自動計算します。</small>
+        </div>
+        <button type="button" id="estimator-recalculate" class="primary">再計算</button>
+      </div>
+
+      <div class="result-section">
+        <h3>使徒基礎設定 tier</h3>
+        <div id="estimator-base-results" class="result-grid"></div>
+      </div>
+
+      <div class="result-section">
+        <h3>アサイドTier設定</h3>
+        <div id="estimator-aside-results" class="result-grid"></div>
+      </div>
+
+      <div class="result-section">
+        <div class="result-title-row">
+          <h3>戦闘力補正値A / B</h3>
+          <span id="estimator-cp-confidence" class="confidence"></span>
+        </div>
+        <div id="estimator-cp-results" class="cp-results"></div>
+      </div>
+
+      <div class="result-section output-section">
+        <div class="output-head">
+          <h3>datasheet貼り付け用</h3>
+          <label class="header-toggle"><input type="checkbox" id="estimator-include-header" checked><span>ヘッダーを含める</span></label>
+        </div>
+        <textarea id="estimator-output" readonly spellcheck="false"></textarea>
+        <div class="actions">
+          <button type="button" id="estimator-copy">コピー</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="../statData.js"></script>
+  <script src="../stat-engine.js?v=20260808a"></script>
+  <script src="apostle-stat-estimator.js?v=20260809c"></script>
+</body>
+</html>

@@ -50,6 +50,12 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 生成前のファイルと元Excelは `backups/generated/<timestamp>/` にバックアップされます。
 生成スクリプトを個別に実行する場合は、`tools` ディレクトリから各Pythonスクリプトを実行してください。
 
+シート内容を検索・検証する場合は、Excelを一度だけTSVへ展開できます。出力先の `tmp/` はGit管理外です。
+
+```text
+py -3 tools/export-datasheet-tsv.py --input tools/trickcal_datasheet.xlsx --output-dir tmp/datasheet-tsv
+```
+
 ### 敵プリセットの追加
 
 `enemy-presets.js` の敵名は `name` に純粋な名前だけを記述し、コンテンツと段階は `content` で分けます。

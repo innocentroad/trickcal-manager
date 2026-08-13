@@ -68,6 +68,12 @@ INLINE_EFFECT_KEYS = {
     "毎秒SP回復量増加": "spRegenP",
 }
 
+# Compatibility for source rows whose value class has not yet been migrated.
+# Once the datasheet row is "固定値", the generated result remains identical.
+SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES = {
+    "artifact_chalice_of_origins_e01": "固定値",
+}
+
 
 def clean(value: object) -> str:
     if value is None:
@@ -218,10 +224,9 @@ def build_id_aliases(
     effect_rows = read_tsv(effect_map_path)
     current_card_ids = {clean(row.get("id")) for row in base_rows if clean(row.get("id"))}
     mapped_card_ids = {clean(row.get("newId")) for row in card_rows if clean(row.get("newId"))}
-    if current_card_ids != mapped_card_ids:
-        missing = sorted(current_card_ids - mapped_card_ids)
-        extra = sorted(mapped_card_ids - current_card_ids)
-        raise ValueError(f"card id replacement mismatch: missing={missing}, extra={extra}")
+    extra_cards = sorted(mapped_card_ids - current_card_ids)
+    if extra_cards:
+        raise ValueError(f"card id replacement target is missing from datasheet: {extra_cards}")
 
     current_effect_ids = {
         (clean(row.get("id")), clean(row.get("effectId")))
@@ -233,15 +238,16 @@ def build_id_aliases(
         for row in effect_rows
         if clean(row.get("newCardId")) and clean(row.get("newEffectId"))
     }
-    if current_effect_ids != mapped_effect_ids:
-        missing = sorted(current_effect_ids - mapped_effect_ids)
-        extra = sorted(mapped_effect_ids - current_effect_ids)
-        raise ValueError(f"card effect id replacement mismatch: missing={missing}, extra={extra}")
+    extra_effects = sorted(mapped_effect_ids - current_effect_ids)
+    if extra_effects:
+        raise ValueError(f"card effect replacement target is missing from datasheet: {extra_effects}")
 
     card_aliases = {
         clean(row.get("oldId")): clean(row.get("newId"))
         for row in card_rows
-        if clean(row.get("oldId")) and clean(row.get("newId"))
+        if clean(row.get("oldId"))
+        and clean(row.get("newId"))
+        and clean(row.get("oldId")) != clean(row.get("newId"))
     }
     effect_aliases = {
         f"{clean(row.get('oldCardId'))}|{clean(row.get('oldEffectId'))}": {
@@ -249,7 +255,12 @@ def build_id_aliases(
             "effectId": clean(row.get("newEffectId")),
         }
         for row in effect_rows
-        if clean(row.get("oldCardId")) and clean(row.get("oldEffectId"))
+        if clean(row.get("oldCardId"))
+        and clean(row.get("oldEffectId"))
+        and (
+            clean(row.get("oldCardId")) != clean(row.get("newCardId"))
+            or clean(row.get("oldEffectId")) != clean(row.get("newEffectId"))
+        )
     }
     return card_aliases, effect_aliases
 
@@ -325,7 +336,10 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         attack_type = clean(row.get("攻撃タイプ"))
         duration = clean(row.get("持続時間"))
         reference = clean(row.get("参照"))
-        value_kind = clean(row.get("値分類"))
+        value_kind = SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES.get(
+            effect_id,
+            clean(row.get("値分類")),
+        )
         reset_condition = clean(row.get("リセット条件"))
         key = resolve_special_effect_key(effect_label, value_kind, key_map)
         values = [as_number(row.get(f"特殊効果_Star{star}")) for star in range(1, 6)]
@@ -503,7 +517,7 @@ def generate(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="trickcal_datasheet.xlsx", help="Path to trickcal_datasheet.xlsx")
-    parser.add_argument("--output", default="../cards.generated.js", help="Path to generated cards.js")
+    parser.add_argument("--output", default="../cards.js", help="Path to generated cards.js")
     parser.add_argument("--key-map", default="card-effect-key-map.tsv", help="Path to card effect key map TSV")
     parser.add_argument("--card-id-map", default="replacement/cardId.tsv", help="Path to card ID replacement TSV")
     parser.add_argument("--card-effect-id-map", default="replacement/cardEffectId.tsv", help="Path to card effect ID replacement TSV")

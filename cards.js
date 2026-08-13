@@ -2332,32 +2332,32 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "通常攻撃命中時 SP回復",
                     "shortLabel": "SP回復",
-                    "valueClass": "倍率",
+                    "valueClass": "固定値",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
-                    "description": "自分 / 倍率",
+                    "description": "自分 / 固定値",
                     "descriptionByStar": [
-                        "SP回復4% (通常攻撃命中時 / 自分)",
-                        "SP回復4% (通常攻撃命中時 / 自分)",
-                        "SP回復4% (通常攻撃命中時 / 自分)",
-                        "SP回復4% (通常攻撃命中時 / 自分)",
-                        "SP回復4% (通常攻撃命中時 / 自分)"
+                        "SP回復4 (通常攻撃命中時 / 自分)",
+                        "SP回復4 (通常攻撃命中時 / 自分)",
+                        "SP回復4 (通常攻撃命中時 / 自分)",
+                        "SP回復4 (通常攻撃命中時 / 自分)",
+                        "SP回復4 (通常攻撃命中時 / 自分)"
                     ],
                     "bonusesByStar": [
                         {
-                            "spRecoveryP": 4
+                            "spRecovery": 4
                         },
                         {
-                            "spRecoveryP": 4
+                            "spRecovery": 4
                         },
                         {
-                            "spRecoveryP": 4
+                            "spRecovery": 4
                         },
                         {
-                            "spRecoveryP": 4
+                            "spRecovery": 4
                         },
                         {
-                            "spRecoveryP": 4
+                            "spRecovery": 4
                         }
                     ]
                 }
@@ -3351,13 +3351,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
-                    "description": "前列 / 倍率",
+                    "description": "味方前列 / 倍率",
                     "descriptionByStar": [
-                        "被ダメージ減少15% (前列)",
-                        "被ダメージ減少15% (前列)",
-                        "被ダメージ減少15% (前列)",
-                        "被ダメージ減少15% (前列)",
-                        "被ダメージ減少15% (前列)"
+                        "被ダメージ減少15% (味方前列)",
+                        "被ダメージ減少15% (味方前列)",
+                        "被ダメージ減少15% (味方前列)",
+                        "被ダメージ減少15% (味方前列)",
+                        "被ダメージ減少15% (味方前列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3382,13 +3382,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "防御力増加",
                     "valueClass": "倍率",
-                    "description": "前列かつガードタイプ / 倍率",
+                    "description": "味方前列かつガードタイプ / 倍率",
                     "descriptionByStar": [
-                        "防御力増加20% (前列かつガードタイプ)",
-                        "防御力増加23% (前列かつガードタイプ)",
-                        "防御力増加26% (前列かつガードタイプ)",
-                        "防御力増加29% (前列かつガードタイプ)",
-                        "防御力増加32% (前列かつガードタイプ)"
+                        "防御力増加20% (味方前列かつガードタイプ)",
+                        "防御力増加23% (味方前列かつガードタイプ)",
+                        "防御力増加26% (味方前列かつガードタイプ)",
+                        "防御力増加29% (味方前列かつガードタイプ)",
+                        "防御力増加32% (味方前列かつガードタイプ)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3473,6 +3473,101 @@ const CARD_LIBRARY = {
                         },
                         {
                             "addP": 48
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "spell_aya_snowflake_magic",
+            "kind": "spell",
+            "rarity": "伝説",
+            "name": "アヤの雪の花魔法",
+            "signature": true,
+            "favoriteCharacter": "アヤ",
+            "cost": 32,
+            "bonusesByStar": [
+                {
+                    "critDmgP": 5.9,
+                    "critRateP": 11
+                },
+                {
+                    "critDmgP": 7.4,
+                    "critRateP": 13.8
+                },
+                {
+                    "critDmgP": 8.8,
+                    "critRateP": 16.5
+                },
+                {
+                    "critDmgP": 10.3,
+                    "critRateP": 19.3
+                },
+                {
+                    "critDmgP": 11.8,
+                    "critRateP": 22
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "spell_aya_snowflake_magic_e01",
+                    "type": "toggle",
+                    "label": "与ダメージ増加",
+                    "valueClass": "倍率",
+                    "description": "味方中列 / 倍率",
+                    "descriptionByStar": [
+                        "与ダメージ増加10% (味方中列)",
+                        "与ダメージ増加10% (味方中列)",
+                        "与ダメージ増加10% (味方中列)",
+                        "与ダメージ増加10% (味方中列)",
+                        "与ダメージ増加10% (味方中列)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "addP": 10
+                        },
+                        {
+                            "addP": 10
+                        },
+                        {
+                            "addP": 10
+                        },
+                        {
+                            "addP": 10
+                        },
+                        {
+                            "addP": 10
+                        }
+                    ]
+                },
+                {
+                    "id": "spell_aya_snowflake_magic_e02",
+                    "type": "toggle",
+                    "label": "攻撃力増加",
+                    "valueClass": "倍率",
+                    "description": "味方中列かつアタッカータイプ / 倍率",
+                    "descriptionByStar": [
+                        "攻撃力増加30% (味方中列かつアタッカータイプ)",
+                        "攻撃力増加33% (味方中列かつアタッカータイプ)",
+                        "攻撃力増加36% (味方中列かつアタッカータイプ)",
+                        "攻撃力増加39% (味方中列かつアタッカータイプ)",
+                        "攻撃力増加42% (味方中列かつアタッカータイプ)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "atkP": 30
+                        },
+                        {
+                            "atkP": 33
+                        },
+                        {
+                            "atkP": 36
+                        },
+                        {
+                            "atkP": 39
+                        },
+                        {
+                            "atkP": 42
                         }
                     ]
                 }
@@ -3780,13 +3875,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
-                    "description": "中列 / 倍率",
+                    "description": "味方中列 / 倍率",
                     "descriptionByStar": [
-                        "与ダメージ増加7% (中列)",
-                        "与ダメージ増加8% (中列)",
-                        "与ダメージ増加9% (中列)",
-                        "与ダメージ増加10% (中列)",
-                        "与ダメージ増加11% (中列)"
+                        "与ダメージ増加7% (味方中列)",
+                        "与ダメージ増加8% (味方中列)",
+                        "与ダメージ増加9% (味方中列)",
+                        "与ダメージ増加10% (味方中列)",
+                        "与ダメージ増加11% (味方中列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3811,13 +3906,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
-                    "description": "中列 / 倍率",
+                    "description": "味方中列 / 倍率",
                     "descriptionByStar": [
-                        "被ダメージ減少5% (中列)",
-                        "被ダメージ減少6% (中列)",
-                        "被ダメージ減少7% (中列)",
-                        "被ダメージ減少8% (中列)",
-                        "被ダメージ減少9% (中列)"
+                        "被ダメージ減少5% (味方中列)",
+                        "被ダメージ減少6% (味方中列)",
+                        "被ダメージ減少7% (味方中列)",
+                        "被ダメージ減少8% (味方中列)",
+                        "被ダメージ減少9% (味方中列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3868,13 +3963,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
-                    "description": "前列 / 倍率",
+                    "description": "味方前列 / 倍率",
                     "descriptionByStar": [
-                        "与ダメージ増加4% (前列)",
-                        "与ダメージ増加5% (前列)",
-                        "与ダメージ増加6% (前列)",
-                        "与ダメージ増加7% (前列)",
-                        "与ダメージ増加8% (前列)"
+                        "与ダメージ増加4% (味方前列)",
+                        "与ダメージ増加5% (味方前列)",
+                        "与ダメージ増加6% (味方前列)",
+                        "与ダメージ増加7% (味方前列)",
+                        "与ダメージ増加8% (味方前列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3899,13 +3994,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
-                    "description": "前列 / 倍率",
+                    "description": "味方前列 / 倍率",
                     "descriptionByStar": [
-                        "被ダメージ減少8% (前列)",
-                        "被ダメージ減少9% (前列)",
-                        "被ダメージ減少10% (前列)",
-                        "被ダメージ減少11% (前列)",
-                        "被ダメージ減少12% (前列)"
+                        "被ダメージ減少8% (味方前列)",
+                        "被ダメージ減少9% (味方前列)",
+                        "被ダメージ減少10% (味方前列)",
+                        "被ダメージ減少11% (味方前列)",
+                        "被ダメージ減少12% (味方前列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3956,13 +4051,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "与ダメージ増加",
                     "valueClass": "倍率",
-                    "description": "後列 / 倍率",
+                    "description": "味方後列 / 倍率",
                     "descriptionByStar": [
-                        "与ダメージ増加9% (後列)",
-                        "与ダメージ増加10% (後列)",
-                        "与ダメージ増加11% (後列)",
-                        "与ダメージ増加12% (後列)",
-                        "与ダメージ増加13% (後列)"
+                        "与ダメージ増加9% (味方後列)",
+                        "与ダメージ増加10% (味方後列)",
+                        "与ダメージ増加11% (味方後列)",
+                        "与ダメージ増加12% (味方後列)",
+                        "与ダメージ増加13% (味方後列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3987,13 +4082,13 @@ const CARD_LIBRARY = {
                     "type": "toggle",
                     "label": "被ダメージ減少",
                     "valueClass": "倍率",
-                    "description": "後列 / 倍率",
+                    "description": "味方後列 / 倍率",
                     "descriptionByStar": [
-                        "被ダメージ減少3% (後列)",
-                        "被ダメージ減少8% (後列)",
-                        "被ダメージ減少8% (後列)",
-                        "被ダメージ減少9% (後列)",
-                        "被ダメージ減少9% (後列)"
+                        "被ダメージ減少3% (味方後列)",
+                        "被ダメージ減少8% (味方後列)",
+                        "被ダメージ減少8% (味方後列)",
+                        "被ダメージ減少9% (味方後列)",
+                        "被ダメージ減少9% (味方後列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -5413,6 +5508,16 @@ const CARD_SOLDER_DATA = {
             "critRateP": 4.6
         }
     },
+    "spell_aya_snowflake_magic": {
+        "1": {
+            "critDmgP": 1.2,
+            "critRateP": 2.3
+        },
+        "2": {
+            "critDmgP": 2.4,
+            "critRateP": 4.6
+        }
+    },
     "spell_fatal_charm": {
         "1": {
             "critDmgP": 1.2,
@@ -5739,7 +5844,6 @@ const CARD_ID_ALIASES = {
     "spell_alice_hex": "spell_alice_fake_magic",
     "spell_epica_anthem": "spell_epica_hero_exaltation",
     "spell_yiide_dream": "spell_luc_ed_dream",
-    "spell_renewa_time_paradox": "spell_renewa_time_paradox",
     "spell_beauty_is_sin": "spell_fatal_charm",
     "spell_suspicious_potion": "spell_strange_elixir",
     "spell_battle_master": "spell_combat_master",
@@ -5758,18 +5862,13 @@ const CARD_ID_ALIASES = {
     "spell_firm_conviction": "spell_firm_belief",
     "spell_critical_strike": "spell_fatal_blow",
     "spell_hp_training": "spell_keeping_fit",
-    "spell_bulletproof": "spell_bulletproof",
     "spell_health_best": "spell_robust_health",
     "spell_afterimage": "spell_where_you_lookin",
-    "spell_personal_training": "spell_personal_training",
     "spell_you_can_do_it": "spell_empower",
     "spell_apprentice_mage": "spell_wizard_apprentice",
     "spell_catch_him": "spell_get_her",
-    "spell_random_coin": "spell_random_coin",
     "spell_tree_bark": "spell_big_tree_bark",
-    "spell_rookie_fighter": "spell_trainee",
-    "spell_soda_capsule": "spell_soda_capsule",
-    "spell_strawberry_capsule": "spell_strawberry_capsule"
+    "spell_rookie_fighter": "spell_trainee"
 };
 
 const CARD_EFFECT_ID_ALIASES = {

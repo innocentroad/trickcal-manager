@@ -15,6 +15,8 @@
   };
 
   const TOTAL_KEYS = Object.keys(INTERNAL_TO_SNAPSHOT);
+  const COMPARISON_STATS_SCHEMA_VERSION = 1;
+  const COMPARISON_STAT_KEYS = [...Object.values(INTERNAL_TO_SNAPSHOT), 'combatPower'];
   const COMBAT_POWER_BASE_BY_RARITY = {
     1: 1.015,
     2: 1.03,
@@ -29,6 +31,65 @@
 
   function cloneJson(value) {
     return JSON.parse(JSON.stringify(value || {}));
+  }
+
+  function encodeNumberVector(source = {}, keys = []) {
+    return keys.map(key => Number(source?.[key]) || 0);
+  }
+
+  function decodeNumberVector(values = [], keys = []) {
+    return Object.fromEntries(keys.map((key, index) => [key, Number(values?.[index]) || 0]));
+  }
+
+  function encodeComparisonSnapshot(snapshot = null) {
+    if (!snapshot?.stats) return null;
+    return [
+      encodeNumberVector(snapshot.stats, COMPARISON_STAT_KEYS),
+      encodeNumberVector(snapshot.breakdown?.base, TOTAL_KEYS),
+      encodeNumberVector(snapshot.breakdown?.globalPercent, TOTAL_KEYS),
+      encodeNumberVector(snapshot.globalPercentRates, Object.values(INTERNAL_TO_SNAPSHOT))
+    ];
+  }
+
+  function decodeComparisonSnapshot(value = null, mode = 'current') {
+    if (!Array.isArray(value) || !Array.isArray(value[0])) return null;
+    return {
+      kind: `comparisonCompact:${mode}`,
+      stats: decodeNumberVector(value[0], COMPARISON_STAT_KEYS),
+      breakdown: {
+        base: decodeNumberVector(value[1], TOTAL_KEYS),
+        globalPercent: decodeNumberVector(value[2], TOTAL_KEYS)
+      },
+      globalPercentRates: decodeNumberVector(value[3], Object.values(INTERNAL_TO_SNAPSHOT))
+    };
+  }
+
+  function encodeComparisonStatSnapshots(apostles = {}) {
+    const encoded = {};
+    Object.entries(apostles || {}).forEach(([id, state]) => {
+      const current = encodeComparisonSnapshot(state?.statSnapshots?.current);
+      const planned = encodeComparisonSnapshot(state?.statSnapshots?.planned);
+      if (current || planned) encoded[id] = [current, planned];
+    });
+    return {
+      v: COMPARISON_STATS_SCHEMA_VERSION,
+      a: encoded
+    };
+  }
+
+  function decodeComparisonStatSnapshots(store = {}) {
+    if (Number(store?.v) !== COMPARISON_STATS_SCHEMA_VERSION || !store.a || typeof store.a !== 'object') return {};
+    const decoded = {};
+    Object.entries(store.a).forEach(([id, value]) => {
+      if (!Array.isArray(value)) return;
+      const current = decodeComparisonSnapshot(value[0], 'current');
+      const planned = decodeComparisonSnapshot(value[1], 'planned');
+      if (!current && !planned) return;
+      decoded[id] = {};
+      if (current) decoded[id].current = current;
+      if (planned) decoded[id].planned = planned;
+    });
+    return decoded;
   }
 
   function normalizeGrade(value) {
@@ -446,11 +507,13 @@
   }
 
   window.TRICKCAL_SHARED_STAT_ENGINE = {
-    version: 4,
+    version: 5,
     normalizeGrade,
     getGradeStatBonusRate,
     calculateBaseTotals,
     calculateCombatPower,
+    encodeComparisonStatSnapshots,
+    decodeComparisonStatSnapshots,
     createInitialSnapshot,
     applyGradeOverrideToSnapshot,
     applyApostleOverridesToSnapshot

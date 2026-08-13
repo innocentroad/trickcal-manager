@@ -32,11 +32,11 @@
   <link rel="prefetch" href="stat-dashboard.html" as="document">
   <link rel="prefetch" href="index.html" as="document">
   <link rel="prefetch" href="stat-prototype.css?v=20260806g" as="style">
-  <link rel="prefetch" href="stat-dashboard.css?v=20260808i" as="style">
-  <link rel="prefetch" href="stat-prototype.js?v=20260808j" as="script">
+  <link rel="prefetch" href="stat-dashboard.css?v=20260809j" as="style">
+  <link rel="prefetch" href="stat-prototype.js?v=20260809r" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260808i">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260809i">
   <link rel="stylesheet" href="formation-dps-calc.css?v=20260806e">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
@@ -148,7 +148,7 @@
         <div class="fdc-dps-section-head">
           <div>
             <h3 id="fdc-dps-contribution-title">行動別DPS寄与度</h3>
-            <p>同じ戦闘条件を連続seedで試行した期待値です。時限効果は現在、静的状態として評価します。</p>
+            <p>同じ戦闘条件を連続seedで試行した期待値です。攻撃速度と毎秒・周期・命中・発動時SP回復をタイムラインで評価します。</p>
           </div>
           <span id="fdc-dps-trial-note"></span>
         </div>
@@ -852,8 +852,20 @@
         <span id="fdc-pinned-compare-note">比較を開始していません</span>
       </div>
       <p id="fdc-compare-float-help" class="fdc-compare-float-help">今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージとDPSの差を確認できます。単発計算の行動は自動的に追従します。</p>
+      <div class="fdc-compare-source-controls">
+        <label class="fdc-compare-source-field">
+          <span>比較元</span>
+          <select id="fdc-compare-source"></select>
+        </label>
+        <fieldset id="fdc-compare-scope-fieldset" class="fdc-compare-scope-fieldset">
+          <legend>比較する範囲</legend>
+          <label title="使徒Lv・装備・スキルLv・ボードなど"><input type="checkbox" data-fdc-compare-scope="characterState" checked><span>使徒育成</span></label>
+          <label title="編成使徒・遺物・スペル・教主の権能"><input type="checkbox" data-fdc-compare-scope="formationState"><span>編成内容</span></label>
+          <label title="カードの所持数・★・はんだ"><input type="checkbox" data-fdc-compare-scope="cardState"><span>カード育成</span></label>
+        </fieldset>
+      </div>
       <div class="fdc-compare-float-actions">
-        <button type="button" id="fdc-pinned-compare-save">現在を変更前として記録</button>
+        <button type="button" id="fdc-pinned-compare-save">この条件で比較開始</button>
         <button type="button" id="fdc-pinned-compare-clear" class="is-clear" disabled>比較を終了</button>
       </div>
     </section>
@@ -986,17 +998,17 @@
   </div>
   <script src="statData.js?v=20260801a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
-  <script src="stat-engine.js?v=20260725m"></script>
+  <script src="stat-engine.js?v=20260808a"></script>
   <script src="apostles.js?v=20260801a"></script>
-  <script src="cards.js?v=20260801a"></script>
+  <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260727n"></script>
-  <script src="app-cache.js?v=20260808t"></script>
+  <script src="app-cache.js?v=20260813r"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="dps-timing-data.js?v=20260803a"></script>
-  <script src="dps-simulator.js?v=20260806c"></script>
+  <script src="dps-timing-data.js?v=20260813b"></script>
+  <script src="dps-simulator.js?v=20260813h"></script>
   <script src="combat-scenario.js?v=20260808b"></script>
-  <script src="formation-damage-calc.js?v=20260808o"></script>
-  <script src="formation-dps-calc.js?v=20260808c"></script>
+  <script src="formation-damage-calc.js?v=20260813g"></script>
+  <script src="formation-dps-calc.js?v=20260813d"></script>
 </body>
 </html>

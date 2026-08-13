@@ -20,7 +20,7 @@
   const BOARD_ORIENTATION_STORAGE_KEY = 'trickcal_board_orientation';
   const DASHBOARD_RELOAD_CONTEXT_KEY = 'trickcal_dashboard_reload_context_v1';
   const EXPORT_SCHEMA = 'trickcal-stat-state';
-  const EXPORT_VERSION = 1;
+  const EXPORT_VERSION = 2;
   const APOSTLE_IMAGE_FALLBACK = 'img/Chara/null.webp';
   const BOARD_START_DIRECTION = 'Right';
   const LEVEL_CAP_BY_STAR = {
@@ -178,6 +178,7 @@
     passiveSkillLevelOutput: document.getElementById('passive-skill-level-output'),
     skillLevelCapNote: document.getElementById('skill-level-cap-note'),
     skillInfoList: document.getElementById('skill-info-list'),
+    apostleFavoriteCard: document.getElementById('apostle-favorite-card'),
     asideInfoList: document.getElementById('aside-info-list'),
     asideTierList: document.getElementById('aside-tier-list'),
     stateSlotList: document.getElementById('state-slot-list'),
@@ -200,6 +201,11 @@
     historyRedo: null,
     image: document.getElementById('apostle-image'),
     profileAsideIcon: document.getElementById('profile-aside-icon'),
+    profileFavoriteButton: document.getElementById('profile-favorite-button'),
+    profileFavoriteImage: document.getElementById('profile-favorite-image'),
+    profileFavoriteDialog: document.getElementById('profile-favorite-dialog'),
+    profileFavoriteDialogClose: document.getElementById('profile-favorite-dialog-close'),
+    profileFavoriteDetail: document.getElementById('profile-favorite-detail'),
     name: document.getElementById('apostle-name'),
     meta: document.getElementById('apostle-meta'),
     profileChipRow: document.getElementById('profile-chip-row'),
@@ -383,6 +389,7 @@
     boardProgressLayer: 'all',
     boardProgressCategory: 'all',
     boardProgressTileTypes: new Set(['special']),
+    boardPersonalProgressLayer: 'all',
     cardManager: {
       kind: 'artifact',
       search: '',
@@ -746,7 +753,9 @@
       showStateStatus('スロット操作をキャンセルしました');
     });
 
-    elements.exportState.addEventListener('click', exportStateFile);
+    elements.exportState.addEventListener('click', () => {
+      setStateSlotMode('export');
+    });
 
     elements.importState.addEventListener('click', () => {
       elements.importStateFile.click();
@@ -953,6 +962,31 @@
         closeBottomMenus();
         openCardManagerPanel(button.dataset.openCardManager === 'spell' ? 'spell' : 'artifact');
       });
+    });
+
+    [elements.apostleFavoriteCard, elements.profileFavoriteDetail].forEach(container => container?.addEventListener('click', event => {
+      const openButton = event.target.closest('[data-open-apostle-favorite]');
+      if (!openButton) return;
+      if (elements.profileFavoriteDialog?.open) elements.profileFavoriteDialog.close();
+      const kind = openButton.dataset.openApostleFavoriteKind === 'spell' ? 'spell' : 'artifact';
+      openCardManagerPanel(kind, { scroll: true });
+      view.cardManager.search = openButton.dataset.openApostleFavorite || '';
+      view.cardManager.rarity = 'signature';
+      if (elements.cardManagerSearch) elements.cardManagerSearch.value = view.cardManager.search;
+      if (elements.cardManagerRarity) elements.cardManagerRarity.value = 'signature';
+      renderCardManager();
+    }));
+
+    elements.profileFavoriteButton?.addEventListener('click', () => {
+      const basic = DATA.getById('basicInfo', view.id);
+      renderApostleFavoriteCardInto(elements.profileFavoriteDetail, basic);
+      if (!elements.profileFavoriteDialog?.open) elements.profileFavoriteDialog?.showModal();
+      elements.profileFavoriteDialogClose?.focus({ preventScroll: true });
+    });
+
+    elements.profileFavoriteDialogClose?.addEventListener('click', () => elements.profileFavoriteDialog.close());
+    elements.profileFavoriteDialog?.addEventListener('click', event => {
+      if (event.target === elements.profileFavoriteDialog) elements.profileFavoriteDialog.close();
     });
 
     [
@@ -1399,6 +1433,13 @@
 
     elements.boardOrientationButtons.forEach(button => {
       button.addEventListener('click', () => setBoardOrientation(button.dataset.boardOrientation));
+    });
+
+    elements.boardSelectionSummary?.addEventListener('click', event => {
+      const button = event.target.closest('[data-board-personal-progress-layer]');
+      if (!button) return;
+      view.boardPersonalProgressLayer = button.dataset.boardPersonalProgressLayer || 'all';
+      renderBoardSelectionSummary(DATA.getById('board', view.id) || []);
     });
 
     elements.fillBoard.addEventListener('click', () => {
@@ -2402,7 +2443,7 @@
     const hasExternalConflict = stateExternalConflict?.slot === view.stateSlot;
     const externalConflictSlotKey = stateExternalConflict ? String(stateExternalConflict.slot) : '';
     const mode = getStateSlotMode();
-    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択（空は新規）', delete: '削除する状態を選択', import: 'インポート先を選択' };
+    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択（空は新規）', delete: '削除する状態を選択', export: 'エクスポートする状態を選択', import: 'インポート先を選択' };
     elements.stateSlotButtons.forEach(button => {
       const key = button.dataset.stateSlot;
       const snapshot = appState.savedStates[key];
@@ -2413,7 +2454,7 @@
       button.classList.toggle('is-dirty', key === slotKey && dirty);
       button.classList.toggle('has-external-conflict', key === externalConflictSlotKey);
       button.classList.toggle('has-data', !!snapshot);
-      button.disabled = mode === 'delete' && !snapshot;
+      button.disabled = (mode === 'delete' || mode === 'export') && !snapshot;
       button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
       button.title = snapshot
         ? `${key === externalConflictSlotKey ? '別タブ更新あり / ' : ''}${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
@@ -2434,6 +2475,12 @@
     if (elements.stateSlotSection) elements.stateSlotSection.hidden = !mode;
     if (elements.stateSlotSectionTitle) elements.stateSlotSectionTitle.textContent = modeLabels[mode] || '操作を選択';
     if (elements.stateSaveNameWrap) elements.stateSaveNameWrap.hidden = mode !== 'save';
+    if (elements.stateSaveName) {
+      const currentName = appState.savedStates[slotKey]?.slotName || '';
+      elements.stateSaveName.placeholder = currentName
+        ? `空欄なら「${currentName}」を維持`
+        : '例: 次元用 現在';
+    }
     if (elements.stateSlotIndicator) {
       elements.stateSlotIndicator.textContent = hasExternalConflict ? `${slotKey}!` : (dirty ? `${slotKey}*` : slotKey);
       elements.stateSlotIndicator.title = hasExternalConflict
@@ -2454,11 +2501,11 @@
   }
 
   function getStateSlotMode() {
-    return ['save', 'load', 'delete', 'import'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
+    return ['save', 'load', 'delete', 'export', 'import'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
   }
 
   function setStateSlotMode(mode) {
-    view.stateSlotMode = ['save', 'load', 'delete', 'import'].includes(mode) ? mode : '';
+    view.stateSlotMode = ['save', 'load', 'delete', 'export', 'import'].includes(mode) ? mode : '';
     if (view.stateSlotMode !== 'import') pendingImportedState = null;
     if (view.stateSlotMode === 'save' && elements.stateSaveName) {
       elements.stateSaveName.value = '';
@@ -2467,7 +2514,7 @@
       }
     }
     renderStateManager();
-    const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択', import: 'インポート先番号を選択' };
+    const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択', export: 'エクスポートする番号を選択', import: 'インポート先番号を選択' };
     if (getStateSlotMode()) showStateStatus(labels[getStateSlotMode()]);
   }
 
@@ -2491,6 +2538,10 @@
         return;
       }
       deleteStateSlot(targetSlot);
+      return;
+    }
+    if (mode === 'export') {
+      exportStateFile(targetSlot);
       return;
     }
     if (mode === 'import') {
@@ -2559,7 +2610,8 @@
     saveState({ flush: true });
     setStateSlotMode('');
     renderStateManager();
-    showStateStatus(`スロット${view.stateSlot}に保存しました`);
+    const savedName = getStateSlotDisplayName(String(safeSlot), snapshot);
+    showStateStatus(`${savedName}（スロット${view.stateSlot}）に保存しました`);
     return true;
   }
 
@@ -2573,7 +2625,7 @@
     stateSlotBaseRevision = getSharedSlotRevision(safeSlot, sharedStateSlotStore);
     stateExternalConflict = null;
     setStateSlotMode('');
-    applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot));
+    applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), { activeStateSlot: safeSlot });
     commitHistoryAction(history);
     showStateStatus(snapshot
       ? `スロット${safeSlot}を読み込みました`
@@ -2698,6 +2750,26 @@
     return comparable;
   }
 
+  function createComparisonStatsStore(states = {}) {
+    const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    return engine?.encodeComparisonStatSnapshots?.(states) || { v: 1, a: {} };
+  }
+
+  function applyComparisonStatsStore(apostles = {}, store = {}) {
+    const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    const decoded = engine?.decodeComparisonStatSnapshots?.(store) || {};
+    Object.entries(decoded).forEach(([id, snapshots]) => {
+      const state = apostles[id];
+      if (!state || typeof state !== 'object') return;
+      state.statSnapshots = {
+        ...(state.statSnapshots && typeof state.statSnapshots === 'object' ? state.statSnapshots : {}),
+        ...cloneJson(snapshots)
+      };
+      if (state.statSnapshots.current?.stats) state.finalStats = cloneJson(state.statSnapshots.current.stats);
+    });
+    return apostles;
+  }
+
   function normalizeStateSlot(value) {
     const num = Number(value) || 1;
     return Math.max(1, Math.min(6, Math.trunc(num)));
@@ -2738,6 +2810,7 @@
       activeId: view.id || appState.activeId || '',
       activeStateSlot: view.stateSlot,
       apostles: createComparableApostleStates(appState.apostles),
+      comparisonStats: createComparisonStatsStore(appState.apostles),
       research: cloneJson(appState.research),
       cards: cloneJson(appState.cards),
       formation: cloneJson(appState.formation || createDefaultFormation()),
@@ -2759,6 +2832,9 @@
 
   function applyStateSnapshot(snapshot, options = {}) {
     const normalized = normalizeStateSnapshot(snapshot);
+    const targetStateSlot = options.activeStateSlot
+      ? normalizeStateSlot(options.activeStateSlot)
+      : normalized.activeStateSlot;
     boardDraft = null;
     appState.activeId = normalized.activeId;
     appState.apostles = normalized.apostles;
@@ -2772,7 +2848,7 @@
     }
     view.id = getValidApostleId(appState.activeId);
     appState.activeId = view.id;
-    if (normalized.activeStateSlot) view.stateSlot = normalized.activeStateSlot;
+    if (targetStateSlot) view.stateSlot = targetStateSlot;
     view.board = 1;
     ensureApostleState(view.id);
     restoreSavedBoardPlan();
@@ -2791,39 +2867,55 @@
     document.dispatchEvent(new CustomEvent('stat-state-applied'));
   }
 
-  function exportStateFile() {
-    persistCurrentControls();
-    appState.activeId = view.id;
-    saveState();
+  function exportStateFile(slot) {
+    const safeSlot = normalizeStateSlot(slot);
+    const latest = readLatestSharedStateSlotStore();
+    const snapshot = getSharedStateSnapshots(latest)[String(safeSlot)];
+    if (!snapshot) {
+      showStateStatus(`スロット${safeSlot}は未保存です`, true);
+      return;
+    }
     const payload = {
       schema: EXPORT_SCHEMA,
       version: EXPORT_VERSION,
+      kind: 'slot',
       exportedAt: new Date().toISOString(),
-      state: {
-        current: createStateSnapshot(),
-        savedStates: cloneJson(appState.savedStates)
-      }
+      sourceSlot: safeSlot,
+      snapshot
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    setStateSlotMode('');
+    downloadStateJson(payload, `trickcal-stat-slot-${safeSlot}`);
+  }
+
+  function downloadStateJson(payload, filenamePrefix) {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     const date = new Date().toISOString().slice(0, 10);
     link.href = url;
-    link.download = `trickcal-stat-state-${date}.json`;
+    link.download = `${filenamePrefix}-${date}.json`;
     document.body.appendChild(link);
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
-    showStateStatus('状態を書き出しました');
+    showStateStatus(`書き出しました（${formatStateFileSize(blob.size)}）`);
+  }
+
+  function formatStateFileSize(bytes) {
+    const size = Math.max(0, Number(bytes) || 0);
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+    if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+    return `${size} B`;
   }
 
   function parseImportedState(payload) {
     if (!payload || typeof payload !== 'object') throw new Error('Invalid payload');
     if (payload.schema && payload.schema !== EXPORT_SCHEMA) throw new Error('Unknown schema');
     if (Number(payload.version || 1) > EXPORT_VERSION) throw new Error('Unsupported version');
-    const source = payload.state?.current || payload.current || payload.state || payload;
-    const current = normalizeStateSnapshot(source);
-    return { current };
+    if (payload.kind && payload.kind !== 'slot') throw new Error('Unsupported export kind');
+    const source = payload.snapshot || payload.state?.current || payload.current || payload.state || payload;
+    normalizeStateSnapshot(source);
+    return { kind: 'slot', current: cloneJson(source) };
   }
 
   async function applyImportedState(imported, slot = view.stateSlot) {
@@ -2832,8 +2924,14 @@
     const snapshot = {
       ...cloneJson(imported.current),
       savedAt: new Date().toISOString(),
-      slotName: appState.savedStates[String(safeSlot)]?.slotName || '',
-      apostleName: basic?.使徒名 || ''
+      slotName: String(
+        imported.current.slotName
+        || imported.current.name
+        || appState.savedStates[String(safeSlot)]?.slotName
+        || ''
+      ).trim(),
+      apostleName: basic?.使徒名 || '',
+      activeStateSlot: safeSlot
     };
     const expectedRevision = safeSlot === view.stateSlot
       ? stateSlotBaseRevision
@@ -2856,7 +2954,7 @@
     appState.activeStateSlot = view.stateSlot;
     stateSlotBaseRevision = result.slotRevision;
     stateExternalConflict = null;
-    applyStateSnapshot(snapshot);
+    applyStateSnapshot(snapshot, { activeStateSlot: safeSlot });
     return true;
   }
 
@@ -2865,6 +2963,7 @@
     const apostles = snapshot.apostles && typeof snapshot.apostles === 'object'
       ? cloneJson(snapshot.apostles)
       : {};
+    applyComparisonStatsStore(apostles, snapshot.comparisonStats);
     const research = snapshot.research && typeof snapshot.research === 'object'
       ? cloneJson(snapshot.research)
       : {};
@@ -3106,6 +3205,7 @@
     syncBoardShortcutOffToggle();
 
     renderProfile(basic);
+    renderApostleFavoriteCard(basic);
     renderSkillInfoList(basic);
     renderAsideInfoList(basic);
     renderAsideTierList(basic);
@@ -3151,10 +3251,12 @@
     const basic = DATA.getById('basicInfo', view.id);
     renderProfile(basic);
     renderSkillInfoList(basic);
+    renderApostleFavoriteCard(basic);
   }
 
   function persistCardManagerChange(cardId = '') {
     saveState({ refreshSnapshots: false });
+    renderApostleFavoriteCard(DATA.getById('basicInfo', view.id));
     if (cardId && updateCardManagerCardInPlace(cardId)) return;
     renderCardManager();
   }
@@ -3765,8 +3867,12 @@
     document.querySelectorAll('[data-open-global]').forEach(button => {
       button.classList.toggle('is-active', !!tab && button.dataset.openGlobal === tab);
     });
+    document.querySelectorAll('.dashboard-top-tabs .topbar-global-menu').forEach(menu => {
+      menu.classList.toggle('is-active', ['apostles', 'rank', 'bond', 'aside', 'research'].includes(tab));
+      if (!menu.classList.contains('is-active')) menu.removeAttribute('open');
+    });
     document.querySelectorAll('.bottom-global-menu').forEach(menu => {
-      menu.classList.toggle('is-active', ['apostles', 'rank', 'aside', 'research'].includes(tab));
+      menu.classList.toggle('is-active', ['apostles', 'rank', 'bond', 'aside', 'research'].includes(tab));
     });
     if (tab !== 'cards') updateCardManagerQuickButtons('');
   }
@@ -3831,6 +3937,144 @@
 
   function isEldainApostle(basic) {
     return !!String(basic?.エルダイン || '').trim();
+  }
+
+  function renderApostleFavoriteCard(basic) {
+    if (!basic) return;
+    renderApostleFavoriteCardInto(elements.apostleFavoriteCard, basic);
+    renderProfileFavoriteIcon(basic);
+    if (elements.profileFavoriteDialog?.open) {
+      renderApostleFavoriteCardInto(elements.profileFavoriteDetail, basic);
+    }
+  }
+
+  function renderApostleFavoriteCardInto(container, basic) {
+    if (!container || !basic) return;
+    const favoriteRows = DATA.getById('favoriteCards', basic.id) || [];
+    const favoriteName = String(favoriteRows[0]?.カード名 || '').trim();
+    const cards = getCardManagerCards('artifact').concat(getCardManagerCards('spell'));
+    const card = cards.find(item => (
+      item.signature
+      && (
+        String(item.favoriteCharacter || '').trim() === String(basic.使徒名 || '').trim()
+        || (favoriteName && String(item.name || '').trim() === favoriteName)
+      )
+    ));
+    if (!card && !favoriteRows.length) {
+      container.classList.add('is-empty');
+      container.innerHTML = '<p class="muted-line">この使徒の愛用品データはありません。</p>';
+      return;
+    }
+
+    const cardState = card ? getCardState(card.id) : { owned: false, star: 1, solder: 0 };
+    const star = normalizeCardStar(cardState.star);
+    const cardKind = card?.kind === 'spell' || favoriteRows[0]?.カード種別 === 'スペル' ? 'spell' : 'artifact';
+    const cardName = card?.name || favoriteName || '愛用品';
+    const levelGroups = Array.from(groupRowsBy(favoriteRows, row => Number(row.解放Lv) || 1).entries())
+      .sort(([a], [b]) => Number(a) - Number(b));
+    const apostleState = currentApostleState();
+    container.classList.remove('is-empty');
+    container.innerHTML = `
+      <div class="apostle-favorite-media is-${cardKind} ${cardState.owned ? 'is-owned' : 'is-unowned'}">
+        <div class="apostle-favorite-image-wrap">
+          ${card && cardKind === 'artifact' ? `<img class="apostle-favorite-frame" src="${escapeAttr(getCardManagerRarityFrame(card))}" alt="">` : ''}
+          ${card
+            ? `<img class="apostle-favorite-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(cardName)}">`
+            : `<span class="apostle-favorite-image-placeholder">${escapeHtml(cardName[0] || '愛')}</span>`}
+        </div>
+      </div>
+      <div class="apostle-favorite-body">
+        <div class="apostle-favorite-title">
+          <div>
+            <strong>${escapeHtml(cardName)}</strong>
+            <span>${escapeHtml(card?.favoriteCharacter || basic.使徒名 || '')}専用</span>
+          </div>
+          <div class="apostle-favorite-state" aria-label="現在のカード育成状態">
+            <span class="${cardState.owned ? 'is-owned' : 'is-unowned'}">${cardState.owned ? '所持' : '未所持'}</span>
+            <span>★${star}</span>
+            ${card ? `<span class="apostle-favorite-cost"><img src="img/Card/cost.webp" alt="コスト">${escapeHtml(getCardManagerCost(card, star))}</span>` : ''}
+          </div>
+        </div>
+        <div class="apostle-favorite-levels">
+          ${levelGroups.length
+            ? levelGroups.map(([level, rows]) => renderApostleFavoriteLevel(level, rows, cardState, star, apostleState)).join('')
+            : '<p class="muted-line">愛用効果データがありません。</p>'}
+        </div>
+        ${card ? `<button type="button" class="apostle-favorite-manage" data-open-apostle-favorite="${escapeAttr(cardName)}" data-open-apostle-favorite-kind="${cardKind}">カード設定を開く</button>` : ''}
+      </div>
+    `;
+  }
+
+  function renderProfileFavoriteIcon(basic) {
+    if (!elements.profileFavoriteButton || !elements.profileFavoriteImage || !basic) return;
+    const favoriteRows = DATA.getById('favoriteCards', basic.id) || [];
+    const favoriteName = String(favoriteRows[0]?.カード名 || '').trim();
+    const card = getCardManagerCards('artifact').concat(getCardManagerCards('spell')).find(item => (
+      item.signature
+      && (
+        String(item.favoriteCharacter || '').trim() === String(basic.使徒名 || '').trim()
+        || (favoriteName && String(item.name || '').trim() === favoriteName)
+      )
+    ));
+    const visible = !!card;
+    elements.profileFavoriteButton.hidden = !visible;
+    if (!visible) {
+      elements.profileFavoriteImage.removeAttribute('src');
+      elements.profileFavoriteImage.alt = '';
+      return;
+    }
+    const cardState = getCardState(card.id);
+    elements.profileFavoriteButton.classList.toggle('is-spell', card.kind === 'spell');
+    elements.profileFavoriteButton.classList.toggle('is-unowned', !cardState.owned);
+    elements.profileFavoriteButton.title = `${card.name}の愛用効果を表示`;
+    elements.profileFavoriteButton.setAttribute('aria-label', `${card.name}の愛用効果を表示`);
+    elements.profileFavoriteImage.src = getCardManagerImagePath(card);
+    elements.profileFavoriteImage.alt = card.name;
+  }
+
+  function renderApostleFavoriteLevel(level, rows, cardState, star, apostleState) {
+    const unlockLevel = Number(level) || 1;
+    const unlocked = !!cardState.owned && star >= unlockLevel;
+    const first = rows[0] || {};
+    const description = first.Lv1_説明 || first.説明 || '';
+    const targetLabels = Array.from(new Set(rows.map(row => {
+      const targetKind = String(row.対象スキル || '').trim();
+      const targetName = String(row.対象スキル名 || '').trim();
+      const skillLevel = getSkillLevelForKind(targetKind, apostleState);
+      if (!targetKind && !targetName) return '常時効果';
+      if (!targetKind && targetName === '愛用カード効果') return 'カード効果';
+      return [targetKind, targetName && targetName !== targetKind ? `「${targetName}」` : '', skillLevel ? `SLv${skillLevel}` : '']
+        .filter(Boolean)
+        .join(' ');
+    }).filter(Boolean)));
+    const effectRows = rows.map(row => {
+      const skillLevel = getSkillLevelForKind(row.対象スキル || '', apostleState);
+      const summary = formatFavoriteEffectSummary(row, skillLevel);
+      const scope = Array.from(new Set([row.condition || row.条件, row.効果対象].filter(Boolean))).join(' / ');
+      return summary ? `${summary}${scope ? ` (${scope})` : ''}` : '';
+    }).filter(Boolean);
+    const unlockLabel = unlocked ? '解放済' : !cardState.owned ? 'カード未所持' : `★${unlockLevel}で解放`;
+    return `
+      <article class="apostle-favorite-level ${unlocked ? 'is-unlocked' : 'is-locked'}">
+        <div class="apostle-favorite-level-head">
+          <strong>愛用Lv${escapeHtml(unlockLevel)}</strong>
+          <span>${escapeHtml(unlockLabel)}</span>
+          ${targetLabels.length ? `<em>${targetLabels.map(escapeHtml).join(' / ')}</em>` : ''}
+        </div>
+        ${description ? `<p class="apostle-favorite-description">${escapeHtml(description)}</p>` : ''}
+        ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+      </article>
+    `;
+  }
+
+  function formatFavoriteEffectSummary(row, level = 0) {
+    const valueClass = String(row.値分類 || '');
+    const rawLabel = String(row.値の種類 || row.ステ能力値 || '').trim();
+    const label = valueClass.includes('持続時間') && /^(バフ|デバフ)$/.test(rawLabel) ? '持続時間' : rawLabel;
+    if (!label) return '';
+    const value = formatEffectValue(row, level);
+    const effectType = String(row.効果タイプ || row.ステ適用 || '').trim();
+    return [label, value, effectType && effectType !== rawLabel ? effectType : ''].filter(Boolean).join(' ');
   }
 
   function renderSkillInfoList(basic) {
@@ -4094,10 +4338,10 @@
     const formatted = formatBoardSummaryValue(value);
     const kind = String(row.値分類 || '');
     const name = String(row.値の種類 || row.ステ能力値 || '');
+    if (kind.includes('持続時間')) return `${formatted}秒`;
     if (kind.includes('倍率') || name.includes('ダメージ量') || name.includes('回復量') || name.includes('確率') || name.includes('率') || name.includes('割合')) {
       return `${formatted}%`;
     }
-    if (kind.includes('持続時間')) return `${formatted}秒`;
     if (kind.includes('ヒット数') || kind.includes('対象数') || kind.includes('回数')) return `${formatted}`;
     return formatted;
   }
@@ -7517,11 +7761,27 @@
     const flat = createEmptyTotals();
     const percent = createEmptyTotals();
     const nodes = [];
+    const progress = {
+      lower: { filled: 0, total: 0 },
+      advanced: { filled: 0, total: 0 },
+      special: { filled: 0, total: 0 }
+    };
     let count = 0;
     (DATA.getById('board', id) || []).forEach(row => {
-      if (row.マス_type !== '上級' && row.マス_type !== '特殊') return;
       const board = boards?.[String(row.ボード階層)];
       const filled = !!board?.filled?.[boardKey(row)];
+      const progressKey = row.マス_type === '通常'
+        ? 'lower'
+        : row.マス_type === '上級'
+          ? 'advanced'
+          : row.マス_type === '特殊'
+            ? 'special'
+            : '';
+      if (progressKey) {
+        progress[progressKey].total += 1;
+        if (filled) progress[progressKey].filled += 1;
+      }
+      if (row.マス_type !== '上級' && row.マス_type !== '特殊') return;
       nodes.push({ row, filled });
       if (filled) {
         addBoardRowToSummary(row, flat, percent);
@@ -7534,9 +7794,33 @@
       percent,
       count,
       nodes,
+      progress,
       filledSpecialCount: specialNodes.filter(item => item.filled).length,
       specialCount: specialNodes.length
     };
+  }
+
+  function renderBoardGlobalApostleProgress(progress = {}) {
+    const rows = [
+      ['lower', '下級'],
+      ['advanced', '上級'],
+      ['special', '特殊']
+    ];
+    return `
+      <span class="board-global-apostle-progress" aria-label="ボード塗り率">
+        ${rows.map(([key, label]) => {
+          const filled = Math.max(0, Number(progress?.[key]?.filled) || 0);
+          const total = Math.max(0, Number(progress?.[key]?.total) || 0);
+          const rate = total ? Math.min(100, filled / total * 100) : 0;
+          const title = `${label} ${filled}/${total}（${formatBoardProgressPercent(rate)}）`;
+          return `<span class="board-global-apostle-progress-row is-${key}" role="progressbar"
+            aria-label="${escapeAttr(label)}" aria-valuemin="0" aria-valuemax="${escapeAttr(total)}"
+            aria-valuenow="${escapeAttr(filled)}" title="${escapeAttr(title)}">
+            <span style="--board-apostle-progress:${rate.toFixed(2)}%"></span>
+          </span>`;
+        }).join('')}
+      </span>
+    `;
   }
 
   function renderBoardGlobalApostleCard(basic, result) {
@@ -7571,6 +7855,7 @@
             <span class="board-global-apostle-meta">
               <span class="board-global-apostle-name">${escapeHtml(basic.使徒名 || basic.id)}</span>
               <span class="board-global-apostle-traits">${escapeHtml(basic.性格 || '')} / ${escapeHtml(basic.種族 || '')}</span>
+              ${renderBoardGlobalApostleProgress(result.progress)}
             </span>
           </button>
           <strong>${escapeHtml(result.filledSpecialCount)} / ${escapeHtml(result.specialCount)}</strong>
@@ -8648,6 +8933,186 @@
     renderBoardSelectionSummary(rows);
   }
 
+  function renderBoardPersonalProgress(rows) {
+    const layer = ['1', '2', '3'].includes(String(view.boardPersonalProgressLayer))
+      ? String(view.boardPersonalProgressLayer)
+      : 'all';
+    view.boardPersonalProgressLayer = layer;
+    const boards = getBoardPersonalProgressBoards();
+    const filtered = (rows || []).filter(row => (
+      (layer === 'all' || String(row.ボード階層) === layer)
+      && ['通常', '上級', '特殊'].includes(String(row.マス_type || ''))
+    ));
+    const typeCounts = {
+      lower: { label: '下級', filled: 0, total: 0 },
+      advanced: { label: '上級', filled: 0, total: 0 },
+      special: { label: '特殊', filled: 0, total: 0 }
+    };
+    const effectCounts = new Map();
+
+    filtered.forEach(row => {
+      const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+      const typeKey = row.マス_type === '通常' ? 'lower' : row.マス_type === '上級' ? 'advanced' : 'special';
+      typeCounts[typeKey].total += 1;
+      if (filled) typeCounts[typeKey].filled += 1;
+      Array.from(new Set([row.効果1_type, row.効果2_type]
+        .map(value => normalizeBoardProgressEffectName(value, typeKey))
+        .filter(Boolean)))
+        .forEach(name => {
+          const effectKey = `${typeKey}:${name}`;
+          if (!effectCounts.has(effectKey)) effectCounts.set(effectKey, { name, typeKey, filled: 0, total: 0 });
+          const count = effectCounts.get(effectKey);
+          count.total += 1;
+          if (filled) count.filled += 1;
+        });
+    });
+
+    const modeLabel = hasBoardDraft()
+      ? '編集中'
+      : view.boardEditMode === 'plan' ? '予定' : '現在';
+    const effects = Array.from(effectCounts.values()).sort(compareBoardProgressEffects);
+    const effectGroups = [
+      { key: 'lower', label: '下級', note: '個別ステータス' },
+      { key: 'advanced', label: '上級', note: '全体加算' },
+      { key: 'special', label: '特殊', note: '全体％' }
+    ].map(group => ({
+      ...group,
+      effects: effects.filter(effect => effect.typeKey === group.key)
+    }));
+    return `
+      <section class="board-personal-progress" aria-label="個別ボード達成率">
+      <div class="board-personal-progress-head">
+        <div><strong>ボード達成率</strong><span>${escapeHtml(modeLabel)}</span></div>
+        <div class="board-personal-progress-tabs" role="tablist" aria-label="集計範囲">
+          ${[['all', '全体'], ['1', 'B1'], ['2', 'B2'], ['3', 'B3']].map(([value, label]) => `
+            <button type="button" role="tab" class="${layer === value ? 'is-active' : ''}"
+              aria-selected="${layer === value}" data-board-personal-progress-layer="${value}">${label}</button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="board-personal-effect-progress">
+        <h3>効果別達成率</h3>
+        <div class="board-personal-progress-columns">
+          ${effectGroups.map(group => renderBoardPersonalProgressColumn(group, typeCounts[group.key])).join('')}
+        </div>
+      </div>
+      </section>
+    `;
+  }
+
+  function getBoardPersonalProgressBoards() {
+    if (snapshotBoardOverride) return snapshotBoardOverride;
+    if (hasBoardDraft()) return boardDraft.boards || {};
+    return getBoardEditBaselineBoards();
+  }
+
+  function normalizeBoardProgressEffectName(value, typeKey = 'lower') {
+    const name = String(value || '').trim().replace(/^全体/, '');
+    if (!name || ['スタート', 'ゲート'].includes(name)) return '';
+    const normalized = name.replace('会心ダメージ', '会心DMG');
+    if (typeKey !== 'lower') {
+      if (normalized === '物理攻撃力' || normalized === '魔法攻撃力') return '攻撃力';
+      if (normalized === '物理防御力' || normalized === '魔法防御力') return '防御力';
+      if (normalized === '会心' || normalized === '会心DMG') return '会心系';
+      if (normalized === '会心抵抗' || normalized === '会心DMG抵抗') return '会心抵抗系';
+    }
+    return normalized;
+  }
+
+  function compareBoardProgressEffects(a, b) {
+    const typeOrder = ['lower', 'advanced', 'special'];
+    const typeDiff = typeOrder.indexOf(a.typeKey) - typeOrder.indexOf(b.typeKey);
+    if (typeDiff) return typeDiff;
+    const order = [
+      'HP', '攻撃力', '物理攻撃力', '魔法攻撃力', '防御力', '物理防御力', '魔法防御力',
+      '会心系', '会心', '会心DMG', '会心抵抗系', '会心抵抗', '会心DMG抵抗'
+    ];
+    const aIndex = order.indexOf(a.name);
+    const bIndex = order.indexOf(b.name);
+    if (aIndex !== bIndex) {
+      if (aIndex < 0) return 1;
+      if (bIndex < 0) return -1;
+      return aIndex - bIndex;
+    }
+    return a.name.localeCompare(b.name, 'ja');
+  }
+
+  function renderBoardPersonalEffectProgressGroup(group) {
+    return `
+      <section class="board-personal-effect-progress-group is-${escapeAttr(group.key)}">
+        <div class="board-personal-effect-progress-group-head">
+          <img src="img/Board/${group.key === 'lower' ? 'Tileicon_1.webp' : group.key === 'advanced' ? 'Tileicon_2.webp' : 'Tileicon_3.webp'}" alt="">
+          <strong>${escapeHtml(group.label)}</strong>
+          <span>${escapeHtml(group.note)}</span>
+        </div>
+        <div class="board-personal-effect-progress-list">
+          ${group.effects.map(renderBoardPersonalEffectProgress).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderBoardPersonalProgressColumn(group, count) {
+    return `
+      <section class="board-personal-progress-column is-${escapeAttr(group.key)}">
+        ${renderBoardPersonalProgressRing(group.key, count)}
+        ${renderBoardPersonalEffectProgressGroup(group)}
+      </section>
+    `;
+  }
+
+  function renderBoardPersonalProgressRing(key, value) {
+    const percent = value.total ? value.filled / value.total * 100 : 0;
+    return `
+      <article class="board-personal-progress-ring-item is-${escapeAttr(key)}">
+        <div class="board-personal-progress-ring" style="--board-personal-progress:${Math.max(0, Math.min(100, percent)).toFixed(2)}"
+          role="progressbar" aria-label="${escapeAttr(value.label)}" aria-valuemin="0"
+          aria-valuemax="${escapeAttr(value.total)}" aria-valuenow="${escapeAttr(value.filled)}">
+          <span><strong>${formatBoardProgressPercent(percent)}</strong><small>${formatNumber(value.filled)}/${formatNumber(value.total)}</small></span>
+        </div>
+        <b>${escapeHtml(value.label)}</b>
+      </article>
+    `;
+  }
+
+  function renderBoardPersonalEffectProgress(value) {
+    const percent = value.total ? value.filled / value.total * 100 : 0;
+    const meta = getBoardPersonalEffectMeta(value.name);
+    return `
+      <div class="board-personal-effect-progress-row is-${escapeAttr(meta.tone)}" title="${escapeAttr(value.name)}">
+        <span class="board-personal-effect-progress-label">
+          <img src="img/Board/${escapeAttr(meta.icon)}" alt="${escapeAttr(value.name)}">
+          <strong>${escapeHtml(value.name)}</strong>
+        </span>
+        <span class="board-personal-effect-progress-track" role="progressbar" aria-label="${escapeAttr(value.name)}"
+          aria-valuemin="0" aria-valuemax="${escapeAttr(value.total)}" aria-valuenow="${escapeAttr(value.filled)}">
+          <span style="--board-personal-progress:${Math.max(0, Math.min(100, percent)).toFixed(2)}%"></span>
+        </span>
+        <span class="board-personal-effect-progress-value"><strong>${formatNumber(value.filled)}/${formatNumber(value.total)}</strong><small>${formatBoardProgressPercent(percent)}</small></span>
+      </div>
+    `;
+  }
+
+  function getBoardPersonalEffectMeta(name) {
+    const map = {
+      HP: ['hp', 'Tile_Hp_On.webp'],
+      '攻撃力': ['attack', 'Tile_AtkBoth_On.webp'],
+      '物理攻撃力': ['attack', 'Tile_AtkP_On.webp'],
+      '魔法攻撃力': ['attack', 'Tile_AtkM_On.webp'],
+      '防御力': ['defense', 'Tile_DefBoth_On.webp'],
+      '物理防御力': ['defense', 'Tile_DefP_On.webp'],
+      '魔法防御力': ['defense', 'Tile_DefM_On.webp'],
+      '会心系': ['crit', 'Tile_CritBoth_On.webp'],
+      '会心': ['crit', 'Tile_Crit_On.webp'],
+      '会心DMG': ['crit', 'Tile_CritDMG_On.webp'],
+      '会心抵抗系': ['resist', 'Tile_CritResBoth_On.webp'],
+      '会心抵抗': ['resist', 'Tile_CritiRes_On.webp'],
+      '会心DMG抵抗': ['resist', 'Tile_CritiDMGRes_On.webp']
+    };
+    const [tone, icon] = map[name] || ['other', 'Tileicon_1.webp'];
+    return { tone, icon };
+  }
+
   function getBoardDisplayY(row) {
     const y = Number(row?.Y_pos);
     if (!Number.isFinite(y)) return y;
@@ -9064,9 +9529,15 @@
   }
 
   function renderBoardSelectionSummary(rows) {
-    const selected = rows.filter(row => row.マス_type !== 'スタート' && isBoardRowFilled(row));
+    const progressHtml = renderBoardPersonalProgress(rows);
+    const layer = String(view.boardPersonalProgressLayer || 'all');
+    const scopedRows = layer === 'all'
+      ? rows
+      : rows.filter(row => String(row.ボード階層) === layer);
+    const selected = scopedRows.filter(row => row.マス_type !== 'スタート' && isBoardRowFilled(row));
+    const scopeLabel = layer === 'all' ? 'ボード1～3 合計' : `B${layer}`;
     if (!selected.length) {
-      elements.boardSelectionSummary.innerHTML = '<p class="empty-note">選択中マスなし</p>';
+      elements.boardSelectionSummary.innerHTML = `${progressHtml}<p class="empty-note board-current-summary-empty">${escapeHtml(scopeLabel)} 選択中マスなし</p>`;
       return;
     }
 
@@ -9098,11 +9569,14 @@
     });
 
     elements.boardSelectionSummary.innerHTML = `
-      <div class="summary-count">ボード1～3 合計 ${selected.length}マス選択中</div>
-      <div class="summary-table-grid">
-        ${renderBoardCostTable(costs)}
-        ${renderBoardEffectTable(effectGroups)}
-      </div>
+      ${progressHtml}
+      <section class="board-current-summary">
+        <div class="summary-count">${escapeHtml(scopeLabel)} ${selected.length}マス選択中</div>
+        <div class="summary-table-grid">
+          ${renderBoardCostTable(costs)}
+          ${renderBoardEffectTable(effectGroups)}
+        </div>
+      </section>
     `;
   }
 
@@ -10735,8 +11209,10 @@
   function migrateSavedStateSlots(source) {
     if (!source || typeof source !== 'object') return {};
     return Object.fromEntries(Object.entries(source).map(([slot, snapshot]) => {
-      if (!snapshot || typeof snapshot !== 'object') return [slot, snapshot];
+      const safeSlot = String(normalizeStateSlot(slot));
+      if (!snapshot || typeof snapshot !== 'object') return [safeSlot, snapshot];
       const migrated = cloneJson(snapshot);
+      migrated.activeStateSlot = Number(safeSlot);
       migrated.cards = migrateCardStateMap(migrated.cards);
       if (migrated.formation && typeof migrated.formation === 'object') {
         migrated.formation = normalizeFormationState(migrated.formation);
@@ -10744,7 +11220,7 @@
       if (Array.isArray(migrated.savedFormations)) {
         migrated.savedFormations = normalizeFormationPresetList(migrated.savedFormations);
       }
-      return [slot, migrated];
+      return [safeSlot, migrated];
     }));
   }
 
@@ -10994,7 +11470,7 @@
       stateExternalConflict = null;
       historyState.undoStack = [];
       historyState.redoStack = [];
-      applyStateSnapshot(nextSnapshot);
+      applyStateSnapshot(nextSnapshot, { activeStateSlot: slot });
       showStateStatus(`別タブで更新されたスロット${slot}を反映しました`);
       return;
     }

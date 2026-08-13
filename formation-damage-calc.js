@@ -1,6 +1,7 @@
 (() => {
   document.documentElement?.classList?.add('fdc-root');
   const STAT_STORAGE_KEY = 'trickcal_stat_prototype_v1';
+  const STAT_SLOT_STORAGE_KEY = 'trickcal_stat_slots_v2';
   const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1';
   const CALC_RESULT_SAVES_KEY = 'trickcal_formation_damage_result_saves_v1';
   const CUSTOM_ENEMY_PRESETS_KEY = 'trickcal_formation_damage_enemy_presets_v1';
@@ -152,6 +153,9 @@
     compareFloatToggle: document.getElementById('fdc-compare-float-toggle'),
     compareFloatToggleLabel: document.querySelector('[data-fdc-compare-toggle-label]'),
     compareFloatHelp: document.getElementById('fdc-compare-float-help'),
+    compareSource: document.getElementById('fdc-compare-source'),
+    compareScopeFieldset: document.getElementById('fdc-compare-scope-fieldset'),
+    compareScopeInputs: Array.from(document.querySelectorAll('[data-fdc-compare-scope]')),
     applyFloatInputs: Array.from(document.querySelectorAll('[data-fdc-apply-source]')),
     categorySourceInputs: Array.from(document.querySelectorAll('[data-fdc-category-source]')),
     resultDisplayInputs: Array.from(document.querySelectorAll('[data-fdc-result-display]')),
@@ -264,6 +268,8 @@
       detailToggle: document.getElementById('fdc-result-detail-toggle'),
       detailPanel: document.getElementById('fdc-result-detail-panel'),
       detailNote: document.getElementById('fdc-result-detail-note'),
+      detailTabs: document.getElementById('fdc-result-detail-tabs'),
+      detailTabButtons: Array.from(document.querySelectorAll('[data-fdc-result-detail-tab]')),
       detailGrid: document.getElementById('fdc-result-detail-grid')
     }
   };
@@ -275,6 +281,7 @@
     gradeOverride: 'saved',
     statMode: 'current',
     resultMetric: 'critRate',
+    resultDetailTab: 'calculation',
     perspective: 'self',
     mobileVisibleSide: 'self',
     enemyPersonality: '',
@@ -319,6 +326,7 @@
       formation: {},
       target: {}
     },
+    tempCardStates: {},
     artifactPicker: null,
     effectSources: {
       synergy: true,
@@ -331,6 +339,12 @@
     },
     damageSaveAction: '',
     loadedDamageSaveId: '',
+    comparisonSource: 'current',
+    comparisonScopes: {
+      characterState: true,
+      formationState: false,
+      cardState: false
+    },
     referenceState: null,
     referenceOptions: { cards: false, global: false, apostles: false }
   };
@@ -425,12 +439,20 @@
       const action = button.dataset.fdcSaveAction || '';
       view.damageSaveAction = view.damageSaveAction === action ? '' : action;
       renderDamageSaveActionPanel();
-    }));    el.result.detailToggle?.addEventListener('click', () => {
+    }));
+    el.result.detailToggle?.addEventListener('click', () => {
       const open = el.result.detailPanel?.hidden !== false;
       setResultDetailOpen(open);
       const context = buildContext();
       renderResultDetail(context, calculateDamage(context));
     });
+    el.result.detailTabButtons.forEach(button => button.addEventListener('click', () => {
+      const tab = button.dataset.fdcResultDetailTab;
+      if (tab !== 'calculation' && tab !== 'comparison') return;
+      view.resultDetailTab = tab;
+      const context = buildContext();
+      renderResultDetail(context, calculateDamage(context));
+    }));
     el.result.metricToggle?.addEventListener('click', event => {
       event.stopPropagation();
       const metrics = ['critRate', 'critDmg', 'defRate'];
@@ -442,6 +464,13 @@
     el.cardCost?.addEventListener('click', () => toggleCardCostPanel());
     el.applyFloatToggle?.addEventListener('click', () => toggleApplyFloatPanel());
     el.compareFloatToggle?.addEventListener('click', () => toggleCompareFloatPanel());
+    el.compareSource?.addEventListener('change', () => {
+      view.comparisonSource = el.compareSource.value || 'current';
+      syncComparisonScopeControls();
+    });
+    el.compareScopeInputs.forEach(input => input.addEventListener('change', () => {
+      view.comparisonScopes[input.dataset.fdcCompareScope] = !!input.checked;
+    }));
     el.pinnedCompareSave?.addEventListener('click', savePinnedComparisonBaseline);
     el.pinnedCompareClear?.addEventListener('click', clearPinnedComparisonBaseline);
     el.applyFloatInputs.forEach(input => {
@@ -503,6 +532,13 @@
       hideFdcSkillPopover();
     });
     document.addEventListener('click', event => {
+      const resetCard = event.target.closest('[data-fdc-temp-card-reset]');
+      if (resetCard) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        resetFdcTempCardState(resetCard.dataset.fdcTempCardReset || '');
+        return;
+      }
       const spellPopoverClose = event.target.closest('[data-fdc-spell-details-close], [data-fdc-spell-editor-close]');
       if (spellPopoverClose) {
         event.preventDefault();
@@ -566,6 +602,15 @@
       if (el.formationPicker && !el.formationPicker.hidden) closeFormationPicker();
     });
     document.addEventListener('change', event => {
+      const cardInput = event.target.closest('[data-fdc-temp-card-field]');
+      if (cardInput) {
+        updateFdcTempCardState(
+          cardInput.dataset.fdcTempCardId || '',
+          cardInput.dataset.fdcTempCardField || '',
+          cardInput.value
+        );
+        return;
+      }
       const stackInput = event.target.closest('[data-fdc-stack-count]');
       if (stackInput) {
         const key = stackInput.dataset.fdcStackCount || '';
@@ -2275,7 +2320,8 @@
       cardState: {
         cards: clonePlain(referenceState.cards || {}),
         tempArtifacts: clonePlain(savedView.tempArtifacts || { formation: {}, target: {} }),
-        tempSpells: Array.isArray(savedView.tempSpells) ? savedView.tempSpells.slice() : null
+        tempSpells: Array.isArray(savedView.tempSpells) ? savedView.tempSpells.slice() : null,
+        tempCardStates: sanitizeFdcTempCardStates(savedView.tempCardStates)
       },
       battleConditions: {
         perspective: savedView.perspective === 'enemy' ? 'enemy' : 'self',
@@ -2394,6 +2440,7 @@
         tempMembers: view.tempMembers || {},
         tempArtifacts: view.tempArtifacts || { formation: {}, target: {} },
         tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
+        tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
         spellDetailsOpen: !!view.spellDetailsOpen
       }),
       inputs: readDamageCalculationInputs(),
@@ -2475,6 +2522,7 @@
         ? migrateTempArtifactOverrides(savedView.tempArtifacts)
         : { formation: {}, target: {} };
       view.tempSpells = Array.isArray(savedView.tempSpells) ? savedView.tempSpells.filter(Boolean).map(resolveCardIdAlias) : null;
+      view.tempCardStates = sanitizeFdcTempCardStates(savedView.tempCardStates);
       view.spellDetailsOpen = !!savedView.spellDetailsOpen;
     }
     if (options.enemy) {
@@ -2638,6 +2686,7 @@
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
       view.tempSpells = Array.isArray(saved.tempSpells) ? saved.tempSpells.filter(Boolean).map(resolveCardIdAlias) : null;
+      view.tempCardStates = sanitizeFdcTempCardStates(saved.tempCardStates);
       if (saved.extraCrayon && typeof saved.extraCrayon === 'object') {
         writeExtraCrayonInputs(saved.extraCrayon);
       }
@@ -2687,6 +2736,7 @@
         conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
         tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
+        tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
         extraCrayon: readExtraCrayonInputs()
       }));
     } catch (error) {
@@ -2732,7 +2782,7 @@
 
   function getEffectiveStatState() {
     const current = loadStatState();
-    if (!view.referenceState || typeof view.referenceState !== 'object') return current;
+    if (!view.referenceState || typeof view.referenceState !== 'object') return applyFdcTempCardStates(current);
     const reference = clonePlain(view.referenceState);
     const options = view.referenceOptions || {};
     const next = {
@@ -2746,7 +2796,32 @@
     next.cards = options.cards ? (reference.cards || {}) : (current.cards || {});
     next.research = options.global ? (reference.research || {}) : (current.research || {});
     next.apostles = mergeReferenceApostleStates(current.apostles || {}, reference.apostles || {}, options);
+    return applyFdcTempCardStates(next);
+  }
+
+  function applyFdcTempCardStates(state = {}) {
+    const overrides = sanitizeFdcTempCardStates(view.tempCardStates);
+    if (!Object.keys(overrides).length) return state;
+    const next = { ...state, cards: { ...(state.cards || {}) } };
+    Object.entries(overrides).forEach(([id, override]) => {
+      const base = next.cards[id] && typeof next.cards[id] === 'object' ? next.cards[id] : {};
+      next.cards[id] = { ...base, star: override.star, solder: override.solder };
+    });
     return next;
+  }
+
+  function sanitizeFdcTempCardStates(source = {}) {
+    const result = {};
+    Object.entries(source || {}).forEach(([rawId, value]) => {
+      const id = resolveCardIdAlias(rawId);
+      if (!id || !getCard(id) || !value || typeof value !== 'object') return;
+      const star = Math.max(1, Math.min(5, Number(value.star) || 1));
+      result[id] = {
+        star,
+        solder: star >= 5 ? Math.max(0, Math.min(2, Number(value.solder) || 0)) : 0
+      };
+    });
+    return result;
   }
 
   function mergeReferenceApostleStates(currentApostles = {}, referenceApostles = {}, options = {}) {
@@ -4447,6 +4522,8 @@
         });
         options.push({
           key: `${target.id}:${sourceKey}:${effectIndex}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
+          effectId: effect.effectId || '',
+          sourceId: sourceKey,
           category,
           label,
           bonuses,
@@ -4454,6 +4531,7 @@
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
+          durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(skill, effect, skillLevel)),
           condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
           actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
@@ -4515,6 +4593,8 @@
     const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context, category);
     return {
       key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'))}`,
+      effectId: effect.effectId || '',
+      sourceId: `${member.id}:${sourceKey}`,
       group: 'formation',
       category,
       source: '編成スキル',
@@ -4533,6 +4613,7 @@
       effectType: effect.effectType || '',
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
       durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
+      durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(skill, effect, skillLevel)),
       condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
       actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
@@ -4561,6 +4642,8 @@
         if (!bonuses || !Object.keys(bonuses).length) return;
         options.push({
           key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
+          effectId: effect.effectId || '',
+          sourceId: `${member.id}:aside:3`,
           group: 'formation',
           category: 'アサイド',
           source: '編成A3',
@@ -4578,6 +4661,7 @@
           effectType: effect.effectType || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           durationText: getFdcSkillEffectDurationText(aside3, effect, skillLevel),
+          durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(aside3, effect, skillLevel)),
           condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
           actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
@@ -4639,6 +4723,7 @@
       'defP',
       'physicalDefP',
       'magicDefP',
+      'hasteP',
       'critP',
       'critRateP',
       'critDmgP',
@@ -4737,6 +4822,8 @@
     const valueClass = String(effect.valueClass || '');
     const valueKind = String(effect.valueKind || '');
     const isSpEffect = /SP/.test(valueKind) && !/SP減少|クールタイム|周期/.test(valueKind);
+    const isSpMetadata = isSpEffect && /周期|クールタイム|持続時間|回数|最大スタック|対象数/.test(valueClass);
+    if (isSpMetadata) return null;
     if (!isSpEffect && valueClass && !isFdcDamageBonusValueClass(valueClass)) return null;
     const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
     const value = Number(levelInfo?.value ?? effect.fixedValue);
@@ -4821,6 +4908,7 @@
         if (effectKind && durationKind === `${effectKind}の持続時間`) score += 100;
         else if (effectKind && baseKind && (effectKind === baseKind || effectKind.includes(baseKind) || baseKind.includes(effectKind))) score += 70;
         else if (baseKind === 'バフ' && effect?.effectType === 'バフ') score += 35;
+        else if (effectCondition && candidateCondition && effectCondition === candidateCondition) score += 50;
         if (!score) return { candidate, score: 0 };
         if (effectCondition && candidateCondition && effectCondition === candidateCondition) score += 20;
         if (effectTarget && candidateTarget && effectTarget === candidateTarget) score += 10;
@@ -4839,6 +4927,12 @@
     const text = String(value ?? '').trim();
     if (!text) return '';
     return `持続 ${/^[+-]?\d+(?:\.\d+)?$/.test(text) ? `${text}秒` : text}`;
+  }
+
+  function parseFdcDurationSeconds(value) {
+    const match = String(value || '').match(/-?\d+(?:\.\d+)?/);
+    const seconds = match ? Number(match[0]) : 0;
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
   }
 
   function getFdcSkillEffectDisplayCondition(effect, ...fallbackParts) {
@@ -5321,6 +5415,7 @@
         <span class="fdc-equipped-artifact-info">
           <strong>${escapeHtml(row.name)}</strong>
           <small>${escapeHtml(`コスト${getCardCostById(row.id, row.star)} / ★${row.star}${row.solder ? ` / はんだ+${row.solder}` : ''}`)}</small>
+          ${renderFdcTempCardGrowthControls(row)}
         </span>
         <span class="fdc-equipped-artifact-effect" data-fdc-artifact-detail="${escapeAttr(row.id)}" data-fdc-artifact-star="${escapeAttr(row.star)}" data-fdc-artifact-solder="${escapeAttr(row.solder || 0)}" title="効果詳細">i</span>
       </div>
@@ -5398,11 +5493,17 @@
     const cards = context.state?.cards || {};
     const options = getTempArtifactOptions(cards);
     const currentId = getCurrentTempArtifactId(context);
+    const currentRow = currentId ? createArtifactDisplayRow(currentId, 1, cards[currentId]) : null;
     picker.innerHTML = `
       <div class="fdc-temp-artifact-head">
         <strong>${view.artifactPicker?.type === 'enemy' ? '敵遺物を入替' : '遺物を一時入替'}</strong>
         <button type="button" data-fdc-temp-artifact-close aria-label="閉じる">${renderUiIcon('close')}</button>
       </div>
+      ${currentRow && view.artifactPicker?.type !== 'enemy' ? `
+        <div class="fdc-temp-artifact-growth-current">
+          <span><strong>${escapeHtml(currentRow.name)}</strong><small>一時育成</small></span>
+          ${renderFdcTempCardGrowthControls(currentRow)}
+        </div>` : ''}
       <div class="fdc-temp-artifact-grid">
         <button type="button" class="fdc-temp-artifact-option is-clear ${currentId ? '' : 'is-active'}" data-fdc-temp-artifact-value="">
           <span class="fdc-temp-artifact-empty">空</span>
@@ -5943,6 +6044,7 @@
         </span>
         <strong title="${escapeAttr(row.name)}">${escapeHtml(row.name)}</strong>
         <small>コスト${escapeHtml(getCardCostById(row.id, row.star))}</small>
+        ${renderFdcTempCardGrowthControls(row, { compact: true })}
         <span class="fdc-spell-editor-qty" aria-label="${escapeAttr(`${row.name}の枚数`)}">
           <button type="button" data-fdc-spell-id="${escapeAttr(row.id)}" data-fdc-spell-edit-step="-1" aria-label="1枚減らす" ${row.qty ? '' : 'disabled'}>${renderUiIcon('minus')}</button>
           <b data-fdc-spell-editor-qty-value>${escapeHtml(row.qty)}</b>
@@ -6134,7 +6236,13 @@
       'otherP',
       'enemyDefDownP',
       'enemyCritResDownP',
-      'enemyCritDmgResDownP'
+      'enemyCritDmgResDownP',
+      'spRecovery',
+      'spRecoveryP',
+      'spRegen',
+      'spRegenP',
+      'initialSp',
+      'initialSpP'
     ].includes(key);
   }
 
@@ -6358,6 +6466,9 @@
 
   function setResultDetailOpen(open) {
     if (!el.result.detailPanel || !el.result.detailToggle) return;
+    if (open) {
+      view.resultDetailTab = getPinnedComparisonSession() ? 'comparison' : 'calculation';
+    }
     el.result.detailPanel.hidden = !open;
     el.result.detailToggle.setAttribute('aria-expanded', String(open));
     el.result.detailToggle.classList.toggle('is-open', open);
@@ -6380,7 +6491,10 @@
       ? `${target.name} / ${formatStatModeLabel(target)} / ${formatGradeLabel(target)}`
       : '使徒未選択';
     const pinnedComparison = getPinnedSingleComparison(context);
-    const groups = [
+    const pinnedDiffGroups = pinnedComparison
+      ? createPinnedComparisonDiffGroups(context, pinnedComparison.session)
+      : [];
+    const calculationGroups = [
       {
         title: '計算結果',
         rows: [
@@ -6442,28 +6556,59 @@
           ['特殊倍率', `${formatPlainNumber(mods.specialP)}%`],
           ['その他倍率', `${formatPlainNumber(mods.otherP)}%`]
         ]
-      },
-      {
-        title: pinnedComparison ? '変更前の条件' : '現在との差分',
-        rows: pinnedComparison
-          ? createPinnedComparisonConditionRows(context, pinnedComparison.session)
-          : createCurrentPlannedDiffRows(context)
-      },
-      {
-        title: pinnedComparison ? '変更前/現在ダメージ比較' : '現在/予定ダメージ比較',
-        rows: pinnedComparison
-          ? createPinnedComparisonDamageRows(pinnedComparison.result, result)
-          : createCurrentPlannedDamageRows(context, result)
       }
     ];
+    const comparisonGroups = pinnedComparison
+      ? [
+          {
+            title: '変更前/現在ダメージ比較',
+            rows: createPinnedComparisonDamageRows(pinnedComparison.result, result)
+          },
+          ...pinnedDiffGroups,
+          {
+            title: '変更前の条件',
+            rows: createPinnedComparisonConditionRows(context, pinnedComparison.session)
+          }
+        ]
+      : [];
+    if (!pinnedComparison) {
+      calculationGroups.push(
+        {
+          title: '現在との差分',
+          rows: createCurrentPlannedDiffRows(context)
+        },
+        {
+          title: '現在/予定ダメージ比較',
+          rows: createCurrentPlannedDamageRows(context, result)
+        }
+      );
+    }
+    syncResultDetailTabs(!!pinnedComparison);
+    const groups = pinnedComparison && view.resultDetailTab === 'comparison'
+      ? comparisonGroups
+      : calculationGroups;
     el.result.detailGrid.innerHTML = groups.map(group => `
-      <section class="fdc-result-detail-group">
+      <section class="fdc-result-detail-group ${escapeAttr(group.className || '')}">
         <h3>${escapeHtml(group.title)}</h3>
+        ${group.content || ''}
         ${group.rows.length
           ? group.rows.map(renderResultDetailRow).join('')
           : '<p>差分なし</p>'}
       </section>
     `).join('');
+  }
+
+  function syncResultDetailTabs(hasComparison) {
+    if (!el.result.detailTabs) return;
+    el.result.detailTabs.hidden = !hasComparison;
+    if (!hasComparison || view.resultDetailTab !== 'comparison') {
+      view.resultDetailTab = 'calculation';
+    }
+    el.result.detailTabButtons.forEach(button => {
+      const active = button.dataset.fdcResultDetailTab === view.resultDetailTab;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', String(active));
+    });
   }
 
   function renderResultDetailRow(row) {
@@ -6506,7 +6651,9 @@
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
     const selectedSkillOption = isEnemyAttack ? null : context.selectedSkillOption || resolveSelectedSelfSkillOption(context);
     const selectedSkillValue = Number(selectedSkillOption?.value);
-    const conditionalTakenDmgP = !isEnemyAttack ? getEnemyPresetStatusTakenDamageWeaknessAdd() : 0;
+    const conditionalTakenDmgP = !isEnemyAttack && !context.ignoreEnemyStatusTakenDamageWeakness
+      ? getEnemyPresetStatusTakenDamageWeaknessAdd()
+      : 0;
     const targetDebuffTakenDmgP = isEnemyAttack ? getEnemyPresetBreakDebuffTakenDmgP() : 0;
     if (!isEnemyAttack && Number.isFinite(selectedSkillValue)) attacker.skill = selectedSkillValue;
     if (!isEnemyAttack) {
@@ -6592,6 +6739,7 @@
           finalCritDmg,
           finalCritRes,
           finalCritDmgRes,
+          damageType: context.damageType,
           damageReference: damageReference === 'enemyMaxHp' ? '敵最大HP' : '',
           damageSource,
           critMult
@@ -6600,6 +6748,7 @@
           attackP,
           hpP,
           defenseP,
+          rawAddRate,
           addRate,
           conditionalTakenDmgP,
           targetDebuffTakenDmgP,
@@ -6923,7 +7072,10 @@
     if (!el.compareFloatPanel || !el.compareFloatToggle) return;
     const open = !!el.compareFloatPanel.hidden;
     if (open && el.saveMenu) el.saveMenu.open = false;
-    if (open) closeApplyFloatPanel();
+    if (open) {
+      closeApplyFloatPanel();
+      renderComparisonSourceControls();
+    }
     el.compareFloatPanel.hidden = !open;
     el.compareFloatToggle.setAttribute('aria-expanded', String(open));
   }
@@ -6958,6 +7110,298 @@
     });
   }
 
+  function loadComparisonStateSlots() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STAT_SLOT_STORAGE_KEY) || '{}');
+      return Object.entries(parsed?.slots || {})
+        .filter(([, entry]) => entry?.snapshot && typeof entry.snapshot === 'object')
+        .map(([slot, entry]) => ({
+          slot: String(slot),
+          savedAt: entry.savedAt || entry.snapshot.savedAt || '',
+          snapshot: entry.snapshot
+        }))
+        .sort((a, b) => Number(a.slot) - Number(b.slot));
+    } catch {
+      return [];
+    }
+  }
+
+  function formatComparisonStateSlotLabel(item) {
+    const snapshot = item?.snapshot || {};
+    const slotName = String(snapshot.slotName || '').trim();
+    const apostleName = snapshot.apostleName || snapshot.activeId || '名称なし';
+    const name = slotName || apostleName;
+    const savedAt = formatComparisonStateSlotSavedAt(item?.savedAt || snapshot.savedAt);
+    const displayName = (!slotName || slotName === apostleName) && savedAt
+      ? `${name}（${savedAt}）`
+      : name;
+    return `スロット${item.slot}: ${displayName}`;
+  }
+
+  function formatComparisonStateSlotSavedAt(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const pad = number => String(number).padStart(2, '0');
+    return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function getComparisonSources() {
+    const state = loadStatState();
+    return [
+      { value: 'current', label: '現在の状態を記録', type: 'current' },
+      ...loadComparisonStateSlots().map(item => ({
+        value: `slot:${item.slot}`,
+        label: formatComparisonStateSlotLabel(item),
+        type: 'slot',
+        data: item
+      })),
+      ...getSavedFormationPresets(state).map(item => ({
+        value: `formation:${item.id}`,
+        label: `保存編成: ${item.name || '無題の編成'}`,
+        type: 'formation',
+        data: item
+      })),
+      ...loadDamageCalculationSaves().map(item => ({
+        value: `calc:${item.id}`,
+        label: `保存計算: ${item.name || '無題の計算'}`,
+        type: 'calc',
+        data: item
+      }))
+    ];
+  }
+
+  function renderComparisonSourceControls() {
+    if (!el.compareSource) return;
+    const sources = getComparisonSources();
+    if (!sources.some(source => source.value === view.comparisonSource)) view.comparisonSource = 'current';
+    const groups = [
+      ['current', '現在'],
+      ['slot', 'ステータス保存'],
+      ['formation', '保存編成'],
+      ['calc', '保存済み計算']
+    ];
+    el.compareSource.innerHTML = groups.map(([type, label]) => {
+      const options = sources.filter(source => source.type === type);
+      if (!options.length) return '';
+      return `<optgroup label="${escapeAttr(label)}">${options.map(source =>
+        `<option value="${escapeAttr(source.value)}">${escapeHtml(source.label)}</option>`
+      ).join('')}</optgroup>`;
+    }).join('');
+    el.compareSource.value = view.comparisonSource;
+    syncComparisonScopeControls(sources);
+  }
+
+  function getSelectedComparisonSource(sources = getComparisonSources()) {
+    return sources.find(source => source.value === view.comparisonSource) || sources[0] || null;
+  }
+
+  function syncComparisonScopeControls(sources = getComparisonSources()) {
+    const source = getSelectedComparisonSource(sources);
+    const available = source?.type === 'slot'
+      ? new Set(['characterState', 'formationState', 'cardState'])
+      : source?.type === 'formation'
+        ? new Set(['formationState'])
+        : new Set();
+    el.compareScopeInputs.forEach(input => {
+      const scope = input.dataset.fdcCompareScope;
+      const selectable = available.has(scope);
+      input.disabled = !selectable;
+      input.checked = source?.type === 'formation'
+        ? scope === 'formationState'
+        : source?.type === 'slot'
+          ? view.comparisonScopes[scope] !== false
+          : true;
+    });
+    if (el.compareScopeFieldset) {
+      el.compareScopeFieldset.disabled = !available.size;
+      el.compareScopeFieldset.dataset.sourceType = source?.type || 'current';
+    }
+    if (el.pinnedCompareSave) {
+      el.pinnedCompareSave.textContent = getPinnedComparisonSession()
+        ? '比較基準を更新'
+        : 'この条件で比較開始';
+    }
+    updateComparisonSourceHelp(source);
+  }
+
+  function hasTemporaryFormationComparisonChanges() {
+    const hasMembers = Object.values(view.tempMembers || {}).some(Boolean);
+    const hasArtifacts = Object.values(view.tempArtifacts?.formation || {}).some(Boolean)
+      || Object.values(view.tempArtifacts?.target || {}).some(Boolean);
+    return hasMembers || hasArtifacts || Array.isArray(view.tempSpells)
+      || Object.keys(sanitizeFdcTempCardStates(view.tempCardStates)).length > 0;
+  }
+
+  function updateComparisonSourceHelp(source = getSelectedComparisonSource()) {
+    if (!el.compareFloatHelp) return;
+    const active = !!getPinnedComparisonSession();
+    const prefix = active ? '現在、この基準と比較中です。' : '';
+    if (source?.type === 'slot') {
+      const temporaryNote = hasTemporaryFormationComparisonChanges()
+        ? ' ダメージ計算内の一時編成・一時カードは保存スロットに含まれないため、編成内容を比較すると差が出ます。'
+        : '';
+      el.compareFloatHelp.textContent = `${prefix}保存スロットは使徒育成のみを初期選択しています。編成使徒・遺物・スペルやカードの★・はんだも比べる場合だけ追加で選択してください。${temporaryNote}`;
+      return;
+    }
+    if (source?.type === 'formation') {
+      el.compareFloatHelp.textContent = `${prefix}保存編成の使徒・遺物・スペル・教主の権能を、現在の編成内容と比較します。`;
+      return;
+    }
+    if (source?.type === 'calc') {
+      el.compareFloatHelp.textContent = `${prefix}保存済み計算に記録された育成・編成・カード・計算条件をまとめて比較元にします。`;
+      return;
+    }
+    el.compareFloatHelp.textContent = `${prefix}今の育成・編成・計算設定を基準として記録し、その後の変更との差を確認します。`;
+  }
+
+  function getSelectedComparisonScopes() {
+    return el.compareScopeInputs
+      .filter(input => !input.disabled && input.checked)
+      .map(input => input.dataset.fdcCompareScope);
+  }
+
+  function createCombatScenarioFromStateSnapshot(snapshot = {}, sourceMeta = {}) {
+    const candidate = captureCombatScenario(buildContext());
+    const source = clonePlain(candidate);
+    const hydrated = hydrateComparisonApostleSnapshots(snapshot.apostles || {}, snapshot.comparisonStats);
+    source.sourceMeta = {
+      type: 'stateSlot',
+      ...clonePlain(sourceMeta),
+      missingStatSnapshotIds: hydrated.missingIds
+    };
+    source.characterState = {
+      ...clonePlain(candidate.characterState),
+      apostles: hydrated.apostles,
+      research: clonePlain(snapshot.research || {})
+    };
+    source.formationState = {
+      ...clonePlain(candidate.formationState),
+      presetId: snapshot.activeFormationPresetId || '',
+      formation: clonePlain(normalizeFormation(snapshot.formation || {})),
+      tempMembers: {}
+    };
+    source.cardState = {
+      ...clonePlain(candidate.cardState),
+      cards: clonePlain(migrateCardStateMap(snapshot.cards || {})),
+      tempArtifacts: { formation: {}, target: {} },
+      tempSpells: null,
+      tempCardStates: {}
+    };
+    return getCombatScenarioApi()?.createScenario?.(source) || source;
+  }
+
+  function hydrateComparisonApostleSnapshots(savedApostles = {}, comparisonStats = {}) {
+    const apostles = clonePlain(savedApostles || {});
+    const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    const decoded = engine?.decodeComparisonStatSnapshots?.(comparisonStats) || {};
+    Object.entries(decoded).forEach(([id, snapshots]) => {
+      if (!apostles[id] || typeof apostles[id] !== 'object') return;
+      apostles[id].statSnapshots = {
+        ...(apostles[id].statSnapshots || {}),
+        ...clonePlain(snapshots)
+      };
+      if (apostles[id].statSnapshots.current?.stats) {
+        apostles[id].finalStats = clonePlain(apostles[id].statSnapshots.current.stats);
+      }
+    });
+    const liveApostles = loadStatState().apostles || {};
+    const missingIds = [];
+    Object.entries(apostles).forEach(([id, savedState]) => {
+      if (savedState?.statSnapshots?.current?.stats) return;
+      const liveState = liveApostles[id];
+      if (liveState?.statSnapshots?.current?.stats && areEquivalentApostleSettings(savedState, liveState)) {
+        savedState.statSnapshots = clonePlain(liveState.statSnapshots);
+        savedState.finalStats = clonePlain(liveState.finalStats || liveState.statSnapshots.current.stats);
+        return;
+      }
+      missingIds.push(id);
+    });
+    return { apostles, missingIds };
+  }
+
+  function areEquivalentApostleSettings(left = {}, right = {}) {
+    const normalize = value => {
+      const result = clonePlain(value || {});
+      delete result.statSnapshots;
+      delete result.finalStats;
+      return result;
+    };
+    return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+  }
+
+  function createCombatScenarioFromFormationPreset(preset = {}) {
+    const candidate = captureCombatScenario(buildContext());
+    const source = clonePlain(candidate);
+    source.sourceMeta = {
+      type: 'formationPreset',
+      id: preset.id || '',
+      name: preset.name || '無題の編成'
+    };
+    source.formationState = {
+      ...clonePlain(candidate.formationState),
+      presetId: preset.id || '',
+      formation: clonePlain(normalizeFormation(preset.formation || {})),
+      tempMembers: {}
+    };
+    return getCombatScenarioApi()?.createScenario?.(source) || source;
+  }
+
+  function evaluateComparisonScenario(scenario = {}) {
+    const savedView = {
+      targetId: view.targetId,
+      formationPresetId: view.formationPresetId,
+      statMode: view.statMode,
+      gradeOverride: view.gradeOverride,
+      statDirty: view.statDirty,
+      referenceState: view.referenceState,
+      referenceOptions: view.referenceOptions,
+      tempMembers: view.tempMembers,
+      tempArtifacts: view.tempArtifacts,
+      tempSpells: view.tempSpells,
+      tempCardStates: view.tempCardStates,
+      skillLevelOverrides: view.skillLevelOverrides
+    };
+    const savedInputs = snapshotSelfStatInputs();
+    try {
+      const targetId = scenario.actors?.self?.id || scenario.characterState?.targetId || view.targetId;
+      if (!scenario.characterState?.apostles?.[targetId]) {
+        return { error: '選択した比較元に現在の使徒データがありません' };
+      }
+      view.targetId = targetId;
+      view.formationPresetId = '';
+      view.statMode = scenario.characterState?.statMode === 'planned' ? 'planned' : 'current';
+      view.gradeOverride = scenario.characterState?.gradeOverride || 'saved';
+      view.statDirty = false;
+      view.referenceState = {
+        found: true,
+        activeId: targetId,
+        apostles: clonePlain(scenario.characterState?.apostles || {}),
+        research: clonePlain(scenario.characterState?.research || {}),
+        cards: clonePlain(scenario.cardState?.cards || {}),
+        formation: clonePlain(normalizeFormation(scenario.formationState?.formation || {})),
+        savedFormations: []
+      };
+      view.referenceOptions = { cards: true, global: true, apostles: true };
+      view.tempMembers = clonePlain(scenario.formationState?.tempMembers || {});
+      view.tempArtifacts = clonePlain(scenario.cardState?.tempArtifacts || { formation: {}, target: {} });
+      view.tempSpells = Array.isArray(scenario.cardState?.tempSpells) ? scenario.cardState.tempSpells.slice() : null;
+      view.tempCardStates = sanitizeFdcTempCardStates(scenario.cardState?.tempCardStates);
+      view.skillLevelOverrides = sanitizeSkillLevelOverrides(scenario.effectAssumptions?.skillLevelOverrides || {});
+      const context = buildContext({ detached: true });
+      if (!context.target || context.target.id !== targetId) {
+        return { error: '選択した比較元の編成に現在の使徒がいません' };
+      }
+      writeSelfStatInputsForStats(context, context.target.stats || {});
+      const result = calculateDamage(context);
+      const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot(context));
+      return { result, dpsSnapshot };
+    } finally {
+      Object.assign(view, savedView);
+      restoreSelfStatInputs(savedInputs);
+    }
+  }
+
   function savePinnedComparisonBaseline() {
     const api = getCombatScenarioApi();
     if (!api?.savePinnedComparison) return;
@@ -6966,9 +7410,49 @@
       if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '先に比較する使徒を選択してください';
       return;
     }
-    const scenario = captureCombatScenario(context);
-    const result = calculateDamage(context);
-    const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot());
+    const source = getSelectedComparisonSource();
+    let scenario = captureCombatScenario(context);
+    let result = calculateDamage(context);
+    let dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot());
+    if (source?.type === 'calc') {
+      scenario = createCombatScenarioFromDamageSave(source.data);
+      result = source.data.snapshot?.result || {};
+      dpsSnapshot = source.data.snapshot?.comparison?.dpsSnapshot || {};
+    } else if (source?.type === 'slot' || source?.type === 'formation') {
+      const scopes = getSelectedComparisonScopes();
+      if (!scopes.length) {
+        if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '比較する範囲を1つ以上選択してください';
+        return;
+      }
+      const sourceScenario = source.type === 'slot'
+        ? createCombatScenarioFromStateSnapshot(source.data.snapshot, {
+          slot: source.data.slot,
+          name: formatComparisonStateSlotLabel(source.data)
+        })
+        : createCombatScenarioFromFormationPreset(source.data);
+      const missingTargetSnapshot = source.type === 'slot'
+        && sourceScenario.sourceMeta?.missingStatSnapshotIds?.includes(context.target.id);
+      if (missingTargetSnapshot) {
+        if (el.pinnedCompareNote) {
+          el.pinnedCompareNote.textContent = 'この保存スロットは旧形式のため、ステータス管理で一度読み込み、再保存してください';
+        }
+        return;
+      }
+      scenario = api.materializeComparison?.(scenario, sourceScenario, scopes) || sourceScenario;
+      if (source.type === 'formation') {
+        const currentState = loadStatState();
+        scenario.characterState.apostles = clonePlain(currentState.apostles || scenario.characterState.apostles || {});
+      }
+      const evaluation = evaluateComparisonScenario(scenario);
+      if (evaluation.error) {
+        if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
+        return;
+      }
+      result = evaluation.result;
+      dpsSnapshot = evaluation.dpsSnapshot;
+      scenario.characterState.boardState = clonePlain(dpsSnapshot.boardState || scenario.characterState.boardState || {});
+      if (api.fingerprint) scenario.sourceMeta.fingerprint = api.fingerprint(scenario);
+    }
     const session = api.savePinnedComparison({
       scenario,
       singleActionResult: result,
@@ -6980,7 +7464,9 @@
     }
     syncPinnedComparisonUi(context);
     renderResult(context);
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'pinned' } }));
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', {
+      detail: { mode: 'pinned', source: source?.type || 'current', id: source?.value || 'current' }
+    }));
   }
 
   function clearPinnedComparisonBaseline() {
@@ -7043,18 +7529,16 @@
     if (!el.pinnedCompareNote || !el.pinnedCompareClear) return;
     const session = getPinnedComparisonSession();
     el.pinnedCompareClear.disabled = !session;
+    if (el.pinnedCompareSave) {
+      el.pinnedCompareSave.textContent = session ? '比較基準を更新' : 'この条件で比較開始';
+    }
     el.compareFloatToggle?.classList.toggle('is-active', !!session);
     if (el.compareFloatToggleLabel) el.compareFloatToggleLabel.textContent = session ? '比較中' : '比較';
     if (el.compareFloatToggle) {
       el.compareFloatToggle.setAttribute('aria-label', session ? '変更前と比較中' : '変更前と比較');
       el.compareFloatToggle.title = session ? '変更前との比較を確認・更新・終了' : '今の状態を記録して変更後と比較';
     }
-    if (el.pinnedCompareSave) el.pinnedCompareSave.textContent = session ? '変更前を現在の状態に更新' : '現在を変更前として記録';
-    if (el.compareFloatHelp) {
-      el.compareFloatHelp.textContent = session
-        ? '記録した育成・編成・計算設定と現在を比較しています。単発計算では、現在選択中の行動を変更前のスキルLvでも計算します。'
-        : '今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージの差を確認できます。選択する行動は自動的に追従します。';
-    }
+    updateComparisonSourceHelp();
     if (!session) {
       el.pinnedCompareNote.textContent = '比較を開始していません';
       el.pinnedCompareNote.title = '';
@@ -7062,6 +7546,7 @@
     }
     const scenario = session.baseline.scenario || {};
     const name = scenario.actors?.self?.name || scenario.actors?.self?.id || '使徒未選択';
+    const sourceLabel = formatPinnedComparisonSource(scenario);
     const baselineBoard = scenario.characterState?.boardState || session.baseline.dpsSnapshot?.boardState || {};
     const baselineBoardLabel = formatBoardComparisonMode(baselineBoard);
     const compatible = scenario.actors?.self?.id === context.target?.id
@@ -7069,7 +7554,7 @@
     const comparison = compatible ? getPinnedSingleComparison(context) : null;
     const expected = Number(comparison?.result?.expected) || 0;
     if (compatible && comparison) {
-      const contextText = `${name} / 基準:ボード${baselineBoardLabel} / 現在行動に追従`;
+      const contextText = `${name} / 基準:${sourceLabel}・ボード${baselineBoardLabel} / 現在行動に追従`;
       const expectedText = `期待値 ${formatCompactDamage(expected)}`;
       el.pinnedCompareNote.innerHTML = `
         <span class="fdc-pinned-compare-context">${escapeHtml(contextText)}</span>
@@ -7083,6 +7568,27 @@
       el.pinnedCompareNote.textContent = message;
       el.pinnedCompareNote.title = message;
     }
+  }
+
+  function formatPinnedComparisonSource(scenario = {}) {
+    const meta = scenario.sourceMeta?.comparisonSource || scenario.sourceMeta || {};
+    if (meta.type === 'stateSlot') return meta.name || `保存スロット${meta.slot || ''}`;
+    if (meta.type === 'formationPreset') return `保存編成:${meta.name || '無題'}`;
+    if (meta.type === 'damageSave') return `保存計算:${meta.name || '無題'}`;
+    return '現在記録';
+  }
+
+  function formatPinnedComparisonScopes(scenario = {}) {
+    const scopes = scenario.sourceMeta?.comparisonScopes;
+    if (!Array.isArray(scopes) || !scopes.length) return 'すべて';
+    const labels = {
+      characterState: '使徒育成',
+      formationState: '編成',
+      cardState: 'カード',
+      battleConditions: '戦闘条件',
+      effectAssumptions: '効果設定'
+    };
+    return scopes.map(scope => labels[scope] || scope).join('・');
   }
 
   function syncApplyFloatUi() {
@@ -7551,10 +8057,12 @@
 
   function getConditionalDefaultEnabled(text, effect, actionMatch, card = null, formation = null) {
     if (isUnresolvedCardTriggerEffect(text)) return false;
+    if (effect?.id === 'artifact_dragonlight_sword_e01') return true;
     if (effect.defaultEnabled === true) return true;
     if (isInitialWaveEffect(text)) return true;
     if (isSameLineStartEffect(text)) return true;
     if (isDeterministicCardSpTiming(text, effect)) return true;
+    if (isDeterministicNormalAttackSpRecovery(text, effect)) return true;
     if (isFavoriteCardActiveInFormation(card, formation)) return true;
     if (effect.type === 'toggle' && !isTimedOrManualEffect(text, effect)) {
       return actionMatch?.hasActionCondition ? !!actionMatch.matched : true;
@@ -7571,6 +8079,16 @@
     if (!hasSpBonus) return false;
     if (!/戦闘開始時|毎秒|1秒ごと|\d+(?:\.\d+)?秒ごと/.test(body)) return false;
     return !/一定確率|n回ごと|\d+回(?:目|ごと)|攻撃時|攻撃命中時|通常攻撃|普通攻撃|基本攻撃|強化攻撃|被撃時|被弾時|使用時|使用後|発動時|命中時|破壊時|撃破時/.test(body);
+  }
+
+  function isDeterministicNormalAttackSpRecovery(text, effect = null) {
+    const body = String(text || '');
+    const hasSpRecovery = normalizeFdcArray(effect?.bonusesByStar).some(bonuses => (
+      Number(bonuses?.spRecovery) || Number(bonuses?.spRecoveryP)
+    ));
+    if (!hasSpRecovery) return false;
+    if (/一定確率|ランダム|n回ごと|\d+回(?:目|ごと)/.test(body)) return false;
+    return /(?:通常|普通|基本|強化)攻撃.{0,12}(?:命中時|攻撃時)/.test(body);
   }
 
   function isInitialWaveEffect(text) {
@@ -8242,6 +8760,8 @@
     const baselineBoard = baseline.characterState?.boardState || session?.baseline?.dpsSnapshot?.boardState || {};
     const currentBoard = currentScenario.characterState?.boardState || {};
     const rows = [
+      ['比較元', formatPinnedComparisonSource(baseline)],
+      ['比較範囲', formatPinnedComparisonScopes(baseline)],
       ['変更前の使徒', baseline.actors?.self?.name || baseline.actors?.self?.id || '-'],
       ['現在使徒', currentScenario.actors?.self?.name || currentScenario.actors?.self?.id || '-'],
       ['変更前の行動', session?.evaluationPolicy?.singleAction === 'fixedBaselineAction'
@@ -8256,6 +8776,392 @@
       ['比較データ指紋', baseline.sourceMeta?.fingerprint || '-']
     ];
     return rows;
+  }
+
+  function createPinnedComparisonDiffGroups(context, session) {
+    const baseline = session?.baseline?.scenario || {};
+    const current = captureCombatScenario(context);
+    const formationVisual = createPinnedComparisonFormationVisual(baseline, current);
+    const groups = [
+      {
+        scope: 'characterState',
+        title: 'ステータス差分',
+        rows: createPinnedComparisonStatDiffRows(context, baseline, current)
+      },
+      {
+        scope: 'characterState',
+        title: '使徒育成差分',
+        rows: createPinnedComparisonApostleDiffRows(context, baseline, current, session)
+      },
+      {
+        scope: 'formationState',
+        title: '編成差分',
+        rows: createPinnedComparisonFormationDiffRows(baseline, current),
+        className: formationVisual ? 'fdc-comparison-formation-group' : '',
+        content: formationVisual
+      },
+      {
+        scope: 'cardState',
+        title: 'カード育成差分',
+        rows: createPinnedComparisonCardDiffRows(baseline, current)
+      },
+      {
+        scope: '',
+        title: '現在行動の効果差分',
+        rows: createPinnedComparisonEffectDiffRows(context, session)
+      }
+    ];
+    return groups
+      .filter(group => !group.scope || isPinnedComparisonScopeIncluded(baseline, group.scope))
+      .map(group => ({
+        title: group.title,
+        rows: group.rows,
+        className: group.className || '',
+        content: group.content || ''
+      }));
+  }
+
+  function isPinnedComparisonScopeIncluded(scenario = {}, scope = '') {
+    const scopes = scenario.sourceMeta?.comparisonScopes;
+    return !Array.isArray(scopes) || !scopes.length || scopes.includes(scope);
+  }
+
+  function createPinnedComparisonStatDiffRows(context, baseline = {}, current = {}) {
+    const before = baseline.characterState?.boardState?.selectedStats || {};
+    const after = current.characterState?.boardState?.selectedStats || context.target?.stats || {};
+    const attackKey = context.damageType === 'magic' ? 'magicAtk' : 'physicalAtk';
+    const defenseKey = context.damageType === 'magic' ? 'magicDef' : 'physicalDef';
+    return [
+      ['HP', 'hp'],
+      [context.damageType === 'magic' ? '魔法攻撃力' : '物理攻撃力', attackKey],
+      [context.damageType === 'magic' ? '魔法防御力' : '物理防御力', defenseKey],
+      ['会心', 'crit'],
+      ['会心DMG', 'critDmg'],
+      ['会心抵抗', 'critRes'],
+      ['会心DMG抵抗', 'critDmgRes']
+    ].map(([label, key]) => createNumericComparisonRow(label, before[key], after[key]))
+      .filter(Boolean);
+  }
+
+  function createNumericComparisonRow(label, beforeValue, afterValue) {
+    const before = Number(beforeValue);
+    const after = Number(afterValue);
+    if (!Number.isFinite(before) || !Number.isFinite(after) || Math.abs(after - before) < 0.0001) return null;
+    const diff = after - before;
+    return {
+      label,
+      value: `${formatNumber(Math.round(before))} → ${formatNumber(Math.round(after))}（${formatSignedNumber(Math.round(diff))}）`,
+      className: diff > 0 ? 'is-comparison-up' : 'is-comparison-down'
+    };
+  }
+
+  function createPinnedComparisonApostleDiffRows(context, baseline = {}, current = {}, session = null) {
+    const targetId = context.target?.id || current.actors?.self?.id || baseline.actors?.self?.id || '';
+    const before = baseline.characterState?.apostles?.[targetId] || {};
+    const after = current.characterState?.apostles?.[targetId] || {};
+    const rows = [];
+    const add = (label, left, right, formatter = formatPlainNumber) => {
+      if (JSON.stringify(left ?? null) === JSON.stringify(right ?? null)) return;
+      rows.push({ label, value: `${formatter(left)} → ${formatter(right)}`, className: 'is-comparison-change' });
+    };
+    add('★', Number(before.star) || 1, Number(after.star) || 1);
+    add('Lv', Number(before.level) || 1, Number(after.level) || 1);
+    add('Rank', Number(before.rank) || 1, Number(after.rank) || 1);
+    add('学年', Number(before.grade) || 1, Number(after.grade) || 1);
+    add('好感度', Number(before.bond) || 1, Number(after.bond) || 1);
+    const beforeLevels = session?.baseline?.dpsSnapshot?.skillLevels || {
+      low: Number(before.skillLevels?.low) || 1,
+      high: Number(before.skillLevels?.high) || 1,
+      passive: Number(before.skillLevels?.passive) || 1,
+      asideRank: Number(before.asideRank) || 0,
+      asideLevel: Number(before.asideLevel) || 0
+    };
+    const afterLevels = context.target ? getFdcEffectiveSkillLevels(context.target) : {
+      low: Number(after.skillLevels?.low) || 1,
+      high: Number(after.skillLevels?.high) || 1,
+      passive: Number(after.skillLevels?.passive) || 1,
+      asideRank: Number(after.asideRank) || 0,
+      asideLevel: Number(after.asideLevel) || 0
+    };
+    add('アサイド', Number(beforeLevels.asideRank) || 0, Number(afterLevels.asideRank) || 0, value => Number(value) ? `A${Number(value)}` : '未発現');
+    add('アサイドLv', Number(beforeLevels.asideLevel) || 0, Number(afterLevels.asideLevel) || 0, value => Number(value) ? `Lv${Number(value)}` : '-');
+    add('低学年SLv', Number(beforeLevels.low) || 1, Number(afterLevels.low) || 1);
+    add('高学年SLv', Number(beforeLevels.high) || 1, Number(afterLevels.high) || 1);
+    add('パッシブSLv', Number(beforeLevels.passive) || 1, Number(afterLevels.passive) || 1);
+    add('フォロー', !!before.follow, !!after.follow, value => value ? 'ON' : 'OFF');
+    const equipmentKeys = unique([...Object.keys(before.equipment || {}), ...Object.keys(after.equipment || {})]);
+    equipmentKeys.forEach(key => {
+      const left = normalizeComparisonEquipment(before.equipment?.[key]);
+      const right = normalizeComparisonEquipment(after.equipment?.[key]);
+      if (left.enabled === right.enabled && left.enhance === right.enhance) return;
+      rows.push({
+        label: `装備 ${formatComparisonEquipmentLabel(key)}`,
+        value: `${formatComparisonEquipment(left)} → ${formatComparisonEquipment(right)}`,
+        className: 'is-comparison-change'
+      });
+    });
+    const boardMode = baseline.characterState?.boardState?.selectedMode === 'planned' ? 'plannedBoards' : 'boards';
+    const beforeBoardCount = countComparisonBoardTiles(before[boardMode]);
+    const afterBoardCount = countComparisonBoardTiles(after[boardMode]);
+    if (beforeBoardCount !== afterBoardCount) {
+      rows.push({ label: 'ボード解放マス', value: `${beforeBoardCount} → ${afterBoardCount}`, className: 'is-comparison-change' });
+    }
+    return rows;
+  }
+
+  function normalizeComparisonEquipment(value = {}) {
+    return { enabled: !!value?.enabled, enhance: Math.max(0, Number(value?.enhance) || 0) };
+  }
+
+  function formatComparisonEquipment(value = {}) {
+    return value.enabled ? `+${value.enhance}` : 'なし';
+  }
+
+  function formatComparisonEquipmentLabel(key = '') {
+    const labels = { HP: 'HP', 物理攻撃: '物攻', 魔法攻撃: '魔攻', 物理防御: '物防', 魔法防御: '魔防', 会心: '会心', 会心抵抗: '抵抗' };
+    return labels[key] || key || '不明';
+  }
+
+  function countComparisonBoardTiles(boards = {}) {
+    return Object.values(boards || {}).reduce((sum, board) => (
+      sum + Object.values(board?.filled || {}).filter(Boolean).length
+    ), 0);
+  }
+
+  function createPinnedComparisonFormationDiffRows(baseline = {}, current = {}) {
+    const before = normalizeFormation(baseline.formationState?.formation || {});
+    const after = normalizeFormation(current.formationState?.formation || {});
+    const rows = [];
+    addTextComparisonRow(rows, '編成使徒', formatComparisonApostleList(before), formatComparisonApostleList(after));
+    addCountComparisonRows(rows, '遺物', getComparisonFormationArtifactIds(before), getComparisonFormationArtifactIds(after), id => getCard(id)?.name || id);
+    addCountComparisonRows(rows, 'スペル', before.spells, after.spells, id => getCard(id)?.name || id);
+    addTextComparisonRow(rows, '教主の権能', formatComparisonMasterPowerList(before.masterPowers), formatComparisonMasterPowerList(after.masterPowers));
+    return rows;
+  }
+
+  function createPinnedComparisonFormationVisual(baseline = {}, current = {}) {
+    const before = normalizeFormation(baseline.formationState?.formation || {});
+    const after = normalizeFormation(current.formationState?.formation || {});
+    const beforeArtifacts = before.rows.map(row => row.artifacts);
+    const afterArtifacts = after.rows.map(row => row.artifacts);
+    if (JSON.stringify(beforeArtifacts) === JSON.stringify(afterArtifacts)) return '';
+    return `
+      <div class="fdc-comparison-formation-visual">
+        ${renderComparisonFormationSide('変更前', before, after, baseline.cardState?.cards || {}, true)}
+        <span class="fdc-comparison-formation-arrow" aria-hidden="true">→</span>
+        ${renderComparisonFormationSide('現在', after, before, current.cardState?.cards || {}, false)}
+      </div>
+    `;
+  }
+
+  function renderComparisonFormationSide(title, formation, counterpart, cardStates = {}, isBefore = false) {
+    const cells = [];
+    for (let rowIndex = 0; rowIndex < 3; rowIndex += 1) {
+      for (let lineIndex = 0; lineIndex < 3; lineIndex += 1) {
+        const apostleId = formation.rows?.[rowIndex]?.apostles?.[lineIndex] || '';
+        const artifactIds = formation.rows?.[rowIndex]?.artifacts?.[lineIndex] || ['', '', ''];
+        const counterpartIds = counterpart.rows?.[rowIndex]?.artifacts?.[lineIndex] || ['', '', ''];
+        const positionLabel = `${POSITIONS[rowIndex] || ''}${lineIndex + 1}`;
+        const apostleName = getApostle(apostleId)?.使徒名 || apostleId || '空き';
+        const slots = Array.from({ length: 3 }, (_, slotIndex) => {
+          const cardId = artifactIds[slotIndex] || '';
+          const otherId = counterpartIds[slotIndex] || '';
+          const card = getCard(cardId);
+          const changed = cardId !== otherId;
+          const row = cardId ? createArtifactDisplayRow(cardId, 1, cardStates?.[cardId] || {}, { owned: true }) : null;
+          const classes = [
+            'fdc-comparison-artifact-slot',
+            changed && isBefore ? 'is-removed' : '',
+            changed && !isBefore ? 'is-added' : '',
+            cardId ? 'is-filled' : 'is-empty'
+          ].filter(Boolean).join(' ');
+          return `
+            <span class="${classes}" title="${escapeAttr(card?.name || '空き枠')}">
+              ${row ? renderArtifactIcon(row, slotIndex) : `<span>${slotIndex + 1}</span>`}
+            </span>
+          `;
+        }).join('');
+        cells.push(`
+          <div class="fdc-comparison-formation-cell">
+            <span class="fdc-comparison-formation-owner" title="${escapeAttr(`${positionLabel} / ${apostleName}`)}">${escapeHtml(apostleName)}</span>
+            <div class="fdc-comparison-formation-artifacts">${slots}</div>
+          </div>
+        `);
+      }
+    }
+    return `
+      <section class="fdc-comparison-formation-side">
+        <strong>${escapeHtml(title)}</strong>
+        <div class="fdc-comparison-formation-grid">${cells.join('')}</div>
+      </section>
+    `;
+  }
+
+  function addCountComparisonRows(rows, category, beforeIds = [], afterIds = [], resolveName = value => value) {
+    const beforeCounts = new Map(countIds(beforeIds).map(item => [String(item.id), Number(item.qty) || 0]));
+    const afterCounts = new Map(countIds(afterIds).map(item => [String(item.id), Number(item.qty) || 0]));
+    unique([...beforeIds, ...afterIds].map(String)).forEach(id => {
+      const before = beforeCounts.get(id) || 0;
+      const after = afterCounts.get(id) || 0;
+      if (before === after) return;
+      const diff = after - before;
+      rows.push({
+        label: `${category}：${resolveName(id)}`,
+        value: `${formatComparisonCardQuantity(before)} → ${formatComparisonCardQuantity(after)}（${Math.abs(diff)}枚${diff > 0 ? '追加' : '減少'}）`,
+        className: diff > 0 ? 'is-comparison-up' : 'is-comparison-down'
+      });
+    });
+  }
+
+  function formatComparisonCardQuantity(value) {
+    const quantity = Math.max(0, Number(value) || 0);
+    return quantity ? `${quantity}枚` : 'なし';
+  }
+
+  function addTextComparisonRow(rows, label, before, after) {
+    if (before === after) return;
+    rows.push({ label, value: `${before} → ${after}`, className: 'is-comparison-change' });
+  }
+
+  function formatComparisonApostleList(formation = {}) {
+    const ids = (formation.rows || []).flatMap(row => row.apostles || []).filter(Boolean);
+    return ids.length ? ids.map(id => getApostle(id)?.使徒名 || id).join('・') : 'なし';
+  }
+
+  function getComparisonFormationArtifactIds(formation = {}) {
+    return (formation.rows || []).flatMap(row => (row.artifacts || []).flat()).filter(Boolean);
+  }
+
+  function formatComparisonCardList(ids = []) {
+    const counted = countIds(ids || []);
+    return counted.length
+      ? counted.map(item => `${getCard(item.id)?.name || item.id}${item.qty > 1 ? `×${item.qty}` : ''}`).join('・')
+      : 'なし';
+  }
+
+  function formatComparisonMasterPowerList(ids = []) {
+    const powers = typeof TRICKCAL_STAT_DATA === 'undefined' ? [] : TRICKCAL_STAT_DATA?.sheets?.masterPowers || [];
+    return ids?.length
+      ? ids.map(id => {
+        const row = powers.find(power => String(power.id || '') === String(id));
+        return row?.['権能名'] || row?.['教主の権能名'] || row?.name || id;
+      }).join('・')
+      : 'なし';
+  }
+
+  function createPinnedComparisonCardDiffRows(baseline = {}, current = {}) {
+    const before = baseline.cardState?.cards || {};
+    const after = current.cardState?.cards || {};
+    const ids = unique([...Object.keys(before), ...Object.keys(after)]);
+    return ids.map(id => {
+      const left = normalizeComparisonCardState(before[id]);
+      const right = normalizeComparisonCardState(after[id]);
+      if (left.owned === right.owned && left.star === right.star && left.solder === right.solder) return null;
+      return {
+        label: getCard(id)?.name || id,
+        value: `${formatComparisonCardState(left)} → ${formatComparisonCardState(right)}`,
+        className: 'is-comparison-change'
+      };
+    }).filter(Boolean);
+  }
+
+  function normalizeComparisonCardState(value = {}) {
+    const star = Math.max(1, Math.min(5, Number(value?.star) || 1));
+    return {
+      owned: !!value?.owned,
+      star,
+      solder: star >= 5 ? Math.max(0, Math.min(2, Number(value?.solder) || 0)) : 0
+    };
+  }
+
+  function formatComparisonCardState(value = {}) {
+    if (!value.owned) return '未所持';
+    return `★${value.star}${value.star >= 5 ? ` / はんだ+${value.solder}` : ''}`;
+  }
+
+  function createPinnedComparisonEffectDiffRows(context, session) {
+    const actionKey = getComparisonActionKey(context.actionCategory);
+    if (!actionKey) return [];
+    const beforeRows = session?.baseline?.dpsSnapshot?.actionEffectAudit?.[actionKey]?.rows || [];
+    const currentSnapshot = createDpsPrototypeSnapshot(context);
+    const afterRows = currentSnapshot.actionEffectAudit?.[actionKey]?.rows || [];
+    const before = aggregateComparisonEffectRows(beforeRows);
+    const after = aggregateComparisonEffectRows(afterRows);
+    return unique([...before.keys(), ...after.keys()]).map(key => {
+      const left = before.get(key);
+      const right = after.get(key);
+      if (!left?.enabled && !right?.enabled) return null;
+      if (areComparisonEffectStatesEqual(left, right)) return null;
+      return {
+        label: right?.label || left?.label || '効果',
+        value: formatComparisonEffectChange(left, right),
+        className: !left && right?.enabled
+          ? 'is-comparison-up'
+          : (!right && left?.enabled ? 'is-comparison-down' : 'is-comparison-change'),
+        title: [left?.source, right?.source].filter(Boolean).join(' → ')
+      };
+    }).filter(Boolean);
+  }
+
+  function aggregateComparisonEffectRows(rows = []) {
+    const grouped = new Map();
+    rows.forEach(row => {
+      const label = normalizeComparisonEffectLabel(row?.label);
+      if (!label) return;
+      const source = String(row?.source || '');
+      const key = `${source}:${label}`;
+      const current = grouped.get(key) || {
+        key,
+        label,
+        source,
+        enabled: false,
+        bonuses: {},
+        fallbackValues: []
+      };
+      current.enabled = current.enabled || !!row?.enabled;
+      current.bonuses = mergeBonusMaps(current.bonuses, row?.bonuses || {});
+      if (row?.value && !current.fallbackValues.includes(row.value)) current.fallbackValues.push(row.value);
+      grouped.set(key, current);
+    });
+    grouped.forEach(row => {
+      row.value = Object.keys(row.bonuses).length
+        ? formatBonusMap(row.bonuses)
+        : row.fallbackValues.join(' / ');
+      delete row.fallbackValues;
+    });
+    return grouped;
+  }
+
+  function normalizeComparisonEffectLabel(value = '') {
+    return String(value || '').replace(/\s*[x×]\s*\d+\s*$/i, '').trim();
+  }
+
+  function areComparisonEffectStatesEqual(left, right) {
+    if (!left || !right) return left === right;
+    return left.enabled === right.enabled
+      && left.value === right.value;
+  }
+
+  function formatComparisonEffectChange(left, right) {
+    if (!left) return `追加：${formatComparisonEffectState(right, false)}`;
+    if (!right) return `削除：${formatComparisonEffectState(left, false)}`;
+    if (left.enabled && right.enabled) return `${left.value || 'ON'} → ${right.value || 'ON'}`;
+    return `${formatComparisonEffectState(left)} → ${formatComparisonEffectState(right)}`;
+  }
+
+  function getComparisonActionKey(category = '') {
+    const categories = getFdcActionCategories(category);
+    if (categories.includes('基本攻撃')) return 'basicAttack';
+    if (categories.includes('強化攻撃')) return 'enhancedAttack';
+    if (categories.includes('低学年スキル')) return 'lowSkill';
+    if (categories.includes('高学年スキル')) return 'highSkill';
+    return '';
+  }
+
+  function formatComparisonEffectState(row = null, includeEnabled = true) {
+    if (!row) return '対象外';
+    const state = includeEnabled ? (row.enabled ? 'ON' : 'OFF') : (!row.enabled ? 'OFF' : '');
+    return `${state}${state && row.value ? ' ' : ''}${row.value || ''}` || (row.enabled ? 'ON' : 'OFF');
   }
 
   function formatBoardComparisonMode(boardState = {}) {
@@ -8350,6 +9256,64 @@
       star,
       solder: star >= 5 ? Math.min(2, Math.max(0, Number(cardState?.solder) || 0)) : 0
     };
+  }
+
+  function renderFdcTempCardGrowthControls(row, options = {}) {
+    if (!row?.id) return '';
+    const temporary = !!view.tempCardStates?.[row.id];
+    const compact = !!options.compact;
+    return `
+      <span class="fdc-temp-card-growth ${compact ? 'is-compact' : ''} ${temporary ? 'is-temporary' : ''}" aria-label="${escapeAttr(`${row.name}の一時育成設定`)}">
+        <label><span>★</span><select data-fdc-temp-card-id="${escapeAttr(row.id)}" data-fdc-temp-card-field="star" aria-label="${escapeAttr(`${row.name}の★`)}">
+          ${[1, 2, 3, 4, 5].map(value => `<option value="${value}" ${row.star === value ? 'selected' : ''}>${value}</option>`).join('')}
+        </select></label>
+        <label><span>+</span><select data-fdc-temp-card-id="${escapeAttr(row.id)}" data-fdc-temp-card-field="solder" aria-label="${escapeAttr(`${row.name}のはんだ`)}" ${row.star >= 5 ? '' : 'disabled'}>
+          ${[0, 1, 2].map(value => `<option value="${value}" ${row.solder === value ? 'selected' : ''}>${value}</option>`).join('')}
+        </select></label>
+        <button type="button" data-fdc-temp-card-reset="${escapeAttr(row.id)}" title="基準の育成値に戻す" aria-label="${escapeAttr(`${row.name}の一時育成を解除`)}" ${temporary ? '' : 'disabled'}>${renderUiIcon('close')}</button>
+      </span>
+    `;
+  }
+
+  function updateFdcTempCardState(rawId, field, rawValue) {
+    const id = resolveCardIdAlias(rawId);
+    if (!id || !getCard(id) || !['star', 'solder'].includes(field)) return;
+    const state = getEffectiveStatState();
+    const base = state.cards?.[id] || {};
+    const current = view.tempCardStates?.[id] || {
+      star: Math.max(1, Math.min(5, Number(base.star) || 1)),
+      solder: Math.max(0, Math.min(2, Number(base.solder) || 0))
+    };
+    const next = { ...current };
+    if (field === 'star') {
+      next.star = Math.max(1, Math.min(5, Number(rawValue) || 1));
+      if (next.star < 5) next.solder = 0;
+    } else {
+      next.solder = next.star >= 5 ? Math.max(0, Math.min(2, Number(rawValue) || 0)) : 0;
+    }
+    view.tempCardStates[id] = next;
+    saveCalcSettings();
+    render({ keepSpellPopover: true });
+    if (view.artifactPicker && !getTempArtifactPicker(false)?.hidden) {
+      renderTempArtifactPicker(buildContext());
+    }
+    if (el.skillPopover?.dataset.fdcPopoverKind === 'spell-editor' && !el.skillPopover.hidden) {
+      showFdcSpellEditorPopover(document.querySelector('[data-fdc-spell-edit-toggle]'), buildContext());
+    }
+  }
+
+  function resetFdcTempCardState(rawId) {
+    const id = resolveCardIdAlias(rawId);
+    if (!id || !view.tempCardStates?.[id]) return;
+    delete view.tempCardStates[id];
+    saveCalcSettings();
+    render({ keepSpellPopover: true });
+    if (view.artifactPicker && !getTempArtifactPicker(false)?.hidden) {
+      renderTempArtifactPicker(buildContext());
+    }
+    if (el.skillPopover?.dataset.fdcPopoverKind === 'spell-editor' && !el.skillPopover.hidden) {
+      showFdcSpellEditorPopover(document.querySelector('[data-fdc-spell-edit-toggle]'), buildContext());
+    }
   }
 
   function collectSynergyCounts(formation, state = {}) {
@@ -9256,7 +10220,8 @@
       cardState: {
         cards: clonePlain(referenceState.cards || {}),
         tempArtifacts: clonePlain(view.tempArtifacts || { formation: {}, target: {} }),
-        tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null
+        tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
+        tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates)
       },
       battleConditions: {
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
@@ -9349,10 +10314,18 @@
     const target = context.target;
     const apostle = getApostleSkillData(target);
     const selectedSkillOptions = target ? buildFdcApostleSkillOptions(target, context) : [];
-    const sharedSkillEffectStates = target ? createDpsSharedSkillEffectStates(target, context) : {};
+    const runtimeManagedEffects = target ? getDpsRuntimeManagedSkillEffects(target, context) : [];
+    const sharedSkillEffectStates = target
+      ? createDpsSharedSkillEffectStates(target, context, runtimeManagedEffects)
+      : {};
     const actionDamageData = target
-      ? createDpsActionDamageData(selectedSkillOptions, sharedSkillEffectStates)
-      : { profiles: {}, audit: {} };
+      ? createDpsActionDamageData(selectedSkillOptions, sharedSkillEffectStates, runtimeManagedEffects)
+      : { profiles: {}, singleActionProfiles: {}, statusDamageProfiles: {}, audit: {} };
+    const runtimeEffects = createDpsRuntimeEffects(actionDamageData.audit, {
+      baseSpRegen: Number(target?.stats?.spRegen),
+      runtimeManagedEffects,
+      statusReactions: createDpsEnemyStatusReactions()
+    });
     return {
       scenario,
       targetId: target?.id || '',
@@ -9367,20 +10340,45 @@
       selectedSkillOptions,
       singleActionProfiles: actionDamageData.singleActionProfiles,
       actionDamageProfiles: actionDamageData.profiles,
+      statusDamageProfiles: actionDamageData.statusDamageProfiles,
       actionEffectAudit: actionDamageData.audit,
+      effectOwnership: actionDamageData.effectOwnership,
+      runtimeEffects,
       currentDamageResult: calculateDamage(context)
     };
   }
 
-  function createDpsSharedSkillEffectStates(target, context) {
-    return Object.fromEntries(buildSelfSkillEffectOptions(target, context)
-      .filter(option => !option.actionScoped)
-      .map(option => [getFdcSkillEffectCanonicalKey(option.key), isSelfSkillEffectOptionEnabled(option)]));
+  function getDpsRuntimeManagedSkillEffects(target, context) {
+    return buildSelfSkillEffectOptions(target, context)
+      .filter(isDpsRuntimeManagedSkillEffect)
+      .map(option => ({
+        key: getFdcSkillEffectCanonicalKey(option.key),
+        effectId: option.effectId || '',
+        label: option.label || option.valueKind || '時系列効果',
+        owner: 'dpsRuntime'
+      }));
   }
 
-  function createDpsActionDamageData(skillOptions = [], sharedSkillEffectStates = {}) {
+  function createDpsSharedSkillEffectStates(target, context, runtimeManagedEffects = null) {
+    const managedKeys = new Set((runtimeManagedEffects || getDpsRuntimeManagedSkillEffects(target, context))
+      .map(item => item.key));
+    return Object.fromEntries(buildSelfSkillEffectOptions(target, context)
+      .filter(option => !option.actionScoped || managedKeys.has(getFdcSkillEffectCanonicalKey(option.key)))
+      .map(option => [
+        getFdcSkillEffectCanonicalKey(option.key),
+        managedKeys.has(getFdcSkillEffectCanonicalKey(option.key)) ? false : isSelfSkillEffectOptionEnabled(option)
+      ]));
+  }
+
+  function isDpsRuntimeManagedSkillEffect(option = {}) {
+    const text = [option.valueKind, option.condition, option.effectTarget, option.label].filter(Boolean).join(' ');
+    return /魔弾/.test(text) && /魔弾所持時|魔弾獲得時/.test(text);
+  }
+
+  function createDpsActionDamageData(skillOptions = [], sharedSkillEffectStates = {}, runtimeManagedEffects = []) {
     const profiles = {};
     const singleActionProfiles = {};
+    const statusDamageProfiles = {};
     const audit = {};
     const actionCategories = {
       basicAttack: '基本攻撃',
@@ -9394,6 +10392,7 @@
         detached: true,
         skillEffectStateOverrides: sharedSkillEffectStates
       });
+      actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       audit[actionKey] = createDpsActionEffectAudit(actionContext);
     });
     skillOptions.forEach(option => {
@@ -9403,6 +10402,7 @@
         detached: true,
         skillEffectStateOverrides: sharedSkillEffectStates
       });
+      actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       actionContext.selectedSkillOption = option;
       const damage = calculateDamage(actionContext);
       if (option.key) {
@@ -9415,13 +10415,23 @@
           damageResult: createComparableDamageResult(damage)
         };
       }
+      const status = String(option.sourceCategory || '').split('::')[1] || '';
+      if (status && Object.prototype.hasOwnProperty.call(FDC_STATUS_SKILL_MULTIPLIERS, status)) {
+        statusDamageProfiles[status] = {
+          status,
+          multiplier: Number(option.value) || FDC_STATUS_SKILL_MULTIPLIERS[status],
+          expectedDamage: Math.max(0, Number(damage.expected) || 0),
+          damageResult: createComparableDamageResult(damage)
+        };
+      }
       if (!actionKey) return;
       const branch = getDpsSkillOptionBranch(option);
       const variantKey = branch || 'default';
       const profile = profiles[actionKey] || (profiles[actionKey] = {
         actionKey,
         variants: {},
-        assumptions: ['戦闘中に変化しない効果として評価']
+        assumptions: ['戦闘中に変化しない効果として評価'],
+        runtimeManagedEffectIds: unique(runtimeManagedEffects.map(item => item.effectId).filter(Boolean))
       });
       const variant = profile.variants[variantKey] || (profile.variants[variantKey] = {
         branch,
@@ -9434,13 +10444,375 @@
         effectId: option.effectId || '',
         optionKey: option.key,
         label: option.label,
+        valueKind: option.kind || option.valueKind || '',
         multiplier: Number(option.value) || 0,
         expectedDamage,
         damageResult: createComparableDamageResult(damage)
       };
       variant.totalExpectedDamage += expectedDamage;
     });
-    return { profiles, singleActionProfiles, audit };
+    return {
+      profiles,
+      singleActionProfiles,
+      statusDamageProfiles,
+      audit,
+      effectOwnership: {
+        singleAction: '常時効果と行動固有効果を単発ダメージへ適用',
+        dpsRuntime: '戦闘中に増減する効果を時系列で適用',
+        runtimeManagedEffects
+      }
+    };
+  }
+
+  function createDpsEnemyStatusReactions() {
+    if (view.enemySourceMode === 'apostle') return [];
+    const weakness = getSelectedEnemyPreset()?.weakness?.statusTakenDamage;
+    const status = String(weakness?.status || '').trim();
+    const takenDmgP = Math.max(0, Number(weakness?.add) || 0);
+    if (!status || !takenDmgP) return [];
+    return [{
+      id: `enemy-weakness:${view.enemyPresetKey || 'preset'}:${status}`,
+      label: `${status}状態時の敵被ダメージ増加`,
+      status,
+      takenDmgP,
+      perStack: false,
+      maxStacks: 1
+    }];
+  }
+
+  function createDpsRuntimeEffects(audit = {}, options = {}) {
+    const actionEntries = Object.entries(audit || {});
+    const grouped = new Map();
+    actionEntries.forEach(([actionKey, actionAudit]) => {
+      normalizeArray(actionAudit?.rows).forEach(row => {
+        const hasteP = Number(row?.bonuses?.hasteP) || 0;
+        if (!hasteP || row.manualDisabled) return;
+        const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
+          .filter(Boolean).join(' ');
+        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|\d+\s*回ごと/.test(runtimeText);
+        if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
+        const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
+        const sourceId = row.sourceId || row.cardId || row.source || 'effect';
+        // One buff can be represented by separate low/high trigger rows in the sheet.
+        // When the shared description explicitly names both actions, keep one runtime
+        // instance so either action refreshes the duration instead of stacking twice.
+        const sharesLowHighTrigger = !row.stackable
+          && /低学年/.test(runtimeText)
+          && /高学年/.test(runtimeText)
+          && /使用時|使用後|発動時|終了時/.test(runtimeText);
+        const key = sharesLowHighTrigger
+          ? `${sourceId}:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
+          : row.effectId
+          ? `${row.sourceId || row.cardId || row.source || 'effect'}:${row.effectId}`
+          : row.key || `${row.label}:${hasteP}`;
+        const item = grouped.get(key) || {
+          id: row.effectId || key,
+          sourceId: sourceId === 'effect' ? '' : sourceId,
+          label: row.label || '攻撃速度効果',
+          hasteP,
+          condition: row.condition || '',
+          category: row.category || row.source || '',
+          runtimeText,
+          durationFrames,
+          stackable: !!row.stackable,
+          maxStacks: Math.max(1, Number(row.stackMax) || 1),
+          actionScoped: !!row.actionScoped,
+          enabledActions: []
+        };
+        item.hasteP = Math.max(item.hasteP, hasteP);
+        item.durationFrames = Math.max(item.durationFrames, durationFrames);
+        item.maxStacks = Math.max(item.maxStacks, Math.max(1, Number(row.stackMax) || 1));
+        item.stackable ||= !!row.stackable;
+        item.runtimeText = [item.runtimeText, runtimeText].filter(Boolean).join(' ');
+        if (row.condition && !String(item.condition).includes(row.condition)) {
+          item.condition = [item.condition, row.condition].filter(Boolean).join(' ');
+        }
+        item.enabledActions.push(actionKey);
+        grouped.set(key, item);
+      });
+    });
+
+    const actionSpeedEffects = Array.from(grouped.values()).map(effect => {
+      const text = [effect.runtimeText, effect.condition, effect.label, effect.category].filter(Boolean).join(' ');
+      const conditionText = String(effect.condition || '');
+      const hasExplicitActionCondition = /低学年|高学年|強化攻撃|(?:基本|普通)攻撃/.test(conditionText);
+      const triggerText = hasExplicitActionCondition
+        ? conditionText
+        : [effect.condition, effect.label, effect.category].filter(Boolean).join(' ');
+      const triggerActionKeys = [];
+      if (/低学年/.test(triggerText)) triggerActionKeys.push('lowSkill');
+      if (/高学年/.test(triggerText)) triggerActionKeys.push('highSkill');
+      if (/強化攻撃/.test(triggerText)) triggerActionKeys.push('enhancedAttack');
+      if (/(?:基本|普通)攻撃/.test(triggerText) && !/\d+\s*回ごと/.test(triggerText)) triggerActionKeys.push('basicAttack', 'enhancedAttack');
+      if (!triggerActionKeys.length) {
+        if (/低学年/.test(effect.category)) triggerActionKeys.push('lowSkill');
+        else if (/高学年/.test(effect.category)) triggerActionKeys.push('highSkill');
+      }
+      if (!triggerActionKeys.length && effect.actionScoped && effect.enabledActions.length === 1) {
+        triggerActionKeys.push(effect.enabledActions[0]);
+      }
+      const periodicMatch = text.match(/(\d+(?:\.\d+)?)\s*秒ごと/);
+      const attackCountMatch = text.match(/(?:基本|普通)攻撃\s*(\d+)\s*回ごと/);
+      const initialTimed = /戦闘開始時|ウェーブ開始時/.test(text);
+      let mode = 'constant';
+      if (effect.id === 'artifact_dragonlight_sword_e01' || (/1\s*秒ごと/.test(text) && !effect.durationFrames)) mode = 'periodicStack';
+      else if (attackCountMatch) mode = 'attackCountStack';
+      else if (periodicMatch) mode = 'periodicTimed';
+      else if (triggerActionKeys.length) mode = 'actionTimed';
+      else if (initialTimed && effect.durationFrames > 0) mode = 'initialTimed';
+      else if (effect.durationFrames > 0) mode = 'manualInitialTimed';
+      return {
+        ...effect,
+        mode,
+        triggerActionKeys: unique(triggerActionKeys),
+        triggerPhase: /使用後/.test(text) ? 'end' : 'start',
+        intervalFrames: periodicMatch ? Number(periodicMatch[1]) * 60 : (mode === 'periodicStack' ? 60 : 0),
+        triggerEveryCount: attackCountMatch ? Math.max(1, Number(attackCountMatch[1]) || 1) : 0,
+        maxStacks: effect.id === 'artifact_tig_blazing_sword_e01' ? 10 : (mode === 'periodicStack' ? 0 : effect.maxStacks),
+        stackable: effect.id === 'artifact_tig_blazing_sword_e01' || mode === 'periodicStack' || effect.stackable,
+        resetActionKeys: effect.id === 'artifact_dragonlight_sword_e01' ? ['lowSkill'] : []
+      };
+    });
+    const damageBuffKeys = new Set([
+      'atkP',
+      'physicalAtkP',
+      'magicAtkP',
+      'addP',
+      'normalAttackAddP',
+      'basicAddP',
+      'enhancedAddP',
+      'skillAddP',
+      'specialP',
+      'otherP',
+      'critP',
+      'critRateP',
+      'critDmgP',
+      'critDmgAddP',
+      'enemyDefDownP',
+      'enemyCritResDownP',
+      'enemyCritDmgResDownP'
+    ]);
+    const targetDebuffKeys = new Set([
+      'enemyDefDownP',
+      'enemyCritResDownP',
+      'enemyCritDmgResDownP'
+    ]);
+    const damageBuffGroups = new Map();
+    actionEntries.forEach(([actionKey, actionAudit]) => {
+      normalizeArray(actionAudit?.rows).forEach(row => {
+        if (row.manualDisabled) return;
+        const text = [row.rawText, row.condition, row.reason, row.label, row.category]
+          .filter(Boolean).join(' ');
+        const isDebuff = /デバフ/.test(String(row.effectType || ''));
+        const allowDebuffAddP = /被ダメージ(?:量)?増加|受けるダメージ(?:量)?増加/.test(text);
+        const modifiers = Object.fromEntries(Object.entries(row.runtimeBonuses || row.bonuses || {})
+          .filter(([key, value]) => (
+            damageBuffKeys.has(key)
+            && Number(value)
+            && (!isDebuff || targetDebuffKeys.has(key) || (key === 'addP' && allowDebuffAddP))
+          ))
+          .map(([key, value]) => [key, Number(value)]));
+        const baselineModifiers = Object.fromEntries(Object.entries(row.bonuses || {})
+          .filter(([key, value]) => Object.prototype.hasOwnProperty.call(modifiers, key) && Number(value))
+          .map(([key, value]) => [key, Number(value)]));
+        if (!Object.keys(modifiers).length) return;
+        const initialTrigger = /戦闘開始時|ウェーブ開始時/.test(text);
+        const actionTrigger = /使用時|使用後|発動時|終了時|命中(?:時|するたび|する度|すると)|衝突時|攻撃時/.test(text);
+        if (!initialTrigger && !actionTrigger) return;
+        const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
+        // 終了条件がない効果は永続・状態切替・記載漏れを区別できないため、
+        // 現段階では静的評価のままにして時限バフへ推測変換しない。
+        if (!(durationFrames > 0)) return;
+        const triggerActionKeys = [];
+        if (/スキル使用時|スキル発動時|スキル使用後/.test(text)) triggerActionKeys.push('lowSkill', 'highSkill');
+        if (/低学年/.test(text)) triggerActionKeys.push('lowSkill');
+        if (/高学年/.test(text)) triggerActionKeys.push('highSkill');
+        if (/強化攻撃|普通攻撃_強化/.test(text)) triggerActionKeys.push('enhancedAttack');
+        if (/(?:基本|普通|通常)攻撃|普通攻撃_基本/.test(text) && !/強化攻撃|普通攻撃_強化/.test(text)) {
+          triggerActionKeys.push('basicAttack', 'enhancedAttack');
+        }
+        if (actionTrigger && !triggerActionKeys.length && /低学年/.test(row.category || '')) triggerActionKeys.push('lowSkill');
+        if (actionTrigger && !triggerActionKeys.length && /高学年/.test(row.category || '')) triggerActionKeys.push('highSkill');
+        if (actionTrigger && !triggerActionKeys.length && row.actionScoped) triggerActionKeys.push(actionKey);
+        if (actionTrigger && !triggerActionKeys.length) return;
+        const sourceId = row.sourceId || row.cardId || row.source || 'effect';
+        const key = row.effectId
+          ? `${sourceId}:${row.effectId}`
+          : row.key || `${sourceId}:${row.label || 'damageBuff'}`;
+        const effect = damageBuffGroups.get(key) || {
+          id: row.effectId || key,
+          sourceId: sourceId === 'effect' ? '' : sourceId,
+          label: row.label || '時限ダメージバフ',
+          mode: initialTrigger ? 'initialTimed' : (/命中(?:時|するたび|する度|すると)|衝突時/.test(text) ? 'actionHitTimed' : 'actionTimed'),
+          triggerActionKeys: [],
+          triggerPhase: /使用後|終了時/.test(text) ? 'end' : 'start',
+          durationFrames,
+          stackable: !!row.stackable,
+          maxStacks: Math.max(1, Number(row.stackMax) || 1),
+          oncePerAction: /同じ対象に一度|一度だけ/.test(text),
+          modifiers: {},
+          baselineModifiersByAction: {}
+        };
+        Object.entries(modifiers).forEach(([modifierKey, value]) => {
+          const current = Number(effect.modifiers[modifierKey]) || 0;
+          effect.modifiers[modifierKey] = Math.abs(value) > Math.abs(current) ? value : current;
+          if (row.enabled) {
+            const baseline = effect.baselineModifiersByAction[actionKey] || (effect.baselineModifiersByAction[actionKey] = {});
+            baseline[modifierKey] = baselineModifiers[modifierKey] ?? value;
+          }
+        });
+        effect.triggerActionKeys.push(...triggerActionKeys);
+        effect.durationFrames = Math.max(effect.durationFrames, durationFrames);
+        effect.maxStacks = Math.max(effect.maxStacks, Math.max(1, Number(row.stackMax) || 1));
+        effect.stackable ||= !!row.stackable;
+        effect.oncePerAction ||= /同じ対象に一度|一度だけ/.test(text);
+        damageBuffGroups.set(key, effect);
+      });
+    });
+    const damageBuffEffects = Array.from(damageBuffGroups.values()).map(effect => ({
+      ...effect,
+      triggerActionKeys: unique(effect.triggerActionKeys)
+    }));
+    const spRows = new Map();
+    actionEntries.forEach(([actionKey, actionAudit]) => {
+      normalizeArray(actionAudit?.rows).forEach(row => {
+        const hasSp = ['initialSp', 'initialSpP', 'spRegen', 'spRegenP', 'spRecovery', 'spRecoveryP']
+          .some(key => Number(row?.bonuses?.[key]));
+        if (!hasSp || row.manualDisabled) return;
+        const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
+          .filter(Boolean).join(' ');
+        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|カード選択時|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|命中時|衝突時|攻撃時|強化攻撃|普通攻撃_強化|低学年|高学年/.test(runtimeText);
+        if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
+        const key = row.key || [row.sourceId, row.effectId, row.label].filter(Boolean).join(':');
+        const item = spRows.get(key) || {
+          ...row,
+          enabledActions: []
+        };
+        item.enabledActions.push(actionKey);
+        spRows.set(key, item);
+      });
+    });
+
+    // 同効果非スタックは対象使徒に届いた候補のうち1件だけを採用する。
+    // それ以外は、同列に別使徒から届く同じ効果も別ソースとして残して加算する。
+    const acceptedSpRows = [];
+    const nonStackingGroups = new Set();
+    spRows.forEach(row => {
+      const groupKey = row.overlapStackKey || `${row.sourceId || row.cardId || ''}:${row.effectId || ''}`;
+      if (row.nonStackingSameEffect && nonStackingGroups.has(groupKey)) return;
+      if (row.nonStackingSameEffect) nonStackingGroups.add(groupKey);
+      acceptedSpRows.push(row);
+    });
+
+    const spRegenEffects = acceptedSpRows.filter(row => (
+      Number(row?.bonuses?.spRegen) || Number(row?.bonuses?.spRegenP)
+    )).map(row => ({
+      id: row.key,
+      sourceId: row.sourceId || row.cardId || '',
+      label: row.label || '毎秒SP回復効果',
+      fixed: Number(row.bonuses.spRegen) || 0,
+      percent: Number(row.bonuses.spRegenP) || 0
+    }));
+
+    const initialSpEffects = acceptedSpRows.filter(row => (
+      Number(row?.bonuses?.initialSp) || Number(row?.bonuses?.initialSpP)
+    )).map(row => ({
+      id: row.key,
+      sourceId: row.sourceId || row.cardId || '',
+      label: row.label || '初期SP効果',
+      mode: 'initial',
+      fixed: Number(row.bonuses.initialSp) || 0,
+      percent: Number(row.bonuses.initialSpP) || 0
+    }));
+
+    const rawSpRecoveryEffects = acceptedSpRows.filter(row => (
+      Number(row?.bonuses?.spRecovery) || Number(row?.bonuses?.spRecoveryP)
+    )).map(row => {
+      const text = [row.rawText, row.condition, row.reason, row.label, row.category]
+        .filter(Boolean).join(' ');
+      const interval = Number(text.match(/(\d+(?:\.\d+)?)\s*秒ごと/)?.[1]);
+      const count = Number(text.match(/(\d+)\s*回(?:目|ごと)/)?.[1]);
+      const categoryActions = [];
+      if (/低学年/.test(text)) categoryActions.push('lowSkill');
+      if (/高学年/.test(text)) categoryActions.push('highSkill');
+      if (/強化攻撃|普通攻撃_強化/.test(text)) categoryActions.push('enhancedAttack');
+      if (/(?:基本|普通|通常)攻撃|普通攻撃_基本/.test(text) && !/強化攻撃|普通攻撃_強化/.test(text)) {
+        categoryActions.push('basicAttack', 'enhancedAttack');
+      }
+      let triggerActionKeys = unique(categoryActions);
+      if (!triggerActionKeys.length) {
+        const enabled = unique(row.enabledActions || []);
+        if (enabled.length && enabled.length < 4) triggerActionKeys = enabled;
+      }
+      let mode = 'manualInitial';
+      if (/戦闘開始時|ウェーブ開始時/.test(text)) mode = 'initial';
+      else if (Number.isFinite(interval) && interval > 0 && !triggerActionKeys.length) mode = 'periodic';
+      else if (Number.isFinite(interval) && interval > 0 && triggerActionKeys.length) mode = 'actionPeriodic';
+      else if (/カード選択時/.test(text)) mode = 'manualInitial';
+      else if (triggerActionKeys.length && /命中|衝突|攻撃時/.test(text)) mode = 'actionHit';
+      else if (triggerActionKeys.length && /使用時|発動時|使用後|終了時/.test(text)) mode = 'action';
+      else if (triggerActionKeys.length) mode = row.cardId ? 'action' : 'actionHit';
+      const countAppliesToSelectedActions = !(triggerActionKeys.length === 1 && triggerActionKeys[0] === 'enhancedAttack');
+      return {
+        id: row.key,
+        sourceId: row.sourceId || row.cardId || '',
+        effectId: row.effectId || '',
+        label: row.label || 'SP回復効果',
+        mode,
+        fixed: Number(row.bonuses.spRecovery) || 0,
+        percent: Number(row.bonuses.spRecoveryP) || 0,
+        durationFrames: Math.max(0, Number(row.durationSeconds) || 0) * 60,
+        intervalFrames: Number.isFinite(interval) && interval > 0 ? interval * 60 : 0,
+        triggerEveryCount: countAppliesToSelectedActions && Number.isFinite(count) && count > 0 ? count : 0,
+        triggerActionKeys,
+        triggerPhase: /使用後|終了時/.test(text) ? 'end' : 'start',
+        oncePerAction: /同じ対象に一度|一度だけ/.test(text) || (!row.cardId && mode === 'actionHit'),
+        randomBound: /ランダム最低値/.test(text) ? 'min' : (/ランダム最大値/.test(text) ? 'max' : ''),
+        randomGroupKey: /ランダム(?:最低値|最大値)/.test(text)
+          ? [row.sourceId || row.cardId || row.source || '', interval || 0, 'spRecovery'].join(':')
+          : ''
+      };
+    });
+
+    const randomSpGroups = new Map();
+    const spRecoveryEffects = [];
+    rawSpRecoveryEffects.forEach(effect => {
+      if (!effect.randomGroupKey) {
+        spRecoveryEffects.push(effect);
+        return;
+      }
+      const group = randomSpGroups.get(effect.randomGroupKey) || {};
+      group[effect.randomBound] = effect;
+      randomSpGroups.set(effect.randomGroupKey, group);
+    });
+    randomSpGroups.forEach((group, key) => {
+      const minimum = group.min || group.max;
+      const maximum = group.max || group.min;
+      if (!minimum || !maximum) return;
+      spRecoveryEffects.push({
+        ...minimum,
+        id: `random:${key}`,
+        label: String(minimum.label || maximum.label || 'ランダムSP回復').replace(/ランダム最低値\s*/, 'ランダム '),
+        fixedMin: Math.min(minimum.fixed, maximum.fixed),
+        fixedMax: Math.max(minimum.fixed, maximum.fixed),
+        percentMin: Math.min(minimum.percent, maximum.percent),
+        percentMax: Math.max(minimum.percent, maximum.percent),
+        randomBound: 'range'
+      });
+    });
+
+    return {
+      attackSpeedEffects: actionSpeedEffects,
+      periodicAttackSpeedStacks: [],
+      baseSpRegen: Number.isFinite(Number(options.baseSpRegen)) ? Number(options.baseSpRegen) : null,
+      damageEffectIds: unique(normalizeArray(options.runtimeManagedEffects)
+        .map(item => item.effectId)
+        .filter(Boolean)),
+      damageBuffEffects,
+      statusReactions: normalizeArray(options.statusReactions),
+      spRegenEffects,
+      spRecoveryEffects: [...initialSpEffects, ...spRecoveryEffects]
+    };
   }
 
   function createComparableDamageResult(result = {}) {
@@ -9451,7 +10823,38 @@
       hp: Number(result.hp) || 0,
       critRate: Number(result.critRate) || 0,
       defRate: Number(result.defRate) || 0,
-      critMult: Number(result.detail?.stats?.critMult) || 0
+      critMult: Number(result.detail?.stats?.critMult) || 0,
+      runtimeBase: {
+        baseAtk: Number(result.detail?.stats?.baseAtk) || 0,
+        baseDef: Number(result.detail?.stats?.baseDef) || 1,
+        finalAtk: Number(result.detail?.stats?.finalAtk) || 0,
+        finalDef: Number(result.detail?.stats?.finalDef) || 1,
+        defRate: Number(result.defRate) || 0,
+        damageType: String(result.detail?.stats?.damageType || ''),
+        attackP: Number(result.detail?.mods?.attackP) || 0,
+        defenseP: Number(result.detail?.mods?.defenseP) || 0,
+        rawAddRate: Number(result.detail?.mods?.rawAddRate) || Number(result.detail?.mods?.addRate) || 1,
+        addRate: Number(result.detail?.mods?.addRate) || 1,
+        specialP: Number(result.detail?.mods?.specialP) || 100,
+        otherP: Number(result.detail?.mods?.otherP) || 100,
+        baseCrit: Number(result.detail?.stats?.baseCrit) || 0,
+        baseCritDmg: Number(result.detail?.stats?.baseCritDmg) || 0,
+        baseCritRes: Number(result.detail?.stats?.baseCritRes) || 1,
+        baseCritDmgRes: Number(result.detail?.stats?.baseCritDmgRes) || 1,
+        finalCritRes: Number(result.detail?.stats?.finalCritRes) || 1,
+        finalCritDmgRes: Number(result.detail?.stats?.finalCritDmgRes) || 1,
+        critP: Number(result.detail?.mods?.critP) || 0,
+        critRateP: Number(result.detail?.mods?.critRateP) || 0,
+        critDmgP: Number(result.detail?.mods?.critDmgP) || 0,
+        critResP: Number(result.detail?.mods?.critResP) || 0,
+        critDmgResP: Number(result.detail?.mods?.critDmgResP) || 0,
+        critDmgAddP: Number(result.detail?.mods?.critDmgAddP) || 0,
+        critResAddP: Number(result.detail?.mods?.critResAddP) || 0,
+        critDmgResAddP: Number(result.detail?.mods?.critDmgResAddP) || 0,
+        critRate: Number(result.critRate) || 0,
+        critMult: Number(result.detail?.stats?.critMult) || 1,
+        damageReference: result.detail?.stats?.damageReference || ''
+      }
     };
   }
 
@@ -9468,12 +10871,28 @@
         const manualState = getSelfSkillEffectManualState(option);
         const keyParts = String(option.key || '').split(':');
         keyParts.pop();
+        const bonuses = getRelevantBonusMap(getSkillEffectOptionBonuses(option));
         add({
           key: `skill:${keyParts.join(':')}`,
+          effectId: option.effectId || '',
+          sourceId: option.sourceId || '',
           label: option.label,
           source: option.group === 'formation' ? '編成スキル' : option.category || '本人スキル',
-          value: formatBonusMap(getRelevantBonusMap(getSkillEffectOptionBonuses(option))),
+          category: option.category || '',
+          effectType: option.effectType || '',
+          condition: option.condition || '',
+          rawText: [option.valueKind, option.condition, option.detailText, option.label, option.category]
+            .filter(Boolean).join(' '),
+          effectTarget: option.effectTarget || '',
+          durationSeconds: Math.max(0, Number(option.durationSeconds) || 0),
+          actionScoped: !!option.actionScoped,
+          stackMax: Math.max(1, Number(option.stackMax) || 1),
+          stackable: Number(option.stackMax) > 1,
+          value: formatBonusMap(bonuses),
+          bonuses,
+          runtimeBonuses: getRelevantBonusMap(option.bonuses || {}),
           enabled,
+          manualDisabled: manualState === false,
           reason: enabled
             ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
             : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')
@@ -9494,12 +10913,31 @@
       const key = row.conditionKey
         ? `effect:${row.conditionKey}`
         : `effect:${[row.source, row.cardId, row.effectId, row.cardName, row.label].filter(Boolean).join(':')}`;
+      const bonuses = getRelevantBonusMap(row.bonuses || {});
       add({
         key,
+        cardId: row.cardId || '',
+        effectId: row.effectId || '',
+        sourceId: row.cardId || row.source || '',
         label: [row.cardName, row.label].filter(Boolean).join(' / ') || row.source || '効果',
         source: row.source || '補正',
-        value: formatBonusMap(getRelevantBonusMap(row.bonuses || {})),
+        category: row.cardId ? 'カード' : row.source || '',
+        effectType: row.effectType || '',
+        condition: row.condition || row.triggerCondition || row.label || row.reason || '',
+        effectTarget: row.effectTarget || row.scopeLabel || '',
+        durationSeconds: Math.max(0, Number(row.durationSeconds ?? row.duration) || 0),
+        actionScoped: false,
+        stackMax: Math.max(1, Number(row.maxStack) || Number(row.bonuses?.maxStack) || 1),
+        stackable: Number(row.maxStack) > 1 || Number(row.bonuses?.maxStack) > 1,
+        overlapStackKey: row.overlapStackKey || '',
+        overlapCount: Math.max(1, Number(row.overlapCount) || 1),
+        nonStackingSameEffect: !!row.nonStackingSameEffect,
+        rawText: [row.effectText, row.condition, row.triggerCondition, row.label, row.reason]
+          .filter(Boolean).join(' '),
+        value: formatBonusMap(bonuses),
+        bonuses,
         enabled,
+        manualDisabled: !sourceEnabled || (row.canToggle && !toggleEnabled),
         reason: enabled
           ? [row.canToggle ? 'ON' : '自動適用', row.reason].filter(Boolean).join(' / ')
           : [!sourceEnabled ? '補正カテゴリOFF' : 'OFF', row.reason].filter(Boolean).join(' / ')
@@ -9512,7 +10950,16 @@
   }
 
   function getDpsActionKeyForSkillOption(option = {}) {
-    const categories = getFdcActionCategories(option.attackCategory || option.category || option.sourceCategory || '');
+    // The source skill determines which timeline action owns the damage.
+    // attackCategory is still used by calculateDamage to apply action-scoped
+    // effects, but it must not move a summoned/basic-classified hit out of the
+    // low/high skill that created it (Momo's clones are the representative case).
+    const sourceCategories = getFdcActionCategories(option.sourceCategory || '');
+    if (sourceCategories.includes('基本攻撃')) return 'basicAttack';
+    if (sourceCategories.includes('強化攻撃')) return 'enhancedAttack';
+    if (sourceCategories.includes('低学年スキル')) return 'lowSkill';
+    if (sourceCategories.includes('高学年スキル')) return 'highSkill';
+    const categories = getFdcActionCategories(option.attackCategory || option.category || '');
     if (categories.includes('基本攻撃')) return 'basicAttack';
     if (categories.includes('強化攻撃')) return 'enhancedAttack';
     if (categories.includes('低学年スキル')) return 'lowSkill';
@@ -9525,7 +10972,7 @@
   }
 
   window.TRICKCAL_DAMAGE_CALC = Object.freeze({
-    version: 4,
+    version: 7,
     captureCombatScenario,
     createSingleActionSnapshot: createCurrentSingleActionSnapshot,
     createDpsSnapshot: createDpsPrototypeSnapshot

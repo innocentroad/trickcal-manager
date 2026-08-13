@@ -12,10 +12,11 @@ body { margin: 0; min-width: 320px; }
 button, input, select, textarea { font: inherit; }
 
 .tool-shell { width: min(1080px, calc(100% - 24px)); margin: 24px auto 48px; }
-.tool-head { margin-bottom: 14px; padding: 4px 4px 8px; }
+.tool-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; padding: 4px 4px 8px; }
 .tool-head h1 { margin: 3px 0 5px; font-size: clamp(1.35rem, 3vw, 2rem); }
 .tool-head p { margin: 0; color: #607066; font-size: .84rem; font-weight: 700; }
 .tool-head .eyebrow { color: #287348; font-size: .7rem; letter-spacing: .13em; }
+.tool-head > a { flex: 0 0 auto; padding: 8px 11px; border: 1px solid #bfd0c2; border-radius: 10px; color: #286443; background: rgba(255,255,255,.72); font-size: .73rem; font-weight: 900; text-decoration: none; }
 
 .panel {
   margin-top: 12px;
@@ -73,6 +74,7 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 720px) {
   .tool-shell { width: min(100% - 12px, 1080px); margin-top: 10px; }
   .panel { padding: 12px; }
+  .tool-head { align-items: flex-start; flex-direction: column; }
   .basic-grid, .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-head { align-items: flex-start; flex-direction: column; }
   .source-field { width: 100%; align-items: flex-start; flex-direction: column; }

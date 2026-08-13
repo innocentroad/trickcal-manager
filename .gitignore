@@ -15,4 +15,5 @@ tools/*.backup-*.js
 tools/*.generated.js
 tools/statData.js
 tools/trickcal-manager/
-backups/generated/
+backups/
+outputs/

@@ -395,7 +395,10 @@ const APOSTLE_LIBRARY = [
               "9": 380.0,
               "10": 395.0,
               "11": 410.0,
-              "12": 425.0
+              "12": 425.0,
+              "13": 440.0,
+              "14": 455.0,
+              "15": 470.0
             }
           },
           {
@@ -451,7 +454,10 @@ const APOSTLE_LIBRARY = [
               "9": 370.0,
               "10": 385.0,
               "11": 400.0,
-              "12": 415.0
+              "12": 415.0,
+              "13": 430.0,
+              "14": 445.0,
+              "15": 460.0
             }
           },
           {
@@ -508,7 +514,10 @@ const APOSTLE_LIBRARY = [
               "9": 36.0,
               "10": 38.0,
               "11": 40.0,
-              "12": 42.0
+              "12": 42.0,
+              "13": 44.0,
+              "14": 46.0,
+              "15": 48.0
             }
           },
           {
@@ -529,7 +538,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 21.0,
               "11": 22.0,
-              "12": 23.0
+              "12": 23.0,
+              "13": 24.0,
+              "14": 25.0,
+              "15": 26.0
             }
           }
         ],
@@ -609,9 +621,289 @@ const APOSTLE_LIBRARY = [
         "triggerValue": 40.0
       }
     ],
-    "favoriteCard": {},
+    "favoriteCard": {
+      "name": "アヤの雪の花魔法",
+      "kind": "スペル",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "effectId": "Aya_favorite_1_e01",
+                "valueKind": "与ダメージ量増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "冷静の味方使徒",
+                "fixedValue": 30.0
+              },
+              {
+                "effectId": "Aya_favorite_1_e02",
+                "valueKind": "被ダメージ量減少",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "冷静の味方使徒",
+                "fixedValue": 20.0
+              },
+              {
+                "effectId": "Aya_favorite_1_e03",
+                "targetSkillName": "愛用カード効果",
+                "valueKind": "小さな雪の花魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "triggerType": "n秒ごと",
+                "triggerValue": 10.0,
+                "condition": "アヤ編成時",
+                "effectTarget": "敵/ランダム/範囲",
+                "fixedValue": 500.0
+              },
+              {
+                "effectId": "Aya_favorite_1_e04",
+                "targetSkillName": "愛用カード効果",
+                "valueKind": "凍傷",
+                "valueClass": "状態付与",
+                "effectType": "デバフ",
+                "effectStack": true,
+                "maxStack": 9.0,
+                "triggerType": "n秒ごと",
+                "triggerValue": 10.0,
+                "condition": "アヤ編成時",
+                "effectTarget": "敵/ランダム/範囲"
+              },
+              {
+                "effectId": "Aya_favorite_1_e05",
+                "targetSkillName": "愛用カード効果",
+                "valueKind": "凍傷",
+                "valueClass": "持続時間",
+                "effectType": "デバフ",
+                "effectStack": true,
+                "maxStack": 9.0,
+                "triggerType": "n秒ごと",
+                "triggerValue": 10.0,
+                "condition": "アヤ編成時",
+                "effectTarget": "敵/ランダム/範囲",
+                "fixedValue": 10.0
+              }
+            ],
+            "skillId": "Aya_favorite_1",
+            "skillName": "愛用Lv1",
+            "description": "デッキにアヤが編成されている場合、以下の効果が発動する。\n冷静の味方使徒のダメージ量を増加させ、被ダメージ量を減少させる。\n10秒ごとにランダムな敵へ小さな雪の花を咲かせる。小さな雪の花は範囲魔法ダメージを与え、凍傷を付与する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "effectId": "Aya_favorite_3_e01",
+                "targetSkill": "低学年",
+                "valueKind": "スキルダメージ量増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 33.0
+              }
+            ],
+            "skillId": "Aya_favorite_3",
+            "skillName": "愛用Lv3",
+            "description": "アヤの低学年スキルのスキルダメージ量が33%増加する。"
+          }
+        ]
+      }
+    },
     "aside": {
-      "levels": {}
+      "name": "試練の中の雪の花",
+      "levels": {
+        "1": {
+          "name": "真っ白な雪の結晶",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Aya_aside_1",
+              "effectId": "Aya_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Aya_aside_1",
+              "effectId": "Aya_aside_1_e02",
+              "valueKind": "魔法攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Aya_aside_1",
+              "effectId": "Aya_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Aya_aside_1",
+              "effectId": "Aya_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "雪の花の翼",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e01",
+              "valueKind": "雪の花満開チャージ獲得",
+              "valueClass": "スタック数",
+              "effectType": "パッシブ",
+              "maxStack": 1.0,
+              "triggerType": "n秒ごと",
+              "triggerValue": 4.0,
+              "condition": "未チャージ時",
+              "effectTarget": "自身",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e02",
+              "valueKind": "雪の花満開チャージ消費",
+              "valueClass": "固定値",
+              "effectType": "パッシブ",
+              "triggerType": "雪の花満開チャージ所持",
+              "triggerValue": 1.0,
+              "condition": "次の普通攻撃時",
+              "effectTarget": "自身",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e03",
+              "valueKind": "追加魔法ダメージ",
+              "valueClass": "倍率",
+              "effectType": "攻撃",
+              "triggerType": "雪の花満開チャージ所持",
+              "triggerValue": 1.0,
+              "condition": "次の普通攻撃命中時",
+              "effectTarget": "敵/範囲",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 650.0
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e04",
+              "valueKind": "気絶",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "triggerType": "雪の花満開チャージ所持",
+              "triggerValue": 1.0,
+              "condition": "次の普通攻撃命中時",
+              "effectTarget": "敵/範囲",
+              "targetSkill": "普通攻撃"
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e05",
+              "valueKind": "気絶",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "triggerType": "雪の花満開チャージ所持",
+              "triggerValue": 1.0,
+              "condition": "次の普通攻撃命中時",
+              "effectTarget": "敵/範囲",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 1.5
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e06",
+              "valueKind": "凍傷",
+              "valueClass": "状態付与",
+              "effectType": "デバフ",
+              "effectStack": true,
+              "maxStack": 9.0,
+              "condition": "低学年スキルの蝶衝突時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e07",
+              "valueKind": "凍傷",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "effectStack": true,
+              "maxStack": 9.0,
+              "condition": "低学年スキルの蝶衝突時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 10.0
+            },
+            {
+              "skillId": "Aya_aside_2",
+              "effectId": "Aya_aside_2_e08",
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "低学年スキルの蝶帰還時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "reference": "最大HP",
+              "fixedValue": 20.0
+            }
+          ],
+          "description": "4秒ごとに雪の花満開の効果がチャージされる。チャージ完了時、次の普通攻撃に追加で範囲魔法ダメージを与え、気絶を付与する。\n低学年スキルの蝶が敵に衝突すると凍傷を付与する。蝶が戻ってくると、自身のHPを回復する。"
+        },
+        "3": {
+          "name": "万年雪の賢者！",
+          "stats": [
+            {
+              "skillId": "Aya_aside_3_global",
+              "effectId": "Aya_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "HP",
+              "increaseP": 4.0
+            },
+            {
+              "skillId": "Aya_aside_3_global",
+              "effectId": "Aya_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 4.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Aya_aside_3_battle",
+              "effectId": "Aya_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/中列",
+              "fixedValue": 19.5
+            },
+            {
+              "skillId": "Aya_aside_3_battle",
+              "effectId": "Aya_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/中列",
+              "fixedValue": 8.8
+            }
+          ],
+          "description": "中列の味方の与ダメージ量を増加させ、中列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -8067,25 +8359,6 @@ const APOSTLE_LIBRARY = [
             "maxStack": 6.0,
             "effectTarget": "自身",
             "fixedValue": 2.0
-          },
-          {
-            "effectId": "Xion_low_e03",
-            "valueKind": "魔弾最大数",
-            "valueClass": "固定値",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 6.0
-          },
-          {
-            "effectId": "Xion_low_e04",
-            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
-            "valueClass": "倍率",
-            "effectType": "バフ",
-            "effectStack": true,
-            "maxStack": 6.0,
-            "condition": "魔弾所持時",
-            "effectTarget": "自身",
-            "fixedValue": 5.0
           }
         ],
         "skillId": "Xion_low",
@@ -8128,25 +8401,6 @@ const APOSTLE_LIBRARY = [
             "maxStack": 6.0,
             "effectTarget": "自身",
             "fixedValue": 1.0
-          },
-          {
-            "effectId": "Xion_high_e03",
-            "valueKind": "魔弾最大数",
-            "valueClass": "固定値",
-            "effectType": "条件",
-            "effectTarget": "自身",
-            "fixedValue": 6.0
-          },
-          {
-            "effectId": "Xion_high_e04",
-            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
-            "valueClass": "倍率",
-            "effectType": "バフ",
-            "effectStack": true,
-            "maxStack": 6.0,
-            "condition": "魔弾所持時",
-            "effectTarget": "自身",
-            "fixedValue": 5.0
           }
         ],
         "skillId": "Xion_high",
@@ -8194,6 +8448,25 @@ const APOSTLE_LIBRARY = [
             "condition": "魔弾獲得時",
             "effectTarget": "自身",
             "fixedValue": 10.0
+          },
+          {
+            "effectId": "Xion_passive_e03",
+            "valueKind": "魔弾最大数",
+            "valueClass": "固定値",
+            "effectType": "条件",
+            "effectTarget": "自身",
+            "fixedValue": 6.0
+          },
+          {
+            "effectId": "Xion_passive_e04",
+            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 6.0,
+            "condition": "魔弾所持時",
+            "effectTarget": "自身",
+            "fixedValue": 5.0
           }
         ],
         "skillId": "Xion_passive",
@@ -8251,17 +8524,6 @@ const APOSTLE_LIBRARY = [
             "maxStack": 6.0,
             "effectTarget": "自身",
             "fixedValue": 1.0
-          },
-          {
-            "effectId": "Xion_enhanced_e05",
-            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
-            "valueClass": "倍率",
-            "effectType": "バフ",
-            "effectStack": true,
-            "maxStack": 6.0,
-            "condition": "魔弾所持時",
-            "effectTarget": "自身",
-            "fixedValue": 5.0
           }
         ],
         "skillId": "Xion_enhanced",
@@ -8417,16 +8679,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "condition": "低学年スキル使用時",
-              "fixedValue": 100.0
-            },
-            {
-              "skillId": "Xion_aside_2",
-              "effectId": "Xion_aside_2_e04",
-              "valueKind": "攻撃速度増加",
-              "valueClass": "倍率",
-              "effectType": "バフ",
-              "condition": "高学年スキル使用時",
+              "condition": "低学年スキルまたは高学年スキル使用後",
               "fixedValue": 100.0
             },
             {
@@ -15724,7 +15977,10 @@ const APOSTLE_LIBRARY = [
               "9": 504.0,
               "10": 532.0,
               "11": 560.0,
-              "12": 588.0
+              "12": 588.0,
+              "13": 616.0,
+              "14": 644.0,
+              "15": 672.0
             }
           },
           {
@@ -15745,7 +16001,10 @@ const APOSTLE_LIBRARY = [
               "9": 756.0,
               "10": 798.0,
               "11": 840.0,
-              "12": 882.0
+              "12": 882.0,
+              "13": 924.0,
+              "14": 966.0,
+              "15": 1008.0
             }
           },
           {
@@ -15782,7 +16041,10 @@ const APOSTLE_LIBRARY = [
               "9": 864.0,
               "10": 912.0,
               "11": 960.0,
-              "12": 1008.0
+              "12": 1008.0,
+              "13": 1056.0,
+              "14": 1104.0,
+              "15": 1152.0
             }
           },
           {
@@ -15803,7 +16065,10 @@ const APOSTLE_LIBRARY = [
               "9": 1296.0,
               "10": 1368.0,
               "11": 1440.0,
-              "12": 1512.0
+              "12": 1512.0,
+              "13": 1584.0,
+              "14": 1656.0,
+              "15": 1728.0
             }
           },
           {
@@ -15863,7 +16128,10 @@ const APOSTLE_LIBRARY = [
               "9": 44.0,
               "10": 47.0,
               "11": 50.0,
-              "12": 53.0
+              "12": 53.0,
+              "13": 56.0,
+              "14": 59.0,
+              "15": 62.0
             }
           },
           {
@@ -16157,7 +16425,10 @@ const APOSTLE_LIBRARY = [
               "9": 540.0,
               "10": 570.0,
               "11": 600.0,
-              "12": 630.0
+              "12": 630.0,
+              "13": 660.0,
+              "14": 690.0,
+              "15": 720.0
             }
           },
           {
@@ -16204,7 +16475,10 @@ const APOSTLE_LIBRARY = [
               "9": 150.0,
               "10": 160.0,
               "11": 170.0,
-              "12": 180.0
+              "12": 180.0,
+              "13": 190.0,
+              "14": 200.0,
+              "15": 210.0
             }
           },
           {
@@ -16282,7 +16556,10 @@ const APOSTLE_LIBRARY = [
               "9": 72.0,
               "10": 76.0,
               "11": 80.0,
-              "12": 84.0
+              "12": 84.0,
+              "13": 88.0,
+              "14": 92.0,
+              "15": 96.0
             }
           }
         ],

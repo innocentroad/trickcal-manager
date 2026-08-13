@@ -33,11 +33,11 @@
   <link rel="prefetch" href="stat-dashboard.html" as="document">
   <link rel="prefetch" href="index.html" as="document">
   <link rel="prefetch" href="stat-prototype.css?v=20260806g" as="style">
-  <link rel="prefetch" href="stat-dashboard.css?v=20260808i" as="style">
-  <link rel="prefetch" href="stat-prototype.js?v=20260808j" as="script">
+  <link rel="prefetch" href="stat-dashboard.css?v=20260809j" as="style">
+  <link rel="prefetch" href="stat-prototype.js?v=20260809r" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260808i">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260813a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -766,8 +766,20 @@
         <span id="fdc-pinned-compare-note">比較を開始していません</span>
       </div>
       <p id="fdc-compare-float-help" class="fdc-compare-float-help">今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージの差を確認できます。選択する行動は自動的に追従します。</p>
+      <div class="fdc-compare-source-controls">
+        <label class="fdc-compare-source-field">
+          <span>比較元</span>
+          <select id="fdc-compare-source"></select>
+        </label>
+        <fieldset id="fdc-compare-scope-fieldset" class="fdc-compare-scope-fieldset">
+          <legend>比較する範囲</legend>
+          <label title="使徒Lv・装備・スキルLv・ボードなど"><input type="checkbox" data-fdc-compare-scope="characterState" checked><span>使徒育成</span></label>
+          <label title="編成使徒・遺物・スペル・教主の権能"><input type="checkbox" data-fdc-compare-scope="formationState"><span>編成内容</span></label>
+          <label title="カードの所持数・★・はんだ"><input type="checkbox" data-fdc-compare-scope="cardState"><span>カード育成</span></label>
+        </fieldset>
+      </div>
       <div class="fdc-compare-float-actions">
-        <button type="button" id="fdc-pinned-compare-save">現在を変更前として記録</button>
+        <button type="button" id="fdc-pinned-compare-save">この条件で比較開始</button>
         <button type="button" id="fdc-pinned-compare-clear" class="is-clear" disabled>比較を終了</button>
       </div>
     </section>
@@ -856,6 +868,10 @@
       <div class="fdc-result-detail-head">
         <strong>詳細</strong>
         <span id="fdc-result-detail-note">計算中の値を表示します。</span>
+        <div id="fdc-result-detail-tabs" class="fdc-result-detail-tabs" role="tablist" aria-label="詳細表示" hidden>
+          <button type="button" role="tab" data-fdc-result-detail-tab="calculation" aria-selected="true">計算詳細</button>
+          <button type="button" role="tab" data-fdc-result-detail-tab="comparison" aria-selected="false">比較</button>
+        </div>
       </div>
       <div id="fdc-result-detail-grid" class="fdc-result-detail-grid"></div>
     </div>
@@ -900,14 +916,14 @@
   </div>
   <script src="statData.js?v=20260801a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
-  <script src="stat-engine.js?v=20260725m"></script>
+  <script src="stat-engine.js?v=20260808a"></script>
   <script src="apostles.js?v=20260801a"></script>
-  <script src="cards.js?v=20260801a"></script>
+  <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260727n"></script>
-  <script src="app-cache.js?v=20260808t"></script>
+  <script src="app-cache.js?v=20260813r"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="combat-scenario.js?v=20260808b"></script>
-  <script src="formation-damage-calc.js?v=20260808o"></script>
+  <script src="formation-damage-calc.js?v=20260813g"></script>
 </body>
 </html>

@@ -75,7 +75,10 @@
       renderWithoutTiming(snapshot);
       return;
     }
-    const config = simulator.buildCombatantConfig(snapshot.apostle, timing);
+    const config = simulator.buildCombatantConfig(snapshot.apostle, timing, {
+      skillLevels: snapshot.skillLevels,
+      runtimeEffects: snapshot.runtimeEffects
+    });
     const initialDelaySeconds = Math.max(0, Number(el.initialDelay?.value) || 0);
     const durationSeconds = Number(el.duration?.value) || 60;
     const seed = Number(el.seed?.value) || 1;
@@ -84,7 +87,8 @@
       highSkillMode: el.highMode?.value || 'disabled',
       initialActionDelayFrames: initialDelaySeconds * 60,
       seed,
-      damageProfiles: snapshot.actionDamageProfiles || {}
+      damageProfiles: snapshot.actionDamageProfiles || {},
+      statusDamageProfiles: snapshot.statusDamageProfiles || {}
     };
     const result = simulator.simulate(config, simulationOptions);
     const aggregate = simulator.simulateMany(config, {
@@ -143,6 +147,7 @@
       scenario: cloneData(latestRun.scenario || latestRun.snapshot.scenario || null),
       config: cloneData(latestRun.config),
       damageProfiles: cloneData(latestRun.snapshot.actionDamageProfiles || {}),
+      statusDamageProfiles: cloneData(latestRun.snapshot.statusDamageProfiles || {}),
       options: cloneData({
         durationSeconds: latestRun.options.durationSeconds,
         highSkillMode: latestRun.options.highSkillMode,
@@ -169,8 +174,12 @@
       targetId: saved.targetId,
       targetName: saved.targetName || session.baseline.scenario?.actors?.self?.name || saved.targetId,
       scenario: cloneData(session.baseline.scenario || null),
-      config: simulator.buildCombatantConfig(saved.apostle, timing),
+      config: simulator.buildCombatantConfig(saved.apostle, timing, {
+        skillLevels: saved.skillLevels,
+        runtimeEffects: saved.runtimeEffects
+      }),
       damageProfiles: cloneData(saved.actionDamageProfiles || {}),
+      statusDamageProfiles: cloneData(saved.statusDamageProfiles || {}),
       options: cloneData({
         durationSeconds: options.durationSeconds,
         highSkillMode: options.highSkillMode,
@@ -200,7 +209,9 @@
         boardState: cloneData(snapshot.boardState || snapshot.scenario?.characterState?.boardState || null),
         singleActionProfiles: cloneData(snapshot.singleActionProfiles || {}),
         actionDamageProfiles: cloneData(snapshot.actionDamageProfiles || {}),
-        actionEffectAudit: cloneData(snapshot.actionEffectAudit || {})
+        statusDamageProfiles: cloneData(snapshot.statusDamageProfiles || {}),
+        actionEffectAudit: cloneData(snapshot.actionEffectAudit || {}),
+        runtimeEffects: cloneData(snapshot.runtimeEffects || {})
       }
     });
   }
@@ -220,15 +231,20 @@
       clearBaseline(`${baseline.targetName}から使徒が変更されたため、基準を解除しました。`);
       return;
     }
-    const candidateConfig = simulator.buildCombatantConfig(snapshot.apostle, timing);
+    const candidateConfig = simulator.buildCombatantConfig(snapshot.apostle, timing, {
+      skillLevels: snapshot.skillLevels,
+      runtimeEffects: snapshot.runtimeEffects
+    });
     const commonOptions = baseline.options;
     const baselineAggregate = baseline.aggregate || simulator.simulateMany(baseline.config, {
       ...commonOptions,
-      damageProfiles: baseline.damageProfiles
+      damageProfiles: baseline.damageProfiles,
+      statusDamageProfiles: baseline.statusDamageProfiles || {}
     });
     const candidateAggregate = simulator.simulateMany(candidateConfig, {
       ...commonOptions,
-      damageProfiles: snapshot.actionDamageProfiles || {}
+      damageProfiles: snapshot.actionDamageProfiles || {},
+      statusDamageProfiles: snapshot.statusDamageProfiles || {}
     });
     renderComparison(baselineAggregate, candidateAggregate, commonOptions);
   }
@@ -339,8 +355,8 @@
       </div>
       <div class="fdc-dps-summary-card is-interval">
         <span>普通攻撃間隔</span>
-        <strong>${formatNumber(config.normalAttackIntervalFrames)}F</strong>
-        <small>実測${formatNumber(timing.measuredNormalAttackIntervalFrames)}F × 1.3</small>
+        <strong>${formatNumber(config.initialNormalAttackIntervalFrames || config.normalAttackIntervalFrames)}F</strong>
+        <small>基礎${formatNumber(config.normalAttackIntervalFrames)}F${config.initialAttackSpeedP ? ` / 開始時 攻撃速度+${formatNumber(config.initialAttackSpeedP)}%` : ''}</small>
       </div>
       ${actionCards}
     `;
@@ -377,6 +393,17 @@
         </div>
       `;
     }).join('');
+    const statusRows = Object.entries(aggregate.byStatus || {})
+      .filter(([, item]) => Number(item?.expectedDamage) > 0)
+      .map(([status, item]) => `
+        <div class="fdc-dps-contribution-row">
+          <strong>${escapeHtml(status)}（DoT）</strong>
+          <span><b>${formatDamage(item.contributionDps)}</b><small>DPS</small></span>
+          <span><b>${formatPercent(item.damageShareP)}</b><small>構成比</small></span>
+          <span><b>1秒毎</b><small>周期</small></span>
+          <span><b>${formatDamage(item.expectedDamage)}</b><small>総DoT</small></span>
+        </div>
+      `).join('');
     el.contribution.innerHTML = `
       <div class="fdc-dps-total-summary">
         <div><span>期待DPS</span><strong>${formatDamage(aggregate.meanDps)}</strong></div>
@@ -386,6 +413,8 @@
       <div class="fdc-dps-contribution-table">
         <div class="fdc-dps-contribution-header"><span>行動</span><span>DPS</span><span>構成比</span><span>発動</span><span>1回平均</span></div>
         ${rows}
+        ${statusRows ? '<div class="fdc-dps-contribution-header"><span>DoT内訳（行動DPSに含む）</span><span>DPS</span><span>構成比</span><span>周期</span><span>総DoT</span></div>' : ''}
+        ${statusRows}
       </div>
     `;
   }
@@ -460,22 +489,79 @@
   function renderTimelineRow(event) {
     const action = event.actionLabel || '';
     const variant = event.variant ? ` / ${event.variant}` : '';
+    const statusWeakness = event.statusTakenDmgP
+      ? ` / 状態弱点 +${formatNumber(event.statusTakenDmgP)}%`
+      : '';
+    const hitEvaluation = event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > 0.0001
+      ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）`
+      : '';
+    const evaluationTitle = event.damageEvaluation
+      ? [
+          ...Object.entries(event.damageEvaluation.ratios || {})
+            .filter(([, value]) => Math.abs((Number(value) || 1) - 1) > 0.0001)
+            .map(([key, value]) => `${({ attackDefense: '攻防', add: '与被DMG', special: '特殊', other: 'その他', critical: '会心' })[key] || key}×${formatNumber(value)}`),
+          ...(Array.isArray(event.damageEvaluation.activeEffects) ? event.damageEvaluation.activeEffects : [])
+            .map(effect => effect.label)
+            .filter(Boolean)
+        ].join(' / ')
+      : '';
+    const runtimeBuffValue = formatRuntimeBuffModifiers(event.modifiers)
+      || (event.attackPPerStack ? `物理攻撃力 +${formatNumber(event.attackPPerStack)}%` : '補正適用');
     const map = {
+      skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
       actionStart: `${action}${variant} 開始`,
       actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
+      hit: `${action}${variant} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusWeakness}`,
       effect: `${action}${variant} 効果発生${event.effectId ? ` / ${event.effectId}` : ''}`,
       spRecovery: event.capped
         ? `SP回復周期 / 上限 ${formatNumber(event.sp)}`
         : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
-      lowSkillReady: `低学年発動可能 / SP ${formatNumber(event.sp)}`
+      spRecoveryEvent: `${event.label || 'SP回復'} / ${event.reason || '効果発生'} / ${event.capped ? `上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`}`,
+      lowSkillReady: `低学年発動可能 / SP ${formatNumber(event.sp)}`,
+      attackSpeedInitial: `${event.label} 開始時適用 / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      attackSpeedStack: `${event.label} ${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      attackSpeedApplied: `${event.label} ${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      attackSpeedExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}%`,
+      attackSpeedReset: `${event.label} リセット / ${formatNumber(event.previousStackCount)}→0スタック / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
+      runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${runtimeBuffValue}${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
+      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
+      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusWeakness}`,
+      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`
     };
     return `
       <div class="fdc-dps-timeline-row type-${escapeAttr(event.type)}">
         <time>${formatNumber(event.frame)}F <small>${formatNumber(event.frame / 60)}秒</small></time>
-        <span>${escapeHtml(map[event.type] || event.type)}</span>
+        <span${evaluationTitle ? ` title="${escapeAttr(evaluationTitle)}"` : ''}>${escapeHtml(map[event.type] || event.type)}</span>
       </div>
     `;
+  }
+
+  function formatRuntimeBuffModifiers(modifiers = {}) {
+    const labels = {
+      atkP: '攻撃力',
+      physicalAtkP: '物理攻撃力',
+      magicAtkP: '魔法攻撃力',
+      addP: '与ダメージ量',
+      normalAttackAddP: '普通攻撃ダメージ量',
+      basicAddP: '基本攻撃ダメージ量',
+      enhancedAddP: '強化攻撃ダメージ量',
+      skillAddP: 'スキルダメージ量',
+      specialP: '特殊倍率',
+      otherP: 'その他倍率',
+      critP: '会心',
+      critRateP: '会心率',
+      critDmgP: '会心DMG',
+      critDmgAddP: '会心DMG量',
+      enemyDefDownP: '敵防御力低下',
+      enemyCritResDownP: '敵会心抵抗低下',
+      enemyCritDmgResDownP: '敵会心DMG抵抗低下'
+    };
+    return Object.entries(modifiers || {})
+      .filter(([, value]) => Number(value))
+      .map(([key, value]) => `${labels[key] || key} ${Number(value) > 0 ? '+' : ''}${formatNumber(value)}%`)
+      .join(' / ');
   }
 
   function formatNumber(value) {
