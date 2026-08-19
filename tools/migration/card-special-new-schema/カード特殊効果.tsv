@@ -1,0 +1,75 @@
+﻿id	カード名	effectId	効果処理グループID	処理順	値の種類	値分類	効果タイプ	攻撃分類	効果スタック	最大スタック	同効果非スタック	同一使徒非スタック	発動条件種別	発動条件値	発動元ID	適用条件種別	適用条件値	条件	効果対象	対象スキル	参照	randomId	持続時間秒	リセット条件種別	リセット条件値	リセット元ID	固定値	特殊効果_Star1	特殊効果_Star2	特殊効果_Star3	特殊効果_Star4	特殊効果_Star5
+artifact_yomi_moonflower	ヨミの向月葵の花	artifact_yomi_moonflower_e01	artifact_yomi_moonflower_proc01	1	被ダメージ減少	倍率	バフ				FALSE	FALSE	戦闘開始時					戦闘開始時	同列									11.5	13.5	15.5	17.5	19.5
+artifact_yomi_moonflower	ヨミの向月葵の花	artifact_yomi_moonflower_e02	artifact_yomi_moonflower_proc01	2	攻撃力増加	倍率	バフ	魔法			FALSE	FALSE	戦闘開始時					戦闘開始時	同列									11.5	13.5	15.5	17.5	19.5
+artifact_erpin_ice_cream_cake	エルフィンのアイスケーキ	artifact_erpin_ice_cream_cake_e01			与ダメージ増加	倍率	バフ	魔法			TRUE	TRUE				敵撃破数	0	敵を1体も倒していない時 / 魔法ダメージ	自分									40	47	54	61	68
+artifact_butter_yellow_card	バターのイエローカード	artifact_butter_yellow_card_e01			与ダメージ増加	倍率	バフ	強化攻撃			FALSE	FALSE						強化攻撃ダメージ	自分									40	46.5	53	59.5	66
+artifact_vivi_silver_staff	ヴィヴィの銀色の指揮棒	artifact_vivi_silver_staff_e01			防御力増加	倍率	バフ		TRUE	20	TRUE	TRUE	n回ごと	1	普通攻撃			普通攻撃1回ごとに	自分									1	1.2	1.4	1.6	1.8
+artifact_vivi_silver_staff	ヴィヴィの銀色の指揮棒	artifact_vivi_silver_staff_e03	artifact_vivi_silver_staff_max_stack	1	防御力増加	倍率	バフ				TRUE	TRUE				カードスタック最大	artifact_vivi_silver_staff	普通攻撃スタック最大時	自分									20	24	28	32	36
+artifact_vivi_silver_staff	ヴィヴィの銀色の指揮棒	artifact_vivi_silver_staff_e04	artifact_vivi_silver_staff_max_stack	2	最大HP増加	倍率	バフ				TRUE	TRUE				カードスタック最大	artifact_vivi_silver_staff	普通攻撃スタック最大時	自分									20	20	20	20	20
+artifact_elena_enhanced_drone	エレナの強化ドローン	artifact_elena_enhanced_drone_e01			攻撃速度	倍率	バフ				TRUE	TRUE	低学年スキル使用時		低学年スキル			低学年スキル使用時	自分				6					6	6.6	7.2	7.8	8.4
+artifact_leets_worn_whetstone	リッツのすり減った砥石	artifact_leets_worn_whetstone_e01			被ダメージ減少	倍率	バフ				TRUE	TRUE	普通攻撃被命中時		敵普通攻撃			被普通攻撃時	自分									40	40	40	40	40
+artifact_leets_worn_whetstone	リッツのすり減った砥石	artifact_leets_worn_whetstone_e02			HP回復	倍率	回復				TRUE	TRUE	n回ごと	2	普通攻撃			基本攻撃が2回命中するたび	自分		最大HP							15	16.5	18	19.5	21
+artifact_blanchet_bouquet	ブランセの花束	artifact_blanchet_bouquet_e01			敵防御力減少	倍率	デバフ	魔法	TRUE	9	TRUE	TRUE	低学年スキル命中時		低学年スキル			低学年スキルが敵に命中するたび	敵				8					3	3.5	4	4.5	5
+artifact_picora_fashion_pouch	ピコラのファッションポーチ	artifact_picora_fashion_pouch_e01			防御力増加	倍率	バフ				TRUE	TRUE	回復時					対象を回復させた場合（カード効果を除く）	対象の味方				6					8	10	12	14	16
+artifact_xion_black_cape	シオンの黒マント	artifact_xion_black_cape_e01			与ダメージ増加	倍率	バフ				TRUE	TRUE				敵数	1	敵が1体しかいない場合	自分									44	49.5	55	60.5	66
+artifact_naia_dolphin_watergun	ナイアのイルカ水鉄砲	artifact_naia_dolphin_watergun_e01	artifact_naia_dolphin_watergun_proc	1	着用者のHP治癒量	倍率	バフ				FALSE	FALSE	スキル使用時		スキル			スキル使用時	自分				8					36	45	54	63	72
+artifact_naia_dolphin_watergun	ナイアのイルカ水鉄砲	artifact_naia_dolphin_watergun_e02	artifact_naia_dolphin_watergun_proc	2	クールタイム	クールタイム	バフ				FALSE	FALSE							自分									12	12	12	12	12
+artifact_shoupan_magical_backpack	シュパンの魔法リュック	artifact_shoupan_magical_backpack_e01	artifact_shoupan_magical_backpack_proc	1	被ダメージ減少	倍率	バフ				TRUE	TRUE	n回ごと	2	普通攻撃			普通攻撃2回ごとに	同列				6					12	15	18	21	24
+artifact_shoupan_magical_backpack	シュパンの魔法リュック	artifact_shoupan_magical_backpack_e02	artifact_shoupan_magical_backpack_proc	2	クールタイム	クールタイム	バフ				TRUE	TRUE							同列									10	10	10	10	10
+artifact_snorky_fedora	スノキーのフェドーラ	artifact_snorky_fedora_e01	artifact_snorky_fedora_hp50	1	最大HP増加	倍率	バフ				TRUE	TRUE				自身HP以上	50	着用者のHPが50％以上	自分									10	10	10	10	10
+artifact_snorky_fedora	スノキーのフェドーラ	artifact_snorky_fedora_e02	artifact_snorky_fedora_hp50	2	防御力増加	倍率	バフ				TRUE	TRUE				自身HP以上	50	着用者のHPが50％以上	自分									20	24.5	29	33.5	38
+artifact_selene_midnight_mirage	セリーネの夜幻影	artifact_selene_midnight_mirage_e01	artifact_selene_midnight_mirage_proc	1	HP回復	倍率	回復				TRUE	TRUE	スキル使用時		スキル			スキル使用時	自分		最大HP							12	15	18	21	24
+artifact_selene_midnight_mirage	セリーネの夜幻影	artifact_selene_midnight_mirage_e02	artifact_selene_midnight_mirage_proc	2	シールド付与	倍率	バフ				TRUE	TRUE	スキル使用時		スキル	超過回復あり	1	スキル使用時 / 最大HPを超えたHP回復量	自分		最大HPを超えたHP回復量		6					12	15	18	21	24
+artifact_kyarot_sugarcane	キャロットのサトウキビ	artifact_kyarot_sugarcane_e01			毎秒SP回復量増加	固定値	バフ				FALSE	TRUE	戦闘開始時					戦闘開始時	同列									4	6	8	10	12
+artifact_chloe_sewing_chest	クロエの万能裁縫箱	artifact_chloe_sewing_chest_e01			被ダメージ減少	倍率	バフ				TRUE	TRUE				固有状態中	シールド	着用者にシールドが付与されている場合	自分									18	21	24	27	30
+artifact_risty_replica_glove	リスティの模造グローブ	artifact_risty_replica_glove_e01			会心率	倍率	バフ				TRUE	TRUE	n回ごと	6	普通攻撃			普通攻撃6回ごとに	自分				12					18	21	24	27	30
+artifact_barong_cursed_doll	バロンの呪いのぬいぐるみ	artifact_barong_cursed_doll_e01			与ダメージ増加	倍率	バフ	強化攻撃			TRUE	TRUE	状態異常付与時					着用者が敵に状態異常を付与した時	自分				6					50	56.5	63	69.5	76
+artifact_tig_blazing_sword	ティグの燃え盛る剣	artifact_tig_blazing_sword_e01			攻撃速度	倍率	バフ		TRUE	10	TRUE	TRUE	n回ごと	3	普通攻撃			普通攻撃3回ごとに	自分									2	2.5	3	3.5	4
+artifact_rudd_exercise_manual	ルードのトレーニング教本	artifact_rudd_exercise_manual_e01			HP回復量増加	倍率	バフ				FALSE	FALSE							自分									30	33	36	39	42
+artifact_rollett_magic_hat	ロレットのマジックハット	artifact_rollett_magic_hat_e01			与ダメージ増加	倍率	バフ	スキル			FALSE	FALSE				敵数以上	3	敵が3体以上の場合 / スキルダメージ	自分									45	56	67	78	89
+artifact_dragonlight_sword	竜光剣	artifact_dragonlight_sword_e01			攻撃速度増加	倍率	バフ				TRUE	TRUE	n秒ごと	1				1秒ごとに	自分					低学年スキル使用時		低学年スキル		3	3.5	4	4.5	5
+artifact_life_gem	ライフジェム	artifact_life_gem_e01			HP回復	倍率	回復				TRUE	TRUE	自身HP以下到達時	40				HPが40%以下になった場合	自分		最大HP							80	88	96	104	112
+artifact_30kg_kettlebell	30KGケトルベル	artifact_30kg_kettlebell_e01			与ダメージ上昇	倍率	バフ	スキル			TRUE	TRUE						スキルダメージ	自分									30	38	46	54	62
+artifact_30kg_kettlebell	30KGケトルベル	artifact_30kg_kettlebell_e02			与ダメージ上昇	倍率	バフ	普通攻撃			TRUE	TRUE						普通攻撃ダメージ	自分									-40	-40	-40	-40	-40
+artifact_assassin_scroll	暗殺者の秘伝書	artifact_assassin_scroll_e01			目くらまし	状態付与	デバフ				FALSE	FALSE	n回ごと	5	普通攻撃			普通攻撃5回ごとに	敵				2.5									
+artifact_safety_harness	安全帯	artifact_safety_harness_e01			シールド付与	倍率	バフ				FALSE	FALSE	戦闘開始時					戦闘開始時	同列		対象の最大HP		6					30	33	36	39	42
+artifact_jade_codex	青玉色の魔導書	artifact_jade_codex_e01			与ダメージ増加	倍率	バフ	スキル			FALSE	FALSE						スキルダメージ	自分									18	21	24	27	30
+artifact_blessed_pauldrons	祝福された肩鎧	artifact_blessed_pauldrons_e01			HP回復	倍率	回復				FALSE	FALSE	n秒ごと	1				1秒ごとに	自分		最大HP							2	2	2	2	2
+artifact_chalice_of_origins	起源の聖杯	artifact_chalice_of_origins_e01			SP回復	固定値	回復				TRUE	TRUE	普通攻撃命中時		普通攻撃			通常攻撃命中時	自分									4	4	4	4	4
+artifact_grail_of_origins	祭司長の香炉	artifact_grail_of_origins_e01			シールド効果増加	倍率	バフ				FALSE	FALSE	状態付与時	シールド				シールド付与時	自分									66	72	78	84	90
+artifact_fanatic_mask	狂気の仮面	artifact_fanatic_mask_e01			ダメージ効果	倍率	攻撃				TRUE	TRUE	n秒ごと	1				1秒ごとに	周辺の敵		最大HP							3	3	3	3	3
+artifact_healing_pendant	癒やしのペンダント	artifact_healing_pendant_e01			毎秒SP回復量増加	固定値	バフ				TRUE	TRUE	n秒ごと	1				1秒ごとに	自分									10	11	12	13	14
+artifact_obsidian_shuriken	黒曜石の手裏剣	artifact_obsidian_shuriken_e01			与ダメージ増加	倍率	バフ	普通攻撃			FALSE	FALSE						普通攻撃ダメージ	自分									9	10.5	12	13.5	15
+artifact_ring_of_greed	強欲の指輪	artifact_ring_of_greed_e01			与ダメージ増加	倍率	バフ	状態異常			FALSE	FALSE						状態異常ダメージ	自分									15	17.5	20	22.5	25
+artifact_old_wooden_dagger	古木のダガー	artifact_old_wooden_dagger_e01			毎秒SP回復量増加	固定値	バフ				TRUE	TRUE	n秒ごと	1				1秒ごとに	自分									6	7	8	9	10
+artifact_elven_wand	エルフ製の杖	artifact_elven_wand_e01			シールド付与	倍率	バフ				FALSE	FALSE	戦闘開始時					戦闘開始時	自分		最大HP		10					60	60	60	60	60
+artifact_icy_charm	霜のお守り	artifact_icy_charm_e01	artifact_icy_charm_proc	1	デバフ抵抗効果	回数	バフ				TRUE	TRUE							自分									1	1	1	1	1
+artifact_icy_charm	霜のお守り	artifact_icy_charm_e02	artifact_icy_charm_proc	2	クールタイム	クールタイム	バフ				TRUE	TRUE							自分									10	9.5	9	8.5	8
+artifact_crown_of_thorns	茨の冠	artifact_crown_of_thorns_e01			与ダメージ増加	倍率	バフ	スキル			FALSE	FALSE						スキルダメージ	自分									9	10.5	12	13.5	15
+spell_alice_fake_magic	アリスのデタラメな呪術	spell_alice_fake_magic_e01	spell_alice_fake_magic_tick	1	HP回復	倍率	回復				FALSE	FALSE	n秒ごと	5	spell_alice_fake_magic			5秒ごと / 整数一様乱数（仮定）	味方全体		対象の最大HP	spell_alice_fake_magic_hp										
+spell_alice_fake_magic	アリスのデタラメな呪術	spell_alice_fake_magic_e03	spell_alice_fake_magic_tick	2	SP回復	固定値	回復				FALSE	FALSE	n秒ごと	5	spell_alice_fake_magic			5秒ごと / 整数一様乱数（仮定）	味方全体			spell_alice_fake_magic_sp										
+spell_aya_snowflake_magic	アヤの雪の花魔法	spell_aya_snowflake_magic_e01			与ダメージ増加	倍率	バフ				FALSE	FALSE							味方中列									10	10	10	10	10
+spell_aya_snowflake_magic	アヤの雪の花魔法	spell_aya_snowflake_magic_e02			攻撃力増加	倍率	バフ				FALSE	FALSE							味方中列かつアタッカータイプ									30	33	36	39	42
+spell_epica_hero_exaltation	エピカの高貴なる英雄讃歌	spell_epica_hero_exaltation_e01			学年+	固定値	特殊				FALSE	FALSE	ウェーブ開始時					ウェーブ開始時	ランダムな味方1人									1	1	1	1	1
+spell_luc_ed_dream	ルシ - イードドリーム	spell_luc_ed_dream_e01			被ダメージ減少	倍率	バフ				FALSE	FALSE							味方前列									15	15	15	15	15
+spell_luc_ed_dream	ルシ - イードドリーム	spell_luc_ed_dream_e02			防御力増加	倍率	バフ				FALSE	FALSE							味方前列かつガードタイプ									20	23	26	29	32
+spell_renewa_time_paradox	リニュアのタイムパラドックス	spell_renewa_time_paradox_e01			与ダメージ増加	倍率	バフ				TRUE	TRUE	ウェーブ開始時					ウェーブ開始時	味方全体				30					32	36	40	44	48
+spell_strange_elixir	怪しいポーション	spell_strange_elixir_e01	spell_strange_elixir_proc01	1	毒	状態付与	デバフ				FALSE	FALSE	ウェーブ開始時					ウェーブ開始時	敵全体				星で変動									
+spell_strange_elixir	怪しいポーション	spell_strange_elixir_e02	spell_strange_elixir_proc01	2	毒持続時間	持続時間	デバフ				FALSE	FALSE	ウェーブ開始時					ウェーブ開始時	敵全体				星で変動					12	15	18	21	24
+spell_combat_master	バトルの達人	spell_combat_master_e01			与ダメージ増加	倍率	バフ	スキル			FALSE	FALSE						スキルダメージ	味方全体									6.8	8.3	9.8	11.3	12.8
+spell_aroma_therapy	アロマセラピー	spell_aroma_therapy_e01			SP回復	倍率	回復				FALSE	FALSE	カード選択時		spell_aroma_therapy			カード選択時	残りSPが最も低い味方									100	100	100	100	100
+spell_stealth_slacker	センター最高！	spell_stealth_slacker_e01			与ダメージ増加	倍率	バフ				FALSE	FALSE							味方中列									7	8	9	10	11
+spell_stealth_slacker	センター最高！	spell_stealth_slacker_e02			被ダメージ減少	倍率	バフ				FALSE	FALSE							味方中列									5	6	7	8	9
+spell_vanguard	前衛隊	spell_vanguard_e01			与ダメージ増加	倍率	バフ				FALSE	FALSE							味方前列									4	5	6	7	8
+spell_vanguard	前衛隊	spell_vanguard_e02			被ダメージ減少	倍率	バフ				FALSE	FALSE							味方前列									8	9	10	11	12
+spell_rear_guard	後衛隊	spell_rear_guard_e01			与ダメージ増加	倍率	バフ				FALSE	FALSE							味方後列									9	10	11	12	13
+spell_rear_guard	後衛隊	spell_rear_guard_e02			被ダメージ減少	倍率	バフ				FALSE	FALSE							味方後列									3	8	8	9	9
+spell_personality_mad	性格カード【狂気】	spell_personality_mad_e01			狂気性格判定+1	固定値	特殊				FALSE	FALSE	カード選択時		spell_personality_mad			カード選択時	性格シナジー									1	1	1	1	1
+spell_personality_vivacious	性格カード【活発】	spell_personality_vivacious_e01			活発性格判定+1	固定値	特殊				FALSE	FALSE	カード選択時		spell_personality_vivacious			カード選択時	性格シナジー									1	1	1	1	1
+spell_personality_innocent	性格カード【純粋】	spell_personality_innocent_e01			純粋性格判定+1	固定値	特殊				FALSE	FALSE	カード選択時		spell_personality_innocent			カード選択時	性格シナジー									1	1	1	1	1
+spell_personality_depressed	性格カード【憂鬱】	spell_personality_depressed_e01			憂鬱性格判定+1	固定値	特殊				FALSE	FALSE	カード選択時		spell_personality_depressed			カード選択時	性格シナジー									1	1	1	1	1
+spell_personality_composed	性格カード【冷静】	spell_personality_composed_e01			冷静性格判定+1	固定値	特殊				FALSE	FALSE	カード選択時		spell_personality_composed			カード選択時	性格シナジー									1	1	1	1	1
+spell_get_her	あいつを捕まえろ！	spell_get_her_e01			攻撃力増加	倍率	バフ				FALSE	FALSE				ウェーブ番号	1	1ウェーブ中	味方全体									15	17.5	20	22.5	25
+spell_random_coin	ランダムコイン	spell_random_coin_e01	spell_random_coin_draw	1	コイン獲得	固定値	特殊				FALSE	FALSE	カード選択時		spell_random_coin			カード選択時 / 出目分布未調査	コイン			spell_random_coin_amount										
+spell_soda_capsule	ソーダ味カプセル	spell_soda_capsule_e01			SP回復	固定値	回復				FALSE	FALSE	カード選択時		spell_soda_capsule			カード選択時	味方全体									36	46	56	66	76
+spell_strawberry_capsule	イチゴ味カプセル	spell_strawberry_capsule_e01			HP回復	倍率	回復				FALSE	FALSE	カード選択時		spell_strawberry_capsule			カード選択時	味方全体		対象の最大HP							15	16.5	18	19.5	21

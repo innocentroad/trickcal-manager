@@ -404,6 +404,17 @@
           <span><b>${formatDamage(item.expectedDamage)}</b><small>総DoT</small></span>
         </div>
       `).join('');
+    const runtimeRows = Object.values(aggregate.byRuntimeEffect || {})
+      .filter(item => Number(item?.expectedDamage) > 0)
+      .map(item => `
+        <div class="fdc-dps-contribution-row">
+          <strong>${escapeHtml(item.label || item.id)}</strong>
+          <span><b>${formatDamage(item.contributionDps)}</b><small>DPS</small></span>
+          <span><b>${formatPercent(item.damageShareP)}</b><small>構成比</small></span>
+          <span><b>${formatNumber(item.averageTriggers || 0)}回</b><small>平均発動</small></span>
+          <span><b>${formatDamage(item.averageDamagePerTrigger || 0)}</b><small>1回平均</small></span>
+        </div>
+      `).join('');
     el.contribution.innerHTML = `
       <div class="fdc-dps-total-summary">
         <div><span>期待DPS</span><strong>${formatDamage(aggregate.meanDps)}</strong></div>
@@ -413,7 +424,9 @@
       <div class="fdc-dps-contribution-table">
         <div class="fdc-dps-contribution-header"><span>行動</span><span>DPS</span><span>構成比</span><span>発動</span><span>1回平均</span></div>
         ${rows}
-        ${statusRows ? '<div class="fdc-dps-contribution-header"><span>DoT内訳（行動DPSに含む）</span><span>DPS</span><span>構成比</span><span>周期</span><span>総DoT</span></div>' : ''}
+        ${runtimeRows ? '<div class="fdc-dps-contribution-header"><span>時系列効果</span><span>DPS</span><span>構成比</span><span>発動</span><span>1回平均</span></div>' : ''}
+        ${runtimeRows}
+        ${statusRows ? '<div class="fdc-dps-contribution-header"><span>DoT内訳（総DPSに含む）</span><span>DPS</span><span>構成比</span><span>周期</span><span>総DoT</span></div>' : ''}
         ${statusRows}
       </div>
     `;
@@ -526,6 +539,8 @@
       resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
       runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${runtimeBuffValue}${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
       runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
+      runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
+      runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
       statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
       statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusWeakness}`,
       statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`

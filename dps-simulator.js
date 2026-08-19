@@ -255,9 +255,21 @@
       addModifierMap(delta, stack.modifiers);
     });
     normalizeArray(config?.runtimeEffects?.damageBuffEffects).forEach(effect => {
+      if (effect.mode === 'conditionalStatus' && isRuntimeStatusConditionActive(state, effect)) {
+        addModifierMap(delta, effect.modifiers);
+      }
       addModifierMap(delta, effect.baselineModifiersByAction?.[actionKey], -1);
     });
     return delta;
+  }
+
+  function isRuntimeStatusConditionActive(state, effect) {
+    if (effect?.mode !== 'conditionalStatus' || !effect.requiredStatus) return false;
+    return normalizeArray(state?.statusStacks).some(stack => (
+      stack.status === effect.requiredStatus
+      && state.tick < stack.expireTick
+      && (!effect.requireSelfSource || stack.sourceSelf === true)
+    ));
   }
 
   function getRuntimeAttackModifierP(modifiers, damageType = '') {
@@ -289,6 +301,10 @@
       const status = getStatusName(application.valueKind);
       const branch = getBranchName(application);
       const durationEffect = effects.find(effect => (
+        application?.processGroupId
+        && effect?.processGroupId === application.processGroupId
+        && effect?.valueClass === '持続時間'
+      )) || effects.find(effect => (
         effect?.effectType === 'デバフ'
         && effect?.valueClass === '持続時間'
         && getStatusName(effect?.valueKind) === status
@@ -303,7 +319,11 @@
         1,
         Math.floor(toFiniteNumber(application.maxStack ?? durationEffect?.maxStack, DEFAULT_STATUS_MAX_STACKS))
       );
-      const explicitGroup = application.stackGroupId || durationEffect?.stackGroupId || '';
+      const explicitGroup = application.stackGroupId
+        || durationEffect?.stackGroupId
+        || application.processGroupId
+        || durationEffect?.processGroupId
+        || '';
       return {
         status,
         branch,
@@ -781,7 +801,21 @@
 
   function buildCombatantConfig(apostle, timing, buildOptions = {}) {
     const warnings = [];
-    const runtimeResources = buildRuntimeResources(apostle, buildOptions.skillLevels);
+    const runtimeResourceMap = new Map(buildRuntimeResources(apostle, buildOptions.skillLevels)
+      .map(resource => [resource.id, resource]));
+    normalizeArray(buildOptions.runtimeEffects?.resources).forEach(resource => {
+      if (!resource?.id) return;
+      const current = runtimeResourceMap.get(String(resource.id)) || {
+        id: String(resource.id),
+        name: String(resource.name || resource.id),
+        initialStacks: 0,
+        maxStacks: 1
+      };
+      current.initialStacks = Math.max(0, toFiniteNumber(resource.initialStacks, current.initialStacks));
+      current.maxStacks = Math.max(1, toFiniteNumber(resource.maxStacks, current.maxStacks));
+      runtimeResourceMap.set(current.id, current);
+    });
+    const runtimeResources = Array.from(runtimeResourceMap.values());
     const intervalValues = [...new Set(normalizeArray(timing?.normalAttackIntervalVariants)
       .map(item => Number(item?.gameFrames))
       .filter(Number.isFinite))];
@@ -796,6 +830,25 @@
       });
       if (action) actions[actionKey] = action;
     });
+    const timingEffectIds = new Set();
+    Object.values(actions).forEach(action => {
+      Object.values(action.variants || {}).forEach(events => {
+        normalizeArray(events).forEach(event => {
+          if (event?.effectId) timingEffectIds.add(String(event.effectId));
+        });
+      });
+      normalizeArray(action.generatedEvents).forEach(event => {
+        if (event?.effectId) timingEffectIds.add(String(event.effectId));
+      });
+    });
+    const resolveSourceEventMode = (effect, sourceMode, fallbackMode) => {
+      const mode = String(effect?.mode || fallbackMode);
+      if (mode !== sourceMode) return mode;
+      const triggerSourceId = String(effect?.triggerSourceId || '');
+      if (triggerSourceId && timingEffectIds.has(triggerSourceId)) return mode;
+      warnings.push(`${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないため行動単位で近似します`);
+      return String(effect?.sourceEventFallbackMode || fallbackMode);
+    };
     const legacyPeriodicAttackSpeed = normalizeArray(buildOptions.runtimeEffects?.periodicAttackSpeedStacks)
       .map(effect => ({
         id: String(effect?.id || ''),
@@ -815,7 +868,8 @@
       id: String(effect?.id || `attackSpeed:${index}`),
       sourceId: String(effect?.sourceId || ''),
       label: String(effect?.label || effect?.id || '攻撃速度効果'),
-      mode: String(effect?.mode || 'constant'),
+      mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
+      triggerSourceId: String(effect?.triggerSourceId || ''),
       hasteP: toFiniteNumber(effect?.hasteP ?? effect?.hastePerStackP),
       durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
       intervalFrames: Math.max(0, toFiniteNumber(effect?.intervalFrames)),
@@ -824,7 +878,8 @@
       triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
       maxStacks: Math.max(0, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
       stackable: !!effect?.stackable,
-      resetActionKeys: normalizeArray(effect?.resetActionKeys).map(String)
+      resetActionKeys: normalizeArray(effect?.resetActionKeys).map(String),
+      sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed')
     })).filter(effect => effect.id && effect.hasteP);
     const initialAttackSpeedP = attackSpeedEffects.reduce((total, effect) => (
       ['constant', 'initialTimed', 'manualInitialTimed'].includes(effect.mode)
@@ -843,7 +898,8 @@
       sourceId: String(effect?.sourceId || ''),
       effectId: String(effect?.effectId || ''),
       label: String(effect?.label || effect?.id || 'SP回復効果'),
-      mode: String(effect?.mode || 'manualInitial'),
+      mode: resolveSourceEventMode(effect, 'sourceEvent', 'action'),
+      triggerSourceId: String(effect?.triggerSourceId || ''),
       fixed: toFiniteNumber(effect?.fixed),
       percent: toFiniteNumber(effect?.percent),
       fixedMin: toFiniteNumber(effect?.fixedMin, effect?.fixed),
@@ -856,7 +912,8 @@
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
       triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
       oncePerAction: !!effect?.oncePerAction,
-      random: effect?.randomBound === 'range'
+      random: effect?.randomBound === 'range',
+      sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'action')
     })).filter(effect => effect.id && (
       effect.fixed || effect.percent || effect.fixedMin || effect.fixedMax || effect.percentMin || effect.percentMax
     ));
@@ -880,13 +937,22 @@
       id: String(effect?.id || `damageBuff:${index}`),
       sourceId: String(effect?.sourceId || ''),
       label: String(effect?.label || effect?.id || '時限ダメージバフ'),
-      mode: String(effect?.mode || 'actionTimed'),
+      mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
       triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
+      processGroupId: String(effect?.processGroupId || ''),
+      triggerType: String(effect?.triggerType || ''),
+      triggerValue: effect?.triggerValue ?? '',
+      triggerSourceId: String(effect?.triggerSourceId || ''),
+      conditionType: String(effect?.conditionType || ''),
+      conditionValue: effect?.conditionValue ?? '',
+      requiredStatus: String(effect?.requiredStatus || ''),
+      requireSelfSource: !!effect?.requireSelfSource,
       durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
       stackable: !!effect?.stackable,
       maxStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
       oncePerAction: !!effect?.oncePerAction,
+      sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed'),
       modifiers: Object.fromEntries(Object.entries(effect?.modifiers || {})
         .map(([key, value]) => [key, toFiniteNumber(value)])
         .filter(([, value]) => value)),
@@ -895,6 +961,30 @@
           .map(([key, value]) => [key, toFiniteNumber(value)])
           .filter(([, value]) => value))]))
     })).filter(effect => effect.id && Object.keys(effect.modifiers).length);
+    const eventEffects = normalizeArray(buildOptions.runtimeEffects?.eventEffects).map((effect, index) => ({
+      id: String(effect?.id || `runtimeEvent:${index}`),
+      label: String(effect?.label || effect?.id || '時系列効果'),
+      triggerType: String(effect?.triggerType || ''),
+      triggerSourceId: String(effect?.triggerSourceId || ''),
+      triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
+      intervalFrames: Math.max(0, toFiniteNumber(effect?.intervalFrames)),
+      oncePerAction: !!effect?.oncePerAction,
+      conditionResource: effect?.conditionResource ? {
+        id: String(effect.conditionResource.id || ''),
+        min: effect.conditionResource.min == null ? null : toFiniteNumber(effect.conditionResource.min),
+        max: effect.conditionResource.max == null ? null : toFiniteNumber(effect.conditionResource.max)
+      } : null,
+      steps: normalizeArray(effect?.steps).map(step => ({
+        ...step,
+        type: String(step?.type || ''),
+        order: toFiniteNumber(step?.order),
+        expectedDamage: Math.max(0, toFiniteNumber(step?.expectedDamage)),
+        value: toFiniteNumber(step?.value),
+        amount: Math.max(0, toFiniteNumber(step?.amount)),
+        application: step?.application ? { ...step.application } : null,
+        runtimeBase: step?.runtimeBase ? { ...step.runtimeBase } : null
+      })).filter(step => step.type)
+    })).filter(effect => effect.id && effect.steps.length);
     if (personality === '冷静' && !statusReactions.some(reaction => reaction.id === 'builtin:frostbite-calm-taken-damage')) {
       statusReactions.push({
         id: 'builtin:frostbite-calm-taken-damage',
@@ -926,6 +1016,12 @@
         spRegenEffects,
         spRecoveryEffects,
         damageBuffEffects,
+        eventEffects,
+        initialTargetStatuses: normalizeArray(buildOptions.runtimeEffects?.initialTargetStatuses).map(item => ({
+          status: String(item?.status || ''),
+          sourceSelf: item?.sourceSelf !== false,
+          reason: String(item?.reason || '')
+        })).filter(item => item.status),
         statusReactions,
         damageEffectIds: normalizeArray(buildOptions.runtimeEffects?.damageEffectIds).map(String).filter(Boolean)
       },
@@ -1211,6 +1307,14 @@
         kind: stack.kind,
         modifiers: { ...(stack.modifiers || {}) }
       }));
+    normalizeArray(config?.runtimeEffects?.damageBuffEffects)
+      .filter(effect => isRuntimeStatusConditionActive(state, effect))
+      .forEach(effect => activeEffects.push({
+        id: effect.id,
+        label: effect.label,
+        kind: 'conditionalStatus',
+        modifiers: { ...(effect.modifiers || {}) }
+      }));
     if (heldAddP) activeEffects.push({
       id: 'runtime-resource-held',
       label: '固有リソース所持補正',
@@ -1281,6 +1385,8 @@
     const damagingActions = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const expectedDamageByAction = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const expectedDamageByStatus = Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, 0]));
+    const expectedDamageByRuntimeEffect = {};
+    const runtimeEffectTriggerCounts = {};
     const trackedStatuses = new Set([
       ...Object.keys(DOT_STATUS_MULTIPLIERS),
       ...normalizeArray(config.runtimeEffects?.statusReactions).map(reaction => reaction.status),
@@ -1289,6 +1395,24 @@
       ))
     ].filter(Boolean));
     const damagedActionInstances = new Set();
+    const initialTargetStatuses = normalizeArray(config.runtimeEffects?.initialTargetStatuses)
+      .filter(item => item?.status)
+      .map((item, index) => ({
+        id: index + 1,
+        status: String(item.status),
+        stackGroupId: `initial-target:${item.status}`,
+        stackable: false,
+        maxStacks: 1,
+        sourceActionKey: '',
+        sourceActionLabel: item.reason || '戦闘開始時の対象状態',
+        sourceActionInstanceId: null,
+        sourceSelf: item.sourceSelf !== false,
+        appliedTick: 0,
+        expireTick: Infinity,
+        nextTick: Infinity,
+        tickMultiplier: 0
+      }));
+    initialTargetStatuses.forEach(stack => trackedStatuses.add(stack.status));
     const state = {
       tick: 0,
       currentAction: null,
@@ -1319,6 +1443,11 @@
         ...effect,
         lastActionInstanceId: null
       })),
+      runtimeEventEffects: normalizeArray(config.runtimeEffects?.eventEffects).map(effect => ({
+        ...effect,
+        nextTick: effect.intervalFrames > 0 ? toTicks(effect.intervalFrames, ticksPerFrame) : Infinity,
+        lastActionInstanceId: null
+      })),
       runtimeResources: Object.fromEntries(normalizeArray(config.runtimeResources).map(resource => [
         resource.id,
         { ...resource, stacks: Math.max(0, toFiniteNumber(resource.initialStacks)) }
@@ -1326,8 +1455,8 @@
       runtimeDamageEffectIds: normalizeArray(config.runtimeEffects?.damageEffectIds),
       runtimeBuffSerial: 0,
       runtimeBuffStacks: [],
-      statusSerial: 0,
-      statusStacks: [],
+      statusSerial: initialTargetStatuses.length,
+      statusStacks: initialTargetStatuses,
       actionStartAllowedTick: initialActionDelayTicks,
       nextNormalAttackTick: initialActionDelayTicks,
       sp: Math.min(config.maxSp, config.initialSp),
@@ -1350,6 +1479,18 @@
       if (timeline.length >= Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))) return;
       timeline.push({ tick: state.tick, frame: state.tick / ticksPerFrame, type, ...detail });
     };
+
+    initialTargetStatuses.forEach(stack => {
+      log('statusApplied', {
+        actionKey: '',
+        actionLabel: stack.sourceActionLabel,
+        status: stack.status,
+        stackCount: 1,
+        maxStacks: 1,
+        durationFrames: null,
+        timingQuality: 'initial-target'
+      });
+    });
 
     const queueLowSkillIfReady = () => {
       if (state.lowSkillQueued || state.sp < config.requiredSp) return;
@@ -1601,6 +1742,33 @@
       });
     };
 
+    const triggerRuntimeEffectsForSourceEvent = (owner, event) => {
+      const sourceEffectId = String(event?.effectId || '');
+      if (!sourceEffectId) return;
+      const matchesOwner = effect => (
+        !effect.triggerActionKeys?.length || effect.triggerActionKeys.includes(owner.key)
+      );
+      state.runtimeAttackSpeedEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        applyAttackSpeedEffect(effect, `${sourceEffectId}発生時`);
+      });
+      state.runtimeDamageBuffEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        applyRuntimeDamageBuff(effect, owner, `${sourceEffectId}発生時`);
+      });
+      state.runtimeSpRecoveryEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEvent' || effect.triggerSourceId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+        effect.lastActionInstanceId = owner.instanceId;
+        applySpRecoveryEffect(effect, `${sourceEffectId}発生時`, owner);
+      });
+    };
+
     const resetRuntimeEffectsForAction = actionKey => {
       let changed = false;
       state.runtimeAttackSpeedEffects.forEach(effect => {
@@ -1699,6 +1867,7 @@
 
     const applyStatusApplication = (owner, application) => {
       if (!application?.status || !(application.durationFrames > 0)) return;
+      trackedStatuses.add(application.status);
       const groupStacks = state.statusStacks.filter(stack => stack.stackGroupId === application.stackGroupId);
       if (!application.stackable) {
         state.statusStacks = state.statusStacks.filter(stack => stack.stackGroupId !== application.stackGroupId);
@@ -1717,6 +1886,8 @@
         sourceActionKey: owner.key,
         sourceActionLabel: owner.label,
         sourceActionInstanceId: owner.instanceId,
+        sourceRuntimeEffectId: owner.runtimeEffectId || '',
+        sourceSelf: true,
         appliedTick: state.tick,
         expireTick: state.tick + toTicks(application.durationFrames, ticksPerFrame),
         nextTick: application.dealsPeriodicDamage
@@ -1733,6 +1904,108 @@
         maxStacks: stack.maxStacks,
         durationFrames: application.durationFrames,
         timingQuality: application.timingQuality || ''
+      });
+    };
+
+    const runtimeEventConditionMatches = effect => {
+      const condition = effect.conditionResource;
+      if (!condition?.id) return true;
+      const stacks = toFiniteNumber(state.runtimeResources[condition.id]?.stacks);
+      if (condition.min != null && stacks < condition.min) return false;
+      if (condition.max != null && stacks > condition.max) return false;
+      return true;
+    };
+
+    const executeRuntimeEventEffect = (definition, sourceOwner = null, reason = '') => {
+      if (!definition || !runtimeEventConditionMatches(definition)) return false;
+      const triggerCount = (runtimeEffectTriggerCounts[definition.id] || 0) + 1;
+      runtimeEffectTriggerCounts[definition.id] = triggerCount;
+      const owner = sourceOwner
+        ? { ...sourceOwner, runtimeEffectId: definition.id }
+        : {
+            key: '',
+            label: definition.label,
+            variant: '',
+            instanceId: `runtime:${definition.id}:${triggerCount}`,
+            runtimeEffectId: definition.id
+          };
+      definition.steps.forEach(step => {
+        if (step.type === 'resource') {
+          applyResourceChange(owner, {
+            resourceId: step.resourceId,
+            operation: step.operation,
+            amount: step.amount
+          });
+          return;
+        }
+        if (step.type === 'damage') {
+          const damageEvaluation = evaluateRuntimeDamage(
+            step.expectedDamage,
+            owner,
+            { effectId: step.effectId },
+            damageProfiles,
+            state,
+            config,
+            step.runtimeBase || null
+          );
+          const expectedDamage = damageEvaluation.expectedDamage;
+          expectedDamageByRuntimeEffect[definition.id] = toFiniteNumber(expectedDamageByRuntimeEffect[definition.id]) + expectedDamage;
+          log('runtimeEffectHit', {
+            actionKey: owner.key || '',
+            actionLabel: owner.label || definition.label,
+            effectId: step.effectId || definition.id,
+            runtimeEffectId: definition.id,
+            label: step.label || definition.label,
+            reason,
+            expectedDamage,
+            damageEvaluation
+          });
+          return;
+        }
+        if (step.type === 'status') {
+          applyStatusApplication(owner, step.application);
+          return;
+        }
+        if (step.type === 'healing') {
+          log('runtimeHealingEvent', {
+            actionKey: owner.key || '',
+            actionLabel: owner.label || definition.label,
+            effectId: step.effectId || definition.id,
+            runtimeEffectId: definition.id,
+            label: step.label || 'HP回復',
+            reason,
+            value: step.value,
+            reference: step.reference || ''
+          });
+        }
+      });
+      return true;
+    };
+
+    const triggerRuntimeEventEffectsForEvent = (owner, event) => {
+      state.runtimeEventEffects.forEach(effect => {
+        const normalAttackHit = effect.triggerType === '普通攻撃命中時'
+          && event.type === 'damage'
+          && effect.triggerActionKeys.includes(owner.key);
+        const generatedHit = effect.triggerType === '生成物命中時'
+          && event.type === 'damage'
+          && event.generatedObjectId === effect.triggerSourceId;
+        const generatedReturn = effect.triggerType === '生成物帰還時'
+          && event.generatedObjectId === effect.triggerSourceId
+          && /帰還/.test(String(event.generatedEventType || ''));
+        if (!normalAttackHit && !generatedHit && !generatedReturn) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        if (executeRuntimeEventEffect(effect, owner, `${effect.triggerType} / ${effect.triggerSourceId || owner.label}`)) {
+          effect.lastActionInstanceId = owner.instanceId;
+        }
+      });
+    };
+
+    const processPeriodicRuntimeEventEffects = () => {
+      state.runtimeEventEffects.forEach(effect => {
+        if (effect.triggerType !== 'n秒ごと' || effect.nextTick !== state.tick) return;
+        executeRuntimeEventEffect(effect, null, `${effect.intervalFrames / framesPerSecond}秒ごと`);
+        effect.nextTick += toTicks(effect.intervalFrames, ticksPerFrame);
       });
     };
 
@@ -1778,6 +2051,11 @@
       }
       else triggerSpRecoveryEffectsForHit(owner, true);
       if (event.statusApplication) applyStatusApplication(owner, event.statusApplication);
+      // Dependent effects start after their source occurrence has completed.
+      // This keeps the source hit itself unbuffed while allowing later events,
+      // including a later event on the same frame, to observe the new state.
+      triggerRuntimeEffectsForSourceEvent(owner, event);
+      triggerRuntimeEventEffectsForEvent(owner, event);
     };
 
     const processStatusTicks = () => {
@@ -1806,9 +2084,16 @@
           profile.damageResult?.runtimeBase || null
         );
         const expectedDamage = damageEvaluation.expectedDamage;
-        expectedDamageByAction[stack.sourceActionKey] += expectedDamage;
+        if (stack.sourceRuntimeEffectId) {
+          expectedDamageByRuntimeEffect[stack.sourceRuntimeEffectId] =
+            toFiniteNumber(expectedDamageByRuntimeEffect[stack.sourceRuntimeEffectId]) + expectedDamage;
+        } else if (Object.prototype.hasOwnProperty.call(expectedDamageByAction, stack.sourceActionKey)) {
+          expectedDamageByAction[stack.sourceActionKey] += expectedDamage;
+        }
         expectedDamageByStatus[stack.status] += expectedDamage;
-        if (expectedDamage > 0 && !damagedActionInstances.has(stack.sourceActionInstanceId)) {
+        if (expectedDamage > 0
+          && Object.prototype.hasOwnProperty.call(damagingActions, stack.sourceActionKey)
+          && !damagedActionInstances.has(stack.sourceActionInstanceId)) {
           damagedActionInstances.add(stack.sourceActionInstanceId);
           damagingActions[stack.sourceActionKey] += 1;
         }
@@ -2111,6 +2396,7 @@
         queueLowSkillIfReady();
       }
       processPeriodicSpRecoveryEffects();
+      processPeriodicRuntimeEventEffects();
       processStatusTicks();
       emitDueActionEvents();
       emitDueGeneratedEvents();
@@ -2142,9 +2428,11 @@
       hits,
       damagingActions,
       damage: {
-        totalExpectedDamage: Object.values(expectedDamageByAction).reduce((total, value) => total + value, 0),
+        totalExpectedDamage: [expectedDamageByAction, expectedDamageByRuntimeEffect]
+          .reduce((total, group) => total + Object.values(group).reduce((sum, value) => sum + value, 0), 0),
         byAction: expectedDamageByAction,
-        byStatus: expectedDamageByStatus
+        byStatus: expectedDamageByStatus,
+        byRuntimeEffect: expectedDamageByRuntimeEffect
       },
       runtimeEffects: {
         attackSpeedP: getRuntimeAttackSpeedP(),
@@ -2181,6 +2469,13 @@
           stackable: effect.stackable,
           maxStacks: effect.maxStacks,
           modifiers: { ...effect.modifiers }
+        })),
+        eventEffects: state.runtimeEventEffects.map(effect => ({
+          id: effect.id,
+          label: effect.label,
+          triggerType: effect.triggerType,
+          triggerCount: runtimeEffectTriggerCounts[effect.id] || 0,
+          intervalFrames: effect.intervalFrames
         })),
         statusReactions: normalizeArray(config.runtimeEffects?.statusReactions).map(reaction => ({
           id: reaction.id,
@@ -2226,7 +2521,11 @@
       hits: Object.fromEntries(actionKeys.map(key => [key, 0])),
       damagingActions: Object.fromEntries(actionKeys.map(key => [key, 0])),
       damageByAction: Object.fromEntries(actionKeys.map(key => [key, 0])),
-      damageByStatus: Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, 0]))
+      damageByStatus: Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, 0])),
+      damageByRuntimeEffect: Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
+        .map(effect => [effect.id, 0])),
+      runtimeEffectTriggers: Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
+        .map(effect => [effect.id, 0]))
     };
     const trialResults = [];
     for (let index = 0; index < trials; index += 1) {
@@ -2248,6 +2547,14 @@
       });
       Object.keys(DOT_STATUS_MULTIPLIERS).forEach(status => {
         totals.damageByStatus[status] += toFiniteNumber(result.damage?.byStatus?.[status]);
+      });
+      normalizeArray(config.runtimeEffects?.eventEffects).forEach(effect => {
+        totals.damageByRuntimeEffect[effect.id] = toFiniteNumber(totals.damageByRuntimeEffect[effect.id])
+          + toFiniteNumber(result.damage?.byRuntimeEffect?.[effect.id]);
+        const runtimeResult = normalizeArray(result.runtimeEffects?.eventEffects)
+          .find(item => item.id === effect.id);
+        totals.runtimeEffectTriggers[effect.id] = toFiniteNumber(totals.runtimeEffectTriggers[effect.id])
+          + toFiniteNumber(runtimeResult?.triggerCount);
       });
       trialResults.push({ seed, totalDps });
     }
@@ -2275,6 +2582,21 @@
         damageShareP: totals.damage > 0 ? totals.damageByStatus[status] / totals.damage * 100 : 0
       }];
     }));
+    const byRuntimeEffect = Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
+      .map(effect => {
+        const expectedDamage = toFiniteNumber(totals.damageByRuntimeEffect[effect.id]) / trials;
+        const averageTriggers = toFiniteNumber(totals.runtimeEffectTriggers[effect.id]) / trials;
+        return [effect.id, {
+          id: effect.id,
+          label: effect.label,
+          triggerType: effect.triggerType,
+          expectedDamage,
+          contributionDps: expectedDamage / durationSeconds,
+          damageShareP: totals.damage > 0 ? totals.damageByRuntimeEffect[effect.id] / totals.damage * 100 : 0,
+          averageTriggers,
+          averageDamagePerTrigger: averageTriggers > 0 ? expectedDamage / averageTriggers : 0
+        }];
+      }));
     const representative = trialResults.reduce((best, item) => (
       !best || Math.abs(item.totalDps - medianDps) < Math.abs(best.totalDps - medianDps) ? item : best
     ), null);
@@ -2291,12 +2613,13 @@
       },
       representativeSeed: representative?.seed || baseSeed,
       byAction,
-      byStatus
+      byStatus,
+      byRuntimeEffect
     };
   }
 
   return Object.freeze({
-    version: 8,
+    version: 11,
     buildCombatantConfig,
     createSeededRandom,
     evaluateDamageAtHit,

@@ -19,7 +19,11 @@ if not defined PYTHON (
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "Get-Date -Format 'yyyyMMdd_HHmmss'"`) do set "STAMP=%%I"
 set "BACKUP_DIR=..\backups\generated\%STAMP%"
 
-echo [1/5] Backing up current data...
+echo [1/7] Validating effect schema...
+call %PYTHON% "validate-effect-schema.py" --input "trickcal_datasheet.xlsx"
+if errorlevel 1 goto :validation_error
+
+echo [2/7] Backing up current data...
 mkdir "%BACKUP_DIR%" >nul 2>&1
 if errorlevel 1 goto :backup_error
 
@@ -28,19 +32,23 @@ call :backup "..\cards.js" || goto :backup_error
 call :backup "..\statData.js" || goto :backup_error
 call :backup "trickcal_datasheet.xlsx" || goto :backup_error
 
-echo [2/5] Generating apostles.js...
+echo [3/7] Generating apostles.js...
 call %PYTHON% "generate-apostles.py" --input "trickcal_datasheet.xlsx" --output "..\apostles.js"
 if errorlevel 1 goto :generate_error
 
-echo [3/5] Generating cards.js...
+echo [4/7] Generating cards.js...
 call %PYTHON% "generate-card-data.py" --input "trickcal_datasheet.xlsx" --output "..\cards.js" --key-map "card-effect-key-map.tsv"
 if errorlevel 1 goto :generate_error
 
-echo [4/5] Generating statData.js...
+echo [5/7] Generating statData.js...
 call %PYTHON% "generate-stat-data.py" --input "trickcal_datasheet.xlsx" --output "..\statData.js"
 if errorlevel 1 goto :generate_error
 
-echo [5/5] Complete.
+echo [6/7] Validating generated data...
+node "validate-generated-data.js"
+if errorlevel 1 goto :generate_error
+
+echo [7/7] Complete.
 echo Backup: %BACKUP_DIR%
 popd
 exit /b 0
@@ -57,6 +65,11 @@ exit /b 0
 :backup_error
 echo [ERROR] Backup failed. Generation was not started.
 echo Backup: %BACKUP_DIR%
+popd
+exit /b 1
+
+:validation_error
+echo [ERROR] Datasheet validation failed. Generation was not started.
 popd
 exit /b 1
 

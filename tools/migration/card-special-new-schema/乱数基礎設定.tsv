@@ -1,0 +1,16 @@
+﻿randomId	乱数名	乱数方式	値形式	調査状態	段階種別	段階	最小値	最大値	刻み	端点	備考
+spell_alice_fake_magic_hp	アリススペルHP回復量	一様	整数	仮定	カード★	1	5	10	1	両端含む	範囲内の全整数を等確率で抽選
+spell_alice_fake_magic_hp	アリススペルHP回復量	一様	整数	仮定	カード★	2	5	12	1	両端含む	範囲内の全整数を等確率で抽選
+spell_alice_fake_magic_hp	アリススペルHP回復量	一様	整数	仮定	カード★	3	5	14	1	両端含む	範囲内の全整数を等確率で抽選
+spell_alice_fake_magic_hp	アリススペルHP回復量	一様	整数	仮定	カード★	4	5	16	1	両端含む	範囲内の全整数を等確率で抽選
+spell_alice_fake_magic_hp	アリススペルHP回復量	一様	整数	仮定	カード★	5	5	18	1	両端含む	範囲内の全整数を等確率で抽選
+spell_alice_fake_magic_sp	アリススペルSP回復量	一様	整数	仮定	カード★	1	1	10	1	両端含む	HP回復量とは独立して抽選
+spell_alice_fake_magic_sp	アリススペルSP回復量	一様	整数	仮定	カード★	2	1	10	1	両端含む	HP回復量とは独立して抽選
+spell_alice_fake_magic_sp	アリススペルSP回復量	一様	整数	仮定	カード★	3	1	10	1	両端含む	HP回復量とは独立して抽選
+spell_alice_fake_magic_sp	アリススペルSP回復量	一様	整数	仮定	カード★	4	1	10	1	両端含む	HP回復量とは独立して抽選
+spell_alice_fake_magic_sp	アリススペルSP回復量	一様	整数	仮定	カード★	5	1	10	1	両端含む	HP回復量とは独立して抽選
+spell_random_coin_amount	ランダムコイン獲得量	範囲のみ	整数	未調査	カード★	1	7	15			出目候補と確率は未調査
+spell_random_coin_amount	ランダムコイン獲得量	範囲のみ	整数	未調査	カード★	2	9	17			出目候補と確率は未調査
+spell_random_coin_amount	ランダムコイン獲得量	範囲のみ	整数	未調査	カード★	3	11	19			出目候補と確率は未調査
+spell_random_coin_amount	ランダムコイン獲得量	範囲のみ	整数	未調査	カード★	4	13	21			出目候補と確率は未調査
+spell_random_coin_amount	ランダムコイン獲得量	範囲のみ	整数	未調査	カード★	5	15	23			出目候補と確率は未調査

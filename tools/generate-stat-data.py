@@ -304,11 +304,23 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
     normalized: list[dict[str, object]] = []
     for row in rows:
         item = dict(row)
+        reference_like = {
+            "最大HP", "対象の最大HP", "自身の最大HP",
+            "攻撃力", "対象の攻撃力", "自身の攻撃力",
+            "防御力", "対象の防御力", "自身の防御力",
+        }
+        if item.get("対象スキル") in reference_like and item.get("参照", "") == "":
+            item["参照"] = item.pop("対象スキル")
         renames = {
-            "スキル発動条件種別": "triggerType",
+            "スキル発動条件種別": "skillTriggerType",
+            "スキル発動条件値": "skillTriggerValue",
             "発動条件種別": "triggerType",
-            "スキル発動条件値": "triggerValue",
             "発動条件値": "triggerValue",
+            "効果処理グループID": "processGroupId",
+            "処理順": "processOrder",
+            "発動元ID": "triggerSourceId",
+            "適用条件種別": "conditionType",
+            "適用条件値": "conditionValue",
             "スタック数": "stackCount",
             "最大スタック数": "maxStack",
             "攻撃タイプ": "attackCategory",
@@ -319,6 +331,8 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
         for old, new in renames.items():
             if new not in item and old in item:
                 item[new] = item[old]
+            if old != new:
+                item.pop(old, None)
         effect_stack = item.pop("効果スタック", "")
         max_stack = item.pop("最大スタック", "")
         if effect_stack not in ("", None, False, 0):
@@ -333,6 +347,8 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
                 if value != "":
                     item["condition"] = value
                     break
+        item.pop("条件", None)
+        item.pop("発動条件", None)
         normalized.append(item)
     return normalized
 
@@ -418,12 +434,9 @@ def build_master_powers(
         power_id = str(item.pop("id", ""))
         if not power_id:
             continue
-        if item.get("適用条件種別", "") != "":
-            item["conditionType"] = item["適用条件種別"]
-        if item.get("適用条件値", "") != "":
-            item["conditionValue"] = item["適用条件値"]
         if item.get("持続時間秒", "") != "":
             item["durationSeconds"] = item["持続時間秒"]
+        item.pop("持続時間秒", None)
         effects_by_id.setdefault(power_id, []).append(item)
 
     powers: list[dict[str, object]] = []

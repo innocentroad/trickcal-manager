@@ -56,6 +56,28 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 py -3 tools/export-datasheet-tsv.py --input tools/trickcal_datasheet.xlsx --output-dir tmp/datasheet-tsv
 ```
 
+効果シートの既存条件文と同一効果内の持続時間・クールタイム行から、DPS用の発動条件・適用条件・処理グループを候補変換する場合は次を実行します。元Excelと展開元TSVは変更せず、変換結果と要確認一覧を `tmp/effect-runtime-candidates/` に出力します。教主の権能効果に残る旧列配置も候補側だけで補正します。ぬいぐるみの意志・睡眠・巨大化・演奏は固有状態として扱い、候補側で状態付与行と持続時間行へ分割します。
+
+```text
+py -3 tools/convert-effect-runtime-columns.py
+```
+
+全候補は `変換候補.tsv`、曖昧な複合条件などは `要確認.tsv` で確認し、確定後に必要な行だけdatasheetへ反映します。
+
+## GitHubへのpush
+
+コミット済みの変更を現在のブランチへpushする場合は、`tools/git/push.bat` を実行します。
+
+```text
+tools\git\push.bat
+```
+
+未コミットの変更をすべてステージしてからcommit・pushまで行う場合は、コミットメッセージを指定します。
+
+```text
+tools\git\push.bat --commit "変更内容"
+```
+
 ### 敵プリセットの追加
 
 `enemy-presets.js` の敵名は `name` に純粋な名前だけを記述し、コンテンツと段階は `content` で分けます。

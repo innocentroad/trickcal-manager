@@ -84,6 +84,11 @@ KEY_MAP = {
     "発動条件種別": "triggerType",
     "スキル発動条件値": "triggerValue",
     "発動条件値": "triggerValue",
+    "効果処理グループID": "processGroupId",
+    "処理順": "processOrder",
+    "発動元ID": "triggerSourceId",
+    "適用条件種別": "conditionType",
+    "適用条件値": "conditionValue",
     "発動条件": "condition",
     "条件": "condition",
     "効果対象": "effectTarget",
@@ -144,8 +149,16 @@ ALLOWED_VALUE_CLASSES = {
     "スキル変更",
     "最大スタック",
     "スタック数",
+    "上限値",
     "解除",
     "召喚",
+    "移動",
+}
+
+REFERENCE_VALUE_NAMES = {
+    "最大HP", "対象の最大HP", "自身の最大HP",
+    "攻撃力", "対象の攻撃力", "自身の攻撃力",
+    "防御力", "対象の防御力", "自身の防御力",
 }
 
 
@@ -215,6 +228,8 @@ def read_sheet_rows(
                 continue
             if has_value(value):
                 item[key] = value
+        if item.get("targetSkill") in REFERENCE_VALUE_NAMES and not item.get("reference"):
+            item["reference"] = item.pop("targetSkill")
         if "id" in item:
             item["id"] = normalize_id(item["id"])
         items.append(item)
@@ -243,6 +258,13 @@ def has_effect_payload(data: dict[str, Any]) -> bool:
         "effectStack",
         "stackCount",
         "maxStack",
+        "processGroupId",
+        "processOrder",
+        "triggerType",
+        "triggerValue",
+        "triggerSourceId",
+        "conditionType",
+        "conditionValue",
         "condition",
         "effectTarget",
         "targetSkill",
@@ -480,7 +502,16 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
             workbook,
             sheet_name,
             effect_rows=key in effect_sheets,
-            key_overrides={"説明": "lv1Description"} if key == "favoriteCardBasics" else None,
+            key_overrides=(
+                {"説明": "lv1Description"}
+                if key == "favoriteCardBasics"
+                else {
+                    "スキル発動条件種別": "skillTriggerType",
+                    "スキル発動条件値": "skillTriggerValue",
+                }
+                if key == "skillBasics"
+                else None
+            ),
         )
         for key, sheet_name in SHEETS.items()
     }
@@ -531,8 +562,8 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
             apostle["skills"],
             row,
             ("skillId",),
-            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "triggerType", "triggerValue"),
-            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "triggerType", "triggerValue"),
+            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "skillTriggerType", "skillTriggerValue"),
+            ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "skillTriggerType", "skillTriggerValue"),
         )
 
     for row in rows["favoriteCard"]:
@@ -566,6 +597,11 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
 
     for apostle in by_id.values():
         apostle["skills"] = remove_internal_group_keys(apostle["skills"])
+        for skill in apostle["skills"]:
+            if "skillTriggerType" in skill:
+                skill["triggerType"] = skill.pop("skillTriggerType")
+            if "skillTriggerValue" in skill:
+                skill["triggerValue"] = skill.pop("skillTriggerValue")
 
         favorite = apostle["favoriteCard"]
         if "levels" in favorite:

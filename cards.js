@@ -38,6 +38,12 @@ const CARD_LIBRARY = {
                     "id": "artifact_yomi_moonflower_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 被ダメージ減少",
+                    "processGroupId": "artifact_yomi_moonflower_proc01",
+                    "processOrder": 1,
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
                     "shortLabel": "被ダメージ減少",
                     "valueClass": "倍率",
                     "description": "同列 / 倍率",
@@ -70,6 +76,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_yomi_moonflower_e02",
                     "type": "toggle",
                     "label": "戦闘開始時 魔法 攻撃力増加",
+                    "processGroupId": "artifact_yomi_moonflower_proc01",
+                    "processOrder": 2,
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "attackCategory": "魔法",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
                     "shortLabel": "魔法 攻撃力増加",
                     "valueClass": "倍率",
                     "onlyWhenDmgType": "mag",
@@ -135,7 +148,13 @@ const CARD_LIBRARY = {
                 {
                     "id": "artifact_erpin_ice_cream_cake_e01",
                     "type": "toggle",
-                    "label": "敵を1体も倒していない時 魔法ダメージ 魔法 与ダメージ増加",
+                    "label": "敵を1体も倒していない時 / 魔法ダメージ 魔法 与ダメージ増加",
+                    "conditionType": "敵撃破数",
+                    "conditionValue": 0,
+                    "effectType": "バフ",
+                    "attackCategory": "魔法",
+                    "effectStack": false,
+                    "condition": "敵を1体も倒していない時 / 魔法ダメージ",
                     "shortLabel": "魔法 与ダメージ増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -143,11 +162,11 @@ const CARD_LIBRARY = {
                     "onlyWhenDmgType": "mag",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
-                        "与ダメージ増加40% (敵を1体も倒していない時 / 自分)",
-                        "与ダメージ増加47% (敵を1体も倒していない時 / 自分)",
-                        "与ダメージ増加54% (敵を1体も倒していない時 / 自分)",
-                        "与ダメージ増加61% (敵を1体も倒していない時 / 自分)",
-                        "与ダメージ増加68% (敵を1体も倒していない時 / 自分)"
+                        "与ダメージ増加40% (敵を1体も倒していない時 / 魔法ダメージ / 自分)",
+                        "与ダメージ増加47% (敵を1体も倒していない時 / 魔法ダメージ / 自分)",
+                        "与ダメージ増加54% (敵を1体も倒していない時 / 魔法ダメージ / 自分)",
+                        "与ダメージ増加61% (敵を1体も倒していない時 / 魔法ダメージ / 自分)",
+                        "与ダメージ増加68% (敵を1体も倒していない時 / 魔法ダメージ / 自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -204,6 +223,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_butter_yellow_card_e01",
                     "type": "toggle",
                     "label": "強化攻撃ダメージ 強化攻撃 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "強化攻撃",
+                    "effectStack": false,
+                    "condition": "強化攻撃ダメージ",
                     "shortLabel": "強化攻撃 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -269,6 +292,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_vivi_silver_staff_e01",
                     "type": "toggle",
                     "label": "普通攻撃1回ごとに 防御力増加",
+                    "triggerType": "n回ごと",
+                    "triggerValue": 1,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "バフ",
+                    "effectStack": true,
+                    "maxStack": 20,
+                    "condition": "普通攻撃1回ごとに",
                     "shortLabel": "防御力増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -300,42 +330,16 @@ const CARD_LIBRARY = {
                     ]
                 },
                 {
-                    "id": "artifact_vivi_silver_staff_e02",
-                    "type": "toggle",
-                    "label": "最大スタック数",
-                    "valueClass": "スタック数",
-                    "nonStackingSameEffect": true,
-                    "nonStackingSameApostle": true,
-                    "description": "自分 / スタック数",
-                    "descriptionByStar": [
-                        "最大スタック数20 (自分)",
-                        "最大スタック数20 (自分)",
-                        "最大スタック数20 (自分)",
-                        "最大スタック数20 (自分)",
-                        "最大スタック数20 (自分)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "maxStack": 20
-                        },
-                        {
-                            "maxStack": 20
-                        },
-                        {
-                            "maxStack": 20
-                        },
-                        {
-                            "maxStack": 20
-                        },
-                        {
-                            "maxStack": 20
-                        }
-                    ]
-                },
-                {
                     "id": "artifact_vivi_silver_staff_e03",
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 防御力増加",
+                    "processGroupId": "artifact_vivi_silver_staff_max_stack",
+                    "processOrder": 1,
+                    "conditionType": "カードスタック最大",
+                    "conditionValue": "artifact_vivi_silver_staff",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "普通攻撃スタック最大時",
                     "shortLabel": "防御力増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -370,6 +374,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_vivi_silver_staff_e04",
                     "type": "toggle",
                     "label": "普通攻撃スタック最大時 最大HP増加",
+                    "processGroupId": "artifact_vivi_silver_staff_max_stack",
+                    "processOrder": 2,
+                    "conditionType": "カードスタック最大",
+                    "conditionValue": "artifact_vivi_silver_staff",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "普通攻撃スタック最大時",
                     "shortLabel": "最大HP増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -437,6 +448,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_elena_enhanced_drone_e01",
                     "type": "toggle",
                     "label": "低学年スキル使用時 攻撃速度",
+                    "triggerType": "低学年スキル使用時",
+                    "triggerSourceId": "低学年スキル",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "低学年スキル使用時",
                     "shortLabel": "攻撃速度",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -505,6 +521,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_leets_worn_whetstone_e01",
                     "type": "toggle",
                     "label": "被普通攻撃時 被ダメージ減少",
+                    "triggerType": "普通攻撃被命中時",
+                    "triggerSourceId": "敵普通攻撃",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "被普通攻撃時",
                     "shortLabel": "被ダメージ減少",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -539,6 +560,12 @@ const CARD_LIBRARY = {
                     "id": "artifact_leets_worn_whetstone_e02",
                     "type": "toggle",
                     "label": "基本攻撃が2回命中するたび HP回復",
+                    "triggerType": "n回ごと",
+                    "triggerValue": 2,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "基本攻撃が2回命中するたび",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -606,6 +633,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_blanchet_bouquet_e01",
                     "type": "toggle",
                     "label": "低学年スキルが敵に命中するたび 魔法 敵防御力減少",
+                    "triggerType": "低学年スキル命中時",
+                    "triggerSourceId": "低学年スキル",
+                    "effectType": "デバフ",
+                    "attackCategory": "魔法",
+                    "effectStack": true,
+                    "maxStack": 9,
+                    "condition": "低学年スキルが敵に命中するたび",
                     "shortLabel": "魔法 敵防御力減少",
                     "valueClass": "倍率",
                     "duration": "8",
@@ -635,39 +669,6 @@ const CARD_LIBRARY = {
                         },
                         {
                             "enemyDefDownP": 5
-                        }
-                    ]
-                },
-                {
-                    "id": "artifact_blanchet_bouquet_e02",
-                    "type": "toggle",
-                    "label": "最大スタック数",
-                    "valueClass": "スタック数",
-                    "nonStackingSameEffect": true,
-                    "nonStackingSameApostle": true,
-                    "description": "敵 / スタック数",
-                    "descriptionByStar": [
-                        "最大スタック数9 (敵)",
-                        "最大スタック数9 (敵)",
-                        "最大スタック数9 (敵)",
-                        "最大スタック数9 (敵)",
-                        "最大スタック数9 (敵)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "maxStack": 9
-                        },
-                        {
-                            "maxStack": 9
-                        },
-                        {
-                            "maxStack": 9
-                        },
-                        {
-                            "maxStack": 9
-                        },
-                        {
-                            "maxStack": 9
                         }
                     ]
                 }
@@ -708,6 +709,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_picora_fashion_pouch_e01",
                     "type": "toggle",
                     "label": "対象を回復させた場合（カード効果を除く） 防御力増加",
+                    "triggerType": "回復時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "対象を回復させた場合（カード効果を除く）",
                     "shortLabel": "防御力増加",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -776,6 +781,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_xion_black_cape_e01",
                     "type": "toggle",
                     "label": "敵が1体しかいない場合 与ダメージ増加",
+                    "conditionType": "敵数",
+                    "conditionValue": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "敵が1体しかいない場合",
                     "shortLabel": "与ダメージ増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -843,6 +853,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_naia_dolphin_watergun_e01",
                     "type": "toggle",
                     "label": "スキル使用時 着用者のHP治癒量",
+                    "processGroupId": "artifact_naia_dolphin_watergun_proc",
+                    "processOrder": 1,
+                    "triggerType": "スキル使用時",
+                    "triggerSourceId": "スキル",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "スキル使用時",
                     "shortLabel": "着用者のHP治癒量",
                     "valueClass": "倍率",
                     "duration": "8",
@@ -876,6 +893,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_naia_dolphin_watergun_e02",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "processGroupId": "artifact_naia_dolphin_watergun_proc",
+                    "processOrder": 2,
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "クールタイム",
                     "description": "自分 / クールタイム",
                     "descriptionByStar": [
@@ -940,6 +961,14 @@ const CARD_LIBRARY = {
                     "id": "artifact_shoupan_magical_backpack_e01",
                     "type": "toggle",
                     "label": "普通攻撃2回ごとに 被ダメージ減少",
+                    "processGroupId": "artifact_shoupan_magical_backpack_proc",
+                    "processOrder": 1,
+                    "triggerType": "n回ごと",
+                    "triggerValue": 2,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "普通攻撃2回ごとに",
                     "shortLabel": "被ダメージ減少",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -975,6 +1004,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_shoupan_magical_backpack_e02",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "processGroupId": "artifact_shoupan_magical_backpack_proc",
+                    "processOrder": 2,
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "クールタイム",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
@@ -1041,6 +1074,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_snorky_fedora_e01",
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 最大HP増加",
+                    "processGroupId": "artifact_snorky_fedora_hp50",
+                    "processOrder": 1,
+                    "conditionType": "自身HP以上",
+                    "conditionValue": 50,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "着用者のHPが50％以上",
                     "shortLabel": "最大HP増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1075,6 +1115,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_snorky_fedora_e02",
                     "type": "toggle",
                     "label": "着用者のHPが50％以上 防御力増加",
+                    "processGroupId": "artifact_snorky_fedora_hp50",
+                    "processOrder": 2,
+                    "conditionType": "自身HP以上",
+                    "conditionValue": 50,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "着用者のHPが50％以上",
                     "shortLabel": "防御力増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1142,6 +1189,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_selene_midnight_mirage_e01",
                     "type": "toggle",
                     "label": "スキル使用時 HP回復",
+                    "processGroupId": "artifact_selene_midnight_mirage_proc",
+                    "processOrder": 1,
+                    "triggerType": "スキル使用時",
+                    "triggerSourceId": "スキル",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "スキル使用時",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1175,7 +1229,16 @@ const CARD_LIBRARY = {
                 {
                     "id": "artifact_selene_midnight_mirage_e02",
                     "type": "toggle",
-                    "label": "スキル使用時 最大HPを超えたHP回復量 シールド付与",
+                    "label": "スキル使用時 / 最大HPを超えたHP回復量 シールド付与",
+                    "processGroupId": "artifact_selene_midnight_mirage_proc",
+                    "processOrder": 2,
+                    "triggerType": "スキル使用時",
+                    "triggerSourceId": "スキル",
+                    "conditionType": "超過回復あり",
+                    "conditionValue": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "スキル使用時 / 最大HPを超えたHP回復量",
                     "shortLabel": "シールド付与",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -1183,11 +1246,11 @@ const CARD_LIBRARY = {
                     "nonStackingSameApostle": true,
                     "description": "自分 / 持続:6 / 参照:最大HPを超えたHP回復量 / 倍率",
                     "descriptionByStar": [
-                        "シールド付与12% (スキル使用時 / 自分)",
-                        "シールド付与15% (スキル使用時 / 自分)",
-                        "シールド付与18% (スキル使用時 / 自分)",
-                        "シールド付与21% (スキル使用時 / 自分)",
-                        "シールド付与24% (スキル使用時 / 自分)"
+                        "シールド付与12% (スキル使用時 / 最大HPを超えたHP回復量 / 自分)",
+                        "シールド付与15% (スキル使用時 / 最大HPを超えたHP回復量 / 自分)",
+                        "シールド付与18% (スキル使用時 / 最大HPを超えたHP回復量 / 自分)",
+                        "シールド付与21% (スキル使用時 / 最大HPを超えたHP回復量 / 自分)",
+                        "シールド付与24% (スキル使用時 / 最大HPを超えたHP回復量 / 自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -1244,6 +1307,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_kyarot_sugarcane_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 毎秒SP回復量増加",
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
                     "shortLabel": "毎秒SP回復量増加",
                     "valueClass": "固定値",
                     "nonStackingSameApostle": true,
@@ -1310,6 +1377,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_chloe_sewing_chest_e01",
                     "type": "toggle",
                     "label": "着用者にシールドが付与されている場合 被ダメージ減少",
+                    "conditionType": "固有状態中",
+                    "conditionValue": "シールド",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "着用者にシールドが付与されている場合",
                     "shortLabel": "被ダメージ減少",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1377,6 +1449,12 @@ const CARD_LIBRARY = {
                     "id": "artifact_risty_replica_glove_e01",
                     "type": "toggle",
                     "label": "普通攻撃6回ごとに 会心率",
+                    "triggerType": "n回ごと",
+                    "triggerValue": 6,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "普通攻撃6回ごとに",
                     "shortLabel": "会心率",
                     "valueClass": "倍率",
                     "duration": "12",
@@ -1445,6 +1523,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_barong_cursed_doll_e01",
                     "type": "toggle",
                     "label": "着用者が敵に状態異常を付与した時 強化攻撃 与ダメージ増加",
+                    "triggerType": "状態異常付与時",
+                    "effectType": "バフ",
+                    "attackCategory": "強化攻撃",
+                    "effectStack": false,
+                    "condition": "着用者が敵に状態異常を付与した時",
                     "shortLabel": "強化攻撃 与ダメージ増加",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -1513,6 +1596,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_tig_blazing_sword_e01",
                     "type": "toggle",
                     "label": "普通攻撃3回ごとに 攻撃速度",
+                    "triggerType": "n回ごと",
+                    "triggerValue": 3,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "バフ",
+                    "effectStack": true,
+                    "maxStack": 10,
+                    "condition": "普通攻撃3回ごとに",
                     "shortLabel": "攻撃速度",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1540,39 +1630,6 @@ const CARD_LIBRARY = {
                         },
                         {
                             "hasteP": 4
-                        }
-                    ]
-                },
-                {
-                    "id": "artifact_tig_blazing_sword_e02",
-                    "type": "toggle",
-                    "label": "最大スタック数",
-                    "valueClass": "スタック数",
-                    "nonStackingSameEffect": true,
-                    "nonStackingSameApostle": true,
-                    "description": "自分 / スタック数",
-                    "descriptionByStar": [
-                        "最大スタック数10 (自分)",
-                        "最大スタック数10 (自分)",
-                        "最大スタック数10 (自分)",
-                        "最大スタック数10 (自分)",
-                        "最大スタック数10 (自分)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "maxStack": 10
-                        },
-                        {
-                            "maxStack": 10
-                        },
-                        {
-                            "maxStack": 10
-                        },
-                        {
-                            "maxStack": 10
-                        },
-                        {
-                            "maxStack": 10
                         }
                     ]
                 }
@@ -1608,6 +1665,8 @@ const CARD_LIBRARY = {
                     "id": "artifact_rudd_exercise_manual_e01",
                     "type": "info",
                     "label": "HP回復量増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
@@ -1654,16 +1713,22 @@ const CARD_LIBRARY = {
                 {
                     "id": "artifact_rollett_magic_hat_e01",
                     "type": "toggle",
-                    "label": "敵が3体以上の場合 スキルダメージ スキル 与ダメージ増加",
+                    "label": "敵が3体以上の場合 / スキルダメージ スキル 与ダメージ増加",
+                    "conditionType": "敵数以上",
+                    "conditionValue": 3,
+                    "effectType": "バフ",
+                    "attackCategory": "スキル",
+                    "effectStack": false,
+                    "condition": "敵が3体以上の場合 / スキルダメージ",
                     "shortLabel": "スキル 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
                     "descriptionByStar": [
-                        "与ダメージ増加45% (敵が3体以上の場合 / 自分)",
-                        "与ダメージ増加56% (敵が3体以上の場合 / 自分)",
-                        "与ダメージ増加67% (敵が3体以上の場合 / 自分)",
-                        "与ダメージ増加78% (敵が3体以上の場合 / 自分)",
-                        "与ダメージ増加89% (敵が3体以上の場合 / 自分)"
+                        "与ダメージ増加45% (敵が3体以上の場合 / スキルダメージ / 自分)",
+                        "与ダメージ増加56% (敵が3体以上の場合 / スキルダメージ / 自分)",
+                        "与ダメージ増加67% (敵が3体以上の場合 / スキルダメージ / 自分)",
+                        "与ダメージ増加78% (敵が3体以上の場合 / スキルダメージ / 自分)",
+                        "与ダメージ増加89% (敵が3体以上の場合 / スキルダメージ / 自分)"
                     ],
                     "bonusesByStar": [
                         {
@@ -1713,6 +1778,13 @@ const CARD_LIBRARY = {
                     "id": "artifact_dragonlight_sword_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 攻撃速度増加",
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 1,
+                    "effectType": "バフ",
+                    "resetType": "低学年スキル使用時",
+                    "resetSourceId": "低学年スキル",
+                    "effectStack": false,
+                    "condition": "1秒ごとに",
                     "shortLabel": "攻撃速度増加",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1778,6 +1850,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_life_gem_e01",
                     "type": "toggle",
                     "label": "HPが40%以下になった場合 HP回復",
+                    "triggerType": "自身HP以下到達時",
+                    "triggerValue": 40,
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "HPが40%以下になった場合",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1843,6 +1920,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_30kg_kettlebell_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ上昇",
+                    "effectType": "バフ",
+                    "attackCategory": "スキル",
+                    "effectStack": false,
+                    "condition": "スキルダメージ",
                     "shortLabel": "スキル 与ダメージ上昇",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -1877,6 +1958,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_30kg_kettlebell_e02",
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ上昇",
+                    "effectType": "バフ",
+                    "attackCategory": "普通攻撃",
+                    "effectStack": false,
+                    "condition": "普通攻撃ダメージ",
                     "shortLabel": "普通攻撃 与ダメージ上昇",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -2024,6 +2109,12 @@ const CARD_LIBRARY = {
                     "id": "artifact_assassin_scroll_e01",
                     "type": "info",
                     "label": "普通攻撃5回ごとに 目くらまし",
+                    "triggerType": "n回ごと",
+                    "triggerValue": 5,
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "デバフ",
+                    "effectStack": false,
+                    "condition": "普通攻撃5回ごとに",
                     "shortLabel": "目くらまし",
                     "valueClass": "状態付与",
                     "duration": "2.5",
@@ -2088,6 +2179,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_safety_harness_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
                     "shortLabel": "シールド付与",
                     "valueClass": "倍率",
                     "duration": "6",
@@ -2176,6 +2271,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_jade_codex_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "スキル",
+                    "effectStack": false,
+                    "condition": "スキルダメージ",
                     "shortLabel": "スキル 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -2268,6 +2367,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_blessed_pauldrons_e01",
                     "type": "toggle",
                     "label": "1秒ごとに HP回復",
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 1,
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "1秒ごとに",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "description": "自分 / 参照:最大HP / 倍率",
@@ -2331,6 +2435,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_chalice_of_origins_e01",
                     "type": "toggle",
                     "label": "通常攻撃命中時 SP回復",
+                    "triggerType": "普通攻撃命中時",
+                    "triggerSourceId": "普通攻撃",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "通常攻撃命中時",
                     "shortLabel": "SP回復",
                     "valueClass": "固定値",
                     "nonStackingSameEffect": true,
@@ -2391,6 +2500,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_grail_of_origins_e01",
                     "type": "toggle",
                     "label": "シールド付与時 シールド効果増加",
+                    "triggerType": "状態付与時",
+                    "triggerValue": "シールド",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "シールド付与時",
                     "shortLabel": "シールド効果増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -2449,6 +2563,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_fanatic_mask_e01",
                     "type": "info",
                     "label": "1秒ごとに ダメージ効果",
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 1,
+                    "effectType": "攻撃",
+                    "effectStack": false,
+                    "condition": "1秒ごとに",
                     "shortLabel": "ダメージ効果",
                     "valueClass": "倍率",
                     "nonStackingSameEffect": true,
@@ -2492,6 +2611,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_healing_pendant_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "1秒ごとに",
                     "shortLabel": "毎秒SP回復量増加",
                     "valueClass": "固定値",
                     "nonStackingSameEffect": true,
@@ -2552,6 +2676,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_obsidian_shuriken_e01",
                     "type": "toggle",
                     "label": "普通攻撃ダメージ 普通攻撃 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "普通攻撃",
+                    "effectStack": false,
+                    "condition": "普通攻撃ダメージ",
                     "shortLabel": "普通攻撃 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -2610,6 +2738,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_ring_of_greed_e01",
                     "type": "toggle",
                     "label": "状態異常ダメージ 状態異常 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "状態異常",
+                    "effectStack": false,
+                    "condition": "状態異常ダメージ",
                     "shortLabel": "状態異常 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -2668,6 +2800,11 @@ const CARD_LIBRARY = {
                     "id": "artifact_old_wooden_dagger_e01",
                     "type": "toggle",
                     "label": "1秒ごとに 毎秒SP回復量増加",
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "1秒ごとに",
                     "shortLabel": "毎秒SP回復量増加",
                     "valueClass": "固定値",
                     "nonStackingSameEffect": true,
@@ -2728,6 +2865,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_elven_wand_e01",
                     "type": "toggle",
                     "label": "戦闘開始時 シールド付与",
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
                     "shortLabel": "シールド付与",
                     "valueClass": "倍率",
                     "duration": "10",
@@ -2816,6 +2957,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_crown_of_thorns_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "スキル",
+                    "effectStack": false,
+                    "condition": "スキルダメージ",
                     "shortLabel": "スキル 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "自分 / 倍率",
@@ -2898,6 +3043,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_icy_charm_e01",
                     "type": "toggle",
                     "label": "デバフ抵抗効果",
+                    "processGroupId": "artifact_icy_charm_proc",
+                    "processOrder": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "回数",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
@@ -2931,6 +3080,10 @@ const CARD_LIBRARY = {
                     "id": "artifact_icy_charm_e02",
                     "type": "toggle",
                     "label": "クールタイム",
+                    "processGroupId": "artifact_icy_charm_proc",
+                    "processOrder": 2,
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "クールタイム",
                     "nonStackingSameEffect": true,
                     "nonStackingSameApostle": true,
@@ -3122,130 +3275,50 @@ const CARD_LIBRARY = {
             "conditionalEffects": [
                 {
                     "id": "spell_alice_fake_magic_e01",
-                    "type": "toggle",
-                    "label": "5秒ごと ランダム最低値 HP回復",
+                    "type": "info",
+                    "label": "5秒ごと / 整数一様乱数（仮定） HP回復",
+                    "processGroupId": "spell_alice_fake_magic_tick",
+                    "processOrder": 1,
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 5,
+                    "triggerSourceId": "spell_alice_fake_magic",
+                    "effectType": "回復",
+                    "randomId": "spell_alice_fake_magic_hp",
+                    "effectStack": false,
+                    "condition": "5秒ごと / 整数一様乱数（仮定）",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "description": "味方全体 / 参照:対象の最大HP / 倍率",
                     "descriptionByStar": [
-                        "HP回復5% (5秒ごと / 味方全体)",
-                        "HP回復5% (5秒ごと / 味方全体)",
-                        "HP回復5% (5秒ごと / 味方全体)",
-                        "HP回復5% (5秒ごと / 味方全体)",
-                        "HP回復5% (5秒ごと / 味方全体)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "hpRecoveryP": 5
-                        },
-                        {
-                            "hpRecoveryP": 5
-                        },
-                        {
-                            "hpRecoveryP": 5
-                        },
-                        {
-                            "hpRecoveryP": 5
-                        },
-                        {
-                            "hpRecoveryP": 5
-                        }
-                    ]
-                },
-                {
-                    "id": "spell_alice_fake_magic_e02",
-                    "type": "toggle",
-                    "label": "5秒ごと ランダム最大値 HP回復",
-                    "shortLabel": "HP回復",
-                    "valueClass": "倍率",
-                    "description": "味方全体 / 参照:対象の最大HP / 倍率",
-                    "descriptionByStar": [
-                        "HP回復10% (5秒ごと / 味方全体)",
-                        "HP回復12% (5秒ごと / 味方全体)",
-                        "HP回復14% (5秒ごと / 味方全体)",
-                        "HP回復16% (5秒ごと / 味方全体)",
-                        "HP回復18% (5秒ごと / 味方全体)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "hpRecoveryP": 10
-                        },
-                        {
-                            "hpRecoveryP": 12
-                        },
-                        {
-                            "hpRecoveryP": 14
-                        },
-                        {
-                            "hpRecoveryP": 16
-                        },
-                        {
-                            "hpRecoveryP": 18
-                        }
+                        "HP回復5〜10% (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "HP回復5〜12% (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "HP回復5〜14% (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "HP回復5〜16% (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "HP回復5〜18% (5秒ごと / 整数一様乱数（仮定） / 味方全体)"
                     ]
                 },
                 {
                     "id": "spell_alice_fake_magic_e03",
-                    "type": "toggle",
-                    "label": "5秒ごと ランダム最低値 SP回復",
+                    "type": "info",
+                    "label": "5秒ごと / 整数一様乱数（仮定） SP回復",
+                    "processGroupId": "spell_alice_fake_magic_tick",
+                    "processOrder": 2,
+                    "triggerType": "n秒ごと",
+                    "triggerValue": 5,
+                    "triggerSourceId": "spell_alice_fake_magic",
+                    "effectType": "回復",
+                    "randomId": "spell_alice_fake_magic_sp",
+                    "effectStack": false,
+                    "condition": "5秒ごと / 整数一様乱数（仮定）",
                     "shortLabel": "SP回復",
                     "valueClass": "固定値",
                     "description": "味方全体 / 固定値",
                     "descriptionByStar": [
-                        "SP回復1 (5秒ごと / 味方全体)",
-                        "SP回復1 (5秒ごと / 味方全体)",
-                        "SP回復1 (5秒ごと / 味方全体)",
-                        "SP回復1 (5秒ごと / 味方全体)",
-                        "SP回復1 (5秒ごと / 味方全体)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "spRecovery": 1
-                        },
-                        {
-                            "spRecovery": 1
-                        },
-                        {
-                            "spRecovery": 1
-                        },
-                        {
-                            "spRecovery": 1
-                        },
-                        {
-                            "spRecovery": 1
-                        }
-                    ]
-                },
-                {
-                    "id": "spell_alice_fake_magic_e04",
-                    "type": "toggle",
-                    "label": "5秒ごと ランダム最大値 SP回復",
-                    "shortLabel": "SP回復",
-                    "valueClass": "固定値",
-                    "description": "味方全体 / 固定値",
-                    "descriptionByStar": [
-                        "SP回復10 (5秒ごと / 味方全体)",
-                        "SP回復10 (5秒ごと / 味方全体)",
-                        "SP回復10 (5秒ごと / 味方全体)",
-                        "SP回復10 (5秒ごと / 味方全体)",
-                        "SP回復10 (5秒ごと / 味方全体)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "spRecovery": 10
-                        },
-                        {
-                            "spRecovery": 10
-                        },
-                        {
-                            "spRecovery": 10
-                        },
-                        {
-                            "spRecovery": 10
-                        },
-                        {
-                            "spRecovery": 10
-                        }
+                        "SP回復1〜10 (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "SP回復1〜10 (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "SP回復1〜10 (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "SP回復1〜10 (5秒ごと / 整数一様乱数（仮定） / 味方全体)",
+                        "SP回復1〜10 (5秒ごと / 整数一様乱数（仮定） / 味方全体)"
                     ]
                 }
             ]
@@ -3285,6 +3358,10 @@ const CARD_LIBRARY = {
                     "id": "spell_epica_hero_exaltation_e01",
                     "type": "toggle",
                     "label": "ウェーブ開始時 学年+",
+                    "triggerType": "ウェーブ開始時",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "ウェーブ開始時",
                     "shortLabel": "学年+",
                     "valueClass": "固定値",
                     "description": "ランダムな味方1人 / 固定値",
@@ -3350,6 +3427,8 @@ const CARD_LIBRARY = {
                     "id": "spell_luc_ed_dream_e01",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方前列 / 倍率",
                     "descriptionByStar": [
@@ -3381,14 +3460,18 @@ const CARD_LIBRARY = {
                     "id": "spell_luc_ed_dream_e02",
                     "type": "toggle",
                     "label": "防御力増加",
+                    "conditionType": "対象役割",
+                    "conditionValue": "ガード",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
-                    "description": "味方前列かつガードタイプ / 倍率",
+                    "description": "味方前列 / 倍率",
                     "descriptionByStar": [
-                        "防御力増加20% (味方前列かつガードタイプ)",
-                        "防御力増加23% (味方前列かつガードタイプ)",
-                        "防御力増加26% (味方前列かつガードタイプ)",
-                        "防御力増加29% (味方前列かつガードタイプ)",
-                        "防御力増加32% (味方前列かつガードタイプ)"
+                        "防御力増加20% (味方前列)",
+                        "防御力増加23% (味方前列)",
+                        "防御力増加26% (味方前列)",
+                        "防御力増加29% (味方前列)",
+                        "防御力増加32% (味方前列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3445,6 +3528,10 @@ const CARD_LIBRARY = {
                     "id": "spell_renewa_time_paradox_e01",
                     "type": "toggle",
                     "label": "ウェーブ開始時 与ダメージ増加",
+                    "triggerType": "ウェーブ開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "ウェーブ開始時",
                     "shortLabel": "与ダメージ増加",
                     "valueClass": "倍率",
                     "duration": "30",
@@ -3513,6 +3600,8 @@ const CARD_LIBRARY = {
                     "id": "spell_aya_snowflake_magic_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方中列 / 倍率",
                     "descriptionByStar": [
@@ -3544,14 +3633,18 @@ const CARD_LIBRARY = {
                     "id": "spell_aya_snowflake_magic_e02",
                     "type": "toggle",
                     "label": "攻撃力増加",
+                    "conditionType": "対象役割",
+                    "conditionValue": "アタッカー",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
-                    "description": "味方中列かつアタッカータイプ / 倍率",
+                    "description": "味方中列 / 倍率",
                     "descriptionByStar": [
-                        "攻撃力増加30% (味方中列かつアタッカータイプ)",
-                        "攻撃力増加33% (味方中列かつアタッカータイプ)",
-                        "攻撃力増加36% (味方中列かつアタッカータイプ)",
-                        "攻撃力増加39% (味方中列かつアタッカータイプ)",
-                        "攻撃力増加42% (味方中列かつアタッカータイプ)"
+                        "攻撃力増加30% (味方中列)",
+                        "攻撃力増加33% (味方中列)",
+                        "攻撃力増加36% (味方中列)",
+                        "攻撃力増加39% (味方中列)",
+                        "攻撃力増加42% (味方中列)"
                     ],
                     "bonusesByStar": [
                         {
@@ -3620,6 +3713,12 @@ const CARD_LIBRARY = {
                     "id": "spell_strange_elixir_e01",
                     "type": "info",
                     "label": "ウェーブ開始時 毒",
+                    "processGroupId": "spell_strange_elixir_proc01",
+                    "processOrder": 1,
+                    "triggerType": "ウェーブ開始時",
+                    "effectType": "デバフ",
+                    "effectStack": false,
+                    "condition": "ウェーブ開始時",
                     "shortLabel": "毒",
                     "valueClass": "状態付与",
                     "duration": "星で変動",
@@ -3629,6 +3728,12 @@ const CARD_LIBRARY = {
                     "id": "spell_strange_elixir_e02",
                     "type": "toggle",
                     "label": "ウェーブ開始時 毒持続時間",
+                    "processGroupId": "spell_strange_elixir_proc01",
+                    "processOrder": 2,
+                    "triggerType": "ウェーブ開始時",
+                    "effectType": "デバフ",
+                    "effectStack": false,
+                    "condition": "ウェーブ開始時",
                     "shortLabel": "毒持続時間",
                     "valueClass": "持続時間",
                     "duration": "星で変動",
@@ -3688,6 +3793,10 @@ const CARD_LIBRARY = {
                     "id": "spell_combat_master_e01",
                     "type": "toggle",
                     "label": "スキルダメージ スキル 与ダメージ増加",
+                    "effectType": "バフ",
+                    "attackCategory": "スキル",
+                    "effectStack": false,
+                    "condition": "スキルダメージ",
                     "shortLabel": "スキル 与ダメージ増加",
                     "valueClass": "倍率",
                     "description": "味方全体 / 倍率",
@@ -3758,6 +3867,11 @@ const CARD_LIBRARY = {
                     "id": "spell_aroma_therapy_e01",
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_aroma_therapy",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "SP回復",
                     "valueClass": "倍率",
                     "description": "残りSPが最も低い味方 / 倍率",
@@ -3874,6 +3988,8 @@ const CARD_LIBRARY = {
                     "id": "spell_stealth_slacker_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方中列 / 倍率",
                     "descriptionByStar": [
@@ -3905,6 +4021,8 @@ const CARD_LIBRARY = {
                     "id": "spell_stealth_slacker_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方中列 / 倍率",
                     "descriptionByStar": [
@@ -3962,6 +4080,8 @@ const CARD_LIBRARY = {
                     "id": "spell_vanguard_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方前列 / 倍率",
                     "descriptionByStar": [
@@ -3993,6 +4113,8 @@ const CARD_LIBRARY = {
                     "id": "spell_vanguard_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方前列 / 倍率",
                     "descriptionByStar": [
@@ -4050,6 +4172,8 @@ const CARD_LIBRARY = {
                     "id": "spell_rear_guard_e01",
                     "type": "toggle",
                     "label": "与ダメージ増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方後列 / 倍率",
                     "descriptionByStar": [
@@ -4081,6 +4205,8 @@ const CARD_LIBRARY = {
                     "id": "spell_rear_guard_e02",
                     "type": "toggle",
                     "label": "被ダメージ減少",
+                    "effectType": "バフ",
+                    "effectStack": false,
                     "valueClass": "倍率",
                     "description": "味方後列 / 倍率",
                     "descriptionByStar": [
@@ -4138,6 +4264,11 @@ const CARD_LIBRARY = {
                     "id": "spell_personality_mad_e01",
                     "type": "toggle",
                     "label": "カード選択時 狂気性格判定+1",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_personality_mad",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "狂気性格判定+1",
                     "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
@@ -4196,6 +4327,11 @@ const CARD_LIBRARY = {
                     "id": "spell_personality_vivacious_e01",
                     "type": "toggle",
                     "label": "カード選択時 活発性格判定+1",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_personality_vivacious",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "活発性格判定+1",
                     "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
@@ -4254,6 +4390,11 @@ const CARD_LIBRARY = {
                     "id": "spell_personality_innocent_e01",
                     "type": "toggle",
                     "label": "カード選択時 純粋性格判定+1",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_personality_innocent",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "純粋性格判定+1",
                     "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
@@ -4312,6 +4453,11 @@ const CARD_LIBRARY = {
                     "id": "spell_personality_depressed_e01",
                     "type": "toggle",
                     "label": "カード選択時 憂鬱性格判定+1",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_personality_depressed",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "憂鬱性格判定+1",
                     "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
@@ -4370,6 +4516,11 @@ const CARD_LIBRARY = {
                     "id": "spell_personality_composed_e01",
                     "type": "toggle",
                     "label": "カード選択時 冷静性格判定+1",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_personality_composed",
+                    "effectType": "特殊",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "冷静性格判定+1",
                     "valueClass": "固定値",
                     "description": "性格シナジー / 固定値",
@@ -4708,6 +4859,11 @@ const CARD_LIBRARY = {
                     "id": "spell_get_her_e01",
                     "type": "toggle",
                     "label": "1ウェーブ中 攻撃力増加",
+                    "conditionType": "ウェーブ番号",
+                    "conditionValue": 1,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "1ウェーブ中",
                     "shortLabel": "攻撃力増加",
                     "valueClass": "倍率",
                     "description": "味方全体 / 倍率",
@@ -4764,66 +4920,25 @@ const CARD_LIBRARY = {
             "conditionalEffects": [
                 {
                     "id": "spell_random_coin_e01",
-                    "type": "toggle",
-                    "label": "カード選択時 ランダム最低値 コイン獲得",
+                    "type": "info",
+                    "label": "カード選択時 / 出目分布未調査 コイン獲得",
+                    "processGroupId": "spell_random_coin_draw",
+                    "processOrder": 1,
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_random_coin",
+                    "effectType": "特殊",
+                    "randomId": "spell_random_coin_amount",
+                    "effectStack": false,
+                    "condition": "カード選択時 / 出目分布未調査",
                     "shortLabel": "コイン獲得",
                     "valueClass": "固定値",
                     "description": "コイン / 固定値",
                     "descriptionByStar": [
-                        "コイン獲得7 (カード選択時 / コイン)",
-                        "コイン獲得9 (カード選択時 / コイン)",
-                        "コイン獲得11 (カード選択時 / コイン)",
-                        "コイン獲得13 (カード選択時 / コイン)",
-                        "コイン獲得15 (カード選択時 / コイン)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "coin": 7
-                        },
-                        {
-                            "coin": 9
-                        },
-                        {
-                            "coin": 11
-                        },
-                        {
-                            "coin": 13
-                        },
-                        {
-                            "coin": 15
-                        }
-                    ]
-                },
-                {
-                    "id": "spell_random_coin_e02",
-                    "type": "toggle",
-                    "label": "カード選択時 ランダム最大値 コイン獲得",
-                    "shortLabel": "コイン獲得",
-                    "valueClass": "固定値",
-                    "description": "コイン / 固定値",
-                    "descriptionByStar": [
-                        "コイン獲得15 (カード選択時 / コイン)",
-                        "コイン獲得17 (カード選択時 / コイン)",
-                        "コイン獲得19 (カード選択時 / コイン)",
-                        "コイン獲得21 (カード選択時 / コイン)",
-                        "コイン獲得23 (カード選択時 / コイン)"
-                    ],
-                    "bonusesByStar": [
-                        {
-                            "coin": 15
-                        },
-                        {
-                            "coin": 17
-                        },
-                        {
-                            "coin": 19
-                        },
-                        {
-                            "coin": 21
-                        },
-                        {
-                            "coin": 23
-                        }
+                        "コイン獲得7〜15 (カード選択時 / 出目分布未調査 / コイン)",
+                        "コイン獲得9〜17 (カード選択時 / 出目分布未調査 / コイン)",
+                        "コイン獲得11〜19 (カード選択時 / 出目分布未調査 / コイン)",
+                        "コイン獲得13〜21 (カード選択時 / 出目分布未調査 / コイン)",
+                        "コイン獲得15〜23 (カード選択時 / 出目分布未調査 / コイン)"
                     ]
                 }
             ]
@@ -4914,6 +5029,11 @@ const CARD_LIBRARY = {
                     "id": "spell_soda_capsule_e01",
                     "type": "toggle",
                     "label": "カード選択時 SP回復",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_soda_capsule",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "SP回復",
                     "valueClass": "固定値",
                     "description": "味方全体 / 固定値",
@@ -4972,6 +5092,11 @@ const CARD_LIBRARY = {
                     "id": "spell_strawberry_capsule_e01",
                     "type": "toggle",
                     "label": "カード選択時 HP回復",
+                    "triggerType": "カード選択時",
+                    "triggerSourceId": "spell_strawberry_capsule",
+                    "effectType": "回復",
+                    "effectStack": false,
+                    "condition": "カード選択時",
                     "shortLabel": "HP回復",
                     "valueClass": "倍率",
                     "description": "味方全体 / 参照:対象の最大HP / 倍率",
@@ -5894,7 +6019,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "relic_vivi_baton|max_stack": {
         "cardId": "artifact_vivi_silver_staff",
-        "effectId": "artifact_vivi_silver_staff_e02"
+        "effectId": "artifact_vivi_silver_staff_e01"
     },
     "relic_vivi_baton|max_stack_defense": {
         "cardId": "artifact_vivi_silver_staff",
@@ -5922,7 +6047,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "relic_blanse_bouquet|max_stack": {
         "cardId": "artifact_blanchet_bouquet",
-        "effectId": "artifact_blanchet_bouquet_e02"
+        "effectId": "artifact_blanchet_bouquet_e01"
     },
     "relic_picola_pouch|target_defense_up": {
         "cardId": "artifact_picora_fashion_pouch",
@@ -5986,7 +6111,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "relic_tig_blazing_sword|max_stack": {
         "cardId": "artifact_tig_blazing_sword",
-        "effectId": "artifact_tig_blazing_sword_e02"
+        "effectId": "artifact_tig_blazing_sword_e01"
     },
     "relic_rudd_exercise_manual|rudd_hp_recovery": {
         "cardId": "artifact_rudd_exercise_manual",
@@ -6078,7 +6203,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "spell_alice_hex|alice_party_heal_max": {
         "cardId": "spell_alice_fake_magic",
-        "effectId": "spell_alice_fake_magic_e02"
+        "effectId": "spell_alice_fake_magic_e01"
     },
     "spell_alice_hex|alice_party_sp_min": {
         "cardId": "spell_alice_fake_magic",
@@ -6086,7 +6211,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "spell_alice_hex|alice_party_sp_max": {
         "cardId": "spell_alice_fake_magic",
-        "effectId": "spell_alice_fake_magic_e04"
+        "effectId": "spell_alice_fake_magic_e03"
     },
     "spell_epica_anthem|epica_grade_up": {
         "cardId": "spell_epica_hero_exaltation",
@@ -6174,7 +6299,7 @@ const CARD_EFFECT_ID_ALIASES = {
     },
     "spell_random_coin|random_coin_coin_max": {
         "cardId": "spell_random_coin",
-        "effectId": "spell_random_coin_e02"
+        "effectId": "spell_random_coin_e01"
     },
     "spell_soda_capsule|soda_capsule_sp": {
         "cardId": "spell_soda_capsule",
@@ -6183,6 +6308,144 @@ const CARD_EFFECT_ID_ALIASES = {
     "spell_strawberry_capsule|strawberry_capsule_heal": {
         "cardId": "spell_strawberry_capsule",
         "effectId": "spell_strawberry_capsule_e01"
+    }
+};
+
+const CARD_RANDOM_DEFINITIONS = {
+    "spell_alice_fake_magic_hp": {
+        "id": "spell_alice_fake_magic_hp",
+        "name": "アリススペルHP回復量",
+        "mode": "一様",
+        "valueType": "整数",
+        "researchStatus": "仮定",
+        "stageType": "カード★",
+        "stages": {
+            "1": {
+                "min": 5,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "範囲内の全整数を等確率で抽選"
+            },
+            "2": {
+                "min": 5,
+                "max": 12,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "範囲内の全整数を等確率で抽選"
+            },
+            "3": {
+                "min": 5,
+                "max": 14,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "範囲内の全整数を等確率で抽選"
+            },
+            "4": {
+                "min": 5,
+                "max": 16,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "範囲内の全整数を等確率で抽選"
+            },
+            "5": {
+                "min": 5,
+                "max": 18,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "範囲内の全整数を等確率で抽選"
+            }
+        }
+    },
+    "spell_alice_fake_magic_sp": {
+        "id": "spell_alice_fake_magic_sp",
+        "name": "アリススペルSP回復量",
+        "mode": "一様",
+        "valueType": "整数",
+        "researchStatus": "仮定",
+        "stageType": "カード★",
+        "stages": {
+            "1": {
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "HP回復量とは独立して抽選"
+            },
+            "2": {
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "HP回復量とは独立して抽選"
+            },
+            "3": {
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "HP回復量とは独立して抽選"
+            },
+            "4": {
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "HP回復量とは独立して抽選"
+            },
+            "5": {
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "HP回復量とは独立して抽選"
+            }
+        }
+    },
+    "spell_random_coin_amount": {
+        "id": "spell_random_coin_amount",
+        "name": "ランダムコイン獲得量",
+        "mode": "一様",
+        "valueType": "整数",
+        "researchStatus": "仮定",
+        "stageType": "カード★",
+        "stages": {
+            "1": {
+                "min": 7,
+                "max": 15,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "出目候補と確率は未調査"
+            },
+            "2": {
+                "min": 9,
+                "max": 17,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "出目候補と確率は未調査"
+            },
+            "3": {
+                "min": 11,
+                "max": 19,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "出目候補と確率は未調査"
+            },
+            "4": {
+                "min": 13,
+                "max": 21,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "出目候補と確率は未調査"
+            },
+            "5": {
+                "min": 15,
+                "max": 23,
+                "step": 1,
+                "endpoint": "両端含む",
+                "note": "出目候補と確率は未調査"
+            }
+        }
     }
 };
 

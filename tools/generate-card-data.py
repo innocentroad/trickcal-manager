@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 
 CARD_EFFECT_SHEET = "カード効果"
 CARD_SPECIAL_SHEET = "カード特殊効果"
+RANDOM_SHEET = "乱数基礎設定"
 KEY_MAP_CANDIDATES = (
     "card-effect-key-map.tsv",
     "card-effect-key-map - card-effect-key-map.tsv",
@@ -74,6 +75,23 @@ SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES = {
     "artifact_chalice_of_origins_e01": "固定値",
 }
 
+RUNTIME_EFFECT_FIELDS = {
+    "効果処理グループID": "processGroupId",
+    "処理順": "processOrder",
+    "発動条件種別": "triggerType",
+    "発動条件値": "triggerValue",
+    "発動元ID": "triggerSourceId",
+    "適用条件種別": "conditionType",
+    "適用条件値": "conditionValue",
+    "効果タイプ": "effectType",
+    "攻撃分類": "attackCategory",
+    "対象スキル": "targetSkill",
+    "randomId": "randomId",
+    "リセット条件種別": "resetType",
+    "リセット条件値": "resetValue",
+    "リセット元ID": "resetSourceId",
+}
+
 
 def clean(value: object) -> str:
     if value is None:
@@ -109,6 +127,28 @@ def as_bool(value: object) -> bool:
         return value
     text = clean(value).lower()
     return text in {"true", "1", "yes", "y", "on", "〇", "○", "あり"}
+
+
+def copy_runtime_effect_fields(row: dict[str, object], effect: dict[str, object]) -> None:
+    for source_key, target_key in RUNTIME_EFFECT_FIELDS.items():
+        raw = row.get(source_key)
+        if is_blank(raw):
+            continue
+        value: object = clean(raw)
+        if target_key in {"processOrder", "triggerValue", "conditionValue", "resetValue"}:
+            number = as_number(raw)
+            if number is not None:
+                value = number
+        effect[target_key] = value
+
+    if not is_blank(row.get("効果スタック")):
+        effect["effectStack"] = as_bool(row.get("効果スタック"))
+    max_stack = as_number(row.get("最大スタック"))
+    if max_stack is not None:
+        effect["maxStack"] = max_stack
+    fixed_value = as_number(row.get("固定値"))
+    if fixed_value is not None:
+        effect["fixedValue"] = fixed_value
 
 
 def sheet_to_objects(workbook, sheet_name: str) -> list[dict[str, object]]:
@@ -265,7 +305,44 @@ def build_id_aliases(
     return card_aliases, effect_aliases
 
 
-def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str, object]], key_map: dict[str, str]):
+def build_random_definitions(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    definitions: dict[str, dict[str, object]] = {}
+    for row in rows:
+        random_id = clean(row.get("randomId"))
+        if not random_id:
+            continue
+        definition = definitions.setdefault(random_id, {
+            "id": random_id,
+            "name": clean(row.get("乱数名")),
+            "mode": clean(row.get("乱数方式")),
+            "valueType": clean(row.get("値形式")),
+            "researchStatus": clean(row.get("調査状態")),
+            "stageType": clean(row.get("段階種別")),
+            "stages": {},
+        })
+        stage = clean(row.get("段階"))
+        if not stage:
+            continue
+        stage_value: dict[str, object] = {}
+        for source, target in (
+            ("最小値", "min"), ("最大値", "max"), ("刻み", "step"),
+            ("端点", "endpoint"), ("備考", "note"),
+        ):
+            raw = row.get(source)
+            if is_blank(raw):
+                continue
+            number = as_number(raw)
+            stage_value[target] = number if number is not None else clean(raw)
+        definition["stages"][stage] = stage_value
+    return definitions
+
+
+def build_cards(
+    base_rows: list[dict[str, object]],
+    special_rows: list[dict[str, object]],
+    key_map: dict[str, str],
+    random_definitions: dict[str, dict[str, object]],
+):
     cards_by_id: dict[str, dict[str, object]] = {}
     solder_data: dict[str, dict[int, dict[str, int | float]]] = {}
 
@@ -329,18 +406,18 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         if not card_id or card_id not in cards_by_id:
             continue
         effect_id = clean(row.get("effectId")) or make_effect_id(row)
-        effect_label = clean(row.get("効果")) or effect_id
-        condition = clean(row.get("条件1"))
+        effect_label = clean(row.get("値の種類")) or clean(row.get("効果")) or effect_id
+        condition = clean(row.get("条件1")) or clean(row.get("条件"))
         condition2 = clean(row.get("条件2"))
         target = clean(row.get("効果対象"))
-        attack_type = clean(row.get("攻撃タイプ"))
-        duration = clean(row.get("持続時間"))
+        attack_type = clean(row.get("攻撃分類")) or clean(row.get("攻撃タイプ"))
+        duration = clean(row.get("持続時間秒")) or clean(row.get("持続時間"))
         reference = clean(row.get("参照"))
         value_kind = SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES.get(
             effect_id,
             clean(row.get("値分類")),
         )
-        reset_condition = clean(row.get("リセット条件"))
+        reset_condition = clean(row.get("リセット条件種別")) or clean(row.get("リセット条件"))
         key = resolve_special_effect_key(effect_label, value_kind, key_map)
         values = [as_number(row.get(f"特殊効果_Star{star}")) for star in range(1, 6)]
         bonuses = make_bonus_array([(key, values)]) if key and any(value is not None for value in values) else []
@@ -349,11 +426,35 @@ def build_cards(base_rows: list[dict[str, object]], special_rows: list[dict[str,
         label = " ".join(label_parts) if label_parts else effect_label
         short_label = " ".join(part for part in [attack_type, effect_label] if part) or effect_label
         descriptions = build_descriptions(row, values, key, value_kind)
+        random_id = clean(row.get("randomId"))
+        random_definition = random_definitions.get(random_id)
+        if random_definition:
+            random_descriptions: list[str] = []
+            for star in range(1, 6):
+                stage = random_definition.get("stages", {}).get(str(star), {})
+                minimum = stage.get("min")
+                maximum = stage.get("max")
+                if minimum is None and maximum is None:
+                    random_descriptions.append("")
+                    continue
+                value_text = clean(minimum) if minimum == maximum else f"{clean(minimum)}〜{clean(maximum)}"
+                suffix = "%" if value_kind == "倍率" else ""
+                details = [part for part in [condition, target] if part]
+                text = f"{effect_label}{value_text}{suffix}"
+                if details:
+                    text += f" ({' / '.join(details)})"
+                random_descriptions.append(text)
+            descriptions = random_descriptions
         effect: dict[str, object] = {
             "id": effect_id,
             "type": "toggle" if bonuses else "info",
             "label": label,
         }
+        copy_runtime_effect_fields(row, effect)
+        if condition:
+            effect["condition"] = condition
+        if condition2:
+            effect["condition2"] = condition2
         if short_label and short_label != label:
             effect["shortLabel"] = short_label
         if value_kind:
@@ -402,8 +503,8 @@ def make_effect_id(row: dict[str, object]) -> str:
 
 
 def build_descriptions(row: dict[str, object], values: list[int | float | None], key: str, value_class: str = "") -> list[str]:
-    effect_label = clean(row.get("効果"))
-    condition = clean(row.get("条件1"))
+    effect_label = clean(row.get("値の種類")) or clean(row.get("効果"))
+    condition = clean(row.get("条件1")) or clean(row.get("条件"))
     target = clean(row.get("効果対象"))
     if not any(value is not None for value in values):
         return []
@@ -435,6 +536,7 @@ def render_cards_js(
     solder_data: dict[str, dict[int, dict[str, int | float]]],
     card_id_aliases: dict[str, str],
     card_effect_id_aliases: dict[str, dict[str, str]],
+    random_definitions: dict[str, dict[str, object]],
 ) -> str:
     return (
         "// Trickcal Damage Calculator - Card Data (generated from datasheet)\n"
@@ -443,6 +545,7 @@ def render_cards_js(
         f"const CARD_SOLDER_DATA = {stringify_js(solder_data)};\n\n"
         f"const CARD_ID_ALIASES = {stringify_js(card_id_aliases)};\n\n"
         f"const CARD_EFFECT_ID_ALIASES = {stringify_js(card_effect_id_aliases)};\n\n"
+        f"const CARD_RANDOM_DEFINITIONS = {stringify_js(random_definitions)};\n\n"
         "function resolveCardIdAlias(id) {\n"
         "    const key = String(id || '');\n"
         "    return CARD_ID_ALIASES[key] || key;\n"
@@ -501,17 +604,20 @@ def generate(
     key_map = load_key_map(key_map_path)
     base_rows = sheet_to_objects(workbook, CARD_EFFECT_SHEET)
     special_rows = sheet_to_objects(workbook, CARD_SPECIAL_SHEET)
-    card_library, solder_data = build_cards(base_rows, special_rows, key_map)
+    random_rows = sheet_to_objects(workbook, RANDOM_SHEET) if RANDOM_SHEET in workbook.sheetnames else []
+    random_definitions = build_random_definitions(random_rows)
+    card_library, solder_data = build_cards(base_rows, special_rows, key_map, random_definitions)
     card_id_aliases, card_effect_id_aliases = build_id_aliases(
         base_rows, special_rows, card_map_path, effect_map_path
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        render_cards_js(card_library, solder_data, card_id_aliases, card_effect_id_aliases),
+        render_cards_js(card_library, solder_data, card_id_aliases, card_effect_id_aliases, random_definitions),
         encoding="utf-8",
     )
     print(f"Built {output_path} from {input_path}")
     print(f"Cards: artifacts={len(card_library['artifacts'])}, spells={len(card_library['spells'])}, solder={len(solder_data)}")
+    print(f"Random definitions: {len(random_definitions)}")
 
 
 def main() -> None:
