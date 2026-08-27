@@ -11,6 +11,7 @@
       'stat-dashboard.css?v=20260813c',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260727b',
+      'public-release-config.js?v=20260828a',
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260813a',
@@ -22,11 +23,12 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260827ai',
+      'formation-damage-dps-prototype.css?v=20260828a',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260801a',
+      'public-release-config.js?v=20260828a',
       'sp-engine.js?v=20260720b',
-      'stat-engine.js?v=20260808a',
+      'stat-engine.js?v=20260828a',
       'apostles.js?v=20260801a',
       'cards.js?v=20260813a',
       'synergy.js',
@@ -37,21 +39,23 @@
       'dps-simulator.js?v=20260827n',
       'dps-simulator-worker.js?v=20260827m',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260826k',
-      'formation-damage-dps-prototype.js?v=20260827ak',
+      'formation-damage-calc.js?v=20260828b',
+      'formation-damage-dps-prototype.js?v=20260828c',
       'image-preload.js?v=20260727a'
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260827ai',
-      'formation-damage-dps-prototype.js?v=20260827ak',
+      'formation-damage-dps-prototype.css?v=20260828a',
+      'formation-damage-dps-prototype.js?v=20260828c',
+      'public-release-config.js?v=20260828a',
+      'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',
       'dps-timing-data.js?v=20260827b',
       'dps-simulator.js?v=20260827n',
       'dps-simulator-worker.js?v=20260827m',
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-calc.js?v=20260826k'
+      'formation-damage-calc.js?v=20260828b'
     ]
   };
 

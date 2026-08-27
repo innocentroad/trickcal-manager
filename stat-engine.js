@@ -33,6 +33,11 @@
     return JSON.parse(JSON.stringify(value || {}));
   }
 
+  function isPublicAsideEnabled(id) {
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    return typeof checker !== 'function' || checker(id);
+  }
+
   function encodeNumberVector(source = {}, keys = []) {
     return keys.map(key => Number(source?.[key]) || 0);
   }
@@ -276,7 +281,9 @@
     const skillLevelSum = ['low', 'high', 'passive']
       .map(key => Math.max(1, Number(skills[key]) || 1))
       .reduce((total, value) => total + value, 0);
-    const asideBonus = (Number(apostleState.asideRank) || 0) >= 2 ? COMBAT_POWER_ASIDE_BONUS : 0;
+    const asideBonus = isPublicAsideEnabled(basic?.id) && (Number(apostleState.asideRank) || 0) >= 2
+      ? COMBAT_POWER_ASIDE_BONUS
+      : 0;
     const basePower = (Number(stats.hp) || 0) * 0.08
       + activeAttack * 2.1
       + (defensesAndCrit + correctionA) * 0.7;
@@ -368,7 +375,7 @@
 
   function calculateAsideManifestTotals(data, basic, state) {
     const totals = createEmptyTotals();
-    if (!(Number(state?.asideRank) || 0)) return totals;
+    if (!isPublicAsideEnabled(basic?.id) || !(Number(state?.asideRank) || 0)) return totals;
     const row = getAsideTierRow(data, basic);
     const attackFields = getAsideAttackFields(basic);
     const attackKey = attackFields.key;
@@ -389,6 +396,7 @@
 
   function calculateAsideLevelTotals(data, basic, state) {
     const totals = createEmptyTotals();
+    if (!isPublicAsideEnabled(basic?.id)) return totals;
     const rank = Math.max(0, Math.min(3, Number(state?.asideRank) || 0));
     const level = Number(state?.asideLevel) || 0;
     const multiplier = ({ 1: 3, 2: 3.09, 3: 3.18 })[rank] || 0;
@@ -418,7 +426,9 @@
     const levelCaps = { 1: 120, 2: 120, 3: 125, 4: 135, 5: 145 };
     const level = Math.max(1, Math.min(levelCaps[star] || 120, Number(overrides.level ?? apostleState?.level) || 1));
     const rank = Math.max(1, Math.min(10, Number(overrides.rank ?? apostleState?.rank) || 1));
-    const asideRank = Math.max(0, Math.min(3, Number(overrides.asideRank ?? apostleState?.asideRank) || 0));
+    const asideRank = isPublicAsideEnabled(basic?.id)
+      ? Math.max(0, Math.min(3, Number(overrides.asideRank ?? apostleState?.asideRank) || 0))
+      : 0;
     const asideLevelCap = [0, 30, 40, 50][asideRank] || 0;
     const asideLevel = asideLevelCap
       ? Math.max(1, Math.min(asideLevelCap, Number(overrides.asideLevel ?? apostleState?.asideLevel) || 1))

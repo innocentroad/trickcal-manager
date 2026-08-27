@@ -128,7 +128,11 @@ const fdcRuntimeSource = source
     '    createDpsEvaluationInput,\n',
     [
       '    createDpsEvaluationInput,',
+      '    collectEffects,',
+      '    createDpsActionEffectAudit,',
       '    createDpsRuntimeEffects,',
+      '    createDpsRuntimeEffectIdentity,',
+      '    createDpsRuntimeEffectId,',
       '    createDpsStructuredRuntimeEvents,',
       '    buildFdcApostleSkillOptions,',
       '    buildDpsActionProfiles,',
@@ -274,6 +278,177 @@ assert.deepEqual(plain(generatedDollBuff?.modifiers), { enhancedAddP: 50 },
   'FDC生成結果の呪いのぬいぐるみはenhancedAddPだけを持つ');
 assert.equal(generatedDollBuff?.durationFrames, 360,
   'FDC生成結果の呪いのぬいぐるみは6秒=360Fにする');
+
+const piraCardEffectRow = ownerId => ({
+  key: `effect:${ownerId}:artifact_pira_gleaming_business_card_e01`,
+  cardId: 'artifact_pira_gleaming_business_card',
+  effectId: 'artifact_pira_gleaming_business_card_e01',
+  sourceId: 'artifact_pira_gleaming_business_card',
+  ownerId,
+  ownerName: ownerId,
+  label: '戦闘開始時 攻撃速度',
+  source: '編成遺物',
+  category: 'カード',
+  effectType: 'バフ',
+  condition: '戦闘開始時',
+  triggerType: '戦闘開始時',
+  effectTarget: '同列',
+  rawText: '戦闘開始時 同列 攻撃速度',
+  durationSeconds: 0,
+  stackMax: 1,
+  stackable: false,
+  nonStackingSameEffect: false,
+  nonStackingSameApostle: true,
+  bonuses: { hasteP: 16 },
+  runtimeBonuses: { hasteP: 16 },
+  enabled: true,
+  sourceDisabled: false,
+  singleManualDisabled: false
+});
+const piraRuntime = fdcApi.createDpsRuntimeEffects({
+  basicAttack: { rows: [piraCardEffectRow('AllyA'), piraCardEffectRow('AllyB')] }
+}, {});
+assert.equal(piraRuntime.attackSpeedEffects.length, 2,
+  '同効果非スタックOFFの名刺は別使徒ごとにDPSランタイムを分離する');
+assert.equal(
+  piraRuntime.attackSpeedEffects.reduce((sum, effect) => sum + effect.hasteP, 0),
+  32,
+  '別使徒が装備したピラの名刺は攻撃速度を加算する'
+);
+const sameEffectPiraRuntime = fdcApi.createDpsRuntimeEffects({
+  basicAttack: {
+    rows: [
+      { ...piraCardEffectRow('AllyA'), nonStackingSameEffect: true },
+      { ...piraCardEffectRow('AllyB'), nonStackingSameEffect: true }
+    ]
+  }
+}, {});
+assert.equal(sameEffectPiraRuntime.attackSpeedEffects.length, 1,
+  '同効果非スタックONの効果は装備者をまたいで1件に統合する');
+
+// 本番の編成遺物収集経路でも、別使徒が装備した同じカードのownerIdを
+// 効果行へ保持し、DPSランタイムの分離まで届くことを確認する。
+const piraCard = cardDataContext.library.artifacts.find(card => (
+  card.id === 'artifact_pira_gleaming_business_card'
+));
+assert.ok(piraCard, 'FDC focused test用のピラの輝く名刺が生成されている');
+const piraCollectionTarget = {
+  id: 'Sylla',
+  name: 'シーラ',
+  position: '後列',
+  line: 1,
+  artifactIds: ['artifact_pira_gleaming_business_card'],
+  role: '攻撃',
+  attackType: '物理',
+  stats: { physicalAtk: 1000, magicAtk: 1 }
+};
+const piraCollectionFormation = {
+  rows: [{
+    apostles: ['Sylla', 'Barong', ''],
+    artifacts: [[
+      'artifact_pira_gleaming_business_card', '', ''
+    ], [
+      'artifact_pira_gleaming_business_card', '', ''
+    ], ['', '', '']]
+  }, { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+  { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }],
+  spells: []
+};
+const piraCollectionCards = {
+  [piraCard.id]: { star: 1, solder: 0 }
+};
+const piraCollectedEffects = fdcApi.collectEffects({
+  target: piraCollectionTarget,
+  formation: piraCollectionFormation,
+  cards: piraCollectionCards,
+  damageType: 'physical',
+  state: { apostles: {}, cards: {} },
+  actionCategory: '基本攻撃'
+});
+const piraCollectedRows = piraCollectedEffects.applied
+  .filter(row => row.effectId === 'artifact_pira_gleaming_business_card_e01');
+assert.equal(piraCollectedRows.length, 2,
+  '実編成経路で同列の別使徒2人の名刺効果を2行収集する');
+assert.deepEqual(
+  plain(piraCollectedRows.map(row => row.ownerId).sort()),
+  ['Barong', 'Sylla'],
+  '実編成経路で名刺効果の実装備者IDを保持する'
+);
+const piraCollectedAudit = {
+  basicAttack: {
+    rows: piraCollectedRows.map((row, index) => ({
+      ...row,
+      key: `pira-collected:${index}`,
+      sourceId: row.cardId,
+      category: 'カード',
+      rawText: row.effectText,
+      runtimeBonuses: row.bonuses,
+      enabled: true,
+      sourceDisabled: false,
+      singleManualDisabled: false,
+      durationSeconds: 0,
+      stackMax: 1,
+      stackable: false
+    }))
+  }
+};
+const piraCollectedRuntime = fdcApi.createDpsRuntimeEffects(piraCollectedAudit, {});
+assert.equal(piraCollectedRuntime.attackSpeedEffects.length, 2,
+  '実編成経路で収集した名刺効果を別装備者のDPSランタイムへ分離する');
+assert.equal(
+  piraCollectedRuntime.attackSpeedEffects.reduce((sum, effect) => sum + effect.hasteP, 0),
+  32,
+  '実編成経路で収集した名刺効果を16%+16%で反映する'
+);
+const piraProductionAudit = fdcApi.createDpsActionEffectAudit({
+  target: piraCollectionTarget,
+  actionCategory: '基本攻撃',
+  damageType: 'physical',
+  state: { apostles: {}, cards: {} },
+  formation: piraCollectionFormation,
+  effects: piraCollectedEffects,
+  members: [
+    { id: 'Sylla', name: 'シーラ', position: '後列', line: 1 },
+    { id: 'Barong', name: 'バロン', position: '後列', line: 2 }
+  ],
+  skillEffectStateOverrides: {}
+});
+const piraProductionRows = piraProductionAudit.rows.filter(row => (
+  row.effectId === 'artifact_pira_gleaming_business_card_e01'
+));
+assert.equal(piraProductionRows.length, 2,
+  '本番DPS監査経路で名刺効果を2行保持する');
+assert.deepEqual(
+  plain(piraProductionRows.map(row => row.ownerId).sort()),
+  ['Barong', 'Sylla'],
+  '本番DPS監査経路で名刺効果のownerIdを失わない'
+);
+const piraProductionRuntime = fdcApi.createDpsRuntimeEffects({
+  basicAttack: piraProductionAudit
+}, {});
+assert.equal(piraProductionRuntime.attackSpeedEffects.length, 2,
+  '本番DPS監査から生成した名刺ランタイムを別装備者へ分離する');
+assert.equal(
+  piraProductionRuntime.attackSpeedEffects.reduce((sum, effect) => sum + effect.hasteP, 0),
+  32,
+  '本番DPS監査から生成した名刺ランタイムを16%+16%で反映する'
+);
+const syllaDpsApostle = apostleContext.library.find(apostle => apostle.id === 'sylla');
+const syllaDpsTiming = timingData.apostles.sylla;
+const piraOneCardConfig = simulator.buildCombatantConfig(syllaDpsApostle, syllaDpsTiming, {
+  runtimeEffects: {
+    attackSpeedEffects: piraProductionRuntime.attackSpeedEffects.slice(0, 1)
+  }
+});
+const piraTwoCardConfig = simulator.buildCombatantConfig(syllaDpsApostle, syllaDpsTiming, {
+  runtimeEffects: {
+    attackSpeedEffects: piraProductionRuntime.attackSpeedEffects
+  }
+});
+assert.ok(
+  piraTwoCardConfig.initialNormalAttackIntervalFrames < piraOneCardConfig.initialNormalAttackIntervalFrames,
+  '名刺1個から2個へ増やすとDPS用通常攻撃間隔が短くなる'
+);
 
 const barongApostle = apostleContext.library.find(apostle => apostle.id === 'barong');
 const structuredBarong = fdcApi.createDpsStructuredRuntimeEvents({

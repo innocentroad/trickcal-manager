@@ -125,7 +125,9 @@
 
   function syncAsideAvailability(apostleId, apostleName) {
     const sheets = typeof TRICKCAL_STAT_DATA === 'undefined' ? {} : TRICKCAL_STAT_DATA.sheets;
-    const hasAside = ['asideStatEffects', 'asideSpecialEffects'].some(sheetName =>
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    const isPublicAsideEnabled = typeof checker !== 'function' || checker(apostleId);
+    const hasAside = isPublicAsideEnabled && ['asideStatEffects', 'asideSpecialEffects'].some(sheetName =>
       (sheets[sheetName] || []).some(row => row.id === apostleId)
     );
 

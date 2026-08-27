@@ -268,7 +268,7 @@
     }
 
     renderAvailability(snapshot, support) {
-      const { value, total, state, meta, run } = this.elements;
+      const { value, state, meta, run } = this.elements;
       this.renderProvisionalBadge(support);
       const options = this.getOptions();
       this.currentAxis = this.createAxis(snapshot, options);
@@ -284,7 +284,6 @@
         this.requiresRecalculation = true;
         this.clearComparison();
         value.textContent = '再計算必要';
-        total.textContent = '—';
         state.textContent = '条件変更・再計算必要';
         meta.textContent = '使徒の育成・装備・スキル・敵またはDPS設定が変更されました';
         this.elements.drawerStatus.textContent = '条件変更・再計算必要';
@@ -294,7 +293,6 @@
       if (!support.supported) {
         this.clearComparison();
         value.textContent = 'DPS未対応';
-        total.textContent = '—';
         state.textContent = support.reason || '未対応構成';
         meta.textContent = '';
         this.elements.drawerStatus.textContent = state.textContent;
@@ -307,7 +305,6 @@
       }
       if (!this.latest && !stale && !this.requiresRecalculation) {
         value.textContent = '未計算';
-        total.textContent = '—';
       }
       if (!stale && !this.latest && !this.requiresRecalculation) {
         state.textContent = `${support.label || snapshot.targetName || snapshot.targetId} / ${support.configuration || '対応済み構成'}`;
@@ -325,7 +322,6 @@
       this.latest = null;
       this.requiresRecalculation = true;
       this.elements.value.textContent = 'DPS未対応';
-      this.elements.total.textContent = '—';
       this.elements.state.textContent = 'snapshot取得エラー';
       this.elements.meta.textContent = error?.message || '通常計算ページを読み込めません。';
       this.elements.drawerStatus.textContent = this.elements.state.textContent;
@@ -468,7 +464,6 @@
       const trialSummary = getTrialSummary(options, aggregate);
       this.elements.value.textContent = formatDamage(aggregate.meanDps);
       this.renderProvisionalBadge(support);
-      this.elements.total.textContent = formatDamage(aggregate.totalExpectedDamage);
       this.elements.state.textContent = `${support.label} / ${support.configuration}`;
       this.elements.meta.textContent = `${trialSummary.compact} / ${options.durationSeconds}秒`;
       this.elements.drawerStatus.textContent = `計算済み: ${trialSummary.compact} / ${options.durationSeconds}秒`;
@@ -689,7 +684,7 @@
 
   function createElements() {
     return {
-      bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), total: document.getElementById('fdcp-total-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), run: document.getElementById('fdcp-dps-run'),
+      bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), run: document.getElementById('fdcp-dps-run'),
       drawer: document.getElementById('fdcp-dps-detail-panel'), drawerStatus: document.getElementById('fdcp-drawer-status'), detailGrid: document.getElementById('fdcp-dps-detail-grid'),
       duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
       settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
@@ -1308,26 +1303,63 @@
     }).join('');
     return `<details class="fdc-dps-effect-audit-panel"><summary>行動別適用効果 <span>${formatNumber(effectKeys.length)}効果</span></summary><p>固定効果はON/OFF、時間変化する効果はDPS自動の発動実績・起点・適用対象を表示します。単発計算の仮定トグルとは独立しています。</p>${runtimeControls}<div class="fdc-dps-effect-matrix" style="--fdc-effect-column-count:${columns.length}"><div class="fdc-dps-effect-matrix-head"><span>効果</span>${headers}</div>${rows}</div></details>`;
   }
+  function formatDpsRuntimeBuffModifiers(modifiers = {}) {
+    const labels = {
+      atkP: '攻撃力', physicalAtkP: '物理攻撃力', magicAtkP: '魔法攻撃力', addP: '与ダメージ量',
+      normalAttackAddP: '普通攻撃ダメージ量', basicAddP: '基本攻撃ダメージ量', enhancedAddP: '強化攻撃ダメージ量',
+      skillAddP: 'スキルダメージ量', lowSkillAddP: '低学年スキルダメージ量', highSkillAddP: '高学年スキルダメージ量',
+      specialP: '特殊倍率', otherP: 'その他倍率', actionMultiplierBonusP: '行動倍率',
+      normalAttackMultiplierBonusP: '普通攻撃行動倍率', basicMultiplierBonusP: '基本攻撃行動倍率',
+      enhancedMultiplierBonusP: '強化攻撃行動倍率', skillActionMultiplierBonusP: 'スキル行動倍率',
+      lowSkillMultiplierBonusP: '低学年スキル行動倍率', highSkillMultiplierBonusP: '高学年スキル行動倍率',
+      selfDestructMultiplierBonusP: '自爆行動倍率', critP: '会心', critRateP: '会心率', critDmgP: '会心DMG',
+      critDmgAddP: '会心DMG量', enemyDefDownP: '敵防御力低下', enemyCritResDownP: '敵会心抵抗低下',
+      enemyCritDmgResDownP: '敵会心DMG抵抗低下'
+    };
+    return Object.entries(modifiers || {})
+      .filter(([, value]) => Number(value))
+      .map(([key, value]) => `${labels[key] || key} ${Number(value) > 0 ? '+' : ''}${formatNumber(value)}%`)
+      .join(' / ');
+  }
   function formatDpsTimelineEvent(event = {}) {
     const action = event.actionLabel || '';
     const variant = event.variant ? ` / ${event.variant}` : '';
     const generated = event.generatedObjectId ? ` / ${event.generatedObjectName || event.generatedObjectId}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}` : '';
+    const statusReaction = event.statusTakenDmgP ? ` / 状態反応 +${formatNumber(event.statusTakenDmgP)}%` : '';
+    const statusDamageWeakness = event.statusDamageP ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%` : '';
     const hitEvaluation = event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001 ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）` : '';
+    const runtimeBuffValue = formatDpsRuntimeBuffModifiers(event.modifiers) || (event.attackPPerStack ? `物理攻撃力 +${formatNumber(event.attackPPerStack)}%` : '補正適用');
+    const cooldownDeltaFrames = Math.abs((Number(event.beforeFrames) || 0) - (Number(event.afterFrames) || 0));
+    const cooldownChange = event.operation === 'multiply'
+      ? `CT ×${formatNumber(event.multiplier)}`
+      : `CT ${Number(event.afterFrames) <= Number(event.beforeFrames) ? '-' : '+'}${formatNumber(cooldownDeltaFrames / 60)}秒`;
     const map = {
-      actionStart: `${action}${variant} 開始`, actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
+      skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
+      movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
+      movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
+      actionStart: `${action}${variant} 開始`,
+      actionEnd: `${action}${variant} 終了`,
+      hit: `${action}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
       effect: `${action}${variant} 効果発生${event.effectId ? ` / ${event.effectId}` : ''}`,
-      runtimeEffectProbability: `${action ? `${action} / ` : ''}${event.label || '時系列効果'} 発動抽選 / ${formatNumber(event.probability)}% ${event.success ? '成功' : '不発'}${event.reason ? ` / ${event.reason}` : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
-      runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
-      resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
-      runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
-      runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
-      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
-      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}`,
-      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`,
       spRecovery: event.capped ? `SP回復周期 / 上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
       spRecoveryEvent: `${event.label || 'SP回復'} / ${event.reason || '効果発生'} / ${event.capped ? `上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`}`,
-      lowSkillReady: `低学年発動可能 / SP ${formatNumber(event.sp)}`
+      cooldownChanged: `${event.label || 'クールタイム変更'} / ${cooldownChange} → 残り${formatNumber((Number(event.afterFrames) || 0) / 60)}秒${event.ready ? '（発動可能）' : ''}`,
+      lowSkillReady: `低学年発動可能 / SP ${formatNumber(event.sp)}`,
+      attackSpeedInitial: `${event.label} 開始時適用 / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      attackSpeedStack: `${event.label} ${formatNumber(event.stackCount)}スタック / 今回+${formatNumber(event.addedHasteP)}%・累計+${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      attackSpeedApplied: `${event.label} ${formatNumber(event.stackCount)}スタック / 今回+${formatNumber(event.addedHasteP)}%・累計+${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      attackSpeedExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}%`,
+      attackSpeedReset: `${event.label} リセット / ${formatNumber(event.previousStackCount)}→0スタック / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
+      runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${runtimeBuffValue}${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
+      runtimeEffectProbability: `${action ? `${action} / ` : ''}${event.label || '時系列効果'} 発動抽選 / ${formatNumber(event.probability)}% ${event.success ? '成功' : '不発'}${event.reason ? ` / ${event.reason}` : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
+      runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
+      runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
+      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
+      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
+      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusReaction}${statusDamageWeakness}`,
+      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`
     };
     return map[event.type] || `${action}${action ? ' / ' : ''}${event.label || event.type || 'イベント'}`;
   }
@@ -1336,7 +1368,12 @@
     const visible = timeline.slice(0, Math.max(160, visibleLimit));
     const remaining = Math.max(0, timeline.length - visible.length);
     const more = remaining ? `<div class="fdc-dps-timeline-more"><span>${formatNumber(visible.length)} / ${formatNumber(timeline.length)}件を表示</span><button type="button" data-fdcp-timeline-more>続きを${formatNumber(Math.min(100, remaining))}件表示</button></div>` : '';
-    return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary><div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}</div></details>`;
+    const timelineStats = single?.timelineStats || {};
+    const omittedCount = Math.max(0, Number(timelineStats.omitted) || 0);
+    const omitted = omittedCount
+      ? `<p class="fdc-dps-empty">記録上限により計${formatNumber(Number(timelineStats.total) || timeline.length + omittedCount)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`
+      : '';
+    return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary><div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}${omitted}</div></details>`;
   }
   function createDpsDetailComparisonRows(comparison = {}) {
     const rows = [

@@ -48,6 +48,17 @@
   const FORMATION_COIN_CP_RATE = 0.000012;
   const FORMATION_POINTER_DRAG_THRESHOLD = 8;
 
+  function isPublicAsideEnabled(id) {
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    return typeof checker !== 'function' || checker(id);
+  }
+
+  function getEffectiveAsideRank(id, rank) {
+    return isPublicAsideEnabled(id)
+      ? Math.max(0, Math.min(3, Number(rank) || 0))
+      : 0;
+  }
+
   function shouldAutofocusTextInput() {
     return window.innerWidth > 700
       && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
@@ -858,6 +869,7 @@
     });
 
     elements.asideRankSelect.addEventListener('change', () => {
+      if (!isPublicAsideEnabled(view.id)) return;
       const history = beginHistoryAction('アサイドRank変更');
       const state = currentApostleState();
       state.asideRank = Number(elements.asideRankSelect.value) || 0;
@@ -872,6 +884,7 @@
     });
 
     elements.asideLevelSelect.addEventListener('change', () => {
+      if (!isPublicAsideEnabled(view.id)) return;
       const history = beginHistoryAction('アサイドLv変更');
       const state = currentApostleState();
       state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
@@ -2302,11 +2315,11 @@
   }
 
   function syncAsideControlsFromState(state) {
-    state.asideRank = Number(state.asideRank) || 0;
-    state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
-    elements.asideRankSelect.value = String(state.asideRank);
-    renderAsideLevelOptions(state.asideRank);
-    elements.asideLevelSelect.value = String(state.asideLevel || 0);
+    const asideRank = getEffectiveAsideRank(view.id, state.asideRank);
+    const asideLevel = normalizeAsideLevelForRank(state.asideLevel, asideRank);
+    elements.asideRankSelect.value = String(asideRank);
+    renderAsideLevelOptions(asideRank);
+    elements.asideLevelSelect.value = String(asideLevel || 0);
   }
 
   function renderLevelOptions(star) {
@@ -2361,8 +2374,9 @@
   }
 
   function syncSkillLevelControlsFromState(state) {
-    const maxLevel = getMaxSkillLevel(state.asideRank);
-    state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+    const asideRank = getEffectiveAsideRank(view.id, state.asideRank);
+    const skillLevels = normalizeSkillLevels(state.skillLevels, asideRank);
+    const maxLevel = getMaxSkillLevel(asideRank);
     [
       ['low', elements.lowSkillLevelSelect, elements.lowSkillLevelOutput],
       ['high', elements.highSkillLevelSelect, elements.highSkillLevelOutput],
@@ -2379,11 +2393,11 @@
         control.max = String(maxLevel);
         control.step = '1';
       }
-      control.value = String(state.skillLevels[group]);
-      if (output) output.textContent = String(state.skillLevels[group]);
+      control.value = String(skillLevels[group]);
+      if (output) output.textContent = String(skillLevels[group]);
     });
-    if (elements.skillLevelCapNote) elements.skillLevelCapNote.textContent = state.asideRank
-      ? `A${state.asideRank}上限: ${maxLevel}`
+    if (elements.skillLevelCapNote) elements.skillLevelCapNote.textContent = asideRank
+      ? `A${asideRank}上限: ${maxLevel}`
       : `上限: ${maxLevel}`;
   }
 
@@ -3371,25 +3385,26 @@
   function renderProfileMetaChips(state) {
     const basic = DATA.getById('basicInfo', view.id);
     const bondLocked = isBondLockedApostle(basic);
-    const skills = state.skillLevels || {};
+    const asideRank = getEffectiveAsideRank(basic?.id, state.asideRank);
+    const skills = normalizeSkillLevels(state.skillLevels, asideRank);
     const chips = [
       renderProfileMetaSelectChip('Lv', 'level', state.level, createNumberOptions(1, getLevelCapForStar(state.star)), 'level'),
       renderProfileMetaSelectChip('Rank', 'rank', state.rank, createNumberOptions(1, 9), 'rank'),
       renderProfileMetaSelectChip('好感度Lv', 'bond', state.bond, createNumberOptions(1, 30), 'bond', bondLocked)
     ];
     if (hasAsideEffects(basic?.id)) {
-      chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', Number(state.asideRank) || 0, [
+      chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', asideRank, [
         { value: 0, label: '未' },
         { value: 1, label: 'A1' },
         { value: 2, label: 'A2' },
         { value: 3, label: 'A3' }
       ], 'aside'));
-      if (Number(state.asideRank) || 0) {
+      if (asideRank) {
         chips.push(renderProfileMetaSelectChip(
           'アサイドLv',
           'asideLevel',
-          state.asideLevel,
-          createNumberOptions(1, getAsideLevelCap(state.asideRank)),
+          normalizeAsideLevelForRank(state.asideLevel, asideRank),
+          createNumberOptions(1, getAsideLevelCap(asideRank)),
           'aside-level'
         ));
       }
@@ -3398,9 +3413,9 @@
       <span class="profile-meta-chip profile-meta-chip-skill">
         <small>SLv</small>
         <strong class="profile-skill-levels">
-          ${renderProfileMiniSelect('低', 'skillLow', skills.low ?? 1, createNumberOptions(1, getMaxSkillLevel(state.asideRank)))}
-          ${renderProfileMiniSelect('高', 'skillHigh', skills.high ?? 1, createNumberOptions(1, getMaxSkillLevel(state.asideRank)))}
-          ${renderProfileMiniSelect('P', 'skillPassive', skills.passive ?? 1, createNumberOptions(1, getMaxSkillLevel(state.asideRank)))}
+          ${renderProfileMiniSelect('低', 'skillLow', skills.low ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
+          ${renderProfileMiniSelect('高', 'skillHigh', skills.high ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
+          ${renderProfileMiniSelect('P', 'skillPassive', skills.passive ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
         </strong>
       </span>
     `);
@@ -3589,7 +3604,7 @@
   }
 
   function ensureStarForAsideManifest(state) {
-    if (!state || !(Number(state.asideRank) || 0)) return;
+    if (!state || !isPublicAsideEnabled(view.id) || !(Number(state.asideRank) || 0)) return;
     if (normalizeApostleStar(state.star) >= APOSTLE_STAR_MAX) return;
     state.star = APOSTLE_STAR_MAX;
     state.level = normalizeApostleLevel(state.level, state.star);
@@ -3599,6 +3614,7 @@
   }
 
   function updateProfileField(field, rawValue) {
+    if (['asideRank', 'asideLevel'].includes(field) && !isPublicAsideEnabled(view.id)) return;
     const historyLabels = {
       level: 'Lv変更',
       grade: '学年変更',
@@ -4128,6 +4144,10 @@
 
   function renderAsideInfoList(basic) {
     if (!elements.asideInfoList || !basic) return;
+    if (!isPublicAsideEnabled(basic.id)) {
+      elements.asideInfoList.innerHTML = '<p class="muted-line">アサイド情報がありません。</p>';
+      return;
+    }
     const statRows = DATA.getById('asideStatEffects', basic.id) || [];
     const specialRows = DATA.getById('asideSpecialEffects', basic.id) || [];
     const rows = [...statRows, ...specialRows];
@@ -4199,8 +4219,8 @@
     }
 
     const state = currentApostleState();
-    const rank = Number(state.asideRank) || 0;
-    const level = Number(state.asideLevel) || 0;
+    const rank = getEffectiveAsideRank(basic.id, state.asideRank);
+    const level = normalizeAsideLevelForRank(state.asideLevel, rank);
     const attackType = String(basic.攻撃タイプ || basic['攻撃Type'] || '').trim();
     const attackLabel = attackType === '魔法' ? '魔法攻撃' : '物理攻撃';
     const attackFields = getAsideAttackFieldNames(basic);
@@ -4998,10 +5018,12 @@
     const state = ensureApostleState(basic.id);
     const combatPower = getApostleCombatPowerForSort(basic.id);
     const identityMeta = [basic.性格, basic.種族].filter(Boolean).join(' / ');
+    const asideRank = getEffectiveAsideRank(basic.id, state.asideRank);
+    const skillLevels = normalizeSkillLevels(state.skillLevels, asideRank);
     const combatPowerDetail = view.apostleBulkSort === 'combatPower'
       ? `CP ${formatApostleListCombatPower(combatPower)}`
       : '';
-    const maxSkillLevel = getMaxSkillLevel(state.asideRank);
+    const maxSkillLevel = getMaxSkillLevel(asideRank);
     const starOptions = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => ({
       value: index + 1,
       label: String(index + 1)
@@ -5051,14 +5073,14 @@
             data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="level" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} Lv`)}">
         </label>
         <div class="apostle-bulk-group apostle-bulk-skills" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} SLv`)}">
-          <span class="apostle-bulk-group-title">SLv${state.asideRank ? `<small>A${state.asideRank}<br>上限${maxSkillLevel}</small>` : ''}</span>
+          <span class="apostle-bulk-group-title">SLv${asideRank ? `<small>A${asideRank}<br>上限${maxSkillLevel}</small>` : ''}</span>
           ${[
             ['low', '低'],
             ['high', '高'],
             ['passive', 'P']
           ].map(([key, label]) => `
             <label><span>${label}</span><select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-skill="${key}"
-              aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${label}学年SLv`)}">${renderOptions(skillOptions, state.skillLevels[key])}</select></label>
+              aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${label}学年SLv`)}">${renderOptions(skillOptions, skillLevels[key])}</select></label>
           `).join('')}
         </div>
         <div class="apostle-bulk-group apostle-bulk-equipments" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} 装備 Rank ${state.rank}`)}">
@@ -9160,6 +9182,7 @@
   }
 
   function applyAsideManifestBonus(basic, totals, activeEffects, breakdown) {
+    if (!isPublicAsideEnabled(basic?.id)) return;
     const state = currentApostleState();
     const rank = Number(state.asideRank) || 0;
     const level = Number(state.asideLevel) || 0;
@@ -9773,6 +9796,7 @@
     const effectTotals = createEmptyTotals();
     let count = 0;
     DATA.sheets.basicInfo.forEach(basic => {
+      if (!isPublicAsideEnabled(basic.id)) return;
       const state = ensureApostleState(basic.id);
       if ((Number(state.asideRank) || 0) < 3) return;
       const entries = collectAsideLevel3Entries(basic.id);
@@ -9805,8 +9829,9 @@
   }
 
   function hasAsideEffects(id) {
-    return !!(DATA.getById('asideStatEffects', id) || []).length
-      || !!(DATA.getById('asideSpecialEffects', id) || []).length;
+    return isPublicAsideEnabled(id)
+      && (!!(DATA.getById('asideStatEffects', id) || []).length
+        || !!(DATA.getById('asideSpecialEffects', id) || []).length);
   }
 
   function getAsideEffectRank(row) {
@@ -9971,7 +9996,7 @@
     state.grade = normalizeGrade(state.grade || 1);
     state.level = normalizeApostleLevel(state.level, state.star);
     state.bond = normalizeBondLevel(state.bond);
-    state.asideRank = Math.max(0, Math.min(3, Number(state.asideRank) || 0));
+    state.asideRank = getEffectiveAsideRank(id, state.asideRank);
     state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
     state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
     state.equipment = state.equipment && typeof state.equipment === 'object' ? state.equipment : {};
@@ -10097,7 +10122,9 @@
     const skillLevelSum = ['low', 'high', 'passive']
       .map(key => Math.max(1, Number(skills[key]) || 1))
       .reduce((total, value) => total + value, 0);
-    const asideBonus = (Number(state?.asideRank) || 0) >= 2 ? COMBAT_POWER_ASIDE_BONUS : 0;
+    const asideBonus = isPublicAsideEnabled(basic?.id) && (Number(state?.asideRank) || 0) >= 2
+      ? COMBAT_POWER_ASIDE_BONUS
+      : 0;
     const basePower = hp * 0.08
       + activeAttack * 2.1
       + (defensesAndCrit + correctionA) * 0.7;

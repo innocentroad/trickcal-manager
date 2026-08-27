@@ -15,6 +15,13 @@
     '苦痛': 12,
     '凍傷': 9
   });
+
+  function isPublicAsideEnabled(value) {
+    const id = typeof value === 'string' ? value : value?.id;
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    return typeof checker !== 'function' || checker(id);
+  }
+
   const PVP_ELIPH_REWARD_TIERS = Object.freeze([
     { minRank: 1001, maxRank: 3000, perRank: 0.8 },
     { minRank: 501, maxRank: 1000, perRank: 1 },
@@ -1091,14 +1098,15 @@
   function getEnemyIndividualBaseState(context, id = view.enemyApostleId) {
     const apostleState = context?.state?.apostles?.[id] || {};
     const basic = getApostle(id) || {};
+    const asideEnabled = isPublicAsideEnabled(id);
     return {
       level: Number(apostleState.level) || 1,
       star: Number(apostleState.star) || Number(basic.レア度) || 1,
       grade: Number(apostleState.grade) || 1,
       rank: Number(apostleState.rank) || 1,
       bond: Number(basic.レア度) === 1 ? 1 : Number(apostleState.bond) || 1,
-      asideRank: Math.max(0, Math.min(3, Number(apostleState.asideRank) || 0)),
-      asideLevel: Number(apostleState.asideLevel) || 0,
+      asideRank: asideEnabled ? Math.max(0, Math.min(3, Number(apostleState.asideRank) || 0)) : 0,
+      asideLevel: asideEnabled ? Number(apostleState.asideLevel) || 0 : 0,
       follow: basic.エルダイン ? false : !!apostleState.follow,
       skillLevels: clonePlain(apostleState.skillLevels || apostleState.skills || { low: 1, high: 1, passive: 1 }),
       equipment: clonePlain(apostleState.equipment || {}),
@@ -1112,9 +1120,12 @@
   function normalizeEnemyIndividualSettings(settings = {}, context = buildContext(), id = view.enemyApostleId) {
     const base = getEnemyIndividualBaseState(context, id);
     const basic = getApostle(id) || {};
+    const asideEnabled = isPublicAsideEnabled(id);
     const star = Math.max(1, Math.min(5, Number(settings.star ?? base.star) || 1));
     const levelCap = ({ 1: 120, 2: 120, 3: 125, 4: 135, 5: 145 })[star] || 120;
-    const asideRank = Math.max(0, Math.min(3, Number(settings.asideRank ?? base.asideRank) || 0));
+    const asideRank = asideEnabled
+      ? Math.max(0, Math.min(3, Number(settings.asideRank ?? base.asideRank) || 0))
+      : 0;
     const asideLevelCap = [0, 30, 40, 50][asideRank] || 0;
     const asideLevel = asideLevelCap
       ? Math.max(1, Math.min(asideLevelCap, Number(settings.asideLevel ?? base.asideLevel) || 1))
@@ -1220,6 +1231,14 @@
     const asideRank = settings.asideRank;
     const asideLevelCap = [0, 30, 40, 50][asideRank] || 0;
     const skillCap = 12 + asideRank;
+    const asideControls = isPublicAsideEnabled(id) ? `
+        <label class="fdc-enemy-individual-control"><span>アサイド</span><select data-fdc-enemy-individual-field="asideRank">
+          <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
+          ${renderEnemyIndividualOptions(3, asideRank, value => `A${value}`)}
+        </select></label>
+        <label class="fdc-enemy-individual-control"><span>アサイドLv</span><select data-fdc-enemy-individual-field="asideLevel" ${asideRank ? '' : 'disabled'}>
+          ${asideRank ? renderEnemyIndividualOptions(asideLevelCap, settings.asideLevel, value => `Lv ${value}`) : '<option value="0">-</option>'}
+        </select></label>` : '';
     const equipmentRow = getEnemyEquipmentRow(id);
     const cards = context?.state?.cards || {};
     const artifactRows = Array.from({ length: 3 }, (_, index) => {
@@ -1269,13 +1288,7 @@
         <label class="fdc-enemy-individual-control"><span>学年</span><select data-fdc-enemy-individual-field="grade">${renderEnemyIndividualOptions(6, settings.grade, value => `${value}年生`)}</select></label>
         <label class="fdc-enemy-individual-control"><span>好感度</span><select data-fdc-enemy-individual-field="bond" ${Number(basic.レア度) === 1 ? 'disabled' : ''}>${renderEnemyIndividualOptions(30, settings.bond, value => `Lv ${value}`)}</select></label>
         <div class="fdc-enemy-individual-control"><span>フォロー</span><button type="button" class="fdc-enemy-follow-control ${settings.follow ? 'is-on' : ''}" data-fdc-enemy-follow-toggle aria-pressed="${settings.follow ? 'true' : 'false'}" ${basic.エルダイン ? 'disabled' : ''}><span class="fdc-enemy-follow-indicator"></span><span>${settings.follow ? 'ON' : 'OFF'}</span></button></div>
-        <label class="fdc-enemy-individual-control"><span>アサイド</span><select data-fdc-enemy-individual-field="asideRank">
-          <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
-          ${renderEnemyIndividualOptions(3, asideRank, value => `A${value}`)}
-        </select></label>
-        <label class="fdc-enemy-individual-control"><span>アサイドLv</span><select data-fdc-enemy-individual-field="asideLevel" ${asideRank ? '' : 'disabled'}>
-          ${asideRank ? renderEnemyIndividualOptions(asideLevelCap, settings.asideLevel, value => `Lv ${value}`) : '<option value="0">-</option>'}
-        </select></label>
+        ${asideControls}
       </div>
       <details class="fdc-enemy-individual-section" data-fdc-enemy-individual-section="skills" ${view.enemyIndividualSectionOpen.skills !== false ? 'open' : ''}>
         <summary>スキルレベル</summary>
@@ -4860,7 +4873,7 @@
     const actionKey = encodeURIComponent(context.actionCategory || 'none');
     const options = [];
     context.members.forEach(member => {
-      if (!member?.id || member.id === target.id || Number(member.asideRank) < 3) return;
+      if (!member?.id || member.id === target.id || !isPublicAsideEnabled(member.id) || Number(member.asideRank) < 3) return;
       const apostle = getApostleSkillData(member);
       const aside3 = apostle?.aside?.levels?.[3];
       if (!aside3) return;
@@ -8796,6 +8809,8 @@
         effectText: text,
         cardName: row.name,
         ownerLabel: source === '装備遺物' ? '本人' : '',
+        ownerId: source === '装備遺物' ? (target?.id || '') : '',
+        ownerName: source === '装備遺物' ? (target?.name || '') : '',
         label: effect.label || effect.shortLabel || effect.id || '特殊効果',
         duration: effect.duration || '',
         scopeLabel: getArtifactEffectScopeLabel(effect),
@@ -8805,6 +8820,7 @@
         overlapStackKey: createArtifactEffectOverlapKey(source, row, effect, target),
         overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(row.qty) || 1),
         nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+        nonStackingSameApostle: isNonStackingSameApostleEffect(effect, text),
         damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
         ...getFdcRuntimeEffectMetadata(effect),
         ...(stackMeta || {})
@@ -8878,6 +8894,12 @@
           effectId: effect.id || '',
           effectText: text,
           cardName: ownerRow.name,
+          // 編成遺物は対象使徒とは別の使徒が装備している可能性がある。
+          // 後段のDPS監査で対象使徒をownerと誤認しないよう、効果の実際の
+          // 装備者を保持する。同じカードを別使徒が持つ場合、このIDが
+          // ランタイム効果の分離キーになる。
+          ownerId: ownerRow.ownerId || '',
+          ownerName: ownerRow.ownerName || ownerRow.ownerLabel || '',
           label: effect.label || effect.shortLabel || effect.id || '特殊効果',
           duration: effect.duration || '',
           scopeLabel: getArtifactEffectScopeLabel(effect),
@@ -8888,6 +8910,7 @@
           overlapStackKey: createArtifactEffectOverlapKey('編成遺物', ownerRow, effect, target),
           overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(ownerRow.qty) || 1),
           nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+          nonStackingSameApostle: isNonStackingSameApostleEffect(effect, text),
           damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
           ...getFdcRuntimeEffectMetadata(effect),
           ...(stackMeta || {}),
@@ -9649,20 +9672,33 @@
     let snapshot = mode === 'planned'
       ? apostleState.statSnapshots?.planned || apostleState.statSnapshots?.current || null
       : apostleState.statSnapshots?.current || null;
+    const statEngine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    if (
+      snapshot
+      && basic
+      && !isPublicAsideEnabled(basic)
+      && typeof statEngine?.applyApostleOverridesToSnapshot === 'function'
+    ) {
+      snapshot = statEngine.applyApostleOverridesToSnapshot(
+        TRICKCAL_STAT_DATA,
+        basic,
+        apostleState,
+        { snapshot, mode, kind: 'publicReleaseAsideDisabled' }
+      );
+    }
     if (
       !snapshot
       && basic
-      && typeof TRICKCAL_SHARED_STAT_ENGINE !== 'undefined'
-      && typeof TRICKCAL_SHARED_STAT_ENGINE.createInitialSnapshot === 'function'
+      && typeof statEngine?.createInitialSnapshot === 'function'
     ) {
-      snapshot = TRICKCAL_SHARED_STAT_ENGINE.createInitialSnapshot(
+      snapshot = statEngine.createInitialSnapshot(
         TRICKCAL_STAT_DATA,
         basic,
         apostleState
       );
     }
-    if (gradeOverride === 'saved' || !basic || typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined') return snapshot;
-    return TRICKCAL_SHARED_STAT_ENGINE.applyGradeOverrideToSnapshot(
+    if (gradeOverride === 'saved' || !basic || typeof statEngine?.applyGradeOverrideToSnapshot !== 'function') return snapshot;
+    return statEngine.applyGradeOverrideToSnapshot(
       TRICKCAL_STAT_DATA,
       basic,
       apostleState,
@@ -10763,6 +10799,7 @@
   }
 
   function getFdcApostleSkillRandomMaxLockInfo(apostle, levels, category) {
+    if (!isPublicAsideEnabled(apostle)) return null;
     const categoryText = String(category || '');
     return Object.entries(apostle?.aside?.levels || {}).reduce((found, [level, data]) => {
       if (found || !data || Number(level) > Number(levels.asideRank || 0)) return found;
@@ -10791,20 +10828,22 @@
         });
       });
     });
-    Object.entries(apostle?.aside?.levels || {}).forEach(([level, data]) => {
-      if (!data || Number(level) > Number(levels.asideRank || 0)) return;
-      sources.push({
-        skill: {
-          skillType: data.name || `アサイド${level}`,
-          skillName: data.description ? String(data.description).split(/\r?\n/)[0] : `アサイド${level}`,
-          description: data.description || '',
-          effects: normalizeFdcArray(data.effects),
-          stats: normalizeFdcArray(data.stats)
-        },
-        sourceLabel: `A${level}`,
-        sourceKey: `aside:${level}`
+    if (isPublicAsideEnabled(apostle)) {
+      Object.entries(apostle?.aside?.levels || {}).forEach(([level, data]) => {
+        if (!data || Number(level) > Number(levels.asideRank || 0)) return;
+        sources.push({
+          skill: {
+            skillType: data.name || `アサイド${level}`,
+            skillName: data.description ? String(data.description).split(/\r?\n/)[0] : `アサイド${level}`,
+            description: data.description || '',
+            effects: normalizeFdcArray(data.effects),
+            stats: normalizeFdcArray(data.stats)
+          },
+          sourceLabel: `A${level}`,
+          sourceKey: `aside:${level}`
+        });
       });
-    });
+    }
     return sources;
   }
 
@@ -10844,17 +10883,19 @@
       const selected = Number(levels.asideRank) === index ? ' selected' : '';
       return `<option value="${index}"${selected}>${index ? `A${index}` : 'なし'}</option>`;
     }).join('');
-    return `
-      <div class="fdc-skill-levels" aria-label="スキルレベル一時設定">
-        ${renderFdcSkillLevelSelect('low', '低学年', levels.low, skillOptions)}
-        ${renderFdcSkillLevelSelect('high', '高学年', levels.high, skillOptions)}
-        ${renderFdcSkillLevelSelect('passive', 'パッシブ', levels.passive, skillOptions)}
+    const asideControl = isPublicAsideEnabled(apostle) ? `
         <label class="fdc-skill-level-control level-aside">
           <span>アサイド</span>
           <select data-fdc-skill-level="asideRank" ${maxAsideRank ? '' : 'disabled'}>
             ${asideOptions}
           </select>
-        </label>
+        </label>` : '';
+    return `
+      <div class="fdc-skill-levels" aria-label="スキルレベル一時設定">
+        ${renderFdcSkillLevelSelect('low', '低学年', levels.low, skillOptions)}
+        ${renderFdcSkillLevelSelect('high', '高学年', levels.high, skillOptions)}
+        ${renderFdcSkillLevelSelect('passive', 'パッシブ', levels.passive, skillOptions)}
+        ${asideControl}
       </div>
     `;
   }
@@ -10871,6 +10912,7 @@
   }
 
   function getFdcMaxAsideRank(apostle) {
+    if (!isPublicAsideEnabled(apostle)) return 0;
     return Object.keys(apostle?.aside?.levels || {})
       .map(Number)
       .filter(Number.isFinite)
@@ -10880,7 +10922,10 @@
   function getFdcEffectiveSkillLevels(target) {
     const base = normalizeFdcSkillLevelConfig(target?.skillLevels || {});
     const override = target?.hasEnemyIndividualSkillLevels ? {} : getCurrentFdcSkillLevelOverride(target, base);
-    const asideRank = Number(override.asideRank ?? target?.asideRank ?? base.asideRank) || 0;
+    const asideEnabled = isPublicAsideEnabled(target);
+    const asideRank = asideEnabled
+      ? Number(override.asideRank ?? target?.asideRank ?? base.asideRank) || 0
+      : 0;
     const maxSkillLevel = Math.max(1, 12 + Math.min(3, asideRank));
     const clampSkill = value => Math.max(1, Math.min(maxSkillLevel, Number(value) || 1));
     return {
@@ -10888,7 +10933,7 @@
       high: clampSkill(override.high ?? base.high),
       passive: clampSkill(override.passive ?? base.passive),
       asideRank,
-      asideLevel: Number(override.asideLevel ?? target?.asideLevel ?? base.asideLevel) || 0
+      asideLevel: asideEnabled ? Number(override.asideLevel ?? target?.asideLevel ?? base.asideLevel) || 0 : 0
     };
   }
 
@@ -12673,6 +12718,38 @@
     });
   }
 
+  function getDpsRuntimeEffectOwnerId(row = {}, options = {}) {
+    return String(
+      row?.ownerId
+      || row?.ownerName
+      || options?.target?.id
+      || options?.target?.name
+      || ''
+    ).trim();
+  }
+
+  function createDpsRuntimeEffectIdentity(row = {}, options = {}, suffix = '') {
+    const sourceId = row.sourceId || row.cardId || row.source || 'effect';
+    const effectId = row.effectId || '';
+    if (row.nonStackingSameEffect && effectId) return `nonstack:${effectId}`;
+    // 同効果非スタックがOFFの効果は、別使徒の同じカードを別ランタイムに
+    // 分ける。そうしないと後段のMath.max()で、同列に届いた効果が1件分だけ
+    // 残ってしまう。1使徒内の複数枚はdatasheet側でqtyへ集約済みなので、
+    // ownerIdを含めたキーで同じ装備者の行動別重複だけを束ねる。
+    const ownerId = getDpsRuntimeEffectOwnerId(row, options);
+    const ownerSuffix = ownerId ? `:owner:${ownerId}` : '';
+    if (effectId) return `${sourceId}${ownerSuffix}:${effectId}${suffix}`;
+    return `${row.key || `${sourceId}:${row.label || 'effect'}`}${ownerSuffix}${suffix}`;
+  }
+
+  function createDpsRuntimeEffectId(row = {}, options = {}, key = '') {
+    const effectId = row.effectId || '';
+    if (!effectId) return key;
+    if (row.nonStackingSameEffect) return effectId;
+    const ownerId = getDpsRuntimeEffectOwnerId(row, options);
+    return ownerId ? `${effectId}:owner:${ownerId}` : effectId;
+  }
+
   function createDpsRuntimeEffects(audit = {}, options = {}) {
     const actionEntries = Object.entries(audit || {});
     const isSupersededRow = row => isDpsBaseSkillSourceSuperseded(
@@ -12698,6 +12775,7 @@
         if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
         const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
         const sourceId = row.sourceId || row.cardId || row.source || 'effect';
+        const ownerId = getDpsRuntimeEffectOwnerId(row, options);
         // One buff can be represented by separate low/high trigger rows in the sheet.
         // When the shared description explicitly names both actions, keep one runtime
         // instance so either action refreshes the duration instead of stacking twice.
@@ -12705,19 +12783,19 @@
           && /低学年/.test(runtimeTriggerText)
           && /高学年/.test(runtimeTriggerText)
           && /使用時|使用後|発動時|終了時/.test(runtimeTriggerText);
-        const nonStackingSameEffectKey = row.nonStackingSameEffect && row.effectId
-          ? `nonstack:${row.effectId}`
-          : '';
-        const key = nonStackingSameEffectKey
-          || (sharesLowHighTrigger
-          ? `${sourceId}:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
-          : row.effectId
-          ? `${row.sourceId || row.cardId || row.source || 'effect'}:${row.effectId}`
-          : row.key || `${row.label}:${hasteP}`);
+        const key = sharesLowHighTrigger
+          ? createDpsRuntimeEffectIdentity(
+            row,
+            options,
+            `:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
+          )
+          : createDpsRuntimeEffectIdentity(row, options);
         const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
         const item = grouped.get(key) || {
-          id: row.effectId || key,
+          id: createDpsRuntimeEffectId(row, options, key),
           sourceId: sourceId === 'effect' ? '' : sourceId,
+          ownerId,
+          ownerName: row.ownerName || ownerId,
           label: row.label || '攻撃速度効果',
           hasteP,
           condition: row.condition || '',
@@ -12903,12 +12981,12 @@
         if (actionTrigger && !statusApplicationTrigger && !triggerActionKeys.length) return;
         const sourceId = row.sourceId || row.cardId || row.source || 'effect';
         const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
-        const key = row.effectId
-          ? `${sourceId}:${row.effectId}`
-          : row.key || `${sourceId}:${row.label || 'damageBuff'}`;
+        const key = createDpsRuntimeEffectIdentity(row, options);
         const effect = damageBuffGroups.get(key) || {
-          id: row.effectId || key,
+          id: createDpsRuntimeEffectId(row, options, key),
           sourceId: sourceId === 'effect' ? '' : sourceId,
+          ownerId: getDpsRuntimeEffectOwnerId(row, options),
+          ownerName: row.ownerName || getDpsRuntimeEffectOwnerId(row, options),
           label: row.label || '時限ダメージバフ',
           mode: statusApplicationTrigger
             ? 'statusApplicationTimed'
@@ -13523,6 +13601,8 @@
         cardId: row.cardId || '',
         effectId: row.effectId || '',
         sourceId: row.cardId || row.source || '',
+        ownerId: row.ownerId || context.target?.id || '',
+        ownerName: row.ownerName || context.target?.name || '',
         label: [row.cardName, row.label].filter(Boolean).join(' / ') || row.source || '効果',
         source: row.source || '補正',
         category: row.cardId ? 'カード' : row.source || '',
@@ -13544,6 +13624,7 @@
         overlapStackKey: row.overlapStackKey || '',
         overlapCount: Math.max(1, Number(row.overlapCount) || 1),
         nonStackingSameEffect: !!row.nonStackingSameEffect,
+        nonStackingSameApostle: !!row.nonStackingSameApostle,
         rawText: [row.effectText, row.condition, row.triggerCondition, row.label, row.reason]
           .filter(Boolean).join(' '),
         value: formatBonusMap(bonuses),

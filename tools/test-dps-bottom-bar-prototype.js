@@ -19,6 +19,9 @@ const appCache = fs.readFileSync(path.join(root, 'app-cache.js'), 'utf8');
   'fdcp-auto-run', 'fdcp-high-mode', 'fdcp-duration', 'fdcp-trials', 'fdcp-seed', 'fdcp-dps-detail', 'fdcp-dps-detail-grid'
 ].forEach(id => assert.ok(html.includes(`id="${id}"`), `${id} is present`));
 assert.ok(html.includes('id="fdcp-provisional-badge"'), '暫定対応は下バー内の常時視認badgeを持つ');
+assert.ok(!html.includes('id="fdcp-total-value"'), 'collapsed DPSカードに平均総ダメージ表示を残さない');
+assert.ok(!script.includes('fdcp-total-value') && !/elements\.total(?![A-Za-z])/.test(script), 'collapsed DPSカードの総ダメージDOM参照・更新を残さない');
+assert.ok(script.includes("['平均総ダメージ', formatDamage(aggregate.totalExpectedDamage)]"), '平均総ダメージはDPS詳細に残す');
 assert.ok(css.includes('.fdcp-provisional-badge') && css.includes('position:absolute'), '暫定badgeは固定bar高を増やさない');
 assert.ok(!html.includes('id="fdcp-baseline-compare"'), '手動の現在と比較ボタンを残さない');
 assert.ok(html.includes('data-fdcp-mode="single"'), '通常計算タブを持つ');
@@ -124,17 +127,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype controllerは最新cache-bustを参照する');
-assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827aj'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260827ai'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828c'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828a'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestも最新controller queryを参照する');
-assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827aj'), 'cache manifestに旧controller queryを残さない');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828c'), 'cache manifestも最新controller queryを参照する');
+assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260827ai'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828a'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260827ad'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260828b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -228,8 +231,10 @@ const standaloneDpsAudit = testing.renderDpsActionEffectContent({
 });
 assert.match(standaloneDpsAudit, /<details class="fdc-dps-effect-audit-panel"><summary>行動別適用効果 <span>1効果<\/span><\/summary>[\s\S]*fdc-dps-effect-matrix[\s\S]*基本攻撃[\s\S]*強化攻撃[\s\S]*fdc-dps-effect-state is-on[\s\S]*fdc-dps-effect-state is-off/,
   '行動別適用効果は独立DPS上段と同じ効果行×行動列matrixを使う');
-assert.ok(!css.includes('.fdc-dps-effect-matrix-wrap') && !css.includes('overflow-x:auto') && !css.includes('min-width:560px') && script.includes('fdc-dps-effect-matrix') && !script.includes('fdc-dps-effect-action-details') && !script.includes('fdc-dps-effect-action-detail'),
+assert.ok(!css.includes('.fdc-dps-effect-matrix-wrap') && !css.includes('overflow-x:auto') && !css.includes('min-width:560px') && !css.includes('.fdcp-detail-collapsible') && !css.includes('.fdcp-action-effect-list') && !css.includes('.fdcp-timeline-list') && script.includes('fdc-dps-effect-matrix') && !script.includes('fdc-dps-effect-action-details') && !script.includes('fdc-dps-effect-action-detail'),
   '共有詳細は横scroll用wrap・固定min-width・旧縦action detailsを持たず、幅内matrixを使う');
+assert.ok(css.includes('.fdcp-dps-detail-panel .fdc-dps-runtime-settings,') && css.includes('.fdcp-dps-detail-panel .fdc-dps-effect-matrix,') && css.includes('.fdcp-dps-detail-panel .fdc-dps-timeline { display:block; }'),
+  '通常詳細シートの汎用divスタイルがDPSの縦セクションへ漏れない');
 const runtimeControls = testing.renderDpsRuntimeEffectControls({
   damageBuffEffects: [{ id: 'damage-buff', label: '時系列与ダメージ', maxStacks: 5, runtimeOverrideMode: 'fixed', runtimeFixedStacks: 3 }],
   spRecoveryEffects: [{ id: 'sp-gain', label: 'SP回復', runtimeOverrideMode: 'off' }]
@@ -267,6 +272,12 @@ assert.match(testing.renderDpsActionEffectContent({ basicAttack: { rows: [{ labe
 const timelineLine = testing.formatDpsTimelineEvent({ type: 'runtimeEffectProbability', actionLabel: '普通攻撃', label: '竜巻ダメージ', effectId: 'Sylla_aside_2_e01', reason: '普通攻撃命中時一定確率', probability: 75, success: true, expectedDamage: 4238181 });
 assert.match(timelineLine, /普通攻撃[\s\S]*竜巻ダメージ[\s\S]*発動抽選[\s\S]*75% 成功[\s\S]*普通攻撃命中時一定確率[\s\S]*期待 4,238,181/,
   'タイムラインは確率発動の効果名・条件・成否・期待値を判別可能にする');
+const timelineCooldownLine = testing.formatDpsTimelineEvent({ type: 'cooldownChanged', label: '高学年', operation: 'multiply', multiplier: 0.8, beforeFrames: 600, afterFrames: 480, ready: false });
+assert.match(timelineCooldownLine, /高学年[\s\S]*CT ×0\.8[\s\S]*残り8秒/,
+  'タイムラインは試験版と同じクールタイム変更の内容を表示する');
+const timelineBuffLine = testing.formatDpsTimelineEvent({ type: 'runtimeBuffApplied', label: '時系列与ダメージ', stackCount: 2, maxStacks: 3, modifiers: { addP: 20, lowSkillAddP: 10 }, durationFrames: 120 });
+assert.match(timelineBuffLine, /時系列与ダメージ[\s\S]*2\/3スタック[\s\S]*与ダメージ量 \+20% \/ 低学年スキルダメージ量 \+10%[\s\S]*2秒/,
+  'タイムラインは試験版と同じ時系列バフの補正内容を表示する');
 const standaloneDpsTimeline = testing.renderDpsTimelineContent({ timeline: [{ frame: 1, type: 'runtimeEffectProbability', label: '<竜巻>', probability: 75, success: true }] });
 assert.match(standaloneDpsTimeline, /<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン<\/summary>[\s\S]*fdc-dps-timeline-row type-runtimeEffectProbability/,
   'タイムラインは独立DPS画面と同じ初期openのdetails・typed row構造を使う');
@@ -277,6 +288,9 @@ assert.match(timelineWithMore, /160 \/ 161件を表示[\s\S]*data-fdcp-timeline-
   'タイムラインは独立DPS画面と同じ160件表示＋続きを表示する上限を使う');
 assert.match(timelineWithMore, /<div class="fdc-dps-timeline">[\s\S]*data-fdcp-timeline-more[\s\S]*<\/div><\/details>/,
   'タイムラインの続きを表示する操作は縦scrollコンテナ内に置く');
+const timelineWithOmitted = testing.renderDpsTimelineContent({ timeline: [{ frame: 1, type: 'actionStart', actionLabel: '基本攻撃' }], timelineStats: { total: 3, omitted: 2 } });
+assert.match(timelineWithOmitted, /計3件中、2件を省略しています。計算・グラフには影響しません。/,
+  'タイムラインは記録上限による省略件数を利用者向けに表示する');
 assert.equal(testing.getDpsDetailStatusLabel('snapshot取得エラー'), 'DPS入力を準備できません。通常計算の設定を確認してください。',
   '詳細では内部snapshotエラーを利用者向けの簡潔な状態に言い換える');
 const options = { durationSeconds: 60, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'self-only' };
