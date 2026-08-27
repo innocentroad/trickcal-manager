@@ -298,9 +298,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Amelia_aside_2",
               "effectId": "Amelia_aside_2_e02",
-              "valueKind": "普通攻撃のダメージ量増加(その他倍率)",
+              "valueKind": "普通攻撃のダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "conditionType": "対象状態",
               "conditionValue": "感電",
               "condition": "感電状態の敵攻撃時",
@@ -677,6 +678,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "小さな雪の花魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "attackCategory": "無分類",
                 "triggerType": "n秒ごと",
                 "triggerValue": 10.0,
                 "conditionType": "編成中",
@@ -732,7 +734,7 @@ const APOSTLE_LIBRARY = [
               {
                 "effectId": "Aya_favorite_3_e01",
                 "targetSkill": "低学年",
-                "valueKind": "スキルダメージ量増加",
+                "valueKind": "低学年スキルダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
                 "effectTarget": "自身",
@@ -1110,7 +1112,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "conditionType": "ランダム分岐",
             "conditionValue": "残り火注意",
             "condition": "ランダム",
@@ -1124,7 +1126,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "conditionType": "ランダム分岐",
             "conditionValue": "残り火注意",
             "condition": "ランダム",
@@ -1323,7 +1325,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "conditionType": "ランダム分岐",
             "conditionValue": "残り火注意",
             "condition": "ランダム",
@@ -1337,7 +1339,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "conditionType": "ランダム分岐",
             "conditionValue": "残り火注意",
             "condition": "ランダム",
@@ -1702,9 +1704,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Alice_aside_2",
               "effectId": "Alice_aside_2_e01",
-              "valueKind": "スキルダメージ増加(その他倍率)",
+              "valueKind": "スキルダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "effectTarget": "自身",
               "fixedValue": 33.0
             },
@@ -2625,7 +2628,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "領域内の敵"
           },
           {
@@ -2634,7 +2637,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "領域内の敵",
             "fixedValue": 4.0
           }
@@ -2673,7 +2676,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "中央の敵/範囲"
           },
           {
@@ -2682,7 +2685,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "中央の敵/範囲",
             "fixedValue": 6.0
           },
@@ -3497,6 +3500,8 @@ const APOSTLE_LIBRARY = [
             "effects": [
               {
                 "effectId": "Vivi_favorite_1_e01",
+                "processGroupId": "Vivi_favorite_1_proc01",
+                "processOrder": 1.0,
                 "targetSkill": "高学年",
                 "targetSkillName": "クイックシルバーフィナーレ",
                 "valueKind": "魔法ダメージ",
@@ -3520,6 +3525,17 @@ const APOSTLE_LIBRARY = [
                   "14": 2540.0,
                   "15": 2680.0
                 }
+              },
+              {
+                "effectId": "Vivi_favorite_1_e02",
+                "processGroupId": "Vivi_favorite_1_proc01",
+                "processOrder": 2.0,
+                "targetSkill": "高学年",
+                "targetSkillName": "クイックシルバーフィナーレ",
+                "valueKind": "確定会心",
+                "valueClass": "条件",
+                "effectType": "攻撃",
+                "effectTarget": "敵/指定範囲内で最遠"
               }
             ],
             "skillId": "Vivi_favorite_1",
@@ -3972,7 +3988,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
@@ -3981,7 +3997,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 2.0
           }
@@ -4023,7 +4039,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "敵"
           },
           {
@@ -4032,7 +4048,7 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
             "effectTarget": "敵",
             "fixedValue": 3.0
           }
@@ -5988,7 +6004,10 @@ const APOSTLE_LIBRARY = [
               "9": 580.0,
               "10": 615.0,
               "11": 650.0,
-              "12": 685.0
+              "12": 685.0,
+              "13": 720.0,
+              "14": 755.0,
+              "15": 790.0
             }
           },
           {
@@ -6019,7 +6038,7 @@ const APOSTLE_LIBRARY = [
             "effectId": "Kidian_low_e05",
             "processGroupId": "Kidian_low_proc01",
             "processOrder": 1.0,
-            "valueKind": "遺物0：総物理ダメージ",
+            "valueKind": "[遺物装備0]総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "conditionType": "装備遺物数",
@@ -6038,14 +6057,17 @@ const APOSTLE_LIBRARY = [
               "9": 1160.0,
               "10": 1230.0,
               "11": 1300.0,
-              "12": 1370.0
+              "12": 1370.0,
+              "13": 1440.0,
+              "14": 1510.0,
+              "15": 1580.0
             }
           },
           {
             "effectId": "Kidian_low_e06",
             "processGroupId": "Kidian_low_proc01",
             "processOrder": 2.0,
-            "valueKind": "遺物1：総物理ダメージ",
+            "valueKind": "[遺物装備1]総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "conditionType": "装備遺物数",
@@ -6064,14 +6086,17 @@ const APOSTLE_LIBRARY = [
               "9": 1740.0,
               "10": 1845.0,
               "11": 1950.0,
-              "12": 2055.0
+              "12": 2055.0,
+              "13": 2160.0,
+              "14": 2265.0,
+              "15": 2370.0
             }
           },
           {
             "effectId": "Kidian_low_e07",
             "processGroupId": "Kidian_low_proc01",
             "processOrder": 3.0,
-            "valueKind": "遺物2：総物理ダメージ",
+            "valueKind": "[遺物装備2]総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "conditionType": "装備遺物数",
@@ -6090,14 +6115,17 @@ const APOSTLE_LIBRARY = [
               "9": 2320.0,
               "10": 2460.0,
               "11": 2600.0,
-              "12": 2740.0
+              "12": 2740.0,
+              "13": 2880.0,
+              "14": 3020.0,
+              "15": 3160.0
             }
           },
           {
             "effectId": "Kidian_low_e08",
             "processGroupId": "Kidian_low_proc01",
             "processOrder": 4.0,
-            "valueKind": "遺物3：総物理ダメージ",
+            "valueKind": "[遺物装備3]総物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "conditionType": "装備遺物数",
@@ -6116,7 +6144,10 @@ const APOSTLE_LIBRARY = [
               "9": 2900.0,
               "10": 3075.0,
               "11": 3250.0,
-              "12": 3425.0
+              "12": 3425.0,
+              "13": 3600.0,
+              "14": 3775.0,
+              "15": 3950.0
             }
           }
         ],
@@ -6145,7 +6176,10 @@ const APOSTLE_LIBRARY = [
               "9": 320.0,
               "10": 335.0,
               "11": 350.0,
-              "12": 365.0
+              "12": 365.0,
+              "13": 380.0,
+              "14": 395.0,
+              "15": 410.0
             }
           },
           {
@@ -6166,7 +6200,10 @@ const APOSTLE_LIBRARY = [
               "9": 960.0,
               "10": 1005.0,
               "11": 1050.0,
-              "12": 1095.0
+              "12": 1095.0,
+              "13": 1140.0,
+              "14": 1185.0,
+              "15": 1230.0
             }
           },
           {
@@ -6211,7 +6248,10 @@ const APOSTLE_LIBRARY = [
               "9": 56.0,
               "10": 60.0,
               "11": 64.0,
-              "12": 68.0
+              "12": 68.0,
+              "13": 72.0,
+              "14": 76.0,
+              "15": 80.0
             }
           },
           {
@@ -6254,7 +6294,217 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "教主の星座",
+      "levels": {
+        "1": {
+          "name": "夜空の星座",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Kidian_aside_1",
+              "effectId": "Kidian_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Kidian_aside_1",
+              "effectId": "Kidian_aside_1_e02",
+              "valueKind": "物理攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Kidian_aside_1",
+              "effectId": "Kidian_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Kidian_aside_1",
+              "effectId": "Kidian_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "異分子ヘディング",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e01",
+              "processGroupId": "Kidian_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "低学年スキル追加攻撃回数",
+              "valueClass": "回数",
+              "effectType": "スキル変更",
+              "attackCategory": "低学年スキル",
+              "conditionType": "装備遺物数",
+              "conditionValue": 0.0,
+              "condition": "装備遺物0時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e02",
+              "processGroupId": "Kidian_aside_2_proc01",
+              "processOrder": 2.0,
+              "valueKind": "低学年スキル追加攻撃回数",
+              "valueClass": "回数",
+              "effectType": "スキル変更",
+              "attackCategory": "低学年スキル",
+              "conditionType": "装備遺物数",
+              "conditionValue": 1.0,
+              "condition": "装備遺物1時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e03",
+              "processGroupId": "Kidian_aside_2_proc01",
+              "processOrder": 3.0,
+              "valueKind": "低学年スキル追加攻撃回数",
+              "valueClass": "回数",
+              "effectType": "スキル変更",
+              "attackCategory": "低学年スキル",
+              "conditionType": "装備遺物数",
+              "conditionValue": 2.0,
+              "condition": "装備遺物2時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e04",
+              "processGroupId": "Kidian_aside_2_proc01",
+              "processOrder": 4.0,
+              "valueKind": "低学年スキル追加攻撃回数",
+              "valueClass": "回数",
+              "effectType": "スキル変更",
+              "attackCategory": "低学年スキル",
+              "conditionType": "装備遺物数",
+              "conditionValue": 3.0,
+              "condition": "装備遺物3時",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e05",
+              "valueKind": "目くらまし",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "自身HP以下到達時",
+              "triggerValue": 50.0,
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e06",
+              "valueKind": "目くらまし",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "自身HP以下到達時",
+              "triggerValue": 50.0,
+              "effectTarget": "自身",
+              "fixedValue": 5.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e07",
+              "valueKind": "目くらましクールタイム",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "triggerType": "自身HP以下到達時",
+              "triggerValue": 50.0,
+              "effectTarget": "自身",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e08",
+              "valueKind": "SP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "triggerType": "自身HP以下到達時",
+              "triggerValue": 50.0,
+              "effectTarget": "自身",
+              "fixedValue": 60.0
+            },
+            {
+              "skillId": "Kidian_aside_2",
+              "effectId": "Kidian_aside_2_e09",
+              "valueKind": "SP回復クールタイム",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "triggerType": "自身HP以下到達時",
+              "triggerValue": 50.0,
+              "effectTarget": "自身",
+              "fixedValue": 8.0
+            }
+          ],
+          "description": "低学年スキルの基本攻撃回数が増加する。\nHPが50%以下になると、自身に目くらましをかけ、SPを回復する。"
+        },
+        "3": {
+          "name": "ボクが輝かせてあげるよ……。",
+          "stats": [
+            {
+              "skillId": "Kidian_aside_3_global",
+              "effectId": "Kidian_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "HP",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Kidian_aside_3_global",
+              "effectId": "Kidian_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "物理攻撃力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Kidian_aside_3_battle",
+              "effectId": "Kidian_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 10.5
+            },
+            {
+              "skillId": "Kidian_aside_3_battle",
+              "effectId": "Kidian_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 4.5
+            }
+          ],
+          "description": "味方全員の与ダメージ量を増加させ、味方全員の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -7027,6 +7277,9 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ぬいぐるみの意志",
             "valueClass": "状態付与",
             "effectType": "固有状態",
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年スキル使用時",
             "effectTarget": "自身"
           },
           {
@@ -7036,6 +7289,9 @@ const APOSTLE_LIBRARY = [
             "valueKind": "ぬいぐるみの意志",
             "valueClass": "持続時間",
             "effectType": "固有状態",
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年スキル使用時",
             "effectTarget": "自身",
             "levels": {
               "1": 8.0,
@@ -7109,7 +7365,9 @@ const APOSTLE_LIBRARY = [
             "maxStack": 9.0,
             "triggerType": "普通攻撃使用時",
             "triggerSourceId": "普通攻撃",
-            "condition": "基本攻撃時",
+            "conditionType": "固有状態中",
+            "conditionValue": "Chloe_low_e01",
+            "condition": "ぬいぐるみの意志発動中の基本攻撃時",
             "effectTarget": "自身",
             "fixedValue": 7.0
           },
@@ -7124,7 +7382,9 @@ const APOSTLE_LIBRARY = [
             "maxStack": 9.0,
             "triggerType": "普通攻撃使用時",
             "triggerSourceId": "普通攻撃",
-            "condition": "基本攻撃時",
+            "conditionType": "固有状態中",
+            "conditionValue": "Chloe_low_e01",
+            "condition": "ぬいぐるみの意志発動中の基本攻撃時",
             "effectTarget": "自身",
             "fixedValue": 10.0
           }
@@ -7356,50 +7616,88 @@ const APOSTLE_LIBRARY = [
               },
               {
                 "effectId": "Chloe_favorite_1_e02",
+                "processGroupId": "Chloe_favorite_1_doll_will_tick",
+                "processOrder": 1.0,
                 "targetSkill": "パッシブ",
                 "targetSkillName": "パッシブスキル",
                 "valueKind": "周期",
                 "valueClass": "周期",
                 "effectType": "攻撃",
+                "triggerType": "n秒ごと",
+                "triggerValue": 2.0,
+                "conditionType": "固有状態中",
+                "conditionValue": "Chloe_low_e01",
+                "condition": "ぬいぐるみの意志発動中",
                 "effectTarget": "敵/周囲",
                 "fixedValue": 2.0
               },
               {
                 "effectId": "Chloe_favorite_1_e03",
+                "processGroupId": "Chloe_favorite_1_doll_will_tick",
+                "processOrder": 2.0,
                 "targetSkill": "パッシブ",
                 "targetSkillName": "パッシブスキル",
                 "valueKind": "魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "n秒ごと",
+                "triggerValue": 2.0,
+                "conditionType": "固有状態中",
+                "conditionValue": "Chloe_low_e01",
+                "condition": "ぬいぐるみの意志発動中",
                 "effectTarget": "敵/周囲",
                 "fixedValue": 230.0
               },
               {
                 "effectId": "Chloe_favorite_1_e04",
+                "processGroupId": "Chloe_favorite_1_doll_will_tick",
+                "processOrder": 3.0,
                 "targetSkill": "パッシブ",
                 "targetSkillName": "パッシブスキル",
                 "valueKind": "糸爆弾",
                 "valueClass": "状態付与",
                 "effectType": "デバフ",
+                "effectStack": true,
+                "maxStack": 5.0,
+                "triggerType": "n秒ごと",
+                "triggerValue": 2.0,
+                "conditionType": "固有状態中",
+                "conditionValue": "Chloe_low_e01",
+                "condition": "ぬいぐるみの意志発動中",
                 "effectTarget": "敵/周囲"
               },
               {
                 "effectId": "Chloe_favorite_1_e05",
+                "processGroupId": "Chloe_favorite_1_doll_will_tick",
+                "processOrder": 4.0,
                 "targetSkill": "パッシブ",
                 "targetSkillName": "パッシブスキル",
                 "valueKind": "糸爆弾",
                 "valueClass": "最大スタック",
                 "effectType": "デバフ",
+                "maxStack": 5.0,
+                "triggerType": "n秒ごと",
+                "triggerValue": 2.0,
+                "conditionType": "固有状態中",
+                "conditionValue": "Chloe_low_e01",
+                "condition": "ぬいぐるみの意志発動中",
                 "effectTarget": "敵/周囲",
                 "fixedValue": 5.0
               },
               {
                 "effectId": "Chloe_favorite_1_e06",
+                "processGroupId": "Chloe_favorite_1_thread_bomb_explode",
+                "processOrder": 1.0,
                 "targetSkill": "パッシブ",
                 "targetSkillName": "パッシブスキル",
                 "valueKind": "糸爆弾魔法ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "状態最大スタック到達時",
+                "triggerSourceId": "Chloe_favorite_1_e04",
+                "conditionType": "状態",
+                "conditionValue": "糸爆弾",
+                "condition": "糸爆弾が最大5スタックに到達時、爆発して5スタックを消費",
                 "effectTarget": "敵/周囲",
                 "fixedValue": 346.0
               }
@@ -8344,9 +8642,10 @@ const APOSTLE_LIBRARY = [
               "valueKind": "竜巻ダメージ",
               "valueClass": "倍率",
               "effectType": "攻撃",
-              "triggerType": "普通攻撃命中時",
+              "triggerType": "普通攻撃命中時一定確率",
+              "triggerValue": 75.0,
               "triggerSourceId": "普通攻撃",
-              "condition": "普通攻撃命中時",
+              "condition": "普通攻撃命中時一定確率",
               "effectTarget": "敵",
               "targetSkill": "普通攻撃",
               "fixedValue": 120.0
@@ -8357,8 +8656,8 @@ const APOSTLE_LIBRARY = [
               "valueKind": "竜巻追加ダメージ",
               "valueClass": "倍率",
               "effectType": "攻撃",
-              "triggerType": "普通攻撃命中時",
-              "triggerSourceId": "普通攻撃",
+              "triggerType": "竜巻ダメージ発生時",
+              "triggerSourceId": "Sylla_aside_2_e02",
               "conditionType": "追加対象存在",
               "conditionValue": 1.0,
               "condition": "普通攻撃命中時かつ追加で敵がいる場合",
@@ -9059,7 +9358,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Xion_passive_e04",
-            "valueKind": "魔弾の物理ダメージ量増加(与ダメージ量増加)",
+            "valueKind": "魔弾所持時の物理ダメージ量増加(与ダメージ量増加)",
             "valueClass": "倍率",
             "effectType": "バフ",
             "effectStack": true,
@@ -9150,18 +9449,20 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "triggerType": "一定確率",
+                "triggerValue": 34.0,
                 "effectTarget": "敵/最も遠い敵",
                 "fixedValue": 200.0
               },
               {
                 "effectId": "Xion_favorite_1_e02",
-                "targetSkill": "普通攻撃_強化",
+                "targetSkill": "普通攻撃_基本",
                 "targetSkillName": "基本",
                 "valueKind": "強化の弾丸物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
-                "triggerType": "n回ごと",
-                "triggerValue": 3.0,
+                "triggerType": "一定確率",
+                "triggerValue": 66.0,
                 "effectTarget": "敵/最も遠い敵",
                 "fixedValue": 444.0
               }
@@ -9306,9 +9607,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Xion_aside_2",
               "effectId": "Xion_aside_2_e06",
-              "valueKind": "低学年スキルダメージ増加(その他倍率)",
+              "valueKind": "低学年スキルダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "triggerType": "低学年スキル使用時",
               "triggerSourceId": "低学年スキル",
               "condition": "低学年スキル使用時",
@@ -10080,8 +10382,8 @@ const APOSTLE_LIBRARY = [
                 "targetSkill": "高学年",
                 "targetSkillName": "シュパン配送",
                 "valueKind": "クールタイム減少",
-                "valueClass": "固定値",
-                "effectType": "バフ",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
                 "effectTarget": "自身",
                 "fixedValue": 5.0
               }
@@ -12975,6 +13277,23 @@ const APOSTLE_LIBRARY = [
       {
         "effects": [
           {
+            "effectId": "Tig_high_e05",
+            "processGroupId": "Tig_high_overdrive",
+            "valueKind": "オーバードライブ",
+            "valueClass": "状態付与",
+            "effectType": "固有状態",
+            "effectTarget": "自身"
+          },
+          {
+            "effectId": "Tig_high_e06",
+            "processGroupId": "Tig_high_overdrive",
+            "valueKind": "オーバードライブ",
+            "valueClass": "持続時間",
+            "effectType": "固有状態",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
+          },
+          {
             "effectId": "Tig_high_e01",
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
@@ -13021,12 +13340,21 @@ const APOSTLE_LIBRARY = [
             "effectType": "バフ",
             "effectTarget": "自身",
             "fixedValue": 100.0
+          },
+          {
+            "effectId": "Tig_high_e07",
+            "valueKind": "普通攻撃ダメージ量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
           }
         ],
         "skillId": "Tig_high",
         "skillType": "高学年",
         "skillName": "オーバードライブ",
-        "description": "剣気を飛ばして敵に範囲物理ダメージを与える。一定時間、攻撃速度、普通攻撃のダメージ量がアップする。 この効果は解除できない。"
+        "description": "剣気を飛ばして敵に範囲物理ダメージを与える。一定時間、攻撃速度、普通攻撃のダメージ量がアップする。 この効果は解除できない。",
+        "cooldownSeconds": 20.0
       },
       {
         "effects": [
@@ -13127,12 +13455,36 @@ const APOSTLE_LIBRARY = [
           {
             "effects": [
               {
+                "effectId": "Tig_favorite_1_e08",
+                "processGroupId": "Tig_favorite_1_overdrive",
+                "processOrder": 1.0,
+                "targetSkill": "高学年",
+                "targetSkillName": "オーバードラ火ブ",
+                "valueKind": "オーバードラ火ブ",
+                "valueClass": "状態付与",
+                "effectType": "固有状態",
+                "effectTarget": "自身"
+              },
+              {
+                "effectId": "Tig_favorite_1_e09",
+                "processGroupId": "Tig_favorite_1_overdrive",
+                "processOrder": 2.0,
+                "targetSkill": "高学年",
+                "targetSkillName": "オーバードラ火ブ",
+                "valueKind": "オーバードラ火ブ",
+                "valueClass": "持続時間",
+                "effectType": "固有状態",
+                "effectTarget": "自身",
+                "fixedValue": 10.0
+              },
+              {
                 "effectId": "Tig_favorite_1_e01",
                 "targetSkill": "高学年",
                 "targetSkillName": "オーバードラ火ブ",
                 "valueKind": "物理ダメージ",
                 "valueClass": "倍率",
                 "effectType": "攻撃",
+                "effectTarget": "敵",
                 "levels": {
                   "1": 900.0,
                   "2": 990.0,
@@ -13158,6 +13510,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "effectTarget": "自身",
                 "fixedValue": 200.0
               },
               {
@@ -13167,6 +13520,7 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "攻撃速度増加",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
+                "effectTarget": "自身",
                 "fixedValue": 10.0
               },
               {
@@ -13176,7 +13530,20 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "普通攻撃ダメージ増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "damageModifierCategory": "行動倍率",
+                "effectTarget": "自身",
                 "fixedValue": 100.0
+              },
+              {
+                "effectId": "Tig_favorite_1_e10",
+                "targetSkill": "高学年",
+                "targetSkillName": "オーバードラ火ブ",
+                "valueKind": "普通攻撃ダメージ増加",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "damageModifierCategory": "行動倍率",
+                "effectTarget": "自身",
+                "fixedValue": 10.0
               },
               {
                 "effectId": "Tig_favorite_1_e05",
@@ -13188,9 +13555,12 @@ const APOSTLE_LIBRARY = [
                 "valueClass": "状態付与",
                 "effectType": "デバフ",
                 "effectStack": true,
-                "maxStack": 4.0,
-                "triggerType": "n回ごと",
-                "triggerValue": 3.0,
+                "maxStack": 9.0,
+                "triggerType": "強化攻撃命中時",
+                "triggerValue": "各ヒット",
+                "triggerSourceId": "普通攻撃_強化",
+                "conditionType": "固有状態中",
+                "conditionValue": "Tig_favorite_1_e08",
                 "condition": "オーバードラ火ブ（高学年スキル）の持続時間中",
                 "effectTarget": "敵"
               },
@@ -13204,9 +13574,12 @@ const APOSTLE_LIBRARY = [
                 "valueClass": "持続時間",
                 "effectType": "デバフ",
                 "effectStack": true,
-                "maxStack": 4.0,
-                "triggerType": "n回ごと",
-                "triggerValue": 3.0,
+                "maxStack": 9.0,
+                "triggerType": "強化攻撃命中時",
+                "triggerValue": "各ヒット",
+                "triggerSourceId": "普通攻撃_強化",
+                "conditionType": "固有状態中",
+                "conditionValue": "Tig_favorite_1_e08",
                 "condition": "オーバードラ火ブ（高学年スキル）の持続時間中",
                 "effectTarget": "敵",
                 "fixedValue": 4.0
@@ -13345,8 +13718,8 @@ const APOSTLE_LIBRARY = [
               "valueKind": "無敵",
               "valueClass": "状態付与",
               "effectType": "バフ",
-              "triggerType": "高学年スキル使用時",
-              "triggerSourceId": "高学年スキル",
+              "triggerType": "高学年スキル発動時",
+              "triggerSourceId": "Tig_high_overdrive",
               "condition": "オーバードライブ（高学年スキル）発動時",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",
@@ -13360,9 +13733,39 @@ const APOSTLE_LIBRARY = [
               "valueKind": "無敵",
               "valueClass": "持続時間",
               "effectType": "バフ",
-              "triggerType": "高学年スキル使用時",
-              "triggerSourceId": "高学年スキル",
+              "triggerType": "高学年スキル発動時",
+              "triggerSourceId": "Tig_high_overdrive",
               "condition": "オーバードライブ（高学年スキル）発動時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "skillId": "Tig_aside_2",
+              "effectId": "Tig_aside_2_e05",
+              "processGroupId": "Tig_aside_2_proc01",
+              "processOrder": 3.0,
+              "valueKind": "無敵",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "高学年スキル発動時",
+              "triggerSourceId": "Tig_favorite_1_overdrive",
+              "condition": "オーバードラ火ブ（高学年スキル）発動時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "skillId": "Tig_aside_2",
+              "effectId": "Tig_aside_2_e06",
+              "processGroupId": "Tig_aside_2_proc01",
+              "processOrder": 4.0,
+              "valueKind": "無敵",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "高学年スキル発動時",
+              "triggerSourceId": "Tig_favorite_1_overdrive",
+              "condition": "オーバードラ火ブ（高学年スキル）発動時",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",
               "fixedValue": 3.0
@@ -14598,8 +15001,8 @@ const APOSTLE_LIBRARY = [
                 "effectId": "Butter_favorite_3_e01",
                 "targetSkill": "高学年",
                 "valueKind": "クールタイム減少",
-                "valueClass": "固定値",
-                "effectType": "バフ",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
                 "effectTarget": "自身",
                 "fixedValue": 5.0
               },
@@ -14853,26 +15256,16 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Barong_low_e04",
-            "processGroupId": "Barong_low_proc01",
-            "processOrder": 1.0,
             "valueKind": "沈黙",
             "valueClass": "状態付与",
             "effectType": "デバフ",
-            "triggerType": "低学年スキル終了時",
-            "triggerSourceId": "低学年スキル",
-            "condition": "スキル発動後",
             "effectTarget": "敵"
           },
           {
             "effectId": "Barong_low_e05",
-            "processGroupId": "Barong_low_proc01",
-            "processOrder": 2.0,
             "valueKind": "沈黙",
             "valueClass": "持続時間",
             "effectType": "デバフ",
-            "triggerType": "低学年スキル終了時",
-            "triggerSourceId": "低学年スキル",
-            "condition": "スキル発動後",
             "effectTarget": "敵",
             "fixedValue": 10.0
           }
@@ -14983,9 +15376,14 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Barong_passive_e03",
+            "processGroupId": "Barong_passive_proc01",
+            "processOrder": 1.0,
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "低学年スキル終了時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年スキル発動後",
             "effectTarget": "自身",
             "levels": {
               "1": 30.0,
@@ -15007,9 +15405,14 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Barong_passive_e04",
+            "processGroupId": "Barong_passive_proc01",
+            "processOrder": 2.0,
             "valueKind": "攻撃速度増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
+            "triggerType": "低学年スキル終了時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年スキル発動後",
             "effectTarget": "自身",
             "fixedValue": 10.0
           }
@@ -15310,6 +15713,8 @@ const APOSTLE_LIBRARY = [
               "valueKind": "毒",
               "valueClass": "状態付与",
               "effectType": "デバフ",
+              "effectStack": true,
+              "maxStack": 9.0,
               "triggerType": "低学年スキル命中時",
               "triggerSourceId": "低学年スキル",
               "condition": "低学年スキル命中時",
@@ -15324,6 +15729,8 @@ const APOSTLE_LIBRARY = [
               "valueKind": "毒",
               "valueClass": "持続時間",
               "effectType": "デバフ",
+              "effectStack": true,
+              "maxStack": 9.0,
               "triggerType": "低学年スキル命中時",
               "triggerSourceId": "低学年スキル",
               "condition": "低学年スキル命中時",
@@ -16368,6 +16775,627 @@ const APOSTLE_LIBRARY = [
     "favoriteCard": {},
     "aside": {
       "levels": {}
+    },
+    "board": null
+  },
+  {
+    "id": "pira",
+    "name": "ピラ",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "狂気",
+      "race": "竜族",
+      "role": "支援",
+      "position": "後列",
+      "attackType": "物理",
+      "initialSp": 100.0,
+      "spRecoveryPerSecond": 37.0,
+      "combatPowerCorrectionA": 105.0,
+      "combatPowerCorrectionB": 0.44
+    },
+    "statTypes": {
+      "hp": 2.0,
+      "atkP": 2.0,
+      "atkM": 0.0,
+      "defP": 2.0,
+      "defM": 2.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "effectId": "Pira_low_e01",
+            "valueKind": "物理ダメージ",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 270.0,
+              "2": 285.0,
+              "3": 300.0,
+              "4": 315.0,
+              "5": 330.0,
+              "6": 345.0,
+              "7": 360.0,
+              "8": 375.0,
+              "9": 390.0,
+              "10": 405.0,
+              "11": 420.0,
+              "12": 435.0,
+              "13": 450.0,
+              "14": 465.0,
+              "15": 480.0
+            }
+          },
+          {
+            "effectId": "Pira_low_e02",
+            "valueKind": "攻撃速度減少",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 26.0,
+              "2": 27.0,
+              "3": 28.0,
+              "4": 29.0,
+              "5": 30.0,
+              "6": 31.0,
+              "7": 32.0,
+              "8": 33.0,
+              "9": 34.0,
+              "10": 35.0,
+              "11": 36.0,
+              "12": 37.0,
+              "13": 38.0,
+              "14": 39.0,
+              "15": 40.0
+            }
+          },
+          {
+            "effectId": "Pira_low_e03",
+            "valueKind": "攻撃速度減少",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "敵/範囲",
+            "fixedValue": 7.0
+          },
+          {
+            "effectId": "Pira_low_e04",
+            "valueKind": "富豪獲得",
+            "valueClass": "状態付与",
+            "effectType": "固有状態",
+            "effectStack": true,
+            "maxStack": 30.0,
+            "triggerType": "低学年スキル命中時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "敵1体に命中するごとに",
+            "effectTarget": "自身",
+            "fixedValue": 10.0
+          }
+        ],
+        "skillId": "Pira_low",
+        "skillType": "低学年",
+        "skillName": "集金の時間や～！",
+        "description": "像を破壊し、破片を飛び散らせて、命中した敵に範囲物理ダメージを与え、攻撃速度を減少させる。敵1体に命中するごとに一定回数富豪を獲得する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Pira_high_e01",
+            "valueKind": "富豪消費",
+            "valueClass": "状態解除",
+            "effectType": "固有状態",
+            "triggerType": "高学年スキル終了時",
+            "triggerSourceId": "高学年スキル",
+            "condition": "高学年スキル終了時、富豪をランダムに消費",
+            "effectTarget": "自身",
+            "fixedValue": "1～30"
+          },
+          {
+            "effectId": "Pira_high_e02",
+            "valueKind": "総物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "conditionType": "発動前リソーススタック範囲",
+            "conditionValue": "Pira_wealth:0-29",
+            "condition": "高学年開始時に富豪0～29スタック",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 675.0,
+              "2": 702.0,
+              "3": 729.0,
+              "4": 756.0,
+              "5": 783.0,
+              "6": 810.0,
+              "7": 837.0,
+              "8": 864.0,
+              "9": 891.0,
+              "10": 918.0,
+              "11": 945.0,
+              "12": 972.0,
+              "13": 999.0,
+              "14": 1026.0,
+              "15": 1053.0
+            }
+          },
+          {
+            "effectId": "Pira_high_e03",
+            "valueKind": "会心増加",
+            "valueClass": "状態付与",
+            "effectType": "バフ",
+            "conditionType": "発動前リソーススタック範囲",
+            "conditionValue": "Pira_wealth:0-29",
+            "condition": "高学年開始時に富豪0～29スタック",
+            "effectTarget": "味方全員",
+            "fixedValue": 20.0
+          },
+          {
+            "effectId": "Pira_high_e04",
+            "valueKind": "会心増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "conditionType": "発動前リソーススタック範囲",
+            "conditionValue": "Pira_wealth:0-29",
+            "condition": "高学年開始時に富豪0～29スタック",
+            "effectTarget": "味方全員",
+            "fixedValue": 10.0
+          },
+          {
+            "effectId": "Pira_high_e05",
+            "valueKind": "総物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "conditionType": "発動前リソーススタック",
+            "conditionValue": "Pira_wealth:30",
+            "condition": "高学年開始時に富豪30スタック",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 1350.0,
+              "2": 1404.0,
+              "3": 1458.0,
+              "4": 1512.0,
+              "5": 1566.0,
+              "6": 1620.0,
+              "7": 1674.0,
+              "8": 1728.0,
+              "9": 1782.0,
+              "10": 1836.0,
+              "11": 1890.0,
+              "12": 1944.0,
+              "13": 1998.0,
+              "14": 2052.0,
+              "15": 2106.0
+            }
+          },
+          {
+            "effectId": "Pira_high_e06",
+            "valueKind": "会心増加",
+            "valueClass": "状態付与",
+            "effectType": "バフ",
+            "conditionType": "発動前リソーススタック",
+            "conditionValue": "Pira_wealth:30",
+            "condition": "高学年開始時に富豪30スタック",
+            "effectTarget": "味方全員",
+            "fixedValue": 40.0
+          },
+          {
+            "effectId": "Pira_high_e07",
+            "valueKind": "会心増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "conditionType": "発動前リソーススタック",
+            "conditionValue": "Pira_wealth:30",
+            "condition": "高学年開始時に富豪30スタック",
+            "effectTarget": "味方全員",
+            "fixedValue": 10.0
+          }
+        ],
+        "skillId": "Pira_high",
+        "skillType": "高学年",
+        "skillName": "フィーバー☆タイムや〜！",
+        "description": "金の玉を降らせて敵に範囲物理ダメージを9回与え、味方全員の会心を増加させる。富豪を30スタック保有した状態でスキルを発動すると、物理ダメージと会心増加が強化される。\nスキル終了時、富豪をランダムに失う。",
+        "cooldownSeconds": 30.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Pira_passive_e01",
+            "valueKind": "攻撃力増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "triggerType": "リソース変化時",
+            "triggerValue": "獲得時",
+            "triggerSourceId": "Pira_wealth",
+            "condition": "富豪獲得時",
+            "effectTarget": "味方/後列",
+            "levels": {
+              "1": 10.0,
+              "2": 11.0,
+              "3": 12.0,
+              "4": 13.0,
+              "5": 14.0,
+              "6": 15.0,
+              "7": 16.0,
+              "8": 17.0,
+              "9": 18.0,
+              "10": 19.0,
+              "11": 20.0,
+              "12": 21.0,
+              "13": 22.0,
+              "14": 23.0,
+              "15": 24.0
+            }
+          },
+          {
+            "effectId": "Pira_passive_e02",
+            "valueKind": "攻撃力増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "triggerType": "リソース変化時",
+            "triggerValue": "獲得時",
+            "triggerSourceId": "Pira_wealth",
+            "condition": "富豪獲得時",
+            "effectTarget": "味方/後列",
+            "fixedValue": 5.0
+          }
+        ],
+        "skillId": "Pira_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "富豪獲得時、後列の味方の攻撃力を増加させる。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Pira_basic_e01",
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 75.0
+          },
+          {
+            "effectId": "Pira_basic_e02",
+            "valueKind": "富豪獲得",
+            "valueClass": "状態付与",
+            "effectType": "固有状態",
+            "effectStack": true,
+            "maxStack": 30.0,
+            "effectTarget": "自身",
+            "reference": "Pira_wealth",
+            "fixedValue": 1.0
+          }
+        ],
+        "skillId": "Pira_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "名刺を投げつけ、敵に物理ダメージを与え、富豪を1スタック獲得する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Pira_enhanced_e01",
+            "valueKind": "富豪消費",
+            "valueClass": "状態解除",
+            "effectType": "固有状態",
+            "effectTarget": "自身",
+            "reference": "Pira_wealth",
+            "fixedValue": "1～5"
+          },
+          {
+            "effectId": "Pira_enhanced_e02",
+            "valueKind": "1回あたり物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 125.0
+          },
+          {
+            "effectId": "Pira_enhanced_e03",
+            "valueKind": "被ダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "デバフ",
+            "effectTarget": "敵",
+            "fixedValue": 22.0
+          },
+          {
+            "effectId": "Pira_enhanced_e04",
+            "valueKind": "被ダメージ量増加の持続時間",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "敵",
+            "fixedValue": 6.0
+          }
+        ],
+        "skillId": "Pira_enhanced",
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "3回目の攻撃ごとに富豪をランダムに消費し、名刺を2枚投げつける。名刺はランダムな敵に物理ダメージを与え、被ダメージ量を増加させる。\n富豪：30スタックに到達すると、高学年スキル効果が強化される。",
+        "cooldownSeconds": 30.0,
+        "triggerType": "n回ごと",
+        "triggerValue": 3.0
+      }
+    ],
+    "uniqueStates": [
+      {
+        "stateId": "Pira_wealth",
+        "name": "富豪",
+        "category": "固有リソース",
+        "valueType": "整数",
+        "scope": "所有者単位",
+        "initialValue": 0.0,
+        "minValue": 0.0,
+        "maxValue": 30.0,
+        "step": 1.0,
+        "capBehavior": "上限で打ち止め",
+        "floorBehavior": "要調査",
+        "dispelPolicy": "解除不能",
+        "retention": "戦闘中",
+        "changeEventBasis": "実際の増減時",
+        "calculationSupportLevel": "未対応",
+        "verificationStatus": "暫定",
+        "notes": "強化攻撃・高学年終了時の消費不足処理は要調査",
+        "ownerId": "pira"
+      }
+    ],
+    "favoriteCard": {
+      "name": "ピラの輝く名刺",
+      "kind": "遺物",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "effectId": "Pira_favorite_1_e01",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化",
+                "valueKind": "富豪消費",
+                "valueClass": "状態解除",
+                "effectType": "固有状態",
+                "effectTarget": "自身",
+                "reference": "Pira_wealth",
+                "fixedValue": "1～5"
+              },
+              {
+                "effectId": "Pira_favorite_1_e02",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化",
+                "valueKind": "1回あたり物理ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "effectTarget": "敵",
+                "fixedValue": 400.0
+              },
+              {
+                "effectId": "Pira_favorite_1_e03",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化",
+                "valueKind": "被ダメージ量増加",
+                "valueClass": "倍率",
+                "effectType": "デバフ",
+                "effectTarget": "敵",
+                "fixedValue": 44.0
+              },
+              {
+                "effectId": "Pira_favorite_1_e04",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化",
+                "valueKind": "被ダメージ量増加の持続時間",
+                "valueClass": "持続時間",
+                "effectType": "デバフ",
+                "effectTarget": "敵",
+                "fixedValue": 6.0
+              }
+            ],
+            "skillId": "Pira_favorite_1",
+            "skillName": "愛用Lv1",
+            "description": "3回ごとに富豪をランダムに消費し、名刺を4枚投げつける。名刺はランダムな敵に物理ダメージを与え、被ダメージ量を増加させる。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "effectId": "Pira_favorite_3_e01",
+                "targetSkill": "高学年",
+                "valueKind": "クールタイム減少",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
+                "effectTarget": "自身",
+                "fixedValue": 5.0
+              }
+            ],
+            "skillId": "Pira_favorite_3",
+            "skillName": "愛用Lv3",
+            "description": "ピラの高学年スキルのクールタイムが5秒減少する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "キラキラ友情首飾り",
+      "levels": {
+        "1": {
+          "name": "友情の証",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Pira_aside_1",
+              "effectId": "Pira_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Pira_aside_1",
+              "effectId": "Pira_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Pira_aside_1",
+              "effectId": "Pira_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Pira_aside_1",
+              "effectId": "Pira_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Pira_aside_1",
+              "effectId": "Pira_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "陽だまりの中で",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e01",
+              "valueKind": "会心率抵抗減少",
+              "valueClass": "倍率",
+              "effectType": "デバフ",
+              "triggerType": "低学年スキル命中時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 15.0
+            },
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e02",
+              "valueKind": "会心率抵抗減少",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "triggerType": "低学年スキル命中時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "敵",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e03",
+              "valueKind": "クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 12.0
+            },
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e04",
+              "processGroupId": "Pira_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "triggerType": "高学年スキル終了時",
+              "triggerSourceId": "高学年スキル",
+              "effectTarget": "HP割合が最も低い味方3名",
+              "targetSkill": "高学年スキル",
+              "reference": "最大HP",
+              "fixedValue": 45.0
+            },
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e05",
+              "processGroupId": "Pira_aside_2_proc01",
+              "processOrder": 2.0,
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "triggerType": "高学年スキル終了時",
+              "triggerSourceId": "高学年スキル",
+              "effectTarget": "HP割合が最も低い味方3名",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 35.0
+            },
+            {
+              "skillId": "Pira_aside_2",
+              "effectId": "Pira_aside_2_e06",
+              "processGroupId": "Pira_aside_2_proc01",
+              "processOrder": 3.0,
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "高学年スキル終了時",
+              "triggerSourceId": "高学年スキル",
+              "effectTarget": "HP割合が最も低い味方3名",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 15.0
+            }
+          ],
+          "description": "低学年スキルが命中すると、攻撃した敵の会心率抵抗を減少させる。\n高学年スキルのクールタイムが減少する。\n高学年スキル使用後、残りHP割合が最も低い味方3名に景品を配る。景品を受け取った味方のHPを回復させ、会心ダメージを増加させる。"
+        },
+        "3": {
+          "name": "キラキラなウチらの関係",
+          "stats": [
+            {
+              "skillId": "Pira_aside_3_global",
+              "effectId": "Pira_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Pira_aside_3_global",
+              "effectId": "Pira_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心抵抗",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Pira_aside_3_battle",
+              "effectId": "Pira_aside_3_battle_e01",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Pira_aside_3_battle",
+              "effectId": "Pira_aside_3_battle_e02",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "味方全員の会心と会心ダメージを増加させる。"
+        }
+      }
     },
     "board": null
   },
@@ -17490,6 +18518,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "強化攻撃ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "triggerType": "強化攻撃使用時",
               "triggerSourceId": "強化攻撃",
               "condition": "強化攻撃使用時",
@@ -17562,10 +18591,19 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Blanchet_aside_3_battle",
               "effectId": "Blanchet_aside_3_battle_e01",
-              "valueKind": "魔法与ダメージ量",
+              "valueKind": "会心増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "味方/中列",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Blanchet_aside_3_battle",
+              "effectId": "Blanchet_aside_3_battle_e02",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
               "fixedValue": 6.0
             }
           ],
@@ -17896,10 +18934,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Fricle_aside_2",
               "effectId": "Fricle_aside_2_e01",
-              "valueKind": "強化攻撃ダメージ量増加",
+              "valueKind": "強化攻撃ダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "attackCategory": "その他",
+              "damageModifierCategory": "行動倍率",
               "triggerType": "強化攻撃使用時",
               "triggerSourceId": "強化攻撃",
               "condition": "強化攻撃使用時",
@@ -19911,7 +20949,7 @@ const APOSTLE_LIBRARY = [
             "triggerType": "低学年スキル使用時",
             "triggerSourceId": "低学年スキル",
             "condition": "低学年使用時",
-            "effectTarget": "前列の味方",
+            "effectTarget": "味方/前列",
             "reference": "最大HP",
             "levels": {
               "1": 10.0,
@@ -19938,7 +20976,7 @@ const APOSTLE_LIBRARY = [
             "triggerType": "低学年スキル使用時",
             "triggerSourceId": "低学年スキル",
             "condition": "低学年使用時",
-            "effectTarget": "前列の味方",
+            "effectTarget": "味方/前列",
             "fixedValue": 3.0
           }
         ],
@@ -21545,9 +22583,10 @@ const APOSTLE_LIBRARY = [
               "effectId": "Momo_aside_2_e01",
               "processGroupId": "Momo_aside_2_proc01",
               "processOrder": 1.0,
-              "valueKind": "召喚獣の自爆ダメージ増加(その他倍率)",
+              "valueKind": "召喚獣の自爆ダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "attackCategory": "召喚獣の自爆",
               "triggerType": "生成物消滅時",
               "condition": "召喚獣破壊時",
@@ -23665,8 +24704,8 @@ const APOSTLE_LIBRARY = [
                 "effectId": "Renewa_favorite_3_e01",
                 "targetSkill": "高学年",
                 "valueKind": "クールタイム減少",
-                "valueClass": "固定値",
-                "effectType": "スキル変更",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
                 "effectTarget": "自身",
                 "reference": "高学年スキル",
                 "fixedValue": 5.0
@@ -23732,35 +24771,49 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Renewa_aside_2",
               "effectId": "Renewa_aside_2_e01",
-              "valueKind": "物理ダメージ",
+              "processGroupId": "Renewa_aside_2_missile_periodic",
+              "processOrder": 1.0,
+              "valueKind": "追加物理ダメージ",
               "valueClass": "倍率",
               "effectType": "攻撃",
+              "triggerType": "n秒ごと",
+              "triggerValue": 6.0,
               "condition": "6秒経過時（繰り返し）",
-              "effectTarget": "敵",
+              "effectTarget": "敵/中央に位置する敵",
               "fixedValue": 200.0
             },
             {
               "skillId": "Renewa_aside_2",
               "effectId": "Renewa_aside_2_e02",
-              "valueKind": "物理ダメージ",
+              "processGroupId": "Renewa_aside_2_missile_low",
+              "processOrder": 1.0,
+              "valueKind": "追加物理ダメージ",
               "valueClass": "倍率",
               "effectType": "攻撃",
               "triggerType": "低学年スキル使用時",
-              "triggerSourceId": "低学年スキル",
+              "triggerSourceId": "Renewa_low",
+              "conditionType": "対象スキル",
+              "conditionValue": "低学年スキル",
               "condition": "低学年スキル使用時",
-              "effectTarget": "敵",
+              "effectTarget": "敵/中央に位置する敵",
+              "targetSkill": "低学年スキル",
               "fixedValue": 200.0
             },
             {
               "skillId": "Renewa_aside_2",
               "effectId": "Renewa_aside_2_e03",
-              "valueKind": "物理ダメージ",
+              "processGroupId": "Renewa_aside_2_missile_enhanced",
+              "processOrder": 1.0,
+              "valueKind": "追加物理ダメージ",
               "valueClass": "倍率",
               "effectType": "攻撃",
-              "triggerType": "高学年スキル使用時",
-              "triggerSourceId": "高学年スキル",
+              "triggerType": "強化攻撃使用時",
+              "triggerSourceId": "Renewa_enhanced",
+              "conditionType": "対象スキル",
+              "conditionValue": "強化攻撃",
               "condition": "高学年スキル使用時",
-              "effectTarget": "敵",
+              "effectTarget": "敵/中央に位置する敵",
+              "targetSkill": "普通攻撃_強化",
               "fixedValue": 200.0
             },
             {
@@ -24176,9 +25229,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Rim_aside_2",
               "effectId": "Rim_aside_2_e04",
-              "valueKind": "低学年スキルダメージ増加(その他倍率)",
+              "valueKind": "低学年スキルダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "effectTarget": "自身",
               "targetSkill": "低学年スキル",
               "fixedValue": 50.0
@@ -24196,9 +25250,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Rim_aside_2",
               "effectId": "Rim_aside_2_e06",
-              "valueKind": "高学年スキルダメージ増加(その他倍率)",
+              "valueKind": "高学年スキルダメージ増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "effectTarget": "自身",
               "targetSkill": "高学年スキル",
               "fixedValue": 50.0
@@ -25106,9 +26161,10 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Rufo_aside_2",
               "effectId": "Rufo_aside_2_e01",
-              "valueKind": "普通攻撃ダメージ量増加(その他倍率)",
+              "valueKind": "普通攻撃ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃",
               "fixedValue": 200.0
@@ -26085,7 +27141,8 @@ const APOSTLE_LIBRARY = [
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0
+            "maxStack": 9.0,
+            "effectTarget": "敵"
           },
           {
             "effectId": "Rollett_enhanced_e03",
@@ -26093,7 +27150,8 @@ const APOSTLE_LIBRARY = [
             "valueClass": "持続時間",
             "effectType": "デバフ",
             "effectStack": true,
-            "maxStack": 4.0,
+            "maxStack": 9.0,
+            "effectTarget": "敵",
             "fixedValue": 4.0
           }
         ],

@@ -54,6 +54,7 @@ function rejectRawHeaders(value, label) {
   const forbidden = new Set([
     '効果処理グループID', '処理順', '発動条件種別', '発動条件値',
     '発動元ID', '適用条件種別', '適用条件値',
+    'ダメージ補正区分',
   ]);
   const hits = [];
   walk(value, (item, pathParts) => {
@@ -98,6 +99,24 @@ function main() {
   const ayaCharge = findEffect(apostles, 'Aya_aside_2_e01');
   if (!ayaCharge?.processGroupId || !ayaCharge?.triggerType) {
     fail('apostles.js: アヤA2の処理グループまたは発動条件が生成されていません');
+  }
+  const ayaFavoriteFlower = findEffect(apostles, 'Aya_favorite_1_e03');
+  if (ayaFavoriteFlower?.attackCategory !== '無分類') {
+    fail('apostles.js: アヤ愛用品の小さな雪の花が攻撃分類=無分類で生成されていません');
+  }
+  const ayaFavoriteFlowerStat = findEffect(statData.sheets, 'Aya_favorite_1_e03');
+  if (ayaFavoriteFlowerStat?.attackCategory !== '無分類') {
+    fail('statData.js: アヤ愛用品の小さな雪の花が攻撃分類=無分類で生成されていません');
+  }
+
+  const pira = apostles.find(apostle => apostle.id === 'pira');
+  const piraWealth = pira?.uniqueStates?.find(state => state.stateId === 'Pira_wealth');
+  if (!piraWealth || piraWealth.ownerId !== 'pira' || piraWealth.maxValue !== 30) {
+    fail('apostles.js: ピラの富豪固有状態が生成されていません');
+  }
+  const piraWealthStat = statData.getById('uniqueStates', 'Pira_wealth');
+  if (!piraWealthStat || piraWealthStat.ownerId !== 'Pira' || piraWealthStat.maxValue !== 30) {
+    fail('statData.js: ピラの富豪固有状態が生成または索引化されていません');
   }
 
   const cardEffects = [...cards.artifacts, ...cards.spells]

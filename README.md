@@ -48,6 +48,7 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 - `statData.js`
 
 生成前のファイルと元Excelは `backups/generated/<timestamp>/` にバックアップされます。
+生成後には、バックアップとの差分を `tmp/generate-change-<timestamp>.log` に出力します。`effectId`、使徒名、スキル名、発動元IDなどの変更は`[NOTICE]`、その他の値変更は`[CHANGE]`として記録されます。特殊な名前を許容するため生成は停止しませんが、参照先の変更はこのログで確認してください。
 生成スクリプトを個別に実行する場合は、`tools` ディレクトリから各Pythonスクリプトを実行してください。
 
 シート内容を検索・検証する場合は、Excelを一度だけTSVへ展開できます。出力先の `tmp/` はGit管理外です。

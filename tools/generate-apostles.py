@@ -21,6 +21,7 @@ SHEETS = {
     "asideBasics": "アサイド基礎設定",
     "asideStats": "アサイド全体補正",
     "asideSpecials": "アサイド特殊効果",
+    "uniqueStates": "固有状態基礎設定",
     "board": "ボード設定",
 }
 
@@ -76,15 +77,19 @@ KEY_MAP = {
     "値の種類": "valueKind",
     "値分類": "valueClass",
     "効果タイプ": "effectType",
+    "ダメージ補正区分": "damageModifierCategory",
     "効果スタック": "effectStack",
     "スタック数": "stackCount",
     "最大スタック": "maxStack",
     "最大スタック数": "maxStack",
+    "最大スタック到達時消費": "consumeOnMaxStack",
     "スキル発動条件種別": "triggerType",
     "発動条件種別": "triggerType",
     "スキル発動条件値": "triggerValue",
     "発動条件値": "triggerValue",
     "効果処理グループID": "processGroupId",
+    "スタックグループID": "stackGroupId",
+    "スタック集約ID": "stackGroupId",
     "処理順": "processOrder",
     "発動元ID": "triggerSourceId",
     "適用条件種別": "conditionType",
@@ -97,6 +102,24 @@ KEY_MAP = {
     "参照": "reference",
     "持続時間": "duration",
     "固定値": "fixedValue",
+    "stateId": "stateId",
+    "状態名": "name",
+    "状態カテゴリ": "category",
+    "値形式": "valueType",
+    "管理単位": "scope",
+    "初期値": "initialValue",
+    "最小値": "minValue",
+    "最大値": "maxValue",
+    "増減単位": "step",
+    "上限時処理": "capBehavior",
+    "下限時処理": "floorBehavior",
+    "解除区分": "dispelPolicy",
+    "保持期間": "retention",
+    "変化イベント基準": "changeEventBasis",
+    "計算対応段階": "calculationSupportLevel",
+    "検証状態": "verificationStatus",
+    "備考": "notes",
+    "出典URL": "sourceUrl",
     "遺物名": "cardName",
     "カード名": "cardName",
     "カード種別": "cardKind",
@@ -171,7 +194,10 @@ def clean_value(value: Any) -> Any:
     if text in {"", "-"}:
         return None
     if re.fullmatch(r"[+-]?\d+", text):
-        return int(text)
+        # Excel の保存時に `1.0` が `1` へ正規化されても、生成済み
+        # データの数値表記だけが全件変わらないよう従来の小数表記を保つ。
+        # JavaScript 側では同じ Number であり、値の意味は変えない。
+        return float(text)
     try:
         return float(text)
     except ValueError:
@@ -259,6 +285,7 @@ def has_effect_payload(data: dict[str, Any]) -> bool:
         "stackCount",
         "maxStack",
         "processGroupId",
+        "stackGroupId",
         "processOrder",
         "triggerType",
         "triggerValue",
@@ -389,6 +416,7 @@ def new_apostle_data(apostle_id: str, name: str, basic: dict[str, Any] | None = 
         "basic": basic or {},
         "statTypes": {},
         "skills": [],
+        "uniqueStates": [],
         "favoriteCard": {},
         "aside": {"levels": {}},
         "board": None,
@@ -566,6 +594,25 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
             ("skillId", "no", "skillType", "skillName", "description", "stunSeconds", "cooldownSeconds", "skillTriggerType", "skillTriggerValue"),
         )
 
+    seen_unique_state_ids: set[str] = set()
+    for row in rows["uniqueStates"]:
+        state_id = row.get("stateId")
+        owner_id = row.get("id")
+        if not state_id:
+            warnings.append("unique state definition missing stateId")
+            continue
+        if state_id in seen_unique_state_ids:
+            warnings.append(f"duplicate unique state definition: {state_id}")
+            continue
+        seen_unique_state_ids.add(state_id)
+        apostle = by_id.get(owner_id)
+        if apostle is None:
+            warnings.append(f"unique state owner is missing: {state_id} / {owner_id}")
+            continue
+        state = compact_row(row, remove=("id",))
+        state["ownerId"] = owner_id
+        apostle["uniqueStates"].append(state)
+
     for row in rows["favoriteCard"]:
         apostle = ensure_apostle_from_row(by_id, row, warnings)
         if apostle is not None:
@@ -596,6 +643,8 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
         apostle["board"] = board
 
     for apostle in by_id.values():
+        if not apostle["uniqueStates"]:
+            apostle.pop("uniqueStates")
         apostle["skills"] = remove_internal_group_keys(apostle["skills"])
         for skill in apostle["skills"]:
             if "skillTriggerType" in skill:

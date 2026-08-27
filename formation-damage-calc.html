@@ -37,7 +37,8 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260809r" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260813a">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
+  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260827ai">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -49,7 +50,7 @@
     gtag('config', 'G-J8GXV74KQY');
   </script>
 </head>
-<body class="formation-damage-calc theme-dark" data-fdc-mobile-side="self">
+<body class="formation-damage-calc fdcp-page theme-dark" data-fdc-mobile-side="self">
   <main class="fdc-shell">
     <section class="fdc-top-control-bar" aria-label="計算操作">
       <div class="fdc-top-status">
@@ -788,6 +789,10 @@
         <strong>計算設定</strong>
         <span>由来別 ON/OFF</span>
       </div>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="formationSkill">
+        <input type="checkbox" data-fdc-apply-source="formationSkill" checked>
+        <span>編成スキル効果</span>
+      </label>
       <label class="fdc-apply-float-row" data-fdc-apply-row="synergy">
         <input type="checkbox" data-fdc-apply-source="synergy" checked>
         <span>シナジー</span>
@@ -841,6 +846,31 @@
       </div>
     </details>
 
+    <div id="fdcp-dps-compare-slot" class="fdcp-dps-float-slot fdcp-dps-compare-slot" hidden>
+      <button type="button" id="fdcp-dps-compare-toggle" class="fdc-compare-float-toggle fdcp-dps-compare-toggle" aria-expanded="false" aria-controls="fdcp-dps-compare-panel" aria-label="DPS比較"><span id="fdcp-dps-compare-toggle-label">DPS比較</span><i aria-hidden="true"></i></button>
+      <section id="fdcp-dps-compare-panel" class="fdcp-float-panel fdcp-dps-compare-panel" aria-label="DPS比較" hidden>
+        <strong>DPS比較</strong>
+        <button type="button" id="fdcp-baseline-save">基準保存</button>
+        <button type="button" id="fdcp-baseline-clear" disabled>解除</button>
+        <small id="fdcp-baseline-note">基準は未保存です。</small>
+      </section>
+    </div>
+    <div id="fdcp-dps-settings-slot" class="fdcp-dps-float-slot fdcp-dps-settings-slot" hidden>
+      <button type="button" id="fdcp-dps-settings-toggle" class="fdc-apply-float-toggle fdcp-dps-float-toggle" aria-expanded="false" aria-controls="fdcp-dps-settings-panel" aria-label="DPS計算設定">
+        <span>DPS計算</span>
+      </button>
+      <section id="fdcp-dps-settings-panel" class="fdcp-float-panel" aria-label="DPS計算設定" hidden>
+        <strong>比較用DPS 計算</strong>
+        <small class="fdcp-dps-usage-note">同じ使徒の設定比較用です。使徒間比較には使用できません。</small>
+        <label><input id="fdcp-auto-run" type="checkbox" checked>自動計算</label>
+        <label>高学年 <select id="fdcp-high-mode"><option value="disabled" selected>なし</option><option value="auto">オート</option></select></label>
+        <label>計測時間 <select id="fdcp-duration"><option value="30">30秒</option><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option><option value="180">180秒</option></select></label>
+        <label>統計試行数 <select id="fdcp-trials"><option value="16" selected>16回（16 seed平均）</option><option value="64">64回（64 seed平均）</option><option value="256">256回（256 seed平均）</option></select></label>
+        <label>初期seed <input id="fdcp-seed" type="number" value="1" min="1" step="1"></label>
+        <button type="button" id="fdcp-dps-run">DPS計算</button>
+      </section>
+    </div>
+
     <button type="button" id="fdc-compare-float-toggle" class="fdc-compare-float-toggle" aria-expanded="false" aria-controls="fdc-compare-float-panel" aria-label="変更前と比較">
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M7 7h11l-3-3"></path>
@@ -855,6 +885,7 @@
     <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
       <span>計算</span>
       <span class="fdc-apply-float-dots">
+        <i data-fdc-apply-dot="formationSkill"></i>
         <i data-fdc-apply-dot="synergy"></i>
         <i data-fdc-apply-dot="artifact"></i>
         <i data-fdc-apply-dot="spell"></i>
@@ -863,7 +894,17 @@
     </button>
   </div>
 
-  <div class="bottom-result-bar fdc-result-bar">
+  <div id="fdcp-bottom-bar" class="bottom-result-bar fdc-result-bar fdcp-bottom-bar" data-mode="single">
+    <div class="fdcp-mode-tabs" role="tablist" aria-label="結果モード"><button type="button" role="tab" aria-selected="true" data-fdcp-mode="single">通常</button><button type="button" role="tab" aria-selected="false" aria-disabled="false" data-fdcp-mode="dps">DPS</button></div>
+    <section id="fdcp-dps-detail-panel" class="fdc-result-detail-panel fdcp-dps-detail-panel" aria-label="比較用DPS 詳細" hidden>
+      <div class="fdc-result-detail-head">
+        <strong>詳細</strong>
+        <span id="fdcp-drawer-status">比較用DPSを計算してください。</span>
+      </div>
+      <div id="fdcp-dps-detail-grid" class="fdc-result-detail-grid">
+        <section class="fdc-result-detail-group is-wide"><h3>計算状態</h3><p>比較用DPSを計算すると、計測条件と行動別適用効果を表示します。</p></section>
+      </div>
+    </section>
     <div id="fdc-result-detail-panel" class="fdc-result-detail-panel" hidden>
       <div class="fdc-result-detail-head">
         <strong>詳細</strong>
@@ -908,6 +949,11 @@
         <svg class="value fdc-detail-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"></path></svg>
       </button>
     </div>
+    <div id="fdcp-dps-result" class="fdcp-result-panel" data-fdcp-panel="dps" hidden>
+      <div class="fdcp-dps-primary"><canvas id="fdcp-sparkline" width="360" height="140" aria-label="単一seed累積ダメージ推移"></canvas><small id="fdcp-provisional-badge" class="fdcp-provisional-badge" hidden>暫定</small><span>全体期待DPS（比較用）</span><strong id="fdcp-dps-value">—</strong><small id="fdcp-total-delta" class="fdcp-total-delta" aria-live="polite" hidden></small><small id="fdcp-dps-state" hidden>使徒設定を確認中</small><small id="fdcp-sparkline-meta" hidden>90秒 / seed 1</small><small id="fdcp-dps-meta" hidden></small><span id="fdcp-total-value" hidden></span></div>
+      <div id="fdcp-breakdown" class="fdcp-breakdown" aria-label="行動別比較用DPS内訳"><div data-fdcp-breakdown="basicAttack" aria-label="基本: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">基本</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="enhancedAttack" aria-label="強化: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">強化</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="lowSkill" aria-label="低学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">低学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="highSkill" aria-label="高学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">高学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="other" aria-label="その他: DPS、基準比、構成比、発動回数は集計しない"><span data-fdcp-column="action">その他</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="発動回数">—</small></div></div>
+      <button type="button" id="fdcp-dps-detail" class="result-card fdc-detail-toggle fdcp-detail-button" aria-expanded="false"><span class="label">詳細</span><svg class="value fdc-detail-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"></path></svg></button>
+    </div>
   </div>
 
   <div id="fdc-skill-popover" class="fdc-skill-popover" hidden>
@@ -920,10 +966,15 @@
   <script src="apostles.js?v=20260801a"></script>
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
-  <script src="enemy-presets.js?v=20260727n"></script>
-  <script src="app-cache.js?v=20260813r"></script>
+  <script src="enemy-presets.js?v=20260821o"></script>
+  <script src="app-cache.js?v=20260827ad"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="combat-scenario.js?v=20260808b"></script>
-  <script src="formation-damage-calc.js?v=20260816b"></script>
+  <script src="combat-scenario.js?v=20260824a"></script>
+  <script src="dps-trigger-policy.js?v=20260826c"></script>
+  <script src="dps-timing-data.js?v=20260827b"></script>
+  <script src="dps-simulator.js?v=20260827n"></script>
+  <script src="dps-support-registry.js?v=20260827c"></script>
+  <script src="formation-damage-calc.js?v=20260826k"></script>
+  <script src="formation-damage-dps-prototype.js?v=20260827ak"></script>
 </body>
 </html>

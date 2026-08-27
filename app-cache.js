@@ -21,18 +21,37 @@
     calc: [
       'formation-damage-calc.html',
       'style.css',
-      'formation-damage-calc.css?v=20260813a',
+      'formation-damage-calc.css?v=20260826b',
+      'formation-damage-dps-prototype.css?v=20260827ai',
       'shared-topbar.css?v=20260727e',
-      'statData.js?v=20260727b',
+      'statData.js?v=20260801a',
       'sp-engine.js?v=20260720b',
       'stat-engine.js?v=20260808a',
-      'apostles.js?v=20260727a',
+      'apostles.js?v=20260801a',
       'cards.js?v=20260813a',
       'synergy.js',
-      'enemy-presets.js?v=20260727n',
-      'combat-scenario.js?v=20260808b',
-      'formation-damage-calc.js?v=20260813g',
+      'enemy-presets.js?v=20260821o',
+      'combat-scenario.js?v=20260824a',
+      'dps-trigger-policy.js?v=20260826c',
+      'dps-timing-data.js?v=20260827b',
+      'dps-simulator.js?v=20260827n',
+      'dps-simulator-worker.js?v=20260827m',
+      'dps-support-registry.js?v=20260827c',
+      'formation-damage-calc.js?v=20260826k',
+      'formation-damage-dps-prototype.js?v=20260827ak',
       'image-preload.js?v=20260727a'
+    ],
+    dpsPrototype: [
+      'formation-damage-dps-prototype.html',
+      'formation-damage-dps-prototype.css?v=20260827ai',
+      'formation-damage-dps-prototype.js?v=20260827ak',
+      'dps-support-registry.js?v=20260827c',
+      'dps-timing-data.js?v=20260827b',
+      'dps-simulator.js?v=20260827n',
+      'dps-simulator-worker.js?v=20260827m',
+      'formation-damage-calc.html',
+      'formation-damage-calc.css?v=20260826b',
+      'formation-damage-calc.js?v=20260826k'
     ]
   };
 
@@ -47,7 +66,9 @@
   }, { once: true });
 
   function warmLikelyRouteSoon() {
-    const warm = () => warmRouteAssets(document.body?.classList.contains('formation-damage-calc') ? 'calc' : 'stat');
+    const warm = () => warmRouteAssets(document.body?.classList.contains('fdcp-prototype-page')
+      ? 'dpsPrototype'
+      : document.body?.classList.contains('formation-damage-calc') ? 'calc' : 'stat');
     if ('requestIdleCallback' in window) {
       window.requestIdleCallback(warm, { timeout: 2200 });
     } else {

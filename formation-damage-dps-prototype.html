@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- PROTOTYPE: このHTMLは formation-damage-calc.html の現行DOMを複製した試験用ページ。
+       最終統合時はprototype固有の下バー/controllerを元ページへ移す前提で、元ページは変更しない。 -->
+  <title>ダメージ計算＋比較用DPS 試験版 | Trickcal Manager</title>
+  <meta name="description" content="トリッカル・もちもちほっペ大作戦の使徒、スキル、編成、遺物カード、スペルカード、クレヨンボード補正、バフ・デバフ、攻撃力、防御力、会心率、会心ダメージを反映できる非公式ダメージ計算ツールです。">
+  <meta name="robots" content="noindex,nofollow">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ja_JP">
+  <meta property="og:site_name" content="Trickcal Manager">
+  <meta property="og:title" content="トリッカル ダメージ計算｜カード・クレヨンボード対応">
+  <meta property="og:description" content="遺物カード、スペルカード、クレヨンボード補正、編成、スキル、バフ・デバフ、攻撃力、防御力、会心率、会心ダメージを反映してダメージを計算できます。">
+  <meta name="twitter:card" content="summary">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "トリッカル ダメージ計算ツール",
+      "alternateName": "Trickcal Manager",
+      "applicationCategory": "GameApplication",
+      "operatingSystem": "Web",
+      "inLanguage": "ja",
+      "isAccessibleForFree": true,
+      "description": "トリッカル・もちもちほっペ大作戦の編成、スキル、遺物カード、スペルカード、クレヨンボード補正、バフ・デバフ、攻撃力、防御力、会心率、会心ダメージを反映できるダメージ計算ツール",
+      "featureList": ["ダメージ計算", "遺物カード効果", "スペルカード効果", "クレヨンボード補正", "編成・シナジー反映"]
+    }
+  </script>
+  <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
+  <link rel="prefetch" href="stat-dashboard.html" as="document">
+  <link rel="prefetch" href="index.html" as="document">
+  <link rel="prefetch" href="stat-prototype.css?v=20260806g" as="style">
+  <link rel="prefetch" href="stat-dashboard.css?v=20260809j" as="style">
+  <link rel="prefetch" href="stat-prototype.js?v=20260809r" as="script">
+  <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
+  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260827ai">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-J8GXV74KQY');
+  </script>
+</head>
+<body class="formation-damage-calc fdcp-page fdcp-prototype-page theme-dark" data-fdc-mobile-side="self">
+  <main class="fdc-shell">
+    <section class="fdc-top-control-bar" aria-label="計算操作">
+      <div class="fdc-top-status">
+        <h1>ダメージ計算</h1>
+        <span>カード・クレヨンボード・シナジー込みで計算</span>
+      </div>
+      <div class="fdc-top-tabs" aria-label="表示切替">
+        <button type="button" class="is-active"><span class="topbar-label">ダメ<br>計算</span></button>
+        <a href="stat-dashboard.html?view=settings"><span class="topbar-label">ステ<br>管理</span></a>
+        <a href="stat-dashboard.html?view=formation">編成</a>
+        <a href="stat-dashboard.html?card=artifact">遺物</a>
+        <a href="stat-dashboard.html?card=spell">スペル</a>
+        <a href="stat-dashboard.html?global=board-global"><span class="topbar-label">全体<br>ボード</span></a>
+        <details class="topbar-global-menu">
+          <summary><span class="topbar-label">一括<br>設定</span></summary>
+          <div class="topbar-global-popover" aria-label="一括設定メニュー">
+            <a href="stat-dashboard.html?global=apostles">使徒設定</a>
+            <a href="stat-dashboard.html?global=rank">Rank</a>
+            <a href="stat-dashboard.html?global=bond">好感度</a>
+            <a href="stat-dashboard.html?global=aside">アサイド</a>
+            <a href="stat-dashboard.html?global=research">研究</a>
+          </div>
+        </details>
+      </div>
+      <div class="fdc-top-actions">
+        <a class="topbar-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
+          <img src="img/icon/note.svg" alt="" width="16" height="16">
+        </a>
+        <button type="button" id="fdc-reload" class="topbar-reload-button" aria-label="再読み込み" title="再読み込み"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 1 0-2.34 5.66"></path><path d="M20 4v7h-7"></path></svg></button>
+        <button type="button" id="fdc-theme-toggle" class="fdc-theme-toggle" aria-label="テーマ切替">
+          <svg class="ui-icon ui-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
+          <svg class="ui-icon ui-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
+        </button>
+      </div>
+    </section>
+    <button type="button" id="fdc-perspective-toggle" class="fdc-perspective-toggle" title="攻守切替" aria-label="攻守切替">
+      <svg class="fdc-perspective-arrow fdc-arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M14 7l5 5-5 5"></path></svg>
+      <svg class="fdc-perspective-arrow fdc-arrow-left" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 12H5M10 7l-5 5 5 5"></path></svg>
+      <small id="fdc-perspective-label">攻撃</small>
+    </button>
+    <span id="fdc-mobile-side-switch" class="fdc-mobile-side-switch" aria-label="表示キャラ切替">
+      <button type="button" class="is-active" data-fdc-mobile-side="self" aria-pressed="true">自</button>
+      <button type="button" data-fdc-mobile-side="enemy" aria-pressed="false">敵</button>
+    </span>
+    <button type="button" id="fdc-floating-target" class="fdc-floating-target" aria-label="選択使徒を変更" hidden></button>
+
+    <section class="side-panels fdc-side-panels">
+      <article class="side-panel self-side is-attacker fdc-panel">
+        <div class="fdc-side-preamble">
+          <div class="fdc-panel-head">
+            <div class="fdc-panel-title">
+              <h2>自キャラ</h2>
+              <span id="fdc-self-role-chip" class="panel-role is-attacker-chip">Attacker</span>
+              <span id="fdc-self-attack-type-chip" class="fdc-attack-type-chip is-physical">
+                <img src="img/Attack_phys.webp" alt="">
+                <b>物理</b>
+              </span>
+            </div>
+          </div>
+
+          <label class="fdc-formation-loader">
+            <span>編成読込</span>
+            <select id="fdc-formation-preset">
+              <option value="">編集中の編成</option>
+            </select>
+          </label>
+
+          <div class="fdc-target-row">
+            <button type="button" id="fdc-target-preview" class="fdc-target-preview" aria-expanded="false"></button>
+            <div class="fdc-target-side-controls" aria-label="使徒計算設定">
+              <label class="fdc-field">
+                <span>ダメージ種別</span>
+                <select id="fdc-damage-type">
+                  <option value="auto">自動</option>
+                  <option value="physical">物理</option>
+                  <option value="magic">魔法</option>
+                </select>
+              </label>
+              <label class="fdc-field fdc-grade-field">
+                <span>学年</span>
+                <select id="fdc-grade-override">
+                  <option value="saved">保存値</option>
+                  <option value="1">1年生</option>
+                  <option value="2">2年生</option>
+                  <option value="3">3年生</option>
+                  <option value="4">4年生</option>
+                  <option value="5">5年生</option>
+                  <option value="6">6年生</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="fdc-formation-picker" class="fdc-formation-picker" hidden></div>
+
+        <div class="stat-category">
+          <h3>ステータス</h3>
+          <div class="fdc-stat-grid fdc-primary-stat-grid">
+            <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
+              <span>HP</span>
+              <input id="fdc-self-hp" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack">
+              <span>攻撃力</span>
+              <input id="fdc-atk" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense">
+              <span>防御力</span>
+              <input id="fdc-self-def" type="number" min="1" value="1">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit">
+              <span>会心</span>
+              <input id="fdc-crit" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg">
+              <span>会心DMG</span>
+              <input id="fdc-crit-dmg" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res">
+              <span>会心抵抗</span>
+              <input id="fdc-self-crit-res-base" type="number" min="1" value="1">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res">
+              <span>会心DMG抵抗</span>
+              <input id="fdc-self-crit-dmg-res-base" type="number" min="1" value="1">
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category">
+          <h3>スキル</h3>
+          <div class="fdc-skill-config-grid">
+            <label class="fdc-field">
+              <span>スキル倍率 (%)</span>
+              <input id="fdc-self-skill" type="number" min="0" value="100">
+            </label>
+          </div>
+          <div id="fdc-self-skill-choices" class="fdc-skill-choices"></div>
+          <div id="fdc-self-skill-effects" class="fdc-skill-effects"></div>
+        </div>
+
+        <div class="stat-category">
+          <h3>シナジー</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="synergy">
+              <input type="checkbox" data-fdc-category-source="synergy" checked>
+              <span>シナジー効果</span>
+            </label>
+          </div>
+          <div id="fdc-synergy-category" class="fdc-synergy-category"></div>
+        </div>
+
+        <div class="stat-category">
+          <h3>遺物カード</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="artifact">
+              <input type="checkbox" id="fdc-artifact-effects-toggle" data-fdc-category-source="artifact" checked>
+              <span>遺物効果</span>
+            </label>
+          </div>
+          <div id="fdc-artifact-category" class="fdc-artifact-category"></div>
+        </div>
+
+        <div class="stat-category">
+          <h3>スペルカード</h3>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="spell">
+              <input type="checkbox" data-fdc-category-source="spell" checked>
+              <span>スペル効果</span>
+            </label>
+          </div>
+          <div id="fdc-spell-category" class="fdc-spell-category"></div>
+        </div>
+
+        <div class="stat-category">
+          <h3>ダメージ倍率 (%)</h3>
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
+            <label class="fdc-field fdc-attack-only">
+              <span>属性相性</span>
+              <select id="fdc-self-type">
+                <option value="50">50</option>
+                <option value="75">75</option>
+                <option value="100" selected>100</option>
+                <option value="150">150</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>その他倍率</span>
+              <input id="fdc-self-other" type="number" min="0" value="100">
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>与ダメージ量増減</span>
+              <input id="fdc-self-add-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-defense-only">
+              <span>被ダメージ量増減</span>
+              <input id="fdc-self-taken-dmg-p" type="number" value="0">
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category" id="fdc-self-buff-category">
+          <h3>バフ/デバフ</h3>
+          <div class="fdc-stat-grid">
+            <div class="fdc-status-subgroup-label fdc-defense-only" id="fdc-self-target-debuff-label" hidden>防御側デバフ</div>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-self-weakness-field" hidden>
+              <span id="fdc-self-weakness-label">弱点(%)</span>
+              <input id="fdc-self-weakness-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-self-break-field" hidden>
+              <span id="fdc-self-break-label">破壊</span>
+              <select id="fdc-self-break-stack">
+                <option value="0">なし</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>毒</span>
+              <select id="fdc-self-poison-stack">
+                <option value="0">なし</option>
+                <option value="1">1スタック / -11%</option>
+                <option value="2">2スタック / -22%</option>
+                <option value="3">3スタック / -33%</option>
+                <option value="4">4スタック / -44%</option>
+                <option value="5">5スタック / -55%</option>
+                <option value="6">6スタック / -66%</option>
+                <option value="7">7スタック / -77%</option>
+                <option value="8">8スタック / -88%</option>
+                <option value="9">9スタック / -99%</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>ノイズ</span>
+              <select id="fdc-self-noise">
+                <option value="0">なし</option>
+                <option value="1">ON / -50%</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category">
+          <h3>ステータス補正 (%)</h3>
+          <div class="fdc-stat-grid fdc-mixed-percent-grid">
+            <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
+              <span>攻撃力</span>
+              <input id="fdc-self-atk-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit">
+              <span>会心</span>
+              <input id="fdc-self-crit-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit-dmg">
+              <span>会心DMG</span>
+              <input id="fdc-self-crit-dmg-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心率加算</span>
+              <input id="fdc-self-crit-rate-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心DMG量加算</span>
+              <input id="fdc-self-crit-dmg-add-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
+              <span>防御力</span>
+              <input id="fdc-self-def-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-res">
+              <span>会心抵抗</span>
+              <input id="fdc-self-crit-res-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-dmg-res">
+              <span>会心DMG抵抗</span>
+              <input id="fdc-self-crit-dmg-res-p" type="number" value="0">
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category fdc-board-crayon-category">
+          <h3>ボード・追加クレヨン</h3>
+          <div class="fdc-board-stat-mode">
+            <span class="fdc-board-stat-mode-copy">
+              <strong>ボード状態</strong>
+              <small>現在値か、予定ボード反映後の値を使用</small>
+            </span>
+            <select id="fdc-stat-mode" aria-label="ボード状態">
+              <option value="current">現在</option>
+              <option value="planned">予定</option>
+            </select>
+            <span class="fdc-stat-mode-toggle" role="group" aria-label="ボード状態">
+              <button type="button" data-fdc-stat-mode-choice="current" aria-pressed="true">現在</button>
+              <button type="button" data-fdc-stat-mode-choice="planned" aria-pressed="false">予定</button>
+            </span>
+          </div>
+          <div id="fdc-board-plan-bonus" class="fdc-board-plan-bonus" hidden>
+            <span class="fdc-board-plan-bonus-title">予定で増減する全体効果</span>
+            <div class="fdc-board-plan-bonus-row">
+              <strong><img src="img/Board/Tileicon_3.webp" alt="">特殊 <small>(%)</small></strong>
+              <span id="fdc-board-plan-special">変化なし</span>
+            </div>
+            <div class="fdc-board-plan-bonus-row">
+              <strong><img src="img/Board/Tileicon_2.webp" alt="">上級 <small>(+)</small></strong>
+              <span id="fdc-board-plan-advanced">変化なし</span>
+            </div>
+          </div>
+          <div class="fdc-category-actions">
+            <label class="fdc-inline-toggle" data-fdc-category-row="globalStats">
+              <input type="checkbox" data-fdc-category-source="globalStats" checked>
+              <span>手動追加 (%)</span>
+            </label>
+          </div>
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
+            <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
+              <span>HP</span>
+              <input id="fdc-extra-crayon-hp-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack">
+              <span>攻撃力</span>
+              <input id="fdc-extra-crayon-atk-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense">
+              <span>防御力</span>
+              <input id="fdc-extra-crayon-def-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit">
+              <span>会心</span>
+              <input id="fdc-extra-crayon-crit-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg">
+              <span>会心DMG</span>
+              <input id="fdc-extra-crayon-crit-dmg-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res">
+              <span>会心抵抗</span>
+              <input id="fdc-extra-crayon-crit-res-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res">
+              <span>会心DMG抵抗</span>
+              <input id="fdc-extra-crayon-crit-dmg-res-p" type="number" value="0">
+            </label>
+          </div>
+        </div>
+      </article>
+
+      <article class="side-panel enemy-side is-defender fdc-panel">
+        <div class="fdc-side-preamble">
+          <div class="fdc-panel-head">
+            <div class="fdc-panel-title">
+              <h2>敵キャラ</h2>
+              <span id="fdc-enemy-role-chip" class="panel-role is-defender-chip">Defender</span>
+              <span id="fdc-enemy-attack-type-chip" class="fdc-attack-type-chip is-physical">
+                <img src="img/Attack_phys.webp" alt="">
+                <b>物理</b>
+              </span>
+            </div>
+            <div class="fdc-enemy-preset-controls">
+              <label class="fdc-field fdc-enemy-source-mode-field">
+                <span>敵の種類</span>
+                <select id="fdc-enemy-source-mode">
+                  <option value="preset">敵プリセット</option>
+                  <option value="apostle">使徒 / PVP</option>
+                </select>
+              </label>
+              <div class="fdc-field fdc-enemy-preset-field fdc-enemy-source-preset">
+                <div class="fdc-field-label-row">
+                  <span>敵プリセット</span>
+                  <a id="fdc-enemy-status-link" class="fdc-enemy-status-link" href="enemy-status.html">敵データ</a>
+                </div>
+                <select id="fdc-enemy-preset" aria-label="敵プリセット">
+                  <option value="">手動入力</option>
+                </select>
+              </div>
+              <label class="fdc-field fdc-enemy-apostle-field fdc-enemy-source-apostle" hidden>
+                <span>敵使徒</span>
+                <span class="fdc-enemy-apostle-control">
+                  <img id="fdc-enemy-apostle-image" src="img/Chara/null.webp" alt="">
+                  <select id="fdc-enemy-apostle">
+                    <option value="">使徒を選択</option>
+                  </select>
+                </span>
+              </label>
+              <label class="fdc-pvp-affinity-toggle fdc-enemy-source-apostle" hidden>
+                <input id="fdc-pvp-affinity-enabled" type="checkbox">
+                <span><b>PvP相性補正</b><small>不利75%・有利150%</small></span>
+              </label>
+              <label class="fdc-field fdc-phase-field fdc-enemy-source-preset" id="fdc-enemy-phase-field">
+                <span>フェーズ</span>
+                <select id="fdc-enemy-phase"></select>
+              </label>
+              <div class="fdc-enemy-preset-save fdc-enemy-source-preset">
+                <label class="fdc-field">
+                  <span>プリセット保存</span>
+                  <input id="fdc-enemy-preset-name" type="text" placeholder="名前">
+                </label>
+                <button type="button" id="fdc-enemy-preset-save">保存</button>
+                <button type="button" id="fdc-enemy-preset-delete" class="is-danger" disabled>削除</button>
+              </div>
+              <label class="fdc-field fdc-enemy-damage-type-field">
+                <span>ダメージ種別</span>
+                <select id="fdc-enemy-damage-type">
+                  <option value="auto">自動</option>
+                  <option value="physical">物理</option>
+                  <option value="magic">魔法</option>
+                </select>
+              </label>
+              <label class="fdc-field fdc-enemy-personality-field">
+                <span>性格</span>
+                <span class="fdc-enemy-personality-control">
+                  <img id="fdc-enemy-personality-icon" src="img/性格_なし.webp" alt="">
+                  <select id="fdc-enemy-personality">
+                    <option value="">なし</option>
+                    <option value="純粋">純粋</option>
+                    <option value="冷静">冷静</option>
+                    <option value="狂気">狂気</option>
+                    <option value="活発">活発</option>
+                    <option value="憂鬱">憂鬱</option>
+                  </select>
+                </span>
+              </label>
+            </div>
+            </div>
+          </div>
+
+          <section class="fdc-pvp-rank-calculator fdc-enemy-source-apostle" id="fdc-pvp-rank-calculator" hidden>
+            <div class="fdc-pvp-rank-head">
+              <strong>PvP挑戦可能範囲</strong>
+              <button type="button" id="fdc-pvp-rank-info" aria-label="PvP挑戦可能範囲の計算説明" title="計算説明">?</button>
+            </div>
+            <div class="fdc-pvp-rank-summary" aria-live="polite">
+              <label class="fdc-pvp-rank-card fdc-pvp-rank-number">
+                <span>現在順位</span>
+                <span><input id="fdc-pvp-rank-input" type="number" min="1" max="3001" step="1" value="3001"><b>位</b></span>
+              </label>
+              <div class="fdc-pvp-rank-card">
+                <span>挑戦可能順位</span>
+                <strong id="fdc-pvp-max-rank">2,760位</strong>
+              </div>
+              <div class="fdc-pvp-rank-card">
+                <span>獲得エリーフ</span>
+                <strong class="fdc-pvp-eliph-value"><img src="img/エリーフ.webp" alt=""><b id="fdc-pvp-challenge-eliph">192</b></strong>
+              </div>
+            </div>
+            <label class="fdc-pvp-rank-slider-wrap">
+              <span class="fdc-pvp-rank-slider-labels"><small>3001位</small><small>1位</small></span>
+              <input id="fdc-pvp-rank-slider" type="range" min="1" max="3001" step="1" value="3001" aria-label="現在順位スライダー">
+            </label>
+          </section>
+
+        <div class="stat-category" id="fdc-enemy-final-stats">
+          <h3 id="fdc-enemy-final-stats-heading">ステータス</h3>
+          <div class="fdc-stat-grid fdc-primary-stat-grid">
+            <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp">
+              <span>HP</span>
+              <input id="fdc-enemy-hp" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack">
+              <span>攻撃力</span>
+              <input id="fdc-enemy-atk" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense">
+              <span>防御力</span>
+              <input id="fdc-def" type="number" min="1" value="50000">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit">
+              <span>会心</span>
+              <input id="fdc-enemy-crit" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg">
+              <span>会心DMG</span>
+              <input id="fdc-enemy-crit-dmg" type="number" min="0" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res">
+              <span>会心抵抗</span>
+              <input id="fdc-crit-res" type="number" min="1" value="1000">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res">
+              <span>会心DMG抵抗</span>
+              <input id="fdc-crit-dmg-res" type="number" min="1" value="1000">
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category fdc-enemy-source-apostle" id="fdc-enemy-individual-category" hidden>
+          <h3>個別設定</h3>
+          <p class="fdc-category-note">管理側の使徒設定を読み込み、この計算内だけ変更します。</p>
+          <div id="fdc-enemy-individual-settings"></div>
+        </div>
+
+        <div class="stat-category fdc-enemy-source-apostle fdc-enemy-build-corrections" id="fdc-enemy-global-percent-category" hidden>
+          <h3>ステータス補正</h3>
+          <p class="fdc-category-note">管理側の内訳を読み込み、この計算内だけ変更します。</p>
+          <details class="fdc-correction-group" id="fdc-enemy-global-percent-group" open>
+            <summary>全体補正 (%)</summary>
+            <label class="fdc-correction-enable"><input id="fdc-enemy-global-percent-enabled" type="checkbox" checked><span>計算に適用</span></label>
+            <details id="fdc-enemy-board-preset" class="fdc-enemy-board-preset" open>
+              <summary>特殊マス全塗りセット</summary>
+              <div class="fdc-enemy-board-preset-body">
+                <div class="fdc-enemy-board-preset-rows"></div>
+                <div class="fdc-enemy-board-preset-actions">
+                  <button type="button" data-fdc-board-preset-action="clear">選択解除</button>
+                  <button type="button" data-fdc-board-preset-action="apply">全体補正へ反映</button>
+                </div>
+              </div>
+            </details>
+            <div class="fdc-stat-grid">
+              <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp"><span>HP(%)</span><input id="fdc-enemy-global-hp-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>物理攻撃力(%)</span><input id="fdc-enemy-global-patk-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>魔法攻撃力(%)</span><input id="fdc-enemy-global-matk-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>物理防御力(%)</span><input id="fdc-enemy-global-pdef-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>魔法防御力(%)</span><input id="fdc-enemy-global-mdef-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit"><span>会心(%)</span><input id="fdc-enemy-global-crit-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg"><span>会心DMG(%)</span><input id="fdc-enemy-global-crit-dmg-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res"><span>会心抵抗(%)</span><input id="fdc-enemy-global-crit-res-p" type="number" value="0" step="0.1"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res"><span>会心DMG抵抗(%)</span><input id="fdc-enemy-global-crit-dmg-res-p" type="number" value="0" step="0.1"></label>
+            </div>
+          </details>
+          <details class="fdc-correction-group" id="fdc-enemy-global-additive-group" open>
+            <summary>全体加算補正</summary>
+            <label class="fdc-correction-enable"><input id="fdc-enemy-global-additive-enabled" type="checkbox" checked><span>計算に適用</span></label>
+            <p class="fdc-correction-note">Rank全体・ボード上級マス・研究の合計値です。</p>
+            <div class="fdc-enemy-additive-preset">
+              <label class="fdc-enemy-rank-preset-field"><span>Rank全体セット</span><select id="fdc-enemy-rank-preset"><option value="current">管理側の現在値</option><option value="rare3-rank9">★3使徒 Rank9</option><option value="all-rank9">全使徒 Rank9</option></select></label>
+              <label><span>研究段階</span><select id="fdc-enemy-research-level"></select></label>
+              <label><span>到達回数</span><select id="fdc-enemy-research-progress"></select></label>
+            </div>
+            <div class="fdc-enemy-board-preset-actions fdc-enemy-additive-preset-actions">
+              <button id="fdc-enemy-additive-preset-apply" type="button">選択内容を全体加算へ反映</button>
+            </div>
+            <div class="fdc-stat-grid">
+              <label class="fdc-field fdc-stat-field fdc-stat-hp" data-stat="hp"><span>HP</span><input id="fdc-enemy-global-additive-hp" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>物理攻撃力</span><input id="fdc-enemy-global-additive-patk" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-attack" data-stat="attack"><span>魔法攻撃力</span><input id="fdc-enemy-global-additive-matk" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>物理防御力</span><input id="fdc-enemy-global-additive-pdef" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-defense" data-stat="defense"><span>魔法防御力</span><input id="fdc-enemy-global-additive-mdef" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit"><span>会心</span><input id="fdc-enemy-global-additive-crit" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-crit" data-stat="crit-dmg"><span>会心DMG</span><input id="fdc-enemy-global-additive-crit-dmg" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-res"><span>会心抵抗</span><input id="fdc-enemy-global-additive-crit-res" type="number" value="0"></label>
+              <label class="fdc-field fdc-stat-field fdc-stat-resist" data-stat="crit-dmg-res"><span>会心DMG抵抗</span><input id="fdc-enemy-global-additive-crit-dmg-res" type="number" value="0"></label>
+            </div>
+          </details>
+        </div>
+        <div class="stat-category">
+          <h3>スキル</h3>
+          <div class="fdc-skill-config-grid">
+            <label class="fdc-field">
+              <span>スキル倍率 (%)</span>
+              <input id="fdc-enemy-skill-value" type="number" min="0" value="100">
+            </label>
+          </div>
+          <select id="fdc-enemy-skill" class="fdc-hidden-select" aria-label="敵スキル">
+            <option value="">なし</option>
+          </select>
+          <div id="fdc-enemy-skill-choices" class="fdc-skill-choices fdc-enemy-skill-choices"></div>
+        </div>
+
+        <div class="stat-category">
+          <h3>ダメージ倍率 (%)</h3>
+          <div class="fdc-stat-grid fdc-compact-percent-grid">
+            <label class="fdc-field fdc-attack-only">
+              <span>属性相性</span>
+              <select id="fdc-enemy-type">
+                <option value="50">50</option>
+                <option value="75">75</option>
+                <option value="100" selected>100</option>
+                <option value="150">150</option>
+                <option value="200">200</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>特殊倍率</span>
+              <input id="fdc-enemy-special" type="number" min="0" value="100">
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>その他倍率</span>
+              <input id="fdc-enemy-other" type="number" min="0" value="100">
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>与ダメージ量増減</span>
+              <input id="fdc-enemy-add-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-defense-only">
+              <span>被ダメージ量増減</span>
+              <input id="fdc-enemy-taken-dmg-p" type="number" value="0">
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category" id="fdc-enemy-buff-category">
+          <h3>バフ/デバフ</h3>
+          <div class="fdc-stat-grid">
+            <div class="fdc-status-subgroup-label" id="fdc-enemy-preset-buff-label" hidden>敵バフ</div>
+            <label class="fdc-field fdc-attack-only" id="fdc-enemy-anger-field" hidden>
+              <span>怒り</span>
+              <select id="fdc-enemy-anger-stack">
+                <option value="0">なし</option>
+              </select>
+            </label>
+            <div class="fdc-status-subgroup-label">デバフ/弱点</div>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-enemy-weakness-field" hidden>
+              <span id="fdc-enemy-weakness-label">弱点(%)</span>
+              <input id="fdc-enemy-weakness-p" type="number" value="0">
+            </label>
+            <div class="fdc-field fdc-defense-only fdc-weakness-field fdc-status-damage-weakness-field" id="fdc-enemy-status-damage-weakness-field" hidden>
+              <span id="fdc-enemy-status-damage-weakness-label">状態異常ダメージ弱点</span>
+              <strong id="fdc-enemy-status-damage-weakness-value">その他倍率 +0%</strong>
+            </div>
+            <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-enemy-status-taken-damage-weakness-field" hidden>
+              <span id="fdc-enemy-status-taken-damage-weakness-label">状態弱点</span>
+              <select id="fdc-enemy-status-taken-damage-weakness">
+                <option value="0">なし</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>毒</span>
+              <select id="fdc-enemy-poison-stack">
+                <option value="0">なし</option>
+                <option value="1">1スタック / -11%</option>
+                <option value="2">2スタック / -22%</option>
+                <option value="3">3スタック / -33%</option>
+                <option value="4">4スタック / -44%</option>
+                <option value="5">5スタック / -55%</option>
+                <option value="6">6スタック / -66%</option>
+                <option value="7">7スタック / -77%</option>
+                <option value="8">8スタック / -88%</option>
+                <option value="9">9スタック / -99%</option>
+              </select>
+            </label>
+            <label class="fdc-field fdc-attack-only">
+              <span>ノイズ</span>
+              <select id="fdc-enemy-noise">
+                <option value="0">なし</option>
+                <option value="1">ON / -50%</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="stat-category">
+          <h3>ステータス補正 (%)</h3>
+          <div class="fdc-stat-grid fdc-mixed-percent-grid">
+            <label class="fdc-field fdc-stat-field fdc-stat-attack fdc-attack-only" data-stat="attack">
+              <span>攻撃力</span>
+              <input id="fdc-enemy-atk-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit">
+              <span>会心</span>
+              <input id="fdc-enemy-crit-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-crit fdc-attack-only" data-stat="crit-dmg">
+              <span>会心DMG</span>
+              <input id="fdc-enemy-crit-dmg-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心率加算</span>
+              <input id="fdc-enemy-crit-rate-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-attack-only fdc-wide-percent-field">
+              <span>会心DMG量加算</span>
+              <input id="fdc-enemy-crit-dmg-add-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-defense fdc-defense-only" data-stat="defense">
+              <span>防御力</span>
+              <input id="fdc-enemy-def-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-res">
+              <span>会心抵抗</span>
+              <input id="fdc-enemy-crit-res-p" type="number" value="0">
+            </label>
+            <label class="fdc-field fdc-stat-field fdc-stat-resist fdc-defense-only" data-stat="crit-dmg-res">
+              <span>会心DMG抵抗</span>
+              <input id="fdc-enemy-crit-dmg-res-p" type="number" value="0">
+            </label>
+          </div>
+        </div>
+      </article>
+    </section>
+
+      <footer class="site-rights-footer">
+        <a class="site-footer-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
+          <img src="img/icon/note.svg" alt="" width="14" height="14">
+        </a>
+        <div class="site-rights-summary">非公式ファンサイト｜© EPIDGames Inc.｜日本版提供：BILIBILI HK LIMITED｜ゲーム内コンテンツの権利は各権利者に帰属します。</div>
+        <details class="site-rights-details">
+          <summary>権利表記・免責事項</summary>
+          <div>
+            <p>当サイトは『トリッカル・もちもちほっペ大作戦』の非公式ファンサイトであり、EPIDGames Inc.およびBILIBILI HK LIMITEDとは関係ありません。</p>
+            <p>ゲーム内の名称、画像、文章、その他のコンテンツに関する権利は、EPIDGames Inc.をはじめとする各権利者に帰属します。日本版はBILIBILI HK LIMITEDにより提供されています。</p>
+            <p>掲載情報は独自の調査・検証に基づくものであり、その正確性や完全性を保証するものではありません。当サイトの内容について、ゲーム公式および関係各社へのお問い合わせはご遠慮ください。</p>
+          </div>
+        </details>
+      </footer>
+  </main>
+
+  <div id="fdc-card-cost-controller" class="fdc-card-cost-controller">
+    <button type="button" id="fdc-card-cost" class="fdc-card-cost" aria-label="カード合計コスト 0" aria-expanded="false" aria-controls="fdc-card-cost-panel" title="カード合計コスト 0">
+      <img src="img/Card/cost.webp" alt="" aria-hidden="true">
+      <span class="fdc-card-cost-text fdc-card-cost-text-stroke">0</span>
+      <span class="fdc-card-cost-text fdc-card-cost-text-fill">0</span>
+    </button>
+    <div id="fdc-card-cost-panel" class="fdc-card-cost-panel" hidden>
+      <strong>カードコスト</strong>
+      <span><em>遺物</em><b data-fdc-card-cost-value="artifact">0</b></span>
+      <span><em>スペル</em><b data-fdc-card-cost-value="spell">0</b></span>
+      <span data-fdc-artifact-limit-row hidden><em>遺物枚数</em><b data-fdc-artifact-limit-value>0 / 0</b></span>
+      <span class="is-total"><em>合計</em><b data-fdc-card-cost-value="total">0</b></span>
+    </div>
+  </div>
+
+  <div id="fdc-apply-float-controller" class="fdc-apply-float-controller">
+    <section id="fdc-compare-float-panel" class="fdc-compare-float-panel" aria-label="変更前との比較" hidden>
+      <div class="fdc-compare-float-head">
+        <strong>変更前と比較</strong>
+        <span id="fdc-pinned-compare-note">比較を開始していません</span>
+      </div>
+      <p id="fdc-compare-float-help" class="fdc-compare-float-help">今の育成・編成・計算設定を「変更前」として記録します。そのあとスキルLvや装備などを変えると、ダメージの差を確認できます。選択する行動は自動的に追従します。</p>
+      <div class="fdc-compare-source-controls">
+        <label class="fdc-compare-source-field">
+          <span>比較元</span>
+          <select id="fdc-compare-source"></select>
+        </label>
+        <fieldset id="fdc-compare-scope-fieldset" class="fdc-compare-scope-fieldset">
+          <legend>比較する範囲</legend>
+          <label title="使徒Lv・装備・スキルLv・ボードなど"><input type="checkbox" data-fdc-compare-scope="characterState" checked><span>使徒育成</span></label>
+          <label title="編成使徒・遺物・スペル・教主の権能"><input type="checkbox" data-fdc-compare-scope="formationState"><span>編成内容</span></label>
+          <label title="カードの所持数・★・はんだ"><input type="checkbox" data-fdc-compare-scope="cardState"><span>カード育成</span></label>
+        </fieldset>
+      </div>
+      <div class="fdc-compare-float-actions">
+        <button type="button" id="fdc-pinned-compare-save">この条件で比較開始</button>
+        <button type="button" id="fdc-pinned-compare-clear" class="is-clear" disabled>比較を終了</button>
+      </div>
+    </section>
+    <div id="fdc-apply-float-panel" class="fdc-apply-float-panel" hidden>
+      <div class="fdc-apply-float-head">
+        <strong>計算設定</strong>
+        <span>由来別 ON/OFF</span>
+      </div>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="formationSkill">
+        <input type="checkbox" data-fdc-apply-source="formationSkill" checked>
+        <span>編成スキル効果</span>
+      </label>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="synergy">
+        <input type="checkbox" data-fdc-apply-source="synergy" checked>
+        <span>シナジー</span>
+      </label>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="artifact">
+        <input type="checkbox" data-fdc-apply-source="artifact" checked>
+        <span>遺物カード</span>
+      </label>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="spell">
+        <input type="checkbox" data-fdc-apply-source="spell" checked>
+        <span>スペルカード</span>
+      </label>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="globalStats">
+        <input type="checkbox" data-fdc-apply-source="globalStats" checked>
+        <span>追加クレヨン</span>
+      </label>
+      <label class="fdc-apply-float-row fdc-apply-display-row" data-fdc-display-row="hp">
+        <input type="checkbox" data-fdc-result-display="hp" checked>
+        <span>HP表示</span>
+      </label>
+      <div class="fdc-apply-float-actions">
+        <button type="button" data-fdc-apply-bulk="on">全ON</button>
+        <button type="button" data-fdc-apply-bulk="off">全OFF</button>
+      </div>
+    </div>
+    <details class="fdc-save-menu" id="fdc-save-menu">
+      <summary class="fdc-save-float-toggle" aria-label="保存・読込" title="保存・読込">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15.2 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.8L15.2 3Z"></path>
+          <path d="M17 21v-8H7v8"></path>
+          <path d="M7 3v5h8"></path>
+        </svg>
+      </summary>
+      <div class="fdc-save-popover" aria-label="ダメージ計算保存メニュー">
+        <div id="fdc-loaded-save-label" class="fdc-loaded-save-label" hidden></div>
+        <div id="fdc-load-options-panel" hidden>
+          <div class="fdc-save-load-options" aria-label="比較用読込">
+            <span class="fdc-save-load-label">読込設定</span>
+            <label><input type="checkbox" data-fdc-load-part="apostles">使徒基礎</label>
+            <label><input type="checkbox" data-fdc-load-part="global">全体効果</label>
+            <label><input type="checkbox" data-fdc-load-part="cards">カード状態</label>
+          </div>
+        </div>
+        <div id="fdc-save-list" class="fdc-save-list" hidden></div>
+        <div class="fdc-save-actions" aria-label="保存操作">
+          <button type="button" data-fdc-save-action="save">保存</button>
+          <button type="button" data-fdc-save-action="load">読込</button>
+          <button type="button" data-fdc-save-action="compare">比較</button>
+          <button type="button" data-fdc-save-action="delete" class="is-danger">削除</button>
+        </div>
+      </div>
+    </details>
+
+    <div id="fdcp-dps-compare-slot" class="fdcp-dps-float-slot fdcp-dps-compare-slot" hidden>
+      <button type="button" id="fdcp-dps-compare-toggle" class="fdc-compare-float-toggle fdcp-dps-compare-toggle" aria-expanded="false" aria-controls="fdcp-dps-compare-panel" aria-label="DPS比較"><span id="fdcp-dps-compare-toggle-label">DPS比較</span><i aria-hidden="true"></i></button>
+      <section id="fdcp-dps-compare-panel" class="fdcp-float-panel fdcp-dps-compare-panel" aria-label="DPS比較" hidden>
+        <strong>DPS比較</strong>
+        <button type="button" id="fdcp-baseline-save">基準保存</button>
+        <button type="button" id="fdcp-baseline-clear" disabled>解除</button>
+        <small id="fdcp-baseline-note">基準は未保存です。</small>
+      </section>
+    </div>
+    <div id="fdcp-dps-settings-slot" class="fdcp-dps-float-slot fdcp-dps-settings-slot" hidden>
+      <button type="button" id="fdcp-dps-settings-toggle" class="fdc-apply-float-toggle fdcp-dps-float-toggle" aria-expanded="false" aria-controls="fdcp-dps-settings-panel" aria-label="DPS計算設定">
+        <span>DPS計算</span>
+      </button>
+      <section id="fdcp-dps-settings-panel" class="fdcp-float-panel" aria-label="DPS計算設定" hidden>
+        <strong>比較用DPS 計算</strong>
+        <small class="fdcp-dps-usage-note">同じ使徒の設定比較用です。使徒間比較には使用できません。</small>
+        <label><input id="fdcp-auto-run" type="checkbox" checked>自動計算</label>
+        <label>高学年 <select id="fdcp-high-mode"><option value="disabled" selected>なし</option><option value="auto">オート</option></select></label>
+        <label>計測時間 <select id="fdcp-duration"><option value="30">30秒</option><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option><option value="180">180秒</option></select></label>
+        <label>統計試行数 <select id="fdcp-trials"><option value="16" selected>16回（16 seed平均）</option><option value="64">64回（64 seed平均）</option><option value="256">256回（256 seed平均）</option></select></label>
+        <label>初期seed <input id="fdcp-seed" type="number" value="1" min="1" step="1"></label>
+        <button type="button" id="fdcp-dps-run">DPS計算</button>
+      </section>
+    </div>
+
+    <button type="button" id="fdc-compare-float-toggle" class="fdc-compare-float-toggle" aria-expanded="false" aria-controls="fdc-compare-float-panel" aria-label="変更前と比較">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M7 7h11l-3-3"></path>
+        <path d="m18 7-3 3"></path>
+        <path d="M17 17H6l3 3"></path>
+        <path d="m6 17 3-3"></path>
+      </svg>
+      <span data-fdc-compare-toggle-label>比較</span>
+      <i aria-hidden="true"></i>
+    </button>
+
+    <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
+      <span>計算</span>
+      <span class="fdc-apply-float-dots">
+        <i data-fdc-apply-dot="formationSkill"></i>
+        <i data-fdc-apply-dot="synergy"></i>
+        <i data-fdc-apply-dot="artifact"></i>
+        <i data-fdc-apply-dot="spell"></i>
+        <i data-fdc-apply-dot="globalStats"></i>
+      </span>
+    </button>
+
+  </div>
+
+    <div id="fdcp-bottom-bar" class="bottom-result-bar fdc-result-bar fdcp-bottom-bar" data-mode="single">
+    <div class="fdcp-mode-tabs" role="tablist" aria-label="結果モード"><button type="button" role="tab" aria-selected="true" data-fdcp-mode="single">通常</button><button type="button" role="tab" aria-selected="false" aria-disabled="false" data-fdcp-mode="dps">DPS</button></div>
+    <section id="fdcp-dps-detail-panel" class="fdc-result-detail-panel fdcp-dps-detail-panel" aria-label="比較用DPS 詳細" hidden>
+      <div class="fdc-result-detail-head">
+        <strong>詳細</strong>
+        <span id="fdcp-drawer-status">比較用DPSを計算してください。</span>
+      </div>
+      <div id="fdcp-dps-detail-grid" class="fdc-result-detail-grid">
+        <section class="fdc-result-detail-group is-wide"><h3>計算状態</h3><p>比較用DPSを計算すると、計測条件と行動別適用効果を表示します。</p></section>
+      </div>
+    </section>
+    <div id="fdc-result-detail-panel" class="fdc-result-detail-panel" hidden>
+      <div class="fdc-result-detail-head">
+        <strong>詳細</strong>
+        <span id="fdc-result-detail-note">計算中の値を表示します。</span>
+        <div id="fdc-result-detail-tabs" class="fdc-result-detail-tabs" role="tablist" aria-label="詳細表示" hidden>
+          <button type="button" role="tab" data-fdc-result-detail-tab="calculation" aria-selected="true">計算詳細</button>
+          <button type="button" role="tab" data-fdc-result-detail-tab="comparison" aria-selected="false">比較</button>
+        </div>
+      </div>
+      <div id="fdc-result-detail-grid" class="fdc-result-detail-grid"></div>
+    </div>
+    <div class="bottom-results-grid">
+      <div class="result-card result-normal">
+        <span class="label">通常ダメージ</span>
+        <span id="fdc-result-normal" class="value">0</span>
+        <span id="fdc-result-normal-hp" class="fdc-result-hp-rate"></span>
+      </div>
+      <div class="result-card result-expected highlight">
+        <span class="label">期待ダメージ</span>
+        <span id="fdc-result-expected" class="value">0</span>
+        <span id="fdc-result-expected-hp" class="fdc-result-hp-rate"></span>
+      </div>
+      <div class="result-card result-crit">
+        <span class="label">会心時ダメージ</span>
+        <span id="fdc-result-crit" class="value">0</span>
+        <span id="fdc-result-crit-hp" class="fdc-result-hp-rate"></span>
+      </div>
+      <div id="fdc-result-metric-card" class="result-card result-crit-rate fdc-result-metric-card" data-fdc-result-metric="critRate">
+        <span id="fdc-result-metric-label" class="label">会心率</span>
+        <span id="fdc-result-crit-rate" class="value">5.0%</span>
+        <button type="button" id="fdc-result-metric-toggle" class="fdc-result-metric-toggle" aria-label="右下の表示を切り替え" title="会心率・会心ダメージ量・基礎ダメージ係数を切り替え">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M7 7h11l-3-3"></path>
+            <path d="m18 7-3 3"></path>
+            <path d="M17 17H6l3 3"></path>
+            <path d="m6 17 3-3"></path>
+          </svg>
+        </button>
+      </div>
+      <button type="button" class="result-card fdc-detail-toggle" id="fdc-result-detail-toggle" aria-expanded="false">
+        <span class="label">詳細</span>
+        <svg class="value fdc-detail-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"></path></svg>
+      </button>
+    </div>
+    <div id="fdcp-dps-result" class="fdcp-result-panel" data-fdcp-panel="dps" hidden>
+      <div class="fdcp-dps-primary"><canvas id="fdcp-sparkline" width="360" height="140" aria-label="単一seed累積ダメージ推移"></canvas><small id="fdcp-provisional-badge" class="fdcp-provisional-badge" hidden>暫定</small><span>全体期待DPS（比較用）</span><strong id="fdcp-dps-value">—</strong><small id="fdcp-total-delta" class="fdcp-total-delta" aria-live="polite" hidden></small><small id="fdcp-dps-state" hidden>使徒設定を確認中</small><small id="fdcp-sparkline-meta" hidden>90秒 / seed 1</small><small id="fdcp-dps-meta" hidden></small><span id="fdcp-total-value" hidden></span></div>
+      <div id="fdcp-breakdown" class="fdcp-breakdown" aria-label="行動別比較用DPS内訳"><div data-fdcp-breakdown="basicAttack" aria-label="基本: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">基本</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="enhancedAttack" aria-label="強化: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">強化</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="lowSkill" aria-label="低学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">低学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="highSkill" aria-label="高学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action">高学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="other" aria-label="その他: DPS、基準比、構成比、発動回数は集計しない"><span data-fdcp-column="action">その他</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="発動回数">—</small></div></div>
+      <button type="button" id="fdcp-dps-detail" class="result-card fdc-detail-toggle fdcp-detail-button" aria-expanded="false"><span class="label">詳細</span><svg class="value fdc-detail-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"></path></svg></button>
+    </div>
+  </div>
+
+  <div id="fdc-skill-popover" class="fdc-skill-popover" hidden>
+    <div class="fdc-skill-popover-title"></div>
+    <div class="fdc-skill-popover-body"></div>
+  </div>
+  <script src="statData.js?v=20260801a"></script>
+  <script src="sp-engine.js?v=20260720b"></script>
+  <script src="stat-engine.js?v=20260808a"></script>
+  <script src="apostles.js?v=20260801a"></script>
+  <script src="cards.js?v=20260813a"></script>
+  <script src="synergy.js"></script>
+  <script src="enemy-presets.js?v=20260821o"></script>
+  <script src="app-cache.js?v=20260827ad"></script>
+  <script src="image-preload.js?v=20260727a"></script>
+  <script src="combat-scenario.js?v=20260824a"></script>
+  <script src="dps-trigger-policy.js?v=20260826c"></script>
+  <script src="dps-timing-data.js?v=20260827b"></script>
+  <script src="dps-simulator.js?v=20260827n"></script>
+  <script src="dps-support-registry.js?v=20260827c"></script>
+  <script src="formation-damage-calc.js?v=20260826k"></script>
+  <script src="formation-damage-dps-prototype.js?v=20260827ak"></script>
+</body>
+</html>

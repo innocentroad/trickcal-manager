@@ -46,6 +46,7 @@ STRUCTURED_HEADERS = (
     "発動元ID",
     "適用条件種別",
     "適用条件値",
+    "ダメージ補正区分",
 )
 
 VALUE_OPTIONAL_TRIGGER_TYPES = {

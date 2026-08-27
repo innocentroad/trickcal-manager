@@ -330,6 +330,7 @@
     artifactPicker: null,
     effectSources: {
       synergy: true,
+      formationSkill: true,
       artifact: true,
       spell: true,
       globalStats: true
@@ -347,6 +348,10 @@
     },
     referenceState: null,
     referenceOptions: { cards: false, global: false, apostles: false }
+  };
+  let pinnedSingleEvaluationCache = {
+    key: '',
+    result: null
   };
   const ENEMY_GLOBAL_PERCENT_CONFIG = [
     { inputKey: 'enemyGlobalHpP', additiveInputKey: 'enemyGlobalAdditiveHp', statKey: 'hp', memberKey: 'hp', aliases: ['hp', 'HP'] },
@@ -404,6 +409,12 @@
 
   function bindEvents() {
     window.addEventListener('trickcal:comparison-session-ui', () => syncPinnedComparisonUi(buildContext()));
+    window.addEventListener('trickcal:comparison-definition-changed', event => {
+      const evaluator = String(event.detail?.evaluator || 'singleAction');
+      if (evaluator !== 'singleAction') return;
+      pinnedSingleEvaluationCache = { key: '', result: null };
+      syncPinnedComparisonUi(buildContext());
+    });
     window.addEventListener('storage', event => {
       if (event.key === THEME_KEY && ['light', 'dark'].includes(event.newValue)) {
         setTheme(event.newValue, false);
@@ -1814,6 +1825,7 @@
       critRes: readNumber(el.inputs.critRes),
       critDmgRes: readNumber(el.inputs.critDmgRes),
       special: readNumber(el.inputs.enemySpecial) || 100,
+      size: typeof normalizeEnemySize === 'function' ? normalizeEnemySize(base?.size ?? base?.enemySize) : (base?.size || ''),
       personality: normalizePersonalityName(view.enemyPersonality || base?.personality),
       content: base?.content ? JSON.parse(JSON.stringify(base.content)) : undefined,
       modifiers: base?.modifiers ? JSON.parse(JSON.stringify(base.modifiers)) : undefined,
@@ -1991,7 +2003,9 @@
     if (!view.targetId || !allMembers.some(member => member.id === view.targetId)) view.targetId = members[0]?.id || allMembers[0]?.id || '';
     const target = getCurrentTargetMember(members, allMembers);
     const enemyMember = getSelectedEnemyApostleMember(allMembers, state);
-    const damageType = resolveActiveDamageType(target);
+    const damageType = overrides.forceSelfAttack
+      ? resolveSelfDamageType(target)
+      : resolveActiveDamageType(target);
     const cards = state.cards && typeof state.cards === 'object' ? state.cards : {};
     const actionCategory = typeof overrides.actionCategory === 'string'
       ? overrides.actionCategory
@@ -2033,6 +2047,7 @@
       target,
       enemyMember,
       damageType,
+      forceSelfAttack: !!overrides.forceSelfAttack,
       actionCategory,
       skillEffectStateOverrides,
       effects,
@@ -2265,17 +2280,26 @@
     const scenarioApi = getCombatScenarioApi();
     if (!selected || !scenarioApi?.savePinnedComparison) return;
     const scenario = createCombatScenarioFromDamageSave(selected);
+    const dpsSnapshot = selected.snapshot?.comparison?.dpsSnapshot || {};
     const session = scenarioApi.savePinnedComparison({
       scenario,
       singleActionResult: selected.snapshot?.result || {},
-      dpsSnapshot: selected.snapshot?.comparison?.dpsSnapshot || {}
+      dpsSnapshot,
+      singleActionInputFingerprint: createPinnedSingleActionInputFingerprint(scenario),
+      dpsInputFingerprint: createPinnedDpsInputFingerprint(scenario, dpsSnapshot)
     });
     if (!session) return;
     closeDamageSaveMenu();
     const context = buildContext();
     syncPinnedComparisonUi(context);
     renderResult(context);
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'pinned', source: 'damageSave', id: selected.id } }));
+    dispatchComparisonDefinitionChanged({
+      evaluator: 'singleAction',
+      mode: 'pinned',
+      source: 'damageSave',
+      id: selected.id,
+      session
+    });
   }
 
   function createCombatScenarioFromDamageSave(item = {}) {
@@ -2394,7 +2418,7 @@
 
   function createDamageCalculationSnapshot(context = buildContext()) {
     const result = calculateDamage(context);
-    const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot(context));
+    const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
     return {
       version: 4,
       savedAt: Date.now(),
@@ -3643,12 +3667,20 @@
       ? options.find(option => option.key === view.selectedSkillOptionKey)
       : null;
     if (view.selectedSkillOptionKey && !selectedOptionByKey) view.selectedSkillOptionKey = '';
-    const selectedOption = selectedOptionByKey || (view.selectedSkillCategory
-      ? options.find(option => option.category === view.selectedSkillCategory)
-      : null);
+    const categoryOptions = view.selectedSkillCategory
+      ? options.filter(option => option.category === view.selectedSkillCategory)
+      : [];
+    const selectedOption = selectedOptionByKey
+      || categoryOptions.find(option => option.skillRewrite)
+      || categoryOptions.find(option => !option.isSupersededBase)
+      || categoryOptions[0]
+      || options.find(option => option.skillRewrite)
+      || options[0];
     if (selectedOption && el.inputs.selfSkill) {
       current = Number(selectedOption.value) || current;
       el.inputs.selfSkill.value = String(selectedOption.value);
+      view.selectedSkillOptionKey = selectedOption.key;
+      view.selectedSkillCategory = selectedOption.category;
     }
     el.selfSkillChoices.innerHTML = `
       ${renderFdcSkillLevelControls(target, levelConfig)}
@@ -3661,10 +3693,15 @@
       ${options.map(option => {
         const sourceCategory = option.sourceCategory || option.category;
         const classificationLabel = getFdcApostleSkillClassificationLabel(option);
+        const rewriteLabel = option.skillRewrite
+          ? (option.skillRewriteLabel || `${getDpsTargetActionKeys(option.targetSkill || '').map(getDpsActionCategoryForKey).join('・')}を書き換え`)
+          : '';
         return `
-        <button type="button" class="fdc-skill-choice ${(view.selectedSkillOptionKey ? view.selectedSkillOptionKey === option.key : Math.abs(Number(option.value) - current) < 0.001 && view.selectedSkillCategory === option.category) ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}" data-fdc-skill-key="${escapeAttr(option.key)}">
+        <button type="button" class="fdc-skill-choice ${view.selectedSkillOptionKey === option.key ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}" data-fdc-skill-key="${escapeAttr(option.key)}">
           <span class="fdc-skill-choice-action-cell">
             <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(sourceCategory))}">${escapeHtml(getFdcApostleSkillActionLabel(sourceCategory))}</span>
+            ${option.isSupersededBase ? '<small class="fdc-skill-choice-before-rewrite" title="単発ダメージ確認用。DPSでは変更後のスキルを使用します">変更前・単発のみ</small>' : ''}
+            ${rewriteLabel ? `<small class="fdc-skill-choice-rewrite" title="愛用品・アサイドによるスキル書き換え">変更後 / ${escapeHtml(rewriteLabel)}</small>` : ''}
             ${classificationLabel ? `<small class="fdc-skill-choice-classification" title="${escapeAttr(`攻撃分類: ${classificationLabel}`)}">分類: ${escapeHtml(classificationLabel)}</small>` : ''}
           </span>
           <span class="fdc-skill-choice-mult">${escapeHtml(formatPlainNumber(option.value))}%</span>
@@ -3706,16 +3743,17 @@
   }
 
   function showFdcSkillPopover(anchor, option, target = null, context = null) {
-    const lines = [
+    const lines = getFdcUniqueTextLines([
       option.skillName ? `スキル名: ${option.skillName}` : '',
       option.label ? `候補: ${option.label}` : '',
       option.sourceCategory ? `由来行動: ${option.sourceCategory}` : '',
       option.attackCategory ? `攻撃分類: ${getFdcApostleSkillClassificationLabel(option) || option.attackCategory}` : '',
       option.sourceLabel && option.sourceLabel !== '通常' ? `由来: ${option.sourceLabel}` : '',
+      option.skillRewrite ? `スキル変更: ${option.skillRewriteLabel || '対象スキルを書き換え'}` : '',
       option.cooldownSeconds ? `クールタイム: ${formatPlainNumber(option.cooldownSeconds)}秒` : '',
       option.detailText || '',
       ...getFdcLowSkillSpInfoLines(option, target, context)
-    ].filter(Boolean);
+    ]);
     showFdcInfoPopover(anchor, option.sourceCategory || option.category || 'スキル詳細', lines);
   }
 
@@ -3767,7 +3805,7 @@
     const allRows = candidateRows.filter(row => (
       isEffectSourceEnabled(row)
       && !/対象外/.test(String(row?.reason || ''))
-      && (!row?.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled))
+      && (!row?.canToggle || isConditionalEffectRowEnabled(row))
     ));
     const uniqueRows = new Map();
     allRows.forEach(row => {
@@ -3907,7 +3945,7 @@
       const text = [row.effectText, row.label, row.reason].filter(Boolean).join(' ');
       const sourceEnabled = isEffectSourceEnabled(row);
       const targetMatched = !/対象外/.test(String(row?.reason || ''));
-      const toggleEnabled = !row?.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled);
+      const toggleEnabled = !row?.canToggle || isConditionalEffectRowEnabled(row);
       add({
         key: `row:${row.conditionKey || [row.source, row.cardName, row.label].join(':')}`,
         source: row.spSourceLabel || row.cardName || row.label || row.source,
@@ -3928,7 +3966,7 @@
         const targetState = judgeFormationArtifactTarget(text, target, ownerRow, effect, damageType);
         if (targetState.matched) return;
         const bonuses = scaleEffectBonusMap(
-          normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], damageType, text),
+          normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], damageType, text, effect),
           ownerRow.qty,
           effect,
           text
@@ -4007,7 +4045,7 @@
   function formatArtifactEffectDetail(effect, star = 1) {
     const title = effect.label || effect.shortLabel || '特殊効果';
     const judgeText = getEffectText(effect);
-    const bonusText = formatBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[star - 1], 'unknown', judgeText));
+    const bonusText = formatBonusMap(normalizeCardEffectBonuses(effect.bonusesByStar?.[star - 1], 'unknown', judgeText, effect));
     const detailText = String(getDisplayEffectDescription(effect, star) || '').replace(/\s+/g, ' ').trim();
     if (detailText) return detailText;
     return bonusText ? `${title}: ${bonusText}` : title;
@@ -4164,7 +4202,7 @@
     }
     el.selfSkillEffects.innerHTML = `
       ${renderSkillEffectSection('本人スキル効果', selfOptions, '計算に反映できる本人スキル効果はありません')}
-      ${renderSkillEffectSection('編成スキル効果', formationOptions, '影響する編成スキル効果はありません')}
+      ${renderSkillEffectSection('編成スキル効果', formationOptions, '影響する編成スキル効果はありません', 'formationSkill')}
     `;
     el.selfSkillEffects.querySelectorAll('[data-fdc-self-skill-effect]').forEach(input => {
       input.addEventListener('change', () => {
@@ -4173,6 +4211,14 @@
         const nextContext = buildContext();
         renderResult(nextContext);
         renderSelfSkillEffects(nextContext);
+      });
+    });
+    el.selfSkillEffects.querySelectorAll('[data-fdc-category-source]').forEach(input => {
+      input.addEventListener('change', () => {
+        view.effectSources[input.dataset.fdcCategorySource] = !!input.checked;
+        saveCalcSettings();
+        syncApplyFloatUi();
+        render();
       });
     });
     el.selfSkillEffects.querySelectorAll('[data-fdc-skill-effect-info]').forEach(button => {
@@ -4185,23 +4231,88 @@
     });
   }
 
-  function renderSkillEffectSection(title, options, emptyText) {
+  function renderSkillEffectSection(title, options, emptyText, sourceKey = '') {
+    const orderedOptions = sourceKey === 'formationSkill'
+      ? sortFormationSkillEffectOptions(options)
+      : [...(options || [])];
+    const automaticOptions = orderedOptions.filter(isFdcSkillEffectAutoOnly);
+    const toggleOptions = orderedOptions.filter(option => !isFdcSkillEffectAutoOnly(option));
+    const sourceToggle = sourceKey
+      ? `<label class="fdc-inline-toggle fdc-skill-effects-inline-toggle" data-fdc-category-row="${escapeAttr(sourceKey)}"><input type="checkbox" data-fdc-category-source="${escapeAttr(sourceKey)}"${isEffectSourceActive(sourceKey) ? ' checked' : ''}><span>${escapeHtml(title)}</span></label>`
+      : `<div class="fdc-skill-effects-title">${escapeHtml(title)}</div>`;
     return `
       <section class="fdc-skill-effect-card">
-        <div class="fdc-skill-effects-title">${escapeHtml(title)}</div>
-        ${renderSkillEffectBonusSummary(options)}
-        ${options.length ? `
+        ${sourceToggle}
+        ${renderSkillEffectBonusSummary(toggleOptions)}
+        ${toggleOptions.length ? `
           <div class="fdc-skill-effect-list">
-            ${options.map(option => renderSkillEffectToggle(option)).join('')}
+            ${toggleOptions.map(option => renderSkillEffectToggle(option)).join('')}
           </div>
-        ` : `<div class="fdc-skill-effect-empty">${escapeHtml(emptyText)}</div>`}
+        ` : (!automaticOptions.length ? `<div class="fdc-skill-effect-empty">${escapeHtml(emptyText)}</div>` : '')}
+        ${renderAutomaticSkillEffectList(automaticOptions)}
       </section>
+    `;
+  }
+
+  function sortFormationSkillEffectOptions(options = []) {
+    return [...(options || [])].sort((a, b) => {
+      const timingDiff = getFormationSkillEffectTimingOrder(a) - getFormationSkillEffectTimingOrder(b);
+      if (timingDiff) return timingDiff;
+      const ownerDiff = String(a.ownerName || '').localeCompare(String(b.ownerName || ''), 'ja', {
+        sensitivity: 'base',
+        numeric: true
+      });
+      if (ownerDiff) return ownerDiff;
+      return getFormationSkillEffectCategoryOrder(a) - getFormationSkillEffectCategoryOrder(b);
+    });
+  }
+
+  function getFormationSkillEffectTimingOrder(option = {}) {
+    const timing = getFdcEffectTimingInfo(option);
+    if (timing?.type === 'always') return 0;
+    if (timing?.type === 'timed') return 1;
+    return 2;
+  }
+
+  function getFormationSkillEffectCategoryOrder(option = {}) {
+    const text = [option.category, option.sourceId, option.label].filter(Boolean).join(' ');
+    if (/基本攻撃|普通攻撃_基本/.test(text)) return 0;
+    if (/強化攻撃|普通攻撃_強化/.test(text)) return 1;
+    if (/低学年/.test(text)) return 2;
+    if (/高学年/.test(text)) return 3;
+    if (/パッシブ/.test(text)) return 4;
+    if (/愛用品|favorite/i.test(text)) return 5;
+    const asideLevel = Number((text.match(/(?:^|\D)(?:A|aside:)([1-3])(?:\D|$)/i) || [])[1]);
+    if (Number.isFinite(asideLevel) && asideLevel > 0) return 5 + asideLevel;
+    if (/アサイド/.test(text)) return 9;
+    return 10;
+  }
+
+  function renderAutomaticSkillEffectList(options = []) {
+    if (!options.length) return '';
+    return `
+      <details class="fdc-automatic-effect-details">
+        <summary><span>その他効果</span><b>${escapeHtml(options.length)}件</b></summary>
+        <div class="fdc-automatic-effect-list">
+          ${options.map(option => {
+            const summary = getSkillEffectCompactSummary(option);
+            return `
+              <div class="fdc-automatic-effect-row" data-fdc-effect-control="automatic">
+                <span class="fdc-skill-effect-source ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
+                ${option.ownerName ? `<span class="fdc-skill-effect-owner">${escapeHtml(option.ownerName)}</span>` : ''}
+                <span class="fdc-automatic-effect-text"><span class="fdc-skill-effect-mainline">${renderFdcEffectTimingTag(option)}<strong>${escapeHtml(summary.main)}</strong></span><small>${escapeHtml(summary.meta)}</small></span>
+                <button type="button" class="fdc-skill-effect-info" data-fdc-skill-effect-info="${escapeAttr(option.key)}" aria-label="${escapeAttr(`${option.label}の条件詳細`)}">i</button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </details>
     `;
   }
 
   function renderSkillEffectBonusSummary(options) {
     const enabledOptions = (options || [])
-      .filter(option => isSelfSkillEffectOptionEnabled(option))
+      .filter(option => isFdcSkillEffectSourceEnabled(option) && isSelfSkillEffectOptionEnabled(option))
       .map(option => ({ bonuses: getRelevantBonusMap(getSkillEffectOptionBonuses(option)) }));
     const summary = summarizeEffects(enabledOptions);
     const chips = Object.entries(summary || {})
@@ -4212,17 +4323,23 @@
   }
 
   function renderSkillEffectToggle(option) {
-    const checked = isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
+    const sourceEnabled = isFdcSkillEffectSourceEnabled(option);
+    const autoControlled = isFdcSkillEffectAutoOnly(option);
+    const autoSuggested = option.controlMode === 'automatic';
+    const checked = autoControlled || isSelfSkillEffectOptionEnabled(option) ? ' checked' : '';
+    const disabled = sourceEnabled && !autoControlled ? '' : ' disabled';
     const summary = getSkillEffectCompactSummary(option);
     const stackControl = renderSkillEffectStackControl(option);
+    const timingTag = renderFdcEffectTimingTag(option);
+    const controlLabel = '';
     return `
-      <label class="fdc-skill-effect-toggle">
-        <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}>
+      <label class="fdc-skill-effect-toggle${autoControlled ? ' is-auto-controlled' : ''}${sourceEnabled ? '' : ' is-source-disabled'}" data-fdc-effect-control="${escapeAttr(autoControlled ? 'automatic' : autoSuggested ? 'automatic-overrideable' : 'manual')}"${controlLabel ? ` title="${escapeAttr(controlLabel)}"` : ''}>
+        <input type="checkbox" data-fdc-self-skill-effect="${escapeAttr(option.key)}"${checked}${disabled}${controlLabel ? ` aria-label="${escapeAttr(controlLabel)}"` : ''}>
         <span class="fdc-skill-effect-source ${escapeAttr(getFdcApostleSkillTone(option.category))}">${escapeHtml(getFdcApostleSkillActionLabel(option.category))}</span>
         ${option.ownerName ? `<span class="fdc-skill-effect-owner">${escapeHtml(option.ownerName)}</span>` : ''}
         <button type="button" class="fdc-skill-effect-info" data-fdc-skill-effect-info="${escapeAttr(option.key)}" aria-label="${escapeAttr(`${option.label}の条件詳細`)}">i</button>
         <span class="fdc-skill-effect-text">
-          <strong>${escapeHtml(summary.main)}</strong>
+          <span class="fdc-skill-effect-mainline">${timingTag}<strong>${escapeHtml(summary.main)}</strong></span>
           <small>${escapeHtml(summary.meta)}</small>
         </span>
         ${stackControl}
@@ -4234,7 +4351,7 @@
     const maxStack = Number(option?.stackMax);
     if (!option?.key || !Number.isFinite(maxStack) || maxStack <= 1) return '';
     const value = getConditionalEffectStackCount(option.key, maxStack, option.stackDefault);
-    const enabled = isSelfSkillEffectOptionEnabled(option);
+    const enabled = isFdcSkillEffectSourceEnabled(option) && isSelfSkillEffectOptionEnabled(option);
     return `
       <span class="fdc-skill-effect-stack-control">
         <span>スタック</span>
@@ -4260,8 +4377,38 @@
     const target = option.effectTarget || '本人';
     return {
       main: [kind, value + stackText].filter(Boolean).join(' '),
-      meta: [condition, target, option.durationText].filter(Boolean).join(' / ')
+      meta: [condition === '常時' ? '' : condition, target].filter(Boolean).join(' / ')
     };
+  }
+
+  function getFdcEffectTimingInfo(effect = {}) {
+    const rawDuration = effect.durationText || effect.duration || '';
+    const durationText = rawDuration
+      ? (/^持続/.test(String(rawDuration).trim()) ? String(rawDuration).trim() : formatFdcEffectDuration(rawDuration))
+      : '';
+    const durationSeconds = Number(effect.durationSeconds) || parseFdcDurationSeconds(durationText);
+    if (durationText && durationSeconds > 0) {
+      return {
+        type: 'timed',
+        label: /^持続/.test(durationText) ? durationText : `持続 ${durationText}`
+      };
+    }
+
+    const triggerText = [effect.triggerType, effect.triggerSourceId, effect.effectText, effect.condition].filter(Boolean).join(' ');
+    if (isDpsAutomaticRuntimeEffect(effect) || /使用時|使用後|発動時|終了時|命中時|攻撃時|被撃時|被弾時|n秒ごと|n回ごと|\d+(?:\.\d+)?秒ごと/.test(triggerText)) {
+      return null;
+    }
+    const condition = String(effect.condition || '').trim();
+    if (effect.controlMode === 'automatic' || /^(?:常時|無条件|なし)$/.test(condition)) {
+      return { type: 'always', label: '常時' };
+    }
+    return null;
+  }
+
+  function renderFdcEffectTimingTag(effect = {}) {
+    const timing = getFdcEffectTimingInfo(effect);
+    if (!timing) return '';
+    return `<span class="fdc-effect-timing-tag is-${escapeAttr(timing.type)}">${escapeHtml(timing.label)}</span>`;
   }
 
   function getSkillEffectDisplayRows(option) {
@@ -4425,6 +4572,7 @@
 
   function applyEnabledSelfSkillEffects(effects, context) {
     buildSelfSkillEffectOptions(context.target, context)
+      .filter(isFdcSkillEffectSourceEnabled)
       .filter(option => isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides))
       .forEach(option => {
         const item = setEffectTags({
@@ -4450,8 +4598,15 @@
     return !!option.defaultEnabled;
   }
 
+  function isFdcSkillEffectSourceEnabled(option = {}) {
+    return option.group !== 'formation' || isEffectSourceActive('formationSkill');
+  }
+
   function getSelfSkillEffectManualState(option) {
     if (!option?.key) return null;
+    // 編成・選択行動から一意に決まる効果は、過去に保存された手動値も使わない。
+    // 選択内容を変えた際に古いOFF/ONが自動判定を上書きするのを防ぐ。
+    if (isFdcSkillEffectAutoOnly(option)) return null;
     if (Object.prototype.hasOwnProperty.call(view.selfSkillEffectEnabled, option.key)) {
       return view.selfSkillEffectEnabled[option.key] === true;
     }
@@ -4465,8 +4620,8 @@
     return null;
   }
 
-  function getFdcSkillEffectActionKey(effect, encodedActionKey = 'none') {
-    const valueScope = judgeFdcEffectValueActionScope(effect, '');
+  function getFdcSkillEffectActionKey(effect, encodedActionKey = 'none', scopeOptions = {}) {
+    const valueScope = judgeFdcEffectValueActionScope(effect, '', scopeOptions);
     return valueScope.hasActionScope ? encodedActionKey : 'all';
   }
 
@@ -4482,9 +4637,12 @@
     const levels = getFdcEffectiveSkillLevels(target);
     const actionKey = encodeURIComponent(context.actionCategory || 'none');
     const options = [];
-    collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }) => {
+    const skillSources = collectFdcApostleSkillSources(apostle, levels, target, context);
+    const rewrittenActionKeys = getFdcActiveSkillRewriteActionKeys(skillSources);
+    skillSources.forEach(({ skill, sourceKey, sourceLabel }) => {
       const category = getFdcApostleSkillCategory(skill, sourceLabel);
-      const skillLevel = getFdcSkillLevelForCategory(levels, category);
+      if (String(sourceKey || '').startsWith('base:')
+        && getDpsTargetActionKeys(category).some(key => rewrittenActionKeys.has(key))) return;
       normalizeFdcArray(skill.stats).forEach((stat, statIndex) => {
         const bonuses = normalizeFdcSkillStatBonus(stat);
         if (!bonuses || !Object.keys(bonuses).length) return;
@@ -4499,21 +4657,35 @@
           category,
           label,
           bonuses,
+          perspective: getFdcEffectPerspective({
+            effectTarget: stat.statApplyTo || '本人',
+            valueKind: stat.statName || 'ステータス増加',
+            effectType: 'バフ'
+          }, bonuses),
           valueKind: stat.statName ? `${stat.statName}増加` : 'ステータス増加',
           effectValue: formatFdcPercentValue(stat.increaseP ?? stat.increase ?? stat.value),
           condition: '常時',
           effectTarget: stat.statApplyTo || '本人',
+          controlMode: 'automatic',
           defaultEnabled: true,
-          detailText: [skill.description, `${stat.statApplyTo || '本人'} ${stat.statName || ''} +${formatPlainNumber(stat.increaseP ?? stat.increase ?? stat.value)}%`].filter(Boolean).join('\n')
+          detailText: getFdcUniqueTextLines([
+            skill.description,
+            `${stat.statApplyTo || '本人'} ${stat.statName || ''} +${formatPlainNumber(stat.increaseP ?? stat.increase ?? stat.value)}%`
+          ]).join('\n')
         });
       });
       normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
         if (isFdcApostleAttackMultiplierEffect(effect)) return;
+        if (isFdcEnemyOutgoingDamageReduction(effect)) return;
+        const resolvedEffect = inheritFdcSkillTriggerMetadata(effect, skill);
+        const skillLevel = getFdcSkillLevelForEffect(levels, effect, category);
         const bonuses = normalizeFdcSkillEffectBonus(effect, skillLevel);
         if (!bonuses || !Object.keys(bonuses).length) return;
-        const effectText = getFdcSkillEffectConditionText(skill, effect);
+        const effectText = getFdcSkillEffectConditionText(skill, resolvedEffect);
         const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
         const allyPersonalityState = getAllyPersonalityConditionState(effectText, target);
+        const durationText = getFdcSkillEffectDurationText(skill, effect, skillLevel);
+        const durationSeconds = parseFdcDurationSeconds(durationText);
         const label = createFdcSkillEffectLabel({
           sourceLabel,
           category,
@@ -4527,23 +4699,59 @@
           category,
           label,
           bonuses,
+          perspective: getFdcEffectPerspective(effect, bonuses),
+          damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
+          attackCategory: effect.attackCategory || '',
+          targetSkill: effect.targetSkill || '',
+          targetSkillName: effect.targetSkillName || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
-          durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
-          durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(skill, effect, skillLevel)),
+          durationText,
+          durationSeconds,
           condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
           effectTarget: effect.effectTarget || '本人',
           actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
           spSourceLabel: createFdcSpSourceLabel(target?.name || apostle?.name, sourceLabel, category),
-          defaultEnabled: getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category),
-          detailText: [enemyPersonalityState.reason, skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
-          ...getFdcRuntimeEffectMetadata(effect),
+          controlMode: getFdcFormationSkillEffectControlMode(resolvedEffect, effectText, context, context.actionCategory),
+          defaultEnabled: durationSeconds > 0
+            ? false
+            : getFdcSkillEffectDefaultEnabled(effectText, resolvedEffect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category),
+          detailText: getFdcUniqueTextLines([
+            enemyPersonalityState.reason,
+            skill.description,
+            effect.description,
+            effect.effectDescription
+          ]).join('\n'),
+          ...getFdcRuntimeEffectMetadata(resolvedEffect),
           ...getFdcEffectStackMeta(effect)
         });
       });
     });
     return options.concat(buildFormationSkillEffectOptions(target, context));
+  }
+
+  function isFdcEnemyOutgoingDamageReduction(effect = {}) {
+    const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+    const effectTarget = String(effect.effectTarget || '').replace(/[\s　]+/g, '');
+    return /敵/.test(effectTarget)
+      && /(?:スキル|通常|普通|基本|強化)?ダメージ量減少/.test(valueKind)
+      && !/被ダメージ|受けるダメージ/.test(valueKind);
+  }
+
+  function getFdcEffectPerspective(effect = {}, bonuses = {}) {
+    const effectTarget = String(effect.effectTarget || '').replace(/[\s　]+/g, '');
+    const effectType = String(effect.effectType || '').replace(/[\s　]+/g, '');
+    const keys = Object.keys(bonuses || {}).filter(key => Number(bonuses[key]));
+    const attack = keys.some(key => isAttackBonusKey(key));
+    const defense = keys.some(key => isDefenseBonusKey(key));
+
+    if (isFdcEnemyOutgoingDamageReduction(effect)) return 'defense';
+    if (attack && defense) return 'both';
+    if (attack) return 'attack';
+    if (defense) return 'defense';
+    if (/敵/.test(effectTarget) && /デバフ/.test(effectType)) return 'defense';
+    return 'neutral';
   }
 
   function buildFormationSkillEffectOptions(target, context) {
@@ -4559,9 +4767,9 @@
       collectFdcApostleSkillSources(apostle, memberLevels, member, context).forEach(({ skill, sourceKey, sourceLabel }) => {
         if (String(sourceKey || '') === 'aside:3') return;
         const category = getFdcApostleSkillCategory(skill, sourceLabel);
-        const skillLevel = getFdcSkillLevelForCategory(memberLevels, category);
         normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
           const effectText = getFdcSkillEffectConditionText(skill, effect);
+          const skillLevel = getFdcSkillLevelForEffect(memberLevels, effect, category);
           const option = createFormationSkillEffectOption({
             effect,
             effectText,
@@ -4591,16 +4799,29 @@
     const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, enemyPersonalityState, actionCategory, undefined, context, category);
+    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(
+      effectText,
+      effect,
+      enemyPersonalityState,
+      actionCategory,
+      undefined,
+      context,
+      category,
+      { formationOwnerTrigger: true }
+    );
     return {
-      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'))}`,
+      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'), { includeTriggerAction: false })}`,
       effectId: effect.effectId || '',
       sourceId: `${member.id}:${sourceKey}`,
+      ownerId: member.id,
       group: 'formation',
       category,
       source: '編成スキル',
       sourceTag: 'スキル/アサイド',
+      controlMode: getFdcFormationSkillEffectControlMode(effect, effectText, context, actionCategory),
       defaultEnabled,
+      perspective: getFdcEffectPerspective(effect, bonuses),
+      damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
       ownerName: memberName,
       label: createFdcSkillEffectLabel({
         sourceLabel,
@@ -4612,14 +4833,23 @@
       bonuses,
       valueKind: effect.valueKind || effect.effectType || '効果',
       effectType: effect.effectType || '',
+      attackCategory: effect.attackCategory || '',
+      targetSkill: effect.targetSkill || '',
+      targetSkillName: effect.targetSkillName || '',
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
       durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
       durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(skill, effect, skillLevel)),
       condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
-      actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
+      actionScoped: judgeFdcEffectValueActionScope(effect, '', { includeTriggerAction: false }).hasActionScope,
       spSourceLabel: createFdcSpSourceLabel(memberName, sourceLabel, category),
-      detailText: [targetState.reason, enemyPersonalityState.reason, skill?.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
+      detailText: getFdcUniqueTextLines([
+        targetState.reason,
+        enemyPersonalityState.reason,
+        skill?.description,
+        effect.description,
+        effect.effectDescription
+      ]).join('\n'),
       ...getFdcRuntimeEffectMetadata(effect),
       ...getFdcEffectStackMeta(effect)
     };
@@ -4639,18 +4869,30 @@
         const effectText = getFdcSkillEffectConditionText(aside3, effect);
         const targetState = getFormationSkillTargetState(effect.effectTarget, target, member, effectText);
         if (!targetState.applies) return;
-        const skillLevel = getFdcSkillLevelForCategory(getFdcEffectiveSkillLevels(member), 'アサイド');
+        const skillLevel = getFdcSkillLevelForEffect(getFdcEffectiveSkillLevels(member), effect, 'アサイド');
         const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
         if (!bonuses || !Object.keys(bonuses).length) return;
         options.push({
-          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
+          key: `${member.id}:formation-a3:effect:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, actionKey, { includeTriggerAction: false })}`,
           effectId: effect.effectId || '',
           sourceId: `${member.id}:aside:3`,
           group: 'formation',
           category: 'アサイド',
           source: '編成A3',
           sourceTag: 'スキル/アサイド',
-          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(effectText, effect, undefined, context.actionCategory, undefined, context, 'A3'),
+          controlMode: getFdcFormationSkillEffectControlMode(effect, effectText, context, context.actionCategory),
+          defaultEnabled: targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(
+            effectText,
+            effect,
+            undefined,
+            context.actionCategory,
+            undefined,
+            context,
+            'A3',
+            { formationOwnerTrigger: true }
+          ),
+          perspective: getFdcEffectPerspective(effect, bonuses),
+          damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
           ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
@@ -4661,14 +4903,22 @@
           bonuses,
           valueKind: effect.valueKind || effect.effectType || '効果',
           effectType: effect.effectType || '',
+          attackCategory: effect.attackCategory || '',
+          targetSkill: effect.targetSkill || '',
+          targetSkillName: effect.targetSkillName || '',
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           durationText: getFdcSkillEffectDurationText(aside3, effect, skillLevel),
           durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(aside3, effect, skillLevel)),
           condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason),
           effectTarget: effect.effectTarget || '味方',
-          actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
+          actionScoped: judgeFdcEffectValueActionScope(effect, '', { includeTriggerAction: false }).hasActionScope,
           spSourceLabel: createFdcSpSourceLabel(memberName, 'A3', 'A3'),
-          detailText: [targetState.reason, aside3.description, effect.description, effect.effectDescription].filter(Boolean).join('\n'),
+          detailText: getFdcUniqueTextLines([
+            targetState.reason,
+            aside3.description,
+            effect.description,
+            effect.effectDescription
+          ]).join('\n'),
           ...getFdcRuntimeEffectMetadata(effect),
           ...getFdcEffectStackMeta(effect)
         });
@@ -4681,6 +4931,79 @@
     const maxStack = Number(effect?.maxStack);
     if (effect?.effectStack !== true || !Number.isFinite(maxStack) || maxStack <= 1) return {};
     return { stackMax: Math.floor(maxStack), stackDefault: 1 };
+  }
+
+  function getFdcFormationSkillEffectControlMode(effect = {}, effectText = '', context = null, actionCategory = '') {
+    if (isFdcFormationOwnerRuntimeTrigger(effect)) return 'manual';
+    const structuredState = getFdcStructuredConditionState(effect, context);
+    if (structuredState.hasCondition && structuredState.resolved) return 'automatic';
+
+    const explicitCondition = String(effect.condition || getFdcStructuredEffectConditionText(effect) || '').trim();
+    const target = context?.target;
+    const selectedAction = actionCategory || context?.actionCategory || view.selectedSkillCategory || '';
+    if (getEnemyPersonalityConditionState(effectText).hasCondition) return 'automatic';
+    if (getAllyPersonalityConditionState(effectText, target).hasCondition) return 'automatic';
+    if (getNamedApostleTargetState(explicitCondition, target).hasCondition) return 'automatic';
+    if (judgeFdcEffectValueActionScope(effect, selectedAction, { includeTriggerAction: false }).hasActionScope) return 'automatic';
+    if (isFdcFormationAvailabilityCondition(explicitCondition, context)) return 'automatic';
+
+    // 常時・無条件の編成効果も編成の有無だけで確定する。戦闘中の発動や
+    // 未解決条件は、単発計算で状況を仮定できるよう従来どおり手動に残す。
+    if (/^(?:バフ|デバフ|常時|無条件|なし)$/.test(explicitCondition)) return 'automatic';
+    if (!explicitCondition && !isTimedOrManualEffect(effectText, effect)) return 'automatic';
+    return 'manual';
+  }
+
+  function isFdcFormationOwnerRuntimeTrigger(effect = {}) {
+    const triggerType = String(effect.triggerType || '').trim();
+    // 共通戦闘時計だけで決まるものを除き、編成使徒本人の行動・状態・
+    // リソース等を必要とする発動条件は、選択使徒の現在行動では解決しない。
+    if (triggerType) {
+      return !/^(?:戦闘開始時|ウェーブ開始時|n秒ごと)$/.test(triggerType);
+    }
+    const legacyText = [effect.triggerSourceId, effect.condition]
+      .filter(Boolean).join(' ');
+    return /(?:低学年|高学年|基本攻撃|強化攻撃|普通攻撃|スキル).*(?:使用|発動|終了|命中)/.test(legacyText)
+      || /(?:使用時|使用後|発動時|終了時|命中時|衝突時|接触時|到着時|帰還時|消滅時)/.test(legacyText);
+  }
+
+  function isFdcSkillEffectAutoOnly(option = {}) {
+    const bonusKeys = Object.keys(option.bonuses || {});
+    // SPは単発ダメージを変えず、DPSタイムラインで発生時点を管理する。
+    // 発動条件の解決可否にかかわらず手動トグルへは出さず、確認用の
+    // 「その他効果」へまとめる。
+    if (bonusKeys.some(key => [
+      'initialSp', 'initialSpP', 'spRecovery', 'spRecoveryP', 'spRegen', 'spRegenP'
+    ].includes(key))) return true;
+    const automatic = option.controlMode === 'automatic'
+      || isDpsAutomaticRuntimeEffect(option);
+    if (!automatic) return false;
+    // 単発の最大ダメージ検証で必要になる補正は、自動条件が解決済みでも
+    // 手動上書きを許す。速度・SPなど時系列専用の自動効果だけ固定表示する。
+    const singleHitBonusKeys = new Set([
+      'atkP', 'physicalAtkP', 'magicAtkP',
+      'defP', 'physicalDefP', 'magicDefP',
+      'critP', 'critRateP', 'critDmgP', 'critDmgAddP',
+      'critResP', 'critResAddP', 'critDmgResP', 'critDmgResAddP',
+      'addP', 'otherP', 'normalAttackAddP', 'basicAddP', 'enhancedAddP', 'skillAddP',
+      'lowSkillAddP', 'highSkillAddP',
+      'actionMultiplierBonusP', 'normalAttackMultiplierBonusP', 'basicMultiplierBonusP',
+      'enhancedMultiplierBonusP', 'skillActionMultiplierBonusP', 'lowSkillMultiplierBonusP',
+      'highSkillMultiplierBonusP', 'selfDestructMultiplierBonusP',
+      'takenDmgP', 'attackerDmgDownP', 'enemyDefDownP',
+      'enemyCritResDownP', 'enemyCritDmgResDownP'
+    ]);
+    return !bonusKeys.some(key => singleHitBonusKeys.has(key));
+  }
+
+  function inheritFdcSkillTriggerMetadata(effect = {}, skill = {}) {
+    const inherited = { ...effect };
+    ['triggerType', 'triggerValue', 'triggerSourceId'].forEach(key => {
+      if ((inherited[key] === '' || inherited[key] == null) && skill?.[key] !== '' && skill?.[key] != null) {
+        inherited[key] = skill[key];
+      }
+    });
+    return inherited;
   }
   function createFdcSkillEffectLabel({ sourceLabel = '', category = '', skillName = '', effectLabel = '', ownerName = '' } = {}) {
     const owner = String(ownerName || '').trim();
@@ -4741,6 +5064,16 @@
       'basicAddP',
       'enhancedAddP',
       'skillAddP',
+      'lowSkillAddP',
+      'highSkillAddP',
+      'actionMultiplierBonusP',
+      'normalAttackMultiplierBonusP',
+      'basicMultiplierBonusP',
+      'enhancedMultiplierBonusP',
+      'skillActionMultiplierBonusP',
+      'lowSkillMultiplierBonusP',
+      'highSkillMultiplierBonusP',
+      'selfDestructMultiplierBonusP',
       'takenDmgP',
       'attackerDmgDownP',
       'enemyDefDownP',
@@ -4820,6 +5153,58 @@
     };
   }
 
+  function normalizeFdcDamageModifierCategory(value) {
+    const raw = String(value || '').trim();
+    return ({
+      '与ダメージ量': 'damageAmount',
+      '与ダメージ': 'damageAmount',
+      '与ダメージ量増加': 'damageAmount',
+      damageAmount: 'damageAmount',
+      '行動倍率': 'actionMultiplier',
+      '行動倍率補正': 'actionMultiplier',
+      actionMultiplier: 'actionMultiplier',
+      '特殊': 'special',
+      '特殊倍率': 'special',
+      special: 'special',
+      'その他': 'other',
+      'その他倍率': 'other',
+      other: 'other'
+    })[raw] || '';
+  }
+
+  function getFdcActionScopedModifierKey(effect = {}, kind = 'damageAmount') {
+    const text = [
+      effect?.valueKind,
+      effect?.targetSkill,
+      effect?.targetSkillName,
+      effect?.attackCategory,
+      effect?.conditionType,
+      effect?.conditionValue
+    ].filter(Boolean).join(' ').replace(/[\s　]/g, '');
+    if (/自爆/.test(text)) return kind === 'actionMultiplier'
+      ? 'selfDestructMultiplierBonusP'
+      : 'specialP';
+    if (/強化攻撃/.test(text)) return kind === 'actionMultiplier'
+      ? 'enhancedMultiplierBonusP'
+      : 'enhancedAddP';
+    if (/基本攻撃|(?:普通|通常)攻撃.*基本/.test(text)) return kind === 'actionMultiplier'
+      ? 'basicMultiplierBonusP'
+      : 'basicAddP';
+    if (/(?:普通|通常)攻撃/.test(text)) return kind === 'actionMultiplier'
+      ? 'normalAttackMultiplierBonusP'
+      : 'normalAttackAddP';
+    if (/低学年/.test(text)) return kind === 'actionMultiplier'
+      ? 'lowSkillMultiplierBonusP'
+      : 'lowSkillAddP';
+    if (/高学年/.test(text)) return kind === 'actionMultiplier'
+      ? 'highSkillMultiplierBonusP'
+      : 'highSkillAddP';
+    if (/スキル/.test(text)) return kind === 'actionMultiplier'
+      ? 'skillActionMultiplierBonusP'
+      : 'skillAddP';
+    return kind === 'actionMultiplier' ? 'actionMultiplierBonusP' : 'addP';
+  }
+
   function normalizeFdcSkillEffectBonus(effect, skillLevel) {
     if (!effect) return null;
     const valueClass = String(effect.valueClass || '');
@@ -4851,6 +5236,27 @@
       return bonuses;
     }
 
+    // 明示区分がある行は、旧来の値の種類に含まれる「(その他倍率)」や
+    // 「ダメージ増加」の文字列推定へ落とさない。特に行動倍率は
+    // otherP/addPとは別の計算段階へ送る。
+    const damageModifierCategory = normalizeFdcDamageModifierCategory(effect.damageModifierCategory);
+    if (damageModifierCategory === 'actionMultiplier') {
+      addSigned(getFdcActionScopedModifierKey(effect, 'actionMultiplier'));
+      return bonuses;
+    }
+    if (damageModifierCategory === 'damageAmount') {
+      addSigned(getFdcActionScopedModifierKey(effect, 'damageAmount'));
+      return bonuses;
+    }
+    if (damageModifierCategory === 'special') {
+      addSigned('specialP');
+      return bonuses;
+    }
+    if (damageModifierCategory === 'other') {
+      addSigned('otherP');
+      return bonuses;
+    }
+
     if (valueClass === '与ダメージ量増加') add('addP');
     else if (valueClass === '被ダメージ量減少') add('takenDmgP');
     else if (isOtherMultiplier) addSigned('otherP');
@@ -4878,6 +5284,8 @@
     else if (/(?:通常|普通)攻撃.*ダメージ/.test(valueKind)) addSigned('normalAttackAddP');
     else if (/基本攻撃.*ダメージ/.test(valueKind)) addSigned('basicAddP');
     else if (/強化攻撃.*ダメージ/.test(valueKind)) addSigned('enhancedAddP');
+    else if (/低学年(?:スキル)?.*(?:ダメージ量|与ダメージ量|与ダメ)/.test(valueKind)) addSigned('lowSkillAddP');
+    else if (/高学年(?:スキル)?.*(?:ダメージ量|与ダメージ量|与ダメ)/.test(valueKind)) addSigned('highSkillAddP');
     else if (/スキル.*ダメージ|ダメージ量|与ダメージ|与ダメ/.test(valueKind)) addSigned('addP');
     else if (/HP回復/.test(valueKind)) add('hpRecoveryP');
     else if (/治癒|回復量/.test(valueKind)) add('healingP');
@@ -4902,9 +5310,9 @@
     const processOrder = Number(effect?.processOrder);
     const effectCondition = String(effect?.condition || '').replace(/[\s　]+/g, '');
     const effectTarget = String(effect?.effectTarget || '').replace(/[\s　]+/g, '');
-    const candidates = normalizeFdcArray(skill?.effects)
-      .filter(candidate => candidate !== effect && (candidate?.valueClass === '持続時間' || /持続時間/.test(candidate?.valueKind || '')))
-      .map(candidate => {
+    const durationEffects = normalizeFdcArray(skill?.effects)
+      .filter(candidate => candidate !== effect && (candidate?.valueClass === '持続時間' || /持続時間/.test(candidate?.valueKind || '')));
+    const candidates = durationEffects.map(candidate => {
         const durationKind = String(candidate?.valueKind || '').replace(/[\s　]+/g, '');
         const baseKind = durationKind.replace(/(?:の)?持続時間.*$/, '');
         const candidateCondition = String(candidate?.condition || '').replace(/[\s　]+/g, '');
@@ -4928,8 +5336,19 @@
       })
       .filter(item => item.score > 0)
       .sort((a, b) => b.score - a.score);
-    if (!candidates.length || (candidates[1] && candidates[0].score === candidates[1].score)) return '';
-    const durationEffect = candidates[0].candidate;
+    let durationEffect = candidates.length && !(candidates[1] && candidates[0].score === candidates[1].score)
+      ? candidates[0].candidate
+      : null;
+    if (!durationEffect && durationEffects.length === 1) {
+      const onlyDuration = durationEffects[0];
+      const sameEffectType = !effect?.effectType || !onlyDuration?.effectType || effect.effectType === onlyDuration.effectType;
+      const sameTarget = !effectTarget
+        || !String(onlyDuration?.effectTarget || '').replace(/[\s　]+/g, '')
+        || effectTarget === String(onlyDuration.effectTarget).replace(/[\s　]+/g, '');
+      const descriptionSharesDuration = /一定時間|しばらく|\d+(?:\.\d+)?秒間/.test(String(skill?.description || ''));
+      if (sameEffectType && sameTarget && descriptionSharesDuration) durationEffect = onlyDuration;
+    }
+    if (!durationEffect) return '';
     const levelInfo = getFdcEffectLevelInfo(durationEffect, skillLevel);
     const rawValue = levelInfo?.raw || (levelInfo?.value ?? durationEffect?.fixedValue);
     return formatFdcEffectDuration(rawValue);
@@ -4945,6 +5364,27 @@
     const match = String(value || '').match(/-?\d+(?:\.\d+)?/);
     const seconds = match ? Number(match[0]) : 0;
     return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
+  }
+
+  function getFdcUniqueTextLines(parts = []) {
+    const lines = [];
+    const seen = new Set();
+    const seenBodies = new Set();
+    const labelPattern = /^[^:：]{1,24}[:：]\s*(.+)$/;
+    normalizeFdcArray(parts).forEach(part => {
+      String(part || '').split(/\r?\n/).forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line) return;
+        const normalized = line.replace(/[\s　]+/g, ' ');
+        const labelBody = normalized.match(labelPattern)?.[1]?.trim() || '';
+        const body = labelBody || normalized;
+        if (seen.has(normalized) || seenBodies.has(body)) return;
+        seen.add(normalized);
+        seenBodies.add(body);
+        lines.push(line);
+      });
+    });
+    return lines;
   }
 
   function getFdcSkillEffectDisplayCondition(effect, ...fallbackParts) {
@@ -5002,16 +5442,54 @@
     }
     const displayConditionValue = /_e\d+$/.test(String(meta.conditionValue || ''))
       ? ''
-      : meta.conditionValue;
+      : formatFdcConditionDisplayValue(meta.conditionValue, effect);
     const trigger = [triggerType, triggerValue]
       .filter(value => value !== '' && value != null)
       .join(' ');
-    const condition = [meta.conditionType, displayConditionValue]
-      .filter(value => value !== '' && value != null)
-      .join(' ');
-    return [trigger ? `発動:${trigger}` : '', condition ? `適用:${condition}` : '']
+    const condition = meta.conditionType === '編成中' && displayConditionValue
+      ? `${displayConditionValue}編成中`
+      : [meta.conditionType, displayConditionValue]
+        .filter(value => value !== '' && value != null)
+        .join(' ');
+    return [trigger ? `発動:${trigger}` : '', condition ? (meta.conditionType === '編成中' ? condition : `適用:${condition}`) : '']
       .filter(Boolean)
       .join(' / ');
+  }
+
+  function formatFdcConditionDisplayValue(value, effect = {}) {
+    return String(value ?? '').split(/([、,\/／])/).map(part => {
+      const token = part.trim();
+      if (!token || /^[、,\/／]$/.test(part)) return part;
+      const apostles = typeof APOSTLE_LIBRARY === 'undefined' ? [] : APOSTLE_LIBRARY;
+      const normalized = normalizeComparableName(token);
+      const apostle = apostles.find(item => (
+        normalizeComparableName(item?.id) === normalized
+        || normalizeComparableName(item?.name) === normalized
+      ));
+      if (apostle?.name) return apostle.name;
+      const conditionLabel = getFdcConditionValueLabelFromLegacyText(effect, token);
+      if (conditionLabel) return conditionLabel;
+      return isFdcInternalConditionId(token) ? '' : part;
+    }).join('');
+  }
+
+  function isFdcInternalConditionId(value) {
+    return /^[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+$/.test(String(value || '').trim());
+  }
+
+  function getFdcConditionValueLabelFromLegacyText(effect = {}, value = '') {
+    if (!isFdcInternalConditionId(value)) return '';
+    const conditionType = String(effect.conditionType || '').trim();
+    const condition = String(effect.condition || '').trim();
+    if (!condition) return '';
+    if (conditionType === '領域内') {
+      const label = condition
+        .replace(/^(?:適用[:：]\s*)?/, '')
+        .replace(/(?:の)?(?:範囲|領域)内(?:時)?$/, '')
+        .trim();
+      return label && label !== condition ? label : '';
+    }
+    return '';
   }
 
   function getFdcStructuredConditionState(effect = {}, context = null) {
@@ -5072,7 +5550,7 @@
     return { hasCondition: true, resolved: false, matched: false };
   }
 
-  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }, actionCategory = '', allyPersonalityState = { hasCondition: false, defaultEnabled: true }, context = null, sourceCategory = '') {
+  function getFdcSkillEffectDefaultEnabled(text, effect, enemyPersonalityState = { hasCondition: false, defaultEnabled: true }, actionCategory = '', allyPersonalityState = { hasCondition: false, defaultEnabled: true }, context = null, sourceCategory = '', evaluationOptions = {}) {
     const personalityEnabled = enemyPersonalityState?.hasCondition
       ? !!enemyPersonalityState.defaultEnabled
       : true;
@@ -5082,6 +5560,12 @@
     if (structuredConditionState.hasCondition && structuredConditionState.resolved && !structuredConditionState.matched) return false;
     const structuredCondition = getFdcStructuredEffectConditionText(effect);
     const explicitCondition = String(effect?.condition || structuredCondition || '').trim();
+    // 編成使徒本人の行動・状態を必要とする発動条件は、対象使徒側の
+    // 性格・名前・現在行動より先に除外する。複合条件でも、選択使徒が
+    // 同じ行動を選んだだけでは編成使徒の発動を満たしたことにしない。
+    if (evaluationOptions.formationOwnerTrigger && isFdcFormationOwnerRuntimeTrigger(effect)) {
+      return false;
+    }
     // 編成側の対象判定（getFormationSkillTargetState）が性格一致を確認している
     // 場合もあるため、ここでは味方性格条件を未対応イベント条件としてOFFにしない。
     // 本人スキルでは allyPersonalityState で一致/不一致を判定する。
@@ -5095,10 +5579,14 @@
     }
     const actionText = [effect?.triggerType, effect?.triggerSourceId, effect?.condition, effect?.targetSkill].filter(Boolean).join(' ');
     const selectedActionCategory = actionCategory || view.selectedSkillCategory || '';
-    const valueKindActionMatch = judgeFdcEffectValueActionScope(effect, selectedActionCategory);
+    const valueKindActionMatch = judgeFdcEffectValueActionScope(effect, selectedActionCategory, {
+      includeTriggerAction: !evaluationOptions.formationOwnerTrigger
+    });
     if (valueKindActionMatch.hasActionScope) return personalityEnabled && valueKindActionMatch.matched;
-    const actionMatch = judgeActionCondition(actionText, selectedActionCategory);
-    if (actionMatch.hasActionCondition) return personalityEnabled && actionMatch.matched;
+    if (!evaluationOptions.formationOwnerTrigger) {
+      const actionMatch = judgeActionCondition(actionText, selectedActionCategory);
+      if (actionMatch.hasActionCondition) return personalityEnabled && actionMatch.matched;
+    }
     if (structuredConditionState.hasCondition && !structuredConditionState.resolved) return false;
     if (enemyPersonalityState?.hasCondition) return personalityEnabled;
     if (isFdcFormationAvailabilityCondition(explicitCondition, context)) return personalityEnabled;
@@ -5109,13 +5597,15 @@
     return true;
   }
 
-  function judgeFdcEffectValueActionScope(effect = {}, actionCategory = '') {
-    const triggerAction = judgeActionCondition(
-      [effect.triggerType, effect.triggerSourceId].filter(Boolean).join(' '),
-      actionCategory
-    );
-    if (triggerAction.hasActionCondition) {
-      return { hasActionScope: true, matched: triggerAction.matched };
+  function judgeFdcEffectValueActionScope(effect = {}, actionCategory = '', options = {}) {
+    if (options.includeTriggerAction !== false) {
+      const triggerAction = judgeActionCondition(
+        [effect.triggerType, effect.triggerSourceId].filter(Boolean).join(' '),
+        actionCategory
+      );
+      if (triggerAction.hasActionCondition) {
+        return { hasActionScope: true, matched: triggerAction.matched };
+      }
     }
     const explicitCategories = getFdcDeclaredAttackCategories(effect.attackCategory);
     if (explicitCategories.length) {
@@ -5144,6 +5634,18 @@
     }
     if (/強化攻撃.*ダメージ/.test(valueKind)) {
       return { hasActionScope: true, matched: category === '強化攻撃' };
+    }
+    if (/低学年(?:スキル)?.*(?:ダメージ量|与ダメージ|与ダメ)/.test(valueKind)) {
+      return { hasActionScope: true, matched: category === '低学年スキル' };
+    }
+    if (/高学年(?:スキル)?.*(?:ダメージ量|与ダメージ|与ダメ)/.test(valueKind)) {
+      return { hasActionScope: true, matched: category === '高学年スキル' };
+    }
+    if (/スキル.*(?:ダメージ量|与ダメージ|与ダメ)/.test(valueKind)) {
+      return {
+        hasActionScope: true,
+        matched: category === '低学年スキル' || category === '高学年スキル'
+      };
     }
     return { hasActionScope: false, matched: true };
   }
@@ -5379,7 +5881,10 @@
     const formationAutoEffects = formationEffects.filter(isAutomaticBonusEffect);
     const formationDetailEffects = formationEffects.filter(item => !isAutomaticBonusEffect(item));
     const allDetailEffects = [...equippedDetailEffects, ...formationDetailEffects];
+    const otherArtifactEffects = [];
     const enabled = isEffectSourceActive('artifact');
+    const artifactDetailCards = renderGroupedArtifactEffectChips(allDetailEffects, enabled, otherArtifactEffects);
+    const artifactOtherEffects = renderAutomaticArtifactEffectList(otherArtifactEffects);
     el.artifactCategory.innerHTML = `
       ${artifactLimit ? `
         <div class="fdc-artifact-limit ${artifactLimitExceeded ? 'is-over' : ''}">
@@ -5417,7 +5922,9 @@
       <section class="fdc-artifact-effect-box fdc-artifact-detail-box ${enabled ? '' : 'is-disabled'}">
         <h4>遺物特殊効果 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
         <div class="fdc-artifact-effect-chips">
-          ${allDetailEffects.length ? renderGroupedArtifactEffectChips(allDetailEffects, enabled) : '<p class="fdc-empty">計算に影響する特殊効果なし</p>'}
+          ${artifactDetailCards}
+          ${artifactOtherEffects}
+          ${!artifactDetailCards && !artifactOtherEffects ? '<p class="fdc-empty">計算に影響する特殊効果なし</p>' : ''}
         </div>
       </section>
     `;
@@ -5862,9 +6369,15 @@
     return `<div class="fdc-artifact-bonus-summary">${chips.join('')}</div>`;
   }
 
-  function renderGroupedArtifactEffectChips(rows, enabled) {
-    const cards = groupArtifactEffectRows(rows.filter(isVisibleDamageRelatedEffect))
-      .map(group => renderArtifactEffectGroupChip(group, enabled))
+  function renderGroupedArtifactEffectChips(rows, enabled, otherEffects = null) {
+    // 単発ダメージに直接使わないSP・攻撃速度なども、DPSで自動管理する
+    // カード効果として「その他効果」へ退避して確認できるようにする。
+    const visibleRows = rows.filter(item => (
+      isVisibleDamageRelatedEffect(item)
+      || isFdcSkillEffectAutoOnly(item)
+    ));
+    const cards = groupArtifactEffectRows(visibleRows)
+      .map(group => renderArtifactEffectGroupChip(group, enabled, otherEffects))
       .join('');
     return cards ? `<div class="fdc-artifact-card-grid">${cards}</div>` : '';
   }
@@ -5900,23 +6413,35 @@
     }));
   }
 
-  function renderArtifactEffectGroupChip(group, enabled) {
+  function renderArtifactEffectGroupChip(group, enabled, otherEffects = null) {
     const owners = unique(group.ownerLabels);
     // スペル補正セクション内の「スペル」は見出しと重複するため表示しない。
     const sources = unique(group.sources).filter(source => source !== 'スペル');
     const meta = owners.length ? `所持: ${owners.join(' / ')}` : sources.join(' / ');
-    const effects = group.effects.map(effectGroup => renderArtifactEffectItem(effectGroup, enabled)).join('');
+    const effectItems = group.effects.map(effectGroup => ({ group: effectGroup, item: getArtifactEffectGroupItem(effectGroup) }));
+    const automaticItems = effectItems.filter(({ item }) => isFdcSkillEffectAutoOnly(item));
+    const toggleItems = effectItems.filter(({ item }) => !isFdcSkillEffectAutoOnly(item));
+    const effects = toggleItems.map(({ group: effectGroup, item }) => renderArtifactEffectItem(effectGroup, enabled, item)).join('');
+    const automaticItemList = automaticItems.map(({ item }) => ({
+      ...item,
+      cardName: item.cardName || group.title,
+      ownerSummary: meta
+    }));
+    if (Array.isArray(otherEffects)) otherEffects.push(...automaticItemList);
+    const automaticEffects = Array.isArray(otherEffects) ? '' : renderAutomaticArtifactEffectList(automaticItemList);
+    if (Array.isArray(otherEffects) && !effects) return '';
     return `
       <div class="fdc-artifact-effect-group ${enabled ? '' : 'is-disabled'}">
         <strong>${escapeHtml(group.title)}</strong>
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ''}
-        <div class="fdc-artifact-card-effects">${effects}</div>
+        ${effects ? `<div class="fdc-artifact-card-effects">${effects}</div>` : ''}
+        ${automaticEffects}
       </div>
     `;
   }
 
-  function renderArtifactEffectItem(group, enabled) {
-    const item = getArtifactEffectGroupItem(group);
+  function renderArtifactEffectItem(group, enabled, resolvedItem = null) {
+    const item = resolvedItem || getArtifactEffectGroupItem(group);
     const effectChip = renderArtifactEffectMiniChip(item);
     const stackEnabled = !!enabled && !!item.groupEnabled;
     const stackControls = [renderArtifactStackControl(item, stackEnabled), renderArtifactSharedStackControl(item, stackEnabled)].filter(Boolean).join('');
@@ -5926,6 +6451,30 @@
         <div class="fdc-artifact-effect-group-chips">${effectChip}</div>
         ${stackControls ? `<div class="fdc-artifact-effect-stack-controls">${stackControls}</div>` : ''}
       </div>
+    `;
+  }
+
+  function renderAutomaticArtifactEffectList(items = []) {
+    if (!items.length) return '';
+    return `
+      <details class="fdc-automatic-effect-details fdc-artifact-automatic-effects">
+        <summary><span>その他効果</span><b>${escapeHtml(items.length)}件</b></summary>
+        <div class="fdc-automatic-effect-list">
+          ${items.map(item => {
+            const bonusText = item.bonusText || formatBonusMap(getRelevantBonusMap(item.bonuses || {}));
+            const effectName = item.label || '効果';
+            const cardName = item.cardName || item.source || 'カード効果';
+            const meta = [item.scopeLabel ? `対象: ${item.scopeLabel}` : '', item.ownerSummary || ''].filter(Boolean).join(' / ');
+            return `
+              <div class="fdc-automatic-effect-row is-card-effect" data-fdc-effect-control="automatic">
+                <span class="fdc-automatic-effect-source"><strong>${escapeHtml(cardName)}</strong>${effectName !== cardName ? `<small>${escapeHtml(effectName)}</small>` : ''}</span>
+                <span class="fdc-automatic-effect-text">${meta ? `<small>${escapeHtml(meta)}</small>` : ''}${renderFdcEffectTimingTag(item)}</span>
+                ${bonusText ? `<b class="fdc-automatic-effect-value">${escapeHtml(bonusText)}</b>` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </details>
     `;
   }
   function getArtifactEffectGroupItem(group) {
@@ -5943,7 +6492,7 @@
     const conditionKeys = unique(rows.map(row => row.conditionKey));
     const enabledCount = conditionKeys.filter(key => {
       const row = rows.find(candidate => candidate.conditionKey === key);
-      return isConditionalEffectEnabled(key, row?.defaultEnabled);
+      return isConditionalEffectRowEnabled(row);
     }).length;
     return {
       ...rows[0],
@@ -5960,7 +6509,7 @@
     const maxStack = Number(item?.stackMax);
     if (!item?.conditionKey || !Number.isFinite(maxStack) || maxStack <= 1) return '';
     const value = getConditionalEffectStackCount(item.conditionKey, maxStack, item.stackDefault);
-    const enabled = !!groupEnabled && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled);
+    const enabled = !!groupEnabled && isConditionalEffectRowEnabled(item) && !isFdcSkillEffectAutoOnly(item);
     return `
       <span class="fdc-artifact-effect-stack-control${enabled ? '' : ' is-disabled'}">
         <span>効果スタック</span>
@@ -5984,20 +6533,24 @@
 
   function renderArtifactEffectMiniChip(item) {
     const bonusText = item.bonusText || (item.bonuses ? formatBonusMap(getRelevantBonusMap(item.bonuses)) : '');
-    const checked = item.conditionKeys
-      ? (item.groupEnabled ? ' checked' : '')
-      : (item.conditionKey && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled) ? ' checked' : '');
+    const autoControlled = isFdcSkillEffectAutoOnly(item);
+    const checked = autoControlled
+      ? ' checked'
+      : item.conditionKeys
+        ? (item.groupEnabled ? ' checked' : '')
+        : (item.conditionKey && isConditionalEffectRowEnabled(item) ? ' checked' : '');
+    const disabled = autoControlled ? ' disabled aria-label="DPSタイムラインで自動判定されます"' : '';
     const toggle = item.canToggle ? (item.conditionKeys?.length
-      ? `<input type="checkbox" data-fdc-condition-toggle-group="${escapeAttr(encodeConditionToggleGroupKeys(item.conditionKeys))}"${checked}>`
-      : `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}>`) : '';
+      ? `<input type="checkbox" data-fdc-condition-toggle-group="${escapeAttr(encodeConditionToggleGroupKeys(item.conditionKeys))}"${checked}${disabled}>`
+      : `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}${disabled}>`) : '';
     const label = item.label || '効果';
     return `
-      <label class="fdc-artifact-effect-mini-chip ${item.canToggle ? 'is-toggleable' : ''}">
+      <label class="fdc-artifact-effect-mini-chip ${item.canToggle ? 'is-toggleable' : ''}${autoControlled ? ' is-auto-controlled' : ''}" data-fdc-effect-control="${escapeAttr(autoControlled ? 'automatic' : 'manual')}">
         ${toggle}
         <span class="fdc-artifact-effect-mini-chip-content">
           <span>${escapeHtml(label)}</span>
           ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
-          ${item.duration ? `<small class="fdc-artifact-effect-duration">${escapeHtml(formatFdcEffectDuration(item.duration))}</small>` : ''}
+          ${renderFdcEffectTimingTag(item)}
           ${Number(item.overlapStackMax) > 1 ? `<em>×${escapeHtml(item.overlapCount)}</em>` : ''}
         </span>
       </label>
@@ -6020,14 +6573,16 @@
     const bonusText = item.bonusText || (item.bonuses ? formatBonusMap(getRelevantBonusMap(item.bonuses)) : '');
     const status = (item.tags?.status || []).join(' / ');
     const meta = [item.ownerLabel, item.reason].filter(Boolean).join(' / ');
-    const checked = item.conditionKey && isConditionalEffectEnabled(item.conditionKey, item.defaultEnabled) ? ' checked' : '';
-    const toggle = item.canToggle ? `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}>` : '';
+    const autoControlled = isFdcSkillEffectAutoOnly(item);
+    const checked = autoControlled || (item.conditionKey && isConditionalEffectRowEnabled(item)) ? ' checked' : '';
+    const toggle = item.canToggle ? `<input type="checkbox" data-fdc-condition-toggle="${escapeAttr(item.conditionKey)}"${checked}${autoControlled ? ' disabled aria-label="DPSタイムラインで自動判定されます"' : ''}>` : '';
     return `
-      <label class="fdc-artifact-effect-chip ${enabled ? '' : 'is-disabled'} ${item.canToggle ? 'is-toggleable' : ''}">
+      <label class="fdc-artifact-effect-chip ${enabled ? '' : 'is-disabled'} ${item.canToggle ? 'is-toggleable' : ''}${autoControlled ? ' is-auto-controlled' : ''}">
         ${toggle}
         <strong>${escapeHtml(item.cardName || item.label || '遺物')}</strong>
         ${item.label && item.cardName ? `<span class="fdc-artifact-effect-label">${escapeHtml(item.label)}</span>` : ''}
         ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
+        ${renderFdcEffectTimingTag(item)}
         ${status ? `<em>${escapeHtml(status)}</em>` : ''}
         ${meta ? `<small>${escapeHtml(meta)}</small>` : ''}
       </label>
@@ -6041,7 +6596,10 @@
     const spellEffects = getSpellEffectRows(context.effects);
     const spellAutoEffects = spellEffects.filter(isAutomaticBonusEffect);
     const spellDetailEffects = spellEffects.filter(item => !isAutomaticBonusEffect(item));
+    const otherSpellEffects = [];
     const enabled = isEffectSourceActive('spell');
+    const spellDetailCards = renderGroupedArtifactEffectChips(spellDetailEffects, enabled, otherSpellEffects);
+    const spellOtherEffects = renderAutomaticArtifactEffectList(otherSpellEffects);
     el.spellCategory.innerHTML = `
       <section class="fdc-spell-section">
         <h4>
@@ -6060,8 +6618,9 @@
         <h4>スペル補正 <span>${enabled ? 'ON' : 'OFF'}</span></h4>
         <div class="fdc-artifact-effect-chips">
           ${renderArtifactBonusSummary(spellAutoEffects, enabled)}
-          ${spellDetailEffects.length ? renderGroupedArtifactEffectChips(spellDetailEffects, enabled) : ''}
-          ${!spellAutoEffects.length && !spellDetailEffects.length ? '<p class="fdc-empty">スペル補正なし</p>' : ''}
+          ${spellDetailCards}
+          ${spellOtherEffects}
+          ${!spellAutoEffects.length && !spellDetailCards && !spellOtherEffects ? '<p class="fdc-empty">スペル補正なし</p>' : ''}
         </div>
       </section>
     `;
@@ -6357,10 +6916,18 @@
       'critDmgAddP',
       'hasteP',
       'addP',
+      'actionMultiplierBonusP',
+      'normalAttackMultiplierBonusP',
+      'basicMultiplierBonusP',
+      'enhancedMultiplierBonusP',
+      'skillActionMultiplierBonusP',
+      'selfDestructMultiplierBonusP',
       'normalAttackAddP',
       'basicAddP',
       'enhancedAddP',
       'skillAddP',
+      'lowSkillAddP',
+      'highSkillAddP',
       'specialP',
       'otherP',
       'enemyDefDownP',
@@ -6609,7 +7176,7 @@
     const target = context.target;
     const attackLabel = context.damageType === 'magic' ? '魔法攻撃力' : '物理攻撃力';
     const defenseLabel = context.damageType === 'magic' ? '魔法防御力' : '物理防御力';
-    const isEnemyAttack = view.perspective === 'enemy';
+    const isEnemyAttack = !context.forceSelfAttack && view.perspective === 'enemy';
     const attackerIsEnemy = isEnemyAttack;
     const defenderIsEnemy = !isEnemyAttack;
     const detail = result.detail || {};
@@ -6681,6 +7248,8 @@
           ...(Number(mods.conditionalTakenDmgP) ? [['状態弱点による被ダメージ量補正', formatSignedPercent(mods.conditionalTakenDmgP)]] : []),
           ...(Number(mods.targetDebuffTakenDmgP) ? [['破壊による被ダメージ量補正', formatSignedPercent(mods.targetDebuffTakenDmgP)]] : []),
           ['スキル倍率', `${formatPlainNumber(mods.skillP)}%`],
+          ['行動倍率補正', formatSignedPercent(mods.actionMultiplierBonusP)],
+          ['補正後行動倍率', `${formatPlainNumber(mods.finalActionMultiplierP)}%`],
           ['属性相性倍率', `${formatPlainNumber(mods.typeP)}%`],
           ['特殊倍率', `${formatPlainNumber(mods.specialP)}%`],
           ['その他倍率', `${formatPlainNumber(mods.otherP)}%`]
@@ -6775,23 +7344,53 @@
 
   function calculateDamage(context) {
     const summary = context.summary || {};
-    const isEnemyAttack = view.perspective === 'enemy';
+    const isEnemyAttack = !context.forceSelfAttack && view.perspective === 'enemy';
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
     const selectedSkillOption = isEnemyAttack ? null : context.selectedSkillOption || resolveSelectedSelfSkillOption(context);
     const selectedSkillValue = Number(selectedSkillOption?.value);
+    const statusDamageActionCategory = [
+      selectedSkillOption?.category,
+      selectedSkillOption?.sourceCategory,
+      selectedSkillOption?.attackCategory,
+      context.actionCategory
+    ].find(value => String(value || '').startsWith('状態異常::')) || '';
     const conditionalTakenDmgP = !isEnemyAttack && !context.ignoreEnemyStatusTakenDamageWeakness
       ? getEnemyPresetStatusTakenDamageWeaknessAdd()
       : 0;
     const targetDebuffTakenDmgP = isEnemyAttack ? getEnemyPresetBreakDebuffTakenDmgP() : 0;
     if (!isEnemyAttack && Number.isFinite(selectedSkillValue)) attacker.skill = selectedSkillValue;
     if (!isEnemyAttack) {
-      attacker.other += getEnemyPresetStatusDamageWeaknessOtherP(selectedSkillOption?.category || context.actionCategory);
+      if (!context.ignoreEnemyStatusDamageWeakness) {
+        attacker.other += getEnemyPresetStatusDamageWeaknessOtherP(statusDamageActionCategory || context.actionCategory);
+      }
       attacker.addP += conditionalTakenDmgP;
     }
     if (isEnemyAttack) attacker.addP += targetDebuffTakenDmgP;
     attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
-    applyEffectSummaryToDamageMods(summary, context, attacker, defender, isEnemyAttack);
+    // 「無分類」は分類欠落ではなく、普通攻撃・スキル・状態異常のどれにも
+    // 属さないことを明示する値。発生元カテゴリを連結すると、愛用品内の
+    // 独立ダメージへスキル専用の行動倍率が逆流するため、明示値だけを使う。
+    const unclassifiedDamage = isFdcUnclassifiedAttackCategory(
+      selectedSkillOption?.attackCategory || context.actionCategory
+    );
+    const actionMultiplierContext = unclassifiedDamage
+      ? '無分類'
+      : [
+          context.actionCategory,
+          selectedSkillOption?.category,
+          selectedSkillOption?.sourceCategory,
+          selectedSkillOption?.attackCategory,
+          selectedSkillOption?.targetSkill,
+          selectedSkillOption?.targetSkillName
+        ].filter(Boolean).join(' ');
+    applyEffectSummaryToDamageMods(
+      summary,
+      { ...context, actionMultiplierContext },
+      attacker,
+      defender,
+      isEnemyAttack
+    );
     applyEffectSummaryToDamageMods(
       context.enemySummary || {},
       {
@@ -6829,7 +7428,13 @@
     const defRate = calcBaseDamageRate(finalAtk, finalDef);
     const rawAddRate = 1 + (attacker.addP - defender.takenDmgP) / 100;
     let addRate = Math.max(0.2, rawAddRate);
-    const skill = Math.max(0, attacker.skill) / 100;
+    const baseActionMultiplierP = Math.max(0, attacker.skill);
+    const actionMultiplierBonusP = Number(attacker.actionMultiplierBonusP) || 0;
+    const finalActionMultiplierP = Math.max(
+      0,
+      baseActionMultiplierP * (1 + actionMultiplierBonusP / 100)
+    );
+    const skill = finalActionMultiplierP / 100;
     const type = Math.max(0, attacker.type) / 100;
     const special = Math.max(0, attacker.special) / 100;
     const other = Math.max(0, attacker.other) / 100;
@@ -6838,7 +7443,7 @@
     const normal = damageSource * defRate * skill * addRate * type * special * other;
     const baseCritRate = calcCritRate(finalCrit, finalCritRes);
     const rawCritRate = baseCritRate + attacker.critRateP / 100 - defender.critResAddP / 100;
-    const critRate = clamp(rawCritRate, 0.05, 0.8);
+    const critRate = selectedSkillOption?.guaranteedCrit ? 1 : clamp(rawCritRate, 0.05, 0.8);
     const baseCritMult = calcCritMultiplier(finalCritDmg, finalCritDmgRes);
     const rawCritMult = baseCritMult + attacker.critDmgAddP / 100 - defender.critDmgResAddP / 100;
     const critMult = clamp(rawCritMult, 1.2, 2.5);
@@ -6850,6 +7455,7 @@
       crit,
       expected,
       critRate,
+      guaranteedCrit: !!selectedSkillOption?.guaranteedCrit,
       defRate,
       summary,
       detail: {
@@ -6881,7 +7487,10 @@
           addRate,
           conditionalTakenDmgP,
           targetDebuffTakenDmgP,
-          skillP: attacker.skill,
+          skillP: baseActionMultiplierP,
+          actionMultiplierBonusP,
+          baseActionMultiplierP,
+          finalActionMultiplierP,
           typeP: attacker.type,
           specialP: attacker.special,
           otherP: attacker.other,
@@ -6960,6 +7569,10 @@
     }
     attacker.atkP += getActiveAttackBonus(summary, context.damageType);
     attacker.addP += getActiveAddBonus(summary, context.actionCategory);
+    attacker.actionMultiplierBonusP += getActiveActionMultiplierBonus(
+      summary,
+      context.actionMultiplierContext || context.actionCategory
+    );
     attacker.critRateP += Number(summary.critRateP) || 0;
     attacker.critP += Number(summary.critP) || 0;
     attacker.critDmgP += Number(summary.critDmgP) || 0;
@@ -6983,6 +7596,7 @@
         type: readNumber(el.inputs.enemyType),
         special: readNumber(el.inputs.enemySpecial),
         other: readNumber(el.inputs.enemyOther),
+        actionMultiplierBonusP: 0,
         addP: readNumber(el.inputs.enemyAddP) + getDebuffDamageP('enemy') + getEnemyPresetBuffDamageP(),
         critRateP: readNumber(el.inputs.enemyCritRateP),
         critDmgAddP: readNumber(el.inputs.enemyCritDmgAddP),
@@ -6997,6 +7611,7 @@
       type: readNumber(el.inputs.selfType),
       special: 100,
       other: readNumber(el.inputs.selfOther),
+      actionMultiplierBonusP: 0,
       addP: readNumber(el.inputs.selfAddP) + getDebuffDamageP('self'),
       critRateP: readNumber(el.inputs.selfCritRateP),
       critDmgAddP: readNumber(el.inputs.selfCritDmgAddP),
@@ -7235,6 +7850,7 @@
       boardState: snapshot.boardState || null,
       singleActionProfiles: snapshot.singleActionProfiles || {},
       actionDamageProfiles: snapshot.actionDamageProfiles || {},
+      additionalDamageComponents: snapshot.additionalDamageComponents || [],
       actionEffectAudit: snapshot.actionEffectAudit || {}
     });
   }
@@ -7489,7 +8105,21 @@
       tempArtifacts: view.tempArtifacts,
       tempSpells: view.tempSpells,
       tempCardStates: view.tempCardStates,
-      skillLevelOverrides: view.skillLevelOverrides
+      skillLevelOverrides: view.skillLevelOverrides,
+      perspective: view.perspective,
+      damageType: view.damageType,
+      enemyDamageType: view.enemyDamageType,
+      enemySourceMode: view.enemySourceMode,
+      enemyApostleId: view.enemyApostleId,
+      enemyPresetKey: view.enemyPresetKey,
+      enemyPhaseIndex: view.enemyPhaseIndex,
+      enemySkillIndex: view.enemySkillIndex,
+      enemyPersonality: view.enemyPersonality,
+      pvpAffinityEnabled: view.pvpAffinityEnabled,
+      pvpRank: view.pvpRank,
+      enemySelectedSkillCategory: view.enemySelectedSkillCategory,
+      selectedSkillCategory: view.selectedSkillCategory,
+      selectedSkillOptionKey: view.selectedSkillOptionKey
     };
     const savedInputs = snapshotSelfStatInputs();
     try {
@@ -7517,13 +8147,30 @@
       view.tempSpells = Array.isArray(scenario.cardState?.tempSpells) ? scenario.cardState.tempSpells.slice() : null;
       view.tempCardStates = sanitizeFdcTempCardStates(scenario.cardState?.tempCardStates);
       view.skillLevelOverrides = sanitizeSkillLevelOverrides(scenario.effectAssumptions?.skillLevelOverrides || {});
+      const battleConditions = scenario.battleConditions || {};
+      view.perspective = battleConditions.perspective === 'enemy' ? 'enemy' : 'self';
+      view.damageType = battleConditions.damageType || 'auto';
+      view.enemyDamageType = battleConditions.enemyDamageType || 'auto';
+      view.enemySourceMode = battleConditions.enemySourceMode === 'apostle' ? 'apostle' : 'preset';
+      view.enemyApostleId = battleConditions.enemyApostleId || scenario.characterState?.enemyApostleId || '';
+      view.enemyPresetKey = battleConditions.enemyPresetKey || '';
+      view.enemyPhaseIndex = Math.max(0, Number(battleConditions.enemyPhaseIndex) || 0);
+      view.enemySkillIndex = Number.isFinite(Number(battleConditions.enemySkillIndex))
+        ? Number(battleConditions.enemySkillIndex)
+        : -1;
+      view.enemyPersonality = battleConditions.enemyPersonality || '';
+      view.pvpAffinityEnabled = !!battleConditions.pvpAffinityEnabled;
+      view.pvpRank = normalizePvpRank(battleConditions.pvpRank);
+      view.enemySelectedSkillCategory = battleConditions.enemySelectedSkillCategory || '';
+      view.selectedSkillCategory = battleConditions.selectedSkillCategory || battleConditions.actionCategory || '';
+      view.selectedSkillOptionKey = battleConditions.selectedSkillOptionKey || '';
       const context = buildContext({ detached: true });
       if (!context.target || context.target.id !== targetId) {
         return { error: '選択した比較元の編成に現在の使徒がいません' };
       }
       writeSelfStatInputsForStats(context, context.target.stats || {});
       const result = calculateDamage(context);
-      const dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot(context));
+      const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
       return { result, dpsSnapshot };
     } finally {
       Object.assign(view, savedView);
@@ -7542,7 +8189,7 @@
     const source = getSelectedComparisonSource();
     let scenario = captureCombatScenario(context);
     let result = calculateDamage(context);
-    let dpsSnapshot = createPinnedDpsSnapshot(createDpsPrototypeSnapshot());
+    let dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput());
     if (source?.type === 'calc') {
       scenario = createCombatScenarioFromDamageSave(source.data);
       result = source.data.snapshot?.result || {};
@@ -7582,10 +8229,14 @@
       scenario.characterState.boardState = clonePlain(dpsSnapshot.boardState || scenario.characterState.boardState || {});
       if (api.fingerprint) scenario.sourceMeta.fingerprint = api.fingerprint(scenario);
     }
+    const singleActionInputFingerprint = createPinnedSingleActionInputFingerprint(scenario);
+    const dpsInputFingerprint = createPinnedDpsInputFingerprint(scenario, dpsSnapshot);
     const session = api.savePinnedComparison({
       scenario,
       singleActionResult: result,
-      dpsSnapshot
+      dpsSnapshot,
+      singleActionInputFingerprint,
+      dpsInputFingerprint
     });
     if (!session) {
       if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '基準の保存に失敗しました';
@@ -7593,9 +8244,13 @@
     }
     syncPinnedComparisonUi(context);
     renderResult(context);
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', {
-      detail: { mode: 'pinned', source: source?.type || 'current', id: source?.value || 'current' }
-    }));
+    dispatchComparisonDefinitionChanged({
+      evaluator: 'singleAction',
+      mode: 'pinned',
+      source: source?.type || 'current',
+      id: source?.value || 'current',
+      session
+    });
   }
 
   function clearPinnedComparisonBaseline() {
@@ -7603,12 +8258,97 @@
     const context = buildContext();
     syncPinnedComparisonUi(context);
     renderResult(context);
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-changed', { detail: { mode: 'none' } }));
+    dispatchComparisonDefinitionChanged({
+      evaluator: 'singleAction',
+      mode: 'none'
+    });
+  }
+
+  function dispatchComparisonDefinitionChanged(detail = {}) {
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-definition-changed', {
+      detail: {
+        evaluator: 'singleAction',
+        mode: detail.mode || 'pinned',
+        sessionId: detail.session?.sessionId || '',
+        revision: Number(detail.session?.revision) || 0,
+        source: detail.source || '',
+        id: detail.id || ''
+      }
+    }));
+  }
+
+  function createPinnedSingleActionInputFingerprint(scenario = {}) {
+    const api = getCombatScenarioApi();
+    if (!api?.evaluationFingerprint) return '';
+    const conditions = scenario.battleConditions || {};
+    return api.evaluationFingerprint('singleAction', scenario, {
+      perspective: conditions.perspective || 'self',
+      damageType: conditions.damageType || 'auto',
+      resolvedDamageType: conditions.resolvedDamageType || '',
+      actionCategory: conditions.actionCategory || '',
+      selectedSkillCategory: conditions.selectedSkillCategory || '',
+      selectedSkillOptionKey: conditions.selectedSkillOptionKey || '',
+      enemySelectedSkillCategory: conditions.enemySelectedSkillCategory || ''
+    }, 'single-action-v1');
+  }
+
+  function createPinnedDpsInputFingerprint(scenario = {}, dpsSnapshot = {}) {
+    const api = getCombatScenarioApi();
+    if (!api?.evaluationFingerprint) return '';
+    const selectedSkillOptions = Array.isArray(dpsSnapshot.selectedSkillOptions)
+      ? dpsSnapshot.selectedSkillOptions.map(option => ({
+        key: option?.key || '',
+        effectId: option?.effectId || '',
+        category: option?.category || '',
+        sourceKey: option?.sourceKey || '',
+        value: option?.value ?? '',
+        skillRewrite: !!option?.skillRewrite
+      }))
+      : [];
+    return api.evaluationFingerprint('dps', scenario, {
+      targetId: dpsSnapshot.targetId || '',
+      skillLevels: dpsSnapshot.skillLevels || {},
+      dpsSkillOverrides: dpsSnapshot.dpsSkillOverrides || {},
+      dpsTimingBranches: dpsSnapshot.dpsTimingBranches || {},
+      selectedSkillOptions,
+      actionDamageProfiles: dpsSnapshot.actionDamageProfiles || {},
+      additionalDamageComponents: dpsSnapshot.additionalDamageComponents || [],
+      statusDamageProfiles: dpsSnapshot.statusDamageProfiles || {},
+      runtimeEffects: dpsSnapshot.runtimeEffects || {}
+    }, 'dps-input-v1');
+  }
+
+  // 比較セッションv3ではシナリオを正本とし、単発/DPS結果は再生成可能な
+  // キャッシュとして分離している。旧v2セッションの読み込み時も、正規化API
+  // が互換キャッシュへ移してくれるため、画面側はこのアクセサだけを使う。
+  function getPinnedSingleActionCache(session = null) {
+    const cache = session?.caches?.singleAction;
+    if (cache?.inputFingerprint) {
+      const expected = createPinnedSingleActionInputFingerprint(session?.baseline?.scenario || {});
+      if (expected && expected !== cache.inputFingerprint) return null;
+    }
+    return cache?.result
+      || session?.baseline?.singleActionResult
+      || null;
+  }
+
+  function getPinnedDpsCache(session = null) {
+    const cache = session?.caches?.dps;
+    if (cache?.inputFingerprint) {
+      const expected = createPinnedDpsInputFingerprint(
+        session?.baseline?.scenario || {},
+        cache.snapshot || {}
+      );
+      if (expected && expected !== cache.inputFingerprint) return null;
+    }
+    return cache?.snapshot
+      || session?.baseline?.dpsSnapshot
+      || null;
   }
 
   function getPinnedSingleComparison(context = buildContext()) {
     const session = getPinnedComparisonSession();
-    if (!session?.baseline?.singleActionResult) return null;
+    if (!getPinnedSingleActionCache(session)) return null;
     const baselineScenario = session.baseline.scenario || {};
     const baselineTargetId = baselineScenario.actors?.self?.id || baselineScenario.characterState?.targetId || '';
     const baselinePerspective = baselineScenario.battleConditions?.perspective || 'self';
@@ -7622,9 +8362,11 @@
   }
 
   function resolvePinnedSingleActionResult(session, context) {
-    const savedResult = session?.baseline?.singleActionResult || null;
+    const savedResult = getPinnedSingleActionCache(session);
     const policy = session?.evaluationPolicy?.singleAction || 'followCandidateAction';
-    if (policy === 'fixedBaselineAction') return savedResult;
+    if (policy === 'fixedBaselineAction') {
+      return savedResult || evaluatePinnedSingleActionScenario(session, context, null, false);
+    }
     const baselineScenario = session?.baseline?.scenario || {};
     const baselineAction = baselineScenario.battleConditions || {};
     if (view.perspective === 'enemy') {
@@ -7637,7 +8379,7 @@
       const sameCategory = (baselineAction.actionCategory || baselineAction.selectedSkillCategory || '') === (context.actionCategory || '');
       return sameCategory ? savedResult : null;
     }
-    const profiles = session?.baseline?.dpsSnapshot?.singleActionProfiles || {};
+    const profiles = getPinnedDpsCache(session)?.singleActionProfiles || {};
     const exact = profiles[selectedOption.key];
     if (exact?.damageResult) return exact.damageResult;
     const compatible = Object.values(profiles).find(profile => {
@@ -7651,7 +8393,41 @@
     const sameOption = baselineAction.selectedSkillOptionKey
       ? baselineAction.selectedSkillOptionKey === selectedOption.key
       : (baselineAction.actionCategory || baselineAction.selectedSkillCategory || '') === (selectedOption.category || context.actionCategory || '');
-    return sameOption ? savedResult : null;
+    if (sameOption && savedResult) return savedResult;
+    return evaluatePinnedSingleActionScenario(session, context, selectedOption);
+  }
+
+  function evaluatePinnedSingleActionScenario(session, context, selectedOption = null, followCandidate = true) {
+    const baselineScenario = session?.baseline?.scenario;
+    if (!baselineScenario) return null;
+    const conditions = baselineScenario.battleConditions || {};
+    const actionSelection = followCandidate
+      ? {
+        perspective: view.perspective,
+        damageType: view.damageType,
+        enemyDamageType: view.enemyDamageType,
+        enemySelectedSkillCategory: view.enemySelectedSkillCategory,
+        selectedSkillCategory: context.actionCategory || view.selectedSkillCategory || '',
+        actionCategory: context.actionCategory || view.selectedSkillCategory || '',
+        selectedSkillOptionKey: selectedOption?.key || view.selectedSkillOptionKey || ''
+      }
+      : {};
+    const scenario = clonePlain(baselineScenario);
+    scenario.battleConditions = {
+      ...conditions,
+      ...actionSelection
+    };
+    const key = JSON.stringify({
+      sessionId: session.sessionId || '',
+      revision: session.revision || 0,
+      targetId: context.target?.id || '',
+      actionSelection
+    });
+    if (pinnedSingleEvaluationCache.key === key) return pinnedSingleEvaluationCache.result;
+    const evaluation = evaluateComparisonScenario(scenario);
+    const result = evaluation?.error ? null : (evaluation?.result || null);
+    pinnedSingleEvaluationCache = { key, result };
+    return result;
   }
 
   function syncPinnedComparisonUi(context = buildContext()) {
@@ -7676,7 +8452,7 @@
     const scenario = session.baseline.scenario || {};
     const name = scenario.actors?.self?.name || scenario.actors?.self?.id || '使徒未選択';
     const sourceLabel = formatPinnedComparisonSource(scenario);
-    const baselineBoard = scenario.characterState?.boardState || session.baseline.dpsSnapshot?.boardState || {};
+    const baselineBoard = scenario.characterState?.boardState || getPinnedDpsCache(session)?.boardState || {};
     const baselineBoardLabel = formatBoardComparisonMode(baselineBoard);
     const compatible = scenario.actors?.self?.id === context.target?.id
       && (scenario.battleConditions?.perspective || 'self') === view.perspective;
@@ -7732,7 +8508,11 @@
       input.checked = isEffectSourceActive(key);
       input.disabled = isEffectSourceBlockedByContent(key);
     });
-    el.categorySourceInputs.forEach(input => {
+    const categorySourceInputs = Array.from(new Set([
+      ...el.categorySourceInputs,
+      ...document.querySelectorAll('[data-fdc-category-source]')
+    ]));
+    categorySourceInputs.forEach(input => {
       const key = input.dataset.fdcCategorySource;
       input.checked = isEffectSourceActive(key);
       input.disabled = isEffectSourceBlockedByContent(key);
@@ -7992,7 +8772,7 @@
         ? getConditionalEffectStackCount(conditionKey, stackMeta.stackMax, stackMeta.stackDefault)
         : 1;
       const effectDamageType = resolveCardEffectBonusDamageType(effect, damageType);
-      const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[row.star - 1], effectDamageType, text);
+      const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[row.star - 1], effectDamageType, text, effect);
       const baseBonuses = scaleEffectBonusMap(
         normalizedBaseBonuses,
         row.qty,
@@ -8025,6 +8805,7 @@
         overlapStackKey: createArtifactEffectOverlapKey(source, row, effect, target),
         overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(row.qty) || 1),
         nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+        damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
         ...getFdcRuntimeEffectMetadata(effect),
         ...(stackMeta || {})
       };
@@ -8072,7 +8853,7 @@
           ? getConditionalEffectStackCount(conditionKey, stackMeta.stackMax, stackMeta.stackDefault)
           : 1;
         const effectDamageType = resolveCardEffectBonusDamageType(effect, damageType);
-        const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], effectDamageType, text);
+        const normalizedBaseBonuses = normalizeCardEffectBonuses(effect.bonusesByStar?.[ownerRow.star - 1], effectDamageType, text, effect);
         const baseBonuses = scaleEffectBonusMap(
           normalizedBaseBonuses,
           ownerRow.qty,
@@ -8090,7 +8871,7 @@
           : {};
         const bonuses = mergeBonusMaps(baseBonuses, maxStackBonuses);
         if (!bonuses || !Object.keys(bonuses).length) return;
-        if (!canFormationArtifactAffectTarget(text)) return;
+        if (!canFormationArtifactAffectTarget(text, effect)) return;
         const item = {
           source: '編成遺物',
           cardId: ownerRow.id,
@@ -8107,6 +8888,7 @@
           overlapStackKey: createArtifactEffectOverlapKey('編成遺物', ownerRow, effect, target),
           overlapCount: isNonStackingSameApostleEffect(effect, text) ? 1 : Math.max(1, Number(ownerRow.qty) || 1),
           nonStackingSameEffect: isNonStackingSameEffect(effect, text),
+          damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
           ...getFdcRuntimeEffectMetadata(effect),
           ...(stackMeta || {}),
           tags: { source: ['遺物'], target: [ownerRow.position, `第${ownerRow.line}列`].filter(Boolean) }
@@ -8167,8 +8949,12 @@
     };
   }
 
-  function canFormationArtifactAffectTarget(text) {
-    if (/自身|本人|着用者/.test(text) && !/味方|全体|同列|前列|中列|後列/.test(text)) return false;
+  function canFormationArtifactAffectTarget(text, effect = null) {
+    const scope = getArtifactEffectScopeLabel(effect);
+    // 編成遺物は「他の装備者から対象使徒へ届く効果」だけを扱う。
+    // 説明文に攻撃種別などの語が混ざっても、自分対象効果を漏らさない。
+    if (/^(?:自分|自身|本人|着用者)$/.test(scope)) return false;
+    if (/(?:自分|自身|本人|着用者)/.test(text) && !/味方|全体|同列|前列|中列|後列/.test(text)) return false;
     return /味方|全体|同列|前列|中列|後列|攻撃役割|防御役割|守備|ガード|支援|補助|サポート|物理攻撃|魔法攻撃/.test(text);
   }
 
@@ -8251,22 +9037,27 @@
       result.conditional.push(item);
       return;
     }
+    const autoControlled = isFdcSkillEffectAutoOnly(item);
+    const effectiveEnabled = autoControlled
+      ? !!defaultEnabled
+      : isConditionalEffectEnabled(item.conditionKey, defaultEnabled);
     const control = {
       ...item,
       canToggle: true,
       defaultEnabled: !!defaultEnabled,
+      controlMode: autoControlled ? 'automatic' : (item.controlMode || 'manual'),
       tags: {
         ...(item.tags || {}),
-        status: unique([...(item.tags?.status || []), isConditionalEffectEnabled(item.conditionKey, defaultEnabled) ? '手動ON' : '手動OFF'])
+        status: unique([...(item.tags?.status || []), autoControlled ? '自動制御' : (effectiveEnabled ? '手動ON' : '手動OFF')])
       }
     };
     result.conditional.push(control);
-    if (!isConditionalEffectEnabled(item.conditionKey, defaultEnabled)) return;
+    if (!effectiveEnabled) return;
     result.applied.push({
       ...item,
       tags: {
         ...(item.tags || {}),
-        status: unique([...(item.tags?.status || []), '手動ON'])
+        status: unique([...(item.tags?.status || []), autoControlled ? '自動ON' : '手動ON'])
       }
     });
   }
@@ -8286,6 +9077,11 @@
       return !!view.conditionalEffectEnabled[key];
     }
     return !!defaultEnabled;
+  }
+
+  function isConditionalEffectRowEnabled(row = {}) {
+    if (isFdcSkillEffectAutoOnly(row)) return !!row.defaultEnabled;
+    return isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled);
   }
 
   function createArtifactEffectOverlapKey(source, row, effect, target = null) {
@@ -8530,11 +9326,41 @@
   }
 
   function getActiveAddBonus(summary, actionCategory = '') {
+    const actionText = String(actionCategory || '').replace(/[\s　]/g, '');
     let total = Number(summary.addP) || 0;
-    if (actionCategory === '基本攻撃' || actionCategory === '強化攻撃') total += Number(summary.normalAttackAddP) || 0;
-    if (actionCategory === '基本攻撃') total += Number(summary.basicAddP) || 0;
-    if (actionCategory === '強化攻撃') total += Number(summary.enhancedAddP) || 0;
-    if (isFdcSkillActionCategory(actionCategory)) total += Number(summary.skillAddP) || 0;
+    if (/基本攻撃|強化攻撃/.test(actionText)) total += Number(summary.normalAttackAddP) || 0;
+    if (/基本攻撃/.test(actionText)) total += Number(summary.basicAddP) || 0;
+    if (/強化攻撃/.test(actionText)) total += Number(summary.enhancedAddP) || 0;
+    if (/低学年/.test(actionText)) total += Number(summary.lowSkillAddP) || 0;
+    if (/高学年/.test(actionText)) total += Number(summary.highSkillAddP) || 0;
+    if (isFdcSkillActionCategory(actionText)) total += Number(summary.skillAddP) || 0;
+    return total;
+  }
+
+  function getActiveActionMultiplierBonus(summary, actionCategory = '') {
+    const actionText = String(actionCategory || '').replace(/[\s　]/g, '');
+    let total = Number(summary.actionMultiplierBonusP) || 0;
+    if (/基本攻撃|強化攻撃/.test(actionText)) {
+      total += Number(summary.normalAttackMultiplierBonusP) || 0;
+    }
+    if (/基本攻撃/.test(actionText)) {
+      total += Number(summary.basicMultiplierBonusP) || 0;
+    }
+    if (/強化攻撃/.test(actionText)) {
+      total += Number(summary.enhancedMultiplierBonusP) || 0;
+    }
+    if (/低学年/.test(actionText)) {
+      total += Number(summary.lowSkillMultiplierBonusP) || 0;
+    }
+    if (/高学年/.test(actionText)) {
+      total += Number(summary.highSkillMultiplierBonusP) || 0;
+    }
+    if (isFdcSkillActionCategory(actionText)) {
+      total += Number(summary.skillActionMultiplierBonusP) || 0;
+    }
+    if (/自爆/.test(actionText)) {
+      total += Number(summary.selfDestructMultiplierBonusP) || 0;
+    }
     return total;
   }
 
@@ -8553,9 +9379,31 @@
     return next;
   }
 
-  function normalizeCardEffectBonuses(bonuses, damageType, text = '') {
+  function normalizeCardEffectBonuses(bonuses, damageType, text = '', effect = {}) {
     const normalized = normalizeCardBonusMap(bonuses, damageType);
     normalizeCriticalBonusKeys(normalized, text);
+    const category = normalizeFdcDamageModifierCategory(effect?.damageModifierCategory);
+    if (category) {
+      const scopedKey = getFdcActionScopedModifierKey({
+        ...effect,
+        valueKind: [effect?.valueKind, text].filter(Boolean).join(' ')
+      }, category === 'actionMultiplier' ? 'actionMultiplier' : 'damageAmount');
+      const sourceKeys = category === 'actionMultiplier'
+        ? ['addP', 'otherP']
+        : category === 'damageAmount'
+          ? ['addP', 'otherP']
+          : category === 'special'
+            ? ['addP', 'otherP']
+            : ['addP'];
+      const amount = sourceKeys.reduce((total, key) => total + (Number(normalized?.[key]) || 0), 0);
+      if (amount) {
+        sourceKeys.forEach(key => { delete normalized[key]; });
+        const destination = category === 'special' ? 'specialP' : category === 'other' ? 'otherP' : scopedKey;
+        normalized[destination] = (normalized[destination] || 0) + amount;
+      }
+      // 明示区分のある行は、旧来の文面によるaddP移し替えを重ねない。
+      return normalized;
+    }
     if (!normalized?.addP) return normalized;
     const value = normalized.addP;
     if (/強化攻撃/.test(text)) {
@@ -8635,7 +9483,8 @@
         normalizeCardEffectBonuses(
           candidate.bonusesByStar?.[Math.max(0, Number(star) - 1)],
           damageType,
-          getEffectText(candidate)
+          getEffectText(candidate),
+          candidate
         )
       ), {});
   }
@@ -8892,7 +9741,7 @@
   function createPinnedComparisonConditionRows(context, session) {
     const baseline = session?.baseline?.scenario || {};
     const currentScenario = captureCombatScenario(context);
-    const baselineBoard = baseline.characterState?.boardState || session?.baseline?.dpsSnapshot?.boardState || {};
+    const baselineBoard = baseline.characterState?.boardState || getPinnedDpsCache(session)?.boardState || {};
     const currentBoard = currentScenario.characterState?.boardState || {};
     const rows = [
       ['比較元', formatPinnedComparisonSource(baseline)],
@@ -8907,7 +9756,7 @@
       ['現在のボード', formatBoardComparisonMode(currentBoard)],
       ['変更前のボード反映値', formatBoardComparisonStats(baselineBoard)],
       ['現在のボード反映値', formatBoardComparisonStats(currentBoard)],
-      ['変更前のスキルLv', formatSkillLevelSummary(session?.baseline?.dpsSnapshot?.skillLevels)],
+      ['変更前のスキルLv', formatSkillLevelSummary(getPinnedDpsCache(session)?.skillLevels)],
       ['比較データ指紋', baseline.sourceMeta?.fingerprint || '-']
     ];
     return rows;
@@ -9004,7 +9853,7 @@
     add('Rank', Number(before.rank) || 1, Number(after.rank) || 1);
     add('学年', Number(before.grade) || 1, Number(after.grade) || 1);
     add('好感度', Number(before.bond) || 1, Number(after.bond) || 1);
-    const beforeLevels = session?.baseline?.dpsSnapshot?.skillLevels || {
+    const beforeLevels = getPinnedDpsCache(session)?.skillLevels || {
       low: Number(before.skillLevels?.low) || 1,
       high: Number(before.skillLevels?.high) || 1,
       passive: Number(before.skillLevels?.passive) || 1,
@@ -9217,8 +10066,8 @@
   function createPinnedComparisonEffectDiffRows(context, session) {
     const actionKey = getComparisonActionKey(context.actionCategory);
     if (!actionKey) return [];
-    const beforeRows = session?.baseline?.dpsSnapshot?.actionEffectAudit?.[actionKey]?.rows || [];
-    const currentSnapshot = createDpsPrototypeSnapshot(context);
+    const beforeRows = getPinnedDpsCache(session)?.actionEffectAudit?.[actionKey]?.rows || [];
+    const currentSnapshot = createDpsEvaluationInput(context);
     const afterRows = currentSnapshot.actionEffectAudit?.[actionKey]?.rows || [];
     const before = aggregateComparisonEffectRows(beforeRows);
     const after = aggregateComparisonEffectRows(afterRows);
@@ -9568,12 +10417,13 @@
     const skillSources = collectFdcApostleSkillSources(apostle, levels, target, context);
     skillSources.forEach(({ skill, sourceKey, sourceLabel }, skillIndex) => {
       const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
-      const skillLevel = getFdcSkillLevelForCategory(levels, sourceCategory);
       getFdcSkillStatusMultipliers(skill).forEach(({ status, multiplier }) => {
         statusMultipliers.set(status, multiplier);
       });
       normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
         if (!isFdcApostleAttackMultiplierEffect(effect)) return;
+        if (!isFdcEffectApplicableToCurrentEnemy(effect)) return;
+        const skillLevel = getFdcSkillLevelForEffect(levels, effect, sourceCategory);
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
         if (!levelInfo || !Number.isFinite(levelInfo.value)) return;
         const randomMaxLock = levelInfo.isRange ? getFdcApostleSkillRandomMaxLockInfo(apostle, levels, sourceCategory) : null;
@@ -9583,23 +10433,60 @@
         const kind = effect.valueKind || 'ダメージ';
         const attackCategory = String(effect.attackCategory || '').trim();
         const category = attackCategory || sourceCategory;
+        const guaranteedCrit = hasFdcGuaranteedCritEffect(skill, effect);
+        const skillRewrite = isFdcSkillRewriteOption({
+          sourceKey,
+          targetSkill: effect.targetSkill || '',
+          effectType: effect.effectType || '',
+          kind,
+          valueKind: kind,
+          triggerType: effect.triggerType || '',
+          conditionType: effect.conditionType || '',
+          conditionValue: effect.conditionValue ?? ''
+        });
+        const targetActionCategory = getDpsTargetActionKeys(effect.targetSkill || '')
+          .map(getDpsActionCategoryForKey)
+          .find(Boolean) || category;
+        const sharedRepeatInfo = getFdcActionRepeatInfo(skillSources, levels, targetActionCategory);
         const repeatInfo = sourceLabel === '通常'
-          ? getFdcActionRepeatInfo(skillSources, levels, category)
-          : { count: 1, labels: [] };
+          ? sharedRepeatInfo
+          : mergeFdcRepeatInfo(
+            getFdcAdditionalDamageRepeatInfo(skill, effect, skillLevel),
+            sharedRepeatInfo
+          );
         const calcValue = baseCalcValue * repeatInfo.count;
-        const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory);
+        const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory)
+          || (skillRewrite ? getFdcReplacementSkillCooldownSeconds(apostle, targetActionCategory) : 0);
         const triggerProbability = getFdcSkillTriggerProbabilityLabel(skill);
-        const detailText = [skill.description, effect.description, effect.effectDescription].filter(Boolean).join('\n');
+        const detailText = getFdcUniqueTextLines([
+          skill.description,
+          effect.description,
+          effect.effectDescription
+        ]).join('\n');
         options.push({
           key: `${apostle.id || target.id}:${sourceKey || skillIndex}:${effectIndex}`,
           effectId: effect.effectId || '',
           value: String(calcValue),
           label: `${sourceCategory}${attackCategory ? ` / 攻撃分類: ${attackCategory}` : ''} / ${kind} (${formatPlainNumber(calcValue)}%)`,
           category,
-          sourceCategory,
+          sourceCategory: skillRewrite ? targetActionCategory : sourceCategory,
           attackCategory,
+          sourceKey,
           sourceLabel,
-          skillName: skill.skillName || skill.name || '',
+          skillName: skillRewrite
+            ? (effect.targetSkillName || skill.skillName || skill.name || '')
+            : (skill.skillName || skill.name || ''),
+          targetSkill: effect.targetSkill || '',
+          targetSkillName: effect.targetSkillName || '',
+          guaranteedCrit,
+          skillRewrite,
+          skillRewriteLabel: skillRewrite
+            ? (effect.targetSkillName
+              ? `${getDpsTargetActionKeys(effect.targetSkill || '').map(getDpsActionCategoryForKey).join('・')} → ${effect.targetSkillName}`
+              : `${getDpsTargetActionKeys(effect.targetSkill || '').map(getDpsActionCategoryForKey).join('・')}を書き換え`)
+            : '',
+          effectType: effect.effectType || '',
+          valueClass: effect.valueClass || '',
           requiredSp: getFdcLowSkillRequiredSp(skill),
           cooldownSeconds,
           kind,
@@ -9621,16 +10508,17 @@
           shortDetail: [
             triggerProbability,
             referenceLabel,
+            guaranteedCrit ? '確定会心' : '',
             repeatInfo.count > 1 ? `${repeatInfo.count}回分（基礎 ${formatPlainNumber(baseCalcValue)}% ×${formatPlainNumber(repeatInfo.count)}）` : '',
             effect.condition || '',
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
             cooldownSeconds ? `CT ${formatPlainNumber(cooldownSeconds)}秒` : ''
           ].filter(Boolean).join(' / '),
-          detailText: [
-            skill.skillName || skill.name || '',
+          detailText: getFdcUniqueTextLines([
             triggerProbability ? `発動確率: ${triggerProbability.replace(/^発動率\s*/, '')}` : '',
             detailText,
             effect.reference ? `参照: ${effect.reference}` : '',
+            guaranteedCrit ? '確定会心: 会心率100%として計算' : '',
             effect.condition ? `条件: ${effect.condition}` : '',
             repeatInfo.count > 1
               ? `回数補正: ${repeatInfo.labels.join(' / ')}（${formatPlainNumber(baseCalcValue)}% × ${formatPlainNumber(repeatInfo.count)} = ${formatPlainNumber(calcValue)}%）`
@@ -9638,10 +10526,61 @@
             levelInfo.isRange
               ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
               : ''
-          ].filter(Boolean).join('\n'),
+          ]).join('\n'),
           order: getFdcApostleSkillOrder(sourceCategory)
         });
       });
+    });
+    // 同一行動を対象にする確率ダメージ候補の合計が100%なら、追加攻撃ではなく
+    // 置換後の弾種候補として扱う。各行動時には候補のうち1つだけを選ぶ。
+    const exclusiveProbabilityGroups = new Map();
+    options.forEach(option => {
+      if (!/^aside:|^favorite:/.test(String(option.sourceKey || ''))) return;
+      if (!/^一定確率/.test(String(option.triggerType || ''))) return;
+      if (!/攻撃/.test(String(option.effectType || ''))) return;
+      if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return;
+      const weight = Number(option.triggerValue);
+      const actionKey = getDpsActionKeysForSkillOption(option)[0] || '';
+      if (!(weight > 0) || !actionKey) return;
+      const key = `${option.sourceKey}:${actionKey}`;
+      const group = exclusiveProbabilityGroups.get(key) || [];
+      group.push(option);
+      exclusiveProbabilityGroups.set(key, group);
+    });
+    exclusiveProbabilityGroups.forEach((group, groupKey) => {
+      const total = group.reduce((sum, option) => sum + Number(option.triggerValue || 0), 0);
+      const processGroupCounts = new Map();
+      group.forEach(option => {
+        const processGroupId = String(option.processGroupId || '').trim();
+        if (!processGroupId) return;
+        processGroupCounts.set(processGroupId, (processGroupCounts.get(processGroupId) || 0) + 1);
+      });
+      const hasGroupedDamageSequence = [...processGroupCounts.values()].some(count => count > 1);
+      if (group.length < 2 || Math.abs(total - 100) >= 0.0001 || hasGroupedDamageSequence) return;
+      group.forEach(option => {
+        option.skillRewrite = true;
+        option.dpsExclusiveProbabilityGroup = groupKey;
+        option.dpsExclusiveProbabilityWeight = Number(option.triggerValue);
+        option.dpsExclusiveVariant = `__exclusive:${option.effectId || option.key}`;
+      });
+    });
+    // 愛用品の1つのスキル定義が基本・強化など複数行動をまとめて変更する場合、
+    // その定義内の攻撃倍率は同じ書き換えグループとして扱う。
+    const rewriteSourceKeys = new Set(options
+      .filter(option => option.skillRewrite)
+      .map(option => option.sourceKey)
+      .filter(Boolean));
+    options.forEach(option => {
+      if (!rewriteSourceKeys.has(option.sourceKey)) return;
+      if (!getDpsTargetActionKeys(option.targetSkill || '').length) return;
+      if (!/攻撃/.test(String(option.effectType || ''))) return;
+      if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return;
+      option.skillRewrite = true;
+      const actionLabel = getDpsTargetActionKeys(option.targetSkill || '')
+        .map(getDpsActionCategoryForKey).join('・');
+      option.skillRewriteLabel = option.targetSkillName
+        ? `${actionLabel} → ${option.targetSkillName}`
+        : `${actionLabel}を書き換え`;
     });
     statusMultipliers.forEach((multiplier, status) => {
       options.push({
@@ -9659,7 +10598,40 @@
         order: 80
       });
     });
+    const rewrittenActionKeys = new Set(options
+      .filter(option => option.skillRewrite)
+      .flatMap(option => getDpsActionKeysForSkillOption(option)));
+    options.forEach(option => {
+      const isBase = String(option.sourceKey || '').startsWith('base:');
+      option.isSupersededBase = isBase && getDpsActionKeysForSkillOption(option)
+        .some(actionKey => rewrittenActionKeys.has(actionKey));
+      option.dpsEligible = !option.isSupersededBase;
+    });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function hasFdcGuaranteedCritEffect(skill = {}, damageEffect = {}) {
+    const effects = normalizeFdcArray(skill.effects);
+    const guaranteedEffects = effects.filter(effect => /確定会心/.test(String(effect?.valueKind || '')));
+    if (!guaranteedEffects.length) return false;
+    const sameGroup = guaranteedEffects.filter(effect => (
+      effect.processGroupId
+      && damageEffect.processGroupId
+      && effect.processGroupId === damageEffect.processGroupId
+    ));
+    if (sameGroup.length) return true;
+    const targetSkill = String(damageEffect.targetSkill || '').trim();
+    const sameTarget = guaranteedEffects.filter(effect => {
+      const candidateTarget = String(effect.targetSkill || '').trim();
+      if (!candidateTarget || !targetSkill) return false;
+      return candidateTarget === targetSkill;
+    });
+    if (!sameTarget.length) return false;
+    const damageEffects = effects.filter(effect => isFdcApostleAttackMultiplierEffect(effect));
+    // 対象ダメージが1つだけのスキルなら、同じ対象スキルの確定会心行を
+    // そのダメージへ紐付ける。複数段の最後だけ確定会心などは、
+    // processGroupIdで明示されるまで全段へ適用しない。
+    return damageEffects.length === 1;
   }
 
   function getFdcActionRepeatInfo(skillSources, levels, actionCategory) {
@@ -9667,17 +10639,23 @@
     normalizeFdcArray(skillSources).forEach(({ skill, sourceLabel }) => {
       if (sourceLabel === '通常') return;
       const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
-      const skillLevel = getFdcSkillLevelForCategory(levels, sourceCategory);
       normalizeFdcArray(skill?.effects).forEach(effect => {
-        if (!isFdcActionRepeatCountEffect(effect)) return;
+        const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+        const isAdditionalLaunch = /追加発射対象数/.test(valueKind);
+        if (!isFdcActionRepeatCountEffect(effect) && !isAdditionalLaunch) return;
+        const skillLevel = getFdcSkillLevelForEffect(levels, effect, sourceCategory);
         const scope = judgeFdcEffectValueActionScope(effect, actionCategory);
         if (scope.hasActionScope && !scope.matched) return;
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
-        const count = Number(levelInfo?.value);
-        if (!Number.isFinite(count) || count <= 1) return;
+        const rawCount = Number(levelInfo?.value);
+        if (!Number.isFinite(rawCount) || rawCount <= 0) return;
+        const count = isAdditionalLaunch ? 1 + rawCount : rawCount;
+        if (count <= 1) return;
         matches.push({
           count,
-          label: `${sourceLabel} ${effect.valueKind || '行動回数'} ${formatPlainNumber(count)}回`
+          label: isAdditionalLaunch
+            ? `${sourceLabel} 追加発射 ${formatPlainNumber(rawCount)}体（合計${formatPlainNumber(count)}発）`
+            : `${sourceLabel} ${effect.valueKind || '行動回数'} ${formatPlainNumber(count)}回`
         });
       });
     });
@@ -9686,6 +10664,37 @@
     return {
       count,
       labels: matches.filter(item => item.count === count).map(item => item.label)
+    };
+  }
+
+  function mergeFdcRepeatInfo(primary = { count: 1, labels: [] }, secondary = { count: 1, labels: [] }) {
+    const primaryCount = Math.max(1, Number(primary?.count) || 1);
+    const secondaryCount = Math.max(1, Number(secondary?.count) || 1);
+    return primaryCount >= secondaryCount
+      ? { count: primaryCount, labels: unique([...(primary?.labels || []), ...(secondary?.labels || [])]) }
+      : { count: secondaryCount, labels: unique([...(secondary?.labels || []), ...(primary?.labels || [])]) };
+  }
+
+  function getFdcAdditionalDamageRepeatInfo(skill = {}, damageEffect = {}, skillLevel = 1) {
+    if (!/追加(?:物理|魔法|固定|状態異常)?ダメージ/.test(String(damageEffect.valueKind || ''))) {
+      return { count: 1, labels: [] };
+    }
+    const targetSkill = String(damageEffect.targetSkill || '');
+    const effectTarget = String(damageEffect.effectTarget || '');
+    const candidates = normalizeFdcArray(skill.effects).filter(effect => {
+      if (!/追加攻撃/.test(String(effect.valueKind || '')) || String(effect.valueClass || '') !== '回数') return false;
+      const candidateTargetSkill = String(effect.targetSkill || '');
+      const candidateEffectTarget = String(effect.effectTarget || '');
+      return (!targetSkill || !candidateTargetSkill || targetSkill === candidateTargetSkill)
+        && (!effectTarget || !candidateEffectTarget || effectTarget === candidateEffectTarget);
+    });
+    const counts = candidates.map(effect => Number(getFdcEffectLevelInfo(effect, skillLevel)?.value))
+      .filter(count => Number.isFinite(count) && count > 1);
+    if (!counts.length) return { count: 1, labels: [] };
+    const count = Math.max(...counts);
+    return {
+      count,
+      labels: [`追加攻撃 ${formatPlainNumber(count)}回`]
     };
   }
 
@@ -9730,6 +10739,15 @@
     if (getFdcSkillBaseCategory(category) !== '高学年スキル') return 0;
     const value = Number(skill.cooldownSeconds ?? skill['高学年クールタイム秒'] ?? skill['クールタイム秒']);
     return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  function getFdcReplacementSkillCooldownSeconds(apostle = {}, category = '') {
+    const actionKeys = getDpsTargetActionKeys(category);
+    if (!actionKeys.includes('highSkill')) return 0;
+    const highSkill = normalizeFdcArray(apostle?.skills).find(skill => (
+      getFdcSkillBaseCategory(getFdcApostleSkillCategory(skill, '通常')) === '高学年スキル'
+    ));
+    return getFdcHighSkillCooldownSeconds(highSkill, '高学年スキル');
   }
 
   function getFdcSkillStatusMultipliers(skill) {
@@ -9923,7 +10941,17 @@
     if (/低学年/.test(category)) return levels.low;
     if (/高学年/.test(category)) return levels.high;
     if (/パッシブ/.test(category)) return levels.passive;
-    return levels.default;
+    // 愛用品など独立したカテゴリには default がないため、未定義のまま
+    // 効果値を解決すると最大Lvへフォールバックしてしまう。
+    return levels.default ?? levels.low ?? 1;
+  }
+
+  function getFdcSkillLevelForEffect(levels, effect = {}, fallbackCategory = '') {
+    const targetSkill = String(effect?.targetSkill || effect?.targetSkillName || '');
+    if (/低学年/.test(targetSkill)) return levels.low ?? 1;
+    if (/高学年/.test(targetSkill)) return levels.high ?? 1;
+    if (/パッシブ/.test(targetSkill)) return levels.passive ?? 1;
+    return getFdcSkillLevelForCategory(levels, fallbackCategory);
   }
 
   function isFdcSkillActionCategory(category = '') {
@@ -9954,6 +10982,10 @@
     if (categories.includes('基本攻撃') || categories.includes('強化攻撃')) categories.push('普通攻撃');
     if (categories.includes('低学年スキル') || categories.includes('高学年スキル')) categories.push('スキル');
     return [...new Set(categories.filter(Boolean))];
+  }
+
+  function isFdcUnclassifiedAttackCategory(category = '') {
+    return getFdcDeclaredAttackCategories(category).includes('無分類');
   }
 
   function getFdcDeclaredAttackCategories(category = '') {
@@ -10161,10 +11193,20 @@
       critDmgAddP: '会心DMG増',
       hasteP: '攻撃速度',
       addP: '与被DMG',
+      actionMultiplierBonusP: '行動倍率',
+      normalAttackMultiplierBonusP: '普通攻撃行動倍率',
+      basicMultiplierBonusP: '基本攻撃行動倍率',
+      enhancedMultiplierBonusP: '強化攻撃行動倍率',
+      skillActionMultiplierBonusP: 'スキル行動倍率',
+      lowSkillMultiplierBonusP: '低学年スキル行動倍率',
+      highSkillMultiplierBonusP: '高学年スキル行動倍率',
+      selfDestructMultiplierBonusP: '自爆行動倍率',
       normalAttackAddP: '普通攻撃ダメージ',
       basicAddP: '基本攻撃ダメージ',
       enhancedAddP: '強化攻撃ダメージ',
       skillAddP: 'スキルダメージ',
+      lowSkillAddP: '低学年スキルダメージ',
+      highSkillAddP: '高学年スキルダメージ',
       specialP: '特殊',
       otherP: 'その他',
       healingP: '治癒',
@@ -10323,6 +11365,10 @@
     const scenarioApi = typeof TRICKCAL_COMBAT_SCENARIO === 'undefined' ? null : TRICKCAL_COMBAT_SCENARIO;
     const target = context.target;
     const enemyMember = context.enemyMember;
+    const selectedEnemyPreset = getSelectedEnemyPreset();
+    const enemyPresetMetadata = selectedEnemyPreset && typeof getEnemyPresetMetadata === 'function'
+      ? getEnemyPresetMetadata(selectedEnemyPreset, view.enemyPresetKey || '')
+      : {};
     const referenceState = createReferenceStateSnapshot(context);
     const boardState = createBoardComparisonSnapshot(context);
     const source = {
@@ -10345,8 +11391,11 @@
         enemy: {
           sourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
           id: enemyMember?.id || '',
-          name: enemyMember?.name || getSelectedEnemyPreset()?.name || '',
-          presetKey: view.enemyPresetKey || ''
+          name: enemyMember?.name || selectedEnemyPreset?.name || '',
+          presetKey: view.enemyPresetKey || '',
+          size: enemyPresetMetadata.size || '',
+          sizeLabel: enemyPresetMetadata.sizeLabel || '',
+          sizeRank: Number(enemyPresetMetadata.sizeRank) || 0
         }
       },
       characterState: {
@@ -10380,6 +11429,8 @@
         enemySelectedSkillCategory: view.enemySelectedSkillCategory || '',
         enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         enemyPresetKey: view.enemyPresetKey || '',
+        enemySize: enemyPresetMetadata.size || '',
+        enemySizeRank: Number(enemyPresetMetadata.sizeRank) || 0,
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         enemyPersonality: view.enemyPersonality || '',
@@ -10454,32 +11505,88 @@
     };
   }
 
-  function createDpsPrototypeSnapshot(contextOverride = null) {
-    const context = contextOverride || buildContext();
+  // DPS入力のうち、各行動の単発評価に必要なプロファイルを組み立てる。
+  // シナリオの取得やランタイム効果の生成とは分離しておくことで、後から
+  // 保存済みシナリオを材料にした再評価へ差し替えやすくする。
+  function buildDpsActionProfiles({
+    context,
+    target,
+    selectedSkillOptions = [],
+    runtimeManagedEffects = []
+  } = {}) {
+    if (!target) {
+      return {
+        profiles: {},
+        singleActionProfiles: {},
+        additionalDamageComponents: [],
+        statusDamageProfiles: {},
+        audit: {},
+        effectOwnership: {
+          singleAction: '常時効果と行動固有効果を単発ダメージへ適用',
+          dpsRuntime: '戦闘中に増減する効果を時系列で適用',
+          runtimeManagedEffects
+        }
+      };
+    }
+    const sharedSkillEffectStates = createDpsSharedSkillEffectStates(
+      target,
+      context,
+      runtimeManagedEffects
+    );
+    return createDpsActionDamageData(
+      selectedSkillOptions,
+      sharedSkillEffectStates,
+      runtimeManagedEffects
+    );
+  }
+
+  function createDpsEvaluationInput(contextOverride = null) {
+    const context = contextOverride || buildContext({ forceSelfAttack: true });
     const scenario = captureCombatScenario(context);
     const target = context.target;
     const apostle = getApostleSkillData(target);
     const selectedSkillOptions = target ? buildFdcApostleSkillOptions(target, context) : [];
-    const runtimeManagedEffects = target
-      ? getDpsRuntimeManagedSkillEffects(target, context, selectedSkillOptions)
-      : [];
-    const sharedSkillEffectStates = target
-      ? createDpsSharedSkillEffectStates(target, context, runtimeManagedEffects)
+    const dpsTimingData = typeof DPS_TIMING_DATA === 'undefined' ? null : DPS_TIMING_DATA;
+    const dpsTiming = target
+      ? dpsTimingData?.apostles?.[String(target.id || '').toLowerCase()]
+      : null;
+    const dpsSkillOverrides = target
+      ? createDpsFavoriteSkillOverrides(apostle, target, context, selectedSkillOptions)
       : {};
-    const actionDamageData = target
-      ? createDpsActionDamageData(selectedSkillOptions, sharedSkillEffectStates, runtimeManagedEffects)
-      : { profiles: {}, singleActionProfiles: {}, statusDamageProfiles: {}, audit: {} };
+    const dpsTimingBranches = target
+      ? {
+          ...createDpsAsideTimingBranches(dpsTiming, getFdcEffectiveSkillLevels(target).asideRank),
+          ...createDpsFavoriteTimingBranches(apostle, dpsSkillOverrides, dpsTiming)
+        }
+      : {};
+    const timingEffectBindings = createDpsTimingEffectBindings(dpsTiming, dpsTimingBranches);
+    const runtimeManagedEffects = target
+      ? getDpsRuntimeManagedSkillEffects(target, context, selectedSkillOptions, {
+          timingEffectBindings
+        })
+      : [];
+    const actionDamageData = buildDpsActionProfiles({
+      context,
+      target,
+      selectedSkillOptions,
+      runtimeManagedEffects
+    });
     const runtimeEffects = createDpsRuntimeEffects(actionDamageData.audit, {
       baseSpRegen: Number(target?.stats?.spRegen),
       runtimeManagedEffects,
       apostle,
+      dpsSkillOverrides,
+      dpsTimingBranches,
+      timingEffectBindings,
       target,
       context,
       skillLevels: target ? getFdcEffectiveSkillLevels(target) : {},
       selectedSkillOptions,
       singleActionProfiles: actionDamageData.singleActionProfiles,
-      statusReactions: createDpsEnemyStatusReactions()
+      statusReactions: createDpsEnemyStatusReactions(),
+      statusDamageWeaknessP: createDpsEnemyStatusDamageWeaknessP()
     });
+    const formationEventCandidates = createDpsFormationEventCandidates(actionDamageData.audit, context);
     return {
       scenario,
       targetId: target?.id || '',
@@ -10487,6 +11594,8 @@
       target,
       apostle,
       skillLevels: target ? getFdcEffectiveSkillLevels(target) : {},
+      dpsSkillOverrides,
+      dpsTimingBranches,
       damageType: context.damageType,
       actionCategory: context.actionCategory,
       selectedSkillOptionKey: view.selectedSkillOptionKey,
@@ -10494,17 +11603,310 @@
       selectedSkillOptions,
       singleActionProfiles: actionDamageData.singleActionProfiles,
       actionDamageProfiles: actionDamageData.profiles,
+      additionalDamageComponents: actionDamageData.additionalDamageComponents,
       statusDamageProfiles: actionDamageData.statusDamageProfiles,
       actionEffectAudit: actionDamageData.audit,
       effectOwnership: actionDamageData.effectOwnership,
       runtimeEffects,
+      formationEventCandidates
+    };
+  }
+
+  function normalizeDpsFormationActionTriggerType(triggerType = '', category = '') {
+    const value = String(triggerType || '').replace(/[\s　]+/g, '');
+    if (/低学年/.test(value) && /命中/.test(value)) return '低学年スキル命中時';
+    if (/高学年/.test(value) && /命中/.test(value)) return '高学年スキル命中時';
+    if (/低学年/.test(value) && /終了|使用後|発動後/.test(value)) return '低学年スキル終了時';
+    if (/高学年/.test(value) && /終了|使用後|発動後/.test(value)) return '高学年スキル終了時';
+    if (/低学年/.test(value) && /使用|発動/.test(value)) return '低学年スキル使用時';
+    if (/高学年/.test(value) && /使用|発動/.test(value)) return '高学年スキル使用時';
+    if (/強化攻撃/.test(value) && /命中/.test(value)) return '強化攻撃命中時';
+    if (/強化攻撃/.test(value) && /使用|発動/.test(value)) return '強化攻撃使用時';
+    if (/(?:普通|通常|基本)攻撃/.test(value) && /命中/.test(value)) return '普通攻撃命中時';
+    if (/(?:普通|通常|基本)攻撃/.test(value) && /使用|発動/.test(value)) return '普通攻撃使用時';
+    const categoryText = String(category || '');
+    if (!value && /低学年/.test(categoryText)) return '低学年スキル使用時';
+    if (!value && /高学年/.test(categoryText)) return '高学年スキル使用時';
+    return normalizeDpsExternalTriggerType(value);
+  }
+
+  function createDpsFormationEventCandidates(audit = {}, context = {}) {
+    const membersById = new Map(normalizeFdcArray(context?.members)
+      .filter(member => member?.id)
+      .map(member => [String(member.id), member]));
+    const groups = new Map();
+    Object.values(audit || {}).forEach(actionAudit => {
+      normalizeFdcArray(actionAudit?.rows).forEach(row => {
+        if (!row?.externalActionRequired || row.sourceDisabled || !row.ownerId) return;
+        const triggerType = normalizeDpsFormationActionTriggerType(row.triggerType, row.category);
+        if (!/(?:低学年|高学年|普通攻撃|強化攻撃)/.test(triggerType)) return;
+        const ownerId = String(row.ownerId);
+        const key = `${ownerId}:${triggerType}`;
+        const ownerName = row.ownerName || membersById.get(ownerId)?.name || ownerId;
+        const group = groups.get(key) || {
+          id: `formation:${ownerId}:${triggerType}`,
+          ownerId,
+          ownerName,
+          type: triggerType,
+          sourceId: ownerId,
+          label: `${ownerName} / ${triggerType.replace(/時$/, '')}`,
+          effectLabels: [],
+          startSeconds: 0,
+          intervalSeconds: 0,
+          repeatCount: 0,
+          confidence: 'estimate',
+          basis: ''
+        };
+        if (row.label && !group.effectLabels.includes(row.label)) group.effectLabels.push(row.label);
+        groups.set(key, group);
+      });
+    });
+
+    groups.forEach(group => {
+      const member = membersById.get(group.ownerId);
+      const apostle = member ? getApostleSkillData(member) : null;
+      const skills = normalizeFdcArray(apostle?.skills);
+      if (/高学年/.test(group.type)) {
+        const highSkill = skills.find(skill => /高学年/.test(getFdcApostleSkillCategory(skill, '通常')));
+        const cooldown = getFdcHighSkillCooldownSeconds(highSkill, '高学年スキル');
+        group.startSeconds = cooldown;
+        group.intervalSeconds = cooldown;
+        group.confidence = cooldown > 0 ? 'estimate' : 'manual';
+        group.basis = cooldown > 0 ? `高学年CT ${formatPlainNumber(cooldown)}秒基準` : '高学年CTを取得できないため時刻を設定してください';
+      } else if (/低学年/.test(group.type)) {
+        const lowSkill = skills.find(skill => /低学年/.test(getFdcApostleSkillCategory(skill, '通常')));
+        const requiredSp = getFdcLowSkillRequiredSp(lowSkill);
+        const initialSp = Math.max(0, Number(apostle?.basic?.initialSp) || 0);
+        const spRegen = Math.max(0, Number(member?.stats?.spRegen) || Number(apostle?.basic?.spRecoveryPerSecond) || 0);
+        const seconds = spRegen > 0 ? Math.max(1, Math.ceil(Math.max(0, requiredSp - initialSp) / spRegen)) : 0;
+        group.startSeconds = seconds;
+        group.intervalSeconds = seconds;
+        group.confidence = seconds > 0 ? 'estimate' : 'manual';
+        group.basis = seconds > 0
+          ? `SP ${formatPlainNumber(requiredSp)} / 毎秒+${formatPlainNumber(spRegen)}の簡易推定（行動待ち・モーションは未計上）`
+          : '毎秒SP回復量を取得できないため時刻を設定してください';
+      } else {
+        const timing = typeof DPS_TIMING_DATA === 'undefined'
+          ? null
+          : DPS_TIMING_DATA?.apostles?.[group.ownerId.toLowerCase()];
+        const interval = Math.max(0, Number(timing?.normalAttackIntervalFrames) || 0) / 60;
+        group.startSeconds = 1;
+        group.intervalSeconds = interval;
+        group.confidence = interval > 0 ? 'estimate' : 'manual';
+        group.basis = interval > 0
+          ? `普通攻撃間隔 ${formatPlainNumber(interval)}秒基準${/強化/.test(group.type) ? '（強化発生周期は未計上）' : ''}`
+          : '普通攻撃間隔を取得できないため間隔を設定してください';
+      }
+    });
+    return Array.from(groups.values()).sort((a, b) => (
+      a.ownerName.localeCompare(b.ownerName, 'ja') || a.type.localeCompare(b.type, 'ja')
+    ));
+  }
+
+  // 旧APIは保存データや外部ツールとの互換性のために残す。
+  // DPS本体は単発結果を含まない createDpsEvaluationInput() を使用する。
+  function createDpsPrototypeSnapshot(contextOverride = null) {
+    const context = contextOverride || buildContext({ forceSelfAttack: true });
+    return {
+      ...createDpsEvaluationInput(context),
       currentDamageResult: calculateDamage(context)
     };
   }
 
-  function getDpsRuntimeManagedSkillEffects(target, context, selectedSkillOptions = []) {
+  function createDpsFavoriteSkillOverrides(apostle, target, context, selectedSkillOptions = []) {
+    const overrides = {};
+    const selectedRewriteOptions = normalizeFdcArray(selectedSkillOptions)
+      .filter(option => String(option.sourceKey || '').startsWith('favorite:'))
+      .filter(isFdcSkillRewriteOption);
+    const selectedLevels = unique(selectedRewriteOptions
+      .map(option => Number(String(option.sourceKey || '').split(':')[1]))
+      .filter(level => Number.isFinite(level)));
+    const activeLevels = selectedLevels.length
+      ? selectedLevels.sort((a, b) => a - b)
+      : getActiveFdcFavoriteLevels(apostle, target, context);
+    activeLevels.forEach(level => {
+      normalizeFdcArray(apostle?.favoriteCard?.levels?.[level]).forEach(skill => {
+        const effects = normalizeFdcArray(skill?.effects);
+        const selectedEffectIds = new Set(selectedRewriteOptions
+          .filter(option => String(option.sourceKey || '') === `favorite:${level}`)
+          .map(option => option.effectId)
+          .filter(Boolean));
+        const targetKeys = [...new Set(effects
+          .filter(effect => !selectedEffectIds.size || selectedEffectIds.has(effect?.effectId))
+          .filter(effect => isFdcSkillRewriteOption({
+            sourceKey: `favorite:${level}`,
+            targetSkill: effect?.targetSkill || '',
+            effectType: effect?.effectType || '',
+            kind: effect?.valueKind || '',
+            valueKind: effect?.valueKind || '',
+            triggerType: effect?.triggerType || '',
+            conditionType: effect?.conditionType || '',
+            conditionValue: effect?.conditionValue ?? ''
+          }) || isFdcExclusiveProbabilityRewriteEffect(effect, effects))
+          .flatMap(effect => getDpsTargetActionKeys(effect?.targetSkill || '')))];
+        targetKeys.forEach(actionKey => {
+          // Active levels are processed in ascending order, so the highest
+          // unlocked favorite level wins when multiple levels are present.
+          const override = typeof TRICKCAL_DPS_SIMULATOR !== 'undefined'
+            && typeof TRICKCAL_DPS_SIMULATOR.createActionSkillOverride === 'function'
+            ? TRICKCAL_DPS_SIMULATOR.createActionSkillOverride(skill, actionKey)
+            : clonePlain(skill);
+          const targetName = effects
+            .filter(effect => getDpsTargetActionKeys(effect?.targetSkill || '').includes(actionKey))
+            .map(effect => String(effect?.targetSkillName || '').trim())
+            .find(Boolean);
+          if (targetName) {
+            override.skillName = targetName;
+            override.dpsActionName = targetName;
+          }
+          override.dpsSourceKey = `favorite:${level}`;
+          if (actionKey === 'highSkill' && !(Number(override.cooldownSeconds) > 0)) {
+            override.cooldownSeconds = getFdcReplacementSkillCooldownSeconds(apostle, '高学年スキル');
+          }
+          overrides[actionKey] = override;
+        });
+      });
+    });
+    return overrides;
+  }
+
+  function getFdcActiveSkillRewriteActionKeys(skillSources = []) {
+    const actionKeys = new Set();
+    normalizeFdcArray(skillSources).forEach(({ skill, sourceKey }) => {
+      if (!String(sourceKey || '').startsWith('favorite:')) return;
+      normalizeFdcArray(skill?.effects).forEach(effect => {
+        if (!isFdcSkillRewriteOption({
+          sourceKey,
+          targetSkill: effect?.targetSkill || '',
+          effectType: effect?.effectType || '',
+          kind: effect?.valueKind || '',
+          valueKind: effect?.valueKind || '',
+          triggerType: effect?.triggerType || '',
+          conditionType: effect?.conditionType || '',
+          conditionValue: effect?.conditionValue ?? ''
+        }) && !isFdcExclusiveProbabilityRewriteEffect(effect, normalizeFdcArray(skill?.effects))) return;
+        getDpsTargetActionKeys(effect?.targetSkill || '').forEach(actionKey => actionKeys.add(actionKey));
+      });
+    });
+    return actionKeys;
+  }
+
+  function isFdcEffectApplicableToCurrentEnemy(effect = {}) {
+    const conditionType = String(effect.conditionType || '').trim();
+    const conditionValue = String(effect.conditionValue ?? '').trim();
+    if (conditionType === '敵種別' && /使徒/.test(conditionValue)) {
+      return view.enemySourceMode === 'apostle';
+    }
+    return true;
+  }
+
+  function isDpsBaseSkillSourceSuperseded(sourceId = '', category = '', skillOverrides = {}) {
+    if (!String(sourceId || '').startsWith('base:')) return false;
+    return getDpsTargetActionKeys(category).some(actionKey => skillOverrides?.[actionKey]);
+  }
+
+  function createDpsFavoriteTimingBranches(apostle, skillOverrides, timing = null) {
+    const favoriteName = String(apostle?.favoriteCard?.name || '').trim();
+    if (!favoriteName) return {};
+    return Object.keys(skillOverrides || {}).reduce((branches, actionKey) => {
+      const actionTiming = timing?.actions?.[actionKey];
+      const availableBranches = [
+        ...normalizeFdcArray(actionTiming?.motionVariants),
+        ...normalizeFdcArray(actionTiming?.timingEvents),
+        ...normalizeFdcArray(actionTiming?.timingPatterns),
+        ...normalizeFdcArray(actionTiming?.generatedObjects)
+      ].map(item => String(item?.branch || '').trim()).filter(Boolean);
+      if (availableBranches.includes(favoriteName)) branches[actionKey] = favoriteName;
+      return branches;
+    }, {});
+  }
+
+  function createDpsAsideTimingBranches(timing = null, asideRank = 0) {
+    const activeRank = Math.max(0, Math.min(3, Number(asideRank) || 0));
+    if (!activeRank) return {};
+    return Object.entries(timing?.actions || {}).reduce((branches, [actionKey, actionTiming]) => {
+      const availableBranches = [
+        ...normalizeFdcArray(actionTiming?.motionVariants),
+        ...normalizeFdcArray(actionTiming?.timingEvents),
+        ...normalizeFdcArray(actionTiming?.timingPatterns),
+        ...normalizeFdcArray(actionTiming?.generatedObjects)
+      ].map(item => String(item?.branch || '').trim()).filter(Boolean);
+      const activeAsideBranch = availableBranches
+        .map(branch => {
+          const match = branch.match(/^(?:A|アサイド)(?:Lv)?([1-3])$/i);
+          return match ? { branch, rank: Number(match[1]) } : null;
+        })
+        .filter(item => item && item.rank <= activeRank)
+        .sort((a, b) => b.rank - a.rank)[0];
+      if (activeAsideBranch) branches[actionKey] = activeAsideBranch.branch;
+      return branches;
+    }, {});
+  }
+
+  // skillmotion の「効果ID付き発生時刻」を、現在選択中の行動分だけ
+  // ランタイム効果の発動元として解決する。通常行は共通行、愛用カード等の
+  // 置換行は選択中の分岐だけを採用し、未選択分岐の同名効果を混ぜない。
+  function createDpsTimingEffectBindings(timing, timingBranches = {}) {
+    const bindings = {};
+    Object.entries(timing?.actions || {}).forEach(([actionKey, actionTiming]) => {
+      const selectedBranch = String(timingBranches?.[actionKey] || '').trim();
+      const rows = [
+        ...normalizeFdcArray(actionTiming?.timingEvents).map(row => ({ row, generatedObjectId: '' })),
+        ...normalizeFdcArray(actionTiming?.generatedObjects).flatMap(generated => (
+          normalizeFdcArray(generated?.timingEvents).map(row => ({
+            row,
+            generatedObjectId: String(generated?.id || '').trim(),
+            generatedBranch: String(generated?.branch || '').trim()
+          }))
+        ))
+      ].filter(({ row, generatedBranch = '' }) => {
+        const rowBranch = String(row?.branch || generatedBranch || '').trim();
+        // 分岐選択時も共通の本人攻撃・生成物行は保持する。分岐だけを
+        // 採用すると、アサイド毒は残っても同じ低学年の命中本体や
+        // 共通生成物（呪い霧）の発生元が欠落する。
+        if (selectedBranch) return rowBranch === '' || rowBranch === '共通' || rowBranch === selectedBranch;
+        return rowBranch === '' || rowBranch === '共通';
+      });
+      rows.forEach(({ row, generatedObjectId = '', generatedBranch = '' }) => {
+        const effectId = String(row?.effectId || '').trim();
+        const frame = Number(row?.frame ?? row?.sourceTime?.gameFrames);
+        if (!effectId || !Number.isFinite(frame) || frame < 0) return;
+        const current = bindings[effectId] || {
+          effectId,
+          actionKeys: [],
+          occurrences: []
+        };
+        if (!current.actionKeys.includes(actionKey)) current.actionKeys.push(actionKey);
+        current.occurrences.push({
+          actionKey,
+          branch: String(row?.branch || generatedBranch || ''),
+          generatedObjectId,
+          frame,
+          researchStatus: String(row?.researchStatus || ''),
+          timingMode: String(row?.timingMode || '')
+        });
+        bindings[effectId] = current;
+      });
+    });
+    return bindings;
+  }
+
+  function getDpsDirectTimingSourceEffectId(effect = {}, options = {}) {
+    const effectId = String(effect?.effectId || '').trim();
+    const timingBinding = options?.timingEffectBindings?.[effectId];
+    if (!effectId || !timingBinding) return '';
+    // effectId 自身が skillmotion で計測されている場合は、本人行動に伴う
+    // 明示トリガー（低学年命中時など）よりも実測発生時刻を優先する。
+    // ただし別の効果IDを発動元に指定した連鎖効果は、その発動元に従う。
+    const triggerSourceId = String(effect?.triggerSourceId || '').trim();
+    if (triggerSourceId && /_e\d+$/i.test(triggerSourceId) && triggerSourceId !== effectId) return '';
+    return timingBinding.effectId;
+  }
+
+  function getDpsRuntimeManagedSkillEffects(target, context, selectedSkillOptions = [], options = {}) {
+    const directlyTimedEffectIds = new Set(Object.keys(options.timingEffectBindings || {}));
     const nonDamageEffects = buildSelfSkillEffectOptions(target, context)
-      .filter(isDpsRuntimeManagedSkillEffect)
+      .filter(option => isDpsRuntimeManagedSkillEffect(option) || isDpsFormationExternalActionRequired(option))
       .map(option => ({
         key: getFdcSkillEffectCanonicalKey(option.key),
         effectId: option.effectId || '',
@@ -10512,8 +11914,14 @@
         owner: 'dpsRuntime'
       }));
     const damageEffects = normalizeFdcArray(selectedSkillOptions)
+      .filter(option => !isFdcSkillRewriteOption(option))
+      // skillmotionの発生タイミングへ直接ひも付いたダメージは、行動プロファイルを
+      // 参照してその場で評価する。時系列追加効果へも移すと、元プロファイルから
+      // 除外されてイベントだけが残り、期待ダメージ0になる。
+      .filter(option => !directlyTimedEffectIds.has(String(option.effectId || '')))
       .filter(option => (
-        /^(?:n秒ごと|普通攻撃命中時|生成物命中時|生成物帰還時)$/.test(String(option.triggerType || ''))
+        /^(?:n秒ごと|n回ごと|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|普通攻撃使用時|低学年スキル使用時|低学年スキル命中時|高学年スキル使用時|高学年スキル命中時|強化攻撃使用時|生成物命中時|生成物接触時|生成物攻撃時|生成物帰還時|生成物到着時|生成物消滅時|状態付与時|状態異常付与時|状態最大スタック到達時|状態終了時|シールド終了時)$/.test(String(option.triggerType || ''))
+        || isDpsEffectSourceTrigger(option)
         || /リソース(?:スタック|未所持)/.test(String(option.conditionType || ''))
       ))
       .map(option => ({
@@ -10530,25 +11938,148 @@
     const managedKeys = new Set((runtimeManagedEffects || getDpsRuntimeManagedSkillEffects(target, context))
       .map(item => item.key));
     return Object.fromEntries(buildSelfSkillEffectOptions(target, context)
-      .filter(option => !option.actionScoped || managedKeys.has(getFdcSkillEffectCanonicalKey(option.key)))
-      .map(option => [
-        getFdcSkillEffectCanonicalKey(option.key),
-        managedKeys.has(getFdcSkillEffectCanonicalKey(option.key)) ? false : isSelfSkillEffectOptionEnabled(option)
-      ]));
+      .filter(option => {
+        if (!option.actionScoped || managedKeys.has(getFdcSkillEffectCanonicalKey(option.key))) return true;
+        return isDpsUnsupportedRuntimeTrigger(option, [
+          option.condition,
+          option.valueKind,
+          option.label,
+          option.category
+        ].filter(Boolean).join(' '));
+      })
+      .map(option => {
+        const key = getFdcSkillEffectCanonicalKey(option.key);
+        const unsupportedRuntimeTrigger = isDpsUnsupportedRuntimeTrigger(option, [
+          option.condition,
+          option.valueKind,
+          option.label,
+          option.category
+        ].filter(Boolean).join(' '));
+        // 単発計算の手動ONは「その条件が成立した瞬間」の検算用であり、
+        // 発生時刻を再現できないDPSへ常時補正として持ち込まない。
+        return [
+          key,
+          managedKeys.has(key) || unsupportedRuntimeTrigger
+            ? false
+            : isSelfSkillEffectOptionEnabled(option)
+        ];
+      }));
   }
 
   function isDpsRuntimeManagedSkillEffect(option = {}) {
-    const text = [option.valueKind, option.condition, option.effectTarget, option.label].filter(Boolean).join(' ');
+    const text = [option.valueKind, option.condition, option.effectTarget, option.label, option.targetSkill, option.targetSkillName]
+      .filter(Boolean).join(' ');
+    // リソース所持補正は戦闘中に残数が変わる。表示文言だけを見ていると、
+    // 構造化データの「リソース所持: 魔弾」が「魔弾所持時」と一致せず、
+    // 単発用の常時補正として残ってしまう。条件種別を優先してランタイムへ
+    // 移し、リソース名や使徒IDには依存しない。
+    const conditionType = String(option.conditionType || '').replace(/[\s　]+/g, '');
+    if (/^リソース所持$/.test(conditionType)) return true;
     if (/魔弾/.test(text) && /魔弾所持時|魔弾獲得時/.test(text)) return true;
     if (getDpsStructuredStatusCondition(option)) return true;
-    const triggerText = [option.triggerType, option.triggerSourceId, text].filter(Boolean).join(' ');
-    const changesDuringBattle = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|状態付与時|リソース変化時/.test(triggerText);
-    return changesDuringBattle && Number(option.durationSeconds) > 0;
+    if (isDpsUnsupportedRuntimeTrigger(option, text)) return false;
+    // 行動後に発生する追加ダメージは静的な行動プロファイルへ残すと
+    // 二重計上になる。確率付き通常攻撃と、effectIdを発生元にする
+    // 連鎖ダメージだけをランタイムイベントへ移す。
+    const isRuntimeAdditionalDamage = isFdcApostleAttackMultiplierEffect(option)
+      && (getDpsStructuredTriggerProbability(option) != null || isDpsEffectSourceTrigger(option));
+    if (isRuntimeAdditionalDamage) return true;
+    const triggerText = getDpsRuntimeTriggerText(option, text);
+    const changesDuringBattle = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|接触時|到着時|消滅時|攻撃時|状態(?:異常)?付与時|リソース変化時/.test(triggerText);
+    const implicitActionTimed = Number(option.durationSeconds) > 0
+      && (/低学年|高学年/.test(String(option.category || ''))
+        || getDpsTargetActionKeys(option.targetSkill || '').length > 0)
+      && (/一定時間|しばらく|\d+(?:\.\d+)?秒間/.test(text)
+        || getDpsTargetActionKeys(option.targetSkill || '').length > 0);
+    return (changesDuringBattle || implicitActionTimed) && Number(option.durationSeconds) > 0;
+  }
+
+  function isDpsFormationExternalActionRequired(option = {}) {
+    if (option.group !== 'formation') return false;
+    const triggerType = String(option.triggerType || '').trim();
+    // 編成内の別使徒について再現できるのは、共通戦闘時計だけで発火時刻が
+    // 決まるものまで。本人の行動・被弾・HP・撃破・固有状態・リソース等を
+    // 必要とするトリガーは、編成全体タイムライン実装まで外部待ちにする。
+    if (triggerType) {
+      return !/^(?:戦闘開始時|ウェーブ開始時|n秒ごと)$/.test(triggerType);
+    }
+    const text = [
+      option.triggerSourceId,
+      option.conditionType,
+      option.conditionValue,
+      option.condition,
+      option.valueKind,
+      option.label,
+      option.category
+    ].filter(Boolean).join(' ');
+    if (/戦闘開始時|ウェーブ開始時|\d+(?:\.\d+)?\s*秒ごと/.test(text)) return false;
+    return /(?:低学年|高学年|基本攻撃|強化攻撃|普通攻撃).*(?:使用|発動|終了|命中)/.test(text)
+      || /(?:使用時|使用後|発動時|終了時|命中時|衝突時|接触時|到着時|帰還時|消滅時|固有状態付与時|状態異常付与時)/.test(text)
+      || (Number(option.durationSeconds) > 0 && /低学年|高学年/.test(String(option.category || '')));
+  }
+
+  function isDpsUnsupportedEffectRow(row = {}) {
+    return isDpsUnsupportedRuntimeTrigger(row, [
+      row.effectText,
+      row.condition,
+      row.triggerCondition,
+      row.label,
+      row.reason
+    ].filter(Boolean).join(' '));
+  }
+
+  function createDpsRuntimeSafeActionContext(context = {}) {
+    const effects = context.effects || {};
+    const filterRows = rows => normalizeFdcArray(rows).filter(row => !isDpsUnsupportedEffectRow(row));
+    return {
+      ...context,
+      effects: {
+        ...effects,
+        applied: filterRows(effects.applied),
+        globalStats: filterRows(effects.globalStats),
+        conditional: filterRows(effects.conditional)
+      }
+    };
+  }
+
+  function isDpsAutomaticRuntimeEffect(effect = {}) {
+    const descriptiveText = [
+      effect.conditionType,
+      effect.conditionValue,
+      effect.condition,
+      effect.triggerCondition,
+      effect.effectText,
+      effect.valueKind,
+      effect.label,
+      effect.reason,
+      effect.resetType,
+      effect.category
+    ].filter(Boolean).join(' ');
+    const enemyOutgoingDamageReduction = /敵/.test(String(effect.effectTarget || effect.scopeLabel || ''))
+      && /(?:通常|普通|基本|強化|スキル|与)?ダメージ(?:量)?減少/.test(descriptiveText);
+    if (enemyOutgoingDamageReduction) return false;
+    if (isDpsUnsupportedRuntimeTrigger(effect, descriptiveText)) return false;
+    const triggerText = getDpsRuntimeTriggerText(effect, descriptiveText);
+    const deterministicTrigger = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|\d+\s*回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|状態(?:異常)?付与時|リソース変化時/.test(triggerText);
+    const runtimeValue = /攻撃速度|クールタイム|SP回復|状態付与/.test(descriptiveText)
+      || Object.keys(effect.bonuses || {}).some(key => [
+        'hasteP', 'spRecovery', 'spRecoveryP', 'spRegen', 'spRegenP',
+        'atkP', 'physicalAtkP', 'magicAtkP', 'addP', 'normalAttackAddP',
+        'basicAddP', 'enhancedAddP', 'skillAddP', 'lowSkillAddP', 'highSkillAddP', 'actionMultiplierBonusP',
+        'normalAttackMultiplierBonusP', 'basicMultiplierBonusP',
+        'enhancedMultiplierBonusP', 'skillActionMultiplierBonusP',
+        'lowSkillMultiplierBonusP', 'highSkillMultiplierBonusP',
+        'selfDestructMultiplierBonusP', 'specialP', 'otherP',
+        'critP', 'critRateP', 'critDmgP', 'critDmgAddP', 'enemyDefDownP',
+        'enemyCritResDownP', 'enemyCritDmgResDownP'
+      ].includes(key));
+    return deterministicTrigger && runtimeValue;
   }
 
   function createDpsActionDamageData(skillOptions = [], sharedSkillEffectStates = {}, runtimeManagedEffects = []) {
     const profiles = {};
     const singleActionProfiles = {};
+    const additionalDamageComponents = [];
     const statusDamageProfiles = {};
     const audit = {};
     const actionCategories = {
@@ -10561,30 +12092,75 @@
       const actionContext = buildContext({
         actionCategory,
         detached: true,
+        forceSelfAttack: true,
         skillEffectStateOverrides: sharedSkillEffectStates
       });
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
+      actionContext.ignoreEnemyStatusDamageWeakness = true;
       audit[actionKey] = createDpsActionEffectAudit(actionContext);
     });
     skillOptions.forEach(option => {
-      const actionKey = getDpsActionKeyForSkillOption(option);
+      const actionKeys = getDpsActionKeysForSkillOption(option);
+      const actionKey = actionKeys[0] || '';
+      // 単発確認用に残した変更前だけをDPSから除外する。追加攻撃など、
+      // 同じ行動を発動元に持つ別効果まで巻き込んで除外しない。
+      if (option.dpsEligible === false || option.isSupersededBase) return;
+      const ownerActionCategory = getDpsActionCategoryForKey(actionKey)
+        || option.category
+        || option.sourceCategory
+        || '';
+      const evaluationActionCategory = option.attackCategory || ownerActionCategory;
       const actionContext = buildContext({
-        actionCategory: option.category || option.sourceCategory || '',
+        actionCategory: evaluationActionCategory,
         detached: true,
+        forceSelfAttack: true,
         skillEffectStateOverrides: sharedSkillEffectStates
       });
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
+      actionContext.ignoreEnemyStatusDamageWeakness = true;
       actionContext.selectedSkillOption = option;
-      const damage = calculateDamage(actionContext);
+      const damage = calculateDamage(createDpsRuntimeSafeActionContext(actionContext));
       if (option.key) {
         singleActionProfiles[option.key] = {
           optionKey: option.key,
           effectId: option.effectId || '',
           category: option.category || '',
           sourceCategory: option.sourceCategory || '',
+          sourceKey: option.sourceKey || '',
+          sourceLabel: option.sourceLabel || '',
+          attackCategory: option.attackCategory || '',
+          targetSkill: option.targetSkill || '',
           kind: option.kind || '',
+          actionEffectAudit: createDpsActionEffectAudit(actionContext),
           damageResult: createComparableDamageResult(damage)
         };
+      }
+      const isAdditionalDamage = isFdcSupplementalDamageOption(option);
+      if (isAdditionalDamage) {
+        additionalDamageComponents.push({
+          effectId: option.effectId || '',
+          optionKey: option.key,
+          label: option.label,
+          valueKind: option.kind || option.valueKind || '',
+          sourceKey: option.sourceKey || '',
+          sourceLabel: option.sourceLabel || '',
+          sourceCategory: option.sourceCategory || '',
+          attackCategory: option.attackCategory || '',
+          targetSkill: option.targetSkill || '',
+          ownerActionKeys: actionKeys,
+          triggerType: option.triggerType || '',
+          triggerValue: option.triggerValue ?? '',
+          triggerSourceId: option.triggerSourceId || '',
+          conditionType: option.conditionType || '',
+          conditionValue: option.conditionValue ?? '',
+          condition: option.condition || '',
+          runtimeManaged: runtimeManagedEffects.some(item => item.effectId && item.effectId === option.effectId),
+          multiplier: Number(option.value) || 0,
+          baseMultiplier: Number(option.baseValue) || Number(option.value) || 0,
+          repeatCount: Math.max(1, Number(option.actionRepeatCount) || 1),
+          expectedDamage: Math.max(0, Number(damage.expected) || 0),
+          actionEffectAudit: createDpsActionEffectAudit(actionContext)
+        });
       }
       if (runtimeManagedEffects.some(item => item.effectId && item.effectId === option.effectId)) return;
       const status = String(option.sourceCategory || '').split('::')[1] || '';
@@ -10598,9 +12174,10 @@
       }
       if (!actionKey) return;
       const branch = getDpsSkillOptionBranch(option);
-      const variantKey = branch || 'default';
-      const profile = profiles[actionKey] || (profiles[actionKey] = {
-        actionKey,
+      const variantKey = option.dpsExclusiveVariant || branch || 'default';
+      actionKeys.forEach(ownerActionKey => {
+      const profile = profiles[ownerActionKey] || (profiles[ownerActionKey] = {
+        actionKey: ownerActionKey,
         variants: {},
         assumptions: ['戦闘中に変化しない効果として評価'],
         runtimeManagedEffectIds: unique(runtimeManagedEffects.map(item => item.effectId).filter(Boolean))
@@ -10617,15 +12194,25 @@
         optionKey: option.key,
         label: option.label,
         valueKind: option.kind || option.valueKind || '',
+        sourceKey: option.sourceKey || '',
+        sourceLabel: option.sourceLabel || '',
+        sourceCategory: option.sourceCategory || '',
+        attackCategory: option.attackCategory || '',
+        targetSkill: option.targetSkill || '',
+        isAdditionalDamage,
+        exclusiveProbabilityWeight: Number(option.dpsExclusiveProbabilityWeight) || 0,
         multiplier: Number(option.value) || 0,
         expectedDamage,
+        actionEffectAudit: createDpsActionEffectAudit(actionContext),
         damageResult: createComparableDamageResult(damage)
       };
       variant.totalExpectedDamage += expectedDamage;
+      });
     });
     return {
       profiles,
       singleActionProfiles,
+      additionalDamageComponents,
       statusDamageProfiles,
       audit,
       effectOwnership: {
@@ -10652,54 +12239,55 @@
     }];
   }
 
+  function createDpsEnemyStatusDamageWeaknessP() {
+    if (view.enemySourceMode === 'apostle') return 0;
+    // DPSでは状態異常ダメージだけに適用するため、現在選択中の単発行動分類を
+    // 経由させない。単発側の「状態異常行動を選択中か」という表示判定が混ざると、
+    // 通常攻撃を表示したままDPSを実行した際にプリセット弱点が0へ落ちる。
+    return Math.max(0, Number(getSelectedEnemyPreset()?.weakness?.statusDamage?.otherP) || 0);
+  }
+
   function getDpsStructuredTriggerText(effect = {}) {
-    return [effect.triggerType, effect.triggerValue, effect.triggerSourceId]
-      .filter(value => value !== '' && value != null)
-      .join(' ');
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getStructuredTriggerText(effect);
+  }
+
+  function hasDpsExplicitTrigger(effect = {}) {
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.hasExplicitTrigger(effect);
+  }
+
+  function getDpsRuntimeTriggerText(effect = {}, fallbackText = '') {
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getRuntimeTriggerText(effect, fallbackText);
   }
 
   function getDpsStructuredTriggerActionKeys(effect = {}, fallbackText = '') {
-    const text = [getDpsStructuredTriggerText(effect), fallbackText].filter(Boolean).join(' ');
-    const result = [];
-    if (/低学年/.test(text)) result.push('lowSkill');
-    if (/高学年/.test(text)) result.push('highSkill');
-    if (/強化攻撃|普通攻撃_強化/.test(text)) result.push('enhancedAttack');
-    if (/基本攻撃|普通攻撃_基本/.test(text)) result.push('basicAttack');
-    if (/(?:通常|普通)攻撃/.test(text) && !/普通攻撃_(?:基本|強化)/.test(text)) {
-      result.push('basicAttack', 'enhancedAttack');
-    }
-    if (!result.length && /(?:^|\s)スキル(?:使用|発動|終了|命中|効果|$)/.test(text)) {
-      result.push('lowSkill', 'highSkill');
-    }
-    const sourceId = String(effect.triggerSourceId || '');
-    if (/(?:^|_)low(?:_|$)/i.test(sourceId)) result.push('lowSkill');
-    if (/(?:^|_)high(?:_|$)/i.test(sourceId)) result.push('highSkill');
-    if (/(?:^|_)basic(?:_|$)/i.test(sourceId)) result.push('basicAttack');
-    if (/(?:^|_)enhanced(?:_|$)/i.test(sourceId)) result.push('enhancedAttack');
-    return unique(result);
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getActionKeys(effect, fallbackText);
+  }
+
+  function isDpsUnsupportedRuntimeTrigger(effect = {}, fallbackText = '') {
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.isUnsupported(effect, fallbackText);
   }
 
   function getDpsStructuredIntervalSeconds(effect = {}, fallbackText = '') {
-    if (String(effect.triggerType || '') === 'n秒ごと') {
-      const value = Number(effect.triggerValue);
-      if (Number.isFinite(value) && value > 0) return value;
-    }
-    const value = Number(String(fallbackText || '').match(/(\d+(?:\.\d+)?)\s*秒ごと/)?.[1]);
-    return Number.isFinite(value) && value > 0 ? value : 0;
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getIntervalSeconds(effect, fallbackText);
   }
 
   function getDpsStructuredTriggerCount(effect = {}, fallbackText = '') {
-    if (String(effect.triggerType || '') === 'n回ごと') {
-      const value = Number(effect.triggerValue);
-      if (Number.isFinite(value) && value > 0) return Math.max(1, Math.floor(value));
-    }
-    const value = Number(String(fallbackText || '').match(/(\d+)\s*回(?:目|ごと)/)?.[1]);
-    return Number.isFinite(value) && value > 0 ? Math.max(1, Math.floor(value)) : 0;
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getTriggerCount(effect, fallbackText);
   }
 
   function getDpsStructuredTriggerPhase(effect = {}, fallbackText = '') {
-    const text = [effect.triggerType, fallbackText].filter(Boolean).join(' ');
-    return /使用後|終了時|終了後/.test(text) ? 'end' : 'start';
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.getPhase(effect, fallbackText);
+  }
+
+  function getDpsStructuredTriggerProbability(effect = {}) {
+    return typeof window.TRICKCAL_DPS_TRIGGER_POLICY.getProbability === 'function'
+      ? window.TRICKCAL_DPS_TRIGGER_POLICY.getProbability(effect)
+      : null;
+  }
+
+  function isDpsEffectSourceTrigger(effect = {}) {
+    return typeof window.TRICKCAL_DPS_TRIGGER_POLICY.isEffectSourceTrigger === 'function'
+      && window.TRICKCAL_DPS_TRIGGER_POLICY.isEffectSourceTrigger(effect);
   }
 
   function usesDpsSourceEffectOccurrence(effect = {}) {
@@ -10709,7 +12297,15 @@
     // The source row identifies the occurrence point only for these triggers.
     // A shield/status "end" points at the row that created it, so firing when
     // that row occurs would be semantically wrong and remains action fallback.
-    return /(?:効果発生(?:時|後)|命中時|衝突時|接触時|到着時|帰還時|生成物生成時|生成物消滅時|状態付与時|固有状態付与時|回復時)$/.test(triggerType);
+    return /(?:効果発生(?:時|後)|命中時|衝突時|接触時|到着時|帰還時|生成物生成時|生成物消滅時|状態(?:異常)?付与時|固有状態付与時|回復時)$/.test(triggerType);
+  }
+
+  function getDpsSourceEventFallbackMode(effect = {}, fallbackMode = 'action') {
+    const triggerType = String(effect.triggerType || '').trim();
+    if (/(?:効果発生(?:時|後)|接触時|到着時|帰還時|生成物生成時|生成物消滅時|状態(?:異常)?付与時|固有状態付与時|回復時)$/.test(triggerType)) {
+      return 'disabled';
+    }
+    return fallbackMode;
   }
 
   function getDpsStructuredStatusCondition(effect = {}) {
@@ -10726,6 +12322,15 @@
     };
   }
 
+  function normalizeDpsExternalTriggerType(triggerType = '') {
+    const value = String(triggerType || '').replace(/\s+/g, '');
+    if (/シールド破壊/.test(value)) return 'シールド破壊時';
+    if (/被ダメージ|被撃|被弾/.test(value)) return '被弾時';
+    if (/HP.*(?:以下|未満|以上|超過|閾値|到達)/.test(value) || /残りHP/.test(value)) return 'HP閾値';
+    if (/状態付与/.test(value)) return '状態付与時';
+    return value;
+  }
+
   function createDpsStructuredRuntimeEvents(options = {}) {
     const {
       apostle,
@@ -10736,6 +12341,19 @@
       singleActionProfiles = {}
     } = options;
     if (!apostle || !target || !context) return { eventEffects: [], resources: [] };
+    // 単発行動プロファイルと時系列eventは同じ攻撃倍率を共有してはならない。
+    // 本番経路では getDpsRuntimeManagedSkillEffects() の所有権を唯一の根拠に
+    // する。旧来の単体fixtureは runtimeManagedEffects を渡していないため、
+    // その場合だけ skillmotion に直接結び付いた無トリガーの本体行を除外する
+    // 互換フォールバックを使う。
+    const hasRuntimeManagedOwnership = Array.isArray(options.runtimeManagedEffects);
+    const runtimeManagedDamageEffectIds = new Set(normalizeFdcArray(options.runtimeManagedEffects)
+      .map(item => String(item?.effectId || '')).filter(Boolean));
+    const isRuntimeOwnedDamage = (effect, timingSourceEffectId = '') => {
+      if (!isFdcApostleAttackMultiplierEffect(effect)) return false;
+      if (hasRuntimeManagedOwnership) return runtimeManagedDamageEffectIds.has(String(effect.effectId || ''));
+      return !(timingSourceEffectId && !String(effect.triggerType || '').trim());
+    };
     const selectedByEffectId = new Map(normalizeFdcArray(selectedSkillOptions)
       .filter(option => option.effectId)
       .map(option => [option.effectId, option]));
@@ -10744,32 +12362,142 @@
     collectFdcApostleSkillSources(apostle, skillLevels, target, context)
       .forEach(({ skill, sourceKey, sourceLabel }) => {
         const category = getFdcApostleSkillCategory(skill, sourceLabel);
-        const skillLevel = getFdcSkillLevelForCategory(skillLevels, category);
+        if (isDpsBaseSkillSourceSuperseded(sourceKey, category, options.dpsSkillOverrides)) return;
         normalizeFdcArray(skill.effects).forEach(effect => {
-          const triggerType = String(effect.triggerType || '');
-          if (!/^(?:n秒ごと|普通攻撃命中時|生成物命中時|生成物帰還時)$/.test(triggerType)) return;
+          const selectedOption = selectedByEffectId.get(effect.effectId);
+          if (selectedOption && isFdcSkillRewriteOption(selectedOption)) return;
+          const explicitTriggerType = String(effect.triggerType || '');
+          const implicitTargetActionKeys = getDpsEffectTargetActionKeys(effect);
+          const implicitActionTrigger = !explicitTriggerType
+            && implicitTargetActionKeys.length > 0
+            && !isFdcApostleAttackMultiplierEffect(effect);
+          const triggerType = normalizeDpsExternalTriggerType(
+            explicitTriggerType || (implicitActionTrigger ? '対象スキル使用時' : '')
+          );
           const groupId = effect.processGroupId || effect.effectId;
           if (!groupId) return;
-          const key = `${sourceKey}:${groupId}`;
+          let timingSourceEffectId = getDpsDirectTimingSourceEffectId(effect, options);
+          // 持続時間行は対応する状態付与行と同じ実測タイミングで処理する。
+          // processGroupId だけで束ねると、霧の呪い・命中時毒・回復のような
+          // 別トリガーまで最初の行動開始時に同時発火してしまう。
+          if (!timingSourceEffectId && effect.valueClass === '持続時間') {
+            const application = normalizeFdcArray(skill.effects).find(item => (
+              item.processGroupId === effect.processGroupId
+              && item.valueClass === '状態付与'
+              && item.valueKind === effect.valueKind
+            ));
+            timingSourceEffectId = getDpsDirectTimingSourceEffectId(application, options);
+          }
+          // 明示トリガーが未対応でも、skillmotionで同じeffectIdの発生時刻が
+          // 計測済みなら、その時刻を唯一の発火元として採用する。反対に、
+          // 時刻のない未知条件は従来どおり自動推測しない。
+          if (!/^(?:n秒ごと|n回ごと|ダメージ命中時|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|強化攻撃命中時|低学年スキル使用時|高学年スキル使用時|強化攻撃使用時|普通攻撃使用時|対象スキル使用時|生成物命中時|生成物帰還時|生成物接触時|生成物攻撃時|生成物到着時|生成物消滅時|状態最大スタック到達時|状態終了時|シールド終了時|シールド破壊時|被弾時|HP閾値|状態付与時|状態異常付与時)$/.test(triggerType)
+            && !isDpsEffectSourceTrigger(effect)
+            && !timingSourceEffectId) return;
+          // processGroupId is a semantic processing group, not a guarantee that
+          // every row has the same trigger.  Keep rows with different trigger
+          // sources, conditions, or value kinds in separate runtimes when there
+          // is no measured effect occurrence to bind them to.  Otherwise a
+          // generic group can make a fog/status row fire together with a hit or
+          // recovery row at the first action start.
+          const triggerDiscriminator = [
+            triggerType,
+            effect.triggerSourceId,
+            effect.conditionType,
+            effect.conditionValue,
+            effect.targetSkill,
+            effect.effectTarget
+          ].map(value => String(value ?? '').trim()).join('|');
+          const key = timingSourceEffectId
+            ? `${sourceKey}:${groupId}:timing:${timingSourceEffectId}`
+            : `${sourceKey}:${groupId}:trigger:${triggerDiscriminator}`;
+          const triggerText = [
+            getDpsStructuredTriggerText(effect),
+            sourceLabel,
+            category
+          ].filter(Boolean).join(' ');
+          const ordinaryAttackProbabilityTrigger = getDpsStructuredTriggerProbability(effect) != null;
+          const triggerActionKeys = triggerType === '普通攻撃命中時'
+            || ordinaryAttackProbabilityTrigger
+            ? ['basicAttack', 'enhancedAttack']
+            : triggerType === '強化攻撃命中時'
+              ? ['enhancedAttack']
+            : triggerType === 'ダメージ命中時'
+              ? implicitTargetActionKeys
+            : triggerType === 'n回ごと'
+              ? getDpsStructuredTriggerActionKeys(effect, triggerText)
+              : triggerType === '低学年スキル使用時'
+                ? ['lowSkill']
+                : triggerType === '高学年スキル使用時'
+                  ? ['highSkill']
+                  : triggerType === '強化攻撃使用時'
+                    ? ['enhancedAttack']
+                    : triggerType === '普通攻撃使用時'
+                      ? ['basicAttack', 'enhancedAttack']
+                      : triggerType === '対象スキル使用時'
+                        ? implicitTargetActionKeys
+                      : [];
+          const normalAttackCountTrigger = triggerType === 'n回ごと'
+            && triggerActionKeys.some(actionKey => actionKey === 'basicAttack' || actionKey === 'enhancedAttack');
+          const perHitTrigger = ['各ヒット', '毎ヒット'].includes(String(effect.triggerValue || '').trim());
           const group = groups.get(key) || {
             id: key,
             label: [sourceLabel, groupId].filter(Boolean).join(' / '),
             sourceLabel,
-            triggerType,
+            triggerType: normalAttackCountTrigger ? '普通攻撃命中時' : triggerType,
             triggerValue: effect.triggerValue ?? '',
-            triggerSourceId: effect.triggerSourceId || '',
-            triggerActionKeys: triggerType === '普通攻撃命中時'
-              ? ['basicAttack', 'enhancedAttack']
-              : [],
+            triggerProbability: getDpsStructuredTriggerProbability(effect),
+            triggerSourceId: timingSourceEffectId || effect.triggerSourceId || '',
+            triggerActionKeys: timingSourceEffectId ? [] : triggerActionKeys,
+            timingSourceEffectId,
+            triggerEveryCount: normalAttackCountTrigger
+              ? getDpsStructuredTriggerCount(effect, triggerText)
+              : 0,
             intervalFrames: triggerType === 'n秒ごと'
               ? Math.max(0, Number(effect.triggerValue) || 0) * 60
               : 0,
-            oncePerAction: triggerType === '普通攻撃命中時',
+            oncePerAction: !perHitTrigger && (
+              triggerType === '普通攻撃命中時'
+              || ordinaryAttackProbabilityTrigger
+              || triggerType === '強化攻撃命中時'
+              || triggerType === '低学年スキル使用時'
+              || triggerType === '高学年スキル使用時'
+              || triggerType === '強化攻撃使用時'
+              || triggerType === '普通攻撃使用時'
+              || normalAttackCountTrigger
+            ),
+            perHitTrigger,
             conditionResource: null,
+            conditionType: '',
+            conditionValue: '',
+            startOnSelfStateId: '',
+            consumeMaxStacks: false,
+            effectIds: [],
+            targetActionKeys: [],
             steps: []
           };
+          if (timingSourceEffectId) {
+            group.triggerSourceId = timingSourceEffectId;
+            group.timingSourceEffectId = timingSourceEffectId;
+            group.triggerActionKeys = [];
+          }
+          if (effect.effectId && !group.effectIds.includes(effect.effectId)) group.effectIds.push(effect.effectId);
+          getDpsEffectTargetActionKeys({
+            ...effect,
+            targetSkill: [effect.targetSkill, effect.triggerSourceId].filter(Boolean).join(' ')
+          }).forEach(actionKey => {
+            if (!group.targetActionKeys.includes(actionKey)) group.targetActionKeys.push(actionKey);
+          });
           const conditionType = String(effect.conditionType || '');
           const conditionValue = String(effect.conditionValue || '');
+          if (conditionType && !group.conditionType) group.conditionType = conditionType;
+          if (conditionValue && !group.conditionValue) group.conditionValue = conditionValue;
+          if (conditionType === '固有状態中' && conditionValue && triggerType === 'n秒ごと') {
+            group.startOnSelfStateId = conditionValue;
+          }
+          if (triggerType === '状態最大スタック到達時' && effect.consumeOnMaxStack === true) {
+            group.consumeMaxStacks = true;
+          }
           if (/^リソース(?:未所持|スタック)/.test(conditionType)) {
             const [resourceId, amountText] = conditionValue.split(':');
             if (resourceId) {
@@ -10779,6 +12507,7 @@
             }
           }
           const valueKind = String(effect.valueKind || '');
+          const skillLevel = getFdcSkillLevelForEffect(skillLevels, effect, category);
           const value = Number(getFdcEffectLevelInfo(effect, skillLevel)?.value) || 0;
           const resourceMatch = valueKind.match(/^(.+?)(獲得|消費)$/);
           if (resourceMatch) {
@@ -10799,6 +12528,9 @@
               amount: Math.max(1, value || 1)
             });
           } else if (isFdcApostleAttackMultiplierEffect(effect)) {
+            if (!isRuntimeOwnedDamage(effect, timingSourceEffectId)) {
+              return;
+            }
             const selected = selectedByEffectId.get(effect.effectId);
             const profile = selected ? singleActionProfiles[selected.key] : null;
             group.steps.push({
@@ -10806,6 +12538,7 @@
               order: Number(effect.processOrder) || 0,
               effectId: effect.effectId || '',
               label: effect.valueKind || '追加ダメージ',
+              unclassifiedDamage: isFdcUnclassifiedAttackCategory(effect.attackCategory),
               expectedDamage: Math.max(0, Number(profile?.damageResult?.expected) || 0),
               runtimeBase: profile?.damageResult?.runtimeBase || null
             });
@@ -10818,20 +12551,32 @@
             const duration = Number(getFdcEffectLevelInfo(durationEffect, skillLevel)?.value) || 0;
             const status = String(effect.valueKind || '');
             const dealsPeriodicDamage = Object.prototype.hasOwnProperty.call(FDC_STATUS_SKILL_MULTIPLIERS, status);
-            const hasExplicitStackSetting = effect.effectStack === true || durationEffect?.effectStack === true;
+            const declaredMaxStacks = Math.max(0, Number(effect.maxStack ?? durationEffect?.maxStack) || 0);
+            // 未指定は1枠を更新する。状態異常DoTだからという理由だけで
+            // 暗黙に9スタックにしない。シートの明示指定を唯一の根拠にする。
+            const stackable = effect.effectStack === true
+              || durationEffect?.effectStack === true
+              || declaredMaxStacks > 1;
+            const maxStacks = stackable ? Math.max(1, declaredMaxStacks || 9) : 1;
+            const selfState = String(effect.effectType || '') === '固有状態'
+              && /自身|本人/.test(String(effect.effectTarget || ''));
             group.steps.push({
-              type: 'status',
+              type: selfState ? 'selfState' : 'status',
               order: Number(effect.processOrder) || 0,
               application: {
                 status,
+                stateId: effect.effectId || status,
                 applicationEffectId: effect.effectId || '',
                 durationEffectId: durationEffect?.effectId || '',
-                durationFrames: duration * 60,
-                stackable: dealsPeriodicDamage
-                  ? effect.effectStack !== false && durationEffect?.effectStack !== false
-                  : hasExplicitStackSetting,
-                maxStacks: Math.max(1, Number(effect.maxStack ?? durationEffect?.maxStack) || (dealsPeriodicDamage ? 9 : 1)),
-                stackGroupId: effect.processGroupId || `${status}:runtime`,
+                // 最大スタック到達時に消費するだけで個別の持続時間が記載されない
+                // 状態は、最大到達まで残存する。勝手に短い持続時間を推測しない。
+                durationFrames: duration > 0 ? duration * 60 : (stackable ? Infinity : 0),
+                stackable,
+                maxStacks,
+                // 効果処理グループは状態付与・持続時間などをまとめるためのID。
+                // 発生源が違う同一状態異常を別スタック枠に分けない。
+                stackGroupId: effect.stackGroupId
+                  || `${status}:${stackable ? 'stack' : 'single'}:${maxStacks}`,
                 dealsPeriodicDamage,
                 tickFrames: dealsPeriodicDamage ? 60 : 0,
                 tickMultiplier: Number(FDC_STATUS_SKILL_MULTIPLIERS[status]) || 0
@@ -10855,7 +12600,7 @@
         const steps = group.steps.slice().sort((a, b) => a.order - b.order);
         const effectLabels = Array.from(new Set(steps.map(step => (
           step.type === 'damage' ? step.label
-            : step.type === 'status' ? step.application?.status
+            : (step.type === 'status' || step.type === 'selfState') ? step.application?.status
               : step.type === 'healing' ? step.label
                 : ''
         )).filter(Boolean)));
@@ -10869,16 +12614,87 @@
     return { eventEffects, resources: Array.from(resources.values()) };
   }
 
+  function createDpsCardStatusRuntimeEvents(options = {}) {
+    const { target, context } = options;
+    if (!target || !context) return [];
+    const cardIds = unique([
+      ...normalizeFdcArray(target.artifactIds),
+      ...normalizeFdcArray(context.formation?.spells)
+    ].filter(Boolean));
+    return cardIds.flatMap(cardId => {
+      const card = getCard(cardId);
+      if (!card) return [];
+      return normalizeFdcArray(card.conditionalEffects).flatMap(effect => {
+        if (String(effect?.valueClass || '') !== '状態付与') return [];
+        const triggerText = [
+          getDpsStructuredTriggerText(effect),
+          effect?.condition,
+          effect?.label,
+          effect?.shortLabel,
+          effect?.description
+        ].filter(Boolean).join(' ');
+        const triggerEveryCount = getDpsStructuredTriggerCount(effect, triggerText);
+        const triggerActionKeys = getDpsStructuredTriggerActionKeys(effect, triggerText);
+        const normalAttackTrigger = triggerActionKeys.some(key => (
+          key === 'basicAttack' || key === 'enhancedAttack'
+        ));
+        if (!(triggerEveryCount > 0) || !normalAttackTrigger) return [];
+        const status = String(effect.status || effect.statusId || effect.shortLabel || effect.label || '').trim();
+        const durationSeconds = parseFdcDurationSeconds(effect.duration || effect.description);
+        if (!status || !(durationSeconds > 0)) return [];
+        const stackable = effect.effectStack === true;
+        const maxStacks = stackable ? Math.max(1, Number(effect.maxStack) || 9) : 1;
+        return [{
+          id: effect.id || `${cardId}:status:${status}`,
+          label: [card.name, effect.shortLabel || effect.label || status].filter(Boolean).join(' / '),
+          triggerType: '普通攻撃命中時',
+          triggerSourceId: effect.triggerSourceId || '普通攻撃',
+          triggerActionKeys: unique(triggerActionKeys.filter(key => (
+            key === 'basicAttack' || key === 'enhancedAttack'
+          ))),
+          triggerEveryCount,
+          oncePerAction: true,
+          steps: [{
+            type: 'status',
+            order: 1,
+            application: {
+              status,
+              durationFrames: durationSeconds * 60,
+              stackable,
+              maxStacks,
+              stackGroupId: effect.stackGroupId || `${cardId}:${effect.id || status}`,
+              dealsPeriodicDamage: Object.prototype.hasOwnProperty.call(FDC_STATUS_SKILL_MULTIPLIERS, status),
+              tickFrames: Object.prototype.hasOwnProperty.call(FDC_STATUS_SKILL_MULTIPLIERS, status) ? 60 : 0,
+              tickMultiplier: FDC_STATUS_SKILL_MULTIPLIERS[status] || 0
+            }
+          }]
+        }];
+      });
+    });
+  }
+
   function createDpsRuntimeEffects(audit = {}, options = {}) {
     const actionEntries = Object.entries(audit || {});
+    const isSupersededRow = row => isDpsBaseSkillSourceSuperseded(
+      row?.sourceId || '',
+      row?.category || '',
+      options.dpsSkillOverrides
+    );
     const grouped = new Map();
     actionEntries.forEach(([actionKey, actionAudit]) => {
       normalizeArray(actionAudit?.rows).forEach(row => {
+        if (isSupersededRow(row)) return;
+        if (row.unsupportedRuntimeTrigger) return;
         const hasteP = Number(row?.bonuses?.hasteP) || 0;
-        if (!hasteP || row.manualDisabled) return;
+        if (!hasteP || row.sourceDisabled) return;
         const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
           .filter(Boolean).join(' ');
-        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|\d+\s*回ごと/.test(runtimeText);
+        if (isDpsUnsupportedRuntimeTrigger(row, runtimeText)) return;
+        const runtimeTriggerText = getDpsRuntimeTriggerText(row, runtimeText);
+        const implicitTargetActionKeys = getDpsEffectTargetActionKeys(row);
+        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|状態(?:異常)?付与時|\d+\s*回ごと/.test(runtimeTriggerText)
+          || (implicitTargetActionKeys.length > 0 && Number(row.durationSeconds) > 0);
+        if (row.singleManualDisabled && !hasDeterministicRuntimeTrigger) return;
         if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
         const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
         const sourceId = row.sourceId || row.cardId || row.source || 'effect';
@@ -10886,14 +12702,19 @@
         // When the shared description explicitly names both actions, keep one runtime
         // instance so either action refreshes the duration instead of stacking twice.
         const sharesLowHighTrigger = !row.stackable
-          && /低学年/.test(runtimeText)
-          && /高学年/.test(runtimeText)
-          && /使用時|使用後|発動時|終了時/.test(runtimeText);
-        const key = sharesLowHighTrigger
+          && /低学年/.test(runtimeTriggerText)
+          && /高学年/.test(runtimeTriggerText)
+          && /使用時|使用後|発動時|終了時/.test(runtimeTriggerText);
+        const nonStackingSameEffectKey = row.nonStackingSameEffect && row.effectId
+          ? `nonstack:${row.effectId}`
+          : '';
+        const key = nonStackingSameEffectKey
+          || (sharesLowHighTrigger
           ? `${sourceId}:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
           : row.effectId
           ? `${row.sourceId || row.cardId || row.source || 'effect'}:${row.effectId}`
-          : row.key || `${row.label}:${hasteP}`;
+          : row.key || `${row.label}:${hasteP}`);
+        const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
         const item = grouped.get(key) || {
           id: row.effectId || key,
           sourceId: sourceId === 'effect' ? '' : sourceId,
@@ -10902,22 +12723,49 @@
           condition: row.condition || '',
           triggerType: row.triggerType || '',
           triggerValue: row.triggerValue ?? '',
-          triggerSourceId: row.triggerSourceId || '',
+          triggerSourceId: timingSourceEffectId || row.triggerSourceId || '',
+          timingSourceEffectId,
+          targetSkill: row.targetSkill || '',
+          targetSkillName: row.targetSkillName || '',
           conditionType: row.conditionType || '',
           conditionValue: row.conditionValue ?? '',
           category: row.category || row.source || '',
           runtimeText,
+          runtimeTriggerTexts: [],
+          triggerActionKeys: [],
+          intervalSeconds: 0,
+          triggerEveryCount: 0,
           durationFrames,
           stackable: !!row.stackable,
           maxStacks: Math.max(1, Number(row.stackMax) || 1),
           actionScoped: !!row.actionScoped,
           enabledActions: []
         };
+        item.externalActionRequired ||= !!row.externalActionRequired;
+        item.externalSourceId ||= row.ownerId || '';
+        item.externalTriggerType ||= normalizeDpsFormationActionTriggerType(row.triggerType, row.category);
+        if (timingSourceEffectId) {
+          item.triggerSourceId = timingSourceEffectId;
+          item.timingSourceEffectId = timingSourceEffectId;
+          item.triggerActionKeys = [];
+        }
         item.hasteP = Math.max(item.hasteP, hasteP);
         item.durationFrames = Math.max(item.durationFrames, durationFrames);
         item.maxStacks = Math.max(item.maxStacks, Math.max(1, Number(row.stackMax) || 1));
         item.stackable ||= !!row.stackable;
         item.runtimeText = [item.runtimeText, runtimeText].filter(Boolean).join(' ');
+        item.runtimeTriggerTexts.push(runtimeTriggerText);
+        if (!item.timingSourceEffectId) {
+          item.triggerActionKeys.push(...getDpsStructuredTriggerActionKeys(row, runtimeText));
+        }
+        item.intervalSeconds = Math.max(
+          item.intervalSeconds,
+          getDpsStructuredIntervalSeconds(row, runtimeText)
+        );
+        item.triggerEveryCount = Math.max(
+          item.triggerEveryCount,
+          getDpsStructuredTriggerCount(row, runtimeText)
+        );
         if (row.condition && !String(item.condition).includes(row.condition)) {
           item.condition = [item.condition, row.condition].filter(Boolean).join(' ');
         }
@@ -10928,12 +12776,15 @@
 
     const actionSpeedEffects = Array.from(grouped.values()).map(effect => {
       const text = [effect.runtimeText, effect.condition, effect.label, effect.category].filter(Boolean).join(' ');
+      const runtimeTriggerText = unique(effect.runtimeTriggerTexts || []).join(' ');
       const conditionText = String(effect.condition || '');
-      const hasExplicitActionCondition = /低学年|高学年|強化攻撃|(?:基本|普通)攻撃/.test(conditionText);
-      const triggerText = hasExplicitActionCondition
-        ? conditionText
-        : [effect.condition, effect.label, effect.category].filter(Boolean).join(' ');
-      const triggerActionKeys = getDpsStructuredTriggerActionKeys(effect, triggerText);
+      const explicitTargetActionKeys = getDpsEffectTargetActionKeys(effect);
+      const timingSourceEffectId = String(effect.timingSourceEffectId || '').trim();
+      const triggerActionKeys = timingSourceEffectId
+        ? []
+        : explicitTargetActionKeys.length
+        ? [...explicitTargetActionKeys]
+        : unique(effect.triggerActionKeys || []);
       if (!triggerActionKeys.length) {
         if (/低学年/.test(effect.category)) triggerActionKeys.push('lowSkill');
         else if (/高学年/.test(effect.category)) triggerActionKeys.push('highSkill');
@@ -10941,39 +12792,54 @@
       if (!triggerActionKeys.length && effect.actionScoped && effect.enabledActions.length === 1) {
         triggerActionKeys.push(effect.enabledActions[0]);
       }
-      const intervalSeconds = getDpsStructuredIntervalSeconds(effect, text);
-      const triggerEveryCount = getDpsStructuredTriggerCount(effect, text);
-      const initialTimed = /戦闘開始時|ウェーブ開始時/.test(text);
+      const intervalSeconds = Number(effect.intervalSeconds) || 0;
+      const triggerEveryCount = Number(effect.triggerEveryCount) || 0;
+      const initialTimed = /戦闘開始時|ウェーブ開始時/.test(runtimeTriggerText);
       let mode = 'constant';
-      if (effect.id === 'artifact_dragonlight_sword_e01' || (/1\s*秒ごと/.test(text) && !effect.durationFrames)) mode = 'periodicStack';
+      if (effect.externalActionRequired) mode = 'externalTimed';
+      else if (timingSourceEffectId) mode = 'sourceEventTimed';
+      else if (effect.id === 'artifact_dragonlight_sword_e01' || (/(?:n秒ごと|1\s*秒ごと)/.test(runtimeTriggerText) && !effect.durationFrames)) mode = 'periodicStack';
       else if (triggerEveryCount > 0) mode = 'attackCountStack';
       else if (intervalSeconds > 0) mode = 'periodicTimed';
       else if (usesDpsSourceEffectOccurrence(effect)) mode = 'sourceEventTimed';
       else if (triggerActionKeys.length) mode = 'actionTimed';
       else if (initialTimed && effect.durationFrames > 0) mode = 'initialTimed';
       else if (effect.durationFrames > 0) mode = 'manualInitialTimed';
+      if (hasDpsExplicitTrigger(effect) && mode === 'manualInitialTimed') return null;
       return {
         ...effect,
         mode,
         triggerActionKeys: unique(triggerActionKeys),
-        triggerPhase: getDpsStructuredTriggerPhase(effect, text),
+        triggerSourceId: timingSourceEffectId || effect.triggerSourceId || '',
+        timingSourceEffectId,
+        triggerPhase: /使用後|終了時|終了後/.test(runtimeTriggerText) ? 'end' : 'start',
         intervalFrames: intervalSeconds > 0 ? intervalSeconds * 60 : (mode === 'periodicStack' ? 60 : 0),
         triggerEveryCount,
         maxStacks: effect.id === 'artifact_tig_blazing_sword_e01' ? 10 : (mode === 'periodicStack' ? 0 : effect.maxStacks),
         stackable: effect.id === 'artifact_tig_blazing_sword_e01' || mode === 'periodicStack' || effect.stackable,
         resetActionKeys: effect.id === 'artifact_dragonlight_sword_e01' ? ['lowSkill'] : [],
-        sourceEventFallbackMode: 'actionTimed'
+        sourceEventFallbackMode: getDpsSourceEventFallbackMode(effect, 'actionTimed')
       };
-    });
+    }).filter(Boolean);
     const damageBuffKeys = new Set([
       'atkP',
       'physicalAtkP',
       'magicAtkP',
       'addP',
+      'actionMultiplierBonusP',
+      'normalAttackMultiplierBonusP',
+      'basicMultiplierBonusP',
+      'enhancedMultiplierBonusP',
+      'skillActionMultiplierBonusP',
+      'lowSkillMultiplierBonusP',
+      'highSkillMultiplierBonusP',
+      'selfDestructMultiplierBonusP',
       'normalAttackAddP',
       'basicAddP',
       'enhancedAddP',
       'skillAddP',
+      'lowSkillAddP',
+      'highSkillAddP',
       'specialP',
       'otherP',
       'critP',
@@ -10992,9 +12858,13 @@
     const damageBuffGroups = new Map();
     actionEntries.forEach(([actionKey, actionAudit]) => {
       normalizeArray(actionAudit?.rows).forEach(row => {
-        if (row.manualDisabled) return;
+        if (isSupersededRow(row)) return;
+        if (row.unsupportedRuntimeTrigger) return;
+        if (row.sourceDisabled) return;
         const text = [row.rawText, row.condition, row.reason, row.label, row.category]
           .filter(Boolean).join(' ');
+        if (/敵/.test(String(row.effectTarget || ''))
+          && /(?:通常|普通|基本|強化|スキル|与)?ダメージ(?:量)?減少/.test(text)) return;
         const isDebuff = /デバフ/.test(String(row.effectType || ''));
         const allowDebuffAddP = /被ダメージ(?:量)?増加|受けるダメージ(?:量)?増加/.test(text);
         const modifiers = Object.fromEntries(Object.entries(row.runtimeBonuses || row.bonuses || {})
@@ -11009,10 +12879,17 @@
           .map(([key, value]) => [key, Number(value)]));
         if (!Object.keys(modifiers).length) return;
         const statusCondition = getDpsStructuredStatusCondition(row);
-        const structuredActionKeys = getDpsStructuredTriggerActionKeys(row, text);
-        const triggerText = [row.triggerType, row.triggerSourceId, text].filter(Boolean).join(' ');
+        const explicitTargetActionKeys = getDpsEffectTargetActionKeys(row);
+        const structuredActionKeys = explicitTargetActionKeys.length
+          ? [...explicitTargetActionKeys]
+          : getDpsStructuredTriggerActionKeys(row, text);
+        const triggerText = getDpsRuntimeTriggerText(row, text);
+        const hitTriggered = !explicitTargetActionKeys.length
+          && /命中(?:時|するたび|する度|すると)|衝突時/.test(triggerText);
         const initialTrigger = /戦闘開始時|ウェーブ開始時/.test(triggerText);
+        const statusApplicationTrigger = /状態(?:異常)?付与時/.test(triggerText);
         const actionTrigger = structuredActionKeys.length > 0
+          || statusApplicationTrigger
           || /使用時|使用後|発動時|終了時|命中(?:時|するたび|する度|すると)|衝突時|攻撃時/.test(triggerText);
         if (!initialTrigger && !actionTrigger && !statusCondition) return;
         const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
@@ -11022,9 +12899,10 @@
         const triggerActionKeys = [...structuredActionKeys];
         if (actionTrigger && !triggerActionKeys.length && /低学年/.test(row.category || '')) triggerActionKeys.push('lowSkill');
         if (actionTrigger && !triggerActionKeys.length && /高学年/.test(row.category || '')) triggerActionKeys.push('highSkill');
-        if (actionTrigger && !triggerActionKeys.length && row.actionScoped) triggerActionKeys.push(actionKey);
-        if (actionTrigger && !triggerActionKeys.length) return;
+        if (actionTrigger && !statusApplicationTrigger && !triggerActionKeys.length && row.actionScoped) triggerActionKeys.push(actionKey);
+        if (actionTrigger && !statusApplicationTrigger && !triggerActionKeys.length) return;
         const sourceId = row.sourceId || row.cardId || row.source || 'effect';
+        const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
         const key = row.effectId
           ? `${sourceId}:${row.effectId}`
           : row.key || `${sourceId}:${row.label || 'damageBuff'}`;
@@ -11032,19 +12910,25 @@
           id: row.effectId || key,
           sourceId: sourceId === 'effect' ? '' : sourceId,
           label: row.label || '時限ダメージバフ',
-          mode: statusCondition
+          mode: statusApplicationTrigger
+            ? 'statusApplicationTimed'
+            : (timingSourceEffectId
+            ? 'sourceEventTimed'
+            : (statusCondition
             ? 'conditionalStatus'
             : (initialTrigger
               ? 'initialTimed'
               : (usesDpsSourceEffectOccurrence(row)
                 ? 'sourceEventTimed'
-                : (/命中(?:時|するたび|する度|すると)|衝突時/.test(triggerText) ? 'actionHitTimed' : 'actionTimed'))),
+                : (hitTriggered ? 'actionHitTimed' : 'actionTimed'))))),
           triggerActionKeys: [],
           triggerPhase: getDpsStructuredTriggerPhase(row, triggerText),
           processGroupId: row.processGroupId || '',
           triggerType: row.triggerType || '',
           triggerValue: row.triggerValue ?? '',
-          triggerSourceId: row.triggerSourceId || '',
+          triggerSourceId: timingSourceEffectId || row.triggerSourceId || '',
+          timingSourceEffectId,
+          triggerEveryCount: getDpsStructuredTriggerCount(row, text),
           conditionType: statusCondition?.conditionType || row.conditionType || '',
           conditionValue: statusCondition?.conditionValue || row.conditionValue || '',
           requiredStatus: statusCondition?.status || '',
@@ -11052,26 +12936,41 @@
           durationFrames,
           stackable: !!row.stackable,
           maxStacks: Math.max(1, Number(row.stackMax) || 1),
-          oncePerAction: /同じ対象に一度|一度だけ/.test(text),
-          sourceEventFallbackMode: /命中(?:時|するたび|する度|すると)|衝突時/.test(triggerText)
-            ? 'actionHitTimed'
-            : 'actionTimed',
+          oncePerAction: /同じ対象に一度|一度だけ/.test(text)
+            || (usesDpsSourceEffectOccurrence(row) && row.triggerType === '固有状態付与時'),
+          sourceEventFallbackMode: getDpsSourceEventFallbackMode(
+            row,
+            hitTriggered
+              ? 'actionHitTimed'
+              : 'actionTimed'
+          ),
           modifiers: {},
           baselineModifiersByAction: {}
         };
+        effect.externalActionRequired ||= !!row.externalActionRequired;
+        effect.externalSourceId ||= row.ownerId || '';
+        effect.externalTriggerType ||= normalizeDpsFormationActionTriggerType(row.triggerType, row.category);
+        if (effect.externalActionRequired) effect.mode = 'externalTimed';
         Object.entries(modifiers).forEach(([modifierKey, value]) => {
           const current = Number(effect.modifiers[modifierKey]) || 0;
           effect.modifiers[modifierKey] = Math.abs(value) > Math.abs(current) ? value : current;
-          if (row.enabled) {
+          if (row.enabled && !row.externalActionRequired) {
             const baseline = effect.baselineModifiersByAction[actionKey] || (effect.baselineModifiersByAction[actionKey] = {});
             baseline[modifierKey] = baselineModifiers[modifierKey] ?? value;
           }
         });
-        effect.triggerActionKeys.push(...triggerActionKeys);
+        if (timingSourceEffectId) {
+          effect.triggerSourceId = timingSourceEffectId;
+          effect.timingSourceEffectId = timingSourceEffectId;
+          effect.triggerActionKeys = [];
+        } else if (!effect.timingSourceEffectId) {
+          effect.triggerActionKeys.push(...triggerActionKeys);
+        }
         effect.durationFrames = Math.max(effect.durationFrames, durationFrames);
         effect.maxStacks = Math.max(effect.maxStacks, Math.max(1, Number(row.stackMax) || 1));
         effect.stackable ||= !!row.stackable;
-        effect.oncePerAction ||= /同じ対象に一度|一度だけ/.test(text);
+        effect.oncePerAction ||= /同じ対象に一度|一度だけ/.test(text)
+          || (usesDpsSourceEffectOccurrence(row) && row.triggerType === '固有状態付与時');
         damageBuffGroups.set(key, effect);
       });
     });
@@ -11095,12 +12994,28 @@
     const spRows = new Map();
     actionEntries.forEach(([actionKey, actionAudit]) => {
       normalizeArray(actionAudit?.rows).forEach(row => {
+        if (isSupersededRow(row)) return;
+        if (row.unsupportedRuntimeTrigger) return;
         const hasSp = ['initialSp', 'initialSpP', 'spRegen', 'spRegenP', 'spRecovery', 'spRecoveryP']
           .some(key => Number(row?.bonuses?.[key]));
-        if (!hasSp || row.manualDisabled) return;
+        if (!hasSp || row.sourceDisabled) return;
         const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
           .filter(Boolean).join(' ');
-        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|カード選択時|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|命中時|衝突時|攻撃時|強化攻撃|普通攻撃_強化|低学年|高学年/.test(runtimeText);
+        if (isDpsUnsupportedRuntimeTrigger(row, runtimeText)) return;
+        const structuredTriggerText = [
+          row.triggerType,
+          row.triggerValue,
+          row.triggerSourceId,
+          row.conditionType,
+          row.conditionValue,
+          row.condition,
+          row.targetSkill,
+          row.targetSkillName
+        ].filter(value => value !== '' && value != null).join(' ');
+        const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|カード選択時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|命中時|衝突時|攻撃時/.test(
+          getDpsRuntimeTriggerText(row, structuredTriggerText || runtimeText)
+        );
+        if (row.singleManualDisabled && !hasDeterministicRuntimeTrigger) return;
         if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
         const key = row.key || [row.sourceId, row.effectId, row.label].filter(Boolean).join(':');
         const item = spRows.get(key) || {
@@ -11123,7 +13038,7 @@
       acceptedSpRows.push(row);
     });
 
-    const spRegenEffects = acceptedSpRows.filter(row => (
+    const spRegenEffects = acceptedSpRows.filter(row => !row.externalActionRequired && (
       Number(row?.bonuses?.spRegen) || Number(row?.bonuses?.spRegenP)
     )).map(row => ({
       id: row.key,
@@ -11133,7 +13048,7 @@
       percent: Number(row.bonuses.spRegenP) || 0
     }));
 
-    const initialSpEffects = acceptedSpRows.filter(row => (
+    const initialSpEffects = acceptedSpRows.filter(row => !row.externalActionRequired && (
       Number(row?.bonuses?.initialSp) || Number(row?.bonuses?.initialSpP)
     )).map(row => ({
       id: row.key,
@@ -11149,29 +13064,44 @@
     )).map(row => {
       const text = [row.rawText, row.condition, row.reason, row.label, row.category]
         .filter(Boolean).join(' ');
+      if (isDpsUnsupportedRuntimeTrigger(row, text)) return null;
+      const triggerText = getDpsRuntimeTriggerText(row, text);
       const interval = getDpsStructuredIntervalSeconds(row, text);
       const count = getDpsStructuredTriggerCount(row, text);
-      const categoryActions = getDpsStructuredTriggerActionKeys(row, text);
+      const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
+      const categoryActions = getDpsStructuredTriggerActionKeys(
+        row,
+        row.triggerType ? '' : text
+      );
       let triggerActionKeys = unique(categoryActions);
       if (!triggerActionKeys.length) {
         const enabled = unique(row.enabledActions || []);
         if (enabled.length && enabled.length < 4) triggerActionKeys = enabled;
       }
       let mode = 'manualInitial';
-      if (/戦闘開始時|ウェーブ開始時/.test(text)) mode = 'initial';
+      if (row.externalActionRequired) mode = 'external';
+      else if (/戦闘開始時|ウェーブ開始時/.test(triggerText)) mode = 'initial';
       else if (interval > 0 && !triggerActionKeys.length) mode = 'periodic';
       else if (interval > 0 && triggerActionKeys.length) mode = 'actionPeriodic';
-      else if (/カード選択時/.test(text)) mode = 'manualInitial';
+      else if (/カード選択時/.test(triggerText)) mode = 'manualInitial';
       else if (usesDpsSourceEffectOccurrence(row)) mode = 'sourceEvent';
-      else if (triggerActionKeys.length && /命中|衝突|攻撃時/.test(text)) mode = 'actionHit';
-      else if (triggerActionKeys.length && /使用時|発動時|使用後|終了時/.test(text)) mode = 'action';
+      else if (triggerActionKeys.length && /命中|衝突|攻撃時/.test(triggerText)) mode = 'actionHit';
+      else if (triggerActionKeys.length && /使用時|発動時|使用後|終了時/.test(triggerText)) mode = 'action';
       else if (triggerActionKeys.length) mode = row.cardId ? 'action' : 'actionHit';
+      if (timingSourceEffectId) {
+        mode = 'sourceEvent';
+        triggerActionKeys = [];
+      }
+      if (hasDpsExplicitTrigger(row) && mode === 'manualInitial' && !/カード選択時/.test(triggerText)) {
+        return null;
+      }
       const countAppliesToSelectedActions = !(triggerActionKeys.length === 1 && triggerActionKeys[0] === 'enhancedAttack');
       return {
         id: row.key,
         sourceId: row.sourceId || row.cardId || '',
         effectId: row.effectId || '',
-        triggerSourceId: row.triggerSourceId || '',
+        triggerSourceId: timingSourceEffectId || row.triggerSourceId || '',
+        timingSourceEffectId,
         label: row.label || 'SP回復効果',
         mode,
         fixed: Number(row.bonuses.spRecovery) || 0,
@@ -11182,13 +13112,18 @@
         triggerActionKeys,
         triggerPhase: getDpsStructuredTriggerPhase(row, text),
         oncePerAction: /同じ対象に一度|一度だけ/.test(text) || (!row.cardId && mode === 'actionHit'),
-        sourceEventFallbackMode: /命中|衝突|攻撃時/.test(text) ? 'actionHit' : 'action',
+        sourceEventFallbackMode: getDpsSourceEventFallbackMode(
+          row,
+          /命中|衝突|攻撃時/.test(triggerText) ? 'actionHit' : 'action'
+        ),
+        externalSourceId: row.ownerId || '',
+        externalTriggerType: normalizeDpsFormationActionTriggerType(row.triggerType, row.category),
         randomBound: /ランダム最低値/.test(text) ? 'min' : (/ランダム最大値/.test(text) ? 'max' : ''),
         randomGroupKey: /ランダム(?:最低値|最大値)/.test(text)
           ? [row.sourceId || row.cardId || row.source || '', interval || 0, 'spRecovery'].join(':')
           : ''
       };
-    });
+    }).filter(Boolean);
 
     const randomSpGroups = new Map();
     const spRecoveryEffects = [];
@@ -11218,7 +13153,71 @@
     });
 
     const structuredRuntime = createDpsStructuredRuntimeEvents(options);
-    return {
+    const cardStatusRuntimeEvents = createDpsCardStatusRuntimeEvents(options);
+    const cooldownEffects = [];
+    if (options.apostle && options.target && options.context) {
+      collectFdcApostleSkillSources(
+        options.apostle,
+        options.skillLevels || {},
+        options.target,
+        options.context
+      ).forEach(({ skill, sourceKey, sourceLabel }) => {
+        const category = getFdcApostleSkillCategory(skill, sourceLabel);
+        normalizeFdcArray(skill?.effects).forEach(effect => {
+          const valueKind = String(effect?.valueKind || '');
+          if (!/クールタイム(?:減少|増加|変更|設定)/.test(valueKind)) return;
+          const targetText = [
+            valueKind,
+            effect?.targetSkill,
+            effect?.effectTarget,
+            effect?.condition,
+            skill?.description
+          ].filter(Boolean).join(' ');
+          // 現時点のシートで無指定の「クールタイム」は高学年を指す。
+          // targetActionKey をここで確定させ、シミュレータ本体は名称に依存させない。
+          const targetActionKey = String(effect?.cooldownTargetActionKey || '')
+            || (/低学年/.test(targetText) && !/高学年/.test(targetText) ? 'lowSkill' : 'highSkill');
+          if (targetActionKey !== 'highSkill') return;
+          const skillLevel = getFdcSkillLevelForEffect(options.skillLevels || {}, effect, category);
+          const amountSeconds = Math.max(0, Number(getFdcEffectLevelInfo(effect, skillLevel)?.value) || 0);
+          if (!(amountSeconds > 0)) return;
+          const triggerText = [
+            getDpsStructuredTriggerText(effect),
+            effect?.condition,
+            skill?.description,
+            category
+          ].filter(Boolean).join(' ');
+          const runtimeTriggerText = getDpsRuntimeTriggerText(effect, triggerText);
+          const inferredTriggerActionKeys = /基本攻撃/.test(runtimeTriggerText) && !/強化攻撃/.test(runtimeTriggerText)
+            ? ['basicAttack']
+            : getDpsStructuredTriggerActionKeys(effect, triggerText);
+          const timingSourceEffectId = getDpsDirectTimingSourceEffectId(effect, options);
+          const triggerActionKeys = timingSourceEffectId ? [] : inferredTriggerActionKeys;
+          if (!triggerActionKeys.length && !timingSourceEffectId) return;
+          const sourceEvent = usesDpsSourceEffectOccurrence(effect);
+          const hitTrigger = /命中時|命中するたび|命中する度|命中すると|衝突時/.test(runtimeTriggerText);
+          cooldownEffects.push({
+            id: effect.effectId || `${sourceKey}:cooldown`,
+            sourceId: sourceKey,
+            label: [sourceLabel, valueKind].filter(Boolean).join(' / '),
+            mode: timingSourceEffectId ? 'sourceEvent' : (sourceEvent ? 'sourceEvent' : (hitTrigger ? 'actionHit' : 'action')),
+            triggerSourceId: timingSourceEffectId || effect.triggerSourceId || '',
+            timingSourceEffectId,
+            triggerActionKeys: unique(triggerActionKeys),
+            triggerPhase: getDpsStructuredTriggerPhase(effect, triggerText),
+            triggerEveryCount: getDpsStructuredTriggerCount(effect, triggerText),
+            oncePerAction: /同じ対象に一度|一度だけ|1回だけ/.test(triggerText),
+            targetActionKey,
+            operation: ['add', 'subtract', 'set', 'multiply'].includes(effect?.cooldownOperation)
+              ? effect.cooldownOperation
+              : (/増加/.test(valueKind) ? 'add' : (/設定|変更/.test(valueKind) ? 'set' : 'subtract')),
+            amountFrames: amountSeconds * 60,
+            sourceEventFallbackMode: getDpsSourceEventFallbackMode(effect, hitTrigger ? 'actionHit' : 'action')
+          });
+        });
+      });
+    }
+    const runtimeEffects = {
       attackSpeedEffects: actionSpeedEffects,
       periodicAttackSpeedStacks: [],
       baseSpRegen: Number.isFinite(Number(options.baseSpRegen)) ? Number(options.baseSpRegen) : null,
@@ -11228,11 +13227,60 @@
       damageBuffEffects,
       initialTargetStatuses,
       statusReactions: normalizeArray(options.statusReactions),
+      statusDamageWeaknessP: Math.max(0, Number(options.statusDamageWeaknessP) || 0),
       spRegenEffects,
       spRecoveryEffects: [...initialSpEffects, ...spRecoveryEffects],
-      eventEffects: structuredRuntime.eventEffects,
+      cooldownEffects,
+      eventEffects: [...structuredRuntime.eventEffects, ...cardStatusRuntimeEvents],
       resources: structuredRuntime.resources
     };
+    runtimeEffects.warnings = createDpsRuntimeDuplicateWarnings(runtimeEffects);
+    return runtimeEffects;
+  }
+
+  function createDpsRuntimeDuplicateWarnings(runtimeEffects = {}) {
+    const categories = [
+      'attackSpeedEffects',
+      'spRegenEffects',
+      'spRecoveryEffects',
+      'cooldownEffects',
+      'damageBuffEffects',
+      'eventEffects'
+    ];
+    const warnings = [];
+    categories.forEach(category => {
+      const seen = new Map();
+      normalizeFdcArray(runtimeEffects[category]).forEach((effect, index) => {
+        const id = String(effect?.id || effect?.effectId || '').trim();
+        if (!id) return;
+        const sourceId = String(effect?.sourceId || '').trim();
+        const identity = `${category}:${sourceId}:${id}`;
+        const fingerprint = JSON.stringify({
+          mode: effect?.mode || '',
+          triggerType: effect?.triggerType || '',
+          triggerValue: effect?.triggerValue ?? '',
+          triggerSourceId: effect?.triggerSourceId || '',
+          triggerActionKeys: normalizeFdcArray(effect?.triggerActionKeys).map(String).sort(),
+          targetActionKey: effect?.targetActionKey || '',
+          intervalFrames: Number(effect?.intervalFrames) || 0,
+          durationFrames: Number(effect?.durationFrames) || 0,
+          fixed: Number(effect?.fixed) || 0,
+          percent: Number(effect?.percent) || 0,
+          hasteP: Number(effect?.hasteP) || 0,
+          modifiers: Object.fromEntries(Object.entries(effect?.modifiers || {}).sort(([a], [b]) => a.localeCompare(b))),
+          steps: normalizeFdcArray(effect?.steps)
+        });
+        const previous = seen.get(identity);
+        if (!previous) {
+          seen.set(identity, { fingerprint, index });
+          return;
+        }
+        warnings.push(previous.fingerprint === fingerprint
+          ? `DPSランタイム効果の重複: ${category} / ${sourceId || '(発生元なし)'} / ${id}（${previous.index + 1}件目と${index + 1}件目）`
+          : `DPSランタイム効果IDの内容衝突: ${category} / ${sourceId || '(発生元なし)'} / ${id}`);
+      });
+    });
+    return warnings;
   }
 
   function createComparableDamageResult(result = {}) {
@@ -11242,6 +13290,7 @@
       expected: Number(result.expected) || 0,
       hp: Number(result.hp) || 0,
       critRate: Number(result.critRate) || 0,
+      guaranteedCrit: !!result.guaranteedCrit,
       defRate: Number(result.defRate) || 0,
       critMult: Number(result.detail?.stats?.critMult) || 0,
       runtimeBase: {
@@ -11255,6 +13304,9 @@
         defenseP: Number(result.detail?.mods?.defenseP) || 0,
         rawAddRate: Number(result.detail?.mods?.rawAddRate) || Number(result.detail?.mods?.addRate) || 1,
         addRate: Number(result.detail?.mods?.addRate) || 1,
+        baseActionMultiplierP: Number(result.detail?.mods?.baseActionMultiplierP) || Number(result.detail?.mods?.skillP) || 100,
+        actionMultiplierBonusP: Number(result.detail?.mods?.actionMultiplierBonusP) || 0,
+        finalActionMultiplierP: Number(result.detail?.mods?.finalActionMultiplierP) || Number(result.detail?.mods?.skillP) || 100,
         specialP: Number(result.detail?.mods?.specialP) || 100,
         otherP: Number(result.detail?.mods?.otherP) || 100,
         baseCrit: Number(result.detail?.stats?.baseCrit) || 0,
@@ -11272,6 +13324,7 @@
         critResAddP: Number(result.detail?.mods?.critResAddP) || 0,
         critDmgResAddP: Number(result.detail?.mods?.critDmgResAddP) || 0,
         critRate: Number(result.critRate) || 0,
+        guaranteedCrit: !!result.guaranteedCrit,
         critMult: Number(result.detail?.stats?.critMult) || 1,
         damageReference: result.detail?.stats?.damageReference || ''
       }
@@ -11287,8 +13340,16 @@
     buildSelfSkillEffectOptions(context.target, context)
       .filter(option => isBonusMapRelevantToPerspective(option.bonuses))
       .forEach(option => {
-        const enabled = isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides);
+        const sourceEnabled = isFdcSkillEffectSourceEnabled(option);
+        const enabled = sourceEnabled && isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides);
         const manualState = getSelfSkillEffectManualState(option);
+        const externalActionRequired = isDpsFormationExternalActionRequired(option);
+        const unsupportedRuntimeTrigger = isDpsUnsupportedRuntimeTrigger(option, [
+          option.condition,
+          option.valueKind,
+          option.label,
+          option.category
+        ].filter(Boolean).join(' '));
         const keyParts = String(option.key || '').split(':');
         keyParts.pop();
         const bonuses = getRelevantBonusMap(getSkillEffectOptionBonuses(option));
@@ -11296,10 +13357,17 @@
           key: `skill:${keyParts.join(':')}`,
           effectId: option.effectId || '',
           sourceId: option.sourceId || '',
+          ownerId: option.ownerId || '',
+          ownerName: option.ownerName || '',
+          sourceGroup: option.group || '',
           label: option.label,
           source: option.group === 'formation' ? '編成スキル' : option.category || '本人スキル',
           category: option.category || '',
+          damageModifierCategory: option.damageModifierCategory || '',
+          perspective: option.perspective || getFdcEffectPerspective(option, bonuses),
           effectType: option.effectType || '',
+          targetSkill: option.targetSkill || '',
+          targetSkillName: option.targetSkillName || '',
           condition: option.condition || '',
           processGroupId: option.processGroupId || '',
           processOrder: Number(option.processOrder) || 0,
@@ -11319,12 +13387,120 @@
           bonuses,
           runtimeBonuses: getRelevantBonusMap(option.bonuses || {}),
           enabled,
+          sourceDisabled: !sourceEnabled,
+          singleManualDisabled: manualState === false,
+          runtimeManaged: unsupportedRuntimeTrigger
+            || externalActionRequired
+            || (isDpsRuntimeManagedSkillEffect(option) && isDpsAutomaticRuntimeEffect(option)),
+          unsupportedRuntimeTrigger,
+          externalActionRequired,
           manualDisabled: manualState === false,
-          reason: enabled
-            ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
-            : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')
+          reason: unsupportedRuntimeTrigger
+            ? `DPS未対応の発動条件${option.triggerType ? `: ${option.triggerType}` : ''}`
+            : externalActionRequired
+            ? '編成使徒本人の行動タイムライン未計上'
+            : enabled
+              ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
+              : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')
         });
       });
+
+    // 愛用品・アサイドによるスキル書き換えは、通常のバフ行とは別に
+    // 行動別適用効果へ明示する。複数の倍率行は1つの表示にまとめる。
+    const currentActionKeys = getDpsTargetActionKeys(context.actionCategory || '');
+    const rewriteRows = new Map();
+    buildFdcApostleSkillOptions(context.target, context)
+      .filter(option => option.skillRewrite)
+      .filter(option => getDpsActionKeysForSkillOption(option)
+        .some(actionKey => currentActionKeys.includes(actionKey)))
+      .forEach(option => {
+        const actionKey = getDpsActionKeysForSkillOption(option)[0] || '';
+        if (!actionKey) return;
+        const key = `skill-rewrite:${option.sourceKey || option.effectId || option.key}:${actionKey}`;
+        if (rewriteRows.has(key)) return;
+        rewriteRows.set(key, {
+          key,
+          effectId: option.effectId || '',
+          sourceId: option.sourceKey || '',
+          label: `${option.sourceLabel || '愛用品'} / ${option.skillRewriteLabel || '対象スキルを書き換え'}`,
+          source: option.sourceLabel || '愛用品',
+          category: option.sourceCategory || '',
+          perspective: 'attack',
+          value: '元スキルを置換',
+          bonuses: {},
+          runtimeBonuses: {},
+          enabled: true,
+          sourceDisabled: false,
+          singleManualDisabled: false,
+          runtimeManaged: false,
+          manualDisabled: false,
+          skillRewrite: true,
+          reason: '愛用品・アサイド装備時に対象スキルへ適用'
+        });
+      });
+    rewriteRows.forEach(add);
+
+    const guaranteedCritRows = new Map();
+    buildFdcApostleSkillOptions(context.target, context)
+      .filter(option => option.guaranteedCrit)
+      .filter(option => getDpsActionKeysForSkillOption(option)
+        .some(actionKey => currentActionKeys.includes(actionKey)))
+      .forEach(option => {
+        const actionKey = getDpsActionKeysForSkillOption(option)[0] || '';
+        if (!actionKey) return;
+        const key = `skill-guaranteed-crit:${option.sourceKey || option.effectId || option.key}:${actionKey}`;
+        if (guaranteedCritRows.has(key)) return;
+        guaranteedCritRows.set(key, {
+          key,
+          effectId: option.effectId || '',
+          sourceId: option.sourceKey || '',
+          label: `${option.sourceLabel || 'スキル'} / 確定会心`,
+          source: option.sourceLabel || 'スキル',
+          category: option.sourceCategory || '',
+          perspective: 'attack',
+          value: '会心率100%',
+          bonuses: {},
+          runtimeBonuses: {},
+          enabled: true,
+          sourceDisabled: false,
+          singleManualDisabled: false,
+          runtimeManaged: false,
+          manualDisabled: false,
+          guaranteedCrit: true,
+          reason: '対象ダメージを確定会心として計算'
+        });
+      });
+    guaranteedCritRows.forEach(add);
+
+    // ダメージ倍率を持たない「追加発射対象数」も、行動別適用効果で
+    // 何発として評価しているか確認できるようにする。
+    const targetApostle = getApostleSkillData(context.target);
+    if (targetApostle) {
+      const targetLevels = getFdcEffectiveSkillLevels(context.target);
+      const targetSources = collectFdcApostleSkillSources(targetApostle, targetLevels, context.target, context);
+      getFdcActionRepeatInfo(targetSources, targetLevels, context.actionCategory)
+        .labels
+        .filter(label => /追加発射/.test(label))
+        .forEach((label, index) => add({
+          key: `skill-repeat:${context.actionCategory || 'none'}:${index}:${label}`,
+          sourceId: 'aside',
+          label,
+          source: 'アサイド',
+          category: context.actionCategory || '',
+          perspective: 'attack',
+          value: '発射数へ適用',
+          bonuses: {},
+          runtimeBonuses: {},
+          enabled: true,
+          sourceDisabled: false,
+          singleManualDisabled: false,
+          runtimeManaged: false,
+          manualDisabled: false,
+          reason: 'アサイド効果として対象行動の発射数へ適用'
+        }));
+    }
+
+    collectDpsSkillChangeAuditRows(context).forEach(add);
 
     const effectRows = [
       ...(context.effects?.applied || []),
@@ -11333,8 +13509,9 @@
     ].filter(row => !hasAnySourceTag(row, ['スキル/アサイド']))
       .filter(isEffectRelevantToPerspective);
     effectRows.forEach(row => {
+      const unsupportedRuntimeTrigger = isDpsUnsupportedEffectRow(row);
       const sourceEnabled = isEffectSourceEnabled(row);
-      const toggleEnabled = !row.canToggle || isConditionalEffectEnabled(row.conditionKey, row.defaultEnabled);
+      const toggleEnabled = !row.canToggle || isConditionalEffectRowEnabled(row);
       const enabled = sourceEnabled && toggleEnabled
         && (context.effects.applied.includes(row) || context.effects.globalStats.includes(row) || row.canToggle);
       const key = row.conditionKey
@@ -11350,6 +13527,7 @@
         source: row.source || '補正',
         category: row.cardId ? 'カード' : row.source || '',
         effectType: row.effectType || '',
+        perspective: row.perspective || getFdcEffectPerspective(row, bonuses),
         condition: row.condition || row.triggerCondition || row.label || row.reason || '',
         processGroupId: row.processGroupId || '',
         processOrder: Number(row.processOrder) || 0,
@@ -11371,8 +13549,14 @@
         value: formatBonusMap(bonuses),
         bonuses,
         enabled,
+        sourceDisabled: !sourceEnabled,
+        singleManualDisabled: row.canToggle && !toggleEnabled,
+        runtimeManaged: unsupportedRuntimeTrigger || isDpsAutomaticRuntimeEffect(row),
+        unsupportedRuntimeTrigger,
         manualDisabled: !sourceEnabled || (row.canToggle && !toggleEnabled),
-        reason: enabled
+        reason: unsupportedRuntimeTrigger
+          ? `DPS未対応の発動条件${row.triggerType ? `: ${row.triggerType}` : ''}`
+          : enabled
           ? [row.canToggle ? 'ON' : '自動適用', row.reason].filter(Boolean).join(' / ')
           : [!sourceEnabled ? '補正カテゴリOFF' : 'OFF', row.reason].filter(Boolean).join(' / ')
       });
@@ -11383,11 +13567,135 @@
     };
   }
 
+  function getDpsActionCategoryForKey(actionKey = '') {
+    return ({
+      basicAttack: '基本攻撃',
+      enhancedAttack: '強化攻撃',
+      lowSkill: '低学年スキル',
+      highSkill: '高学年スキル'
+    })[actionKey] || '';
+  }
+
+  function getDpsTargetActionKeys(value = '') {
+    const text = String(value || '').replace(/[\s　・_]/g, '');
+    const keys = [];
+    if (/基本攻撃|(?:普通|通常)攻撃基本/.test(text)) keys.push('basicAttack');
+    if (/強化攻撃|(?:普通|通常)攻撃強化/.test(text)) keys.push('enhancedAttack');
+    if (/低学年/.test(text)) keys.push('lowSkill');
+    if (/高学年/.test(text)) keys.push('highSkill');
+    if (!keys.some(key => key === 'basicAttack' || key === 'enhancedAttack')
+      && /普通攻撃|通常攻撃/.test(text)) {
+      keys.push('basicAttack', 'enhancedAttack');
+    }
+    return unique(keys);
+  }
+
+  function getDpsEffectTargetActionKeys(effect = {}) {
+    return unique([
+      effect.targetSkill,
+      effect.targetSkillName,
+      effect.attackCategory,
+      effect.conditionValue
+    ]
+      .filter(Boolean)
+      .flatMap(value => getDpsTargetActionKeys(value)));
+  }
+
+  function isFdcSkillChangeAuditEffect(effect = {}) {
+    const valueKind = String(effect.valueKind || '');
+    const effectType = String(effect.effectType || '');
+    return effectType === 'スキル変更'
+      || /追加(?:物理|魔法|固定|状態異常)?ダメージ|追加攻撃/.test(valueKind);
+  }
+
+  function isDpsStructuredAdditionalDamageEffect(effect = {}) {
+    return isFdcApostleAttackMultiplierEffect(effect)
+      && (/^(?:n秒ごと|n回ごと|普通攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|生成物命中時|生成物帰還時)$/.test(String(effect.triggerType || ''))
+        || isDpsEffectSourceTrigger(effect)
+        || /リソース(?:スタック|未所持)/.test(String(effect.conditionType || '')));
+  }
+
+  function getDpsSkillChangeSupport(effect = {}, runtimeManaged = false) {
+    if (runtimeManaged) return { code: 'runtime', label: '条件成立時にDPS自動反映' };
+    if (isFdcApostleAttackMultiplierEffect(effect)) return { code: 'damage', label: '行動ダメージへ反映' };
+    const valueKind = String(effect.valueKind || '');
+    if (/召喚回数/.test(valueKind)) return { code: 'damage', label: '行動回数へ反映' };
+    if (/乱数最大固定/.test(valueKind)) return { code: 'damage', label: 'スキル倍率へ反映' };
+    if (/クールタイム/.test(valueKind)) return { code: 'runtime', label: '高学年CTへ反映' };
+    return { code: 'display', label: '設定有効（単体DPS対象外）' };
+  }
+
+  function collectDpsSkillChangeAuditRows(context) {
+    const target = context?.target;
+    const apostle = getApostleSkillData(target);
+    if (!apostle) return [];
+    const levels = getFdcEffectiveSkillLevels(target);
+    const currentActionKey = getDpsTargetActionKeys(context.actionCategory || '')[0] || '';
+    const rows = [];
+    collectFdcApostleSkillSources(apostle, levels, target, context).forEach(({ skill, sourceKey, sourceLabel }) => {
+      if (!/^aside:|^favorite:/.test(String(sourceKey || ''))) return;
+      const category = getFdcApostleSkillCategory(skill, sourceLabel);
+      normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
+        if (!isFdcSkillChangeAuditEffect(effect)) return;
+        const skillLevel = getFdcSkillLevelForEffect(levels, effect, category);
+        const targetText = [effect.targetSkill, effect.triggerSourceId].filter(Boolean).join(' ');
+        const targetActionKeys = getDpsTargetActionKeys(targetText);
+        const actionScoped = targetActionKeys.length > 0;
+        const enabled = !actionScoped || targetActionKeys.includes(currentActionKey);
+        const runtimeManaged = isDpsStructuredAdditionalDamageEffect(effect);
+        const support = getDpsSkillChangeSupport(effect, runtimeManaged);
+        const effectId = effect.effectId || `${sourceKey}:${effectIndex}`;
+        const runtimeEffectId = runtimeManaged
+          ? `${sourceKey}:${effect.processGroupId || effect.effectId || effectIndex}`
+          : '';
+        const targetLabel = targetActionKeys.map(getDpsActionCategoryForKey).join('・') || effect.targetSkill || '全行動';
+        rows.push({
+          key: `skill-change:${sourceKey}:${effectId}`,
+          effectId,
+          runtimeEffectId,
+          sourceId: sourceKey,
+          label: `${sourceLabel} / ${effect.valueKind || effect.effectType || 'スキル変更'}`,
+          source: sourceLabel,
+          category,
+          effectType: effect.effectType || '',
+          valueClass: effect.valueClass || '',
+          condition: getFdcStructuredEffectConditionText(effect) || effect.condition || '',
+          processGroupId: effect.processGroupId || '',
+          processOrder: Number(effect.processOrder) || 0,
+          triggerType: effect.triggerType || '',
+          triggerValue: effect.triggerValue ?? '',
+          triggerSourceId: effect.triggerSourceId || '',
+          conditionType: effect.conditionType || '',
+          conditionValue: effect.conditionValue ?? '',
+          effectTarget: effect.effectTarget || '',
+          actionScoped,
+          targetActionKeys,
+          value: [formatFdcSkillEffectValue(effect, skillLevel), support.label].filter(Boolean).join(' / '),
+          bonuses: {},
+          enabled,
+          sourceDisabled: false,
+          singleManualDisabled: false,
+          runtimeManaged,
+          manualDisabled: false,
+          auditKind: support.code,
+          reason: enabled
+            ? `${targetLabel}に適用 / ${support.label}`
+            : `${targetLabel}対象 / 現在行動には適用しない`
+        });
+      });
+    });
+    return rows;
+  }
+
   function getDpsActionKeyForSkillOption(option = {}) {
     // The source skill determines which timeline action owns the damage.
     // attackCategory is still used by calculateDamage to apply action-scoped
     // effects, but it must not move a summoned/basic-classified hit out of the
     // low/high skill that created it (Momo's clones are the representative case).
+    const detachedTargetKeys = /^aside:|^favorite:/.test(String(option.sourceKey || ''))
+      ? getDpsTargetActionKeys(option.targetSkill || '')
+      : [];
+    if (detachedTargetKeys.length) return detachedTargetKeys[0];
     const sourceCategories = getFdcActionCategories(option.sourceCategory || '');
     if (sourceCategories.includes('基本攻撃')) return 'basicAttack';
     if (sourceCategories.includes('強化攻撃')) return 'enhancedAttack';
@@ -11401,15 +13709,85 @@
     return '';
   }
 
+  function getDpsActionKeysForSkillOption(option = {}) {
+    const detachedTargetKeys = /^aside:|^favorite:/.test(String(option.sourceKey || ''))
+      ? getDpsTargetActionKeys(option.targetSkill || '')
+      : [];
+    return detachedTargetKeys.length
+      ? detachedTargetKeys
+      : [getDpsActionKeyForSkillOption(option)].filter(Boolean);
+  }
+
+  function isFdcSupplementalDamageOption(option = {}) {
+    if (!/^aside:|^favorite:/.test(String(option.sourceKey || ''))) return false;
+    if (isFdcSkillRewriteOption(option)) return false;
+    if (!/攻撃/.test(String(option.effectType || ''))) return false;
+    if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return false;
+    return /追加/.test(String(option.kind || option.valueKind || ''))
+      || /^favorite:/.test(String(option.sourceKey || ''))
+      || /^(?:n秒ごと|n回ごと|普通攻撃命中時|生成物命中時|生成物帰還時)$/.test(String(option.triggerType || ''));
+  }
+
+  function isFdcSkillRewriteOption(option = {}) {
+    const sourceKey = String(option.sourceKey || '');
+    if (!/^aside:|^favorite:/.test(sourceKey)) return false;
+    // パッシブ対象は通常の行動を置き換えない。周期ダメージや固有状態などの
+    // 追加効果として扱うため、スキル置換と判定すると action key がなくなり
+    // 追加ダメージ側からも除外されてしまう。
+    if (!getDpsTargetActionKeys(option.targetSkill || '').length) return false;
+    if (option.skillRewrite === true || option.dpsExclusiveProbabilityGroup) return true;
+    if (!/攻撃/.test(String(option.effectType || ''))) return false;
+    if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return false;
+    // 「○○状態の敵が存在」は追加打撃ではなく、通常攻撃を強化攻撃へ
+    // 切り替える条件。DPSシミュレーター側で状態存在を評価する。
+    if (/状態の敵が存在$/.test(String(option.triggerType || ''))) return true;
+    // 発動条件・周期・確率があるものは、書き換えではなく追加攻撃として扱う。
+    return !option.triggerType && !option.conditionType && !option.conditionValue;
+  }
+
+  function isFdcExclusiveProbabilityRewriteEffect(effect = {}, siblingEffects = []) {
+    if (!/^一定確率/.test(String(effect?.triggerType || ''))) return false;
+    if (!/攻撃/.test(String(effect?.effectType || ''))) return false;
+    if (!/ダメージ/.test(String(effect?.valueKind || ''))) return false;
+    const actionKeys = getDpsTargetActionKeys(effect?.targetSkill || '');
+    if (!actionKeys.length || !(Number(effect?.triggerValue) > 0)) return false;
+    const candidates = normalizeFdcArray(siblingEffects).filter(candidate => (
+      /^一定確率/.test(String(candidate?.triggerType || ''))
+      && /攻撃/.test(String(candidate?.effectType || ''))
+      && /ダメージ/.test(String(candidate?.valueKind || ''))
+      && getDpsTargetActionKeys(candidate?.targetSkill || '').some(key => actionKeys.includes(key))
+      && Number(candidate?.triggerValue) > 0
+    ));
+    const processGroupCounts = new Map();
+    candidates.forEach(candidate => {
+      const processGroupId = String(candidate?.processGroupId || '').trim();
+      if (!processGroupId) return;
+      processGroupCounts.set(processGroupId, (processGroupCounts.get(processGroupId) || 0) + 1);
+    });
+    if ([...processGroupCounts.values()].some(count => count > 1)) return false;
+    return candidates.length > 1
+      && Math.abs(candidates.reduce((sum, candidate) => sum + Number(candidate.triggerValue), 0) - 100) < 0.0001;
+  }
+
   function getDpsSkillOptionBranch(option = {}) {
-    return (String(option.kind || '').match(/^\[([^\]]+)\]/) || [])[1] || '';
+    const explicit = (String(option.kind || '').match(/^\[([^\]]+)\]/) || [])[1] || '';
+    if (explicit) return explicit;
+    // 固有状態中にだけ有効な本体スキル効果は、skillmotion の状態名分岐へ
+    // 対応付ける。状態IDそのものはUIへ出さず、文面の「○○発動中」を使う。
+    if (String(option.conditionType || '') !== '固有状態中') return '';
+    const label = String(option.condition || '').trim()
+      .replace(/(?:の)?(?:持続時間)?(?:発動|状態)?中$/, '')
+      .trim();
+    return label || '';
   }
 
   window.TRICKCAL_DAMAGE_CALC = Object.freeze({
-    version: 7,
+    version: 9,
     captureCombatScenario,
     createSingleActionSnapshot: createCurrentSingleActionSnapshot,
-    createDpsSnapshot: createDpsPrototypeSnapshot
+    createDpsEvaluationInput,
+    createDpsSnapshot: createDpsPrototypeSnapshot,
+    createFormationEventCandidates: createDpsFormationEventCandidates
   });
 
   function renderUiIcon(name, className = '') {

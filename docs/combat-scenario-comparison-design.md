@@ -1,7 +1,29 @@
 # 戦闘シナリオ・比較機能設計
 
-更新日: 2026-08-08
-状態: Phase 3の一時基準比較に加え、保存済みダメージ計算・ステータス保存スロット・保存編成の比較元接続を試験実装済み。
+更新日: 2026-08-24
+状態: Phase 3の一時基準比較に加え、保存済みダメージ計算・ステータス保存スロット・保存編成の比較元接続を試験実装済み。DPS比較操作が単発ダメージ比較UIまで有効化する責務混在を確認したため、評価器分離を優先して再設計中。
+
+### 2026-08-24 設計決定
+
+比較元と比較範囲は単発ダメージとDPSで共有するが、比較の実行、結果キャッシュ、表示状態は共有しない。
+
+```text
+共有するもの
+  CombatScenario
+  ComparisonDefinition
+  比較元アダプター
+  比較範囲の合成処理
+
+共有しないもの
+  単発ダメージ比較の実行状態と結果
+  DPS比較の実行状態と結果
+  詳細タブ、開閉状態、表示中ラベル
+  各評価器のキャッシュと進行状態
+```
+
+DPSは各行動の1ヒットまたは1回分のダメージを求めるために共通ダメージ計算カーネルを利用する。ただし、単発ダメージ比較コントローラーや単発比較UIを呼び出してはならない。最終統合は「DPSから単発比較を呼ぶ」構造ではなく、同じ比較定義を2つの独立した評価器が読む構造とする。
+
+暫定対応ではDPSの基準保存をDPS画面内だけのローカル状態へ戻し、既存の共有比較セッションを読み書きしない。これにより、DPS基準保存・比較・解除によって単発ダメージ欄へ変更前表示が残る問題を先に解消する。画面間の比較引き継ぎは最終構造の実装まで一時的に停止してよい。
 
 現行UIでは、ステータス保存スロットについて「使徒育成」「編成内容」「カード育成」を個別に比較範囲へ指定できる。保存スロット選択時は使徒育成のみを初期選択し、ダメージ計算内だけの一時編成・一時カードはスロットへ含まれないことを案内する。保存編成は編成のみ、保存済み計算は保存時の計算結果一式を比較元とする。戦闘条件・効果設定を任意の比較元から部分適用する機能は今後の拡張対象。
 
@@ -13,9 +35,9 @@
 - 比較対象レイヤーだけを比較元から差し替える`materializeComparison()`を実装した。
 - ダメージ計算画面から現在状態を取得する`captureCombatScenario()`を実装した。
 - 単発計算スナップショットとDPSスナップショットへ同じ共通シナリオを接続した。
-- `sessionStorage`を使った「現在を基準固定」を実装し、同じタブで単発計算からDPS画面へ基準を引き継げるようにした。
+- `sessionStorage`を使った「現在を基準固定」を実装し、同じタブで単発計算からDPS画面へ基準を引き継げるようにした。ただし現行の直接共有は単発UIまで連動するため、Phase 0で一旦分離する。
 - 単発計算では通常、会心、期待値、会心率、防御係数を基準と比較し、DPSでは基準時の行動プロファイルを同じ計測時間・seed群で再評価する。
-- DPS画面上部と計算設定内の基準操作は、同じ比較セッションへ保存・解除する。
+- DPS画面上部と計算設定内の基準操作は、現行実装では同じ比較セッションへ保存・解除する。この結合は暫定撤去対象であり、最終的には比較定義だけを共有する。
 - ダメージ計算の保存メニューに「比較」を追加し、保存内容を読み込まずに単発比較の基準として使用できるようにした。
 - 新しいダメージ計算保存はスナップショットversion 4としてDPS用行動プロファイルも保持し、同じタブでDPS比較へ引き継げるようにした。
 - version 3以前の保存は単発比較に使用できる。DPS用行動プロファイルを持たないため、DPS比較は利用不可として扱う。
@@ -114,6 +136,77 @@ DPS設定        = 現在状態
 ```
 
 将来、異なる行動同士を意図的に比較する用途が必要になった場合のみ、評価方針として`fixedBaselineAction`を追加する。初期値は常に`followCandidateAction`とする。
+
+### 4.2 状態共有と評価実行の分離
+
+比較機能は次の3層へ分ける。
+
+| 層 | 責務 | DOM参照 | 永続化 |
+|---|---|---:|---:|
+| 比較定義層 | 比較元、比較範囲、基準シナリオ、評価方針を保持 | 禁止 | `sessionStorage`または保存データ |
+| 評価層 | A/Bそれぞれの入力を構築し、単発またはDPSを計算 | 禁止 | 原則なし。結果キャッシュのみ任意 |
+| 表示層 | ボタン、比較中表示、結果表、グラフ、詳細タブを管理 | 可 | UI設定だけ必要に応じて保存 |
+
+上位層から下位層への依存方向は次に限定する。
+
+```text
+UI Controller
+  -> Comparison Definition Service
+  -> Single Action Evaluator または DPS Evaluator
+      -> Action Profile Builder
+          -> Damage Kernel
+```
+
+禁止する依存は次のとおり。
+
+```text
+DPS Evaluator -> Single Action Comparison Controller
+DPS UI        -> Single Action Comparison UI
+Single UI     -> DPS Worker
+Comparison Definition Service -> 任意のrender関数
+Damage Kernel -> sessionStorageまたはDOM
+```
+
+単発ダメージ評価とDPS評価が共通ダメージ式を使うことは必要であり、分離対象ではない。分離するのは、比較セッションの有効化、A/B実行の制御、結果表示である。
+
+### 4.3 比較状態の所有者
+
+操作の所有者を明示する。
+
+| 操作 | 暫定所有者 | 最終所有者 |
+|---|---|---|
+| ダメージ計算の「比較開始」 | 単発比較コントローラー | 共通比較定義サービス |
+| DPSの「基準として保存」 | DPS比較コントローラーのローカル状態 | 共通比較定義サービス |
+| 単発比較結果 | 単発比較コントローラー | 単発評価器と単発UI |
+| DPS比較結果 | DPS比較コントローラー | DPS評価器とDPS UI |
+| 比較解除 | 所有者自身の状態だけ解除 | 比較定義を解除し、各評価器が自分の表示だけ破棄 |
+
+暫定分離中は、DPSの保存・解除が既存の単発比較セッションを変更してはならない。単発比較側もDPSローカル基準を変更しない。
+
+### 4.4 評価器ごとの状態機械
+
+単発とDPSはそれぞれ独立した状態を持つ。
+
+```text
+inactive
+  -> baselineReady
+  -> evaluating
+  -> resultReady
+  -> evaluating   計算入力変更
+  -> inactive     解除
+
+evaluating
+  -> error
+  -> inactive     解除または対象不一致
+
+error
+  -> evaluating   再試行
+  -> inactive     解除
+```
+
+共通比較定義は`inactive / active`だけを持ち、評価中・結果表示中などの状態を持たない。単発が`error`でもDPSは`resultReady`になれる。DPS集計中でも単発結果は表示できる。
+
+対象使徒変更時は各評価器が自分で互換性を判定する。互換性がない場合はその評価器を停止するが、共通比較定義や他評価器の結果を自動削除しない。
 
 ## 5. シナリオのレイヤー
 
@@ -240,6 +333,87 @@ EvaluationPolicy {
 
 `CombatScenario`には表示状態、開閉状態、スクロール位置など、計算結果へ影響しないUI情報を含めない。
 
+### 6.1 最終ComparisonSession形式
+
+比較セッションの正本は比較定義と基準シナリオである。計算済み結果は任意キャッシュとして分離する。
+
+```js
+ComparisonSession {
+  version: 3,
+  mode: 'pinned',
+  sessionId,
+  revision,
+  savedAt,
+
+  definition: {
+    baselineSourceMeta,
+    scopes,
+    actorScope,
+    evaluationPolicy
+  },
+
+  baseline: {
+    scenario
+  },
+
+  caches: {
+    singleAction?: {
+      inputFingerprint,
+      result
+    },
+    dps?: {
+      inputFingerprint,
+      snapshot
+    }
+  }
+}
+```
+
+`baseline.singleActionResult`と`baseline.dpsSnapshot`を正本として混在させる現行version 2形式は移行対象とする。version 3読込時は次を守る。
+
+- `baseline.scenario`だけで比較定義を復元できること。
+- `caches.singleAction`がなくても単発比較を再計算できること。
+- `caches.dps`がなくてもDPS入力を再構築できること。
+- 片方のキャッシュ不正・未対応が、もう片方の評価を停止させないこと。
+- キャッシュの指紋が現行入力と一致しない場合は破棄して再計算すること。
+
+現行version 2からの移行では、`baseline.scenario`を正本として引き継ぐ。`singleActionResult`と`dpsSnapshot`は互換キャッシュとしてのみ読み、比較元データとして再利用しない。
+
+### 6.2 評価入力
+
+評価器には比較セッション全体を直接渡さず、評価に必要な入力へ変換して渡す。
+
+```js
+SingleActionEvaluationInput {
+  scenario,
+  actionSelection,
+  evaluationPolicy
+}
+
+DpsEvaluationInput {
+  scenario,
+  actionProfiles,
+  runtimeEffects,
+  skillOverrides,
+  timingBranches,
+  simulationOptions
+}
+```
+
+`SingleActionResult`を`DpsEvaluationInput`へ渡してはならない。DPSが必要とする行動別ダメージは`ActionProfileBuilder`から取得する。
+
+### 6.3 指紋とキャッシュキー
+
+キャッシュキーは評価器ごとに分ける。
+
+```text
+scenarioFingerprint
+singleActionInputFingerprint = scenario + actionSelection + single evaluation revision
+dpsInputFingerprint          = scenario + actionProfiles + runtimeEffects + simulationOptions + DPS revision
+```
+
+単発結果の変更や表示タブ変更でDPSキャッシュを無効化しない。DPSのseed、試行数、計測時間変更で単発キャッシュを無効化しない。datasheetや共通ダメージ式のrevisionが変化した場合は両方を無効化する。
+
 ## 7. シナリオ生成API
 
 最終的には次の責務へ分離する。
@@ -272,6 +446,65 @@ overlayCharacterGrowth(baseline, source, actorScope);
 ```
 
 この方式により、比較対象外の条件はA/Bで同一になる。
+
+### 7.4 純粋評価API
+
+最終APIは次の責務へ分ける。
+
+```js
+// 共通状態
+captureCombatScenario(uiState)
+materializeComparison(candidateScenario, sourceScenario, scopes)
+
+// 共通計算部品
+buildActionProfiles(scenario)
+evaluateDamageKernel(damageInput)
+
+// 独立した評価器
+evaluateSingleAction(input)
+simulateDps(input)
+
+// 比較オーケストレーション
+evaluateSingleComparison(definition, candidateScenario, actionSelection)
+evaluateDpsComparison(definition, candidateScenario, simulationOptions)
+```
+
+各関数はDOMを書き換えず、イベントを送信せず、比較セッションを保存しない。保存と表示更新は呼び出し元のコントローラーが担当する。
+
+`buildActionProfiles()`は単発ダメージ比較ではない。基本攻撃、強化攻撃、低学年、高学年、追加ダメージ、DoTなどのDPS入力を共通ダメージ式から構築するサービスである。DPSはこの関数を使ってよいが、`getPinnedSingleComparison()`や単発比較結果表示を経由してはならない。
+
+### 7.5 現行APIの分割対象
+
+現行`createDpsSnapshot()`は次の責務を同時に持っている。
+
+- 共通シナリオ取得
+- 行動別ダメージプロファイル生成
+- スキル置換と時系列効果のDPS入力生成
+- 現在選択中の単発ダメージ結果生成
+
+これを次の順に分割する。
+
+```text
+createDpsSnapshot()
+  -> captureCombatScenario()
+  -> buildActionProfiles()
+  -> createDpsEvaluationInput()
+```
+
+`currentDamageResult`はDPS入力から削除する。単発画面で同じ瞬間の結果が必要な場合は、単発評価器が独立して取得する。
+
+### 7.6 副作用禁止
+
+評価中に次の副作用を起こしてはならない。
+
+- 比較セッションの保存・解除
+- 単発またはDPSの比較中表示切り替え
+- 結果詳細タブの自動変更
+- 計算入力の変更
+- `render()`、`renderResult()`、`syncPinnedComparisonUi()`の呼び出し
+- 他評価器のWeb Worker開始・停止
+
+評価失敗は例外または構造化エラーとして呼び出し元へ返す。片方の評価失敗を理由に共通比較定義を削除しない。
 
 ## 8. 比較元アダプター
 
@@ -579,20 +812,122 @@ DPS・発動回数比較      利用不可
 
 保存スロットの共有・競合管理は[複数タブ状態管理設計](multi-tab-state-design.md)に従う。比較機能は保存スロットを読み取り専用で参照し、比較開始時にスロットを上書きしない。
 
+### 17.1 暫定分離中の保存先
+
+最終再接続まで、所有者を次のように固定する。
+
+| 状態 | 保存先 | 他方への影響 |
+|---|---|---|
+| 単発ダメージ比較 | 既存の共通比較用`sessionStorage` | DPSは読まない |
+| DPS基準 | DPS画面内のメモリ | 単発側へ書かない |
+| DPS比較結果 | DPS画面内のメモリ | 単発側へ書かない |
+
+暫定期間中は、ページ更新またはHTML遷移でDPS基準が失われても許容する。比較状態の誤混入を防ぐことを優先する。DPS基準を永続化する場合でも、単発比較と別キーを使用する。
+
+暫定分離で停止する機能は次のとおり。
+
+- ダメージ計算で作成した一時基準をDPS画面へ自動引き継ぎ。
+- DPSで作成した基準をダメージ計算の変更前表示へ自動反映。
+- 片方の比較解除による両方の一括解除。
+
+保存スロット、保存編成、保存計算そのものは削除せず、各評価器から個別に比較元として選択できる状態を維持する。
+
+### 17.2 最終イベント契約
+
+画面間で共有するイベントは比較定義の変更通知だけとする。
+
+```js
+window.dispatchEvent(new CustomEvent('trickcal:comparison-definition-changed', {
+  detail: {
+    sessionId,
+    revision,
+    origin: 'singleAction' | 'dps' | 'navigation' | 'storage',
+    reason: 'created' | 'updated' | 'cleared'
+  }
+}));
+```
+
+イベントに計算結果やDOM操作命令を含めない。受信側は次の処理だけ行う。
+
+1. 古いrevisionなら無視する。
+2. 比較定義を再読込する。
+3. 自分の評価キャッシュを必要に応じて無効化する。
+4. 自分の画面が表示中なら、自分のUIだけ更新する。
+
+イベント受信を契機に他評価器を実行してはならない。特にDPS由来のイベントから`syncPinnedComparisonUi()`や`renderResult()`を直接呼び出さない。
+
+### 17.3 計算入力変更イベント
+
+現行の`trickcal:damage-calculator-rendered`は表示完了イベントであり、DPS再計算の正本にしない。最終的には計算状態の実変更時だけ次を送る。
+
+```js
+window.dispatchEvent(new CustomEvent('trickcal:combat-scenario-changed', {
+  detail: {
+    revision,
+    changedScopes: ['characterState', 'cardState'],
+    origin: 'damageCalculator'
+  }
+}));
+```
+
+DPSはこの通知で入力キャッシュを無効化し、デバウンス後に自分の評価を行う。単なる再描画、詳細タブ切り替え、比較結果表示では通知しない。
+
+### 17.4 HTML遷移時の復元
+
+最終構造では遷移先が共通比較定義を読み、利用可能な評価モードだけを有効化する。
+
+```text
+ダメージ計算 -> 単発評価器だけ実行可能
+DPS画面      -> DPS評価器を実行可能。単発欄は通常計算として独立
+```
+
+DPS画面にダメージ計算UIが同居していても、DPS比較の開始だけで単発欄を比較表示へ切り替えない。ユーザーが明示的に共通比較を単発側でも表示する操作を選んだ場合だけ単発評価を実行する。
+
+### 17.5 現行結合点と撤去対象
+
+2026-08-24時点の実装では次が責務混在を起こしている。
+
+| 現行処理 | 問題 | 暫定対応 | 最終対応 |
+|---|---|---|---|
+| DPS `saveBaseline()`から`saveSharedSessionBaseline()`を呼ぶ | DPS基準が単発比較セッションを有効化する | 呼び出しを外す | 共通比較定義だけ保存するAPIへ置換 |
+| DPS基準操作が`trickcal:comparison-session-ui`を送る | 単発UIが即座に変更前表示へ切り替わる | 送信を外す | 状態通知専用イベントへ置換 |
+| DPS `clearBaseline()`が`clearComparisonSession()`を呼ぶ | DPS解除で単発比較まで解除する | 呼び出しを外す | 共通定義解除と評価結果破棄を分離 |
+| DPS起動時の`createSharedSessionBaseline()` | 単発用共有状態をDPSローカル基準として自動利用する | 自動読込を停止 | version 3定義から明示的にDPS入力を構築 |
+| DPSが`trickcal:comparison-session-changed`でローカル基準を破棄する | 単発比較の開始・更新でDPS比較が消える | リスナーを外す | 定義revisionの更新として扱い、DPS結果だけ明示的に再評価 |
+| `createDpsSnapshot()`が`currentDamageResult`を生成 | DPS入力に単発結果が混在する | 結果は使用しない | DPS入力から削除 |
+| 単発側が`trickcal:comparison-session-ui`で`syncPinnedComparisonUi()`を実行 | 発信元に関係なく単発UIを更新する | DPS側からイベントを出さない | origin付き定義変更イベントへ置換 |
+| DPSが`trickcal:damage-calculator-rendered`を再計算契機にする | 比較表示や詳細再描画でもDPSが走り得る | デバウンスとキャッシュで抑制 | シナリオ実変更イベントへ置換 |
+
+暫定分離では既存関数を削除せず、DPS経路から呼ばれない状態にしておく。最終APIへ移行して参照がなくなった時点で撤去する。
+
 ## 18. 実装段階
+
+### Phase 0: 暫定分離
+
+1. DPSの`saveBaseline()`から共通比較セッション保存を外す。
+2. DPSの`clearBaseline()`から共通比較セッション解除を外す。
+3. DPS基準操作から`trickcal:comparison-session-ui`を送信しない。
+4. DPS起動時に共通比較セッションから基準を自動生成しない。
+5. `trickcal:comparison-session-changed`によるDPSローカル基準の自動破棄を停止する。
+6. 単発比較中でもDPSローカル基準を独立して保存・比較できることを確認する。
+7. DPS基準保存・比較・解除後に単発結果欄のラベル、値、詳細タブが変化しないことを確認する。
+
+この段階では`createDpsSnapshot()`内部に残る共通ダメージ計算処理は維持してよい。ただし、比較セッションや単発比較UIへの副作用がないことを条件とする。
 
 ### Phase 1: 共通シナリオ
 
-1. 現行`createDpsSnapshot()`の共通部分とDPS固有部分を整理する。
+1. 現行`createDpsSnapshot()`を`captureCombatScenario()`、`buildActionProfiles()`、`createDpsEvaluationInput()`へ分割する。
 2. `captureCombatScenario()`を定義する。
 3. 現行単発計算とシナリオ経由計算の結果一致を確認する。
 4. シナリオのJSON往復で結果が変わらないことを確認する。
+5. `createDpsEvaluationInput()`から`currentDamageResult`を除去する。
 
 ### Phase 2: DPS接続
 
 1. DPSシミュレーターへ共通シナリオを渡す。
 2. 静的な行動別適用効果を共通シナリオから生成する。
 3. 速度データ未登録時の部分評価を維持する。
+4. DPS評価中に単発比較コントローラーが呼ばれないことを確認する。
 
 ### Phase 3: 一時基準比較
 
@@ -600,6 +935,8 @@ DPS・発動回数比較      利用不可
 2. 単発ダメージをA/B評価する。
 3. DPSを同一seed群でA/B評価する。
 4. 主要な設定差と効果差を表示する。
+5. 両評価器が同じ`ComparisonDefinition`を独立して評価する。
+6. 片方の結果が未生成または失敗しても、もう片方を表示できるようにする。
 
 ### Phase 4: 保存元接続
 
@@ -615,8 +952,36 @@ DPS・発動回数比較      利用不可
 3. スタック推移を比較する。
 4. SP、CT、攻撃速度変化による行動回数差を表示する。
 
+### Phase 6: 画面間再接続
+
+2026-08-24時点で、比較セッションの保存形式はversion 3へ移行した。シナリオを
+`baseline.scenario`に保持し、単発/DPS結果は`caches.singleAction`と`caches.dps`へ
+分離する。version 2の`baseline.singleActionResult`と`baseline.dpsSnapshot`は読み込み時に
+互換キャッシュへ移行する。単発/DPSキャッシュにはそれぞれ入力指紋を保存し、
+一致しないキャッシュは再利用しない。`trickcal:comparison-definition-changed`で
+評価器を識別して通知し、単発とDPSのローカル基準を相互に破棄しない。
+単発キャッシュが利用できない場合は保存シナリオから再評価し、同一画面内の結果
+キャッシュへ保持する。
+DPS基準もDPS入力スナップショットと集計指紋を保持し、基準集計が欠落・不一致の
+場合は保存済み入力から再シミュレーションしてローカルキャッシュを更新する。
+
+1. 比較セッションをversion 3へ移行する。
+2. `trickcal:comparison-definition-changed`を実装する。
+3. 単発とDPSが比較定義だけを共有する。
+4. evaluator別キャッシュと指紋を導入する。
+5. HTML遷移後に比較定義を復元し、遷移先の評価器だけを起動する。
+6. 旧version 2セッションから基準シナリオを移行し、旧結果は互換キャッシュとして扱う。
+7. 暫定DPSローカル基準を廃止する。
+
 ## 19. 初期受け入れ条件
 
+- DPSで基準を保存しても、単発ダメージ欄が比較表示へ切り替わらない。
+- DPSで比較を実行しても、単発ダメージの変更前値、詳細タブ、比較中表示が変化しない。
+- DPS基準を解除しても、単発側で明示的に開始した比較は解除されない。
+- 単発比較を開始・解除しても、DPSローカル基準とDPS比較結果は変化しない。
+- DPS評価中に`savePinnedComparison()`、`clearComparisonSession()`、`syncPinnedComparisonUi()`が呼ばれない。
+- 単発評価中にDPS Workerが開始・停止されない。
+- DPSは単発比較結果を入力にせず、共通ダメージカーネルから行動プロファイルを生成する。
 - 比較開始で現在の入力状態が書き換わらない。
 - 一時基準固定後に行動を変更すると、基準側も同じ行動へ追従する。
 - 行動追従時の基準倍率は保存時の選択倍率ではなく、基準側スキルレベルから解決される。
@@ -631,6 +996,11 @@ DPS・発動回数比較      利用不可
 - 速度データがなくても単発比較と行動別効果比較が表示される。
 - 保存元に存在しない比較範囲を選択できない。
 - 別タブの一時比較状態と混線しない。
+- 共有比較定義のrevisionが同じ場合、単発とDPSで比較元、比較範囲、対象使徒が一致する。
+- 単発キャッシュを削除してもDPS比較を再現できる。
+- DPSキャッシュを削除しても単発比較を再現できる。
+- 旧version 2比較セッションは基準シナリオを失わずversion 3へ移行できる。
+- 詳細タブ切り替えや再描画だけではDPS再計算が走らない。
 
 ## 20. 関連資料
 

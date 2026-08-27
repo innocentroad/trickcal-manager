@@ -54,6 +54,62 @@ const ENEMY_PRESET_CONTENT_ALIASES = Object.freeze({
     gta: Object.freeze({ type: "dungeon", mode: "goldThiefAttack" })
 });
 
+// プリセットには `size: "medium"` のように指定する。
+// rankは大小比較や将来のヒット数プリセット選択用で、実寸・倍率ではない。
+const ENEMY_SIZE_DEFINITIONS = Object.freeze({
+    extraSmall: Object.freeze({ label: "超小型", rank: 1 }),
+    small: Object.freeze({ label: "小型", rank: 2 }),
+    medium: Object.freeze({ label: "中型", rank: 3 }),
+    large: Object.freeze({ label: "大型", rank: 4 }),
+    extraLarge: Object.freeze({ label: "超大型", rank: 5 })
+});
+
+const ENEMY_SIZE_ALIASES = Object.freeze({
+    "1": "extraSmall",
+    "2": "small",
+    "3": "medium",
+    "4": "large",
+    "5": "extraLarge",
+    xs: "extraSmall",
+    tiny: "extraSmall",
+    extrasmall: "extraSmall",
+    超小型: "extraSmall",
+    s: "small",
+    small: "small",
+    小型: "small",
+    m: "medium",
+    medium: "medium",
+    中型: "medium",
+    l: "large",
+    large: "large",
+    大型: "large",
+    xl: "extraLarge",
+    huge: "extraLarge",
+    extralarge: "extraLarge",
+    超大型: "extraLarge"
+});
+
+function normalizeEnemySize(value) {
+    if (value == null || value === "") return "";
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return ENEMY_SIZE_ALIASES[String(Math.round(value))] || "";
+    }
+    const raw = String(value).trim();
+    if (ENEMY_SIZE_DEFINITIONS[raw]) return raw;
+    const normalized = raw.replace(/[\s_\-]/g, "").toLocaleLowerCase("en-US");
+    return ENEMY_SIZE_ALIASES[normalized] || ENEMY_SIZE_ALIASES[raw] || "";
+}
+
+function getEnemySizeMetadata(value) {
+    const size = normalizeEnemySize(value);
+    const definition = ENEMY_SIZE_DEFINITIONS[size] || {};
+    return {
+        size,
+        sizeLabel: String(definition.label || ""),
+        sizeRank: Number(definition.rank) || 0
+    };
+}
+
 function getEnemyPresetMetadata(preset = {}, key = "") {
     const rawName = String(preset.name || key || "").trim();
     const legacyDimension = rawName.match(/^\[次元(\d+)\]\s*(.*)$/);
@@ -90,6 +146,7 @@ function getEnemyPresetMetadata(preset = {}, key = "") {
         disabledEffectSources: Array.from(definitionRules.disabledEffectSources || []),
         artifactLimit
     };
+    const sizeMetadata = getEnemySizeMetadata(preset.size ?? preset.enemySize);
     const name = String(
         legacyDimension?.[2]
         || legacyEf?.[2]
@@ -113,6 +170,7 @@ function getEnemyPresetMetadata(preset = {}, key = "") {
         stage,
         name,
         personality: String(preset.personality || ""),
+        ...sizeMetadata,
         contentLabel: String(content.label || definition.label || ""),
         contentShortLabel,
         selectionContentLabel: definition.hideInSelection ? "" : contentShortLabel,
@@ -136,7 +194,7 @@ function formatEnemyPresetDisplayName(preset = {}, key = "") {
 
 function getEnemyPresetSearchText(preset = {}, key = "") {
     const metadata = getEnemyPresetMetadata(preset, key);
-    return [key, metadata.name, metadata.personality, metadata.contentLabel, metadata.contentShortLabel, metadata.contentEnglishLabel, metadata.modeLabel, metadata.modeEnglishLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel, formatEnemyPresetDisplayName(preset, key)]
+    return [key, metadata.name, metadata.personality, metadata.size, metadata.sizeLabel, metadata.contentLabel, metadata.contentShortLabel, metadata.contentEnglishLabel, metadata.modeLabel, metadata.modeEnglishLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel, formatEnemyPresetDisplayName(preset, key)]
         .filter(Boolean)
         .join(" ");
 }
@@ -202,6 +260,7 @@ const ENEMY_PRESETS = {
     },
     "Kérberos_d_15": {
         name: "ケルベロス",
+        size: "large",
         content: { type: "dimensionalClash", stage: 15 },
         hp: 860335869,
         atk_p: 24090,
@@ -308,6 +367,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_11": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 1 },
         hp: 401524,
         atk_p: 1501,
@@ -345,6 +405,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_12": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 2 },
         hp: 2179702,
         atk_p: 3619,
@@ -382,6 +443,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_21": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 3 },
         hp: 4745749,
         atk_p: 5384,
@@ -419,6 +481,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_22": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 4 },
         hp: 11848508,
         atk_p: 8560,
@@ -456,6 +519,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_31": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 5 },
         hp: 26286605,
         atk_p: 12795,
@@ -493,6 +557,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_32": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 6 },
         hp: 58588935,
         atk_p: 19148,
@@ -530,6 +595,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_41": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 7 },
         hp: 127799868,
         atk_p: 28325,
@@ -567,6 +633,7 @@ const ENEMY_PRESETS = {
     },
     "meow_ef_42": {
         name: "M.E.O.W",
+        size: "extralarge",
         content: { type: "eliasFrontier", stage: 8 },
         hp: 286321339,
         atk_p: 42442,
@@ -612,6 +679,7 @@ const ENEMY_PRESETS = {
     },
     "R41Renewa_ef_31": {
         name: "R41リニュア",
+        size: "large",
         content: { type: "eliasFrontier", stage: 5 },
         hp: 26286605,
         atk_p: 12795,
@@ -657,6 +725,7 @@ const ENEMY_PRESETS = {
     },
     "R41Renewa_ef_32": {
         name: "R41リニュア",
+        size: "large",
         content: { type: "eliasFrontier", stage: 6 },
         hp: 58588935,
         atk_p: 19148,
@@ -702,6 +771,7 @@ const ENEMY_PRESETS = {
     },
     "R41Renewa_ef_41": {
         name: "R41リニュア",
+        size: "large",
         content: { type: "eliasFrontier", stage: 7 },
         hp: 127799868,
         atk_p: 28325,
@@ -747,6 +817,7 @@ const ENEMY_PRESETS = {
     },
     "R41Renewa_ef_42": {
         name: "R41リニュア",
+        size: "large",
         content: { type: "eliasFrontier", stage: 8 },
         hp: 286321339,
         atk_p: 42442,

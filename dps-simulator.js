@@ -21,6 +21,20 @@
     lowSkill: '低学年',
     highSkill: '高学年'
   });
+  const ENEMY_SIZE_BRANCH_RANKS = Object.freeze({
+    '超小型敵': 1,
+    '小型敵': 2,
+    '中型敵': 3,
+    '大型敵': 4,
+    '超大型敵': 5
+  });
+  const ENEMY_SIZE_RANKS = Object.freeze({
+    extraSmall: 1,
+    small: 2,
+    medium: 3,
+    large: 4,
+    extraLarge: 5
+  });
   const DOT_STATUS_MULTIPLIERS = Object.freeze({
     '火傷': 30,
     '毒': 6,
@@ -59,7 +73,146 @@
     return Array.isArray(value) ? value : value ? [value] : [];
   }
 
-  function findSkill(apostle, actionKey) {
+  function normalizeRuntimeTriggerProbability(effect = {}) {
+    const explicitRaw = effect?.triggerProbability;
+    const explicit = explicitRaw == null || explicitRaw === ''
+      ? NaN
+      : Number(explicitRaw);
+    const triggerType = String(effect?.triggerType || '').replace(/[\s　]+/g, '');
+    const inferred = /^(?:普通|通常)攻撃命中時一定確率$/.test(triggerType)
+      ? Number(effect?.triggerValue)
+      : NaN;
+    const value = Number.isFinite(explicit) ? explicit : inferred;
+    return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : null;
+  }
+
+  // Timing branches are not all the same kind of choice.  An aside branch
+  // augments the base motion, while a favorite-card branch replaces it.  Keep
+  // the distinction explicit for callers that can provide it, and retain the
+  // data-compatible aside-name fallback for older snapshots.
+  function normalizeTimingBranchMode(value) {
+    const text = String(value || '').trim().toLowerCase();
+    if (['additive', 'add', 'merge', 'merged', 'combined', '共通併用', '追加', '加算', '合成'].includes(text)) {
+      return 'additive';
+    }
+    if (['replacement', 'replace', 'exact', 'exclusive', '置換', '完全', '排他'].includes(text)) {
+      return 'replacement';
+    }
+    return '';
+  }
+
+  function getTimingBranchModeValue(value) {
+    if (typeof value === 'string') return normalizeTimingBranchMode(value);
+    if (!value || typeof value !== 'object') return '';
+    return normalizeTimingBranchMode(
+      value.mode ?? value.composition ?? value.branchComposition ?? value.timingBranchMode
+    );
+  }
+
+  function getTimingAsideBranchRank(branch = '') {
+    const match = String(branch || '').trim().match(/^(?:A|アサイド)(?:Lv)?([1-3])$/i);
+    return match ? Number(match[1]) : 0;
+  }
+
+  function resolveTimingBranchMode(buildOptions = {}, actionKey = '', branch = '') {
+    const candidates = [];
+    const collect = source => {
+      if (!source || typeof source !== 'object') return;
+      const actionValue = source[actionKey];
+      candidates.push(actionValue?.[branch]);
+      candidates.push(actionValue?.default);
+      candidates.push(actionValue);
+      candidates.push(source[branch]);
+      candidates.push(source.default);
+    };
+    collect(buildOptions.timingBranchModes);
+    collect(buildOptions.timingBranchComposition);
+    collect(buildOptions.timingComposition);
+    for (const candidate of candidates) {
+      const mode = getTimingBranchModeValue(candidate);
+      if (mode) return mode;
+    }
+    // A1-A3 branches are additive by definition: their skillmotion rows are
+    // the aside-specific effects in addition to the common skill rows.
+    if (getTimingAsideBranchRank(branch) > 0) return 'additive';
+    return 'replacement';
+  }
+
+  function getRewriteActionKeys(value = '') {
+    const text = String(value || '').replace(/[\s　・_]/g, '');
+    const keys = [];
+    if (/基本攻撃|(?:普通|通常)攻撃基本/.test(text)) keys.push('basicAttack');
+    if (/強化攻撃|(?:普通|通常)攻撃強化/.test(text)) keys.push('enhancedAttack');
+    if (/低学年/.test(text)) keys.push('lowSkill');
+    if (/高学年/.test(text)) keys.push('highSkill');
+    if (!keys.some(key => key === 'basicAttack' || key === 'enhancedAttack') && /普通攻撃|通常攻撃/.test(text)) {
+      keys.push('basicAttack', 'enhancedAttack');
+    }
+    return [...new Set(keys)];
+  }
+
+  // 愛用品などが1つのスキル定義で複数行動を書き換える場合でも、
+  // DPSへは対象行動の効果だけを渡す。変更前スキルや別行動の倍率を
+  // 同じactionへ混在させないための、表示層とシミュレーターの境界。
+  function createActionSkillOverride(skill = {}, actionKey = '', metadata = {}) {
+    const sourceEffects = normalizeArray(skill?.effects);
+    const explicitActionKeys = new Set(sourceEffects
+      .flatMap(effect => getRewriteActionKeys(effect?.targetSkill || '')));
+    const selectedEffects = sourceEffects.filter(effect => (
+      getRewriteActionKeys(effect?.targetSkill || '').includes(actionKey)
+    ));
+    const selectedProcessGroups = new Set(selectedEffects
+      .map(effect => String(effect?.processGroupId || '').trim())
+      .filter(Boolean));
+    const hasMultipleActions = explicitActionKeys.size > 1;
+    const effects = sourceEffects.filter(effect => {
+      const targetKeys = getRewriteActionKeys(effect?.targetSkill || '');
+      if (targetKeys.length) return targetKeys.includes(actionKey);
+      const processGroupId = String(effect?.processGroupId || '').trim();
+      if (processGroupId && selectedProcessGroups.has(processGroupId)) return true;
+      // 対象が1行動だけなら、対象スキル欄を省略したヒット数・状態付与等も
+      // 同じ置換定義として保持する。複数行動定義では明示的な紐付けを優先する。
+      return !hasMultipleActions;
+    });
+    // A pair (or set) of probability-tagged damage rows that totals 100% is a
+    // replacement choice, not a collection of additional attacks.  Keep the
+    // rows together here so the timeline can choose exactly one for each use.
+    const probabilityDamageEffects = effects.filter(effect => (
+      isDamageEffect(effect)
+      && /^一定確率/.test(String(effect?.triggerType || ''))
+      && toFiniteNumber(effect?.triggerValue) > 0
+    ));
+    const probabilityTotal = probabilityDamageEffects.reduce((total, effect) => (
+      total + toFiniteNumber(effect?.triggerValue)
+    ), 0);
+    const probabilityProcessGroups = new Map();
+    probabilityDamageEffects.forEach(effect => {
+      const processGroupId = String(effect?.processGroupId || '').trim();
+      if (!processGroupId) return;
+      probabilityProcessGroups.set(processGroupId, (probabilityProcessGroups.get(processGroupId) || 0) + 1);
+    });
+    const hasGroupedProbabilityDamage = [...probabilityProcessGroups.values()].some(count => count > 1);
+    const dpsExclusiveDamageCandidates = probabilityDamageEffects.length > 1
+      && Math.abs(probabilityTotal - 100) < 0.0001
+      && !hasGroupedProbabilityDamage
+      ? Array.from(probabilityDamageEffects, effect => ({
+          effectId: String(effect?.effectId || ''),
+          weight: toFiniteNumber(effect?.triggerValue)
+        })).filter(candidate => candidate.effectId && candidate.weight > 0)
+      : [];
+    return {
+      ...JSON.parse(JSON.stringify(skill || {})),
+      ...metadata,
+      effects,
+      dpsActionKey: actionKey,
+      dpsReplacesBase: true,
+      dpsExclusiveDamageCandidates
+    };
+  }
+
+  function findSkill(apostle, actionKey, skillOverrides = {}) {
+    const override = skillOverrides?.[actionKey];
+    if (override) return override;
     const skillType = ACTION_SKILL_TYPES[actionKey];
     return normalizeArray(apostle?.skills).find(skill => skill?.skillType === skillType) || null;
   }
@@ -77,24 +230,300 @@
     return /破壊時|終了時|死亡時|撃破時|条件発動/.test(text);
   }
 
+  function getTimingBranchStateIds(skill, branch = '') {
+    const normalizedBranch = String(branch || '').trim();
+    if (!normalizedBranch) return [];
+    return [...new Set(normalizeArray(skill?.effects)
+      .filter(effect => String(effect?.conditionType || '') === '固有状態中')
+      .filter(effect => String(effect?.condition || '').includes(normalizedBranch))
+      .map(effect => String(effect?.conditionValue || '').trim())
+      .filter(Boolean))];
+  }
+
+  function isEffectActiveForTimingBranch(effect, skill, branch = '') {
+    const conditionType = String(effect?.conditionType || '');
+    const conditionValue = String(effect?.conditionValue || '').trim();
+    if (!conditionValue || !['固有状態中', '固有状態外'].includes(conditionType)) return true;
+    const branchStateIds = getTimingBranchStateIds(skill, branch);
+    if (conditionType === '固有状態中') {
+      return branchStateIds.includes(conditionValue);
+    }
+    return !branchStateIds.length;
+  }
+
   function getDamageEffects(skill, branch = '') {
     return normalizeArray(skill?.effects).filter(effect => {
       if (!isDamageEffect(effect) || isDeferredDamageEffect(effect)) return false;
+      if (!isEffectActiveForTimingBranch(effect, skill, branch)) return false;
       const effectBranch = getBranchName(effect);
-      return branch ? effectBranch === branch : !effectBranch;
+      const stateConditional = String(effect?.conditionType || '') === '固有状態中';
+      return branch ? (effectBranch === branch || (!effectBranch && stateConditional)) : !effectBranch;
     });
   }
 
   function getTotalHitCount(skill, branch = '') {
     const row = normalizeArray(skill?.effects).find(effect => {
       if (effect?.effectType !== '攻撃' || effect?.valueClass !== 'ヒット数') return false;
+      if (!isEffectActiveForTimingBranch(effect, skill, branch)) return false;
       const effectBranch = getBranchName(effect);
-      return branch ? effectBranch === branch : !effectBranch;
+      const stateConditional = String(effect?.conditionType || '') === '固有状態中';
+      return branch ? (effectBranch === branch || (!effectBranch && stateConditional)) : !effectBranch;
     });
     const count = Number(row?.fixedValue);
     return Number.isFinite(count) && count > 0
       ? Math.floor(count)
       : getDamageEffects(skill, branch).length ? 1 : 0;
+  }
+
+  // Timing patterns are intentionally evaluated at simulation-build time.  The
+  // workbook can describe a count such as
+  // "基本攻撃回数+min(装備遺物数,最大追加攻撃回数)*遺物1個ごとの追加攻撃回数"
+  // without baking a particular formation into generated timing data.
+  function tokenizeTimingExpression(expression) {
+    const text = String(expression || '').trim();
+    if (!text) return [];
+    const tokens = [];
+    const tokenPattern = /\s*(min|max|[()+\-*/×,]|\d+(?:\.\d+)?|[A-Za-z_][A-Za-z0-9_-]*|[^\s()+\-*/×,]+)/gy;
+    let cursor = 0;
+    while (cursor < text.length) {
+      tokenPattern.lastIndex = cursor;
+      const match = tokenPattern.exec(text);
+      if (!match || match.index !== cursor) return null;
+      tokens.push(match[1]);
+      cursor = tokenPattern.lastIndex;
+    }
+    return tokens;
+  }
+
+  function evaluateTimingExpression(expression, variables = {}) {
+    const tokens = tokenizeTimingExpression(expression);
+    if (!tokens?.length) return null;
+    let index = 0;
+    const hasVariable = key => Object.prototype.hasOwnProperty.call(variables, key);
+    const parseExpression = () => {
+      let value = parseTerm();
+      if (value == null) return null;
+      while (index < tokens.length && ['+', '-'].includes(tokens[index])) {
+        const operator = tokens[index++];
+        const right = parseTerm();
+        if (right == null) return null;
+        value = operator === '+' ? value + right : value - right;
+      }
+      return value;
+    };
+    const parseTerm = () => {
+      let value = parseFactor();
+      if (value == null) return null;
+      while (index < tokens.length && ['*', '×', '/'].includes(tokens[index])) {
+        const operator = tokens[index++];
+        const right = parseFactor();
+        if (right == null) return null;
+        if (operator === '/') {
+          if (right === 0) return null;
+          value /= right;
+        } else {
+          value *= right;
+        }
+      }
+      return value;
+    };
+    const parseFactor = () => {
+      if (tokens[index] === '-') {
+        index += 1;
+        const value = parseFactor();
+        return value == null ? null : -value;
+      }
+      return parsePrimary();
+    };
+    const parsePrimary = () => {
+      const token = tokens[index++];
+      if (token == null) return null;
+      if (token === '(') {
+        const value = parseExpression();
+        if (tokens[index++] !== ')') return null;
+        return value;
+      }
+      if (/^\d+(?:\.\d+)?$/.test(token)) return Number(token);
+      if (!['min', 'max'].includes(token)) {
+        return hasVariable(token) ? Number(variables[token]) : null;
+      }
+      if (tokens[index++] !== '(') return null;
+      const args = [];
+      while (index < tokens.length && tokens[index] !== ')') {
+        const value = parseExpression();
+        if (value == null) return null;
+        args.push(value);
+        if (tokens[index] === ',') index += 1;
+        else if (tokens[index] !== ')') return null;
+      }
+      if (tokens[index++] !== ')' || !args.length) return null;
+      return token === 'min' ? Math.min(...args) : Math.max(...args);
+    };
+    const result = parseExpression();
+    return index === tokens.length && Number.isFinite(result) ? result : null;
+  }
+
+  function getTimingActionKeys(value = '') {
+    const text = String(value || '');
+    const keys = [];
+    if (/低学年/.test(text)) keys.push('lowSkill');
+    if (/高学年/.test(text)) keys.push('highSkill');
+    if (/強化攻撃/.test(text)) keys.push('enhancedAttack');
+    if (/基本攻撃|普通攻撃/.test(text)) keys.push('basicAttack');
+    return [...new Set(keys)];
+  }
+
+  function normalizeScenarioId(value) {
+    return String(value ?? '').trim().toLowerCase();
+  }
+
+  function getScenarioValueById(collection, targetId) {
+    if (!collection || typeof collection !== 'object') return null;
+    const targetKey = normalizeScenarioId(targetId);
+    if (!targetKey) return null;
+    const direct = collection[targetId];
+    if (direct != null) return direct;
+    const entry = Object.entries(collection).find(([id]) => normalizeScenarioId(id) === targetKey);
+    return entry ? entry[1] : null;
+  }
+
+  function getScenarioArtifactCount(scenario, apostleId) {
+    const targetId = String(apostleId || scenario?.actors?.self?.id || scenario?.characterState?.targetId || '');
+    const targetKey = normalizeScenarioId(targetId);
+    const rows = normalizeArray(scenario?.formationState?.formation?.rows || scenario?.formation?.rows);
+    const override = getScenarioValueById(scenario?.cardState?.tempArtifacts?.target, targetId);
+    for (const row of rows) {
+      const apostles = normalizeArray(row?.apostles);
+      const index = apostles.findIndex(item => normalizeScenarioId(item?.id ?? item?.apostleId ?? item) === targetKey);
+      if (index < 0) continue;
+      const artifactLines = row?.artifacts || row?.artifactIds;
+      const slots = normalizeArray(artifactLines?.[index]).map(item => (
+        typeof item === 'string' ? item : item?.id
+      ));
+      const resolved = Array.isArray(override)
+        ? override
+        : slots.map((id, slot) => (
+          override && typeof override === 'object' && Object.prototype.hasOwnProperty.call(override, slot)
+            ? override[slot]
+            : id
+        ));
+      return resolved.filter(Boolean).length;
+    }
+    return null;
+  }
+
+  function getScenarioAsideRank(scenario, apostleId, fallback = 0) {
+    const targetId = String(apostleId || scenario?.actors?.self?.id || scenario?.characterState?.targetId || '');
+    const state = getScenarioValueById(scenario?.characterState?.apostles, targetId)
+      || getScenarioValueById(scenario?.apostles, targetId)
+      || null;
+    return Math.max(0, Math.floor(toFiniteNumber(
+      state?.asideRank ?? state?.aside ?? fallback,
+      fallback
+    )));
+  }
+
+  function getSkillCountModifierValue(modifier, skillLevel = 1) {
+    const value = modifier?.value ?? modifier?.fixedValue;
+    const levels = modifier?.levels;
+    if (levels && typeof levels === 'object') {
+      const levelValue = levels[String(skillLevel)] ?? levels[String(Math.max(1, Math.floor(skillLevel)))];
+      if (levelValue != null && Number.isFinite(Number(levelValue))) return Number(levelValue);
+    }
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
+  }
+
+  function buildSkillCountModifiers(apostle, asideRank = 0, skillLevels = {}) {
+    const result = [];
+    const levels = apostle?.aside?.levels && typeof apostle.aside.levels === 'object'
+      ? apostle.aside.levels
+      : {};
+    Object.entries(levels).forEach(([levelKey, levelData]) => {
+      const level = Number(levelKey);
+      if (!Number.isFinite(level) || level > Number(asideRank || 0)) return;
+      normalizeArray(levelData?.effects).forEach(effect => {
+        const valueKind = String(effect?.valueKind || '');
+        if (!/追加攻撃回数|攻撃回数/.test(valueKind)) return;
+        const actionKeys = getTimingActionKeys(
+          `${effect?.targetSkill || ''} ${effect?.targetSkillName || ''} ${effect?.attackCategory || ''} ${valueKind}`
+        );
+        result.push({
+          id: String(effect?.effectId || `${apostle?.id || 'apostle'}:aside:${level}:${result.length}`),
+          sourceId: String(effect?.effectId || ''),
+          label: String(effect?.valueKind || effect?.effectId || '追加攻撃回数'),
+          actionKeys,
+          conditionType: String(effect?.conditionType || effect?.applicationConditionType || ''),
+          conditionValue: effect?.conditionValue ?? effect?.applicationConditionValue ?? '',
+          value: getSkillCountModifierValue(effect, getActionSkillLevel(skillLevels, actionKeys[0] || 'lowSkill')),
+          valueKind,
+          targetSkill: String(effect?.targetSkill || '')
+        });
+      });
+    });
+    return result;
+  }
+
+  function getActiveSkillCountModifierSum(modifiers, actionKey, artifactCount = 0) {
+    return normalizeArray(modifiers).reduce((total, modifier) => {
+      const actionKeys = normalizeArray(modifier?.actionKeys).map(String);
+      if (actionKeys.length && !actionKeys.includes(actionKey)) return total;
+      const conditionType = String(modifier?.conditionType || '');
+      const conditionValue = String(modifier?.conditionValue ?? '');
+      if (/装備遺物数/.test(conditionType)) {
+        const expected = Number(conditionValue.match(/\d+/)?.[0]);
+        if (Number.isFinite(expected) && expected !== Number(artifactCount)) return total;
+      }
+      return total + toFiniteNumber(modifier?.value);
+    }, 0);
+  }
+
+  function resolveTimingPatternCount(pattern, skill, skillLevel, timingContext = {}, actionKey, warnings) {
+    const variables = {
+      装備遺物数: Math.max(0, Math.floor(toFiniteNumber(timingContext.artifactCount))),
+      artifactCount: Math.max(0, Math.floor(toFiniteNumber(timingContext.artifactCount))),
+      適用中の低学年スキル追加攻撃回数: getActiveSkillCountModifierSum(
+        timingContext.skillCountModifiers,
+        actionKey,
+        timingContext.artifactCount
+      )
+    };
+    normalizeArray(skill?.effects).forEach(effect => {
+      if (!effect?.effectId) return;
+      variables[String(effect.effectId)] = toFiniteNumber(resolveEffectValue(effect, skillLevel));
+    });
+    const count = evaluateTimingExpression(pattern?.countExpression, variables);
+    if (count == null) {
+      warnings.push(`${skill?.skillId || skill?.skillType || 'スキル'}: 発生回数式「${pattern?.countExpression || '(空欄)'}」を評価できません`);
+      return 0;
+    }
+    return Math.max(0, Math.floor(count));
+  }
+
+  function expandTimingPatterns(actionTiming, skill, actionKey, branch, skillLevel, timingContext, warnings, includeCommonRows = true) {
+    return normalizeArray(actionTiming?.timingPatterns).flatMap(pattern => {
+      const patternBranch = String(pattern?.branch || '');
+      const branchMatches = patternBranch === branch
+        || (includeCommonRows && (!patternBranch || patternBranch === '共通'));
+      if (!branchMatches) return [];
+      const initialFrame = Number(pattern?.initialFrame);
+      const intervalFrames = Number(pattern?.intervalFrames ?? 0);
+      if (!Number.isFinite(initialFrame)) return [];
+      const count = resolveTimingPatternCount(pattern, skill, skillLevel, timingContext, actionKey, warnings);
+      if (count <= 0) return [];
+      return Array.from({ length: count }, (_, index) => ({
+        branch: patternBranch,
+        order: toFiniteNumber(pattern?.order, 1) + index,
+        effectKind: pattern?.effectKind || 'ダメージ',
+        effectId: pattern?.effectId || '',
+        lv1PerHitMultiplier: pattern?.lv1PerHitMultiplier ?? null,
+        frame: initialFrame + intervalFrames * index,
+        hitCount: 1,
+        researchStatus: pattern?.researchStatus || '',
+        timingQuality: 'measured',
+        adoption: pattern?.adoption || '採用',
+        note: pattern?.note || ''
+      }));
+    });
   }
 
   function resolveEffect(skill, effectId) {
@@ -120,6 +549,11 @@
     const known = [...Object.keys(DOT_STATUS_MULTIPLIERS), ...KNOWN_NON_DAMAGE_STATUSES]
       .find(status => text === status || text.startsWith(`${status} `));
     return known || text;
+  }
+
+  function getEnhancedStatusPresenceTrigger(triggerType = '') {
+    const match = String(triggerType || '').trim().match(/^(.+?)状態の敵が存在$/);
+    return match ? getStatusName(match[1]) : '';
   }
 
   function resolveEffectValue(effect, level = 1) {
@@ -286,7 +720,27 @@
     }
     if (actionKey === 'basicAttack') value += toFiniteNumber(modifiers?.basicAddP);
     if (actionKey === 'enhancedAttack') value += toFiniteNumber(modifiers?.enhancedAddP);
+    if (actionKey === 'lowSkill') value += toFiniteNumber(modifiers?.lowSkillAddP);
+    if (actionKey === 'highSkill') value += toFiniteNumber(modifiers?.highSkillAddP);
     if (actionKey === 'lowSkill' || actionKey === 'highSkill') value += toFiniteNumber(modifiers?.skillAddP);
+    return value;
+  }
+
+  function getRuntimeActionMultiplierModifierP(modifiers, actionKey = '', eventType = '') {
+    let value = toFiniteNumber(modifiers?.actionMultiplierBonusP);
+    if (actionKey === 'basicAttack' || actionKey === 'enhancedAttack') {
+      value += toFiniteNumber(modifiers?.normalAttackMultiplierBonusP);
+    }
+    if (actionKey === 'basicAttack') value += toFiniteNumber(modifiers?.basicMultiplierBonusP);
+    if (actionKey === 'enhancedAttack') value += toFiniteNumber(modifiers?.enhancedMultiplierBonusP);
+    if (actionKey === 'lowSkill') value += toFiniteNumber(modifiers?.lowSkillMultiplierBonusP);
+    if (actionKey === 'highSkill') value += toFiniteNumber(modifiers?.highSkillMultiplierBonusP);
+    if (actionKey === 'lowSkill' || actionKey === 'highSkill') {
+      value += toFiniteNumber(modifiers?.skillActionMultiplierBonusP);
+    }
+    if (/自爆|selfDestruct/i.test(`${actionKey} ${eventType}`)) {
+      value += toFiniteNumber(modifiers?.selfDestructMultiplierBonusP);
+    }
     return value;
   }
 
@@ -314,15 +768,20 @@
       if (!(durationSeconds > 0)) {
         warnings.push(`${skill?.skillId || skill?.skillType}: ${status}の持続時間を解決できません`);
       }
-      const stackable = application.effectStack !== false && durationEffect?.effectStack !== false;
-      const maxStacks = Math.max(
-        1,
-        Math.floor(toFiniteNumber(application.maxStack ?? durationEffect?.maxStack, DEFAULT_STATUS_MAX_STACKS))
+      const declaredMaxStacks = Math.max(
+        0,
+        Math.floor(toFiniteNumber(application.maxStack ?? durationEffect?.maxStack))
       );
+      // 状態付与は、明示的に積み重ねる指定があるものだけをスタック可能にする。
+      // 未指定は同名状態を更新して持続時間をリフレッシュする単一枠。
+      const stackable = application.effectStack === true
+        || durationEffect?.effectStack === true
+        || declaredMaxStacks > 1;
+      const maxStacks = stackable
+        ? Math.max(1, declaredMaxStacks || DEFAULT_STATUS_MAX_STACKS)
+        : 1;
       const explicitGroup = application.stackGroupId
         || durationEffect?.stackGroupId
-        || application.processGroupId
-        || durationEffect?.processGroupId
         || '';
       return {
         status,
@@ -332,6 +791,9 @@
         durationFrames: durationSeconds > 0 ? durationSeconds * DEFAULT_FRAMES_PER_SECOND : null,
         stackable,
         maxStacks,
+        // processGroupId は状態付与と持続時間などの効果行をまとめるIDであり、
+        // スタック枠ではない。同じ使徒の同じ状態異常は、スキル・愛用品・
+        // アサイドなど発生源が違っても同じ枠へ積む。
         stackGroupId: explicitGroup || `${status}:${stackable ? 'stack' : 'single'}:${maxStacks}`,
         dealsPeriodicDamage: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status),
         tickFrames: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status) ? STATUS_TICK_FRAMES : 0,
@@ -383,7 +845,16 @@
     // damage effect as the coefficient source.
     const damageEffects = getDamageEffects(skill, branch);
     if (!damageEffects.length && branch) damageEffects.push(...getDamageEffects(skill));
-    return damageEffects.length === 1 ? damageEffects[0] : damageEffects[0] || null;
+    if (damageEffects.length <= 1) return damageEffects[0] || null;
+    // effectId が未記入の skillmotion でも、構造化された処理順があれば
+    // 同一状態中の最終ヒット等を正しい効果行へ対応付ける。中間のヒット数行は
+    // 直前のダメージ行を継続するため、指定順以下で最も後ろのダメージを使う。
+    const rowOrder = toFiniteNumber(row?.order, 0);
+    const ordered = damageEffects.slice().sort((a, b) => (
+      toFiniteNumber(a?.processOrder, 0) - toFiniteNumber(b?.processOrder, 0)
+    ));
+    const matching = ordered.filter(effect => toFiniteNumber(effect?.processOrder, 0) <= rowOrder).at(-1);
+    return matching || ordered[0] || null;
   }
 
   function resolveGeneratedSpawnCount(apostle, skill, generated, skillLevel) {
@@ -470,6 +941,7 @@
         if (!hasExplicitSpawn) {
           events.push({
             frame: spawnFrame,
+            eventOrder: 0,
             type: 'generatedEffect',
             effectId: '',
             effectType: '生成',
@@ -538,6 +1010,7 @@
             if (endFrame != null && row.timeOrigin !== '終了時' && repeatedFrame >= endFrame) break;
             events.push({
               frame: repeatedFrame,
+              eventOrder: row.order == null ? 1000 + rowIndex : Number(row.order),
               type: damage ? 'damage' : 'generatedEffect',
               effectId: row.effectId || effect?.effectId || '',
               effectType: effect?.effectType || row.effectKind || '',
@@ -573,23 +1046,39 @@
         });
       });
     });
-    return events.sort((a, b) => a.frame - b.frame || (
-      toFiniteNumber(a.generatedInstanceOrder) - toFiniteNumber(b.generatedInstanceOrder)
+    return events.sort((a, b) => (
+      a.frame - b.frame
+      || toFiniteNumber(a.eventOrder, 1000) - toFiniteNumber(b.eventOrder, 1000)
+      || toFiniteNumber(a.generatedInstanceOrder) - toFiniteNumber(b.generatedInstanceOrder)
     ));
   }
 
-  function buildVariantEvents(apostle, skill, actionTiming, branch, motionFrames, warnings, suppressDamageFallback = false, statusDefinitions = [], runtimeResources = [], skillLevel = 1) {
+  function buildVariantEvents(apostle, skill, actionTiming, actionKey, branch, motionFrames, warnings, suppressDamageFallback = false, statusDefinitions = [], runtimeResources = [], skillLevel = 1, exactBranch = false, timingContext = {}, branchComposition = 'replacement') {
+    const includeCommonRows = !exactBranch || branchComposition === 'additive';
     const selectedResourceBranch = runtimeResources.map(resource => {
       const match = String(branch || '').match(new RegExp(`^${resource.name}(\\d+)$`));
       return match ? { resource, count: Number(match[1]) } : null;
     }).find(Boolean);
+    const hasActiveTimingPattern = normalizeArray(actionTiming?.timingPatterns)
+      .some(pattern => pattern?.adoption !== '検証');
     const selectedRows = normalizeArray(actionTiming?.timingEvents).filter(row => {
+      if (hasActiveTimingPattern && row?.adoption === '検証') return false;
       const rowBranch = row.branch || '';
-      if (rowBranch === '' || rowBranch === '共通' || rowBranch === branch) return true;
+      if ((includeCommonRows && (rowBranch === '' || rowBranch === '共通')) || rowBranch === branch) return true;
       if (!selectedResourceBranch) return false;
       const match = String(rowBranch).match(new RegExp(`^${selectedResourceBranch.resource.name}(\\d+)$`));
       return !!match && Number(match[1]) <= selectedResourceBranch.count;
     });
+    selectedRows.push(...expandTimingPatterns(
+      actionTiming,
+      skill,
+      actionKey,
+      branch,
+      skillLevel,
+      timingContext,
+      warnings,
+      includeCommonRows
+    ));
     const seenRows = new Set();
     const rows = selectedRows.filter(row => {
       // Resource branches are cumulative snapshots (魔弾2 contains shot 1 and 2, etc.).
@@ -611,9 +1100,16 @@
       warnings.push(`${skill?.skillId || skill?.skillType}: 複数ダメージ効果のヒット配分が未調査です`);
     }
 
-    rows.forEach(row => {
-      const effect = resolveApostleEffect(apostle, skill, row.effectId);
+    rows.forEach((row, rowIndex) => {
       const declared = String(row.effectKind || '');
+      const sourceEffect = resolveApostleEffect(apostle, skill, row.effectId);
+      // 置換後スキルは元スキルの発生フレームを流用しても、倍率・effectIdは
+      // 置換後のものを使う。旧effectIdから旧倍率を引き直してはいけない。
+      const replacementDamageEffect = skill?.dpsReplacesBase
+        && (isDeclaredDamageKind(declared) || isDamageEffect(sourceEffect))
+        ? resolveRowDamageEffect(skill, row, branch)
+        : null;
+      const effect = replacementDamageEffect || sourceEffect;
       const damage = effect
         ? isDamageEffect(effect)
         : isDeclaredDamageKind(declared) || (!declared && damageEffects.length > 0);
@@ -621,11 +1117,15 @@
       const statusApplication = statusDefinitions.find(item => item.applicationEffectId === row.effectId) || null;
       const resourceChange = getResourceChange(effect, declared, branch, runtimeResources, skillLevel);
       const repeatDamageCount = 1;
+      const eventHitCount = damage
+        ? Math.max(1, Math.floor(toFiniteNumber(row.hitCount, repeatDamageCount)))
+        : 0;
       if (row.effectId && !effect) warnings.push(`effectIdを解決できません: ${row.effectId}`);
       if (row.frame == null) {
         if (!damage && effect) {
           events.push({
             frame: motionFrames,
+            eventOrder: 1000,
             type: 'effect',
             effectId: effect.effectId || '',
             effectType: effect.effectType || '',
@@ -638,11 +1138,12 @@
       }
       events.push({
         frame: toFiniteNumber(row.frame),
+        eventOrder: row.order == null ? 1000 + rowIndex : Number(row.order),
         type: damage ? 'damage' : 'effect',
-        effectId: row.effectId || (damage ? damageEffects[0]?.effectId : '') || '',
+        effectId: damageEffect?.effectId || row.effectId || (damage ? damageEffects[0]?.effectId : '') || '',
         effectType: effect?.effectType || (damage ? '攻撃' : ''),
         effectValueKind: effect?.valueKind || declared,
-        hitCount: damage ? repeatDamageCount : 0,
+        hitCount: eventHitCount,
         repeatDamageCount,
         lv1PerHitMultiplier: row.lv1PerHitMultiplier ?? null,
         coefficientShare: getCoefficientShare(damageEffect, row.lv1PerHitMultiplier),
@@ -651,7 +1152,7 @@
         timingQuality: 'measured',
         note: row.note || ''
       });
-      if (damage) observedDamageHits += 1;
+      if (damage) observedDamageHits += eventHitCount;
     });
 
     const researchStatuses = new Set(rows.map(row => row.researchStatus).filter(Boolean));
@@ -662,6 +1163,7 @@
       }
       events.push({
         frame: motionFrames,
+        eventOrder: 1000,
         type: 'damage',
         effectId: damageEffects[0]?.effectId || '',
         effectType: '攻撃',
@@ -676,6 +1178,7 @@
       if (events.some(event => event.statusApplication?.applicationEffectId === statusApplication.applicationEffectId)) return;
       events.push({
         frame: motionFrames,
+        eventOrder: 1000,
         type: 'effect',
         effectId: statusApplication.applicationEffectId,
         effectType: 'デバフ',
@@ -687,12 +1190,34 @@
       warnings.push(`${skill?.skillId || skill?.skillType}: ${statusApplication.status}をモーション終了時付与として補完します`);
     });
 
-    return events.sort((a, b) => a.frame - b.frame);
+    return events.sort((a, b) => (
+      a.frame - b.frame
+      || toFiniteNumber(a.eventOrder, 1000) - toFiniteNumber(b.eventOrder, 1000)
+    ));
+  }
+
+  function resolveEnemySizeRank(enemySize = '', enemySizeRank = 0) {
+    const explicitRank = Math.round(toFiniteNumber(enemySizeRank));
+    if (explicitRank >= 1 && explicitRank <= 5) return explicitRank;
+    return ENEMY_SIZE_RANKS[String(enemySize || '')] || 0;
+  }
+
+  function selectEnemySizeVariantBranch(branches = [], enemySize = '', enemySizeRank = 0) {
+    const candidates = normalizeArray(branches)
+      .map(branch => ({ branch: String(branch || ''), rank: ENEMY_SIZE_BRANCH_RANKS[String(branch || '')] || 0 }))
+      .filter(item => item.rank > 0);
+    if (!candidates.length) return '';
+    const requestedRank = resolveEnemySizeRank(enemySize, enemySizeRank) || 3;
+    return candidates.slice().sort((a, b) => (
+      Math.abs(a.rank - requestedRank) - Math.abs(b.rank - requestedRank)
+      || a.rank - b.rank
+    ))[0].branch;
   }
 
   function buildAction(apostle, timing, actionKey, warnings, buildOptions = {}) {
     const actionTiming = timing?.actions?.[actionKey];
-    const skill = findSkill(apostle, actionKey);
+    const baseSkill = findSkill(apostle, actionKey);
+    const skill = findSkill(apostle, actionKey, buildOptions.skillOverrides);
     if (!actionTiming || !skill) return null;
     const motionVariants = normalizeArray(actionTiming.motionVariants).filter(item => item?.gameFrames != null);
     if (actionTiming.motionFrames == null && !motionVariants.length) return null;
@@ -727,34 +1252,151 @@
     const timingBranches = normalizeArray(actionTiming.timingEvents)
       .map(row => row.branch || '')
       .filter(branch => branch && branch !== '共通');
+    const timingPatternBranches = normalizeArray(actionTiming.timingPatterns)
+      .map(pattern => pattern.branch || '')
+      .filter(branch => branch && branch !== '共通');
     const generatedBranches = generatedEvents
       .map(event => event.branch || '')
       .filter(branch => branch && branch !== '共通');
     const branchSource = motionBranches.length
       ? motionBranches
-      : (timingBranches.length ? timingBranches : generatedBranches);
-    const branches = [...new Set(branchSource)];
+      : (timingBranches.length ? timingBranches : (timingPatternBranches.length ? timingPatternBranches : generatedBranches));
+    const preferredBranch = buildOptions.timingBranches?.[actionKey]
+      ?? skill?.dpsTimingBranch;
+    const availableBranchSource = [...new Set(branchSource)].filter(branch => {
+      const asideRank = getTimingAsideBranchRank(branch);
+      return !asideRank || asideRank <= Math.max(0, Math.floor(toFiniteNumber(buildOptions.asideRank)));
+    });
+    const activeAsideBranches = availableBranchSource
+      .filter(branch => getTimingAsideBranchRank(branch) > 0)
+      .sort((a, b) => getTimingAsideBranchRank(b) - getTimingAsideBranchRank(a));
+    const nonAsideBranches = availableBranchSource.filter(branch => getTimingAsideBranchRank(branch) === 0);
+    const resolvedBranchSource = activeAsideBranches.length
+      ? [...nonAsideBranches, activeAsideBranches[0]]
+      : nonAsideBranches;
+    const branches = preferredBranch != null && (
+      !timingBranches.length || timingBranches.includes(preferredBranch) || preferredBranch === ''
+    )
+      ? [preferredBranch]
+      : resolvedBranchSource;
     if (!branches.length) branches.push('');
+    // 固有状態で基本攻撃のモーション自体が置き換わるケースは、通常の
+    // skillmotion 分岐とは異なりランダム候補ではない。分岐名と同じ状態中
+    // 条件を持つ効果行から状態IDを解決し、実行時にのみその分岐を選択する。
+    const selfStateVariantChoices = branches.flatMap(branch => {
+      const stateIds = getTimingBranchStateIds(skill, branch);
+      return stateIds.length === 1 ? [{ branch, stateId: stateIds[0] }] : [];
+    });
+    const selfStateVariantBranches = new Set(selfStateVariantChoices.map(choice => choice.branch));
     const motionFramesByVariant = {};
     motionVariants.forEach(item => {
       motionFramesByVariant[item.branch || 'default'] = Math.max(0, toFiniteNumber(item.gameFrames));
     });
+    const timingContext = {
+      artifactCount: buildOptions.artifactCount,
+      skillCountModifiers: buildOptions.skillCountModifiers
+    };
+    // 追加攻撃回数によって基礎モーションの調査値を超える場合がある。
+    // その場合も最終ヒットまで行動中として扱い、末尾のヒットを
+    // actionEnd で切り捨てない。生成物の周期攻撃は別シートで管理するため、
+    // ここではスキルタイミングのパターンだけを対象にする。
+    branches.forEach(branch => {
+      const branchComposition = resolveTimingBranchMode(buildOptions, actionKey, branch);
+      const exactBranch = (preferredBranch != null
+        && preferredBranch !== ''
+        && branch === preferredBranch
+        && branchComposition !== 'additive')
+        || (selfStateVariantBranches.has(branch) && branchComposition !== 'additive');
+      const variantKey = branch || 'default';
+      const baseFrames = motionFramesByVariant[variantKey] ?? motionFrames;
+      const patternRows = expandTimingPatterns(
+        actionTiming,
+        skill,
+        actionKey,
+        branch,
+        skillLevel,
+        timingContext,
+        warnings,
+        !exactBranch || branchComposition === 'additive'
+      );
+      const lastPatternFrame = patternRows.reduce((max, row) => (
+        Math.max(max, toFiniteNumber(row.frame))
+      ), 0);
+      motionFramesByVariant[variantKey] = Math.max(baseFrames, lastPatternFrame);
+    });
     const variants = {};
     branches.forEach(branch => {
+      const branchComposition = resolveTimingBranchMode(buildOptions, actionKey, branch);
+      const exactBranch = (preferredBranch != null
+        && preferredBranch !== ''
+        && branch === preferredBranch
+        && branchComposition !== 'additive')
+        || (selfStateVariantBranches.has(branch) && branchComposition !== 'additive');
       const variantMotionFrames = motionFramesByVariant[branch || 'default'] ?? motionFrames;
       variants[branch || 'default'] = buildVariantEvents(
         apostle,
         skill,
         actionTiming,
+        actionKey,
         branch,
         variantMotionFrames,
         warnings,
         hasGeneratedDamage,
         statusDefinitions,
         runtimeResources,
-        skillLevel
+        skillLevel,
+        exactBranch,
+        timingContext,
+        branchComposition
       );
     });
+    const exclusiveDamageCandidates = normalizeArray(skill?.dpsExclusiveDamageCandidates)
+      .filter(candidate => candidate?.effectId && toFiniteNumber(candidate?.weight) > 0);
+    const exclusiveCandidateWeight = exclusiveDamageCandidates.reduce((total, candidate) => (
+      total + toFiniteNumber(candidate.weight)
+    ), 0);
+    let actionVariantNames = branches.filter(Boolean);
+    let exclusiveVariantSelection = null;
+    // Keep timing branches and probability choices separate.  Named timing
+    // branches can need a cross-product that the datasheet does not currently
+    // describe, so only apply the generic replacement form to an unbranched
+    // action and surface an explicit warning otherwise.
+    if (exclusiveDamageCandidates.length > 1 && Math.abs(exclusiveCandidateWeight - 100) < 0.0001) {
+      if (branches.length !== 1 || branches[0] !== '') {
+        warnings.push(`${skill.skillId || skill.skillType}: 確率置換とタイミング分岐の組み合わせは未対応です`);
+      } else {
+        const candidateIds = new Set(exclusiveDamageCandidates.map(candidate => candidate.effectId));
+        const choices = exclusiveDamageCandidates.map(candidate => {
+          const variant = `__exclusive:${candidate.effectId}`;
+          const candidateSkill = {
+            ...skill,
+            effects: normalizeArray(skill.effects).filter(effect => (
+              !candidateIds.has(String(effect?.effectId || ''))
+              || String(effect?.effectId || '') === candidate.effectId
+            ))
+          };
+          variants[variant] = buildVariantEvents(
+            apostle,
+            candidateSkill,
+            actionTiming,
+            actionKey,
+            '',
+            motionFrames,
+            warnings,
+            hasGeneratedDamage,
+            statusDefinitions,
+            runtimeResources,
+            skillLevel,
+            false,
+            timingContext
+          );
+          motionFramesByVariant[variant] = motionFrames;
+          return { branch: variant, weight: toFiniteNumber(candidate.weight) };
+        });
+        actionVariantNames = choices.map(choice => choice.branch);
+        exclusiveVariantSelection = { type: 'weighted', choices };
+      }
+    }
     const resourceVariant = runtimeResources.map(resource => {
       const choices = branches.map(branch => {
         const match = String(branch).match(new RegExp(`^${resource.name}(\\d+)$`));
@@ -766,31 +1408,84 @@
         .reduce((total, event) => total + toFiniteNumber(event.resourceChange.amount), 0);
       return { resourceId: resource.id, choices, predictedGain: commonGain };
     }).find(Boolean);
-    const triggerType = actionKey === 'enhancedAttack' ? String(skill.triggerType || '') : '';
-    const triggerValue = actionKey === 'enhancedAttack' ? Math.max(0, toFiniteNumber(skill.triggerValue)) : 0;
-    if (actionKey === 'enhancedAttack' && triggerType && !/^一定確率/.test(triggerType) && triggerType !== 'n回ごと') {
+    // 愛用品の行動書き換えは対象行動の効果だけを持つため、書き換え元の
+    // 強化条件（例: 呪い状態の敵が存在）は基本スキルから引き継ぐ。
+    const triggerType = actionKey === 'enhancedAttack'
+      ? String(skill.triggerType || baseSkill?.triggerType || '')
+      : '';
+    const triggerValue = actionKey === 'enhancedAttack'
+      ? Math.max(0, toFiniteNumber(skill.triggerValue ?? baseSkill?.triggerValue))
+      : 0;
+    const triggerStatus = actionKey === 'enhancedAttack'
+      ? getEnhancedStatusPresenceTrigger(triggerType)
+      : '';
+    if (actionKey === 'enhancedAttack' && triggerType && !/^一定確率/.test(triggerType)
+      && triggerType !== 'n回ごと' && !triggerStatus) {
       warnings.push(`${skill.skillId || skill.skillType}: 強化攻撃条件「${triggerType}」の時系列自動判定は未実装です`);
     }
+    const enemySizeBranch = selectEnemySizeVariantBranch(
+      branches,
+      buildOptions.enemySize,
+      buildOptions.enemySizeRank
+    );
+    const requestedEnemySizeRank = resolveEnemySizeRank(buildOptions.enemySize, buildOptions.enemySizeRank);
+    if (enemySizeBranch && requestedEnemySizeRank > 0
+      && ENEMY_SIZE_BRANCH_RANKS[enemySizeBranch] !== requestedEnemySizeRank) {
+      warnings.push(`${skill.skillId || skill.skillType}: 敵サイズの調査分岐がないため「${enemySizeBranch}」で近似します`);
+    }
+    const requestedArtifactCount = actionKey === 'lowSkill' && Number.isFinite(Number(buildOptions.artifactCount))
+      ? Math.max(0, Math.floor(Number(buildOptions.artifactCount)))
+      : null;
+    const artifactBranch = requestedArtifactCount == null
+      ? ''
+      : branches
+        .map(branch => ({
+          branch,
+          count: Number(String(branch).match(/^遺物装備(\d+)$/)?.[1])
+        }))
+        .filter(item => Number.isFinite(item.count))
+        .sort((a, b) => (
+          Math.abs(a.count - requestedArtifactCount) - Math.abs(b.count - requestedArtifactCount)
+        ))[0]?.branch || '';
+    const fixedBranch = preferredBranch != null && preferredBranch !== ''
+      ? preferredBranch
+      : artifactBranch;
+    const blockedBySelfStateIds = actionKey === 'enhancedAttack'
+      ? [...new Set(normalizeArray(skill.effects)
+        .filter(effect => String(effect?.conditionType || '') === '固有状態外')
+        .map(effect => String(effect?.conditionValue || '').trim())
+        .filter(Boolean))]
+      : [];
     return {
       key: actionKey,
-      label: ACTION_LABELS[actionKey],
+      label: skill?.dpsActionName
+        ? `${ACTION_LABELS[actionKey]}（${skill.dpsActionName}）`
+        : ACTION_LABELS[actionKey],
       skillId: skill.skillId || '',
       motionFrames,
       motionFramesByVariant,
       variants,
       generatedEvents,
       statusDefinitions,
-      variantNames: branches.filter(Boolean),
-      variantSelection: resourceVariant
+      variantNames: actionVariantNames,
+      variantSelection: exclusiveVariantSelection || (selfStateVariantChoices.length
+        ? {
+            type: 'selfState',
+            choices: selfStateVariantChoices,
+            fallbackBranch: branches.includes('') ? 'default' : (actionVariantNames[0] || 'default')
+          }
+        : (resourceVariant
         ? { type: 'resourceAfterGain', ...resourceVariant }
         : (generatedBranches.length
           ? {
               type: 'fixed',
-              branch: branches.includes('中型敵') ? '中型敵' : branches[0]
+              branch: enemySizeBranch || (branches.includes('中型敵') ? '中型敵' : branches[0])
             }
-          : { type: 'random' }),
+          : (fixedBranch ? { type: 'fixed', branch: fixedBranch } : { type: 'random' })))),
       triggerType,
       triggerValue,
+      triggerStatus,
+      blockedBySelfStateIds,
       triggerProbability: /^一定確率/.test(triggerType) ? Math.min(100, triggerValue) : 0,
       triggerEveryCount: triggerType === 'n回ごと' ? Math.max(1, Math.floor(triggerValue || 1)) : 0,
       transitionFrames: actionKey === 'lowSkill' || actionKey === 'highSkill' ? 2 : 0,
@@ -800,7 +1495,54 @@
   }
 
   function buildCombatantConfig(apostle, timing, buildOptions = {}) {
-    const warnings = [];
+    const warnings = normalizeArray(buildOptions.runtimeEffects?.warnings).map(String).filter(Boolean);
+    const scenario = buildOptions.scenario && typeof buildOptions.scenario === 'object'
+      ? buildOptions.scenario
+      : null;
+    const scenarioSelfId = String(scenario?.actors?.self?.id || scenario?.characterState?.targetId || '');
+    if (scenarioSelfId && apostle?.id
+      && normalizeScenarioId(scenarioSelfId) !== normalizeScenarioId(apostle.id)) {
+      warnings.push(`共通シナリオの対象使徒(${scenarioSelfId})とDPSデータ(${apostle.id})が一致しません`);
+    }
+    const scenarioEnemySize = String(
+      scenario?.battleConditions?.enemySize
+      || scenario?.actors?.enemy?.size
+      || ''
+    );
+    const scenarioEnemySizeRank = Number(
+      scenario?.battleConditions?.enemySizeRank
+      || scenario?.actors?.enemy?.sizeRank
+      || 0
+    );
+    const resolvedBuildOptions = {
+      ...buildOptions,
+      enemySize: buildOptions.enemySize || scenarioEnemySize,
+      enemySizeRank: buildOptions.enemySizeRank || scenarioEnemySizeRank
+    };
+    const enemyCount = Math.max(1, Math.floor(toFiniteNumber(
+      buildOptions.enemyCount ?? scenario?.battleConditions?.enemyCount,
+      1
+    )));
+    const scenarioArtifactCount = getScenarioArtifactCount(scenario, apostle?.id);
+    const artifactCount = Number.isFinite(Number(buildOptions.artifactCount))
+      ? Math.max(0, Math.floor(Number(buildOptions.artifactCount)))
+      : scenarioArtifactCount;
+    // DPSの一時設定・保存スロットから渡された値は、シナリオに残っている
+    // 管理側の値より優先する。シナリオがA2のままでも、画面で「なし」を
+    // 選んだ場合にA2の追加攻撃回数を混ぜない。
+    const hasExplicitAsideRank = Object.prototype.hasOwnProperty.call(buildOptions, 'asideRank')
+      || Object.prototype.hasOwnProperty.call(buildOptions.skillLevels || {}, 'asideRank');
+    const explicitAsideRank = buildOptions.asideRank ?? buildOptions.skillLevels?.asideRank;
+    const asideRank = hasExplicitAsideRank
+      ? Math.max(0, Math.min(3, Math.floor(toFiniteNumber(explicitAsideRank))))
+      : getScenarioAsideRank(scenario, apostle?.id, buildOptions.asideRank);
+    const skillCountModifiers = [
+      ...buildSkillCountModifiers(apostle, asideRank, buildOptions.skillLevels),
+      ...normalizeArray(buildOptions.runtimeEffects?.skillCountModifiers)
+    ];
+    resolvedBuildOptions.artifactCount = artifactCount;
+    resolvedBuildOptions.asideRank = asideRank;
+    resolvedBuildOptions.skillCountModifiers = skillCountModifiers;
     const runtimeResourceMap = new Map(buildRuntimeResources(apostle, buildOptions.skillLevels)
       .map(resource => [resource.id, resource]));
     normalizeArray(buildOptions.runtimeEffects?.resources).forEach(resource => {
@@ -825,7 +1567,7 @@
     const actions = {};
     Object.keys(ACTION_SKILL_TYPES).forEach(actionKey => {
       const action = buildAction(apostle, timing, actionKey, warnings, {
-        ...buildOptions,
+        ...resolvedBuildOptions,
         runtimeResources
       });
       if (action) actions[actionKey] = action;
@@ -846,8 +1588,11 @@
       if (mode !== sourceMode) return mode;
       const triggerSourceId = String(effect?.triggerSourceId || '');
       if (triggerSourceId && timingEffectIds.has(triggerSourceId)) return mode;
-      warnings.push(`${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないため行動単位で近似します`);
-      return String(effect?.sourceEventFallbackMode || fallbackMode);
+      const resolvedFallbackMode = String(effect?.sourceEventFallbackMode || fallbackMode);
+      warnings.push(resolvedFallbackMode === 'disabled'
+        ? `${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないためDPSでは発動させません`
+        : `${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないため行動単位で近似します`);
+      return resolvedFallbackMode;
     };
     const legacyPeriodicAttackSpeed = normalizeArray(buildOptions.runtimeEffects?.periodicAttackSpeedStacks)
       .map(effect => ({
@@ -867,6 +1612,8 @@
     ].map((effect, index) => ({
       id: String(effect?.id || `attackSpeed:${index}`),
       sourceId: String(effect?.sourceId || ''),
+      externalSourceId: String(effect?.externalSourceId || ''),
+      externalTriggerType: String(effect?.externalTriggerType || ''),
       label: String(effect?.label || effect?.id || '攻撃速度効果'),
       mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
       triggerSourceId: String(effect?.triggerSourceId || ''),
@@ -877,18 +1624,21 @@
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
       triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
       maxStacks: Math.max(0, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
+      fixedStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.fixedStacks, 1))),
       stackable: !!effect?.stackable,
       resetActionKeys: normalizeArray(effect?.resetActionKeys).map(String),
       sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed')
     })).filter(effect => effect.id && effect.hasteP);
     const initialAttackSpeedP = attackSpeedEffects.reduce((total, effect) => (
-      ['constant', 'initialTimed', 'manualInitialTimed'].includes(effect.mode)
-        ? total + effect.hasteP
+      ['constant', 'initialTimed', 'manualInitialTimed', 'fixed'].includes(effect.mode)
+        ? total + effect.hasteP * (effect.mode === 'fixed' ? effect.fixedStacks : 1)
         : total
     ), 0);
     const spRegenEffects = normalizeArray(buildOptions.runtimeEffects?.spRegenEffects).map((effect, index) => ({
       id: String(effect?.id || `spRegen:${index}`),
       sourceId: String(effect?.sourceId || ''),
+      externalSourceId: String(effect?.externalSourceId || ''),
+      externalTriggerType: String(effect?.externalTriggerType || ''),
       label: String(effect?.label || effect?.id || '毎秒SP回復効果'),
       fixed: toFiniteNumber(effect?.fixed),
       percent: toFiniteNumber(effect?.percent)
@@ -896,6 +1646,8 @@
     const spRecoveryEffects = normalizeArray(buildOptions.runtimeEffects?.spRecoveryEffects).map((effect, index) => ({
       id: String(effect?.id || `spRecovery:${index}`),
       sourceId: String(effect?.sourceId || ''),
+      externalSourceId: String(effect?.externalSourceId || ''),
+      externalTriggerType: String(effect?.externalTriggerType || ''),
       effectId: String(effect?.effectId || ''),
       label: String(effect?.label || effect?.id || 'SP回復効果'),
       mode: resolveSourceEventMode(effect, 'sourceEvent', 'action'),
@@ -917,6 +1669,26 @@
     })).filter(effect => effect.id && (
       effect.fixed || effect.percent || effect.fixedMin || effect.fixedMax || effect.percentMin || effect.percentMax
     ));
+    const cooldownEffects = normalizeArray(buildOptions.runtimeEffects?.cooldownEffects).map((effect, index) => ({
+      id: String(effect?.id || `cooldown:${index}`),
+      sourceId: String(effect?.sourceId || ''),
+      label: String(effect?.label || effect?.id || 'クールタイム変更'),
+      mode: resolveSourceEventMode(effect, 'sourceEvent', 'action'),
+      triggerSourceId: String(effect?.triggerSourceId || ''),
+      triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
+      triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
+      triggerEveryCount: Math.max(0, Math.floor(toFiniteNumber(effect?.triggerEveryCount))),
+      oncePerAction: !!effect?.oncePerAction,
+      targetActionKey: String(effect?.targetActionKey || 'highSkill'),
+      operation: ['add', 'subtract', 'set', 'multiply'].includes(effect?.operation)
+        ? effect.operation
+        : 'subtract',
+      amountFrames: Math.max(0, toFiniteNumber(effect?.amountFrames)),
+      multiplier: Math.max(0, toFiniteNumber(effect?.multiplier, 1)),
+      sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'action')
+    })).filter(effect => effect.id && (
+      effect.operation === 'multiply' ? effect.multiplier !== 1 : effect.amountFrames > 0
+    ));
     const baseSpRegenOverride = Number(buildOptions.runtimeEffects?.baseSpRegen);
     const baseSpRegen = Math.max(0, Number.isFinite(baseSpRegenOverride)
       ? baseSpRegenOverride
@@ -936,6 +1708,8 @@
     const damageBuffEffects = normalizeArray(buildOptions.runtimeEffects?.damageBuffEffects).map((effect, index) => ({
       id: String(effect?.id || `damageBuff:${index}`),
       sourceId: String(effect?.sourceId || ''),
+      externalSourceId: String(effect?.externalSourceId || ''),
+      externalTriggerType: String(effect?.externalTriggerType || ''),
       label: String(effect?.label || effect?.id || '時限ダメージバフ'),
       mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
@@ -944,6 +1718,7 @@
       triggerType: String(effect?.triggerType || ''),
       triggerValue: effect?.triggerValue ?? '',
       triggerSourceId: String(effect?.triggerSourceId || ''),
+      triggerEveryCount: Math.max(0, Math.floor(toFiniteNumber(effect?.triggerEveryCount))),
       conditionType: String(effect?.conditionType || ''),
       conditionValue: effect?.conditionValue ?? '',
       requiredStatus: String(effect?.requiredStatus || ''),
@@ -951,6 +1726,7 @@
       durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
       stackable: !!effect?.stackable,
       maxStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
+      fixedStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.fixedStacks, 1))),
       oncePerAction: !!effect?.oncePerAction,
       sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed'),
       modifiers: Object.fromEntries(Object.entries(effect?.modifiers || {})
@@ -965,10 +1741,28 @@
       id: String(effect?.id || `runtimeEvent:${index}`),
       label: String(effect?.label || effect?.id || '時系列効果'),
       triggerType: String(effect?.triggerType || ''),
+      triggerValue: effect?.triggerValue ?? '',
+      triggerProbability: normalizeRuntimeTriggerProbability(effect),
       triggerSourceId: String(effect?.triggerSourceId || ''),
+      triggerSourceIds: Array.from(new Set([
+        effect?.triggerSourceId,
+        ...normalizeArray(effect?.triggerSourceIds)
+      ].map(value => String(value || '').trim()).filter(Boolean))),
+      effectIds: Array.from(new Set([
+        effect?.effectId,
+        ...normalizeArray(effect?.effectIds)
+      ].map(value => String(value || '').trim()).filter(Boolean))),
+      timingSourceEffectId: String(effect?.timingSourceEffectId || ''),
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
+      conditionType: String(effect?.conditionType || ''),
+      conditionValue: String(effect?.conditionValue || ''),
+      startOnSelfStateId: String(effect?.startOnSelfStateId || ''),
+      consumeMaxStacks: !!effect?.consumeMaxStacks,
       intervalFrames: Math.max(0, toFiniteNumber(effect?.intervalFrames)),
+      triggerEveryCount: Math.max(0, Math.floor(toFiniteNumber(effect?.triggerEveryCount))),
       oncePerAction: !!effect?.oncePerAction,
+      perHitTrigger: !!effect?.perHitTrigger
+        || ['各ヒット', '毎ヒット'].includes(String(effect?.triggerValue || '').trim()),
       conditionResource: effect?.conditionResource ? {
         id: String(effect.conditionResource.id || ''),
         min: effect.conditionResource.min == null ? null : toFiniteNumber(effect.conditionResource.min),
@@ -979,6 +1773,7 @@
         type: String(step?.type || ''),
         order: toFiniteNumber(step?.order),
         expectedDamage: Math.max(0, toFiniteNumber(step?.expectedDamage)),
+        unclassifiedDamage: !!step?.unclassifiedDamage,
         value: toFiniteNumber(step?.value),
         amount: Math.max(0, toFiniteNumber(step?.amount)),
         application: step?.application ? { ...step.application } : null,
@@ -997,14 +1792,27 @@
       });
     }
     const normalAttackIntervalFrames = Math.max(1, toFiniteNumber(timing?.normalAttackIntervalFrames, 60));
+    const movementTransitions = normalizeArray(timing?.movementTransitions).map((transition, index) => ({
+      id: String(transition?.id || `movement:${index}`),
+      fromActionKey: String(transition?.fromActionKey || ''),
+      fromBranch: String(transition?.fromBranch || ''),
+      toActionKey: String(transition?.toActionKey || ''),
+      toBranch: String(transition?.toBranch || ''),
+      frames: Math.max(0, toFiniteNumber(transition?.frames)),
+      researchStatus: String(transition?.researchStatus || ''),
+      note: String(transition?.note || '')
+    })).filter(transition => transition.fromActionKey && transition.toActionKey && transition.frames > 0);
     return {
       apostleId: timing?.id || apostle?.id || '',
       name: timing?.name || apostle?.name || '',
+      scenarioFingerprint: String(scenario?.sourceMeta?.fingerprint || ''),
+      scenarioTargetId: scenarioSelfId,
       personality,
       initialActionDelayFrames: Math.max(0, toFiniteNumber(timing?.initialActionDelayFrames, 60)),
       normalAttackIntervalFrames,
       initialAttackSpeedP,
       initialNormalAttackIntervalFrames: normalAttackIntervalFrames / (1 + initialAttackSpeedP / 100),
+      movementTransitions,
       initialSp: Math.max(0, toFiniteNumber(apostle?.basic?.initialSp)),
       spRegen: Math.max(0, baseSpRegen * (1 + spRegenPercent / 100) + spRegenFixed),
       spRecoveryIntervalFrames: Math.max(1, toFiniteNumber(timing?.spRecoveryIntervalFrames, 60)),
@@ -1015,8 +1823,10 @@
         attackSpeedEffects,
         spRegenEffects,
         spRecoveryEffects,
+        cooldownEffects,
         damageBuffEffects,
         eventEffects,
+        statusDamageWeaknessP: Math.max(0, toFiniteNumber(buildOptions.runtimeEffects?.statusDamageWeaknessP)),
         initialTargetStatuses: normalizeArray(buildOptions.runtimeEffects?.initialTargetStatuses).map(item => ({
           status: String(item?.status || ''),
           sourceSelf: item?.sourceSelf !== false,
@@ -1025,7 +1835,19 @@
         statusReactions,
         damageEffectIds: normalizeArray(buildOptions.runtimeEffects?.damageEffectIds).map(String).filter(Boolean)
       },
+      externalEvents: normalizeArray(buildOptions.externalEvents || buildOptions.runtimeEffects?.externalEvents).map((event, index) => ({
+        id: String(event?.id || `external:${index}`),
+        type: String(event?.type || event?.triggerType || ''),
+        frame: Math.max(0, toFiniteNumber(event?.frame)),
+        intervalFrames: Math.max(0, toFiniteNumber(event?.intervalFrames)),
+        repeatCount: Math.max(0, Math.floor(toFiniteNumber(event?.repeatCount))),
+        sourceId: String(event?.sourceId || event?.triggerSourceId || ''),
+        value: event?.value ?? '',
+        status: String(event?.status || ''),
+        reason: String(event?.reason || '')
+      })).filter(event => event.type),
       runtimeResources,
+      enemyCount,
       actions,
       warnings
     };
@@ -1034,6 +1856,31 @@
   function pickVariant(action, state, random) {
     const names = action?.variantNames || [];
     if (!names.length) return 'default';
+    const weightedSelection = action.variantSelection;
+    if (weightedSelection?.type === 'selfState') {
+      const activeChoice = normalizeArray(weightedSelection.choices).find(choice => (
+        names.includes(choice?.branch)
+        && state.selfStateStacks.some(stack => (
+          stack.stateId === choice?.stateId && state.tick < stack.expireTick
+        ))
+      ));
+      if (activeChoice) return activeChoice.branch;
+      const fallback = String(weightedSelection.fallbackBranch || 'default');
+      return fallback === 'default' || names.includes(fallback) ? fallback : names[0];
+    }
+    if (weightedSelection?.type === 'weighted') {
+      const choices = normalizeArray(weightedSelection.choices)
+        .filter(choice => names.includes(choice?.branch) && toFiniteNumber(choice?.weight) > 0);
+      const totalWeight = choices.reduce((total, choice) => total + toFiniteNumber(choice.weight), 0);
+      if (totalWeight > 0) {
+        let remaining = random() * totalWeight;
+        for (const choice of choices) {
+          remaining -= toFiniteNumber(choice.weight);
+          if (remaining < 0) return choice.branch;
+        }
+        return choices.at(-1)?.branch || names[0];
+      }
+    }
     if (action.key === 'lowSkill') {
       const selection = action.variantSelection || { type: 'random' };
       let selected;
@@ -1073,11 +1920,11 @@
   }
 
   function findEventDamageEffect(effects, variantProfile, event) {
-    let effect = event.effectId ? variantProfile.effects?.[event.effectId] : null;
-    if (!effect && event.effectId) {
+    let effect = event?.effectId ? variantProfile.effects?.[event.effectId] : null;
+    if (!effect && event?.effectId) {
       effect = effects.find(item => item?.effectId === event.effectId) || null;
     }
-    if (!effect && event.effectValueKind) {
+    if (!effect && event?.effectValueKind) {
       const expectedKind = String(event.effectValueKind);
       effect = effects.find(item => {
         const actualKind = String(item?.valueKind || item?.kind || item?.label || '');
@@ -1086,8 +1933,26 @@
           || expectedKind.includes(actualKind);
       }) || null;
     }
-    if (!effect && effects.length === 1) effect = effects[0];
+    if (!effect && !event?.effectId && effects.length === 1) effect = effects[0];
     return effect;
+  }
+
+  function findEventDamageEffectAcrossVariants(damageProfiles, current, event, preferredProfile) {
+    if (!event?.effectId) return null;
+    const actionProfile = damageProfiles?.[current?.key];
+    const profiles = [
+      preferredProfile,
+      ...Object.values(actionProfile?.variants || {})
+    ].filter(Boolean);
+    const seen = new Set();
+    for (const profile of profiles) {
+      if (seen.has(profile)) continue;
+      seen.add(profile);
+      const effect = profile.effects?.[event.effectId]
+        || Object.values(profile.effects || {}).find(item => item?.effectId === event.effectId);
+      if (effect) return effect;
+    }
+    return null;
   }
 
   function isPerHitDamageDefinition(event, effect) {
@@ -1104,7 +1969,8 @@
     if (damageEvents.length === 1 && effects.length > 1) {
       expectedDamage = Math.max(0, toFiniteNumber(variantProfile.totalExpectedDamage));
     } else {
-      const effect = findEventDamageEffect(effects, variantProfile, event);
+      const effect = findEventDamageEffect(effects, variantProfile, event)
+        || findEventDamageEffectAcrossVariants(damageProfiles, current, event, variantProfile);
       if (!effect) return 0;
       if (Number.isFinite(Number(event.coefficientShare)) && Number(event.coefficientShare) > 0) {
         expectedDamage = Math.max(0, toFiniteNumber(effect.expectedDamage)) * Number(event.coefficientShare);
@@ -1130,7 +1996,8 @@
     const variantProfile = getVariantDamageProfile(damageProfiles, current?.key, current?.variant);
     if (!variantProfile) return null;
     const effects = Object.values(variantProfile.effects || {});
-    const effect = findEventDamageEffect(effects, variantProfile, event);
+    const effect = findEventDamageEffect(effects, variantProfile, event)
+      || findEventDamageEffectAcrossVariants(damageProfiles, current, event, variantProfile);
     return effect?.damageResult?.runtimeBase || null;
   }
 
@@ -1151,9 +2018,11 @@
   function evaluateDamageAtHit(input = {}) {
     const expectedDamage = Math.max(0, toFiniteNumber(input.expectedDamage));
     const actionKey = String(input.actionKey || '');
+    const generatedEventType = String(input.generatedEventType || '');
     const modifierDelta = input.modifierDelta || {};
     const heldAddP = toFiniteNumber(input.heldAddP);
     const statusTakenDmgP = toFiniteNumber(input.statusTakenDmgP);
+    const statusDamageP = toFiniteNumber(input.statusDamageP);
     const activeEffects = normalizeArray(input.activeEffects).map(effect => ({
       id: String(effect?.id || effect?.effectId || ''),
       label: String(effect?.label || ''),
@@ -1161,11 +2030,12 @@
       modifiers: { ...(effect?.modifiers || {}) }
     }));
     const base = input.runtimeBase || null;
-    const ratios = { attackDefense: 1, add: 1, special: 1, other: 1, critical: 1 };
+    const ratios = { attackDefense: 1, actionMultiplier: 1, add: 1, special: 1, other: 1, critical: 1 };
     const attackP = getRuntimeAttackModifierP(modifierDelta, base?.damageType || '');
+    const actionMultiplierP = getRuntimeActionMultiplierModifierP(modifierDelta, actionKey, generatedEventType);
     const addP = getRuntimeAddModifierP(modifierDelta, actionKey) + heldAddP + statusTakenDmgP;
     const specialP = toFiniteNumber(modifierDelta.specialP);
-    const otherP = toFiniteNumber(modifierDelta.otherP);
+    const otherP = toFiniteNumber(modifierDelta.otherP) + statusDamageP;
     const critP = toFiniteNumber(modifierDelta.critP);
     const critRateP = toFiniteNumber(modifierDelta.critRateP);
     const critDmgP = toFiniteNumber(modifierDelta.critDmgP);
@@ -1173,7 +2043,7 @@
     const enemyDefDownP = toFiniteNumber(modifierDelta.enemyDefDownP);
     const enemyCritResDownP = toFiniteNumber(modifierDelta.enemyCritResDownP);
     const enemyCritDmgResDownP = toFiniteNumber(modifierDelta.enemyCritDmgResDownP);
-    const hasModifier = !!(attackP || addP || specialP || otherP || critP || critRateP || critDmgP || critDmgAddP
+    const hasModifier = !!(attackP || actionMultiplierP || addP || specialP || otherP || critP || critRateP || critDmgP || critDmgAddP
       || enemyDefDownP || enemyCritResDownP || enemyCritDmgResDownP);
     if (!(expectedDamage > 0) || !hasModifier) {
       return {
@@ -1184,26 +2054,50 @@
         modifierDelta: { ...modifierDelta },
         heldAddP,
         statusTakenDmgP,
+        statusDamageP,
         activeEffects,
         runtimeBaseAvailable: !!base
       };
     }
     if (!base) {
+      ratios.actionMultiplier = 1 + actionMultiplierP / 100;
       ratios.add = 1 + addP / 100;
+      ratios.special = 1 + specialP / 100;
+      ratios.other = 1 + otherP / 100;
+      const ratio = ratios.actionMultiplier * ratios.add * ratios.special * ratios.other;
       return {
         baseExpectedDamage: expectedDamage,
-        expectedDamage: expectedDamage * ratios.add,
-        ratio: ratios.add,
+        expectedDamage: expectedDamage * ratio,
+        ratio,
         ratios,
         modifierDelta: { ...modifierDelta },
         heldAddP,
         statusTakenDmgP,
+        statusDamageP,
         activeEffects,
         runtimeBaseAvailable: false
       };
     }
 
     let ratio = 1;
+    if (actionMultiplierP) {
+      const oldActionMultiplierP = Math.max(
+        0.000001,
+        toFiniteNumber(base.finalActionMultiplierP, base.baseActionMultiplierP || 100)
+      );
+      const baseActionMultiplierP = Math.max(
+        0,
+        toFiniteNumber(base.baseActionMultiplierP, oldActionMultiplierP)
+      );
+      const newActionMultiplierP = Math.max(
+        0,
+        baseActionMultiplierP * (
+          1 + (toFiniteNumber(base.actionMultiplierBonusP) + actionMultiplierP) / 100
+        )
+      );
+      ratios.actionMultiplier = newActionMultiplierP / oldActionMultiplierP;
+      ratio *= ratios.actionMultiplier;
+    }
     if (attackP || enemyDefDownP) {
       const oldFinalAtk = Math.max(0, toFiniteNumber(base.finalAtk));
       const newFinalAtk = attackP
@@ -1241,7 +2135,9 @@
       ratio *= ratios.other;
     }
     if (critP || critRateP || critDmgP || critDmgAddP || enemyCritResDownP || enemyCritDmgResDownP) {
-      const oldCritRate = Math.max(0.05, Math.min(0.8, toFiniteNumber(base.critRate, 0.05)));
+      const oldCritRate = base.guaranteedCrit
+        ? 1
+        : Math.max(0.05, Math.min(0.8, toFiniteNumber(base.critRate, 0.05)));
       const oldCritMult = Math.max(1.2, Math.min(2.5, toFiniteNumber(base.critMult, 1.2)));
       const newFinalCrit = Math.max(0, toFiniteNumber(base.baseCrit) * (
         1 + (toFiniteNumber(base.critP) + critP) / 100
@@ -1252,11 +2148,13 @@
         ))
         : Math.max(1, toFiniteNumber(base.finalCritRes, 1));
       const newBaseCritRate = calcRuntimeCritRate(newFinalCrit, newFinalCritRes);
-      const newCritRate = Math.max(0.05, Math.min(0.8,
-        newBaseCritRate
-          + (toFiniteNumber(base.critRateP) + critRateP) / 100
-          - toFiniteNumber(base.critResAddP) / 100
-      ));
+      const newCritRate = base.guaranteedCrit
+        ? 1
+        : Math.max(0.05, Math.min(0.8,
+          newBaseCritRate
+            + (toFiniteNumber(base.critRateP) + critRateP) / 100
+            - toFiniteNumber(base.critResAddP) / 100
+        ));
       const newFinalCritDmg = Math.max(0, toFiniteNumber(base.baseCritDmg) * (
         1 + (toFiniteNumber(base.critDmgP) + critDmgP) / 100
       ));
@@ -1284,12 +2182,13 @@
       modifierDelta: { ...modifierDelta },
       heldAddP,
       statusTakenDmgP,
+      statusDamageP,
       activeEffects,
       runtimeBaseAvailable: true
     };
   }
 
-  function evaluateRuntimeDamage(expectedDamage, current, event, damageProfiles, state, config, runtimeBase = null) {
+  function evaluateRuntimeDamage(expectedDamage, current, event, damageProfiles, state, config, runtimeBase = null, statusDamageP = 0) {
     const modifierDelta = getRuntimeDamageBuffDelta(state, config, current?.key || '');
     const heldAddP = Object.values(state.runtimeResources || {}).reduce((total, resource) => (
       total + (normalizeArray(resource.heldAddEffectIds).some(effectId => (
@@ -1327,12 +2226,20 @@
       kind: 'statusReaction',
       modifiers: { addP: statusTakenDmgP }
     });
+    if (statusDamageP) activeEffects.push({
+      id: 'runtime-status-damage-weakness',
+      label: '状態異常ダメージ弱点',
+      kind: 'statusDamageWeakness',
+      modifiers: { otherP: statusDamageP }
+    });
     return evaluateDamageAtHit({
       expectedDamage,
       actionKey: current?.key || '',
+      generatedEventType: event?.generatedEventType || '',
       modifierDelta,
       heldAddP,
       statusTakenDmgP,
+      statusDamageP,
       activeEffects,
       runtimeBase: runtimeBase || getEventRuntimeBase(current, event, damageProfiles)
     });
@@ -1349,6 +2256,9 @@
   }
 
   function simulate(config, options = {}) {
+    const simulationStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
     const ticksPerFrame = Math.max(1, Math.floor(toFiniteNumber(options.ticksPerFrame, DEFAULT_TICKS_PER_FRAME)));
     const framesPerSecond = Math.max(1, toFiniteNumber(options.framesPerSecond, DEFAULT_FRAMES_PER_SECOND));
     const durationSeconds = Math.max(1, Math.min(600, toFiniteNumber(options.durationSeconds, 60)));
@@ -1364,6 +2274,10 @@
     );
     const initialActionDelayTicks = toTicks(initialActionDelayFrames, ticksPerFrame);
     const random = createSeededRandom(options.seed);
+    const enemyCount = Math.max(1, Math.floor(toFiniteNumber(
+      options.enemyCount ?? config.enemyCount,
+      1
+    )));
     const highSkillMode = options.highSkillMode === 'auto' ? 'auto' : 'disabled';
     const initialHighSkillCooldownMultiplier = Math.max(
       0,
@@ -1373,18 +2287,32 @@
       0,
       toFiniteNumber(options.recurringHighSkillCooldownMultiplier, 1)
     );
+    const formationTimelineMode = ['supportEstimate', 'fullFormation'].includes(options.formationTimelineMode)
+      ? options.formationTimelineMode
+      : 'off';
     const damageProfiles = options.damageProfiles || {};
     const statusDamageProfiles = options.statusDamageProfiles || {};
     const resolveStatusDamage = typeof options.resolveStatusDamage === 'function'
       ? options.resolveStatusDamage
       : null;
     const recordTimeline = options.recordTimeline !== false;
+    const recordDamageSeries = options.recordDamageSeries !== false && recordTimeline;
     const timeline = [];
+    let timelineEventCount = 0;
+    let timelineOmittedCount = 0;
+    let processedTickCount = 0;
+    let fastForwardCount = 0;
+    let fastForwardedTickCount = 0;
+    let generatedEventScheduleCount = 0;
+    // 表示用タイムラインとは分離する。表示イベントは上限で省略されても、
+    // グラフ・集計用のダメージ発生点は戦闘終了まで保持する。
+    const damageSeries = [];
     const counts = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const hits = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const damagingActions = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const expectedDamageByAction = { basicAttack: 0, enhancedAttack: 0, lowSkill: 0, highSkill: 0 };
     const expectedDamageByStatus = Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, 0]));
+    const expectedDamageByStatusSource = Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, {}]));
     const expectedDamageByRuntimeEffect = {};
     const runtimeEffectTriggerCounts = {};
     const trackedStatuses = new Set([
@@ -1416,15 +2344,23 @@
     const state = {
       tick: 0,
       currentAction: null,
+      movementTransition: null,
       skillTransition: null,
       pendingGeneratedEvents: [],
+      pendingGeneratedEventQueue: [],
+      generatedEventQueueSequence: 0,
+      runtimePeriodicEventQueue: [],
+      runtimePeriodicEventQueueSequence: 0,
       generatedAttackSpeedSnapshots: new Set(),
       actionSerial: 0,
       normalAttackSequence: 0,
+      lastCompletedAction: null,
       lastNormalAttackStartTick: null,
       runtimeAttackSpeedEffects: normalizeArray(config.runtimeEffects?.attackSpeedEffects).map(effect => ({
         ...effect,
-        stackCount: ['constant', 'initialTimed', 'manualInitialTimed'].includes(effect.mode) ? 1 : 0,
+        stackCount: effect.mode === 'fixed'
+          ? effect.fixedStacks
+          : (['constant', 'initialTimed', 'manualInitialTimed'].includes(effect.mode) ? 1 : 0),
         expireTicks: effect.durationFrames > 0 && ['initialTimed', 'manualInitialTimed'].includes(effect.mode)
           ? [toTicks(effect.durationFrames, ticksPerFrame)]
           : [],
@@ -1439,15 +2375,50 @@
         lastActionInstanceId: null,
         activeUntilTick: -1
       })),
+      runtimeCooldownEffects: normalizeArray(config.runtimeEffects?.cooldownEffects).map(effect => ({
+        ...effect,
+        triggerCount: 0,
+        lastActionInstanceId: null
+      })),
       runtimeDamageBuffEffects: normalizeArray(config.runtimeEffects?.damageBuffEffects).map(effect => ({
         ...effect,
+        triggerCount: 0,
         lastActionInstanceId: null
       })),
       runtimeEventEffects: normalizeArray(config.runtimeEffects?.eventEffects).map(effect => ({
         ...effect,
-        nextTick: effect.intervalFrames > 0 ? toTicks(effect.intervalFrames, ticksPerFrame) : Infinity,
+        nextTick: effect.intervalFrames > 0 && !effect.startOnSelfStateId
+          ? toTicks(effect.intervalFrames, ticksPerFrame)
+          : Infinity,
+        occurrenceCount: 0,
         lastActionInstanceId: null
       })),
+      externalEvents: normalizeArray(options.externalEvents || config.externalEvents)
+        .flatMap((event, index) => {
+          const startFrame = Math.max(0, toFiniteNumber(event?.frame));
+          const intervalFrames = Math.max(0, toFiniteNumber(event?.intervalFrames));
+          const requestedCount = Math.max(0, Math.floor(toFiniteNumber(event?.repeatCount)));
+          const availableCount = intervalFrames > 0 && startFrame <= durationSeconds * framesPerSecond
+            ? Math.floor((durationSeconds * framesPerSecond - startFrame) / intervalFrames) + 1
+            : 1;
+          const count = intervalFrames > 0
+            ? Math.min(10000, requestedCount > 0 ? requestedCount : availableCount, availableCount)
+            : 1;
+          return Array.from({ length: Math.max(0, count) }, (_, occurrenceIndex) => {
+            const frame = startFrame + intervalFrames * occurrenceIndex;
+            return {
+              ...event,
+              id: `${String(event?.id || `external:${index}`)}:${occurrenceIndex + 1}`,
+              periodicGroupId: String(event?.id || `external:${index}`),
+              occurrence: occurrenceIndex + 1,
+              frame,
+              eventTick: toTicks(frame, ticksPerFrame),
+              emitted: false
+            };
+          });
+        })
+        .sort((a, b) => a.frame - b.frame),
+      externalEventIndex: 0,
       runtimeResources: Object.fromEntries(normalizeArray(config.runtimeResources).map(resource => [
         resource.id,
         { ...resource, stacks: Math.max(0, toFiniteNumber(resource.initialStacks)) }
@@ -1455,32 +2426,371 @@
       runtimeDamageEffectIds: normalizeArray(config.runtimeEffects?.damageEffectIds),
       runtimeBuffSerial: 0,
       runtimeBuffStacks: [],
+      selfStateSerial: 0,
+      selfStateStacks: [],
       statusSerial: initialTargetStatuses.length,
       statusStacks: initialTargetStatuses,
       actionStartAllowedTick: initialActionDelayTicks,
       nextNormalAttackTick: initialActionDelayTicks,
       sp: Math.min(config.maxSp, config.initialSp),
       spRecoveryRemainingTicks: spTickInterval,
+      spRecoveryNextTick: config.spRegen > 0 ? spTickInterval : Infinity,
+      spRecoveryPausedRemainingTicks: null,
       lowSkillQueued: false,
       lowSkillReadyTick: null,
-      highSkillReadyTick: highSkillMode === 'auto' && config.actions.highSkill?.cooldownSeconds
-        ? toTicks(
-            config.actions.highSkill.cooldownSeconds
-              * initialHighSkillCooldownMultiplier
-              * framesPerSecond,
-            ticksPerFrame
-          )
-        : Infinity,
+      cooldowns: {
+        highSkill: {
+          actionKey: 'highSkill',
+          readyTick: highSkillMode === 'auto' && config.actions.highSkill?.cooldownSeconds
+            ? toTicks(
+                config.actions.highSkill.cooldownSeconds
+                  * initialHighSkillCooldownMultiplier
+                  * framesPerSecond,
+                ticksPerFrame
+              )
+            : Infinity
+        }
+      },
       lastSkillVariant: ''
     };
 
     const log = (type, detail = {}) => {
       if (!recordTimeline) return;
-      if (timeline.length >= Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))) return;
+      timelineEventCount += 1;
+      if (timeline.length >= Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))) {
+        timelineOmittedCount += 1;
+        return;
+      }
       timeline.push({ tick: state.tick, frame: state.tick / ticksPerFrame, type, ...detail });
     };
 
+    const comparePendingGeneratedEvents = (a, b) => (
+      toFiniteNumber(a?.absoluteTick) - toFiniteNumber(b?.absoluteTick)
+      || toFiniteNumber(a?.event?.eventOrder, 1000) - toFiniteNumber(b?.event?.eventOrder, 1000)
+      || toFiniteNumber(a?.queueOrder) - toFiniteNumber(b?.queueOrder)
+    );
+
+    const enqueueGeneratedEvent = pending => {
+      const queue = state.pendingGeneratedEventQueue;
+      queue.push(pending);
+      let index = queue.length - 1;
+      while (index > 0) {
+        const parent = Math.floor((index - 1) / 2);
+        if (comparePendingGeneratedEvents(queue[parent], queue[index]) <= 0) break;
+        [queue[parent], queue[index]] = [queue[index], queue[parent]];
+        index = parent;
+      }
+    };
+
+    const peekPendingGeneratedEvent = () => {
+      const queue = state.pendingGeneratedEventQueue;
+      while (queue.length > 0) {
+        const pending = queue[0];
+        if (!pending.emitted && !pending.cancelled) return pending;
+        const last = queue.pop();
+        if (queue.length === 0) break;
+        queue[0] = last;
+        let index = 0;
+        while (true) {
+          const left = index * 2 + 1;
+          const right = left + 1;
+          let smallest = index;
+          if (left < queue.length && comparePendingGeneratedEvents(queue[left], queue[smallest]) < 0) {
+            smallest = left;
+          }
+          if (right < queue.length && comparePendingGeneratedEvents(queue[right], queue[smallest]) < 0) {
+            smallest = right;
+          }
+          if (smallest === index) break;
+          [queue[index], queue[smallest]] = [queue[smallest], queue[index]];
+          index = smallest;
+        }
+      }
+      return null;
+    };
+
+    const popPendingGeneratedEvent = () => {
+      const pending = peekPendingGeneratedEvent();
+      if (!pending) return null;
+      const queue = state.pendingGeneratedEventQueue;
+      const last = queue.pop();
+      if (queue.length > 0) {
+        queue[0] = last;
+        let index = 0;
+        while (true) {
+          const left = index * 2 + 1;
+          const right = left + 1;
+          let smallest = index;
+          if (left < queue.length && comparePendingGeneratedEvents(queue[left], queue[smallest]) < 0) {
+            smallest = left;
+          }
+          if (right < queue.length && comparePendingGeneratedEvents(queue[right], queue[smallest]) < 0) {
+            smallest = right;
+          }
+          if (smallest === index) break;
+          [queue[index], queue[smallest]] = [queue[smallest], queue[index]];
+          index = smallest;
+        }
+      }
+      return pending;
+    };
+
+    const getNextPendingGeneratedEventTick = () => {
+      const pending = peekPendingGeneratedEvent();
+      return pending ? toFiniteNumber(pending.absoluteTick, Infinity) : Infinity;
+    };
+
+    // 周期効果・DoT・時限効果の次回時刻を遅延削除付きの最小ヒープで保持する。
+    // 効果側の時刻が更新された場合、古いエントリは世代番号で無効化する。
+    const runtimePeriodicTimerVersions = new WeakMap();
+    const compareRuntimePeriodicEvents = (a, b) => (
+      toFiniteNumber(a?.tick) - toFiniteNumber(b?.tick)
+      || toFiniteNumber(a?.sequence) - toFiniteNumber(b?.sequence)
+    );
+
+    const pushRuntimePeriodicEvent = entry => {
+      const queue = state.runtimePeriodicEventQueue;
+      queue.push(entry);
+      let index = queue.length - 1;
+      while (index > 0) {
+        const parent = Math.floor((index - 1) / 2);
+        if (compareRuntimePeriodicEvents(queue[parent], queue[index]) <= 0) break;
+        [queue[parent], queue[index]] = [queue[index], queue[parent]];
+        index = parent;
+      }
+    };
+
+    const popRuntimePeriodicEvent = () => {
+      const queue = state.runtimePeriodicEventQueue;
+      if (!queue.length) return null;
+      const first = queue[0];
+      const last = queue.pop();
+      if (queue.length > 0) {
+        queue[0] = last;
+        let index = 0;
+        while (true) {
+          const left = index * 2 + 1;
+          const right = left + 1;
+          let smallest = index;
+          if (left < queue.length && compareRuntimePeriodicEvents(queue[left], queue[smallest]) < 0) {
+            smallest = left;
+          }
+          if (right < queue.length && compareRuntimePeriodicEvents(queue[right], queue[smallest]) < 0) {
+            smallest = right;
+          }
+          if (smallest === index) break;
+          [queue[index], queue[smallest]] = [queue[smallest], queue[index]];
+          index = smallest;
+        }
+      }
+      return first;
+    };
+
+    const getRuntimeTimerVersionMap = source => {
+      let versions = runtimePeriodicTimerVersions.get(source);
+      if (!versions) {
+        versions = new Map();
+        runtimePeriodicTimerVersions.set(source, versions);
+      }
+      return versions;
+    };
+
+    const getRuntimeTimerVersionKey = entry => `${entry.kind}:${entry.property || ''}`;
+
+    const isRuntimePeriodicEventCurrent = entry => {
+      const source = entry?.source;
+      if (!source || source.active === false) return false;
+      if (entry.kind === 'externalEvent') {
+        return !source.emitted && source.eventTick === entry.tick;
+      }
+      if (entry.kind === 'expireTicks') {
+        return Array.isArray(source.expireTicks) && source.expireTicks.includes(entry.value);
+      }
+      const property = entry.property || entry.kind || 'nextTick';
+      const versions = getRuntimeTimerVersionMap(source);
+      return versions.get(getRuntimeTimerVersionKey(entry)) === entry.version
+        && toFiniteNumber(source[property], Infinity) === entry.tick;
+    };
+
+    const peekRuntimePeriodicEvent = () => {
+      while (state.runtimePeriodicEventQueue.length > 0) {
+        const entry = state.runtimePeriodicEventQueue[0];
+        if (isRuntimePeriodicEventCurrent(entry)) return entry;
+        popRuntimePeriodicEvent();
+      }
+      return null;
+    };
+
+    const scheduleRuntimeTimer = (source, kind = 'nextTick', tick = null, value = null, property = '') => {
+      if (!source || typeof source !== 'object') return;
+      const timerProperty = property || kind;
+      const rawTick = tick == null ? source[timerProperty] : tick;
+      const resolvedTick = rawTick == null ? Infinity : toFiniteNumber(rawTick, Infinity);
+      const versions = getRuntimeTimerVersionMap(source);
+      const versionKey = `${kind}:${timerProperty || ''}`;
+      const version = (versions.get(versionKey) || 0) + 1;
+      versions.set(versionKey, version);
+      if (!Number.isFinite(resolvedTick)) return;
+      pushRuntimePeriodicEvent({
+        source,
+        kind,
+        property: timerProperty,
+        tick: resolvedTick,
+        value: value == null ? resolvedTick : value,
+        version,
+        sequence: ++state.runtimePeriodicEventQueueSequence
+      });
+    };
+
+    const scheduleRuntimePeriodicEvent = source => scheduleRuntimeTimer(
+      source,
+      'nextTick',
+      source?.nextTick,
+      null,
+      'nextTick'
+    );
+
+    const scheduleRuntimeExpireTick = source => scheduleRuntimeTimer(
+      source,
+      'expireTick',
+      source?.expireTick,
+      null,
+      'expireTick'
+    );
+
+    const scheduleRuntimeExpireTicks = source => normalizeArray(source?.expireTicks)
+      .forEach(expireTick => scheduleRuntimeTimer(
+        source,
+        'expireTicks',
+        expireTick,
+        expireTick,
+        'expireTicks'
+      ));
+
+    const getNextRuntimePeriodicEventTick = () => {
+      const entry = peekRuntimePeriodicEvent();
+      return entry ? entry.tick : Infinity;
+    };
+
+    const scheduleRuntimeStateTimer = property => scheduleRuntimeTimer(
+      state,
+      'state',
+      state[property],
+      null,
+      property
+    );
+
+    const scheduleRuntimeCooldownTimer = cooldown => scheduleRuntimeTimer(
+      cooldown,
+      'cooldown',
+      cooldown?.readyTick,
+      null,
+      'readyTick'
+    );
+
+    const scheduleRuntimeExternalEvent = event => scheduleRuntimeTimer(
+      event,
+      'externalEvent',
+      event?.eventTick,
+      null,
+      'eventTick'
+    );
+
+    const pauseBaseSpRecovery = () => {
+      if (config.spRegen <= 0 || state.spRecoveryPausedRemainingTicks != null) return;
+      const remaining = state.spRecoveryNextTick - state.tick;
+      state.spRecoveryPausedRemainingTicks = Math.max(
+        1,
+        Number.isFinite(remaining) ? remaining : spTickInterval
+      );
+      state.spRecoveryRemainingTicks = state.spRecoveryPausedRemainingTicks;
+      state.spRecoveryNextTick = Infinity;
+      scheduleRuntimeStateTimer('spRecoveryNextTick');
+    };
+
+    const resumeBaseSpRecovery = () => {
+      if (config.spRegen <= 0) return;
+      const remaining = state.spRecoveryPausedRemainingTicks == null
+        ? Math.max(1, state.spRecoveryNextTick - state.tick)
+        : state.spRecoveryPausedRemainingTicks;
+      state.spRecoveryRemainingTicks = remaining;
+      state.spRecoveryNextTick = state.tick + remaining;
+      state.spRecoveryPausedRemainingTicks = null;
+      scheduleRuntimeStateTimer('spRecoveryNextTick');
+    };
+
+    state.runtimeAttackSpeedEffects.forEach(scheduleRuntimePeriodicEvent);
+    state.runtimeAttackSpeedEffects.forEach(scheduleRuntimeExpireTicks);
+    state.runtimeSpRecoveryEffects.forEach(scheduleRuntimePeriodicEvent);
+    state.runtimeEventEffects.forEach(scheduleRuntimePeriodicEvent);
+    state.statusStacks.forEach(scheduleRuntimePeriodicEvent);
+    state.statusStacks.forEach(scheduleRuntimeExpireTick);
+    state.runtimeBuffStacks.forEach(scheduleRuntimeExpireTick);
+    state.externalEvents.forEach(scheduleRuntimeExternalEvent);
+    scheduleRuntimeStateTimer('nextNormalAttackTick');
+    scheduleRuntimeStateTimer('lowSkillReadyTick');
+    scheduleRuntimeStateTimer('spRecoveryNextTick');
+    Object.values(state.cooldowns).forEach(scheduleRuntimeCooldownTimer);
+
+    const scheduleGeneratedEvent = pending => {
+      pending.queueOrder = ++state.generatedEventQueueSequence;
+      state.pendingGeneratedEvents.push(pending);
+      enqueueGeneratedEvent(pending);
+      generatedEventScheduleCount += 1;
+    };
+
+    // バフ・デバフを個別実装から切り離して追跡できる共通状態遷移ログ。
+    // 既存の runtimeBuffApplied / statusApplied 等も互換性のため残す。
+    const logEffectStateChange = ({
+      kind,
+      effectId,
+      status = '',
+      operation,
+      stackId = null,
+      stackCount = 0,
+      maxStacks = 1,
+      appliedTick = null,
+      expireTick = null,
+      sourceActionKey = '',
+      sourceActionLabel = '',
+      sourceId = '',
+      reason = ''
+    }) => {
+      log('effectStateChanged', {
+        kind,
+        effectId: String(effectId || status || ''),
+        status: String(status || ''),
+        operation,
+        stackId,
+        stackCount,
+        maxStacks,
+        appliedFrame: appliedTick == null ? null : appliedTick / ticksPerFrame,
+        expireFrame: expireTick == null || !Number.isFinite(expireTick)
+          ? null
+          : expireTick / ticksPerFrame,
+        sourceActionKey,
+        sourceActionLabel,
+        sourceId,
+        reason
+      });
+    };
+
     initialTargetStatuses.forEach(stack => {
+      logEffectStateChange({
+        kind: 'debuff',
+        effectId: stack.status,
+        status: stack.status,
+        operation: 'apply',
+        stackId: stack.id,
+        stackCount: 1,
+        maxStacks: 1,
+        appliedTick: stack.appliedTick,
+        expireTick: stack.expireTick,
+        sourceActionKey: stack.sourceActionKey,
+        sourceActionLabel: stack.sourceActionLabel,
+        sourceId: stack.sourceId,
+        reason: '戦闘開始時'
+      });
       log('statusApplied', {
         actionKey: '',
         actionLabel: stack.sourceActionLabel,
@@ -1496,6 +2806,7 @@
       if (state.lowSkillQueued || state.sp < config.requiredSp) return;
       state.lowSkillQueued = true;
       state.lowSkillReadyTick = state.tick;
+      scheduleRuntimeStateTimer('lowSkillReadyTick');
       log('lowSkillReady', { sp: state.sp });
     };
 
@@ -1507,6 +2818,75 @@
         return low + Math.floor(random() * (high - low + 1));
       }
       return low + random() * (high - low);
+    };
+
+    const getCooldownState = actionKey => state.cooldowns[actionKey] || null;
+
+    const getCooldownRemainingTicks = actionKey => {
+      const cooldown = getCooldownState(actionKey);
+      if (!cooldown || !Number.isFinite(cooldown.readyTick)) return Infinity;
+      return Math.max(0, cooldown.readyTick - state.tick);
+    };
+
+    const setCooldownRemainingTicks = (actionKey, remainingTicks) => {
+      const cooldown = getCooldownState(actionKey);
+      if (!cooldown) return false;
+      cooldown.readyTick = state.tick + Math.max(0, remainingTicks);
+      scheduleRuntimeCooldownTimer(cooldown);
+      return true;
+    };
+
+    const applyCooldownEffect = (effect, reason = '', owner = null) => {
+      const beforeTicks = getCooldownRemainingTicks(effect.targetActionKey);
+      if (!Number.isFinite(beforeTicks)) return;
+      const amountTicks = toTicks(effect.amountFrames, ticksPerFrame);
+      let afterTicks = beforeTicks;
+      if (effect.operation === 'add') afterTicks += amountTicks;
+      else if (effect.operation === 'set') afterTicks = amountTicks;
+      else if (effect.operation === 'multiply') afterTicks *= effect.multiplier;
+      else afterTicks -= amountTicks;
+      afterTicks = Math.max(0, afterTicks);
+      if (Math.abs(afterTicks - beforeTicks) < 0.000001) return;
+      setCooldownRemainingTicks(effect.targetActionKey, afterTicks);
+      log('cooldownChanged', {
+        effectId: effect.id,
+        sourceId: effect.sourceId,
+        label: effect.label,
+        reason,
+        actionKey: owner?.key || '',
+        actionLabel: owner?.label || '',
+        targetActionKey: effect.targetActionKey,
+        operation: effect.operation,
+        amountFrames: effect.amountFrames,
+        multiplier: effect.multiplier,
+        beforeFrames: beforeTicks / ticksPerFrame,
+        afterFrames: afterTicks / ticksPerFrame,
+        ready: afterTicks <= 0
+      });
+    };
+
+    const triggerCooldownEffectsForAction = (owner, phase = 'start') => {
+      state.runtimeCooldownEffects.forEach(effect => {
+        if (effect.mode !== 'action' || effect.triggerPhase !== phase) return;
+        if (!effect.triggerActionKeys.includes(owner.key)) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+        applyCooldownEffect(effect, `${owner.label}${phase === 'end' ? '終了時' : '発動時'}`, owner);
+      });
+    };
+
+    const triggerCooldownEffectsForHit = (owner, hitCount = 1) => {
+      state.runtimeCooldownEffects.forEach(effect => {
+        if (effect.mode !== 'actionHit' || !effect.triggerActionKeys.includes(owner.key)) return;
+        const occurrences = effect.oncePerAction ? 1 : Math.max(1, Math.floor(toFiniteNumber(hitCount, 1)));
+        for (let occurrence = 0; occurrence < occurrences; occurrence += 1) {
+          if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) break;
+          effect.triggerCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) continue;
+          effect.lastActionInstanceId = owner.instanceId;
+          applyCooldownEffect(effect, `${owner.label}命中時`, owner);
+        }
+      });
     };
 
     const applySpRecoveryEffect = (effect, reason = '', owner = null) => {
@@ -1542,6 +2922,7 @@
           effect.activeUntilTick = effect.durationFrames > 0
             ? state.tick + toTicks(effect.durationFrames, ticksPerFrame)
             : effect.nextTick;
+          scheduleRuntimePeriodicEvent(effect);
           return;
         }
         if (effect.mode !== 'action' || effect.triggerPhase !== phase) return;
@@ -1574,11 +2955,13 @@
         if (!['periodic', 'actionPeriodic'].includes(effect.mode) || effect.nextTick !== state.tick) return;
         if (effect.mode === 'actionPeriodic' && state.tick > effect.activeUntilTick) {
           effect.nextTick = Infinity;
+          scheduleRuntimePeriodicEvent(effect);
           return;
         }
         applySpRecoveryEffect(effect, `${effect.intervalFrames / framesPerSecond}秒ごと`);
         effect.nextTick += toTicks(effect.intervalFrames, ticksPerFrame);
         if (effect.mode === 'actionPeriodic' && effect.nextTick > effect.activeUntilTick) effect.nextTick = Infinity;
+        scheduleRuntimePeriodicEvent(effect);
       });
     };
 
@@ -1594,10 +2977,12 @@
       if (state.lastNormalAttackStartTick == null) return;
       state.nextNormalAttackTick = state.lastNormalAttackStartTick
         + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
+      scheduleRuntimeStateTimer('nextNormalAttackTick');
     };
 
     const applyAttackSpeedEffect = (effect, reason = '') => {
       const previousStackCount = effect.stackCount;
+      const previousTotalHasteP = getRuntimeAttackSpeedP();
       if (effect.durationFrames > 0) {
         const expireTick = state.tick + toTicks(effect.durationFrames, ticksPerFrame);
         if (effect.stackable) {
@@ -1618,8 +3003,10 @@
       } else {
         effect.stackCount = 1;
       }
+      scheduleRuntimeExpireTicks(effect);
       if (effect.stackCount === previousStackCount && !effect.durationFrames) return;
       updateCurrentNormalAttackSchedule();
+      const totalHasteP = getRuntimeAttackSpeedP();
       log('attackSpeedApplied', {
         effectId: effect.id,
         sourceId: effect.sourceId,
@@ -1628,7 +3015,8 @@
         stackCount: effect.stackCount,
         maxStacks: effect.maxStacks,
         hastePerStackP: effect.hasteP,
-        totalHasteP: getRuntimeAttackSpeedP(),
+        addedHasteP: totalHasteP - previousTotalHasteP,
+        totalHasteP,
         durationFrames: effect.durationFrames,
         normalAttackIntervalFrames: getEffectiveNormalAttackIntervalFrames()
       });
@@ -1660,6 +3048,7 @@
         if (!['periodicStack', 'periodicTimed'].includes(effect.mode)) return;
         if (effect.nextTick !== state.tick) return;
         effect.nextTick += toTicks(effect.intervalFrames, ticksPerFrame);
+        scheduleRuntimePeriodicEvent(effect);
         applyAttackSpeedEffect(effect, `${effect.intervalFrames / 60}秒ごと`);
       });
     };
@@ -1681,12 +3070,20 @@
 
     const applyRuntimeDamageBuff = (definition, owner = null, reason = '') => {
       if (!definition || !Object.keys(definition.modifiers || {}).length) return;
+      if (definition.conditionType === '固有状態中' && definition.conditionValue) {
+        const active = state.selfStateStacks.some(stack => (
+          stack.stateId === definition.conditionValue && state.tick < stack.expireTick
+        ));
+        if (!active) return;
+      }
       if (definition.oncePerAction && owner?.instanceId === definition.lastActionInstanceId) return;
       definition.lastActionInstanceId = owner?.instanceId ?? definition.lastActionInstanceId;
       const matching = state.runtimeBuffStacks.filter(stack => (
         stack.kind === 'damageBuff' && stack.effectId === definition.id
       ));
+      const operation = !definition.stackable && matching.length ? 'update' : 'apply';
       if (!definition.stackable) {
+        matching.forEach(stack => { stack.active = false; });
         state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => (
           stack.kind !== 'damageBuff' || stack.effectId !== definition.id
         ));
@@ -1694,19 +3091,53 @@
         const oldest = matching.slice().sort((a, b) => (
           a.expireTick - b.expireTick || a.id - b.id
         ))[0];
+        oldest.active = false;
         state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => stack !== oldest);
+        logEffectStateChange({
+          kind: 'buff',
+          effectId: oldest.effectId,
+          operation: 'remove',
+          stackId: oldest.id,
+          stackCount: state.runtimeBuffStacks.filter(stack => stack.effectId === definition.id).length,
+          maxStacks: definition.maxStacks,
+          appliedTick: oldest.appliedTick,
+          expireTick: oldest.expireTick,
+          sourceActionKey: oldest.sourceActionKey || '',
+          sourceActionLabel: oldest.sourceActionLabel || '',
+          sourceId: oldest.sourceId || '',
+          reason: '最大スタック到達による最古スタック置換'
+        });
       }
-      state.runtimeBuffStacks.push({
+      const stack = {
         id: ++state.runtimeBuffSerial,
         kind: 'damageBuff',
         effectId: definition.id,
         sourceId: definition.sourceId,
+        sourceActionKey: owner?.key || '',
+        sourceActionLabel: owner?.label || '',
         label: definition.label,
         modifiers: { ...definition.modifiers },
+        active: true,
         appliedTick: state.tick,
         expireTick: definition.durationFrames > 0
           ? state.tick + toTicks(definition.durationFrames, ticksPerFrame)
           : Infinity
+      };
+      state.runtimeBuffStacks.push(stack);
+      scheduleRuntimeExpireTick(stack);
+      logEffectStateChange({
+        kind: 'buff',
+        effectId: stack.effectId,
+        operation,
+        stackId: stack.id,
+        stackCount: state.runtimeBuffStacks.filter(item => item.effectId === definition.id).length,
+        maxStacks: definition.maxStacks,
+        appliedTick: stack.appliedTick,
+        expireTick: stack.expireTick,
+        sourceActionKey: stack.sourceActionKey,
+        sourceActionLabel: stack.sourceActionLabel,
+        sourceId: stack.sourceId,
+        reason
       });
       log('runtimeBuffApplied', {
         actionKey: owner?.key || '',
@@ -1728,6 +3159,8 @@
       state.runtimeDamageBuffEffects.forEach(effect => {
         if (effect.mode !== 'actionTimed' || effect.triggerPhase !== phase) return;
         if (!effect.triggerActionKeys.includes(owner.key)) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
         applyRuntimeDamageBuff(effect, owner, `${owner.label}${phase === 'end' ? '終了時' : '発動時'}`);
       });
     };
@@ -1737,8 +3170,24 @@
         if (effect.mode !== 'actionHitTimed' || !effect.triggerActionKeys.includes(owner.key)) return;
         const applications = effect.stackable ? Math.max(1, Math.floor(toFiniteNumber(hitCount, 1))) : 1;
         for (let index = 0; index < applications; index += 1) {
+          effect.triggerCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) continue;
           applyRuntimeDamageBuff(effect, owner, `${owner.label}命中時`);
         }
+      });
+    };
+
+    const triggerDamageBuffEffectsForStatusApplication = (owner, application) => {
+      // 初期状態や外部状態ではなく、本人の行動／生成物によって実際に
+      // 状態異常の付与処理が成功した瞬間だけを起点にする。非スタック状態の
+      // 更新も「付与時」なので、同じバフを更新して持続時間をリフレッシュする。
+      if (!owner?.key || owner.key === 'external' || !application?.status) return;
+      state.runtimeDamageBuffEffects.forEach(effect => {
+        if (effect.mode !== 'statusApplicationTimed') return;
+        if (effect.triggerActionKeys.length && !effect.triggerActionKeys.includes(owner.key)) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+        applyRuntimeDamageBuff(effect, owner, `${application.status}付与時`);
       });
     };
 
@@ -1756,6 +3205,10 @@
       state.runtimeDamageBuffEffects.forEach(effect => {
         if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
         if (!matchesOwner(effect)) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+        effect.lastActionInstanceId = owner.instanceId;
         applyRuntimeDamageBuff(effect, owner, `${sourceEffectId}発生時`);
       });
       state.runtimeSpRecoveryEffects.forEach(effect => {
@@ -1766,6 +3219,28 @@
         if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
         effect.lastActionInstanceId = owner.instanceId;
         applySpRecoveryEffect(effect, `${sourceEffectId}発生時`, owner);
+      });
+      state.runtimeCooldownEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEvent' || effect.triggerSourceId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        effect.triggerCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+        effect.lastActionInstanceId = owner.instanceId;
+        applyCooldownEffect(effect, `${sourceEffectId}発生時`, owner);
+      });
+      // skillmotion の効果IDへ直接結び付けた固有状態・状態異常・追加効果も、
+      // 攻撃速度やダメージバフと同じ発生時刻で処理する。triggerSourceId だけを
+      // 見ると通常の命中・生成物トリガーまで拾うため、明示した timingSourceEffectId
+      // に限定して行動開始時との二重発動を防ぐ。
+      state.runtimeEventEffects.forEach(effect => {
+        if (!effect.timingSourceEffectId || effect.timingSourceEffectId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        effect.occurrenceCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.occurrenceCount % effect.triggerEveryCount !== 0) return;
+        effect.lastActionInstanceId = owner.instanceId;
+        executeRuntimeEventEffect(effect, owner, `${sourceEffectId}発生時`);
       });
     };
 
@@ -1794,6 +3269,10 @@
       stack.status === status && state.tick <= stack.expireTick
     ));
 
+    const isSelfStateActive = stateId => state.selfStateStacks.some(stack => (
+      stack.stateId === stateId && state.tick < stack.expireTick
+    ));
+
     const addRuntimeGainBuff = (resource, owner, gainedStacks = 1) => {
       const definition = resource?.gainBuff;
       if (!definition || !(definition.attackPPerStack > 0) || !(definition.durationFrames > 0)) return;
@@ -1802,17 +3281,37 @@
         const matching = state.runtimeBuffStacks.filter(stack => stack.effectId === definition.id);
         if (matching.length >= definition.maxStacks) {
           const oldest = matching.slice().sort((a, b) => a.expireTick - b.expireTick || a.id - b.id)[0];
+          oldest.active = false;
           state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => stack !== oldest);
         }
-        state.runtimeBuffStacks.push({
+        const stack = {
           id: ++state.runtimeBuffSerial,
           kind: 'resourceGain',
           effectId: definition.id,
+          sourceActionKey: owner?.key || '',
+          sourceActionLabel: owner?.label || '',
           label: definition.label,
           attackP: definition.attackPPerStack,
           modifiers: { atkP: definition.attackPPerStack },
+          active: true,
           appliedTick: state.tick,
           expireTick: state.tick + toTicks(definition.durationFrames, ticksPerFrame)
+        };
+        state.runtimeBuffStacks.push(stack);
+        scheduleRuntimeExpireTick(stack);
+        logEffectStateChange({
+          kind: 'resourceBuff',
+          effectId: stack.effectId,
+          operation: 'apply',
+          stackId: stack.id,
+          stackCount: state.runtimeBuffStacks.filter(item => item.effectId === definition.id).length,
+          maxStacks: definition.maxStacks,
+          appliedTick: stack.appliedTick,
+          expireTick: stack.expireTick,
+          sourceActionKey: stack.sourceActionKey,
+          sourceActionLabel: stack.sourceActionLabel,
+          sourceId: stack.sourceId,
+          reason: `${resource.name}獲得時`
         });
       }
       if (!addCount) return;
@@ -1855,9 +3354,23 @@
 
     const expireRuntimeBuffs = () => {
       const expired = state.runtimeBuffStacks.filter(stack => stack.expireTick <= state.tick);
+      expired.forEach(stack => { stack.active = false; });
       if (!expired.length) return;
       state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => stack.expireTick > state.tick);
       expired.forEach(stack => {
+        logEffectStateChange({
+          kind: stack.kind === 'resourceGain' ? 'resourceBuff' : 'buff',
+          effectId: stack.effectId,
+          operation: 'expire',
+          stackId: stack.id,
+          stackCount: state.runtimeBuffStacks.filter(item => item.effectId === stack.effectId).length,
+          appliedTick: stack.appliedTick,
+          expireTick: stack.expireTick,
+          sourceActionKey: stack.sourceActionKey || '',
+          sourceActionLabel: stack.sourceActionLabel || '',
+          sourceId: stack.sourceId || '',
+          reason: '持続時間終了'
+        });
         log('runtimeBuffExpired', {
           label: stack.label,
           stackCount: state.runtimeBuffStacks.filter(item => item.effectId === stack.effectId).length
@@ -1865,17 +3378,39 @@
       });
     };
 
+    let triggerRuntimeEventEffectsForStatusMaxStack = null;
+
     const applyStatusApplication = (owner, application) => {
       if (!application?.status || !(application.durationFrames > 0)) return;
       trackedStatuses.add(application.status);
       const groupStacks = state.statusStacks.filter(stack => stack.stackGroupId === application.stackGroupId);
+      const operation = !application.stackable && groupStacks.length ? 'update' : 'apply';
       if (!application.stackable) {
+        state.statusStacks
+          .filter(stack => stack.stackGroupId === application.stackGroupId)
+          .forEach(stack => { stack.active = false; });
         state.statusStacks = state.statusStacks.filter(stack => stack.stackGroupId !== application.stackGroupId);
       } else if (groupStacks.length >= application.maxStacks) {
         const oldest = groupStacks.slice().sort((a, b) => (
           a.expireTick - b.expireTick || a.appliedTick - b.appliedTick || a.id - b.id
         ))[0];
+        oldest.active = false;
         state.statusStacks = state.statusStacks.filter(stack => stack !== oldest);
+        logEffectStateChange({
+          kind: 'debuff',
+          effectId: oldest.sourceRuntimeEffectId || oldest.status,
+          status: oldest.status,
+          operation: 'remove',
+          stackId: oldest.id,
+          stackCount: state.statusStacks.filter(stack => stack.stackGroupId === application.stackGroupId).length,
+          maxStacks: application.maxStacks,
+          appliedTick: oldest.appliedTick,
+          expireTick: oldest.expireTick,
+          sourceActionKey: oldest.sourceActionKey,
+          sourceActionLabel: oldest.sourceActionLabel,
+          sourceId: oldest.sourceId,
+          reason: '最大スタック到達による最古スタック置換'
+        });
       }
       const stack = {
         id: ++state.statusSerial,
@@ -1885,17 +3420,39 @@
         maxStacks: application.maxStacks,
         sourceActionKey: owner.key,
         sourceActionLabel: owner.label,
+        sourceId: String(config.apostleId || ''),
         sourceActionInstanceId: owner.instanceId,
         sourceRuntimeEffectId: owner.runtimeEffectId || '',
+        sourceRuntimeEffectLabel: owner.runtimeEffectId ? (owner.runtimeEffectLabel || owner.label) : '',
         sourceSelf: true,
+        active: true,
         appliedTick: state.tick,
-        expireTick: state.tick + toTicks(application.durationFrames, ticksPerFrame),
+        expireTick: Number.isFinite(Number(application.durationFrames))
+          ? state.tick + toTicks(application.durationFrames, ticksPerFrame)
+          : Infinity,
         nextTick: application.dealsPeriodicDamage
           ? state.tick + toTicks(application.tickFrames || STATUS_TICK_FRAMES, ticksPerFrame)
           : Infinity,
         tickMultiplier: application.tickMultiplier
       };
       state.statusStacks.push(stack);
+      scheduleRuntimePeriodicEvent(stack);
+      scheduleRuntimeExpireTick(stack);
+      logEffectStateChange({
+        kind: 'debuff',
+        effectId: stack.sourceRuntimeEffectId || stack.status,
+        status: stack.status,
+        operation,
+        stackId: stack.id,
+        stackCount: getActiveStatusStacks(stack.status).length,
+        maxStacks: stack.maxStacks,
+        appliedTick: stack.appliedTick,
+        expireTick: stack.expireTick,
+        sourceActionKey: stack.sourceActionKey,
+        sourceActionLabel: stack.sourceActionLabel,
+        sourceId: stack.sourceId,
+        reason: application.timingQuality || ''
+      });
       log('statusApplied', {
         actionKey: owner.key,
         actionLabel: owner.label,
@@ -1905,30 +3462,139 @@
         durationFrames: application.durationFrames,
         timingQuality: application.timingQuality || ''
       });
+      triggerDamageBuffEffectsForStatusApplication(owner, application);
+      const stackCount = state.statusStacks.filter(item => (
+        item.stackGroupId === application.stackGroupId && state.tick < item.expireTick
+      )).length;
+      if (application.stackable && stackCount >= application.maxStacks
+        && triggerRuntimeEventEffectsForStatusMaxStack) {
+        triggerRuntimeEventEffectsForStatusMaxStack(owner, application, stackCount);
+      }
     };
 
     const runtimeEventConditionMatches = effect => {
       const condition = effect.conditionResource;
-      if (!condition?.id) return true;
-      const stacks = toFiniteNumber(state.runtimeResources[condition.id]?.stacks);
-      if (condition.min != null && stacks < condition.min) return false;
-      if (condition.max != null && stacks > condition.max) return false;
+      if (condition?.id) {
+        const stacks = toFiniteNumber(state.runtimeResources[condition.id]?.stacks);
+        if (condition.min != null && stacks < condition.min) return false;
+        if (condition.max != null && stacks > condition.max) return false;
+      }
+      if (String(effect.conditionType || '').replace(/[\s　]+/g, '') === '追加対象存在') {
+        const required = Number(effect.conditionValue);
+        const requiredAdditionalTargets = Number.isFinite(required)
+          ? Math.max(0, Math.floor(required))
+          : 1;
+        if (Math.max(0, enemyCount - 1) < requiredAdditionalTargets) return false;
+      }
+      if (effect.conditionType === '固有状態中' && effect.conditionValue) {
+        const active = state.selfStateStacks.some(stack => (
+          (stack.stateId === effect.conditionValue || stack.status === effect.conditionValue)
+          && state.tick < stack.expireTick
+        ));
+        if (!active) return false;
+      }
       return true;
     };
 
-    const executeRuntimeEventEffect = (definition, sourceOwner = null, reason = '') => {
+    const applySelfState = (owner, application) => {
+      if (!application?.stateId || !(application.durationFrames > 0)) return;
+      const matching = state.selfStateStacks.filter(stack => stack.stateId === application.stateId);
+      const operation = matching.length ? 'update' : 'apply';
+      state.selfStateStacks = state.selfStateStacks.filter(stack => stack.stateId !== application.stateId);
+      const stack = {
+        id: ++state.selfStateSerial,
+        stateId: application.stateId,
+        status: application.status || application.stateId,
+        sourceActionKey: owner.key,
+        sourceActionLabel: owner.label,
+        appliedTick: state.tick,
+        expireTick: state.tick + toTicks(application.durationFrames, ticksPerFrame)
+      };
+      state.selfStateStacks.push(stack);
+      state.runtimeEventEffects.forEach(effect => {
+        if (effect.startOnSelfStateId !== stack.stateId || !(effect.intervalFrames > 0)) return;
+        effect.nextTick = state.tick + toTicks(effect.intervalFrames, ticksPerFrame);
+        scheduleRuntimePeriodicEvent(effect);
+      });
+      logEffectStateChange({
+        kind: 'selfState',
+        effectId: stack.stateId,
+        status: stack.status,
+        operation,
+        stackId: stack.id,
+        stackCount: 1,
+        maxStacks: 1,
+        appliedTick: stack.appliedTick,
+        expireTick: stack.expireTick,
+        sourceActionKey: stack.sourceActionKey,
+        sourceActionLabel: stack.sourceActionLabel,
+        sourceId: String(config.apostleId || ''),
+        reason: '固有状態付与'
+      });
+    };
+
+    let triggerRuntimeEventEffectsForEmittedEffect = null;
+
+    const rollRuntimeEventProbability = (definition, owner, reason) => {
+      const probability = definition?.triggerProbability;
+      if (probability == null) return true;
+      const normalizedProbability = Math.max(0, Math.min(100, toFiniteNumber(probability)));
+      if (normalizedProbability <= 0 || normalizedProbability >= 100) {
+        log('runtimeEffectProbability', {
+          actionKey: owner?.key || '',
+          actionLabel: owner?.label || definition.label,
+          runtimeEffectId: definition.id,
+          probability: normalizedProbability,
+          roll: normalizedProbability >= 100 ? 0 : 100,
+          success: normalizedProbability >= 100,
+          reason
+        });
+        return normalizedProbability >= 100;
+      }
+      const roll = random() * 100;
+      const success = roll < normalizedProbability;
+      log('runtimeEffectProbability', {
+        actionKey: owner?.key || '',
+        actionLabel: owner?.label || definition.label,
+        runtimeEffectId: definition.id,
+        probability: normalizedProbability,
+        roll,
+        success,
+        reason
+      });
+      return success;
+    };
+
+    const executeRuntimeEventEffect = (
+      definition,
+      sourceOwner = null,
+      reason = '',
+      chainPath = new Set()
+    ) => {
       if (!definition || !runtimeEventConditionMatches(definition)) return false;
       const triggerCount = (runtimeEffectTriggerCounts[definition.id] || 0) + 1;
+      const ownerForProbability = sourceOwner || {
+        key: '',
+        label: definition.label,
+        variant: '',
+        instanceId: `runtime:${definition.id}:${triggerCount}`
+      };
+      if (!rollRuntimeEventProbability(definition, ownerForProbability, reason)) return false;
       runtimeEffectTriggerCounts[definition.id] = triggerCount;
       const owner = sourceOwner
-        ? { ...sourceOwner, runtimeEffectId: definition.id }
+        ? { ...sourceOwner, runtimeEffectId: definition.id, runtimeEffectLabel: definition.label }
         : {
             key: '',
             label: definition.label,
             variant: '',
             instanceId: `runtime:${definition.id}:${triggerCount}`,
-            runtimeEffectId: definition.id
+            runtimeEffectId: definition.id,
+            runtimeEffectLabel: definition.label
           };
+      // effectId連鎖は実際に発生したダメージ効果だけを発火元にする。
+      // 定義に並ぶ補助行（状態・リソース・回復など）のIDまで先に通知すると、
+      // ダメージが発生していないのに「ダメージ命中時」相当の連鎖が起きる。
+      const emittedEffectIds = new Set();
       definition.steps.forEach(step => {
         if (step.type === 'resource') {
           applyResourceChange(owner, {
@@ -1939,9 +3605,13 @@
           return;
         }
         if (step.type === 'damage') {
+          if (step.effectId) emittedEffectIds.add(String(step.effectId));
+          const damageOwner = step.unclassifiedDamage
+            ? { ...owner, key: '' }
+            : owner;
           const damageEvaluation = evaluateRuntimeDamage(
             step.expectedDamage,
-            owner,
+            damageOwner,
             { effectId: step.effectId },
             damageProfiles,
             state,
@@ -1966,6 +3636,10 @@
           applyStatusApplication(owner, step.application);
           return;
         }
+        if (step.type === 'selfState') {
+          applySelfState(owner, step.application);
+          return;
+        }
         if (step.type === 'healing') {
           log('runtimeHealingEvent', {
             actionKey: owner.key || '',
@@ -1979,26 +3653,234 @@
           });
         }
       });
+      if (triggerRuntimeEventEffectsForEmittedEffect) {
+        const nextChainPath = new Set(chainPath);
+        nextChainPath.add(definition.id);
+        triggerRuntimeEventEffectsForEmittedEffect(owner, emittedEffectIds, reason, nextChainPath);
+      }
       return true;
+    };
+
+    triggerRuntimeEventEffectsForEmittedEffect = (
+      owner,
+      emittedEffectIds,
+      reason = '',
+      chainPath = new Set()
+    ) => {
+      const emittedValues = emittedEffectIds instanceof Set
+        ? [...emittedEffectIds]
+        : normalizeArray(emittedEffectIds);
+      const emittedIds = new Set(emittedValues.map(String).filter(Boolean));
+      if (!emittedIds.size) return;
+      const triggered = new Set();
+      state.runtimeEventEffects.forEach(effect => {
+        const sourceIds = normalizeArray(effect.triggerSourceIds?.length
+          ? effect.triggerSourceIds
+          : effect.triggerSourceId).map(String).filter(Boolean);
+        if (!sourceIds.some(sourceId => emittedIds.has(sourceId))) return;
+        if (chainPath.has(effect.id) || triggered.has(effect.id)) return;
+        triggered.add(effect.id);
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner?.instanceId) return;
+        if (effect.oncePerAction) effect.lastActionInstanceId = owner?.instanceId;
+        effect.occurrenceCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.occurrenceCount % effect.triggerEveryCount !== 0) return;
+        executeRuntimeEventEffect(
+          effect,
+          owner,
+          `${effect.triggerType || '効果'} / ${sourceIds.find(sourceId => emittedIds.has(sourceId)) || ''}`,
+          chainPath
+        );
+      });
+    };
+
+    triggerRuntimeEventEffectsForStatusMaxStack = (owner, application, stackCount) => {
+      state.runtimeEventEffects.forEach(effect => {
+        if (effect.triggerType !== '状態最大スタック到達時') return;
+        if (effect.triggerSourceId && effect.triggerSourceId !== application.applicationEffectId) return;
+        if (effect.conditionType === '状態' && effect.conditionValue
+          && effect.conditionValue !== application.status) return;
+        const triggered = executeRuntimeEventEffect(
+          effect,
+          owner,
+          `${application.status} ${stackCount}/${application.maxStacks}スタック到達`
+        );
+        if (!triggered || !effect.consumeMaxStacks) return;
+        const consumed = state.statusStacks.filter(stack => (
+          stack.stackGroupId === application.stackGroupId
+        ));
+        consumed.forEach(stack => { stack.active = false; });
+        state.statusStacks = state.statusStacks.filter(stack => (
+          stack.stackGroupId !== application.stackGroupId
+        ));
+        logEffectStateChange({
+          kind: 'debuff',
+          effectId: application.applicationEffectId || application.status,
+          status: application.status,
+          operation: 'remove',
+          stackCount: 0,
+          maxStacks: application.maxStacks,
+          sourceActionKey: owner?.key || '',
+          sourceActionLabel: owner?.label || '',
+          sourceId: String(config.apostleId || ''),
+          reason: '最大スタック到達効果の発動後に消費'
+        });
+      });
     };
 
     const triggerRuntimeEventEffectsForEvent = (owner, event) => {
       state.runtimeEventEffects.forEach(effect => {
-        const normalAttackHit = effect.triggerType === '普通攻撃命中時'
+        const normalizedTriggerType = String(effect.triggerType || '').replace(/[\s　]+/g, '');
+        const normalAttackHit = (effect.triggerType === '普通攻撃命中時'
+          || effect.triggerType === '強化攻撃命中時'
+          || /^(?:普通|通常)攻撃命中時一定確率$/.test(normalizedTriggerType))
           && event.type === 'damage'
           && effect.triggerActionKeys.includes(owner.key);
+        const damageHit = effect.triggerType === 'ダメージ命中時'
+          && event.type === 'damage'
+          && effect.triggerActionKeys.includes(owner.key)
+          && (!effect.triggerSourceId || effect.triggerSourceId === event.effectId);
         const generatedHit = effect.triggerType === '生成物命中時'
           && event.type === 'damage'
           && event.generatedObjectId === effect.triggerSourceId;
         const generatedReturn = effect.triggerType === '生成物帰還時'
           && event.generatedObjectId === effect.triggerSourceId
           && /帰還/.test(String(event.generatedEventType || ''));
-        if (!normalAttackHit && !generatedHit && !generatedReturn) return;
-        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
-        if (executeRuntimeEventEffect(effect, owner, `${effect.triggerType} / ${effect.triggerSourceId || owner.label}`)) {
-          effect.lastActionInstanceId = owner.instanceId;
+        const generatedDestroyed = effect.triggerType === '生成物消滅時'
+          && event.generatedObjectId === effect.triggerSourceId
+          && /消滅|破壊/.test(String(event.generatedEventType || ''));
+        const generatedContact = effect.triggerType === '生成物接触時'
+          && event.generatedObjectId === effect.triggerSourceId
+          && /接触|衝突/.test(String(event.generatedEventType || ''));
+        const generatedAttack = effect.triggerType === '生成物攻撃時'
+          && event.generatedObjectId === effect.triggerSourceId
+          && /攻撃/.test(String(event.generatedEventType || ''));
+        const generatedArrival = effect.triggerType === '生成物到着時'
+          && event.generatedObjectId === effect.triggerSourceId
+          && /到着|爆発/.test(String(event.generatedEventType || ''));
+        if (!normalAttackHit && !damageHit && !generatedHit && !generatedReturn && !generatedDestroyed
+          && !generatedContact && !generatedAttack && !generatedArrival) return;
+        const hitBasedTrigger = event.type === 'damage'
+          && (normalAttackHit || damageHit || generatedHit || generatedAttack);
+        const occurrences = effect.perHitTrigger && hitBasedTrigger
+          ? Math.max(1, Math.floor(toFiniteNumber(event.hitCount, 1)))
+          : 1;
+        for (let occurrence = 0; occurrence < occurrences; occurrence += 1) {
+          if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) break;
+          if (effect.oncePerAction) effect.lastActionInstanceId = owner.instanceId;
+          effect.occurrenceCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.occurrenceCount % effect.triggerEveryCount !== 0) continue;
+          executeRuntimeEventEffect(effect, owner, `${effect.triggerType} / ${effect.triggerSourceId || owner.label}${effect.perHitTrigger ? ` / ${occurrence + 1}ヒット目` : ''}`);
         }
       });
+    };
+
+    const triggerRuntimeEventEffectsForAction = owner => {
+      state.runtimeEventEffects.forEach(effect => {
+        if (!effect.triggerActionKeys.includes(owner.key)) return;
+        const actionTrigger = (
+          (owner.key === 'lowSkill' && effect.triggerType === '低学年スキル使用時')
+          || (owner.key === 'highSkill' && effect.triggerType === '高学年スキル使用時')
+          || (owner.key === 'enhancedAttack' && effect.triggerType === '強化攻撃使用時')
+          || ((owner.key === 'basicAttack' || owner.key === 'enhancedAttack')
+            && effect.triggerType === '普通攻撃使用時')
+          || (effect.triggerType === '対象スキル使用時'
+            && effect.triggerActionKeys.includes(owner.key))
+        );
+        if (!actionTrigger) return;
+        if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
+        if (effect.oncePerAction) effect.lastActionInstanceId = owner.instanceId;
+        effect.occurrenceCount += 1;
+        if (effect.triggerEveryCount > 0 && effect.occurrenceCount % effect.triggerEveryCount !== 0) return;
+        executeRuntimeEventEffect(effect, owner, `${effect.triggerType} / ${owner.label}`);
+      });
+    };
+
+    const externalTriggerTypes = new Map([
+      ['shieldBreak', 'シールド破壊時'],
+      ['シールド破壊時', 'シールド破壊時'],
+      ['hpThreshold', 'HP閾値'],
+      ['HP閾値', 'HP閾値'],
+      ['damageTaken', '被弾時'],
+      ['被弾時', '被弾時'],
+      ['statusApplied', '状態付与時'],
+      ['状態付与時', '状態付与時']
+    ]);
+
+    const processExternalEvents = () => {
+      while (state.externalEventIndex < state.externalEvents.length) {
+        const event = state.externalEvents[state.externalEventIndex];
+        if (event.emitted) {
+          state.externalEventIndex += 1;
+          continue;
+        }
+        if (event.eventTick !== state.tick) break;
+        event.emitted = true;
+        state.externalEventIndex += 1;
+        const triggerType = externalTriggerTypes.get(event.type) || event.type;
+        const owner = {
+          key: 'external',
+          label: event.reason || triggerType,
+          variant: '',
+          instanceId: `external:${event.id}`,
+          runtimeEffectId: event.id
+        };
+        log('externalEvent', {
+          externalEventId: event.id,
+          externalEventType: event.type,
+          triggerType,
+          occurrence: event.occurrence,
+          intervalFrames: event.intervalFrames,
+          value: event.value,
+          reason: event.reason
+        });
+        const matchesExternalRuntimeEffect = effect => (
+          effect.externalTriggerType === triggerType
+          && (!effect.externalSourceId || effect.externalSourceId === event.sourceId)
+        );
+        state.runtimeAttackSpeedEffects.forEach(effect => {
+          if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect)) return;
+          applyAttackSpeedEffect(effect, `${triggerType} / ${event.reason || event.id}`);
+        });
+        state.runtimeDamageBuffEffects.forEach(effect => {
+          if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect)) return;
+          effect.triggerCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+          applyRuntimeDamageBuff(effect, owner, `${triggerType} / ${event.reason || event.id}`);
+        });
+        state.runtimeSpRecoveryEffects.forEach(effect => {
+          if (effect.mode !== 'external' || !matchesExternalRuntimeEffect(effect)) return;
+          effect.triggerCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
+          applySpRecoveryEffect(effect, `${triggerType} / ${event.reason || event.id}`, owner);
+        });
+        state.runtimeEventEffects.forEach(effect => {
+          if (effect.triggerType !== triggerType) return;
+          if (effect.triggerSourceId && effect.triggerSourceId !== event.sourceId) return;
+          const expectedValue = effect.conditionValue !== '' && effect.conditionValue != null
+            ? effect.conditionValue
+            : effect.triggerValue;
+          if (expectedValue !== '' && expectedValue != null
+            && String(expectedValue) !== String(event.value ?? '')) return;
+          effect.occurrenceCount += 1;
+          if (effect.triggerEveryCount > 0 && effect.occurrenceCount % effect.triggerEveryCount !== 0) return;
+          executeRuntimeEventEffect(effect, owner, `${triggerType} / ${event.reason || event.id}`);
+        });
+      }
+    };
+
+    const getNextActionInternalEventTick = () => {
+      let nextTick = Infinity;
+      const current = state.currentAction;
+      if (current) {
+        nextTick = Math.min(nextTick, current.endTick);
+        current.events.forEach(event => {
+          if (event.emitted) return;
+          nextTick = Math.min(nextTick, current.startTick + event.relativeTick);
+        });
+      }
+      if (state.movementTransition) nextTick = Math.min(nextTick, state.movementTransition.endTick);
+      if (state.skillTransition) nextTick = Math.min(nextTick, state.skillTransition.readyTick);
+      return nextTick;
     };
 
     const processPeriodicRuntimeEventEffects = () => {
@@ -2006,6 +3888,35 @@
         if (effect.triggerType !== 'n秒ごと' || effect.nextTick !== state.tick) return;
         executeRuntimeEventEffect(effect, null, `${effect.intervalFrames / framesPerSecond}秒ごと`);
         effect.nextTick += toTicks(effect.intervalFrames, ticksPerFrame);
+        scheduleRuntimePeriodicEvent(effect);
+      });
+    };
+
+    const expireSelfStates = () => {
+      const expired = state.selfStateStacks.filter(stack => stack.expireTick <= state.tick);
+      if (!expired.length) return;
+      state.selfStateStacks = state.selfStateStacks.filter(stack => stack.expireTick > state.tick);
+      expired.forEach(stack => {
+        state.runtimeEventEffects.forEach(effect => {
+          if (effect.startOnSelfStateId !== stack.stateId) return;
+          effect.nextTick = Infinity;
+          scheduleRuntimePeriodicEvent(effect);
+        });
+        logEffectStateChange({
+          kind: 'selfState',
+          effectId: stack.stateId,
+          status: stack.status,
+          operation: 'expire',
+          stackId: stack.id,
+          stackCount: 0,
+          maxStacks: 1,
+          appliedTick: stack.appliedTick,
+          expireTick: stack.expireTick,
+          sourceActionKey: stack.sourceActionKey,
+          sourceActionLabel: stack.sourceActionLabel,
+          sourceId: String(config.apostleId || ''),
+          reason: '持続時間終了'
+        });
       });
     };
 
@@ -2023,6 +3934,13 @@
       if (event.type === 'damage') {
         hits[owner.key] += Math.max(1, event.hitCount || 1);
         expectedDamageByAction[owner.key] += expectedDamage;
+        if (recordDamageSeries) damageSeries.push({
+          frame: state.tick / ticksPerFrame,
+          expectedDamage,
+          type: 'hit',
+          actionKey: owner.key,
+          generatedObjectId: event.generatedObjectId || ''
+        });
         if (expectedDamage > 0 && !damagedActionInstances.has(owner.instanceId)) {
           damagedActionInstances.add(owner.instanceId);
           damagingActions[owner.key] += 1;
@@ -2048,6 +3966,7 @@
       if (event.type === 'damage') {
         triggerDamageBuffEffectsForHit(owner, event.hitCount || 1);
         triggerSpRecoveryEffectsForHit(owner, false, event.hitCount || 1);
+        triggerCooldownEffectsForHit(owner, event.hitCount || 1);
       }
       else triggerSpRecoveryEffectsForHit(owner, true);
       if (event.statusApplication) applyStatusApplication(owner, event.statusApplication);
@@ -2081,7 +4000,8 @@
           damageProfiles,
           state,
           config,
-          profile.damageResult?.runtimeBase || null
+          profile.damageResult?.runtimeBase || null,
+          toFiniteNumber(config?.runtimeEffects?.statusDamageWeaknessP)
         );
         const expectedDamage = damageEvaluation.expectedDamage;
         if (stack.sourceRuntimeEffectId) {
@@ -2091,6 +4011,25 @@
           expectedDamageByAction[stack.sourceActionKey] += expectedDamage;
         }
         expectedDamageByStatus[stack.status] += expectedDamage;
+        const statusSources = expectedDamageByStatusSource[stack.status] || (expectedDamageByStatusSource[stack.status] = {});
+        const sourceType = stack.sourceRuntimeEffectId ? 'runtimeEffect' : 'action';
+        const sourceId = String(stack.sourceRuntimeEffectId || stack.sourceActionKey || 'unknown');
+        const sourceKey = `${sourceType}:${sourceId}`;
+        const sourceEntry = statusSources[sourceKey] || {
+          sourceType,
+          sourceId,
+          label: stack.sourceRuntimeEffectLabel || stack.sourceActionLabel || sourceId,
+          expectedDamage: 0
+        };
+        sourceEntry.expectedDamage += expectedDamage;
+        statusSources[sourceKey] = sourceEntry;
+        if (recordDamageSeries) damageSeries.push({
+          frame: state.tick / ticksPerFrame,
+          expectedDamage,
+          type: 'statusTick',
+          status: stack.status,
+          actionKey: stack.sourceActionKey
+        });
         if (expectedDamage > 0
           && Object.prototype.hasOwnProperty.call(damagingActions, stack.sourceActionKey)
           && !damagedActionInstances.has(stack.sourceActionInstanceId)) {
@@ -2104,22 +4043,53 @@
           stackCount: getActiveStatusStacks(stack.status).length,
           expectedDamage,
           statusTakenDmgP: damageEvaluation.statusTakenDmgP,
+          statusDamageP: damageEvaluation.statusDamageP,
           damageEvaluation,
           tickMultiplier: stack.tickMultiplier
         });
         stack.nextTick += toTicks(STATUS_TICK_FRAMES, ticksPerFrame);
+        scheduleRuntimePeriodicEvent(stack);
       });
     };
 
     const expireStatuses = () => {
       const expiring = state.statusStacks.filter(stack => stack.expireTick <= state.tick);
+      expiring.forEach(stack => { stack.active = false; });
       state.statusStacks = state.statusStacks.filter(stack => stack.expireTick > state.tick);
       expiring.forEach(stack => {
+        logEffectStateChange({
+          kind: 'debuff',
+          effectId: stack.sourceRuntimeEffectId || stack.status,
+          status: stack.status,
+          operation: 'expire',
+          stackId: stack.id,
+          stackCount: getActiveStatusStacks(stack.status).length,
+          maxStacks: stack.maxStacks,
+          appliedTick: stack.appliedTick,
+          expireTick: stack.expireTick,
+          sourceActionKey: stack.sourceActionKey,
+          sourceActionLabel: stack.sourceActionLabel,
+          sourceId: stack.sourceId,
+          reason: '持続時間終了'
+        });
         log('statusExpired', {
           actionKey: stack.sourceActionKey,
           actionLabel: stack.sourceActionLabel,
           status: stack.status,
           stackCount: getActiveStatusStacks(stack.status).length
+        });
+        state.runtimeEventEffects.forEach(effect => {
+          if (effect.triggerType !== '状態終了時' || effect.triggerSourceId !== stack.status) return;
+          if (effect.conditionType === '付与者'
+            && effect.conditionValue
+            && effect.conditionValue !== stack.sourceId) return;
+          executeRuntimeEventEffect(effect, {
+            key: stack.sourceActionKey,
+            label: stack.sourceActionLabel,
+            variant: '',
+            instanceId: stack.sourceActionInstanceId || `status:${stack.id}`,
+            runtimeEffectId: effect.id
+          }, `${stack.status}状態終了時`);
         });
       });
     };
@@ -2135,7 +4105,13 @@
     };
 
     const emitDueGeneratedEvents = () => {
-      const due = state.pendingGeneratedEvents.filter(pending => pending.absoluteTick === state.tick);
+      const due = [];
+      while (true) {
+        const next = peekPendingGeneratedEvent();
+        if (!next || next.absoluteTick > state.tick) break;
+        const pending = popPendingGeneratedEvent();
+        if (pending) due.push(pending);
+      }
       due.forEach(pending => {
         if (pending.cancelled || pending.event.generatedEventType !== '生成') return;
         if (pending.event.respawnPolicy !== '上書き') return;
@@ -2194,7 +4170,7 @@
             const absoluteTick = anchorTick + toTicks(relativeFrames, ticksPerFrame);
             if (absoluteTick >= endTick) break;
             if (endTick === Infinity && repeat >= fallbackCount) break;
-            state.pendingGeneratedEvents.push({
+            scheduleGeneratedEvent({
               absoluteTick,
               owner: pending.owner,
               event: {
@@ -2220,22 +4196,27 @@
       });
       due.forEach(pending => {
         if (pending.cancelled) return;
-        if (pending.emitted || pending.absoluteTick !== state.tick) return;
+        if (pending.emitted || pending.absoluteTick > state.tick) return;
         pending.emitted = true;
         emitEvent(pending.owner, pending.event);
       });
       state.pendingGeneratedEvents = state.pendingGeneratedEvents.filter(pending => !pending.emitted && !pending.cancelled);
     };
 
-    const startAction = actionKey => {
+    const startAction = (actionKey, selectedVariant = '') => {
       const action = config.actions[actionKey];
       if (!action) return false;
+      if (actionKey === 'lowSkill') pauseBaseSpRecovery();
       if (actionKey === 'lowSkill') resetRuntimeEffectsForAction(actionKey);
+      const normalAttack = actionKey === 'basicAttack' || actionKey === 'enhancedAttack';
+      if (normalAttack) {
+        state.normalAttackSequence += 1;
+        triggerAttackSpeedEffectsForNormalAttackCount();
+      }
       triggerAttackSpeedEffectsForAction(actionKey);
-      const variant = pickVariant(action, state, random);
+      const variant = selectedVariant || pickVariant(action, state, random);
       const sourceEvents = action.variants[variant] || action.variants.default || [];
       const baseMotionFrames = action.motionFramesByVariant?.[variant] ?? action.motionFrames;
-      const normalAttack = actionKey === 'basicAttack' || actionKey === 'enhancedAttack';
       const motionScale = normalAttack && baseMotionFrames > 0
         ? Math.min(1, getEffectiveNormalAttackIntervalFrames() / baseMotionFrames)
         : 1;
@@ -2271,7 +4252,7 @@
         events: generatedRuntimeEvents
       };
       generatedRuntimeEvents.forEach(event => {
-        state.pendingGeneratedEvents.push({
+        scheduleGeneratedEvent({
           absoluteTick: state.tick + event.relativeTick,
           owner: generatedOwner,
           event,
@@ -2282,18 +4263,22 @@
       if (actionKey === 'basicAttack' || actionKey === 'enhancedAttack') {
         state.lastNormalAttackStartTick = state.tick;
         state.nextNormalAttackTick = state.tick + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
+        scheduleRuntimeStateTimer('nextNormalAttackTick');
       } else if (actionKey === 'lowSkill') {
         state.sp = config.lowSkillSpPolicy === 'consume'
           ? Math.max(0, state.sp - config.requiredSp)
           : 0;
         state.lowSkillQueued = false;
         state.lowSkillReadyTick = null;
+        scheduleRuntimeStateTimer('lowSkillReadyTick');
       } else if (actionKey === 'highSkill' && action.cooldownSeconds > 0) {
-        state.highSkillReadyTick = state.tick + toTicks(
-          action.cooldownSeconds * recurringHighSkillCooldownMultiplier * framesPerSecond,
-          ticksPerFrame
+        setCooldownRemainingTicks(
+          'highSkill',
+          toTicks(action.cooldownSeconds * recurringHighSkillCooldownMultiplier * framesPerSecond, ticksPerFrame)
         );
       }
+      // 高学年自身の発動時効果も、新しく開始したCTへ適用できる順序にする。
+      triggerCooldownEffectsForAction(state.currentAction, 'start');
       log('actionStart', {
         actionKey,
         actionLabel: action.label,
@@ -2305,18 +4290,21 @@
         motionFrames
       });
       triggerSpRecoveryEffectsForAction(state.currentAction, 'start');
+      triggerRuntimeEventEffectsForAction(state.currentAction);
       emitDueActionEvents();
       emitDueGeneratedEvents();
       return true;
     };
 
-    const beginSkillTransition = actionKey => {
+    const beginSkillTransition = (actionKey, selectedVariant = '') => {
       const action = config.actions[actionKey];
       if (!action) return false;
+      if (actionKey === 'lowSkill') pauseBaseSpRecovery();
       const transitionFrames = Math.max(0, toFiniteNumber(action.transitionFrames, 2));
-      if (transitionFrames <= 0) return startAction(actionKey);
+      if (transitionFrames <= 0) return startAction(actionKey, selectedVariant);
       state.skillTransition = {
         actionKey,
+        variant: selectedVariant,
         readyTick: state.tick + toTicks(transitionFrames, ticksPerFrame)
       };
       log('skillTransition', {
@@ -2327,30 +4315,83 @@
       return true;
     };
 
+    const findMovementTransition = (actionKey, selectedVariant = '') => {
+      const from = state.lastCompletedAction;
+      if (!from) return null;
+      const normalizedToBranch = selectedVariant === 'default' ? '' : selectedVariant;
+      return normalizeArray(config.movementTransitions)
+        .filter(transition => (
+          transition.fromActionKey === from.key
+          && transition.toActionKey === actionKey
+          && (!transition.fromBranch || transition.fromBranch === from.variant)
+          && (!transition.toBranch || transition.toBranch === normalizedToBranch)
+        ))
+        .sort((a, b) => (
+          Number(!!b.fromBranch) + Number(!!b.toBranch)
+          - Number(!!a.fromBranch) - Number(!!a.toBranch)
+        ))[0] || null;
+    };
+
+    const beginPreparedAction = (actionKey, selectedVariant = '') => (
+      actionKey === 'lowSkill' || actionKey === 'highSkill'
+        ? beginSkillTransition(actionKey, selectedVariant)
+        : startAction(actionKey, selectedVariant)
+    );
+
+    const beginActionPreparation = actionKey => {
+      const action = config.actions[actionKey];
+      if (!action) return false;
+      const selectedVariant = pickVariant(action, state, random);
+      const movement = findMovementTransition(actionKey, selectedVariant);
+      if (!movement) return beginPreparedAction(actionKey, selectedVariant);
+      state.movementTransition = {
+        ...movement,
+        actionKey,
+        actionLabel: action.label,
+        variant: selectedVariant,
+        startTick: state.tick,
+        endTick: state.tick + toTicks(movement.frames, ticksPerFrame)
+      };
+      log('movementStart', {
+        movementId: movement.id,
+        fromActionKey: state.lastCompletedAction.key,
+        fromActionLabel: state.lastCompletedAction.label,
+        fromVariant: state.lastCompletedAction.variant,
+        toActionKey: actionKey,
+        toActionLabel: action.label,
+        toVariant: selectedVariant === 'default' ? '' : selectedVariant,
+        movementFrames: movement.frames,
+        researchStatus: movement.researchStatus,
+        note: movement.note
+      });
+      return true;
+    };
+
     const tryStartNormalAttack = () => {
       if (state.tick < state.nextNormalAttackTick) return false;
-      state.normalAttackSequence += 1;
-      triggerAttackSpeedEffectsForNormalAttackCount();
       const enhancedAction = config.actions.enhancedAttack;
-      const enhanced = !!enhancedAction && (
-        enhancedAction.triggerEveryCount > 0
-          ? state.normalAttackSequence % enhancedAction.triggerEveryCount === 0
-          : enhancedAction.triggerProbability > 0 && random() * 100 < enhancedAction.triggerProbability
-      );
-      return startAction(enhanced ? 'enhancedAttack' : 'basicAttack');
+      const nextNormalAttackSequence = state.normalAttackSequence + 1;
+      const enhancedBlocked = normalizeArray(enhancedAction?.blockedBySelfStateIds)
+        .some(stateId => isSelfStateActive(stateId));
+      const enhanced = !enhancedBlocked && !!enhancedAction && (enhancedAction.triggerStatus
+        ? getActiveStatusStacks(enhancedAction.triggerStatus).length > 0
+        : (enhancedAction.triggerEveryCount > 0
+          ? nextNormalAttackSequence % enhancedAction.triggerEveryCount === 0
+          : enhancedAction.triggerProbability > 0 && random() * 100 < enhancedAction.triggerProbability));
+      return beginActionPreparation(enhanced ? 'enhancedAttack' : 'basicAttack');
     };
 
     const tryStartAction = () => {
-      if (state.currentAction || state.skillTransition) return;
+      if (state.currentAction || state.movementTransition || state.skillTransition) return;
       if (state.tick < state.actionStartAllowedTick) return;
-      if (state.lowSkillQueued && state.lowSkillReadyTick < state.tick && beginSkillTransition('lowSkill')) return;
+      if (state.lowSkillQueued && state.lowSkillReadyTick < state.tick && beginActionPreparation('lowSkill')) return;
       if (state.lowSkillQueued && state.lowSkillReadyTick === state.tick) {
         if (tryStartNormalAttack()) return;
-        if (beginSkillTransition('lowSkill')) return;
+        if (beginActionPreparation('lowSkill')) return;
       }
-      if (highSkillMode === 'auto' && state.tick >= state.highSkillReadyTick && beginSkillTransition('highSkill')) return;
+      if (highSkillMode === 'auto' && getCooldownRemainingTicks('highSkill') <= 0 && beginActionPreparation('highSkill')) return;
       if (tryStartNormalAttack()) return;
-      if (state.lowSkillQueued) beginSkillTransition('lowSkill');
+      if (state.lowSkillQueued) beginActionPreparation('lowSkill');
     };
 
     state.runtimeAttackSpeedEffects.filter(effect => effect.stackCount > 0).forEach(effect => {
@@ -2366,8 +4407,15 @@
       });
     });
     state.runtimeDamageBuffEffects
-      .filter(effect => effect.mode === 'initialTimed')
-      .forEach(effect => applyRuntimeDamageBuff(effect, null, '戦闘開始時'));
+      .filter(effect => effect.mode === 'initialTimed' || effect.mode === 'fixed')
+      .forEach(effect => {
+        const applications = effect.mode === 'fixed' && effect.stackable
+          ? Math.min(effect.maxStacks, effect.fixedStacks)
+          : 1;
+        for (let index = 0; index < applications; index += 1) {
+          applyRuntimeDamageBuff(effect, null, effect.mode === 'fixed' ? '固定設定' : '戦闘開始時');
+        }
+      });
     state.runtimeSpRecoveryEffects
       .filter(effect => effect.mode === 'initial' || effect.mode === 'manualInitial')
       .forEach(effect => applySpRecoveryEffect(
@@ -2375,17 +4423,73 @@
         effect.mode === 'manualInitial' ? '手動効果を戦闘開始時に仮適用' : '戦闘開始時'
       ));
 
+    const getNextIdleEventTick = () => {
+      const candidates = [durationTicks];
+      const add = value => {
+        const tick = Number(value);
+        if (Number.isFinite(tick) && tick > state.tick) candidates.push(Math.ceil(tick));
+      };
+      add(state.actionStartAllowedTick);
+      add(getNextActionInternalEventTick());
+      add(getNextRuntimePeriodicEventTick());
+      add(getNextPendingGeneratedEventTick());
+      // 外部イベントは通常のランタイム周期キューとは別配列で管理している。
+      // ここを候補に含めないと、外部イベントしか残っていない待機区間を
+      // fast-forwardIdleTicks が終端まで飛ばし、指定フレームのイベントを
+      // processExternalEvents へ渡せない。
+      const nextExternalEvent = state.externalEvents[state.externalEventIndex];
+      if (nextExternalEvent && !nextExternalEvent.emitted) {
+        add(nextExternalEvent.eventTick);
+      }
+      return Math.min(...candidates);
+    };
+
+    const fastForwardIdleTicks = () => {
+      if (options.enableFastForward === false) return false;
+      const isDue = value => Number.isFinite(Number(value)) && Number(value) <= state.tick;
+      const actionPhaseActive = !!(
+        state.currentAction
+        || state.movementTransition
+        || state.skillTransition
+      );
+      if (isDue(getNextActionInternalEventTick())
+        || (!actionPhaseActive && isDue(state.nextNormalAttackTick))
+        || (!actionPhaseActive && state.lowSkillQueued && isDue(state.lowSkillReadyTick))
+        || (!actionPhaseActive && highSkillMode === 'auto' && getCooldownRemainingTicks('highSkill') <= 0)
+        || isDue(getNextRuntimePeriodicEventTick())
+        || isDue(getNextPendingGeneratedEventTick())) {
+        return false;
+      }
+      const nextTick = getNextIdleEventTick();
+      const skippedTicks = nextTick - state.tick - 1;
+      if (skippedTicks <= 0) return false;
+      state.tick = nextTick - 1;
+      if (config.spRegen > 0) {
+        state.spRecoveryRemainingTicks = Math.max(1, state.spRecoveryNextTick - state.tick);
+        scheduleRuntimeStateTimer('spRecoveryNextTick');
+      }
+      fastForwardCount += 1;
+      fastForwardedTickCount += skippedTicks;
+      return true;
+    };
+
     for (state.tick = 0; state.tick <= durationTicks; state.tick += 1) {
+      processedTickCount += 1;
+      if (fastForwardIdleTicks()) continue;
       expireAttackSpeedEffects();
       processRuntimeAttackSpeedStacks();
       expireRuntimeBuffs();
+      expireSelfStates();
+      processExternalEvents();
       const pausesSpRecovery = state.currentAction?.key === 'lowSkill'
         || state.skillTransition?.actionKey === 'lowSkill';
       if (state.tick > 0 && !pausesSpRecovery && config.spRegen > 0) {
-        state.spRecoveryRemainingTicks -= 1;
+        state.spRecoveryRemainingTicks = Math.max(0, state.spRecoveryNextTick - state.tick);
       }
-      if (state.tick > 0 && state.spRecoveryRemainingTicks <= 0 && config.spRegen > 0) {
-        state.spRecoveryRemainingTicks += spTickInterval;
+      if (state.tick > 0 && state.spRecoveryNextTick <= state.tick && config.spRegen > 0) {
+        state.spRecoveryNextTick = state.tick + spTickInterval;
+        state.spRecoveryRemainingTicks = spTickInterval;
+        scheduleRuntimeStateTimer('spRecoveryNextTick');
         const before = state.sp;
         state.sp = Math.min(config.maxSp, state.sp + config.spRegen);
         log('spRecovery', {
@@ -2406,22 +4510,48 @@
         log('actionEnd', { actionKey: finished.key, actionLabel: finished.label, variant: finished.variant });
         triggerSpRecoveryEffectsForAction(finished, 'end');
         state.currentAction = null;
+        state.lastCompletedAction = {
+          key: finished.key,
+          label: finished.label,
+          variant: finished.variant
+        };
         triggerAttackSpeedEffectsForAction(finished.key, 'end');
         triggerDamageBuffEffectsForAction(finished, 'end');
+        triggerCooldownEffectsForAction(finished, 'end');
         if (finished.key === 'lowSkill') {
           state.nextNormalAttackTick = state.tick;
+          scheduleRuntimeStateTimer('nextNormalAttackTick');
+          resumeBaseSpRecovery();
         }
+      }
+      if (state.movementTransition && state.movementTransition.endTick === state.tick) {
+        const movement = state.movementTransition;
+        state.movementTransition = null;
+        log('movementEnd', {
+          movementId: movement.id,
+          fromActionKey: movement.fromActionKey,
+          toActionKey: movement.actionKey,
+          toActionLabel: movement.actionLabel,
+          toVariant: movement.variant === 'default' ? '' : movement.variant,
+          movementFrames: movement.frames
+        });
+        beginPreparedAction(movement.actionKey, movement.variant);
       }
       if (state.skillTransition && state.skillTransition.readyTick === state.tick) {
         const actionKey = state.skillTransition.actionKey;
+        const selectedVariant = state.skillTransition.variant;
         state.skillTransition = null;
-        startAction(actionKey);
+        startAction(actionKey, selectedVariant);
       }
       tryStartAction();
     }
 
+    const simulationFinishedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
     return {
       durationSeconds,
+      formationTimelineMode,
       durationFrames: durationTicks / ticksPerFrame,
       initialActionDelayFrames,
       counts,
@@ -2432,7 +4562,24 @@
           .reduce((total, group) => total + Object.values(group).reduce((sum, value) => sum + value, 0), 0),
         byAction: expectedDamageByAction,
         byStatus: expectedDamageByStatus,
+        byStatusSource: expectedDamageByStatusSource,
         byRuntimeEffect: expectedDamageByRuntimeEffect
+      },
+      damageSeries,
+      performance: {
+        elapsedMs: Math.max(0, simulationFinishedAt - simulationStartedAt),
+        durationTicks,
+        processedTickCount,
+        skippedTickCount: fastForwardedTickCount,
+        fastForwardCount,
+        generatedEventScheduleCount,
+        fastForwardEnabled: options.enableFastForward !== false
+      },
+      timelineStats: {
+        recorded: timeline.length,
+        total: timelineEventCount,
+        omitted: timelineOmittedCount,
+        max: Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))
       },
       runtimeEffects: {
         attackSpeedP: getRuntimeAttackSpeedP(),
@@ -2459,12 +4606,24 @@
           triggerCount: effect.triggerCount,
           intervalFrames: effect.intervalFrames
         })),
+        cooldownEffects: state.runtimeCooldownEffects.map(effect => ({
+          id: effect.id,
+          label: effect.label,
+          mode: effect.mode,
+          targetActionKey: effect.targetActionKey,
+          operation: effect.operation,
+          amountFrames: effect.amountFrames,
+          multiplier: effect.multiplier,
+          triggerCount: effect.triggerCount
+        })),
         damageBuffEffects: state.runtimeDamageBuffEffects.map(effect => ({
           id: effect.id,
           label: effect.label,
           mode: effect.mode,
           triggerActionKeys: effect.triggerActionKeys,
           triggerPhase: effect.triggerPhase,
+          triggerEveryCount: effect.triggerEveryCount,
+          triggerCount: effect.triggerCount,
           durationFrames: effect.durationFrames,
           stackable: effect.stackable,
           maxStacks: effect.maxStacks,
@@ -2474,7 +4633,12 @@
           id: effect.id,
           label: effect.label,
           triggerType: effect.triggerType,
+          triggerProbability: effect.triggerProbability,
+          triggerSourceId: effect.triggerSourceId,
+          effectIds: [...normalizeArray(effect.effectIds)],
           triggerCount: runtimeEffectTriggerCounts[effect.id] || 0,
+          occurrenceCount: effect.occurrenceCount,
+          triggerEveryCount: effect.triggerEveryCount,
           intervalFrames: effect.intervalFrames
         })),
         statusReactions: normalizeArray(config.runtimeEffects?.statusReactions).map(reaction => ({
@@ -2490,7 +4654,18 @@
         sp: state.sp,
         spRecoveryRemainingFrames: state.spRecoveryRemainingTicks / ticksPerFrame,
         lowSkillQueued: state.lowSkillQueued,
+        movementTransition: state.movementTransition ? { ...state.movementTransition } : null,
         skillTransition: state.skillTransition ? { ...state.skillTransition } : null,
+        lastCompletedAction: state.lastCompletedAction ? { ...state.lastCompletedAction } : null,
+        cooldowns: Object.fromEntries(Object.entries(state.cooldowns).map(([actionKey, cooldown]) => [
+          actionKey,
+          {
+            ready: getCooldownRemainingTicks(actionKey) <= 0,
+            remainingFrames: Number.isFinite(cooldown.readyTick)
+              ? getCooldownRemainingTicks(actionKey) / ticksPerFrame
+              : null
+          }
+        ])),
         normalAttackSequence: state.normalAttackSequence,
         activeStatuses: Object.fromEntries(Array.from(trackedStatuses).map(status => [
           status,
@@ -2511,24 +4686,45 @@
   }
 
   function simulateMany(config, options = {}) {
-    const trials = Math.max(1, Math.min(4096, Math.floor(toFiniteNumber(options.trials, 64))));
+    const aggregateStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
+    const requestedTrials = Math.max(1, Math.min(4096, Math.floor(toFiniteNumber(options.trials, 64))));
+    // DPS比較では、UIの「統計試行数」をそのまま実行回数にできるようにする。
+    // 既存画面の収束短縮・決定的条件の最適化は exactTrials 未指定時だけ維持する。
+    const exactTrials = options.exactTrials === true;
+    const deterministic = !hasSimulationRandomness(config);
+    const adaptiveMinTrials = Math.max(2, Math.min(requestedTrials, Math.floor(toFiniteNumber(options.adaptiveMinTrials, 16))));
+    const adaptiveEnabled = !exactTrials
+      && !deterministic
+      && options.adaptiveTrials === true
+      && requestedTrials >= adaptiveMinTrials;
+    const targetTrials = exactTrials ? requestedTrials : (deterministic ? 1 : requestedTrials);
+    const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+    const progressStep = Math.max(1, Math.ceil(targetTrials / 32));
     const baseSeed = Math.max(1, Math.floor(toFiniteNumber(options.seed, 1)));
     const durationSeconds = Math.max(1, Math.min(600, toFiniteNumber(options.durationSeconds, 60)));
     const actionKeys = Object.keys(ACTION_SKILL_TYPES);
+    const statusKeys = Object.keys(DOT_STATUS_MULTIPLIERS);
+    const runtimeEventEffects = normalizeArray(config.runtimeEffects?.eventEffects);
+    const runtimeEventEffectIds = runtimeEventEffects.map(effect => effect.id);
     const totals = {
       damage: 0,
       counts: Object.fromEntries(actionKeys.map(key => [key, 0])),
       hits: Object.fromEntries(actionKeys.map(key => [key, 0])),
       damagingActions: Object.fromEntries(actionKeys.map(key => [key, 0])),
       damageByAction: Object.fromEntries(actionKeys.map(key => [key, 0])),
-      damageByStatus: Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => [status, 0])),
-      damageByRuntimeEffect: Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
-        .map(effect => [effect.id, 0])),
-      runtimeEffectTriggers: Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
-        .map(effect => [effect.id, 0]))
+      damageByStatus: Object.fromEntries(statusKeys.map(status => [status, 0])),
+      damageByStatusSource: Object.fromEntries(statusKeys.map(status => [status, {}])),
+      damageByRuntimeEffect: Object.fromEntries(runtimeEventEffectIds.map(id => [id, 0])),
+      runtimeEffectTriggers: Object.fromEntries(runtimeEventEffectIds.map(id => [id, 0]))
     };
     const trialResults = [];
-    for (let index = 0; index < trials; index += 1) {
+    let totalSimulationElapsedMs = 0;
+    let totalProcessedTickCount = 0;
+    let totalSkippedTickCount = 0;
+    let adaptiveStopped = false;
+    for (let index = 0; index < targetTrials; index += 1) {
       const seed = baseSeed + index;
       const result = simulate(config, {
         ...options,
@@ -2537,6 +4733,9 @@
         recordTimeline: false
       });
       const totalDamage = toFiniteNumber(result.damage?.totalExpectedDamage);
+      totalSimulationElapsedMs += toFiniteNumber(result.performance?.elapsedMs);
+      totalProcessedTickCount += toFiniteNumber(result.performance?.processedTickCount);
+      totalSkippedTickCount += toFiniteNumber(result.performance?.skippedTickCount);
       const totalDps = totalDamage / durationSeconds;
       totals.damage += totalDamage;
       actionKeys.forEach(key => {
@@ -2545,10 +4744,20 @@
         totals.damagingActions[key] += toFiniteNumber(result.damagingActions?.[key]);
         totals.damageByAction[key] += toFiniteNumber(result.damage?.byAction?.[key]);
       });
-      Object.keys(DOT_STATUS_MULTIPLIERS).forEach(status => {
+      statusKeys.forEach(status => {
         totals.damageByStatus[status] += toFiniteNumber(result.damage?.byStatus?.[status]);
+        Object.entries(result.damage?.byStatusSource?.[status] || {}).forEach(([sourceKey, source]) => {
+          const totalSource = totals.damageByStatusSource[status][sourceKey] || {
+            sourceType: source.sourceType || '',
+            sourceId: source.sourceId || '',
+            label: source.label || source.sourceId || sourceKey,
+            expectedDamage: 0
+          };
+          totalSource.expectedDamage += toFiniteNumber(source.expectedDamage);
+          totals.damageByStatusSource[status][sourceKey] = totalSource;
+        });
       });
-      normalizeArray(config.runtimeEffects?.eventEffects).forEach(effect => {
+      runtimeEventEffects.forEach(effect => {
         totals.damageByRuntimeEffect[effect.id] = toFiniteNumber(totals.damageByRuntimeEffect[effect.id])
           + toFiniteNumber(result.damage?.byRuntimeEffect?.[effect.id]);
         const runtimeResult = normalizeArray(result.runtimeEffects?.eventEffects)
@@ -2557,35 +4766,73 @@
           + toFiniteNumber(runtimeResult?.triggerCount);
       });
       trialResults.push({ seed, totalDps });
+      if (adaptiveEnabled && trialResults.length >= adaptiveMinTrials && trialResults.length % 4 === 0) {
+        const values = trialResults.map(item => item.totalDps);
+        const sampleMean = values.reduce((sum, value) => sum + value, 0) / values.length;
+        const variance = values.length > 1
+          ? values.reduce((sum, value) => sum + ((value - sampleMean) ** 2), 0) / (values.length - 1)
+          : Infinity;
+        const halfWidth = 1.96 * Math.sqrt(variance / values.length);
+        const relativeThreshold = Math.max(Math.abs(sampleMean), 1) * (
+          Math.max(0.001, toFiniteNumber(options.adaptiveRelativeErrorP, 0.2)) / 100
+        );
+        if (halfWidth <= relativeThreshold) {
+          adaptiveStopped = true;
+        }
+      }
+      if (onProgress && ((index + 1) % progressStep === 0 || index + 1 === targetTrials || adaptiveStopped)) {
+        onProgress({
+          completed: index + 1,
+          total: targetTrials,
+          requestedTotal: requestedTrials,
+          deterministic,
+          adaptiveStopped
+        });
+      }
+      if (adaptiveStopped) break;
     }
+    const evaluatedTrials = trialResults.length;
     const totalDpsValues = trialResults.map(item => item.totalDps);
-    const meanDps = totals.damage / trials / durationSeconds;
+    const meanDps = totals.damage / evaluatedTrials / durationSeconds;
     const byAction = Object.fromEntries(actionKeys.map(key => {
-      const expectedDamage = totals.damageByAction[key] / trials;
+      const expectedDamage = totals.damageByAction[key] / evaluatedTrials;
       const contributionDps = expectedDamage / durationSeconds;
       return [key, {
         expectedDamage,
         contributionDps,
         damageShareP: totals.damage > 0 ? totals.damageByAction[key] / totals.damage * 100 : 0,
-        averageStarts: totals.counts[key] / trials,
-        averageDamagingActions: totals.damagingActions[key] / trials,
-        averageHits: totals.hits[key] / trials,
+        averageStarts: totals.counts[key] / evaluatedTrials,
+        averageDamagingActions: totals.damagingActions[key] / evaluatedTrials,
+        averageHits: totals.hits[key] / evaluatedTrials,
         averageDamagePerDamagingAction: totals.damagingActions[key] > 0 ? totals.damageByAction[key] / totals.damagingActions[key] : 0
       }];
     }));
     const medianDps = percentile(totalDpsValues, 0.5);
-    const byStatus = Object.fromEntries(Object.keys(DOT_STATUS_MULTIPLIERS).map(status => {
-      const expectedDamage = totals.damageByStatus[status] / trials;
+    const byStatus = Object.fromEntries(statusKeys.map(status => {
+      const expectedDamage = totals.damageByStatus[status] / evaluatedTrials;
       return [status, {
         expectedDamage,
         contributionDps: expectedDamage / durationSeconds,
-        damageShareP: totals.damage > 0 ? totals.damageByStatus[status] / totals.damage * 100 : 0
+        damageShareP: totals.damage > 0 ? totals.damageByStatus[status] / totals.damage * 100 : 0,
+        sources: Object.values(totals.damageByStatusSource[status] || {})
+          .map(source => {
+            const sourceExpectedDamage = toFiniteNumber(source.expectedDamage) / evaluatedTrials;
+            return {
+              sourceType: source.sourceType || '',
+              sourceId: source.sourceId || '',
+              label: source.label || source.sourceId || '',
+              expectedDamage: sourceExpectedDamage,
+              contributionDps: sourceExpectedDamage / durationSeconds
+            };
+          })
+          .filter(source => source.expectedDamage > 0)
+          .sort((a, b) => b.expectedDamage - a.expectedDamage)
       }];
     }));
-    const byRuntimeEffect = Object.fromEntries(normalizeArray(config.runtimeEffects?.eventEffects)
+    const byRuntimeEffect = Object.fromEntries(runtimeEventEffects
       .map(effect => {
-        const expectedDamage = toFiniteNumber(totals.damageByRuntimeEffect[effect.id]) / trials;
-        const averageTriggers = toFiniteNumber(totals.runtimeEffectTriggers[effect.id]) / trials;
+        const expectedDamage = toFiniteNumber(totals.damageByRuntimeEffect[effect.id]) / evaluatedTrials;
+        const averageTriggers = toFiniteNumber(totals.runtimeEffectTriggers[effect.id]) / evaluatedTrials;
         return [effect.id, {
           id: effect.id,
           label: effect.label,
@@ -2600,12 +4847,29 @@
     const representative = trialResults.reduce((best, item) => (
       !best || Math.abs(item.totalDps - medianDps) < Math.abs(best.totalDps - medianDps) ? item : best
     ), null);
+    const aggregateFinishedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
+      ? performance.now()
+      : Date.now();
     return {
-      trials,
+      trials: requestedTrials,
+      evaluatedTrials,
+      trialSeeds: trialResults.map(item => item.seed),
+      deterministic,
+      exactTrials,
+      adaptiveStopped,
       baseSeed,
       durationSeconds,
+      performance: {
+        elapsedMs: Math.max(0, aggregateFinishedAt - aggregateStartedAt),
+        simulationElapsedMs: totalSimulationElapsedMs,
+        averageSimulationMs: evaluatedTrials > 0 ? totalSimulationElapsedMs / evaluatedTrials : 0,
+        processedTickCount: totalProcessedTickCount,
+        skippedTickCount: totalSkippedTickCount,
+        averageProcessedTickCount: evaluatedTrials > 0 ? totalProcessedTickCount / evaluatedTrials : 0,
+        averageSkippedTickCount: evaluatedTrials > 0 ? totalSkippedTickCount / evaluatedTrials : 0
+      },
       meanDps,
-      totalExpectedDamage: totals.damage / trials,
+      totalExpectedDamage: totals.damage / evaluatedTrials,
       range: {
         p10: percentile(totalDpsValues, 0.1),
         median: medianDps,
@@ -2618,13 +4882,36 @@
     };
   }
 
+  function hasSimulationRandomness(config = {}) {
+    const actions = Object.values(config.actions || {});
+    if (actions.some(action => (
+      Number(action?.triggerProbability) > 0
+      || (['random', 'weighted'].includes(action?.variantSelection?.type)
+        && normalizeArray(action.variantNames).length > 1)
+    ))) return true;
+    const effects = [
+      ...normalizeArray(config.runtimeEffects?.eventEffects),
+      ...normalizeArray(config.runtimeEffects?.damageBuffEffects),
+      ...normalizeArray(config.runtimeEffects?.spRecoveryEffects)
+    ];
+    return effects.some(effect => (
+      effect?.random === true
+      || effect?.randomBound === 'range'
+      || (Number.isFinite(Number(effect?.triggerProbability))
+        && Number(effect.triggerProbability) > 0
+        && Number(effect.triggerProbability) < 100)
+    ));
+  }
+
   return Object.freeze({
-    version: 11,
+    version: 19,
     buildCombatantConfig,
+    createActionSkillOverride,
     createSeededRandom,
     evaluateDamageAtHit,
     simulate,
     simulateMany,
+    selectEnemySizeVariantBranch,
     toTicks
   });
 });

@@ -1751,6 +1751,76 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "artifact_pira_gleaming_business_card",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "ピラの輝く名刺",
+            "signature": true,
+            "favoriteCharacter": "ピラ",
+            "cost": 25,
+            "bonusesByStar": [
+                {
+                    "defP": 20.1,
+                    "hpP": 26.9
+                },
+                {
+                    "defP": 25.2,
+                    "hpP": 33.6
+                },
+                {
+                    "defP": 30.2,
+                    "hpP": 40.3
+                },
+                {
+                    "defP": 35.2,
+                    "hpP": 47
+                },
+                {
+                    "defP": 40.3,
+                    "hpP": 53.7
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "artifact_pira_gleaming_business_card_e01",
+                    "type": "toggle",
+                    "label": "戦闘開始時 攻撃速度",
+                    "triggerType": "戦闘開始時",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "戦闘開始時",
+                    "shortLabel": "攻撃速度",
+                    "valueClass": "倍率",
+                    "nonStackingSameApostle": true,
+                    "description": "同列 / 倍率",
+                    "descriptionByStar": [
+                        "攻撃速度16% (戦闘開始時 / 同列)",
+                        "攻撃速度24% (戦闘開始時 / 同列)",
+                        "攻撃速度32% (戦闘開始時 / 同列)",
+                        "攻撃速度40% (戦闘開始時 / 同列)",
+                        "攻撃速度48% (戦闘開始時 / 同列)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "hasteP": 16
+                        },
+                        {
+                            "hasteP": 24
+                        },
+                        {
+                            "hasteP": 32
+                        },
+                        {
+                            "hasteP": 40
+                        },
+                        {
+                            "hasteP": 48
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "artifact_dragonlight_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -5327,6 +5397,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "atkP": 7.5,
             "critRateP": 4
+        }
+    },
+    "artifact_pira_gleaming_business_card": {
+        "1": {
+            "defP": 4.8,
+            "hpP": 4.8
+        },
+        "2": {
+            "defP": 9.7,
+            "hpP": 9.7
         }
     },
     "artifact_dragonlight_sword": {

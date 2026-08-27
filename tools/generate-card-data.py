@@ -77,6 +77,9 @@ SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES = {
 
 RUNTIME_EFFECT_FIELDS = {
     "効果処理グループID": "processGroupId",
+    "スタックグループID": "stackGroupId",
+    "スタック集約ID": "stackGroupId",
+    "stackGroupId": "stackGroupId",
     "処理順": "processOrder",
     "発動条件種別": "triggerType",
     "発動条件値": "triggerValue",
@@ -84,6 +87,7 @@ RUNTIME_EFFECT_FIELDS = {
     "適用条件種別": "conditionType",
     "適用条件値": "conditionValue",
     "効果タイプ": "effectType",
+    "ダメージ補正区分": "damageModifierCategory",
     "攻撃分類": "attackCategory",
     "対象スキル": "targetSkill",
     "randomId": "randomId",

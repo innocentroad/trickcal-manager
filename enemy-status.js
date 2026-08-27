@@ -85,6 +85,7 @@
             ${metadata.difficultyLabel ? `<span>${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
             ${metadata.worldLabel ? `<span>${escapeHtml(metadata.worldLabel)}</span>` : ''}
             ${metadata.stageLabel ? `<span>${escapeHtml(metadata.stageLabel)}</span>` : ''}
+            ${metadata.sizeLabel ? `<span>${escapeHtml(metadata.sizeLabel)}</span>` : ''}
             <span>${formatDamageType(preset.dmgType)}</span>
             <span>HP ${formatNumber(scaled.hp)}</span>
             ${preset.phases?.length ? `<span>${escapeHtml(phase?.name || `${preset.phases.length} phases`)}</span>` : ''}
@@ -132,6 +133,7 @@
             ${metadata.difficultyLabel ? `<span class="detail-chip">${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
             ${metadata.worldLabel ? `<span class="detail-chip">${escapeHtml(metadata.worldLabel)}</span>` : ''}
             ${metadata.stageLabel ? `<span class="detail-chip">${escapeHtml(metadata.stageLabel)}</span>` : ''}
+            ${metadata.sizeLabel ? `<span class="detail-chip">${escapeHtml(metadata.sizeLabel)}</span>` : ''}
             ${ruleLabels.map(label => `<span class="detail-chip">${escapeHtml(label)}</span>`).join('')}
             <span class="detail-chip ${preset.dmgType === 'mag' ? 'is-magic' : 'is-physical'}">${formatDamageType(preset.dmgType)}</span>
             ${weakness.map(item => `<span class="detail-chip">${escapeHtml(item)}</span>`).join('')}

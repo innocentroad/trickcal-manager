@@ -104,7 +104,8 @@
     { key: 'equipment', label: '装備' },
     { key: 'rankGlobal', label: 'Rank全体' },
     { key: 'research', label: '研究' },
-    { key: 'board', label: 'ボード' },
+    { key: 'boardBasic', label: 'ボード下級' },
+    { key: 'boardAdvanced', label: 'ボード上級' },
     { key: 'globalPercent', label: '全体補正' },
     { key: 'bond', label: '好感度' },
     { key: 'asideManifest', label: 'アサイド発現' },
@@ -9684,7 +9685,12 @@
         return;
       }
       addNamedStat(totals, type, value);
-      addSourceNamedStat(breakdown, 'board', type, value);
+      addSourceNamedStat(
+        breakdown,
+        row.マス_type === '上級' ? 'boardAdvanced' : 'boardBasic',
+        type,
+        value
+      );
       if (activeEffects && (row.マス_type === '上級' || row.マス_type === '特殊')) {
         activeEffects.push(`ボード${row.ボード階層} ${type}+${value}`);
       }

@@ -36,8 +36,8 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260809r" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260809i">
-  <link rel="stylesheet" href="formation-dps-calc.css?v=20260806e">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
+  <link rel="stylesheet" href="formation-dps-calc.css?v=20260826b">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -121,13 +121,26 @@
         <label>
           <span>統計試行</span>
           <select id="fdc-dps-trials">
-            <option value="16">16 seed（高速）</option>
-            <option value="64" selected>64 seed（標準）</option>
+            <option value="16" selected>16 seed（高速）</option>
+            <option value="64">64 seed（標準）</option>
             <option value="256">256 seed（精密）</option>
           </select>
         </label>
         <button type="button" id="fdc-dps-run">DPS・タイムライン計算</button>
       </div>
+      <details class="fdc-dps-external-events">
+        <summary>外部イベント（手動） <small>標準OFF</small></summary>
+        <div class="fdc-dps-external-events-head">
+          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。間隔0は単発、回数0は計測終了まで繰り返します。</p>
+          <button type="button" id="fdc-dps-external-event-add">＋ イベント追加</button>
+        </div>
+        <details class="fdc-dps-formation-event-candidates">
+          <summary>編成から追加 <span id="fdc-dps-formation-event-candidate-note"></span></summary>
+          <p>編成使徒のCT・SP・普通攻撃間隔から発動時刻を軽量推定します。候補を追加した後に時刻・間隔を調整できます。</p>
+          <div id="fdc-dps-formation-event-candidate-list" class="fdc-dps-formation-event-candidate-list"></div>
+        </details>
+        <div id="fdc-dps-external-event-list" class="fdc-dps-external-event-list"></div>
+      </details>
       <div class="fdc-dps-compare-controls" aria-label="DPS設定比較">
         <button type="button" id="fdc-dps-baseline-save">基準として保存</button>
         <button type="button" id="fdc-dps-baseline-compare" disabled>基準と比較</button>
@@ -154,9 +167,25 @@
         </div>
         <div class="fdc-dps-contribution" id="fdc-dps-contribution"></div>
       </section>
+      <section class="fdc-dps-damage-graph-panel" aria-labelledby="fdc-dps-damage-graph-title">
+        <div class="fdc-dps-section-head">
+          <div>
+            <h3 id="fdc-dps-damage-graph-title">ダメージ推移</h3>
+            <p>単一seedの累積ダメージを表示し、基準保存中は変更前と重ねて比較します。</p>
+          </div>
+          <span id="fdc-dps-damage-graph-note"></span>
+        </div>
+        <div class="fdc-dps-damage-graph-wrap">
+          <canvas id="fdc-dps-damage-graph" aria-label="ダメージ推移グラフ"></canvas>
+        </div>
+        <div class="fdc-dps-damage-graph-legend" aria-hidden="true">
+          <span><i class="is-cumulative"></i>現在</span>
+          <span id="fdc-dps-damage-graph-baseline-legend" hidden><i class="is-baseline"></i>基準</span>
+        </div>
+      </section>
       <details class="fdc-dps-effect-audit-panel">
         <summary>行動別適用効果 <span id="fdc-dps-effect-audit-note"></span></summary>
-        <p>各行動の静的ダメージ作成時に、実際に適用・除外された効果です。</p>
+        <p>固定効果はON/OFF、時間変化する効果はDPS自動の発動実績・起点・適用対象を表示します。単発計算の仮定トグルとは独立しています。</p>
         <div id="fdc-dps-effect-audit"></div>
       </details>
       <div class="fdc-dps-section-head is-single-seed">
@@ -874,6 +903,10 @@
         <strong>計算設定</strong>
         <span>由来別 ON/OFF</span>
       </div>
+      <label class="fdc-apply-float-row" data-fdc-apply-row="formationSkill">
+        <input type="checkbox" data-fdc-apply-source="formationSkill" checked>
+        <span>編成スキル効果</span>
+      </label>
       <label class="fdc-apply-float-row" data-fdc-apply-row="synergy">
         <input type="checkbox" data-fdc-apply-source="synergy" checked>
         <span>シナジー</span>
@@ -941,6 +974,7 @@
     <button type="button" id="fdc-apply-float-toggle" class="fdc-apply-float-toggle" aria-expanded="false" aria-label="計算設定">
       <span>計算</span>
       <span class="fdc-apply-float-dots">
+        <i data-fdc-apply-dot="formationSkill"></i>
         <i data-fdc-apply-dot="synergy"></i>
         <i data-fdc-apply-dot="artifact"></i>
         <i data-fdc-apply-dot="spell"></i>
@@ -996,19 +1030,20 @@
     <div class="fdc-skill-popover-title"></div>
     <div class="fdc-skill-popover-body"></div>
   </div>
-  <script src="statData.js?v=20260801a"></script>
+  <script src="statData.js?v=20260824b"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="stat-engine.js?v=20260808a"></script>
-  <script src="apostles.js?v=20260801a"></script>
+  <script src="apostles.js?v=20260824a"></script>
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
-  <script src="enemy-presets.js?v=20260727n"></script>
-  <script src="app-cache.js?v=20260813r"></script>
+  <script src="enemy-presets.js?v=20260821o"></script>
+  <script src="app-cache.js?v=20260826a"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="dps-timing-data.js?v=20260813b"></script>
-  <script src="dps-simulator.js?v=20260816a"></script>
-  <script src="combat-scenario.js?v=20260808b"></script>
-  <script src="formation-damage-calc.js?v=20260816b"></script>
-  <script src="formation-dps-calc.js?v=20260816a"></script>
+  <script src="dps-timing-data.js?v=20260826b"></script>
+  <script src="dps-simulator.js?v=20260826m"></script>
+  <script src="combat-scenario.js?v=20260824a"></script>
+  <script src="dps-trigger-policy.js?v=20260826c"></script>
+  <script src="formation-damage-calc.js?v=20260826k"></script>
+  <script src="formation-dps-calc.js?v=20260826f"></script>
 </body>
 </html>

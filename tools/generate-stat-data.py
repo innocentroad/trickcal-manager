@@ -40,6 +40,7 @@ SHEET_KEYS = {
     "アサイド基礎設定": "asideEffectBasics",
     "アサイド全体補正": "asideStatEffects",
     "アサイド特殊効果": "asideSpecialEffects",
+    "固有状態基礎設定": "uniqueStates",
     "アサイドTier設定": "asideTiers",
     "アサイドTier": "asideTiers",
     "ボード特殊効果まとめ": "boardSpecialEffects",
@@ -55,6 +56,8 @@ INDEX_BY_ID = {
     "boardSpecialEffects",
     "masterPowers",
 }
+
+STATE_ID_INDEXED = {"uniqueStates"}
 
 GROUP_BY_ID = {
     "board",
@@ -243,6 +246,38 @@ def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object
     return normalized
 
 
+def normalize_unique_states(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    field_map = {
+        "id": "ownerId",
+        "状態名": "name",
+        "状態カテゴリ": "category",
+        "値形式": "valueType",
+        "管理単位": "scope",
+        "初期値": "initialValue",
+        "最小値": "minValue",
+        "最大値": "maxValue",
+        "増減単位": "step",
+        "上限時処理": "capBehavior",
+        "下限時処理": "floorBehavior",
+        "解除区分": "dispelPolicy",
+        "保持期間": "retention",
+        "変化イベント基準": "changeEventBasis",
+        "計算対応段階": "calculationSupportLevel",
+        "検証状態": "verificationStatus",
+        "備考": "notes",
+        "出典URL": "sourceUrl",
+    }
+    normalized: list[dict[str, object]] = []
+    for row in rows:
+        item = {
+            field_map.get(key, key): value
+            for key, value in row.items()
+            if value not in ("", None)
+        }
+        normalized.append(item)
+    return normalized
+
+
 def normalize_base_stat_values(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     normalized: list[dict[str, object]] = []
     for row in rows:
@@ -317,12 +352,16 @@ def normalize_skill_rows(rows: list[dict[str, object]]) -> list[dict[str, object
             "発動条件種別": "triggerType",
             "発動条件値": "triggerValue",
             "効果処理グループID": "processGroupId",
+            "スタックグループID": "stackGroupId",
+            "スタック集約ID": "stackGroupId",
             "処理順": "processOrder",
             "発動元ID": "triggerSourceId",
             "適用条件種別": "conditionType",
             "適用条件値": "conditionValue",
+            "ダメージ補正区分": "damageModifierCategory",
             "スタック数": "stackCount",
             "最大スタック数": "maxStack",
+            "最大スタック到達時消費": "consumeOnMaxStack",
             "攻撃タイプ": "attackCategory",
             "攻撃分類": "attackCategory",
             "攻撃分類上書き": "attackCategory",
@@ -544,6 +583,12 @@ def build_indexes(sheets: dict[str, list[dict[str, object]]]) -> dict[str, objec
             indexes[f"{key}ById"] = {
                 str(row.get("id")): index for index, row in enumerate(rows) if row.get("id", "") != ""
             }
+        if key in STATE_ID_INDEXED:
+            indexes[f"{key}ById"] = {
+                str(row.get("stateId")): index
+                for index, row in enumerate(rows)
+                if row.get("stateId", "") != ""
+            }
         if key in GROUP_BY_ID:
             grouped: dict[str, list[int]] = {}
             for index, row in enumerate(rows):
@@ -612,6 +657,9 @@ def generate(input_path: Path, output_path: Path) -> None:
 
     if "basicInfo" in sheets:
         sheets["basicInfo"] = normalize_basic_info(sheets["basicInfo"])
+
+    if "uniqueStates" in sheets:
+        sheets["uniqueStates"] = normalize_unique_states(sheets["uniqueStates"])
 
     if "baseStatValues" in sheets:
         sheets["baseStatValues"] = normalize_base_stat_values(sheets["baseStatValues"])

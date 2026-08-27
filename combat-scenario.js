@@ -2,7 +2,7 @@
   'use strict';
 
   const SCHEMA_VERSION = 1;
-  const COMPARISON_SESSION_VERSION = 2;
+  const COMPARISON_SESSION_VERSION = 3;
   const COMPARISON_SESSION_KEY = 'trickcal_combat_comparison_session_v1';
   const DEFAULT_EVALUATION_POLICY = Object.freeze({
     singleAction: 'followCandidateAction',
@@ -110,6 +110,22 @@
     return `scenario:${SCHEMA_VERSION}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
   }
 
+  function evaluationFingerprint(evaluator = '', scenario = {}, input = {}, revision = 1) {
+    const payload = stableSort({
+      evaluator: String(evaluator || ''),
+      revision: String(revision || 1),
+      scenario: normalizeScenario(scenario),
+      input: clone(input)
+    });
+    const text = JSON.stringify(payload);
+    let hash = 2166136261;
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `evaluation:${String(evaluator || 'unknown')}:${(hash >>> 0).toString(16).padStart(8, '0')}`;
+  }
+
   function getSessionStorage() {
     try {
       return typeof sessionStorage === 'undefined' ? null : sessionStorage;
@@ -133,16 +149,50 @@
 
   function normalizeComparisonSession(value = {}) {
     if (!value || typeof value !== 'object' || value.mode !== 'pinned' || !value.baseline?.scenario) return null;
+    const scenario = normalizeScenario(value.baseline.scenario);
+    const legacySingleActionResult = asObject(value.baseline.singleActionResult);
+    const legacyDpsSnapshot = asObject(value.baseline.dpsSnapshot);
+    const singleActionCache = asObject(value.caches?.singleAction);
+    const dpsCache = asObject(value.caches?.dps);
+    const caches = {};
+    if (Object.keys(singleActionCache).length || Object.keys(legacySingleActionResult).length) {
+      caches.singleAction = {
+        inputFingerprint: String(singleActionCache.inputFingerprint || ''),
+        result: asObject(singleActionCache.result || legacySingleActionResult)
+      };
+    }
+    if (Object.keys(dpsCache).length || Object.keys(legacyDpsSnapshot).length) {
+      caches.dps = {
+        inputFingerprint: String(dpsCache.inputFingerprint || ''),
+        snapshot: asObject(dpsCache.snapshot || legacyDpsSnapshot)
+      };
+    }
+    const evaluationPolicy = normalizeEvaluationPolicy(
+      value.evaluationPolicy || value.definition?.evaluationPolicy
+    );
+    const comparisonScopes = Array.isArray(value.definition?.scopes)
+      ? value.definition.scopes
+      : (Array.isArray(scenario.sourceMeta?.comparisonScopes) ? scenario.sourceMeta.comparisonScopes : []);
+    const baselineSourceMeta = value.definition?.baselineSourceMeta
+      || scenario.sourceMeta?.comparisonSource
+      || scenario.sourceMeta;
     return {
       version: COMPARISON_SESSION_VERSION,
       mode: 'pinned',
+      sessionId: String(value.sessionId || `comparison:${Date.now()}`),
+      revision: Math.max(1, Math.floor(Number(value.revision) || 1)),
       savedAt: Math.max(0, Number(value.savedAt) || 0),
-      evaluationPolicy: normalizeEvaluationPolicy(value.evaluationPolicy),
+      evaluationPolicy,
+      definition: {
+        baselineSourceMeta: asObject(baselineSourceMeta),
+        scopes: comparisonScopes.filter(scope => COMPARISON_SCOPES.includes(scope)),
+        actorScope: String(value.definition?.actorScope || 'target'),
+        evaluationPolicy
+      },
       baseline: {
-        scenario: normalizeScenario(value.baseline.scenario),
-        singleActionResult: asObject(value.baseline.singleActionResult),
-        dpsSnapshot: asObject(value.baseline.dpsSnapshot)
-      }
+        scenario
+      },
+      caches
     };
   }
 
@@ -161,12 +211,23 @@
     const session = normalizeComparisonSession({
       version: COMPARISON_SESSION_VERSION,
       mode: 'pinned',
+      sessionId: payload.sessionId,
+      revision: Math.max(1, Math.floor(Number(payload.revision) || 1)),
       savedAt: Date.now(),
       evaluationPolicy: payload.evaluationPolicy,
+      definition: payload.definition,
       baseline: {
-        scenario: payload.scenario,
-        singleActionResult: payload.singleActionResult,
-        dpsSnapshot: payload.dpsSnapshot
+        scenario: payload.scenario
+      },
+      caches: {
+        singleAction: payload.singleActionResult ? {
+          inputFingerprint: payload.singleActionInputFingerprint || '',
+          result: payload.singleActionResult
+        } : undefined,
+        dps: payload.dpsSnapshot ? {
+          inputFingerprint: payload.dpsInputFingerprint || '',
+          snapshot: payload.dpsSnapshot
+        } : undefined
       }
     });
     if (!session) return null;
@@ -199,6 +260,7 @@
     stableStringify,
     semanticStringify,
     fingerprint,
+    evaluationFingerprint,
     comparisonSessionKey: COMPARISON_SESSION_KEY,
     normalizeEvaluationPolicy,
     normalizeComparisonSession,

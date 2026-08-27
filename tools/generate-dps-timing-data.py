@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
@@ -33,10 +34,27 @@ ACTION_KEYS = {
 DEFAULT_SHEETS = {
     "speed": "スキル速度",
     "timing": "スキルタイミング",
+    "movement": "行動間移動",
     "object_base": "生成物基礎設定",
     "object_timing": "生成物タイミング",
     "end_conditions": "終了条件",
+    "support_status": "対応状況",
 }
+SUPPORT_STATUS_HEADERS = ("id", "使徒名", "通常", "アサイド", "愛用品", "備考")
+IMPLEMENTED_STATUSES = frozenset({"済", "暫定"})
+KNOWN_IMPLEMENTATION_STATUSES = frozenset({"済", "暫定", "途中", "未"})
+IMPLEMENTATION_COMPONENTS = (
+    ("normal", "通常"),
+    ("aside", "アサイド"),
+    ("favorite", "愛用品"),
+)
+OWN_EFFECT_ACTION_MARKERS = {
+    "basicAttack": "_basic_",
+    "enhancedAttack": "_enhanced_",
+    "lowSkill": "_low_",
+    "highSkill": "_high_",
+}
+OWN_EFFECT_ID_RE = re.compile(r"^(?P<prefix>[A-Za-z0-9]+)_(?P<action>basic|enhanced|low|high)_e\d+$", re.IGNORECASE)
 PLAYBACK_RATES = {
     "▶": 1.3,
     "▶▶": 1.69,
@@ -93,6 +111,52 @@ def sheet_rows(workbook, sheet_name: str, required: bool = True) -> list[dict[st
         row["__line__"] = line_number
         rows.append(row)
     return rows
+
+
+def support_status_rows(workbook, sheet_name: str) -> dict[str, dict[str, Any]]:
+    """Read per-component DPS implementation status from the source-of-truth sheet.
+
+    Empty component cells deliberately mean ``未``.  This keeps a newly added
+    column/row safe by default rather than accidentally enabling a configuration.
+    """
+    if sheet_name not in workbook.sheetnames:
+        raise ValueError(f"必要なシートがありません: {sheet_name}")
+    worksheet = workbook[sheet_name]
+    headers = tuple(clean(cell.value) for cell in worksheet[1])
+    missing = [header for header in SUPPORT_STATUS_HEADERS if header not in headers]
+    if missing:
+        raise ValueError(
+            f"{sheet_name}: 必須ヘッダーがありません: {', '.join(missing)} "
+            f"(検出: {', '.join(header or '(空)' for header in headers)})"
+        )
+    statuses: dict[str, dict[str, str]] = {}
+    for row in sheet_rows(workbook, sheet_name):
+        raw_id = clean(row.get("id"))
+        if not raw_id:
+            raise ValueError(f"{sheet_name} {row['__line__']}行: idが空です")
+        key = raw_id.lower()
+        component_statuses: dict[str, str] = {}
+        for component_key, header in IMPLEMENTATION_COMPONENTS:
+            status = clean(row.get(header)) or "未"
+            if status not in KNOWN_IMPLEMENTATION_STATUSES:
+                raise ValueError(
+                    f"{sheet_name} {row['__line__']}行: {header}の未知の対応状況 {status!r} ({raw_id})"
+                )
+            component_statuses[component_key] = status
+        if key in statuses:
+            raise ValueError(
+                f"{sheet_name} {row['__line__']}行: id {raw_id} が"
+                f" {statuses[key]['sourceLine']}行と重複しています"
+            )
+        statuses[key] = {
+            "id": key,
+            "sourceId": raw_id,
+            "name": clean(row.get("使徒名")),
+            "statuses": component_statuses,
+            "note": clean(row.get("備考")),
+            "sourceLine": row["__line__"],
+        }
+    return statuses
 
 
 def convert_to_game_frames(value: Any, unit: Any) -> float | int | None:
@@ -172,19 +236,50 @@ def ensure_action(entry: dict, action_key: str, label: str) -> dict:
             "researchStatus": "",
             "note": "",
             "timingEvents": [],
+            "timingPatterns": [],
             "generatedObjects": [],
         },
     )
+
+
+def normalize_cross_apostle_effect_id(
+    raw_id: Any, action_key: str, effect_id: Any, warnings: list[str], source: str
+) -> str:
+    """Repair only an unmistakable copied direct-damage effect ID.
+
+    The workbook remains untouched.  A timing row for Barong's enhanced attack
+    cannot intentionally reference e.g. ``Renewa_enhanced_e01``: it would make
+    the runtime resolve the wrong skill.  Keep generic artifacts/status IDs
+    intact; this guard applies solely to action-shaped IDs with another apostle
+    prefix and records the source row as a warning for workbook correction.
+    """
+    value = clean(effect_id)
+    expected = clean(raw_id)
+    marker = OWN_EFFECT_ACTION_MARKERS.get(action_key)
+    if not value or not expected or not marker:
+        return value
+    matched = OWN_EFFECT_ID_RE.fullmatch(value)
+    if not matched or matched.group("prefix").lower() == expected.lower():
+        return value
+    if f"_{matched.group('action').lower()}_" != marker:
+        return value
+    corrected = f"{expected}_{value[len(matched.group('prefix')) + 1:]}"
+    warnings.append(f"{source}: 他使徒の効果ID {value} を {corrected} として補正しました")
+    return corrected
 
 
 def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
     workbook = load_workbook(input_path, data_only=True, read_only=False)
     speed_rows = sheet_rows(workbook, sheet_names["speed"])
     timing_rows = sheet_rows(workbook, sheet_names["timing"])
+    movement_sheet = sheet_names.get("movement", DEFAULT_SHEETS["movement"])
+    movement_rows = sheet_rows(workbook, movement_sheet, required=False)
     object_base_rows = sheet_rows(workbook, sheet_names["object_base"], required=False)
     object_timing_rows = sheet_rows(workbook, sheet_names["object_timing"], required=False)
     end_condition_sheet = sheet_names.get("end_conditions", DEFAULT_SHEETS["end_conditions"])
     end_condition_rows = sheet_rows(workbook, end_condition_sheet, required=False)
+    support_status_sheet = sheet_names.get("support_status", DEFAULT_SHEETS["support_status"])
+    support_statuses = support_status_rows(workbook, support_status_sheet)
     apostles: dict[str, dict] = {}
     warnings: list[str] = []
 
@@ -198,7 +293,13 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             continue
         entry = ensure_apostle(apostles, row.get("id"), row.get("使徒"))
         action = ensure_action(entry, action_key, action_label)
-        action["branch"] = clean(row.get("分岐"))
+        incoming_branch = clean(row.get("分岐"))
+        if not action["branch"]:
+            action["branch"] = incoming_branch
+        elif action["branch"] != incoming_branch:
+            # Branched actions do not have one representative branch at the
+            # action level. Keep branch information on each variant instead.
+            action["branch"] = ""
         action["researchStatus"] = clean(row.get("調査状態"))
         action["note"] = clean(row.get("備考"))
 
@@ -248,6 +349,47 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             continue
         entry = ensure_apostle(apostles, row.get("id"), row.get("使徒"))
         action = ensure_action(entry, action_key, action_label)
+
+        timing_mode = clean(row.get("発生方式"))
+        adoption = clean(row.get("採用区分"))
+        pattern_id = clean(row.get("パターンID"))
+        is_pattern = timing_mode in {"初回+周期", "初回・周期", "初回+周期+終端", "パターン"} \
+            or adoption == "採用"
+        if is_pattern:
+            initial_source = source_time(row.get("発生値"), row.get("発生単位"))
+            interval_source = source_time(row.get("反復間隔値"), row.get("反復間隔単位"))
+            if initial_source["value"] is None:
+                warnings.append(f"{sheet_names['timing']} {line}行: パターンの初回発生値が空です")
+            elif initial_source["gameFrames"] is None:
+                warnings.append(f"{sheet_names['timing']} {line}行: パターンの初回発生単位を解決できません")
+            if interval_source["value"] is None:
+                warnings.append(f"{sheet_names['timing']} {line}行: パターンの反復間隔値が空です")
+            elif interval_source["gameFrames"] is None:
+                warnings.append(f"{sheet_names['timing']} {line}行: パターンの反復間隔単位を解決できません")
+            action["timingPatterns"].append({
+                "id": pattern_id or f"{entry['id']}:{action_key}:pattern:{line}",
+                "branch": clean(row.get("分岐")),
+                "order": optional_number(row.get("発生順")),
+                "effectKind": clean(row.get("効果種別")),
+                "effectId": normalize_cross_apostle_effect_id(
+                    entry["sourceId"], action_key, row.get("効果ID") or row.get("effectId"), warnings,
+                    f"{sheet_names['timing']} {line}行",
+                ),
+                "lv1PerHitMultiplier": optional_number(row.get("Lv1・1ヒット倍率(%)")),
+                "initialFrame": initial_source["gameFrames"],
+                "initialSourceTime": initial_source if initial_source["value"] is not None else None,
+                "intervalFrames": interval_source["gameFrames"],
+                "intervalSourceTime": interval_source if interval_source["value"] is not None else None,
+                "timeOrigin": clean(row.get("時間基準")) or "動作開始",
+                "countExpression": clean(row.get("発生回数式")),
+                "endMode": clean(row.get("終了方式")) or "回数",
+                "researchStatus": clean(row.get("発生調査状態")),
+                "adoption": adoption or "採用",
+                "note": clean(row.get("備考")),
+                "sourceLine": line,
+            })
+            continue
+
         timing_source = source_time(row.get("発生値"), row.get("発生単位"))
         if timing_source["value"] is not None and timing_source["gameFrames"] is None and timing_source["unit"]:
             warnings.append(f"{sheet_names['timing']} {line}行: 発生値はありますが単位を解決できません")
@@ -256,17 +398,69 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "branch": clean(row.get("分岐")),
             "order": optional_number(row.get("発生順")),
             "effectKind": clean(row.get("効果種別")),
-            "effectId": clean(row.get("効果ID") or row.get("effectId")),
+            "effectId": normalize_cross_apostle_effect_id(
+                entry["sourceId"], action_key, row.get("効果ID") or row.get("effectId"), warnings,
+                f"{sheet_names['timing']} {line}行",
+            ),
             "lv1PerHitMultiplier": optional_number(row.get("Lv1・1ヒット倍率(%)")),
             "guaranteeFrames": guarantee_source["gameFrames"],
             "guaranteeSource": guarantee_source if guarantee_source["value"] is not None else None,
             "frame": timing_source["gameFrames"],
             "sourceTime": timing_source if timing_source["value"] is not None else None,
             "researchStatus": clean(row.get("発生調査状態")),
+            "timingMode": timing_mode or "個別",
+            "adoption": adoption or "",
             "note": clean(row.get("備考")),
             "sourceLine": line,
         }
         action["timingEvents"].append(event)
+
+    movement_transition_count = 0
+    movement_keys: set[tuple[str, str, str, str, str]] = set()
+    for row in movement_rows:
+        line = row["__line__"]
+        entry = ensure_apostle(apostles, row.get("id"), row.get("使徒"))
+        transition_id = clean(row.get("遷移ID") or row.get("移動ID"))
+        from_label = clean(row.get("遷移元動作"))
+        to_label = clean(row.get("遷移先動作"))
+        from_action_key = ACTION_KEYS.get(from_label)
+        to_action_key = ACTION_KEYS.get(to_label)
+        if not from_action_key:
+            warnings.append(f"{movement_sheet} {line}行: 未対応の遷移元動作 {from_label or '(空)'}")
+            continue
+        if not to_action_key:
+            warnings.append(f"{movement_sheet} {line}行: 未対応の遷移先動作 {to_label or '(空)'}")
+            continue
+        movement_source = source_time(row.get("移動値"), row.get("移動単位"))
+        if movement_source["value"] is None:
+            warnings.append(f"{movement_sheet} {line}行: 移動値が空です")
+            continue
+        if movement_source["gameFrames"] is None:
+            warnings.append(f"{movement_sheet} {line}行: 移動単位を解決できません")
+            continue
+        from_branch = clean(row.get("遷移元分岐"))
+        to_branch = clean(row.get("遷移先分岐"))
+        unique_key = (entry["id"], from_action_key, from_branch, to_action_key, to_branch)
+        if unique_key in movement_keys:
+            warnings.append(
+                f"{movement_sheet} {line}行: {from_label}{('/' + from_branch) if from_branch else ''}"
+                f" → {to_label}{('/' + to_branch) if to_branch else ''} が重複しています"
+            )
+            continue
+        movement_keys.add(unique_key)
+        entry.setdefault("movementTransitions", []).append({
+            "id": transition_id or f"{entry['id']}:{from_action_key}:{from_branch}:{to_action_key}:{to_branch}",
+            "fromActionKey": from_action_key,
+            "fromBranch": from_branch,
+            "toActionKey": to_action_key,
+            "toBranch": to_branch,
+            "frames": movement_source["gameFrames"],
+            "sourceTime": movement_source,
+            "researchStatus": clean(row.get("調査状態")),
+            "note": clean(row.get("備考")),
+            "sourceLine": line,
+        })
+        movement_transition_count += 1
 
     object_events: dict[str, list[dict]] = defaultdict(list)
     for row in object_timing_rows:
@@ -444,9 +638,18 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
         warnings.append(f"{end_condition_sheet}: 基礎設定がない生成物ID {object_id}")
 
     for entry in apostles.values():
+        if entry.get("movementTransitions"):
+            entry["movementTransitions"].sort(key=lambda item: (
+                item["fromActionKey"], item["fromBranch"], item["toActionKey"],
+                item["toBranch"], item["sourceLine"],
+            ))
         for action in entry["actions"].values():
             action["motionVariants"].sort(key=lambda item: (
                 item["branch"], item["sourceLine"],
+            ))
+            action["timingPatterns"].sort(key=lambda item: (
+                item["branch"], item["order"] is None, item["order"] or 0,
+                item["sourceLine"],
             ))
             action["timingEvents"].sort(key=lambda item: (
                 item["branch"], item["order"] is None, item["order"] or 0,
@@ -462,6 +665,23 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
     usable_apostles: dict[str, dict] = {}
     incomplete_apostles: list[dict[str, Any]] = []
     for key, entry in apostles.items():
+        support_status = support_statuses.get(key)
+        if support_status:
+            entry["implementationStatuses"] = dict(support_status["statuses"])
+            entry["implementationNote"] = support_status["note"]
+            if support_status["name"] and entry["name"] and support_status["name"] != entry["name"]:
+                warnings.append(
+                    f"{support_status_sheet} {support_status['sourceLine']}行: {support_status['sourceId']} の使徒名が"
+                    f"タイミングデータと一致しません ({support_status['name']} / {entry['name']})"
+                )
+        else:
+            # Keep executable records structurally uniform.  The registry still
+            # requires an actual support-status row, so this default cannot make
+            # an unregistered apostle selectable.
+            entry["implementationStatuses"] = {
+                component_key: "未" for component_key, _ in IMPLEMENTATION_COMPONENTS
+            }
+            entry["implementationNote"] = ""
         missing: list[str] = []
         if entry["normalAttackIntervalFrames"] is None:
             missing.append("普通攻撃間隔")
@@ -476,7 +696,7 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
         else:
             usable_apostles[key] = entry
     return {
-        "version": 4,
+        "version": 8,
         "source": {
             "workbook": input_path.name,
             "sheets": sheet_names,
@@ -493,8 +713,25 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "usableApostles": len(usable_apostles),
             "generatedObjects": len(known_object_ids),
             "endConditions": sum(len(items) for items in object_end_conditions.values()),
+            "movementTransitions": movement_transition_count,
+            "timingPatterns": sum(
+                len(action.get("timingPatterns", []))
+                for entry in usable_apostles.values()
+                for action in entry.get("actions", {}).values()
+            ),
+            "implementationStatuses": {
+                component_key: {
+                    status: sum(
+                        1 for item in support_statuses.values()
+                        if item["statuses"][component_key] == status
+                    )
+                    for status in sorted(KNOWN_IMPLEMENTATION_STATUSES)
+                }
+                for component_key, _ in IMPLEMENTATION_COMPONENTS
+            },
         },
         "apostles": usable_apostles,
+        "supportStatuses": support_statuses,
         "incompleteApostles": incomplete_apostles,
         "warnings": warnings,
     }
@@ -518,17 +755,21 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path(__file__).resolve().parent.parent / "dps-timing-data.js")
     parser.add_argument("--speed-sheet", default=DEFAULT_SHEETS["speed"])
     parser.add_argument("--timing-sheet", default=DEFAULT_SHEETS["timing"])
+    parser.add_argument("--movement-sheet", default=DEFAULT_SHEETS["movement"])
     parser.add_argument("--object-base-sheet", default=DEFAULT_SHEETS["object_base"])
     parser.add_argument("--object-timing-sheet", default=DEFAULT_SHEETS["object_timing"])
     parser.add_argument("--end-condition-sheet", default=DEFAULT_SHEETS["end_conditions"])
+    parser.add_argument("--support-status-sheet", default=DEFAULT_SHEETS["support_status"])
     parser.add_argument("--strict", action="store_true", help="警告が1件でもあれば終了コード2にする")
     args = parser.parse_args()
     sheet_names = {
         "speed": args.speed_sheet,
         "timing": args.timing_sheet,
+        "movement": args.movement_sheet,
         "object_base": args.object_base_sheet,
         "object_timing": args.object_timing_sheet,
         "end_conditions": args.end_condition_sheet,
+        "support_status": args.support_status_sheet,
     }
     input_path = args.input.resolve()
     if not input_path.exists():
@@ -541,6 +782,8 @@ def main() -> None:
         f"{data['summary']['usableApostles']} usable, "
         f"{data['summary']['generatedObjects']} generated objects, "
         f"{data['summary']['endConditions']} end conditions, "
+        f"{data['summary']['movementTransitions']} movement transitions, "
+        f"{data['summary']['timingPatterns']} timing patterns, "
         f"{len(data['warnings'])} warnings)"
     )
     for warning in data["warnings"]:

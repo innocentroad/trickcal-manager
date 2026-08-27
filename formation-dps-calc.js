@@ -9,6 +9,10 @@
     seed: document.getElementById('fdc-dps-seed'),
     trials: document.getElementById('fdc-dps-trials'),
     run: document.getElementById('fdc-dps-run'),
+    externalEventAdd: document.getElementById('fdc-dps-external-event-add'),
+    externalEventList: document.getElementById('fdc-dps-external-event-list'),
+    formationEventCandidateList: document.getElementById('fdc-dps-formation-event-candidate-list'),
+    formationEventCandidateNote: document.getElementById('fdc-dps-formation-event-candidate-note'),
     targetNote: document.getElementById('fdc-dps-target-note'),
     status: document.getElementById('fdc-dps-status'),
     summary: document.getElementById('fdc-dps-summary'),
@@ -23,7 +27,10 @@
     baselineNote: document.getElementById('fdc-dps-baseline-note'),
     comparisonPanel: document.getElementById('fdc-dps-comparison-panel'),
     comparisonNote: document.getElementById('fdc-dps-comparison-note'),
-    comparison: document.getElementById('fdc-dps-comparison')
+    comparison: document.getElementById('fdc-dps-comparison'),
+    damageGraph: document.getElementById('fdc-dps-damage-graph'),
+    damageGraphNote: document.getElementById('fdc-dps-damage-graph-note'),
+    damageGraphBaselineLegend: document.getElementById('fdc-dps-damage-graph-baseline-legend')
   };
   if (!el.lab) return;
 
@@ -34,51 +41,251 @@
     lowSkill: '低学年',
     highSkill: '高学年'
   };
+  const DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1';
+  const DEFAULT_FORMATION_TIMELINE_MODE = 'off';
   let rerunTimer = 0;
+  let pendingRunCanReuseSourceSnapshot = false;
   let latestRun = null;
+  let latestSimulationKey = '';
+  let latestSourceSnapshot = null;
+  let latestSourceSnapshotFingerprint = '';
   let baseline = null;
+  let activeTargetId = '';
+  let runtimeEffectOverrides = loadRuntimeEffectOverrides();
+  let latestGraphData = null;
+  let aggregateWorker = null;
+  let aggregateRequestId = 0;
+  let singleWorker = null;
+  let singleRequestId = 0;
+  let deferredDetailRevision = 0;
+  let lastRenderedDetailKey = '';
+  let latestTimelineResult = null;
+  let latestFormationEventCandidates = [];
+  let latestFormationEventCandidateFingerprint = '';
+  let timelineVisibleLimit = 160;
+  const simulationCache = new Map();
+  const combatantConfigCache = new Map();
+  const SIMULATION_CACHE_LIMIT = 6;
+  const COMBATANT_CONFIG_CACHE_LIMIT = 8;
 
   el.run?.addEventListener('click', runSimulation);
+  el.externalEventAdd?.addEventListener('click', () => addExternalEventRow());
+  el.externalEventList?.addEventListener('change', scheduleReusableRun);
+  el.externalEventList?.addEventListener('click', event => {
+    const remove = event.target.closest('[data-fdc-dps-external-remove]');
+    if (!remove) return;
+    remove.closest('.fdc-dps-external-event-row')?.remove();
+    scheduleReusableRun();
+  });
+  el.formationEventCandidateList?.addEventListener('click', event => {
+    const add = event.target.closest('[data-fdc-dps-formation-event-add]');
+    if (!add) return;
+    const candidate = latestFormationEventCandidates.find(item => item.id === add.dataset.fdcDpsFormationEventAdd);
+    if (!candidate) return;
+    addExternalEventRow({
+      type: candidate.type,
+      seconds: candidate.startSeconds,
+      intervalSeconds: candidate.intervalSeconds,
+      repeatCount: candidate.repeatCount,
+      sourceId: candidate.sourceId,
+      reason: candidate.label
+    });
+    scheduleReusableRun();
+  });
   el.baselineSave?.addEventListener('click', saveBaseline);
   el.baselineCompare?.addEventListener('click', compareWithBaseline);
   el.baselineClear?.addEventListener('click', () => clearBaseline());
-  [el.duration, el.highMode, el.initialDelay, el.seed, el.trials].forEach(input => input?.addEventListener('change', runSimulation));
-  window.addEventListener('trickcal:damage-calculator-rendered', scheduleRun);
-  window.addEventListener('trickcal:comparison-session-changed', () => {
-    baseline = null;
-    hideComparison();
-    scheduleRun();
+  el.effectAudit?.addEventListener('change', handleRuntimeEffectSettingChange);
+  el.timeline?.addEventListener('click', handleTimelineControlClick);
+  [el.duration, el.highMode, el.initialDelay, el.seed, el.trials].forEach(input => input?.addEventListener('change', scheduleReusableRun));
+  window.addEventListener('trickcal:damage-calculator-rendered', () => scheduleRun());
+  window.addEventListener('trickcal:comparison-definition-changed', event => {
+    if (String(event.detail?.evaluator || '') !== 'dps') return;
+    updateBaselineControls();
   });
+  window.addEventListener('resize', () => drawDamageGraph(latestGraphData));
+  window.addEventListener('trickcal:theme-changed', () => drawDamageGraph(latestGraphData));
 
   runSimulation();
 
-  function scheduleRun() {
-    clearTimeout(rerunTimer);
-    rerunTimer = setTimeout(runSimulation, 0);
+  function scheduleReusableRun() {
+    scheduleRun({ reuseSourceSnapshot: true });
   }
 
-  function runSimulation() {
+  function addExternalEventRow(value = {}) {
+    if (!el.externalEventList) return;
+    const row = document.createElement('div');
+    row.className = 'fdc-dps-external-event-row';
+    row.innerHTML = `
+      <label class="is-type"><span>種類</span><select data-fdc-dps-external-type>
+        <option value="shieldBreak">シールド破壊</option>
+        <option value="hpThreshold">HP閾値</option>
+        <option value="damageTaken">被弾</option>
+        <option value="statusApplied">状態付与</option>
+      </select></label>
+      <label class="is-start"><span>開始秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.seconds ?? 0)}" data-fdc-dps-external-seconds></label>
+      <label class="is-interval"><span>間隔秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.intervalSeconds ?? 0)}" data-fdc-dps-external-interval></label>
+      <label class="is-count"><span>回数</span><input type="number" min="0" max="10000" step="1" value="${escapeAttr(value.repeatCount ?? 0)}" title="0または空欄で計測終了まで" data-fdc-dps-external-count></label>
+      <label class="is-source"><span>発動元ID</span><input type="text" value="${escapeAttr(value.sourceId || '')}" placeholder="任意" data-fdc-dps-external-source></label>
+      <label class="is-value"><span>条件値</span><input type="text" value="${escapeAttr(value.value ?? '')}" placeholder="任意" data-fdc-dps-external-value></label>
+      <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(value.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
+      <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
+    `;
+    const typeSelect = row.querySelector('[data-fdc-dps-external-type]');
+    const type = value.type || 'shieldBreak';
+    if (type && !Array.from(typeSelect.options).some(option => option.value === type)) {
+      typeSelect.add(new Option(type.replace(/時$/, ''), type));
+    }
+    typeSelect.value = type;
+    el.externalEventList.append(row);
+  }
+
+  function renderFormationEventCandidates(candidates = []) {
+    if (!el.formationEventCandidateList) return;
+    const normalized = Array.isArray(candidates) ? candidates : [];
+    const fingerprint = createDataFingerprint(normalized);
+    if (fingerprint === latestFormationEventCandidateFingerprint) return;
+    latestFormationEventCandidateFingerprint = fingerprint;
+    latestFormationEventCandidates = normalized;
+    if (el.formationEventCandidateNote) {
+      el.formationEventCandidateNote.textContent = normalized.length ? `${normalized.length}件` : '候補なし';
+    }
+    if (!normalized.length) {
+      el.formationEventCandidateList.innerHTML = '<p class="is-empty">現在の編成に、外部行動待ちの効果はありません。</p>';
+      return;
+    }
+    el.formationEventCandidateList.innerHTML = normalized.map(candidate => `
+      <article class="fdc-dps-formation-event-candidate">
+        <div>
+          <strong>${escapeHtml(candidate.label || candidate.type)}</strong>
+          <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
+          ${candidate.effectLabels?.length ? `<small>対象効果: ${escapeHtml(candidate.effectLabels.slice(0, 3).join('・'))}${candidate.effectLabels.length > 3 ? ` ほか${candidate.effectLabels.length - 3}件` : ''}</small>` : ''}
+        </div>
+        <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id)}">追加</button>
+      </article>
+    `).join('');
+  }
+
+  function collectExternalEvents() {
+    return Array.from(el.externalEventList?.querySelectorAll('.fdc-dps-external-event-row') || [])
+      .map((row, index) => {
+        const type = row.querySelector('[data-fdc-dps-external-type]')?.value || '';
+        const seconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-seconds]')?.value) || 0);
+        const intervalSeconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-interval]')?.value) || 0);
+        const repeatCount = Math.max(0, Math.floor(Number(row.querySelector('[data-fdc-dps-external-count]')?.value) || 0));
+        const sourceId = row.querySelector('[data-fdc-dps-external-source]')?.value?.trim() || '';
+        const value = row.querySelector('[data-fdc-dps-external-value]')?.value?.trim() || '';
+        const reason = row.querySelector('[data-fdc-dps-external-reason]')?.value?.trim() || '';
+        return {
+          id: `manual:${index + 1}`,
+          type,
+          frame: seconds * 60,
+          intervalFrames: intervalSeconds * 60,
+          repeatCount,
+          sourceId,
+          value,
+          reason: reason || ({
+            shieldBreak: '手動シールド破壊',
+            hpThreshold: '手動HP閾値',
+            damageTaken: '手動被弾',
+            statusApplied: '手動状態付与'
+          })[type] || '手動外部イベント'
+        };
+      })
+      .filter(event => event.type);
+  }
+
+  function scheduleRun(options = {}) {
+    const canReuseSourceSnapshot = options?.reuseSourceSnapshot === true;
+    pendingRunCanReuseSourceSnapshot = rerunTimer
+      ? pendingRunCanReuseSourceSnapshot && canReuseSourceSnapshot
+      : canReuseSourceSnapshot;
+    clearTimeout(rerunTimer);
+    rerunTimer = setTimeout(() => {
+      rerunTimer = 0;
+      const reuseSourceSnapshot = pendingRunCanReuseSourceSnapshot;
+      pendingRunCanReuseSourceSnapshot = false;
+      runSimulation({ reuseSourceSnapshot });
+    }, 120);
+  }
+
+  function runSimulation(options = {}) {
+    rerunTimer = 0;
+    pendingRunCanReuseSourceSnapshot = false;
     const api = window.TRICKCAL_DAMAGE_CALC;
     const simulator = window.TRICKCAL_DPS_SIMULATOR;
     const timingData = typeof DPS_TIMING_DATA === 'undefined' ? null : DPS_TIMING_DATA;
-    if (!api?.createDpsSnapshot || !simulator || !timingData) {
+    const createDpsInput = api?.createDpsEvaluationInput || api?.createDpsSnapshot;
+    if (!createDpsInput || !simulator || !timingData) {
       renderError('DPS試験用データまたは計算モジュールを読み込めませんでした。');
       return;
     }
-    const snapshot = api.createDpsSnapshot();
+    const canReuseSourceSnapshot = options?.reuseSourceSnapshot === true && latestSourceSnapshot;
+    const snapshot = canReuseSourceSnapshot
+      ? latestSourceSnapshot
+      : ensureDpsFavoriteSkillOverrides(createDpsInput());
+    const previousSourceSnapshotFingerprint = latestSourceSnapshotFingerprint;
+    const currentSourceSnapshotFingerprint = createDpsSourceFingerprint(snapshot);
+    const sourceSnapshotChanged = !canReuseSourceSnapshot
+      && !!previousSourceSnapshotFingerprint
+      && previousSourceSnapshotFingerprint !== currentSourceSnapshotFingerprint;
+    if (!canReuseSourceSnapshot) {
+      latestSourceSnapshot = snapshot;
+      latestSourceSnapshotFingerprint = currentSourceSnapshotFingerprint;
+      renderFormationEventCandidates(snapshot.formationEventCandidates || []);
+    }
+    activeTargetId = String(snapshot.targetId || '');
+    const runtimeSettings = applyRuntimeEffectOverrides(snapshot.runtimeEffects || {}, activeTargetId);
+    const externalEvents = collectExternalEvents();
+    const externalEventFingerprint = createDataFingerprint(externalEvents);
+    const effectiveSnapshot = {
+      ...snapshot,
+      runtimeEffects: runtimeSettings.simulation,
+      externalEvents
+    };
+    const trialCount = Number(el.trials?.value) || 16;
+    const runtimeOverrideFingerprint = createRuntimeOverrideFingerprint(activeTargetId);
+    const simulationKey = createSimulationKey({
+      snapshot: latestSourceSnapshotFingerprint,
+      runtimeOverrides: runtimeOverrideFingerprint,
+      externalEvents: externalEventFingerprint,
+      durationSeconds: Number(el.duration?.value) || 60,
+      highSkillMode: el.highMode?.value || 'disabled',
+      initialDelaySeconds: Math.max(0, Number(el.initialDelay?.value) || 0),
+      seed: Number(el.seed?.value) || 1,
+      trials: trialCount,
+      formationTimelineMode: DEFAULT_FORMATION_TIMELINE_MODE
+    });
+    if (latestRun && latestSimulationKey === simulationKey) return;
     const timing = timingData.apostles?.[String(snapshot.targetId || '').toLowerCase()];
     if (!snapshot.apostle) {
       renderError(`${snapshot.targetName || '選択使徒'}のスキルデータを読み込めませんでした。`);
       return;
     }
     if (!timing) {
-      renderWithoutTiming(snapshot);
+      renderWithoutTiming(effectiveSnapshot, runtimeSettings.display, sourceSnapshotChanged);
       return;
     }
-    const config = simulator.buildCombatantConfig(snapshot.apostle, timing, {
-      skillLevels: snapshot.skillLevels,
-      runtimeEffects: snapshot.runtimeEffects
+    cancelAggregateWorker();
+    const configKey = createSimulationKey({
+      snapshot: latestSourceSnapshotFingerprint,
+      runtimeOverrides: runtimeOverrideFingerprint,
+      externalEvents: externalEventFingerprint
     });
+    let config = getCombatantConfigCache(configKey);
+    if (!config) {
+      config = simulator.buildCombatantConfig(snapshot.apostle, timing, {
+        scenario: snapshot.scenario,
+        skillLevels: snapshot.skillLevels,
+        skillOverrides: snapshot.dpsSkillOverrides,
+        timingBranches: snapshot.dpsTimingBranches,
+        runtimeEffects: runtimeSettings.simulation,
+        externalEvents,
+        enemySize: snapshot.scenario?.battleConditions?.enemySize || snapshot.scenario?.actors?.enemy?.size || '',
+        enemySizeRank: snapshot.scenario?.battleConditions?.enemySizeRank || snapshot.scenario?.actors?.enemy?.sizeRank || 0
+      });
+      setCombatantConfigCache(configKey, config);
+    }
     const initialDelaySeconds = Math.max(0, Number(el.initialDelay?.value) || 0);
     const durationSeconds = Number(el.duration?.value) || 60;
     const seed = Number(el.seed?.value) || 1;
@@ -87,42 +294,168 @@
       highSkillMode: el.highMode?.value || 'disabled',
       initialActionDelayFrames: initialDelaySeconds * 60,
       seed,
+      adaptiveTrials: true,
+      adaptiveMinTrials: 16,
+      adaptiveRelativeErrorP: 0.2,
+      formationTimelineMode: DEFAULT_FORMATION_TIMELINE_MODE,
       damageProfiles: snapshot.actionDamageProfiles || {},
       statusDamageProfiles: snapshot.statusDamageProfiles || {}
     };
-    const result = simulator.simulate(config, simulationOptions);
-    const aggregate = simulator.simulateMany(config, {
-      ...simulationOptions,
-      trials: Number(el.trials?.value) || 64
-    });
+    const cached = getSimulationCache(simulationKey);
+    if (!cached?.result && window.Worker) {
+      latestRun = {
+        scenario: snapshot.scenario || null,
+        snapshot: effectiveSnapshot,
+        runtimeEffectsDisplay: runtimeSettings.display,
+        timing,
+        config,
+        result: null,
+        aggregate: null,
+        simulationKey,
+        options: { ...simulationOptions, trials: trialCount }
+      };
+      latestSimulationKey = simulationKey;
+      if (baseline && baseline.targetId !== snapshot.targetId) {
+        clearBaseline(`${baseline.targetName}から使徒が変更されたため、基準を解除しました。`);
+      } else {
+        if (baseline && sourceSnapshotChanged && el.comparisonPanel && !el.comparisonPanel.hidden) hideComparison();
+        updateBaselineControls();
+      }
+      if (el.status) el.status.textContent = '単一seed計算中…';
+      startSingleWorker(config, simulationOptions, trialCount, simulationKey, effectiveSnapshot, timing, runtimeSettings.display, timingData);
+      return;
+    }
+    const result = cached?.result || simulator.simulate(config, simulationOptions);
     latestRun = {
       scenario: snapshot.scenario || null,
-      snapshot,
+      snapshot: effectiveSnapshot,
+      runtimeEffectsDisplay: runtimeSettings.display,
       timing,
       config,
       result,
-      aggregate,
+      aggregate: cached?.aggregate || null,
+      simulationKey,
       options: {
         ...simulationOptions,
-        trials: Number(el.trials?.value) || 64
+        trials: trialCount
       }
     };
-    if (!baseline) baseline = createSharedSessionBaseline(simulator, timingData, latestRun.options);
+    latestSimulationKey = simulationKey;
     if (baseline && baseline.targetId !== snapshot.targetId) {
       clearBaseline(`${baseline.targetName}から使徒が変更されたため、基準を解除しました。`);
     } else {
-      if (baseline && el.comparisonPanel && !el.comparisonPanel.hidden) hideComparison();
+      if (baseline && sourceSnapshotChanged && el.comparisonPanel && !el.comparisonPanel.hidden) hideComparison();
       updateBaselineControls();
     }
-    renderSimulation(snapshot, timing, config, result, aggregate, timingData);
+    if (cached?.aggregate) {
+      renderSimulation(effectiveSnapshot, timing, config, result, cached.aggregate, timingData, runtimeSettings.display);
+      if (el.status) el.status.textContent = 'キャッシュから計算結果を復元しました。';
+      return;
+    }
+    if (el.status && !cached) {
+      const elapsedMs = Number(result.performance?.elapsedMs);
+      const processedTicks = Number(result.performance?.processedTickCount);
+      const skippedTicks = Number(result.performance?.skippedTickCount);
+      const timingNote = Number.isFinite(elapsedMs)
+        ? ` / 単一seed ${formatNumber(elapsedMs)}ms・${formatNumber(processedTicks)}tick処理（${formatNumber(skippedTicks)}tick短縮）`
+        : '';
+      el.status.textContent = `単一seedを表示中${timingNote}`;
+    }
+    renderSimulation(effectiveSnapshot, timing, config, result, null, timingData, runtimeSettings.display);
+    if (trialCount > 1) {
+      if (el.status) el.status.textContent = '単一seedを表示中 / 複数seed集計中…';
+      startAggregateWorker(config, simulationOptions, trialCount, simulationKey, effectiveSnapshot, timing, runtimeSettings.display, timingData);
+    } else {
+      latestRun.aggregate = simulator.simulateMany(config, { ...simulationOptions, trials: 1 });
+      setSimulationCache(simulationKey, { result, aggregate: latestRun.aggregate });
+      renderSimulation(effectiveSnapshot, timing, config, result, latestRun.aggregate, timingData, runtimeSettings.display);
+    }
   }
 
-  function renderWithoutTiming(snapshot) {
+  function ensureDpsFavoriteSkillOverrides(snapshot = {}) {
+    const existingOverrides = snapshot.dpsSkillOverrides && typeof snapshot.dpsSkillOverrides === 'object'
+      ? snapshot.dpsSkillOverrides
+      : {};
+    const rewriteOptions = (snapshot.selectedSkillOptions || [])
+      .filter(option => option?.skillRewrite === true)
+      .filter(option => String(option?.sourceKey || '').startsWith('favorite:'));
+    if (!rewriteOptions.length) return snapshot;
+    const favoriteLevels = snapshot.apostle?.favoriteCard?.levels || {};
+    const overrides = { ...existingOverrides };
+    const branches = { ...(snapshot.dpsTimingBranches || {}) };
+    rewriteOptions.forEach(option => {
+      const level = Number(String(option.sourceKey || '').split(':')[1]);
+      const skills = Array.isArray(favoriteLevels[level]) ? favoriteLevels[level] : [];
+      const skill = skills.find(candidate => (candidate?.effects || [])
+        .some(effect => effect?.effectId && effect.effectId === option.effectId)) || skills[0];
+      if (!skill) return;
+      getDpsRewriteActionKeys(option.targetSkill).forEach(actionKey => {
+        // DPS入力生成側が既に正規の置換を作成している場合は保持し、
+        // 部分的に欠けているアクションだけをフォールバックで補完する。
+        if (overrides[actionKey]) return;
+        const override = typeof simulator?.createActionSkillOverride === 'function'
+          ? simulator.createActionSkillOverride(skill, actionKey)
+          : cloneData(skill);
+        const targetName = String(option.targetSkillName || '').trim();
+        if (targetName) {
+          override.skillName = targetName;
+          override.dpsActionName = targetName;
+        }
+        const favoriteName = String(snapshot.apostle?.favoriteCard?.name || '').trim();
+        const actionTiming = typeof DPS_TIMING_DATA === 'undefined'
+          ? null
+          : DPS_TIMING_DATA?.apostles?.[String(snapshot.targetId || '').toLowerCase()]?.actions?.[actionKey];
+        const availableBranches = [
+          ...(actionTiming?.motionVariants || []),
+          ...(actionTiming?.timingEvents || []),
+          ...(actionTiming?.timingPatterns || []),
+          ...(actionTiming?.generatedObjects || [])
+        ].map(item => String(item?.branch || '').trim()).filter(Boolean);
+        if (favoriteName && availableBranches.includes(favoriteName)) {
+          override.dpsTimingBranch = favoriteName;
+          branches[actionKey] = favoriteName;
+        }
+        override.dpsSourceKey = String(option.sourceKey || '');
+        if (actionKey === 'highSkill' && !(Number(override.cooldownSeconds) > 0)) {
+          const baseHigh = (snapshot.apostle?.skills || []).find(candidate => /高学年/.test(String(candidate?.skillType || '')));
+          const cooldown = Number(baseHigh?.cooldownSeconds);
+          if (cooldown > 0) override.cooldownSeconds = cooldown;
+        }
+        overrides[actionKey] = override;
+      });
+    });
+    if (Object.keys(overrides).length === Object.keys(existingOverrides).length
+      && Object.keys(branches).length === Object.keys(snapshot.dpsTimingBranches || {}).length) {
+      return snapshot;
+    }
+    return {
+      ...snapshot,
+      dpsSkillOverrides: overrides,
+      dpsTimingBranches: { ...(snapshot.dpsTimingBranches || {}), ...branches }
+    };
+  }
+
+  function getDpsRewriteActionKeys(value = '') {
+    const text = String(value || '').replace(/[\s　・_]/g, '');
+    const keys = [];
+    if (/基本攻撃|(?:普通|通常)攻撃基本/.test(text)) keys.push('basicAttack');
+    if (/強化攻撃|(?:普通|通常)攻撃強化/.test(text)) keys.push('enhancedAttack');
+    if (/低学年/.test(text)) keys.push('lowSkill');
+    if (/高学年/.test(text)) keys.push('highSkill');
+    if (!keys.some(key => key === 'basicAttack' || key === 'enhancedAttack') && /普通攻撃|通常攻撃/.test(text)) {
+      keys.push('basicAttack', 'enhancedAttack');
+    }
+    return [...new Set(keys)];
+  }
+
+  function renderWithoutTiming(snapshot, runtimeEffectsDisplay = snapshot.runtimeEffects || {}, sourceSnapshotChanged = false) {
+    cancelAggregateWorker();
     latestRun = null;
+    latestSimulationKey = '';
     if (baseline && baseline.targetId !== snapshot.targetId) {
       clearBaseline(`${baseline.targetName}から使徒が変更されたため、基準を解除しました。`);
     } else {
-      if (baseline && el.comparisonPanel && !el.comparisonPanel.hidden) hideComparison();
+      if (baseline && sourceSnapshotChanged && el.comparisonPanel && !el.comparisonPanel.hidden) hideComparison();
       updateBaselineControls();
     }
     el.targetNote.textContent = `${snapshot.targetName || '選択使徒'} / スキル速度未登録`;
@@ -132,19 +465,236 @@
     if (el.contribution) el.contribution.innerHTML = '<p class="fdc-dps-empty">スキル速度データの追加後にDPS寄与度を計算できます。</p>';
     if (el.trialNote) el.trialNote.textContent = '';
     if (el.timeline) el.timeline.innerHTML = '<p class="fdc-dps-empty">速度データがないためタイムラインは生成していません。</p>';
-    renderActionEffectAudit(snapshot.actionEffectAudit || {}, snapshot.actionDamageProfiles || {});
+    renderActionEffectAudit(
+      snapshot.actionEffectAudit || {},
+      snapshot.actionDamageProfiles || {},
+      runtimeEffectsDisplay,
+      null,
+      snapshot.additionalDamageComponents || []
+    );
+  }
+
+  function cancelAggregateWorker() {
+    aggregateRequestId += 1;
+    singleRequestId += 1;
+    if (singleWorker) {
+      singleWorker.terminate();
+      singleWorker = null;
+    }
+    if (aggregateWorker) {
+      aggregateWorker.terminate();
+      aggregateWorker = null;
+    }
+  }
+
+  function startSingleWorker(config, simulationOptions, trialCount, simulationKey, snapshot, timing, runtimeEffectsDisplay, timingData) {
+    const requestId = ++singleRequestId;
+    const finish = result => {
+      if (!latestRun || requestId !== singleRequestId || latestRun.simulationKey !== simulationKey) return;
+      latestRun.result = result;
+      renderSimulation(snapshot, timing, config, result, null, timingData, runtimeEffectsDisplay);
+      if (trialCount > 1) {
+        if (el.status) el.status.textContent = '単一seedを表示中 / 複数seed集計中…';
+        startAggregateWorker(config, simulationOptions, trialCount, simulationKey, snapshot, timing, runtimeEffectsDisplay, timingData);
+      } else {
+        const simulator = window.TRICKCAL_DPS_SIMULATOR;
+        latestRun.aggregate = simulator.simulateMany(config, { ...simulationOptions, trials: 1 });
+        setSimulationCache(simulationKey, { result, aggregate: latestRun.aggregate });
+        renderSimulation(snapshot, timing, config, result, latestRun.aggregate, timingData, runtimeEffectsDisplay);
+      }
+    };
+    const fallback = () => {
+      const simulator = window.TRICKCAL_DPS_SIMULATOR;
+      if (!simulator) return;
+      setTimeout(() => {
+        if (requestId !== singleRequestId) return;
+        finish(simulator.simulate(config, simulationOptions));
+      }, 0);
+    };
+    try {
+      singleWorker = new Worker('dps-simulator-worker.js?v=20260826l');
+      singleWorker.onmessage = event => {
+        if (event.data?.requestId !== requestId) return;
+        singleWorker?.terminate();
+        singleWorker = null;
+        if (event.data.error) {
+          fallback();
+          return;
+        }
+        finish(event.data.result);
+      };
+      singleWorker.onerror = () => {
+        singleWorker?.terminate();
+        singleWorker = null;
+        fallback();
+      };
+      singleWorker.postMessage({
+        requestId,
+        mode: 'single',
+        config,
+        options: simulationOptions
+      });
+    } catch {
+      singleWorker = null;
+      fallback();
+    }
+  }
+
+  function startAggregateWorker(config, simulationOptions, trialCount, simulationKey, snapshot, timing, runtimeEffectsDisplay, timingData) {
+    const requestId = ++aggregateRequestId;
+    const finish = aggregate => {
+      if (!latestRun || requestId !== aggregateRequestId || latestRun.simulationKey !== simulationKey) return;
+      latestRun.aggregate = aggregate;
+      setSimulationCache(simulationKey, { result: latestRun.result, aggregate });
+      renderSimulation(snapshot, timing, config, latestRun.result, aggregate, timingData, runtimeEffectsDisplay);
+    };
+    const fallback = () => {
+      const simulator = window.TRICKCAL_DPS_SIMULATOR;
+      if (!simulator) return;
+      setTimeout(() => {
+        if (requestId !== aggregateRequestId) return;
+        finish(simulator.simulateMany(config, {
+          ...simulationOptions,
+          trials: trialCount,
+          recordTimeline: false,
+          recordDamageSeries: false
+        }));
+      }, 0);
+    };
+    if (!window.Worker) {
+      fallback();
+      return;
+    }
+    try {
+      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260826l');
+      aggregateWorker.onmessage = event => {
+        if (event.data?.requestId !== requestId) return;
+        if (event.data.progress) {
+          const progress = event.data.progress;
+          if (el.status) el.status.textContent = `単一seedを表示中 / 複数seed集計中 ${formatNumber(progress.completed)} / ${formatNumber(progress.total)} seed…`;
+          return;
+        }
+        aggregateWorker?.terminate();
+        aggregateWorker = null;
+        if (event.data.error) {
+          fallback();
+          return;
+        }
+        finish(event.data.result);
+      };
+      aggregateWorker.onerror = () => {
+        aggregateWorker?.terminate();
+        aggregateWorker = null;
+        fallback();
+      };
+      aggregateWorker.postMessage({
+        requestId,
+        config,
+        options: { ...simulationOptions, trials: trialCount }
+      });
+    } catch {
+      aggregateWorker = null;
+      fallback();
+    }
+  }
+
+  function createSimulationKey(input = {}) {
+    try {
+      return JSON.stringify(input);
+    } catch {
+      return `${input.snapshot?.targetId || ''}:${input.durationSeconds}:${input.seed}:${input.trials}`;
+    }
+  }
+
+  function createDataFingerprint(value) {
+    let serialized = '';
+    try {
+      serialized = JSON.stringify(value);
+    } catch {
+      return `unserializable:${Date.now()}`;
+    }
+    let hashA = 2166136261;
+    let hashB = 2246822507;
+    for (let index = 0; index < serialized.length; index += 1) {
+      const code = serialized.charCodeAt(index);
+      hashA = Math.imul(hashA ^ code, 16777619);
+      hashB = Math.imul(hashB ^ code, 3266489917);
+    }
+    return `${serialized.length}:${hashA >>> 0}:${hashB >>> 0}`;
+  }
+
+  function createDpsSourceFingerprint(snapshot = {}) {
+    const normalized = cloneData(snapshot);
+    const scenario = normalized?.scenario;
+    if (scenario && typeof scenario === 'object') {
+      normalized.scenario = {
+        actors: scenario.actors || {},
+        characterState: scenario.characterState || {},
+        formationState: scenario.formationState || {},
+        cardState: scenario.cardState || {},
+        battleConditions: scenario.battleConditions || {},
+        effectAssumptions: scenario.effectAssumptions || {}
+      };
+    }
+    return createDataFingerprint(normalized);
+  }
+
+  function createRuntimeOverrideFingerprint(targetId) {
+    const overrides = runtimeEffectOverrides?.[String(targetId || '')] || {};
+    const normalized = Object.keys(overrides).sort().map(effectId => {
+      const setting = overrides[effectId] || {};
+      return [effectId, setting.mode || 'auto', Math.max(1, Math.floor(Number(setting.fixedStacks) || 1))];
+    });
+    return createDataFingerprint(normalized);
+  }
+
+  function getSimulationCache(key) {
+    if (!key || !simulationCache.has(key)) return null;
+    const value = simulationCache.get(key);
+    simulationCache.delete(key);
+    simulationCache.set(key, value);
+    return value;
+  }
+
+  function setSimulationCache(key, value) {
+    if (!key || !value) return;
+    simulationCache.delete(key);
+    simulationCache.set(key, value);
+    while (simulationCache.size > SIMULATION_CACHE_LIMIT) {
+      simulationCache.delete(simulationCache.keys().next().value);
+    }
+  }
+
+  function getCombatantConfigCache(key) {
+    if (!key || !combatantConfigCache.has(key)) return null;
+    const value = combatantConfigCache.get(key);
+    combatantConfigCache.delete(key);
+    combatantConfigCache.set(key, value);
+    return value;
+  }
+
+  function setCombatantConfigCache(key, value) {
+    if (!key || !value) return;
+    combatantConfigCache.delete(key);
+    combatantConfigCache.set(key, value);
+    while (combatantConfigCache.size > COMBATANT_CONFIG_CACHE_LIMIT) {
+      combatantConfigCache.delete(combatantConfigCache.keys().next().value);
+    }
   }
 
   function saveBaseline() {
-    runSimulation();
     if (!latestRun?.aggregate || !(latestRun.aggregate.totalExpectedDamage > 0)) {
-      if (el.baselineNote) el.baselineNote.textContent = 'ダメージを評価できる状態で基準を保存してください。';
+      if (el.baselineNote) el.baselineNote.textContent = 'DPS集計の完了後に基準を保存してください。';
       return;
     }
+    const dpsSnapshot = cloneData(latestRun.snapshot);
+    const inputFingerprint = createDataFingerprint(dpsSnapshot);
     baseline = {
       targetId: latestRun.snapshot.targetId,
       targetName: latestRun.snapshot.targetName,
       scenario: cloneData(latestRun.scenario || latestRun.snapshot.scenario || null),
+      dpsSnapshot,
+      inputFingerprint,
       config: cloneData(latestRun.config),
       damageProfiles: cloneData(latestRun.snapshot.actionDamageProfiles || {}),
       statusDamageProfiles: cloneData(latestRun.snapshot.statusDamageProfiles || {}),
@@ -153,20 +703,26 @@
         highSkillMode: latestRun.options.highSkillMode,
         initialActionDelayFrames: latestRun.options.initialActionDelayFrames,
         seed: latestRun.options.seed,
-        trials: latestRun.options.trials
+        trials: latestRun.options.trials,
+        adaptiveTrials: latestRun.options.adaptiveTrials !== false,
+        adaptiveMinTrials: latestRun.options.adaptiveMinTrials || 16,
+        adaptiveRelativeErrorP: latestRun.options.adaptiveRelativeErrorP || 0.2,
+        formationTimelineMode: latestRun.options.formationTimelineMode || DEFAULT_FORMATION_TIMELINE_MODE
       }),
-      aggregate: cloneData(latestRun.aggregate)
+      aggregate: cloneData(latestRun.aggregate),
+      aggregateFingerprint: createDpsAggregateFingerprint(inputFingerprint, latestRun.options),
+      result: latestRun.result
     };
-    saveSharedSessionBaseline(latestRun.snapshot);
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-ui'));
     hideComparison();
     updateBaselineControls();
+    refreshDamageGraphBaseline();
+    dispatchDpsComparisonDefinitionChanged({ mode: 'pinned' });
   }
 
   function createSharedSessionBaseline(simulator, timingData, options) {
     const scenarioApi = window.TRICKCAL_COMBAT_SCENARIO;
     const session = scenarioApi?.loadComparisonSession?.();
-    const saved = session?.baseline?.dpsSnapshot;
+    const saved = session?.caches?.dps?.snapshot || session?.baseline?.dpsSnapshot;
     if (!saved?.targetId || !saved.apostle) return null;
     const timing = timingData?.apostles?.[String(saved.targetId).toLowerCase()];
     if (!timing) return null;
@@ -175,8 +731,14 @@
       targetName: saved.targetName || session.baseline.scenario?.actors?.self?.name || saved.targetId,
       scenario: cloneData(session.baseline.scenario || null),
       config: simulator.buildCombatantConfig(saved.apostle, timing, {
+        scenario: saved.scenario || session?.baseline?.scenario,
         skillLevels: saved.skillLevels,
-        runtimeEffects: saved.runtimeEffects
+        skillOverrides: saved.dpsSkillOverrides,
+        timingBranches: saved.dpsTimingBranches,
+        runtimeEffects: saved.runtimeEffects,
+        externalEvents: saved.externalEvents || [],
+        enemySize: saved.scenario?.battleConditions?.enemySize || saved.scenario?.actors?.enemy?.size || '',
+        enemySizeRank: saved.scenario?.battleConditions?.enemySizeRank || saved.scenario?.actors?.enemy?.sizeRank || 0
       }),
       damageProfiles: cloneData(saved.actionDamageProfiles || {}),
       statusDamageProfiles: cloneData(saved.statusDamageProfiles || {}),
@@ -185,9 +747,14 @@
         highSkillMode: options.highSkillMode,
         initialActionDelayFrames: options.initialActionDelayFrames,
         seed: options.seed,
-        trials: options.trials
+        trials: options.trials,
+        adaptiveTrials: options.adaptiveTrials !== false,
+        adaptiveMinTrials: options.adaptiveMinTrials || 16,
+        adaptiveRelativeErrorP: options.adaptiveRelativeErrorP || 0.2,
+        formationTimelineMode: options.formationTimelineMode || DEFAULT_FORMATION_TIMELINE_MODE
       }),
       aggregate: null,
+      result: null,
       sharedSession: true
     };
   }
@@ -202,6 +769,8 @@
         targetId: snapshot.targetId || '',
         targetName: snapshot.targetName || '',
         apostle: cloneData(snapshot.apostle || null),
+        dpsSkillOverrides: cloneData(snapshot.dpsSkillOverrides || {}),
+        dpsTimingBranches: cloneData(snapshot.dpsTimingBranches || {}),
         skillLevels: cloneData(snapshot.skillLevels || {}),
         damageType: snapshot.damageType || '',
         actionCategory: snapshot.actionCategory || '',
@@ -211,7 +780,8 @@
         actionDamageProfiles: cloneData(snapshot.actionDamageProfiles || {}),
         statusDamageProfiles: cloneData(snapshot.statusDamageProfiles || {}),
         actionEffectAudit: cloneData(snapshot.actionEffectAudit || {}),
-        runtimeEffects: cloneData(snapshot.runtimeEffects || {})
+        runtimeEffects: cloneData(snapshot.runtimeEffects || {}),
+        externalEvents: cloneData(snapshot.externalEvents || [])
       }
     });
   }
@@ -221,7 +791,12 @@
     const api = window.TRICKCAL_DAMAGE_CALC;
     const simulator = window.TRICKCAL_DPS_SIMULATOR;
     const timingData = typeof DPS_TIMING_DATA === 'undefined' ? null : DPS_TIMING_DATA;
-    const snapshot = api?.createDpsSnapshot?.();
+    // 通常表示と同じく、愛用品によるスキル書き換えを補完してから
+    // 比較用コンフィグを組み立てる。これを省くとティグのように
+    // 愛用品用タイミングを基礎スキルへ誤適用し、同じ高学年を複数回
+    // ダメージとして数えることがある。
+    const createDpsInput = api?.createDpsEvaluationInput || api?.createDpsSnapshot;
+    const snapshot = ensureDpsFavoriteSkillOverrides(createDpsInput?.() || {});
     const timing = timingData?.apostles?.[String(snapshot?.targetId || '').toLowerCase()];
     if (!snapshot?.apostle || !timing || !simulator) {
       if (el.baselineNote) el.baselineNote.textContent = '変更後のDPSデータを作成できませんでした。';
@@ -231,16 +806,29 @@
       clearBaseline(`${baseline.targetName}から使徒が変更されたため、基準を解除しました。`);
       return;
     }
+    const runtimeSettings = applyRuntimeEffectOverrides(snapshot.runtimeEffects || {}, snapshot.targetId);
     const candidateConfig = simulator.buildCombatantConfig(snapshot.apostle, timing, {
+      scenario: snapshot.scenario,
       skillLevels: snapshot.skillLevels,
-      runtimeEffects: snapshot.runtimeEffects
+      skillOverrides: snapshot.dpsSkillOverrides,
+      timingBranches: snapshot.dpsTimingBranches,
+      runtimeEffects: runtimeSettings.simulation,
+      externalEvents: collectExternalEvents(),
+      enemySize: snapshot.scenario?.battleConditions?.enemySize || snapshot.scenario?.actors?.enemy?.size || '',
+      enemySizeRank: snapshot.scenario?.battleConditions?.enemySizeRank || snapshot.scenario?.actors?.enemy?.sizeRank || 0
     });
-    const commonOptions = baseline.options;
-    const baselineAggregate = baseline.aggregate || simulator.simulateMany(baseline.config, {
-      ...commonOptions,
-      damageProfiles: baseline.damageProfiles,
-      statusDamageProfiles: baseline.statusDamageProfiles || {}
-    });
+    const commonOptions = {
+      ...baseline.options,
+      adaptiveTrials: baseline.options.adaptiveTrials !== false,
+      adaptiveMinTrials: baseline.options.adaptiveMinTrials || 16,
+      adaptiveRelativeErrorP: baseline.options.adaptiveRelativeErrorP || 0.2,
+      formationTimelineMode: baseline.options.formationTimelineMode || DEFAULT_FORMATION_TIMELINE_MODE
+    };
+    const baselineAggregate = getOrCreateBaselineAggregate(simulator, timingData, commonOptions);
+    if (!baselineAggregate) {
+      if (el.baselineNote) el.baselineNote.textContent = '変更前のDPS基準を再構築できませんでした。';
+      return;
+    }
     const candidateAggregate = simulator.simulateMany(candidateConfig, {
       ...commonOptions,
       damageProfiles: snapshot.actionDamageProfiles || {},
@@ -249,12 +837,85 @@
     renderComparison(baselineAggregate, candidateAggregate, commonOptions);
   }
 
+  function createDpsAggregateFingerprint(inputFingerprint = '', options = {}) {
+    return createSimulationKey({
+      snapshot: inputFingerprint || '',
+      durationSeconds: Number(options.durationSeconds) || 0,
+      highSkillMode: options.highSkillMode || 'disabled',
+      initialActionDelayFrames: Number(options.initialActionDelayFrames) || 0,
+      seed: Number(options.seed) || 1,
+      trials: Number(options.trials) || 1,
+      adaptiveTrials: options.adaptiveTrials !== false,
+      adaptiveMinTrials: Number(options.adaptiveMinTrials) || 16,
+      adaptiveRelativeErrorP: Number(options.adaptiveRelativeErrorP) || 0.2,
+      formationTimelineMode: options.formationTimelineMode || DEFAULT_FORMATION_TIMELINE_MODE
+    });
+  }
+
+  function getOrCreateBaselineAggregate(simulator, timingData, options = {}) {
+    if (!baseline || !simulator) return null;
+    const expectedFingerprint = baseline.inputFingerprint
+      ? createDpsAggregateFingerprint(baseline.inputFingerprint, options)
+      : '';
+    const cacheIsUsable = !!baseline.aggregate
+      && (!baseline.aggregateFingerprint || !expectedFingerprint || baseline.aggregateFingerprint === expectedFingerprint);
+    if (cacheIsUsable) return baseline.aggregate;
+
+    let config = baseline.config;
+    const snapshot = baseline.dpsSnapshot || {};
+    if (!config && snapshot.apostle) {
+      const timing = timingData?.apostles?.[String(snapshot.targetId || baseline.targetId || '').toLowerCase()];
+      if (timing) {
+        config = simulator.buildCombatantConfig(snapshot.apostle, timing, {
+          scenario: snapshot.scenario || baseline.scenario,
+          skillLevels: snapshot.skillLevels,
+          skillOverrides: snapshot.dpsSkillOverrides,
+          timingBranches: snapshot.dpsTimingBranches,
+          runtimeEffects: snapshot.runtimeEffects,
+          externalEvents: snapshot.externalEvents || [],
+          enemySize: snapshot.scenario?.battleConditions?.enemySize || snapshot.scenario?.actors?.enemy?.size || '',
+          enemySizeRank: snapshot.scenario?.battleConditions?.enemySizeRank || snapshot.scenario?.actors?.enemy?.sizeRank || 0
+        });
+      }
+    }
+    if (!config) return null;
+    const aggregate = simulator.simulateMany(config, {
+      ...options,
+      damageProfiles: snapshot.actionDamageProfiles || baseline.damageProfiles || {},
+      statusDamageProfiles: snapshot.statusDamageProfiles || baseline.statusDamageProfiles || {}
+    });
+    baseline.config = config;
+    baseline.aggregate = aggregate;
+    baseline.aggregateFingerprint = expectedFingerprint;
+    return aggregate;
+  }
+
   function clearBaseline(message = '基準は未保存です。') {
     baseline = null;
-    window.TRICKCAL_COMBAT_SCENARIO?.clearComparisonSession?.();
-    window.dispatchEvent(new CustomEvent('trickcal:comparison-session-ui'));
     hideComparison();
     updateBaselineControls(message);
+    refreshDamageGraphBaseline();
+    dispatchDpsComparisonDefinitionChanged({ mode: 'none' });
+  }
+
+  function dispatchDpsComparisonDefinitionChanged({ mode = 'pinned' } = {}) {
+    window.dispatchEvent(new CustomEvent('trickcal:comparison-definition-changed', {
+      detail: {
+        evaluator: 'dps',
+        mode,
+        targetId: baseline?.targetId || activeTargetId,
+        source: 'dps-local'
+      }
+    }));
+  }
+
+  function refreshDamageGraphBaseline() {
+    if (!latestGraphData) return;
+    latestGraphData = {
+      ...latestGraphData,
+      baselineResult: baseline?.result || null
+    };
+    drawDamageGraph(latestGraphData);
   }
 
   function hideComparison() {
@@ -320,6 +981,8 @@
   }
 
   function renderError(message) {
+    deferredDetailRevision += 1;
+    lastRenderedDetailKey = '';
     el.targetNote.textContent = message;
     el.status.textContent = '';
     el.summary.innerHTML = '';
@@ -330,15 +993,18 @@
     el.timeline.innerHTML = `<p class="fdc-dps-empty">${escapeHtml(message)}</p>`;
   }
 
-  function renderSimulation(snapshot, timing, config, result, aggregate, timingData) {
+  function renderSimulation(snapshot, timing, config, result, aggregate, timingData, runtimeEffectsDisplay = snapshot.runtimeEffects || {}) {
     el.targetNote.textContent = `${snapshot.targetName} / ゲーム内${formatNumber(result.durationSeconds)}秒`;
-    const warnings = [...(timingData.warnings || []), ...(result.warnings || [])];
-    el.status.textContent = warnings.length
-      ? `暫定データ: ${warnings.length}件の確認事項があります。`
+    const warnings = unique([...(timingData.warnings || []), ...(result.warnings || [])]
+      .map(value => String(value || '').trim())
+      .filter(Boolean));
+    el.status.innerHTML = warnings.length
+      ? `<details><summary>暫定データ: ${warnings.length}件の確認事項</summary><ul>${warnings.map(warning => `<li>${escapeHtml(warning)}</li>`).join('')}</ul></details>`
       : '速度・発生フレームの暫定データで計算しています。';
     el.status.classList.toggle('has-warning', warnings.length > 0);
-    renderContribution(aggregate);
-    renderActionEffectAudit(snapshot.actionEffectAudit || {}, snapshot.actionDamageProfiles || {});
+    renderContribution(aggregate, !aggregate && !!result);
+    latestGraphData = { result, aggregate, baselineResult: baseline?.result || null };
+    drawDamageGraph(latestGraphData);
 
     const actionCards = ACTION_ORDER.map(key => `
       <div class="fdc-dps-summary-card">
@@ -347,6 +1013,20 @@
         <small>${formatNumber(result.hits[key] || 0)}ヒット</small>
       </div>
     `).join('');
+    const hitEvents = (result.timeline || []).filter(event => event.type === 'hit');
+    const fallbackHits = hitEvents.filter(event => event.timingQuality === 'fallbackEnd').length;
+    const measuredHits = Math.max(0, hitEvents.length - fallbackHits);
+    const generatedHits = hitEvents.filter(event => event.generatedObjectId).length;
+    const selfDestructHits = hitEvents.filter(event => (
+      event.generatedObjectId && /自爆/.test(String(event.generatedEventType || ''))
+    )).length;
+    const dotTicks = (result.timeline || []).filter(event => event.type === 'statusTick').length;
+    const timingQualityNote = [
+      fallbackHits ? `終了時補完${formatNumber(fallbackHits)}` : '',
+      generatedHits ? `生成物${formatNumber(generatedHits)}` : '',
+      selfDestructHits ? `自爆${formatNumber(selfDestructHits)}回` : '',
+      dotTicks ? `DoT ${formatNumber(dotTicks)}回` : ''
+    ].filter(Boolean).join(' / ') || '実測・指定発生F';
     el.summary.innerHTML = `
       <div class="fdc-dps-summary-card">
         <span>初動</span>
@@ -358,28 +1038,181 @@
         <strong>${formatNumber(config.initialNormalAttackIntervalFrames || config.normalAttackIntervalFrames)}F</strong>
         <small>基礎${formatNumber(config.normalAttackIntervalFrames)}F${config.initialAttackSpeedP ? ` / 開始時 攻撃速度+${formatNumber(config.initialAttackSpeedP)}%` : ''}</small>
       </div>
+      <div class="fdc-dps-summary-card">
+        <span>発生精度</span>
+        <strong>${formatNumber(measuredHits)} / ${formatNumber(hitEvents.length)}</strong>
+        <small>${timingQualityNote}</small>
+      </div>
       ${actionCards}
     `;
 
-    const visible = result.timeline.slice(0, 600);
+    scheduleDeferredSimulationDetails(snapshot, result, runtimeEffectsDisplay);
+  }
+
+  function scheduleDeferredSimulationDetails(snapshot, result, runtimeEffectsDisplay) {
+    const detailKey = latestRun?.simulationKey || latestSimulationKey || '';
+    if (detailKey && lastRenderedDetailKey === detailKey) return;
+    const revision = ++deferredDetailRevision;
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (revision !== deferredDetailRevision) return;
+        if (detailKey && detailKey !== (latestRun?.simulationKey || latestSimulationKey || '')) return;
+        renderActionEffectAudit(
+          snapshot.actionEffectAudit || {},
+          snapshot.actionDamageProfiles || {},
+          runtimeEffectsDisplay,
+          result,
+          snapshot.additionalDamageComponents || []
+        );
+        renderSimulationTimeline(result);
+        lastRenderedDetailKey = detailKey;
+      }, 0);
+    });
+  }
+
+  function renderSimulationTimeline(result) {
+    if (latestTimelineResult !== result) {
+      latestTimelineResult = result;
+      timelineVisibleLimit = 160;
+    }
+    const visible = result.timeline.slice(0, timelineVisibleLimit);
     el.timeline.innerHTML = visible.length
       ? visible.map(renderTimelineRow).join('')
       : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>';
-    if (result.timeline.length > visible.length) {
-      el.timeline.insertAdjacentHTML('beforeend', `<p class="fdc-dps-empty">以降${formatNumber(result.timeline.length - visible.length)}件は省略しました。</p>`);
+    const timelineStats = result.timelineStats || {};
+    const omittedCount = Math.max(0, Number(timelineStats.omitted) || 0);
+    const remaining = Math.max(0, result.timeline.length - visible.length);
+    if (remaining > 0) {
+      el.timeline.insertAdjacentHTML('beforeend', `
+        <div class="fdc-dps-timeline-more">
+          <span>${formatNumber(visible.length)} / ${formatNumber(result.timeline.length)}件を表示</span>
+          <button type="button" data-fdc-dps-timeline-more>続きを${formatNumber(Math.min(100, remaining))}件表示</button>
+        </div>
+      `);
+    }
+    if (omittedCount > 0) {
+      const total = Number(timelineStats.total) || result.timeline.length + omittedCount;
+      el.timeline.insertAdjacentHTML('beforeend', `<p class="fdc-dps-empty">記録上限により計${formatNumber(total)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`);
     }
   }
 
-  function renderContribution(aggregate) {
+  function handleTimelineControlClick(event) {
+    const button = event.target.closest?.('[data-fdc-dps-timeline-more]');
+    if (!button || !latestTimelineResult) return;
+    timelineVisibleLimit += 100;
+    renderSimulationTimeline(latestTimelineResult);
+  }
+
+  function drawDamageGraph(data) {
+    const canvas = el.damageGraph;
+    if (!canvas || !data?.result) return;
+    const result = data.result;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(280, Math.floor(rect.width || canvas.parentElement?.clientWidth || 600));
+    const height = 180;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.style.height = `${height}px`;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    const light = document.body.classList.contains('theme-light');
+    const colors = light
+      ? { text: '#526783', grid: 'rgba(74, 111, 157, .2)', cumulative: '#1768a8', fill: 'rgba(23, 104, 168, .12)', baseline: '#7b8797' }
+      : { text: '#9db0ca', grid: 'rgba(142, 174, 218, .2)', cumulative: '#72b9ff', fill: 'rgba(114, 185, 255, .12)', baseline: '#aeb9c8' };
+    ctx.clearRect(0, 0, width, height);
+    const pad = { left: 82, right: 12, top: 10, bottom: 26 };
+    const plotWidth = Math.max(1, width - pad.left - pad.right);
+    const plotHeight = Math.max(1, height - pad.top - pad.bottom);
+    const currentSeries = createDamageGraphSeries(result);
+    const baselineSeries = data.baselineResult ? createDamageGraphSeries(data.baselineResult) : null;
+    const durationFrames = Math.max(currentSeries.durationFrames, baselineSeries?.durationFrames || 0, 1);
+    const yMax = Math.max(currentSeries.totalDamage, baselineSeries?.totalDamage || 0, 1) * 1.08;
+    const y = value => pad.top + plotHeight - (value / yMax) * plotHeight;
+    const x = frame => pad.left + (frame / durationFrames) * plotWidth;
+    ctx.font = '9px sans-serif';
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = colors.grid;
+    ctx.fillStyle = colors.text;
+    [0, .25, .5, .75, 1].forEach(step => {
+      const yy = pad.top + plotHeight * (1 - step);
+      ctx.beginPath(); ctx.moveTo(pad.left, yy); ctx.lineTo(width - pad.right, yy); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.fillText(formatDamage(yMax * step), pad.left - 6, yy + 3);
+    });
+    [0, .5, 1].forEach(step => {
+      const xx = pad.left + plotWidth * step;
+      ctx.beginPath(); ctx.moveTo(xx, pad.top); ctx.lineTo(xx, pad.top + plotHeight); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(durationFrames * step / 60)}秒`, xx, height - 8);
+    });
+    const drawSeries = (series, strokeStyle, { fillStyle = '', dashed = false } = {}) => {
+      if (!series?.points.length) return;
+      const points = series.points.map(point => ({ x: x(point.frame), yValue: point.yValue }));
+      if (fillStyle) {
+        ctx.beginPath();
+        points.forEach((point, index) => { const yy = y(point.yValue); if (!index) ctx.moveTo(point.x, yy); else ctx.lineTo(point.x, yy); });
+        ctx.lineTo(points[points.length - 1].x, pad.top + plotHeight); ctx.lineTo(points[0].x, pad.top + plotHeight); ctx.closePath();
+        ctx.fillStyle = fillStyle; ctx.fill();
+      }
+      ctx.beginPath();
+      points.forEach((point, index) => { const yy = y(point.yValue); if (!index) ctx.moveTo(point.x, yy); else ctx.lineTo(point.x, yy); });
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = dashed ? 1.5 : 2;
+      ctx.setLineDash(dashed ? [6, 4] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    drawSeries(currentSeries, colors.cumulative, { fillStyle: colors.fill });
+    drawSeries(baselineSeries, colors.baseline, { dashed: true });
+    drawSeries(currentSeries, colors.cumulative);
+    if (el.damageGraphBaselineLegend) el.damageGraphBaselineLegend.hidden = !baselineSeries;
+    if (el.damageGraphNote) {
+      const baselineNote = baselineSeries ? ` / 基準 ${formatDamage(baselineSeries.totalDamage)}` : '';
+      el.damageGraphNote.textContent = `${formatNumber(currentSeries.rawHitCount)}発生 / 最大${formatNumber(currentSeries.bucketCount)}点${baselineNote}`;
+    }
+  }
+
+  function createDamageGraphSeries(result) {
+    const durationFrames = Math.max(1, Number(result?.durationFrames) || Number(result?.durationSeconds || 1) * 60);
+    const rawHits = (result?.damageSeries || (result?.timeline || []))
+      .filter(event => (event.type === 'hit' || event.type === 'statusTick') && Number(event.expectedDamage) > 0)
+      .sort((a, b) => Number(a.frame || 0) - Number(b.frame || 0));
+    const bucketCount = Math.min(400, Math.max(1, Math.ceil(durationFrames / 6)));
+    const buckets = Array.from({ length: bucketCount }, () => 0);
+    rawHits.forEach(event => {
+      const frame = Math.max(0, Math.min(durationFrames, Number(event.frame) || 0));
+      const index = Math.min(bucketCount - 1, Math.floor(frame / durationFrames * bucketCount));
+      buckets[index] += Number(event.expectedDamage) || 0;
+    });
+    let cumulative = 0;
+    const points = buckets.map((damage, index) => {
+      cumulative += damage;
+      return {
+        frame: (index / Math.max(1, bucketCount - 1)) * durationFrames,
+        yValue: cumulative
+      };
+    });
+    return { durationFrames, rawHitCount: rawHits.length, bucketCount, totalDamage: cumulative, points };
+  }
+
+  function renderContribution(aggregate, pending = false) {
     if (!el.contribution) return;
     if (!aggregate || !(aggregate.totalExpectedDamage > 0)) {
-      el.contribution.innerHTML = '<p class="fdc-dps-empty">行動ダメージを評価できませんでした。スキル倍率または発生タイミングを確認してください。</p>';
+      el.contribution.innerHTML = pending
+        ? '<p class="fdc-dps-empty">複数seedを集計中です。単一seedのタイムラインは表示しています。</p>'
+        : '<p class="fdc-dps-empty">行動ダメージを評価できませんでした。スキル倍率または発生タイミングを確認してください。</p>';
       if (el.trialNote) el.trialNote.textContent = aggregate ? `${formatNumber(aggregate.trials)} seed` : '';
       return;
     }
     if (el.trialNote) {
-      const lastSeed = aggregate.baseSeed + aggregate.trials - 1;
-      el.trialNote.textContent = `${formatNumber(aggregate.trials)} seed / ${formatNumber(aggregate.baseSeed)}～${formatNumber(lastSeed)}`;
+      const evaluatedTrials = Number(aggregate.evaluatedTrials) || aggregate.trials;
+      const lastSeed = aggregate.baseSeed + evaluatedTrials - 1;
+      const averageSimulationMs = Number(aggregate.performance?.averageSimulationMs);
+      const performanceNote = Number.isFinite(averageSimulationMs)
+        ? ` / 平均${formatNumber(averageSimulationMs)}ms`
+        : '';
+      const adaptiveNote = aggregate.adaptiveStopped ? '（収束により短縮）' : '';
+      el.trialNote.textContent = `${formatNumber(evaluatedTrials)} seed / ${formatNumber(aggregate.baseSeed)}～${formatNumber(lastSeed)}${aggregate.deterministic ? '（決定的条件のため短縮）' : ''}${adaptiveNote}${performanceNote}`;
     }
     const rows = ACTION_ORDER.map(key => {
       const item = aggregate.byAction?.[key] || {};
@@ -395,15 +1228,20 @@
     }).join('');
     const statusRows = Object.entries(aggregate.byStatus || {})
       .filter(([, item]) => Number(item?.expectedDamage) > 0)
-      .map(([status, item]) => `
+      .map(([status, item]) => {
+        const sourceSummary = (item.sources || [])
+          .map(source => `${source.label || source.sourceId} ${formatDamage(source.contributionDps)} DPS`)
+          .join(' / ');
+        return `
         <div class="fdc-dps-contribution-row">
-          <strong>${escapeHtml(status)}（DoT）</strong>
+          <strong><span>${escapeHtml(status)}（DoT合計）</span>${sourceSummary ? `<small title="${escapeAttr(sourceSummary)}">付与元: ${escapeHtml(sourceSummary)}</small>` : ''}</strong>
           <span><b>${formatDamage(item.contributionDps)}</b><small>DPS</small></span>
           <span><b>${formatPercent(item.damageShareP)}</b><small>構成比</small></span>
           <span><b>1秒毎</b><small>周期</small></span>
           <span><b>${formatDamage(item.expectedDamage)}</b><small>総DoT</small></span>
         </div>
-      `).join('');
+      `;
+      }).join('');
     const runtimeRows = Object.values(aggregate.byRuntimeEffect || {})
       .filter(item => Number(item?.expectedDamage) > 0)
       .map(item => `
@@ -432,61 +1270,459 @@
     `;
   }
 
-  function renderActionEffectAudit(audit, profiles) {
+  function loadRuntimeEffectOverrides() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY) || '{}');
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  }
+
+  function saveRuntimeEffectOverrides() {
+    try {
+      localStorage.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(runtimeEffectOverrides));
+    } catch (_) {
+      // 保存できない環境でも、このタブ内では設定を維持する。
+    }
+  }
+
+  function getRuntimeEffectOverride(targetId, effectId) {
+    return runtimeEffectOverrides?.[String(targetId || '')]?.[String(effectId || '')] || null;
+  }
+
+  function handleRuntimeEffectSettingChange(event) {
+    const modeSelect = event.target.closest?.('[data-fdc-dps-runtime-mode]');
+    const stackInput = event.target.closest?.('[data-fdc-dps-runtime-stacks]');
+    const control = modeSelect || stackInput;
+    if (!control || !activeTargetId) return;
+    const effectId = String(control.dataset.fdcDpsRuntimeMode || control.dataset.fdcDpsRuntimeStacks || '');
+    if (!effectId) return;
+    const targetOverrides = runtimeEffectOverrides[activeTargetId] || {};
+    const current = targetOverrides[effectId] || { mode: 'auto', fixedStacks: 1 };
+    const next = {
+      mode: modeSelect ? modeSelect.value : current.mode,
+      fixedStacks: stackInput
+        ? Math.max(1, Math.floor(Number(stackInput.value) || 1))
+        : Math.max(1, Math.floor(Number(current.fixedStacks) || 1))
+    };
+    if (next.mode === 'auto') delete targetOverrides[effectId];
+    else targetOverrides[effectId] = next;
+    if (Object.keys(targetOverrides).length) runtimeEffectOverrides[activeTargetId] = targetOverrides;
+    else delete runtimeEffectOverrides[activeTargetId];
+    saveRuntimeEffectOverrides();
+    scheduleReusableRun();
+  }
+
+  function applyRuntimeEffectOverrides(runtimeEffects = {}, targetId = '') {
+    const source = runtimeEffects || {};
+    const display = { ...source };
+    const simulation = { ...source };
+    const collections = [
+      ['attackSpeedEffects', true],
+      ['damageBuffEffects', true],
+      ['spRecoveryEffects', false],
+      ['cooldownEffects', false],
+      ['eventEffects', false]
+    ];
+    collections.forEach(([collectionKey, supportsFixed]) => {
+      const sourceRows = Array.isArray(display[collectionKey]) ? display[collectionKey] : [];
+      display[collectionKey] = sourceRows.map(effect => {
+        const effectId = String(effect?.id || effect?.effectId || '');
+        const override = getRuntimeEffectOverride(targetId, effectId);
+        return {
+          ...effect,
+          runtimeOverrideMode: override?.mode || 'auto',
+          runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)),
+          runtimeSupportsFixed: supportsFixed
+        };
+      });
+      const simulationRows = Array.isArray(simulation[collectionKey]) ? simulation[collectionKey] : [];
+      simulation[collectionKey] = simulationRows.flatMap(effect => {
+        const effectId = String(effect?.id || effect?.effectId || '');
+        const override = getRuntimeEffectOverride(targetId, effectId);
+        if (override?.mode === 'off') {
+          // ダメージ補正は単発プロファイルに含まれた動的効果を差し引くため、
+          // 定義だけ残して発動不能にする。削除すると単発側の仮定値がDPSへ残る。
+          if (collectionKey === 'damageBuffEffects') {
+            return [{ ...effect, mode: 'off', triggerActionKeys: [], intervalFrames: 0 }];
+          }
+          return [];
+        }
+        if (override?.mode !== 'fixed' || !supportsFixed) return [effect];
+        const maxStacks = Math.max(1, Math.floor(Number(effect.maxStacks) || 1));
+        const fixedStacks = Math.min(maxStacks, Math.max(1, Math.floor(Number(override.fixedStacks) || 1)));
+        return [{
+          ...effect,
+          mode: 'fixed',
+          fixedStacks,
+          durationFrames: 0,
+          intervalFrames: 0,
+          triggerEveryCount: 0,
+          triggerActionKeys: []
+        }];
+      });
+    });
+    return { display, simulation };
+  }
+
+  function renderRuntimeEffectControls(runtimeEffects = {}) {
+    const definitions = new Map();
+    [
+      ['attackSpeedEffects', true, '攻撃速度'],
+      ['damageBuffEffects', true, 'ダメージ補正'],
+      ['spRecoveryEffects', false, 'SP回復'],
+      ['cooldownEffects', false, 'クールタイム'],
+      ['eventEffects', false, 'イベント']
+    ].forEach(([collectionKey, supportsFixed, kindLabel]) => {
+      (runtimeEffects[collectionKey] || []).forEach(effect => {
+        const id = String(effect?.id || effect?.effectId || '');
+        if (!id) return;
+        const current = definitions.get(id);
+        const maxStacks = Math.max(1, Math.floor(Number(effect.maxStacks) || 1));
+        definitions.set(id, {
+          id,
+          label: effect.label || current?.label || id,
+          kinds: unique([...(current?.kinds || []), kindLabel]),
+          supportsFixed: !!(current?.supportsFixed || supportsFixed),
+          maxStacks: Math.max(current?.maxStacks || 1, maxStacks),
+          mode: effect.runtimeOverrideMode || current?.mode || 'auto',
+          fixedStacks: effect.runtimeFixedStacks || current?.fixedStacks || 1
+        });
+      });
+    });
+    if (!definitions.size) return '';
+    const rows = Array.from(definitions.values()).map(item => {
+      const fixed = item.mode === 'fixed' && item.supportsFixed;
+      return `
+        <label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}">
+          <span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.kinds.join('・'))}</small></span>
+          <select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.label)}のDPS動作">
+            <option value="auto"${item.mode === 'auto' ? ' selected' : ''}>自動</option>
+            ${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}
+            <option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option>
+          </select>
+          ${item.supportsFixed ? `<span class="fdc-dps-runtime-stack${fixed ? '' : ' is-disabled'}"><input type="number" min="1" max="${item.maxStacks}" step="1" value="${Math.min(item.maxStacks, item.fixedStacks)}" data-fdc-dps-runtime-stacks="${escapeAttr(item.id)}"${fixed ? '' : ' disabled'}><small>/${item.maxStacks}</small></span>` : ''}
+        </label>
+      `;
+    }).join('');
+    return `
+      <div class="fdc-dps-runtime-settings">
+        <div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理、固定は指定スタックを常時適用、OFFはDPSから除外</small></div>
+        <div class="fdc-dps-runtime-settings-list">${rows}</div>
+      </div>
+    `;
+  }
+
+  function renderActionEffectAudit(audit, profiles, runtimeEffects = {}, result = null, additionalDamageComponents = []) {
     if (!el.effectAudit) return;
+    const runtimeControls = renderRuntimeEffectControls(runtimeEffects);
+    const runtimeDescriptors = buildRuntimeEffectDescriptors(runtimeEffects, result);
     const actionMaps = Object.fromEntries(ACTION_ORDER.map(key => [
       key,
       new Map((audit?.[key]?.rows || []).map(row => [row.key, row]))
     ]));
-    const effectKeys = unique(ACTION_ORDER.flatMap(key => Array.from(actionMaps[key].keys())));
-    if (el.effectAuditNote) el.effectAuditNote.textContent = `${formatNumber(effectKeys.length)}効果`;
+    const baseColumns = ACTION_ORDER.map(key => ({
+      key,
+      label: ACTION_LABELS[key],
+      actionKey: key,
+      rows: actionMaps[key],
+      component: null
+    }));
+    const seenComponents = new Set();
+    const supplementalColumns = (Array.isArray(additionalDamageComponents) ? additionalDamageComponents : [])
+      .filter(component => {
+        const id = String(component?.effectId || component?.optionKey || component?.label || '');
+        if (!id || seenComponents.has(id)) return false;
+        seenComponents.add(id);
+        return true;
+      })
+      .map((component, index) => {
+        const componentActionKeys = getAdditionalDamageClassificationActionKeys(component.attackCategory || component.sourceCategory || '');
+        const ownerActionKeys = Array.isArray(component.ownerActionKeys) ? component.ownerActionKeys : [];
+        const rows = (component.actionEffectAudit?.rows || []).filter(row => row.auditKind == null);
+        return {
+          key: `supplemental:${component.effectId || component.optionKey || index}`,
+          label: component.valueKind || component.label || '追加ダメージ',
+          actionKey: componentActionKeys[0] || ownerActionKeys[0] || '',
+          classificationActionKeys: componentActionKeys,
+          ownerActionKeys,
+          rows: new Map(rows.map(row => [row.key, row])),
+          component
+        };
+      });
+    const columns = [...baseColumns, ...supplementalColumns];
+    const effectKeys = unique(columns.flatMap(column => Array.from(column.rows.keys())));
+    if (el.effectAuditNote) {
+      const extraText = supplementalColumns.length ? ` / 追加ダメージ${formatNumber(supplementalColumns.length)}列` : '';
+      el.effectAuditNote.textContent = `${formatNumber(effectKeys.length)}効果${extraText}`;
+    }
     if (!effectKeys.length) {
-      el.effectAudit.innerHTML = '<p class="fdc-dps-empty">表示できる静的効果がありません。</p>';
+      el.effectAudit.innerHTML = `${runtimeControls}<p class="fdc-dps-empty">表示できる行動別効果がありません。</p>`;
       return;
     }
     const matrixRows = effectKeys.map(effectKey => {
-      const representative = ACTION_ORDER.map(key => actionMaps[key].get(effectKey)).find(Boolean) || {};
-      const states = ACTION_ORDER.map(key => {
-        const row = actionMaps[key].get(effectKey);
+      const representative = columns.map(column => column.rows.get(effectKey)).find(Boolean) || {};
+      const descriptor = getRuntimeEffectDescriptor(representative, runtimeDescriptors);
+      const states = columns.map(column => {
+        const appliesToEveryBaseAction = descriptor
+          && ACTION_ORDER.every(actionKey => descriptor.targetActionKeys.includes(actionKey));
+        const row = column.rows.get(effectKey)
+          || (column.component && appliesToEveryBaseAction ? representative : null);
         if (!row) return '<span class="fdc-dps-effect-state is-none" title="この行動では評価対象外">—</span>';
+        const runtimeActionKey = column.actionKey || (appliesToEveryBaseAction ? ACTION_ORDER[0] : '');
+        const runtimeState = getRuntimeAuditState(row, runtimeActionKey, descriptor, !!result);
+        if (runtimeState) {
+          return `<span class="fdc-dps-effect-state ${runtimeState.className}" title="${escapeAttr(runtimeState.title)}">${escapeHtml(runtimeState.label)}</span>`;
+        }
         const state = row.enabled ? 'is-on' : 'is-off';
         return `<span class="fdc-dps-effect-state ${state}" title="${escapeAttr(row.reason || (row.enabled ? '適用' : '除外'))}">${row.enabled ? 'ON' : 'OFF'}</span>`;
       }).join('');
+      const runtimeMeta = descriptor
+        ? (descriptor.overrideMode === 'off'
+          ? 'DPS OFF'
+          : descriptor.overrideMode === 'fixed'
+            ? `DPS固定×${descriptor.fixedStacks}`
+            : `DPS自動${descriptor.activityCount > 0 ? `・発動${formatNumber(descriptor.activityCount)}回` : ''}`)
+        : (representative.runtimeManaged ? 'DPS自動' : '');
       return `
-        <div class="fdc-dps-effect-matrix-row">
-          <span class="fdc-dps-effect-name"><strong>${escapeHtml(representative.label || '効果')}</strong><small>${escapeHtml([representative.source, representative.value].filter(Boolean).join(' / '))}</small></span>
+        <div class="fdc-dps-effect-matrix-row${descriptor || representative.runtimeManaged ? ' is-runtime-managed' : ''}">
+          <span class="fdc-dps-effect-name"><strong>${escapeHtml(representative.label || '効果')}</strong><small>${escapeHtml([representative.source, representative.value, runtimeMeta].filter(Boolean).join(' / '))}</small></span>
           ${states}
         </div>
       `;
     }).join('');
     const actionDetails = ACTION_ORDER.map(key => {
       const rows = Array.from(actionMaps[key].values());
-      const enabledCount = rows.filter(row => row.enabled).length;
+      const staticRows = rows.filter(row => !getRuntimeEffectDescriptor(row, runtimeDescriptors) && !row.runtimeManaged);
+      const runtimeRows = rows.filter(row => getRuntimeEffectDescriptor(row, runtimeDescriptors) || row.runtimeManaged);
+      const enabledCount = staticRows.filter(row => row.enabled).length;
       const damageText = formatActionProfileDamage(profiles?.[key]);
       return `
         <details class="fdc-dps-effect-action-detail">
-          <summary><strong>${escapeHtml(ACTION_LABELS[key])}</strong><span>1回期待 ${escapeHtml(damageText)} / ON ${formatNumber(enabledCount)}・OFF ${formatNumber(rows.length - enabledCount)}</span></summary>
+          <summary><strong>${escapeHtml(ACTION_LABELS[key])}</strong><span>1回期待 ${escapeHtml(damageText)} / 固定ON ${formatNumber(enabledCount)}・動的 ${formatNumber(runtimeRows.length)}</span></summary>
           <div class="fdc-dps-effect-action-list">
-            ${rows.length ? rows.map(row => `
-              <div class="${row.enabled ? 'is-on' : 'is-off'}">
-                <span>${row.enabled ? 'ON' : 'OFF'}</span>
+            ${rows.length ? rows.map(row => {
+              const descriptor = getRuntimeEffectDescriptor(row, runtimeDescriptors);
+              const runtimeState = getRuntimeAuditState(row, key, descriptor, !!result);
+              const enabled = runtimeState ? runtimeState.className === 'is-runtime-active' : row.enabled;
+              const stateLabel = runtimeState?.label || (row.enabled ? 'ON' : 'OFF');
+              const reason = runtimeState?.title || row.reason;
+              return `
+              <div class="${runtimeState ? 'is-runtime-managed' : (enabled ? 'is-on' : 'is-off')}">
+                <span>${escapeHtml(stateLabel)}</span>
                 <strong>${escapeHtml(row.label)}</strong>
-                <small>${escapeHtml([row.value, row.reason].filter(Boolean).join(' / '))}</small>
+                <small>${escapeHtml([row.value, reason].filter(Boolean).join(' / '))}</small>
               </div>
-            `).join('') : '<p class="fdc-dps-empty">評価対象の効果なし</p>'}
+            `;
+            }).join('') : '<p class="fdc-dps-empty">評価対象の効果なし</p>'}
           </div>
         </details>
       `;
     }).join('');
+    const matrixWidth = 220 + (columns.length * 88);
+    const columnHeaders = columns.map(column => {
+      if (!column.component) return `<span>${escapeHtml(column.label)}</span>`;
+      const component = column.component;
+      const source = component.sourceLabel || '追加効果';
+      const multiplier = formatNumber(component.baseMultiplier || component.multiplier || 0);
+      const repeat = component.repeatCount > 1 ? `×${formatNumber(component.repeatCount)}` : '';
+      const classificationActions = column.classificationActionKeys.map(key => ACTION_LABELS[key]).filter(Boolean).join('・');
+      const ownerActions = column.ownerActionKeys.map(key => ACTION_LABELS[key]).filter(Boolean).join('・');
+      const title = [
+        source,
+        component.valueKind || component.label,
+        ownerActions && `発動:${ownerActions}`,
+        classificationActions && `分類:${classificationActions}`
+      ].filter(Boolean).join(' / ');
+      return `<span class="is-additional" title="${escapeAttr(title)}"><b>${escapeHtml(source)}</b><small>${escapeHtml(component.valueKind || '追加ダメージ')} ${escapeHtml(multiplier)}%${escapeHtml(repeat)}</small></span>`;
+    }).join('');
     el.effectAudit.innerHTML = `
+      ${runtimeControls}
       <div class="fdc-dps-effect-matrix-wrap">
-        <div class="fdc-dps-effect-matrix">
-          <div class="fdc-dps-effect-matrix-head"><span>効果</span>${ACTION_ORDER.map(key => `<span>${escapeHtml(ACTION_LABELS[key])}</span>`).join('')}</div>
+        <div class="fdc-dps-effect-matrix" style="--fdc-effect-column-count:${columns.length};min-width:${matrixWidth}px">
+          <div class="fdc-dps-effect-matrix-head"><span>効果</span>${columnHeaders}</div>
           ${matrixRows}
         </div>
       </div>
       <div class="fdc-dps-effect-action-details">${actionDetails}</div>
     `;
+  }
+
+  function getAdditionalDamageClassificationActionKeys(category = '') {
+    const text = String(category || '').replace(/[\s　・_]/g, '');
+    const keys = [];
+    if (/普通攻撃|通常攻撃/.test(text)) keys.push('basicAttack', 'enhancedAttack');
+    if (/基本攻撃/.test(text)) keys.push('basicAttack');
+    if (/強化攻撃/.test(text)) keys.push('enhancedAttack');
+    if (/低学年/.test(text)) keys.push('lowSkill');
+    if (/高学年/.test(text)) keys.push('highSkill');
+    if (text === 'スキル') keys.push('lowSkill', 'highSkill');
+    return unique(keys);
+  }
+
+  function buildRuntimeEffectDescriptors(runtimeEffects = {}, result = null) {
+    const descriptors = new Map();
+    const activityCounts = new Map();
+    const addActivity = id => {
+      const key = String(id || '');
+      if (key) activityCounts.set(key, (activityCounts.get(key) || 0) + 1);
+    };
+    (result?.timeline || []).forEach(event => {
+      if (['attackSpeedApplied', 'runtimeBuffApplied', 'runtimeEffectHit', 'spRecoveryEvent', 'cooldownChanged', 'statusApplied'].includes(event.type)) {
+        addActivity(event.runtimeEffectId || event.effectId || event.applicationEffectId);
+      }
+    });
+    const register = (effect, kind, targetActionKeys = [], triggerActionKeys = []) => {
+      const id = String(effect?.id || effect?.effectId || '');
+      if (!id) return;
+      const descriptor = {
+        id,
+        kind,
+        mode: String(effect?.mode || ''),
+        overrideMode: String(effect?.runtimeOverrideMode || 'auto'),
+        fixedStacks: Math.max(1, Math.floor(Number(effect?.runtimeFixedStacks) || 1)),
+        targetActionKeys: unique(targetActionKeys),
+        triggerActionKeys: unique(triggerActionKeys),
+        activityCount: activityCounts.get(id) || 0
+      };
+      descriptors.set(id, descriptor);
+      unique(effect?.effectIds || []).forEach(effectId => descriptors.set(String(effectId), descriptor));
+    };
+    (runtimeEffects.damageBuffEffects || []).forEach(effect => register(
+      effect,
+      'damage',
+      getRuntimeDamageTargetActionKeys(effect.modifiers || {}),
+      effect.triggerActionKeys || []
+    ));
+    (runtimeEffects.attackSpeedEffects || []).forEach(effect => register(
+      effect,
+      'speed',
+      ['basicAttack', 'enhancedAttack'],
+      effect.triggerActionKeys || []
+    ));
+    (runtimeEffects.spRecoveryEffects || []).forEach(effect => register(
+      effect,
+      'sp',
+      [],
+      effect.triggerActionKeys || []
+    ));
+    (runtimeEffects.cooldownEffects || []).forEach(effect => register(
+      effect,
+      'cooldown',
+      [],
+      effect.triggerActionKeys || []
+    ));
+    (runtimeEffects.eventEffects || []).forEach(effect => register(
+      effect,
+      'event',
+      effect.targetActionKeys || [],
+      effect.triggerActionKeys || []
+    ));
+    return descriptors;
+  }
+
+  function getRuntimeDamageTargetActionKeys(modifiers = {}) {
+    const keys = new Set();
+    const modifierKeys = Object.keys(modifiers).filter(key => Number(modifiers[key]));
+    if (modifierKeys.some(key => ['atkP', 'physicalAtkP', 'magicAtkP', 'addP', 'actionMultiplierBonusP', 'specialP', 'otherP', 'critP', 'critRateP', 'critDmgP', 'critDmgAddP', 'enemyDefDownP', 'enemyCritResDownP', 'enemyCritDmgResDownP'].includes(key))) {
+      ACTION_ORDER.forEach(key => keys.add(key));
+    }
+    if (modifierKeys.includes('normalAttackMultiplierBonusP')) ['basicAttack', 'enhancedAttack'].forEach(key => keys.add(key));
+    if (modifierKeys.includes('basicMultiplierBonusP')) keys.add('basicAttack');
+    if (modifierKeys.includes('enhancedMultiplierBonusP')) keys.add('enhancedAttack');
+    if (modifierKeys.includes('lowSkillMultiplierBonusP')) keys.add('lowSkill');
+    if (modifierKeys.includes('highSkillMultiplierBonusP')) keys.add('highSkill');
+    if (modifierKeys.includes('skillActionMultiplierBonusP')) ['lowSkill', 'highSkill'].forEach(key => keys.add(key));
+    if (modifierKeys.includes('normalAttackAddP')) ['basicAttack', 'enhancedAttack'].forEach(key => keys.add(key));
+    if (modifierKeys.includes('basicAddP')) keys.add('basicAttack');
+    if (modifierKeys.includes('enhancedAddP')) keys.add('enhancedAttack');
+    if (modifierKeys.includes('lowSkillAddP')) keys.add('lowSkill');
+    if (modifierKeys.includes('highSkillAddP')) keys.add('highSkill');
+    if (modifierKeys.includes('skillAddP')) ['lowSkill', 'highSkill'].forEach(key => keys.add(key));
+    return Array.from(keys);
+  }
+
+  function getRuntimeEffectDescriptor(row = {}, descriptors = new Map()) {
+    const ids = [row.runtimeEffectId, row.effectId, row.id, row.sourceId].map(value => String(value || '')).filter(Boolean);
+    return ids.map(id => descriptors.get(id)).find(Boolean) || null;
+  }
+
+  function getRuntimeAuditState(row, actionKey, descriptor, hasResult) {
+    if (!descriptor && !row?.runtimeManaged) return null;
+    if (row?.unsupportedRuntimeTrigger) {
+      if (descriptor) {
+        const active = hasResult && descriptor.activityCount > 0;
+        return {
+          label: hasResult ? (active ? 'ONあり' : '待機') : '外部入力',
+          className: active ? 'is-runtime-active' : 'is-runtime-waiting',
+          title: `手動外部イベントで評価${active ? ` / 発動${formatNumber(descriptor.activityCount)}回` : ' / 一致するイベント待ち'}`
+        };
+      }
+      return {
+        label: '未対応',
+        className: 'is-runtime-waiting',
+        title: row.reason || '発動時刻を再現できない条件のためDPS自動計算から除外'
+      };
+    }
+    if (row?.externalActionRequired) {
+      return {
+        label: '外部待ち',
+        className: 'is-runtime-waiting',
+        title: '編成内の別使徒本人の行動タイムラインを未計上のため発動させません'
+      };
+    }
+    if (descriptor?.overrideMode === 'off') {
+      return {
+        label: 'OFF',
+        className: 'is-off',
+        title: 'DPSの時系列効果設定で除外'
+      };
+    }
+    if (descriptor?.overrideMode === 'fixed') {
+      const target = descriptor.targetActionKeys.includes(actionKey);
+      if (!target) {
+        return {
+          label: '—',
+          className: 'is-none',
+          title: '固定補正の適用対象外'
+        };
+      }
+      return {
+        label: `固定${descriptor.fixedStacks > 1 ? `×${descriptor.fixedStacks}` : ''}`,
+        className: 'is-runtime-active',
+        title: `指定した${descriptor.fixedStacks}スタックを計測中常時適用`
+      };
+    }
+    const target = descriptor?.targetActionKeys?.includes(actionKey);
+    const trigger = descriptor?.triggerActionKeys?.includes(actionKey);
+    if (target) {
+      const active = hasResult && descriptor.activityCount > 0;
+      return {
+        label: hasResult ? (active ? 'ONあり' : '待機') : '自動',
+        className: active ? 'is-runtime-active' : 'is-runtime-waiting',
+        title: `DPS自動評価${descriptor.activityCount > 0 ? ` / 発動${formatNumber(descriptor.activityCount)}回` : ' / この試行では未発動'}`
+      };
+    }
+    if (trigger) {
+      return {
+        label: '起点',
+        className: 'is-runtime-trigger',
+        title: `この行動がDPS自動効果の発動起点${descriptor.activityCount > 0 ? ` / 発動${formatNumber(descriptor.activityCount)}回` : ''}`
+      };
+    }
+    if (!descriptor) {
+      return {
+        label: '自動',
+        className: 'is-runtime-waiting',
+        title: 'DPSでは単発トグルから独立して自動評価'
+      };
+    }
+    return {
+      label: '—',
+      className: 'is-none',
+      title: 'この行動は発動起点・適用対象ではありません'
+    };
   }
 
   function formatActionProfileDamage(profile) {
@@ -502,8 +1738,14 @@
   function renderTimelineRow(event) {
     const action = event.actionLabel || '';
     const variant = event.variant ? ` / ${event.variant}` : '';
-    const statusWeakness = event.statusTakenDmgP
-      ? ` / 状態弱点 +${formatNumber(event.statusTakenDmgP)}%`
+    const generatedHitLabel = event.generatedObjectId
+      ? ` / ${event.generatedObjectName || event.generatedObjectId}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}`
+      : '';
+    const statusReaction = event.statusTakenDmgP
+      ? ` / 状態反応 +${formatNumber(event.statusTakenDmgP)}%`
+      : '';
+    const statusDamageWeakness = event.statusDamageP
+      ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%`
       : '';
     const hitEvaluation = event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > 0.0001
       ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）`
@@ -512,7 +1754,7 @@
       ? [
           ...Object.entries(event.damageEvaluation.ratios || {})
             .filter(([, value]) => Math.abs((Number(value) || 1) - 1) > 0.0001)
-            .map(([key, value]) => `${({ attackDefense: '攻防', add: '与被DMG', special: '特殊', other: 'その他', critical: '会心' })[key] || key}×${formatNumber(value)}`),
+            .map(([key, value]) => `${({ attackDefense: '攻防', actionMultiplier: '行動倍率', add: '与被DMG', special: '特殊', other: 'その他', critical: '会心' })[key] || key}×${formatNumber(value)}`),
           ...(Array.isArray(event.damageEvaluation.activeEffects) ? event.damageEvaluation.activeEffects : [])
             .map(effect => effect.label)
             .filter(Boolean)
@@ -520,20 +1762,27 @@
       : '';
     const runtimeBuffValue = formatRuntimeBuffModifiers(event.modifiers)
       || (event.attackPPerStack ? `物理攻撃力 +${formatNumber(event.attackPPerStack)}%` : '補正適用');
+    const cooldownDeltaFrames = Math.abs((Number(event.beforeFrames) || 0) - (Number(event.afterFrames) || 0));
+    const cooldownChange = event.operation === 'multiply'
+      ? `CT ×${formatNumber(event.multiplier)}`
+      : `CT ${Number(event.afterFrames) <= Number(event.beforeFrames) ? '-' : '+'}${formatNumber(cooldownDeltaFrames / 60)}秒`;
     const map = {
       skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
+      movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
+      movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
       actionStart: `${action}${variant} 開始`,
       actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusWeakness}`,
+      hit: `${action}${variant}${generatedHitLabel} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
       effect: `${action}${variant} 効果発生${event.effectId ? ` / ${event.effectId}` : ''}`,
       spRecovery: event.capped
         ? `SP回復周期 / 上限 ${formatNumber(event.sp)}`
         : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
       spRecoveryEvent: `${event.label || 'SP回復'} / ${event.reason || '効果発生'} / ${event.capped ? `上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`}`,
+      cooldownChanged: `${event.label || 'クールタイム変更'} / ${cooldownChange} → 残り${formatNumber((Number(event.afterFrames) || 0) / 60)}秒${event.ready ? '（発動可能）' : ''}`,
       lowSkillReady: `低学年発動可能 / SP ${formatNumber(event.sp)}`,
       attackSpeedInitial: `${event.label} 開始時適用 / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
-      attackSpeedStack: `${event.label} ${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
-      attackSpeedApplied: `${event.label} ${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
+      attackSpeedStack: `${event.label} ${formatNumber(event.stackCount)}スタック / 今回+${formatNumber(event.addedHasteP)}%・累計+${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      attackSpeedApplied: `${event.label} ${formatNumber(event.stackCount)}スタック / 今回+${formatNumber(event.addedHasteP)}%・累計+${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
       attackSpeedExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}%`,
       attackSpeedReset: `${event.label} リセット / ${formatNumber(event.previousStackCount)}→0スタック / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
       resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
@@ -541,8 +1790,9 @@
       runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
       runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
       runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
+      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
       statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
-      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusWeakness}`,
+      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusReaction}${statusDamageWeakness}`,
       statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`
     };
     return `
@@ -563,8 +1813,18 @@
       basicAddP: '基本攻撃ダメージ量',
       enhancedAddP: '強化攻撃ダメージ量',
       skillAddP: 'スキルダメージ量',
+      lowSkillAddP: '低学年スキルダメージ量',
+      highSkillAddP: '高学年スキルダメージ量',
       specialP: '特殊倍率',
       otherP: 'その他倍率',
+      actionMultiplierBonusP: '行動倍率',
+      normalAttackMultiplierBonusP: '普通攻撃行動倍率',
+      basicMultiplierBonusP: '基本攻撃行動倍率',
+      enhancedMultiplierBonusP: '強化攻撃行動倍率',
+      skillActionMultiplierBonusP: 'スキル行動倍率',
+      lowSkillMultiplierBonusP: '低学年スキル行動倍率',
+      highSkillMultiplierBonusP: '高学年スキル行動倍率',
+      selfDestructMultiplierBonusP: '自爆行動倍率',
       critP: '会心',
       critRateP: '会心率',
       critDmgP: '会心DMG',
