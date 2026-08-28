@@ -7,6 +7,18 @@
   const ACTION_COLORS = Object.freeze({
     basicAttack: '#72a6ff', enhancedAttack: '#c88bff', lowSkill: '#62d6a3', highSkill: '#ffb568', runtime: '#f477aa'
   });
+  const EXTERNAL_EVENT_TYPES = Object.freeze({
+    shieldBreak: 'シールド破壊',
+    hpThreshold: 'HP閾値',
+    damageTaken: '被弾',
+    statusApplied: '状態付与'
+  });
+  const DEFAULT_EXTERNAL_EVENT_REASONS = Object.freeze({
+    shieldBreak: '手動シールド破壊',
+    hpThreshold: '手動HP閾値',
+    damageTaken: '手動被弾',
+    statusApplied: '手動状態付与'
+  });
   // 独立DPS画面と同一の保存先を使う。通常計算のsnapshotは変更せず、
   // DPS実行用の複製だけへoverrideを反映する。
   const DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1';
@@ -63,6 +75,33 @@
     return { ...source, runtimeEffects: settings.display, dpsRuntimeSimulationEffects: settings.simulation };
   }
 
+  function normalizeDpsExternalEvent(value = {}, index = 0) {
+    const type = String(value?.type || '').trim();
+    const frame = Number.isFinite(Number(value?.frame))
+      ? Number(value.frame)
+      : Math.max(0, Number(value?.seconds) || 0) * 60;
+    const intervalFrames = Number.isFinite(Number(value?.intervalFrames))
+      ? Number(value.intervalFrames)
+      : Math.max(0, Number(value?.intervalSeconds) || 0) * 60;
+    const repeatCount = Math.max(0, Math.floor(Number(value?.repeatCount) || 0));
+    return {
+      id: String(value?.id || `manual:${index + 1}`),
+      type,
+      frame: Math.max(0, frame),
+      intervalFrames: Math.max(0, intervalFrames),
+      repeatCount,
+      sourceId: String(value?.sourceId || '').trim(),
+      value: String(value?.value ?? '').trim(),
+      reason: String(value?.reason || '').trim() || DEFAULT_EXTERNAL_EVENT_REASONS[type] || '手動外部イベント'
+    };
+  }
+
+  function normalizeDpsExternalEvents(values = []) {
+    return (Array.isArray(values) ? values : [])
+      .map((value, index) => normalizeDpsExternalEvent(value, index))
+      .filter(event => event.type);
+  }
+
   // 通常計算の結果表示を読まず、同一windowの公開snapshot APIだけをDPS入力に使う。
   function createDirectDamageAdapter() {
     function createDpsSnapshot() {
@@ -94,6 +133,9 @@
       this.runToken = 0;
       this.activeCancellation = null;
       this.timelineVisibleLimit = 160;
+      this.externalEvents = [];
+      this.externalEventsInitialized = false;
+      this.damageGraphModel = null;
       // 対応可否の判定はDPS表示中だけに閉じない。通常表示のまま使徒を
       // 選び直しても、次にDPSを開けるかを軽量snapshotから更新する。
       this.currentTargetId = '';
@@ -140,6 +182,55 @@
       return registry?.evaluate?.(snapshot) || { supported: false, reason: 'DPS対応リストを読み込めませんでした。' };
     }
 
+    setRecalculationIndicator({ visible = false, running = false } = {}) {
+      const state = visible ? (running ? 'running' : 'pending') : 'none';
+      const label = running ? '再計算中' : '再計算待ち';
+      const indicator = this.elements.recalcIndicator;
+      if (indicator) {
+        indicator.hidden = !visible;
+        indicator.dataset.fdcpRecalculation = state;
+        const labelElement = indicator.querySelector?.('[data-fdcp-recalc-label]');
+        if (labelElement) labelElement.textContent = label;
+        if (visible) {
+          indicator.setAttribute('aria-label', label);
+          indicator.title = '前回の計算結果を表示したまま、最新条件を再計算しています。';
+        } else {
+          indicator.removeAttribute('aria-label');
+          indicator.removeAttribute('title');
+        }
+      }
+      if (this.elements.primary) {
+        this.elements.primary.dataset.fdcpRecalculation = state;
+        this.elements.primary.setAttribute('aria-busy', String(visible));
+      }
+    }
+
+    renderRecalculationState() {
+      const hasCachedResult = !!this.latest?.aggregate;
+      const status = this.running ? '再計算中' : '再計算待ち';
+      this.setRecalculationIndicator({ visible: true, running: this.running });
+      if (hasCachedResult) {
+        this.elements.state.textContent = status;
+        this.elements.meta.textContent = '前回の計算結果を表示中';
+        this.elements.drawerStatus.textContent = `${status}: 前回の計算結果を表示しています`;
+        this.renderCollapsedBreakdown(createDpsBottomBreakdown(this.latest.aggregate));
+      } else {
+        this.elements.value.textContent = '再計算必要';
+        this.elements.state.textContent = status;
+        this.elements.meta.textContent = '計算条件が変更されました';
+        this.elements.drawerStatus.textContent = status;
+        this.renderCollapsedBreakdown();
+      }
+      this.renderDpsDetail();
+    }
+
+    createInputSnapshot(snapshot = {}) {
+      return {
+        ...snapshot,
+        externalEvents: normalizeDpsExternalEvents(this.externalEvents)
+      };
+    }
+
     renderProvisionalBadge(support) {
       const components = support?.provisionalComponents || [];
       this.elements.provisionalBadge.hidden = !components.length;
@@ -151,6 +242,10 @@
     refreshAvailability({ render = this.dpsModeActive } = {}) {
       try {
         const snapshot = createDpsSnapshotWithRuntimeOverrides(this.adapter);
+        if (!this.externalEventsInitialized) {
+          this.externalEvents = normalizeDpsExternalEvents(snapshot?.externalEvents || []);
+          this.externalEventsInitialized = true;
+        }
         const support = this.getSupport(snapshot);
         const targetId = String(snapshot?.targetId || '').trim().toLowerCase();
         const transition = getDpsTargetChangeTransition({
@@ -187,8 +282,10 @@
       // 招くため、対応使徒同士の切替でも安全側で解除する。
       this.cancelActiveRun();
       this.latest = null;
+      this.damageGraphModel = null;
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
+      this.setRecalculationIndicator({ visible: false });
       this.clearComparison();
       if (this.baseline) this.clearBaseline({ message: '使徒変更のため比較基準を解除しました。' });
       else this.updateBaselineControls();
@@ -200,8 +297,10 @@
       // 保持するが、未対応中は差分を一切描画しない。
       this.cancelActiveRun();
       this.latest = null;
+      this.damageGraphModel = null;
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
+      this.setRecalculationIndicator({ visible: false });
       this.clearComparison();
       this.updateBaselineControls();
     }
@@ -244,14 +343,19 @@
       this.runToken += 1;
       this.activeCancellation = null;
       cancellation?.cancel();
-      if (!this.running) return;
+      if (!this.running) {
+        this.setRecalculationIndicator({ visible: false });
+        return;
+      }
       this.running = false;
       // A partially computed aggregate must never look fresh after the user
       // returns to DPS mode.  Force the next DPS activation to obtain a whole
       // new single + aggregate pair.
       this.latest = null;
+      this.damageGraphModel = null;
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
+      this.setRecalculationIndicator({ visible: false });
       this.clearComparison();
       this.elements.run.textContent = 'DPS計算';
       this.elements.run.disabled = !this.dpsModeActive;
@@ -272,26 +376,20 @@
       this.renderProvisionalBadge(support);
       const options = this.getOptions();
       this.currentAxis = this.createAxis(snapshot, options);
-      this.currentInputFingerprint = createDpsInputFingerprint(snapshot, options);
+      this.currentInputFingerprint = createDpsInputFingerprint(this.createInputSnapshot(snapshot), options);
       const freshness = getSnapshotFreshness(
         this.latest?.inputFingerprint || '',
         this.currentInputFingerprint,
         this.running
       );
       const stale = freshness.shouldInvalidate;
-      if (stale || (this.requiresRecalculation && !this.latest)) {
-        this.latest = null;
+      if (stale || this.requiresRecalculation) {
         this.requiresRecalculation = true;
-        this.clearComparison();
-        value.textContent = '再計算必要';
-        state.textContent = '条件変更・再計算必要';
-        meta.textContent = '使徒の育成・装備・スキル・敵またはDPS設定が変更されました';
-        this.elements.drawerStatus.textContent = '条件変更・再計算必要';
-        this.renderCollapsedBreakdown();
-        this.renderDpsDetail();
+        this.renderRecalculationState();
       }
       if (!support.supported) {
         this.clearComparison();
+        this.setRecalculationIndicator({ visible: false });
         value.textContent = 'DPS未対応';
         state.textContent = support.reason || '未対応構成';
         meta.textContent = '';
@@ -305,6 +403,7 @@
       }
       if (!this.latest && !stale && !this.requiresRecalculation) {
         value.textContent = '未計算';
+        this.setRecalculationIndicator({ visible: false });
       }
       if (!stale && !this.latest && !this.requiresRecalculation) {
         state.textContent = `${support.label || snapshot.targetName || snapshot.targetId} / ${support.configuration || '対応済み構成'}`;
@@ -320,7 +419,9 @@
       this.renderProvisionalBadge(null);
       this.clearComparison();
       this.latest = null;
+      this.damageGraphModel = null;
       this.requiresRecalculation = true;
+      this.setRecalculationIndicator({ visible: false });
       this.elements.value.textContent = 'DPS未対応';
       this.elements.state.textContent = 'snapshot取得エラー';
       this.elements.meta.textContent = error?.message || '通常計算ページを読み込めません。';
@@ -352,12 +453,102 @@
       if (Object.keys(targetOverrides).length) overrides[targetId] = targetOverrides;
       else delete overrides[targetId];
       saveDpsRuntimeEffectOverrides(overrides);
-      this.latest = null;
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
-      this.clearComparison();
       this.refreshAvailability({ render: true });
       this.requestAutoRun();
+    }
+
+    readExternalEventsFromDetail() {
+      const rows = Array.from(this.elements.detailGrid?.querySelectorAll?.('.fdc-dps-external-event-row') || []);
+      return normalizeDpsExternalEvents(rows.map(row => ({
+        type: row.querySelector?.('[data-fdc-dps-external-type]')?.value || '',
+        seconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-seconds]')?.value) || 0),
+        intervalSeconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-interval]')?.value) || 0),
+        repeatCount: Math.max(0, Math.floor(Number(row.querySelector?.('[data-fdc-dps-external-count]')?.value) || 0)),
+        sourceId: row.querySelector?.('[data-fdc-dps-external-source]')?.value || '',
+        value: row.querySelector?.('[data-fdc-dps-external-value]')?.value || '',
+        reason: row.querySelector?.('[data-fdc-dps-external-reason]')?.value || ''
+      })));
+    }
+
+    markExternalEventsChanged(events = []) {
+      this.externalEvents = normalizeDpsExternalEvents(events);
+      this.externalEventsInitialized = true;
+      this.requiresRecalculation = true;
+      this.lastAutoFingerprint = '';
+      this.refreshAvailability({ render: true });
+      this.requestAutoRun();
+    }
+
+    handleExternalInputChange() {
+      this.markExternalEventsChanged(this.readExternalEventsFromDetail());
+    }
+
+    addExternalEvent(value = {}) {
+      this.markExternalEventsChanged([...this.externalEvents, value]);
+    }
+
+    removeExternalEvent(index) {
+      const targetIndex = Math.max(0, Math.floor(Number(index)));
+      this.markExternalEventsChanged(this.externalEvents.filter((_, currentIndex) => currentIndex !== targetIndex));
+    }
+
+    handleDetailClick(event) {
+      if (event.target.closest?.('[data-fdcp-timeline-more]')) {
+        this.showMoreTimeline();
+        return;
+      }
+      if (event.target.closest?.('[data-fdcp-dps-external-event-add]')) {
+        this.addExternalEvent({ type: 'shieldBreak' });
+        return;
+      }
+      const remove = event.target.closest?.('[data-fdcp-dps-external-remove]');
+      if (remove) {
+        const row = remove.closest?.('.fdc-dps-external-event-row');
+        this.removeExternalEvent(row?.dataset?.fdcpExternalIndex);
+        return;
+      }
+      const add = event.target.closest?.('[data-fdcp-dps-formation-event-add]');
+      if (add) {
+        const snapshot = this.latest?.snapshot || this.availability?.snapshot || {};
+        const candidate = (Array.isArray(snapshot.formationEventCandidates) ? snapshot.formationEventCandidates : [])
+          .find(item => String(item?.id || '') === String(add.dataset.fdcDpsFormationEventAdd || ''));
+        if (!candidate) return;
+        this.addExternalEvent({
+          type: candidate.type,
+          seconds: candidate.startSeconds,
+          intervalSeconds: candidate.intervalSeconds,
+          repeatCount: candidate.repeatCount,
+          sourceId: candidate.sourceId,
+          reason: candidate.label
+        });
+      }
+    }
+
+    handleDetailChange(event) {
+      if (event.target.closest?.('[data-fdc-dps-runtime-mode], [data-fdc-dps-runtime-stacks]')) {
+        this.handleRuntimeEffectSettingChange(event);
+        return;
+      }
+      if (event.target.closest?.('[data-fdc-dps-external-type], [data-fdc-dps-external-seconds], [data-fdc-dps-external-interval], [data-fdc-dps-external-count], [data-fdc-dps-external-source], [data-fdc-dps-external-value], [data-fdc-dps-external-reason]')) {
+        this.handleExternalInputChange();
+      }
+    }
+
+    refreshDamageGraphModel() {
+      this.damageGraphModel = createDpsDamageGraphModel(
+        this.latest?.single || null,
+        this.baseline?.single || null
+      );
+    }
+
+    renderDamageGraphs({ detail = true, sparkline = true } = {}) {
+      if (sparkline) drawSparkline(this.elements.sparkline, this.damageGraphModel?.current || null);
+      if (detail) {
+        const canvas = this.elements.detailGrid?.querySelector?.('[data-fdcp-damage-graph]');
+        drawDpsDamageGraph(canvas, this.damageGraphModel);
+      }
     }
 
     run() {
@@ -376,12 +567,9 @@
       this.activeCancellation = cancellation;
       this.elements.run.disabled = true;
       this.elements.run.textContent = '計算中…';
-      this.elements.state.textContent = '比較用DPSを計算中';
-      this.elements.drawerStatus.textContent = this.elements.state.textContent;
-      this.clearComparison();
-      this.renderCollapsedBreakdown();
+      this.renderRecalculationState();
       this.updateBaselineControls();
-      const snapshot = available.snapshot;
+      const snapshot = this.createInputSnapshot(available.snapshot);
       const support = available.support;
       const options = this.getOptions();
       const runFingerprint = createDpsInputFingerprint(snapshot, options);
@@ -397,6 +585,7 @@
             skillOverrides: snapshot.dpsSkillOverrides,
             timingBranches: snapshot.dpsTimingBranches,
             runtimeEffects: snapshot.dpsRuntimeSimulationEffects || snapshot.runtimeEffects,
+            externalEvents: snapshot.externalEvents || [],
             enemySize: snapshot.scenario?.battleConditions?.enemySize || snapshot.scenario?.actors?.enemy?.size || '',
             enemySizeRank: snapshot.scenario?.battleConditions?.enemySizeRank || snapshot.scenario?.actors?.enemy?.sizeRank || 0
           });
@@ -404,6 +593,7 @@
             ...options,
             recordTimeline: true,
             recordDamageSeries: true,
+            externalEvents: snapshot.externalEvents || [],
             damageProfiles: snapshot.actionDamageProfiles || {},
             statusDamageProfiles: snapshot.statusDamageProfiles || {}
           };
@@ -411,6 +601,7 @@
             ...options,
             recordTimeline: false,
             recordDamageSeries: false,
+            externalEvents: snapshot.externalEvents || [],
             damageProfiles: snapshot.actionDamageProfiles || {},
             statusDamageProfiles: snapshot.statusDamageProfiles || {}
           };
@@ -422,12 +613,11 @@
           }, noteFallback, cancellation);
           if (!this.isCurrentRun(runToken, cancellation)) return;
           // 計算中に通常計算側の育成・装備・スキル、または詳細設定が変わった場合、
-          // 旧結果は表示せず再計算を求める。
-          const currentSnapshot = createDpsSnapshotWithRuntimeOverrides(this.adapter);
+          // 旧結果を表示したまま再計算を求める。次のrun完了時にだけ差し替える。
+          const currentSnapshot = this.createInputSnapshot(createDpsSnapshotWithRuntimeOverrides(this.adapter));
           const currentFingerprint = createDpsInputFingerprint(currentSnapshot, this.getOptions());
           if (!this.isCurrentRun(runToken, cancellation)) return;
           if (currentFingerprint !== runFingerprint) {
-            this.latest = null;
             this.requiresRecalculation = true;
             this.renderAvailability(currentSnapshot, this.getSupport(currentSnapshot));
             return;
@@ -447,6 +637,7 @@
           if (this.runToken !== runToken || this.activeCancellation !== cancellation) return;
           this.running = false;
           this.activeCancellation = null;
+          if (this.requiresRecalculation && this.latest?.aggregate) this.renderRecalculationState();
           this.elements.run.textContent = 'DPS計算';
           this.elements.run.disabled = false;
           this.updateBaselineControls();
@@ -462,22 +653,22 @@
     renderLatest() {
       const { aggregate, support, options, config } = this.latest;
       const trialSummary = getTrialSummary(options, aggregate);
+      this.setRecalculationIndicator({ visible: false });
       this.elements.value.textContent = formatDamage(aggregate.meanDps);
       this.renderProvisionalBadge(support);
       this.elements.state.textContent = `${support.label} / ${support.configuration}`;
       this.elements.meta.textContent = `${trialSummary.compact} / ${options.durationSeconds}秒`;
       this.elements.drawerStatus.textContent = `計算済み: ${trialSummary.compact} / ${options.durationSeconds}秒`;
+      this.refreshDamageGraphModel();
       this.renderDpsDetail();
       this.renderCollapsedBreakdown(createDpsBottomBreakdown(aggregate));
       this.elements.sparklineMeta.textContent = `${options.durationSeconds}秒 / seed ${this.latest.single?.seed || options.seed}`;
-      drawSparkline(this.elements.sparkline, this.latest.single?.damageSeries || []);
       this.applyBaselineComparison({ resultReady: true });
     }
 
     renderCollapsedBreakdown(rows = null) {
       const items = rows || createDpsBottomBreakdown(null);
       if (!rows) {
-        drawSparkline(this.elements.sparkline, []);
         this.elements.sparklineMeta.textContent = `${this.getOptions().durationSeconds}秒 / seed ${this.getOptions().seed}`;
       }
       items.forEach(item => {
@@ -492,6 +683,7 @@
         if (share) share.textContent = item.placeholder ? '—' : formatPercent(item.damageShareP);
         if (count) count.textContent = item.placeholder || item.key === 'other' ? '—' : `${formatNumber(item.averageStarts)}回`;
       });
+      this.renderDamageGraphs({ detail: false, sparkline: true });
     }
 
     renderBreakdownDelta(element, key) {
@@ -504,9 +696,12 @@
         delete element.dataset.deltaState;
         return;
       }
-      const text = formatSignedDamage(row.differenceDps);
       const percent = formatSignedPercent(row.percentChange);
-      const description = `基準比 ${text} DPS${percent ? `（${percent}）` : '（基準DPSが0のため比率なし）'}`;
+      const text = formatCompactComparisonDelta(row.percentChange);
+      const difference = formatSignedDamage(row.differenceDps);
+      const description = percent
+        ? `基準比 ${percent}（差分 ${difference} DPS）`
+        : `基準比なし（基準DPSが0 / 差分 ${difference} DPS）`;
       element.textContent = text;
       element.title = description;
       element.setAttribute('aria-label', description);
@@ -521,65 +716,100 @@
         element.hidden = true;
         element.textContent = '';
         element.removeAttribute('aria-label');
+        element.removeAttribute('title');
         delete element.dataset.deltaState;
         return;
       }
-      const text = formatSignedDamage(comparison.meanDpsDifference);
       const percent = formatSignedPercent(comparison.meanDpsPercent);
-      const description = `基準比 ${text} DPS${percent ? `（${percent}）` : '（基準DPSが0のため比率なし）'}`;
+      const text = formatCompactComparisonDelta(comparison.meanDpsPercent);
+      const difference = formatSignedDamage(comparison.meanDpsDifference);
+      const description = percent
+        ? `基準比 ${percent}（差分 ${difference} DPS）`
+        : `基準比なし（基準DPSが0 / 差分 ${difference} DPS）`;
       element.hidden = false;
       element.textContent = text;
       element.setAttribute('aria-label', description);
+      element.title = description;
       element.dataset.deltaState = getDeltaState(comparison.meanDpsDifference);
     }
 
     renderDpsDetail() {
       const grid = this.elements.detailGrid;
       if (!grid) return;
+      const previousExternalDetails = grid.querySelector?.('[data-fdcp-detail-section="external"]');
+      const previousCandidateDetails = grid.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
+      const disclosureState = {
+        external: !!previousExternalDetails?.open,
+        candidates: !!previousCandidateDetails?.open
+      };
       const latest = this.latest;
-      if (!latest?.aggregate) {
-        const state = this.elements.drawerStatus?.textContent || '計算前';
-        grid.innerHTML = renderDpsDetailGroups([{
-          title: '計算状態',
-          rows: [['状態', getDpsDetailStatusLabel(state)]]
-        }]);
-        return;
-      }
-      const { aggregate, options, support, snapshot } = latest;
-      const trialSummary = getTrialSummary(options, aggregate);
-      const groups = [
+      const sourceSnapshot = latest?.snapshot || this.availability?.snapshot || {};
+      const commonGroups = [
         {
-          title: '計測情報',
-          rows: [
-            ['平均総ダメージ', formatDamage(aggregate.totalExpectedDamage)],
-            ['ばらつき（P10～P90）', `${formatDamage(aggregate.range?.p10)}～${formatDamage(aggregate.range?.p90)}`],
-            ['計測時間', `${formatNumber(options.durationSeconds)}秒`],
-            ['統計試行', `${formatNumber(trialSummary.evaluated)}回`]
-          ]
-        },
-        {
-          title: '対応構成',
-          rows: [['使徒', `${support.label} / ${support.configuration}${support.provisional ? `（暫定: ${support.provisionalLabel}）` : ''}`]]
+          title: '',
+          className: 'is-wide',
+          content: renderDpsExternalInputContent(
+            this.externalEvents,
+            sourceSnapshot.formationEventCandidates || []
+          )
         },
         {
           title: '',
           className: 'is-wide',
-          content: renderDpsActionEffectContent(snapshot.actionEffectAudit || {}, snapshot.actionDamageProfiles || {}, snapshot.runtimeEffects || {}, this.latest.single || {}, snapshot.additionalDamageComponents || [])
-        },
-        {
-          title: '',
-          className: 'is-wide',
-          content: renderDpsTimelineContent(this.latest.single || {}, this.timelineVisibleLimit)
+          content: renderDpsDamageGraphContent()
         }
       ];
-      if (this.comparison) {
-        groups.push({
-          title: '基準との差分',
-          className: 'is-wide',
-          rows: createDpsDetailComparisonRows(this.comparison)
-        });
+      if (!latest?.aggregate) {
+        const state = this.elements.drawerStatus?.textContent || '計算前';
+        grid.innerHTML = renderDpsDetailGroups([
+          { title: '計算状態', rows: [['状態', getDpsDetailStatusLabel(state)]] },
+          ...commonGroups
+        ]);
+      } else {
+        const { aggregate, options, support, snapshot, config } = latest;
+        const trialSummary = getTrialSummary(options, aggregate);
+        const timingRows = createDpsTimingDetailRows(config || {});
+        const groups = [
+          {
+            title: '計測情報',
+            rows: [
+              ['平均総ダメージ', formatDamage(aggregate.totalExpectedDamage)],
+              ['ばらつき（P10～P90）', `${formatDamage(aggregate.range?.p10)}～${formatDamage(aggregate.range?.p90)}`],
+              ['計測時間', `${formatNumber(options.durationSeconds)}秒`],
+              ['統計試行', `${formatNumber(trialSummary.evaluated)}回`]
+            ]
+          },
+          ...(timingRows.length ? [{ title: '行動タイミング', className: 'is-wide', rows: timingRows }] : []),
+          {
+            title: '対応構成',
+            rows: [['使徒', `${support.label} / ${support.configuration}${support.provisional ? `（暫定: ${support.provisionalLabel}）` : ''}`]]
+          },
+          ...commonGroups,
+          {
+            title: '',
+            className: 'is-wide',
+            content: renderDpsActionEffectContent(snapshot.actionEffectAudit || {}, snapshot.actionDamageProfiles || {}, snapshot.runtimeEffects || {}, this.latest.single || {}, snapshot.additionalDamageComponents || [])
+          },
+          {
+            title: '',
+            className: 'is-wide',
+            content: renderDpsTimelineContent(this.latest.single || {}, this.timelineVisibleLimit)
+          }
+        ];
+        if (this.comparison) {
+          groups.push({
+            title: '基準との差分',
+            className: 'is-wide',
+            rows: createDpsDetailComparisonRows(this.comparison)
+          });
+        }
+        grid.innerHTML = renderDpsDetailGroups(groups);
       }
-      grid.innerHTML = renderDpsDetailGroups(groups);
+      const externalDetails = grid.querySelector?.('[data-fdcp-detail-section="external"]');
+      const candidateDetails = grid.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
+      if (externalDetails) externalDetails.open = disclosureState.external;
+      if (candidateDetails) candidateDetails.open = disclosureState.candidates;
+      this.renderDamageGraphs({ detail: true, sparkline: false });
     }
 
     showMoreTimeline() {
@@ -600,8 +830,10 @@
       this.baseline = {
         axis: { ...this.latest.axis },
         aggregate: structuredCloneSafe(this.latest.aggregate),
+        single: structuredCloneSafe(this.latest.single),
         breakdown: structuredCloneSafe(createDpsBottomBreakdown(this.latest.aggregate))
       };
+      this.refreshDamageGraphModel();
       this.elements.baselineNote.textContent = `${this.latest.support.label}の現在条件を基準として保存しました。`;
       this.clearComparison({ render: true });
       this.updateBaselineControls();
@@ -641,6 +873,7 @@
 
     clearBaseline({ message = '基準は未保存です。' } = {}) {
       this.baseline = null;
+      this.refreshDamageGraphModel();
       this.clearComparison({ render: true });
       this.elements.baselineNote.textContent = message;
       this.updateBaselineControls();
@@ -684,7 +917,7 @@
 
   function createElements() {
     return {
-      bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), run: document.getElementById('fdcp-dps-run'),
+      bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), recalcIndicator: document.getElementById('fdcp-dps-recalc-indicator'), run: document.getElementById('fdcp-dps-run'),
       drawer: document.getElementById('fdcp-dps-detail-panel'), drawerStatus: document.getElementById('fdcp-drawer-status'), detailGrid: document.getElementById('fdcp-dps-detail-grid'),
       duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
       settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
@@ -729,6 +962,7 @@
       dpsDetailToggle.setAttribute('aria-expanded', String(open));
       dpsDetailToggle.classList.toggle('is-open', open);
       document.body.classList.toggle('fdc-result-detail-open', open);
+      if (open) controller.renderDamageGraphs({ detail: true, sparkline: false });
     };
     const closeSingleDetail = () => {
       singleDetailPanel.hidden = true;
@@ -801,10 +1035,13 @@
     }));
     elements.run.addEventListener('click', () => controller.run());
     dpsDetailToggle.addEventListener('click', () => setDpsDetailOpen(elements.drawer.hidden));
-    elements.detailGrid?.addEventListener('click', event => {
-      if (event.target.closest?.('[data-fdcp-timeline-more]')) controller.showMoreTimeline();
-    });
-    elements.detailGrid?.addEventListener('change', event => controller.handleRuntimeEffectSettingChange(event));
+    elements.detailGrid?.addEventListener('click', event => controller.handleDetailClick(event));
+    elements.detailGrid?.addEventListener('change', event => controller.handleDetailChange(event));
+    const redrawDpsDamageGraph = () => {
+      if (!elements.drawer.hidden) controller.renderDamageGraphs({ detail: true, sparkline: false });
+    };
+    window.addEventListener('resize', redrawDpsDamageGraph);
+    window.addEventListener('trickcal:theme-changed', redrawDpsDamageGraph);
     elements.baselineSave.addEventListener('click', () => controller.saveBaseline());
     elements.baselineClear.addEventListener('click', () => controller.clearBaseline());
     elements.settingsToggle.addEventListener('click', () => {
@@ -1058,6 +1295,7 @@
       additionalDamageComponents: snapshot.additionalDamageComponents || [],
       statusDamageProfiles: snapshot.statusDamageProfiles || {},
       runtimeEffects: snapshot.runtimeEffects || {},
+      externalEvents: normalizeDpsExternalEvents(snapshot.externalEvents || []),
       scenario: {
         actors: scenario.actors || {},
         characterState: scenario.characterState || {},
@@ -1084,6 +1322,7 @@
   function getDeltaState(value) { const number = Number(value) || 0; return number > 0 ? 'positive' : number < 0 ? 'negative' : 'zero'; }
   function formatSignedDamage(value) { const number = Math.round(Number(value) || 0); return number === 0 ? '±0' : `${number > 0 ? '+' : '-'}${formatDamage(Math.abs(number))}`; }
   function formatSignedPercent(value) { if (value === null || value === undefined || !Number.isFinite(Number(value))) return ''; const number = Number(value); return number === 0 ? '±0.0%' : `${number > 0 ? '+' : '-'}${Math.abs(number).toFixed(1)}%`; }
+  function formatCompactComparisonDelta(value) { return formatSignedPercent(value) || '基準0'; }
   function getDpsDetailStatusLabel(state = '') {
     if (/未対応|利用できません/.test(state)) return 'この構成ではDPSを利用できません。';
     if (/エラー/.test(state)) return 'DPS入力を準備できません。通常計算の設定を確認してください。';
@@ -1104,6 +1343,118 @@
     const normalized = Array.isArray(row) ? { label: row[0], value: row[1] } : (row || {});
     const classes = ['fdc-result-detail-row', normalized.className || ''].filter(Boolean).join(' ');
     return `<div class="${escapeAttr(classes)}"><span>${escapeHtml(normalized.label)}</span><strong>${escapeHtml(normalized.value)}</strong></div>`;
+  }
+  function formatDpsFrameValue(frames) {
+    const number = Number(frames);
+    if (!Number.isFinite(number)) return '—';
+    return `${formatNumber(number)}F（${formatNumber(number / 60)}秒）`;
+  }
+  function createDpsTimingDetailRows(config = {}) {
+    const rows = [];
+    const normalInterval = Number(config?.normalAttackIntervalFrames);
+    const adjustedInterval = Number(config?.initialNormalAttackIntervalFrames);
+    if (Number.isFinite(normalInterval)) rows.push(['普通攻撃間隔（補正前）', formatDpsFrameValue(normalInterval)]);
+    if (Number.isFinite(adjustedInterval)) {
+      const initialAttackSpeed = Number(config?.initialAttackSpeedP);
+      const correction = Number.isFinite(initialAttackSpeed) && Math.abs(initialAttackSpeed) > 0.0001
+        ? ` / 開始時攻撃速度${formatSignedPercent(initialAttackSpeed)}`
+        : '';
+      rows.push(['普通攻撃間隔（補正後）', `${formatDpsFrameValue(adjustedInterval)}${correction}`]);
+    }
+    Object.entries(ACTION_LABELS).forEach(([actionKey, defaultLabel]) => {
+      const action = config?.actions?.[actionKey];
+      if (!action) return;
+      const variants = Object.entries(action.motionFramesByVariant || {})
+        .filter(([, frames]) => Number.isFinite(Number(frames)))
+        .map(([branch, frames]) => ({ branch, frames: Number(frames) }));
+      if (!variants.length && Number.isFinite(Number(action.motionFrames))) {
+        variants.push({ branch: '', frames: Number(action.motionFrames) });
+      }
+      if (!variants.length) return;
+      const values = variants.map(({ branch, frames }) => (
+        `${branch && branch !== 'default' ? `${branch}: ` : ''}${formatDpsFrameValue(frames)}`
+      ));
+      rows.push([`${action.label || defaultLabel}のモーション硬直`, values.join(' / ')]);
+    });
+    return rows;
+  }
+
+  function renderDpsExternalEventRow(event = {}, index = 0) {
+    const type = String(event.type || 'shieldBreak');
+    const typeOptions = Object.entries(EXTERNAL_EVENT_TYPES)
+      .map(([value, label]) => `<option value="${escapeAttr(value)}"${value === type ? ' selected' : ''}>${escapeHtml(label)}</option>`)
+      .join('');
+    const customType = !Object.prototype.hasOwnProperty.call(EXTERNAL_EVENT_TYPES, type) && type
+      ? `<option value="${escapeAttr(type)}" selected>${escapeHtml(type)}</option>`
+      : '';
+    return `
+      <div class="fdc-dps-external-event-row" data-fdcp-external-index="${index}">
+        <label class="is-type"><span>種類</span><select data-fdc-dps-external-type>${typeOptions}${customType}</select></label>
+        <label class="is-start"><span>開始秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.frame) || 0) / 60))}" data-fdc-dps-external-seconds></label>
+        <label class="is-interval"><span>間隔秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.intervalFrames) || 0) / 60))}" data-fdc-dps-external-interval></label>
+        <label class="is-count"><span>回数</span><input type="number" min="0" max="10000" step="1" value="${escapeAttr(event.repeatCount || 0)}" title="0または空欄で計測終了まで" data-fdc-dps-external-count></label>
+        <label class="is-source"><span>発動元ID</span><input type="text" value="${escapeAttr(event.sourceId || '')}" placeholder="任意" data-fdc-dps-external-source></label>
+        <label class="is-value"><span>条件値</span><input type="text" value="${escapeAttr(event.value || '')}" placeholder="任意" data-fdc-dps-external-value></label>
+        <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(event.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
+        <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
+      </div>
+    `;
+  }
+
+  function renderDpsFormationEventCandidates(candidates = []) {
+    const normalized = Array.isArray(candidates) ? candidates : [];
+    if (!normalized.length) return '<p class="is-empty">現在の編成に、外部行動待ちの効果はありません。</p>';
+    return normalized.map(candidate => `
+      <article class="fdc-dps-formation-event-candidate">
+        <div>
+          <strong>${escapeHtml(candidate.label || candidate.type)}</strong>
+          <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
+          ${candidate.effectLabels?.length ? `<small>対象効果: ${escapeHtml(candidate.effectLabels.slice(0, 3).join('・'))}${candidate.effectLabels.length > 3 ? ` ほか${candidate.effectLabels.length - 3}件` : ''}</small>` : ''}
+        </div>
+        <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">追加</button>
+      </article>
+    `).join('');
+  }
+
+  function renderDpsExternalInputContent(events = [], candidates = []) {
+    const normalizedEvents = normalizeDpsExternalEvents(events);
+    const normalizedCandidates = Array.isArray(candidates) ? candidates : [];
+    return `
+      <details class="fdc-dps-external-events" data-fdcp-detail-section="external">
+        <summary>外部イベント（手動） <small>標準OFF</small></summary>
+        <div class="fdc-dps-external-events-head">
+          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。間隔0は単発、回数0は計測終了まで繰り返します。</p>
+          <button type="button" data-fdcp-dps-external-event-add>＋ イベント追加</button>
+        </div>
+        <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="external-candidates">
+          <summary>編成から追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>
+          <p>編成使徒のCT・SP・普通攻撃間隔から発動時刻を軽量推定します。候補を追加した後に時刻・間隔を調整できます。</p>
+          <div class="fdc-dps-formation-event-candidate-list">${renderDpsFormationEventCandidates(normalizedCandidates)}</div>
+        </details>
+        <div class="fdc-dps-external-event-list">${normalizedEvents.map(renderDpsExternalEventRow).join('')}</div>
+      </details>
+    `;
+  }
+
+  function renderDpsDamageGraphContent() {
+    return `
+      <section class="fdc-dps-damage-graph-panel" aria-labelledby="fdcp-dps-damage-graph-title">
+        <div class="fdc-dps-section-head">
+          <div>
+            <h3 id="fdcp-dps-damage-graph-title">ダメージ推移</h3>
+            <p>単一seedの累積ダメージを表示し、基準保存中は変更前と重ねて比較します。</p>
+          </div>
+          <span data-fdcp-damage-graph-note></span>
+        </div>
+        <div class="fdc-dps-damage-graph-wrap">
+          <canvas id="fdcp-dps-damage-graph" data-fdcp-damage-graph aria-label="ダメージ推移グラフ"></canvas>
+        </div>
+        <div class="fdc-dps-damage-graph-legend" aria-hidden="true">
+          <span><i class="is-cumulative"></i>現在</span>
+          <span data-fdcp-damage-graph-baseline-legend hidden><i class="is-baseline"></i>基準</span>
+        </div>
+      </section>
+    `;
   }
   function getDpsApplicableActionEffects(audit = {}) {
     return Object.entries(ACTION_LABELS).map(([actionKey, label]) => {
@@ -1393,20 +1744,132 @@
   }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
   function escapeAttr(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
-  function drawDamageGraph(canvas, series) {
-    const context = canvas?.getContext?.('2d'); if (!context) return;
-    const width = canvas.width; const height = canvas.height; context.clearRect(0, 0, width, height); context.fillStyle = '#151a26'; context.fillRect(0, 0, width, height);
-    if (!series.length) { context.fillStyle = '#aebbd2'; context.font = '14px sans-serif'; context.fillText('計算後に単一seedの累積ダメージを表示します。', 20, 30); return; }
-    let total = 0; const points = series.map(item => ({ frame: Number(item.frame) || 0, total: total += Number(item.expectedDamage) || 0 })); const maxFrame = Math.max(1, points.at(-1).frame); const maxTotal = Math.max(1, total); const pad = 22;
-    context.strokeStyle = '#3a465e'; context.lineWidth = 1; context.beginPath(); context.moveTo(pad, height - pad); context.lineTo(width - pad, height - pad); context.stroke(); context.strokeStyle = '#79a7ff'; context.lineWidth = 2; context.beginPath(); points.forEach((point, index) => { const x = pad + point.frame / maxFrame * (width - pad * 2); const y = height - pad - point.total / maxTotal * (height - pad * 2); if (index) context.lineTo(x, y); else context.moveTo(x, y); }); context.stroke();
+  function createDpsDamageGraphSeries(result = null) {
+    if (!result) return null;
+    const durationFrames = Math.max(1, Number(result.durationFrames) || Number(result.durationSeconds || 1) * 60);
+    const rawHits = (result.damageSeries || result.timeline || [])
+      .filter(event => (event.type === 'hit' || event.type === 'statusTick') && Number(event.expectedDamage) > 0)
+      .sort((a, b) => Number(a.frame || 0) - Number(b.frame || 0));
+    const bucketCount = Math.min(400, Math.max(1, Math.ceil(durationFrames / 6)));
+    const buckets = Array.from({ length: bucketCount }, () => 0);
+    rawHits.forEach(event => {
+      const frame = Math.max(0, Math.min(durationFrames, Number(event.frame) || 0));
+      const index = Math.min(bucketCount - 1, Math.floor(frame / durationFrames * bucketCount));
+      buckets[index] += Number(event.expectedDamage) || 0;
+    });
+    let cumulative = 0;
+    const points = buckets.map((damage, index) => {
+      cumulative += damage;
+      return {
+        frame: (index / Math.max(1, bucketCount - 1)) * durationFrames,
+        yValue: cumulative
+      };
+    });
+    return { durationFrames, rawHitCount: rawHits.length, bucketCount, totalDamage: cumulative, points };
   }
+
+  function createDpsDamageGraphModel(result = null, baselineResult = null) {
+    const current = createDpsDamageGraphSeries(result);
+    const baseline = createDpsDamageGraphSeries(baselineResult);
+    return { current, baseline };
+  }
+  function createDpsDamageGraphTicks(durationFrames, intervalSeconds = 10) {
+    const totalSeconds = Math.max(0, Number(durationFrames) || 0) / 60;
+    const interval = Math.max(1, Number(intervalSeconds) || 10);
+    const fullTickCount = Math.floor(totalSeconds / interval + 0.0000001);
+    const ticks = Array.from({ length: fullTickCount + 1 }, (_, index) => index * interval);
+    const lastTick = ticks[ticks.length - 1] || 0;
+    if (totalSeconds > lastTick + 0.0000001) ticks.push(totalSeconds);
+    return ticks.map(seconds => ({ seconds, frame: seconds * 60 }));
+  }
+
+  function drawDpsDamageGraph(canvas, model = null) {
+    const context = canvas?.getContext?.('2d');
+    if (!context) return;
+    const rect = canvas.getBoundingClientRect?.() || {};
+    const width = Math.max(280, Math.floor(rect.width || canvas.parentElement?.clientWidth || 600));
+    const height = 180;
+    const ratio = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = width * ratio;
+    canvas.height = height * ratio;
+    canvas.style.height = `${height}px`;
+    const panel = canvas.closest?.('.fdc-dps-damage-graph-panel');
+    const note = panel?.querySelector?.('[data-fdcp-damage-graph-note]');
+    const baselineLegend = panel?.querySelector?.('[data-fdcp-damage-graph-baseline-legend]');
+    const light = document.body.classList.contains('theme-light');
+    const colors = light
+      ? { text: '#526783', grid: 'rgba(74, 111, 157, .2)', cumulative: '#1768a8', fill: 'rgba(23, 104, 168, .12)', baseline: '#7b8797' }
+      : { text: '#9db0ca', grid: 'rgba(142, 174, 218, .2)', cumulative: '#72b9ff', fill: 'rgba(114, 185, 255, .12)', baseline: '#aeb9c8' };
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.clearRect(0, 0, width, height);
+    const current = model?.current || null;
+    const baseline = model?.baseline || null;
+    if (!current || !(current.totalDamage > 0)) {
+      context.fillStyle = colors.text;
+      context.font = '12px sans-serif';
+      context.textAlign = 'center';
+      context.fillText('計算後に単一seedの累積ダメージを表示します。', width / 2, height / 2);
+      if (note) note.textContent = '';
+      if (baselineLegend) baselineLegend.hidden = true;
+      return;
+    }
+    const durationFrames = Math.max(current.durationFrames, baseline?.durationFrames || 0, 1);
+    const yMax = Math.max(current.totalDamage, baseline?.totalDamage || 0, 1) * 1.08;
+    const pad = { left: 82, right: 12, top: 10, bottom: 34 };
+    const plotWidth = Math.max(1, width - pad.left - pad.right);
+    const plotHeight = Math.max(1, height - pad.top - pad.bottom);
+    const y = value => pad.top + plotHeight - (value / yMax) * plotHeight;
+    const x = frame => pad.left + (frame / durationFrames) * plotWidth;
+    context.font = '9px sans-serif';
+    context.lineWidth = 1;
+    context.strokeStyle = colors.grid;
+    context.fillStyle = colors.text;
+    [0, .25, .5, .75, 1].forEach(step => {
+      const yy = pad.top + plotHeight * (1 - step);
+      context.beginPath(); context.moveTo(pad.left, yy); context.lineTo(width - pad.right, yy); context.stroke();
+      context.textAlign = 'right'; context.fillText(formatDamage(yMax * step), pad.left - 6, yy + 3);
+    });
+    const xTicks = createDpsDamageGraphTicks(durationFrames, 10);
+    xTicks.forEach((tick, index) => {
+      const xx = x(tick.frame);
+      context.beginPath(); context.moveTo(xx, pad.top); context.lineTo(xx, pad.top + plotHeight); context.stroke();
+      context.save();
+      context.translate(xx, height - 7);
+      if (xTicks.length > 8) context.rotate(-Math.PI / 6);
+      context.textAlign = index === 0 ? 'left' : index === xTicks.length - 1 ? 'right' : 'center';
+      context.fillText(`${formatNumber(tick.seconds)}秒`, 0, 0);
+      context.restore();
+    });
+    const drawSeries = (series, strokeStyle, { fillStyle = '', dashed = false } = {}) => {
+      if (!series?.points.length) return;
+      const points = series.points.map(point => ({ x: x(point.frame), yValue: point.yValue }));
+      if (fillStyle) {
+        context.beginPath();
+        points.forEach((point, index) => { const yy = y(point.yValue); if (!index) context.moveTo(point.x, yy); else context.lineTo(point.x, yy); });
+        context.lineTo(points[points.length - 1].x, pad.top + plotHeight); context.lineTo(points[0].x, pad.top + plotHeight); context.closePath();
+        context.fillStyle = fillStyle; context.fill();
+      }
+      context.beginPath();
+      points.forEach((point, index) => { const yy = y(point.yValue); if (!index) context.moveTo(point.x, yy); else context.lineTo(point.x, yy); });
+      context.strokeStyle = strokeStyle;
+      context.lineWidth = dashed ? 1.5 : 2;
+      context.setLineDash(dashed ? [6, 4] : []);
+      context.stroke();
+      context.setLineDash([]);
+    };
+    drawSeries(current, colors.cumulative, { fillStyle: colors.fill });
+    drawSeries(baseline, colors.baseline, { dashed: true });
+    drawSeries(current, colors.cumulative);
+    if (baselineLegend) baselineLegend.hidden = !baseline;
+    if (note) note.textContent = `${formatNumber(current.rawHitCount)}発生 / 最大${formatNumber(current.bucketCount)}点${baseline ? ` / 基準 ${formatDamage(baseline.totalDamage)}` : ''}`;
+  }
+
   function drawSparkline(canvas, series) {
     const context = canvas?.getContext?.('2d'); if (!context) return;
     const width = canvas.width; const height = canvas.height; context.clearRect(0, 0, width, height);
-    if (!series.length) return;
-    let total = 0; const points = series.map(item => ({ frame: Number(item.frame) || 0, total: total += Number(item.expectedDamage) || 0 }));
-    const maxFrame = Math.max(1, points.at(-1).frame); const maxTotal = Math.max(1, total); const pad = 3;
-    context.strokeStyle = '#87aaff'; context.lineWidth = 1.8; context.beginPath(); points.forEach((point, index) => { const x = pad + point.frame / maxFrame * (width - pad * 2); const y = height - pad - point.total / maxTotal * (height - pad * 2); if (index) context.lineTo(x, y); else context.moveTo(x, y); }); context.stroke();
+    if (!series?.points?.length || !(series.totalDamage > 0)) return;
+    const maxFrame = Math.max(1, series.durationFrames); const maxTotal = Math.max(1, series.totalDamage); const pad = 3;
+    context.strokeStyle = '#87aaff'; context.lineWidth = 1.8; context.beginPath(); series.points.forEach((point, index) => { const x = pad + point.frame / maxFrame * (width - pad * 2); const y = height - pad - point.yValue / maxTotal * (height - pad * 2); if (index) context.lineTo(x, y); else context.moveTo(x, y); }); context.stroke();
   }
 
   function runSimulationWorker(config, options, mode, onProgress = null, onFallback = null, cancellation = null) {
@@ -1473,7 +1936,7 @@
   }
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createRunCancellation, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsFloatOutsideClickAction, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getSnapshotFreshness, getTrialSummary, isRunCancelledError, renderDpsActionEffectContent, renderDpsRuntimeEffectControls, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();

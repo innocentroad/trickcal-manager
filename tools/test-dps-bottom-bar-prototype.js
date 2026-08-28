@@ -16,7 +16,7 @@ const appCache = fs.readFileSync(path.join(root, 'app-cache.js'), 'utf8');
   'fdcp-bottom-bar', 'fdcp-dps-detail-panel', 'fdcp-dps-run', 'fdcp-baseline-save', 'fdcp-baseline-clear',
   'fdc-result-normal', 'fdc-result-detail-panel', 'fdc-target-preview', 'fdc-formation-picker', 'fdc-self-skill',
   'fdcp-sparkline', 'fdcp-breakdown', 'fdcp-dps-settings-toggle', 'fdcp-dps-settings-panel', 'fdcp-dps-compare-toggle', 'fdcp-dps-compare-panel',
-  'fdcp-auto-run', 'fdcp-high-mode', 'fdcp-duration', 'fdcp-trials', 'fdcp-seed', 'fdcp-dps-detail', 'fdcp-dps-detail-grid'
+  'fdcp-auto-run', 'fdcp-high-mode', 'fdcp-duration', 'fdcp-trials', 'fdcp-seed', 'fdcp-dps-detail', 'fdcp-dps-detail-grid', 'fdcp-dps-recalc-indicator'
 ].forEach(id => assert.ok(html.includes(`id="${id}"`), `${id} is present`));
 assert.ok(html.includes('id="fdcp-provisional-badge"'), '暫定対応は下バー内の常時視認badgeを持つ');
 assert.ok(!html.includes('id="fdcp-total-value"'), 'collapsed DPSカードに平均総ダメージ表示を残さない');
@@ -31,6 +31,7 @@ assert.ok(html.indexOf('id="fdcp-bottom-bar"') < html.indexOf('id="fdcp-dps-deta
 assert.ok(css.includes('grid-template-rows:repeat(5,minmax(0,1fr))'), 'collapsed DPSは5行tableを持つ');
 assert.ok(css.includes('--fdcp-collapsed-bar-height:5.35rem') && css.includes('--fdcp-dps-panel-height:var(--fdcp-collapsed-bar-height)') && css.includes('height:var(--fdcp-dps-panel-height)'), '通常/DPSは共通の固定コンパクト高さtokenを持つ');
 assert.match(css, /data-mode="single"[^\{]*\.bottom-results-grid[^\{]*\{[^}]*height:var\(--fdcp-collapsed-bar-height\)[^}]*min-height:var\(--fdcp-collapsed-bar-height\)[^}]*max-height:var\(--fdcp-collapsed-bar-height\)/, '通常計算もDPSと同じcollapsed高さに固定する');
+assert.match(css, /data-mode="single"[^\{]*\.bottom-results-grid \.result-card[^\{]*\{[^}]*width:100%; max-width:none; min-width:0;/, '通常計算の各カードはgrid列幅へ伸び、旧スマホmax-widthを残さない');
 assert.match(css, /fdc-result-hp-rate\[hidden\][^\{]*\{ display:flex; visibility:hidden;/, 'HP表示の有無で通常計算カードの予約行が消えない');
 assert.match(css, /\.value\.is-compare[^\{]*\{ display:grid; align-content:center; min-height:0; overflow:hidden;/, '比較時の複数行値も固定カード内に収める');
 assert.ok(css.includes('--fdcp-breakdown-columns:minmax(2.7rem,.62fr) minmax(0,1.38fr) minmax(0,1.08fr) minmax(3.15rem,.54fr) minmax(2.7rem,.46fr)'), '5行共通の行動/DPS/差分/構成比/回数列を持つ');
@@ -44,7 +45,8 @@ assert.ok(css.includes('[data-fdcp-breakdown="enhancedAttack"]') && css.includes
 assert.ok(css.includes('[data-fdcp-breakdown="lowSkill"]') && css.includes('#22c55e 13%') && css.includes('#22c55e 38%'), '低学年チップは既存tone-lowのgreen系を薄い背景・枠線に使う');
 assert.ok(css.includes('[data-fdcp-breakdown="highSkill"]') && css.includes('#3b82f6 13%') && css.includes('#3b82f6 38%'), '高学年チップは既存tone-highのblue系を薄い背景・枠線に使う');
 assert.ok(css.includes('[data-fdcp-breakdown="other"]') && css.includes('#14b8a6 13%') && css.includes('#14b8a6 38%'), 'その他チップは既存tone-extraのteal系を薄い背景・枠線に使う');
-assert.ok(css.includes('grid-row:1 / -1'), '全体カードと詳細ボタンは5行を縦結合する');
+assert.ok(css.includes('grid-row:1 / -1'), '全体カードは5行を縦結合する');
+assert.match(css, /\.fdcp-dps-primary strong[^\{]*\{[^}]*width:100%; max-width:100%; min-width:0;/, 'DPS全体値は狭いカード内で先頭桁を欠かさず省略する');
 assert.match(css, /fdcp-mode-tabs[^\{]*\{[^}]*bottom:0;[^}]*left:calc\(50% - 37.5rem - var\(--fdcp-mode-tabs-width\)\)[^}]*grid-template-rows:1fr 1fr/, '広い画面ではタブ右端を1200px content railの左端へ接続する');
 assert.ok(css.includes('@media (max-width:1259px)') && css.includes('padding-left:calc(1.25rem + var(--fdcp-mode-tabs-gutter))') && css.includes('width:calc(100% - var(--fdcp-mode-tabs-gutter))'), '狭い画面では通常/DPS双方に共通の左タブgutterを確保する');
 assert.ok(css.includes('writing-mode:vertical-rl'), 'タブ文字列を縦書きにする');
@@ -59,19 +61,38 @@ assert.ok(html.includes('class="result-card fdc-detail-toggle fdcp-detail-button
 assert.ok(html.includes('class="fdc-result-detail-head"') && html.includes('class="fdc-result-detail-grid"'), 'DPS詳細は通常計算と同じ詳細シートのhead/gridレイアウトを使う');
 assert.ok(script.includes("setDpsDetailOpen(elements.drawer.hidden)") && script.includes("dpsDetailToggle.classList.toggle('is-open', open)"), 'DPS詳細は通常計算と同様に詳細ボタンで開閉し、開いた状態をbuttonへ反映する');
 assert.ok(css.includes('--fdcp-detail-column:clamp(2.18rem,6vw,4.6rem)'), '通常/DPSの詳細列幅は共通tokenで定義する');
-assert.match(css, /bottom-results-grid[^\{]*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\) var\(--fdcp-detail-column\)/, '通常計算の右端詳細列は共通tokenを使う');
-assert.match(css, /\.fdcp-result-panel[^\{]*\{[^}]*grid-template-columns:minmax\(118px,\.72fr\) minmax\(0,2\.55fr\) var\(--fdcp-detail-column\)/, 'DPSの右端詳細列も通常と同じ共通tokenを使う');
+assert.match(css, /bottom-results-grid[^\{]*\{[^}]*grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, '通常計算の数値カードは詳細列を除いた幅を使う');
+assert.match(css, /\.fdcp-result-panel[^\{]*\{[^}]*grid-template-columns:minmax\(118px,\.72fr\) minmax\(0,2\.55fr\)/, 'DPSの数値域は詳細列を除いた幅を使う');
 assert.ok(css.includes('grid-template-rows:var(--fdcp-result-card-rows)') && css.includes('padding:var(--fdcp-result-card-padding) !important'), '通常/DPSの詳細ボタンは同じlabel/chevron行とpadding規則を使う');
 assert.match(css, /\.fdcp-bottom-bar \.fdc-detail-toggle[^\{]*\{[^}]*display:grid;[^}]*grid-template-rows:var\(--fdcp-result-card-rows\);[^}]*padding:var\(--fdcp-result-card-padding\) !important/, 'DPSの5行結合ボタンも通常と同じ内部カード配置を明示する');
 assert.ok(!/\.fdcp-detail-button[^\{]*\{[^}]*font-size/.test(css) && !css.includes('minmax(0,2.55fr) 40px') && !css.includes('minmax(0,2.55fr) 31px') && !css.includes('minmax(0,2.55fr) 28px'), 'DPS固有の詳細幅・文字サイズoverrideを残さない');
-assert.match(css, /@media \(max-width:680px\)[\s\S]*?\.fdcp-result-panel[^\{]*\{[^}]*var\(--fdcp-detail-column\)/, 'mobileでもDPS詳細列は共通tokenを維持する');
-assert.match(css, /@media \(max-width:360px\)[\s\S]*?\.fdcp-result-panel[^\{]*\{[^}]*var\(--fdcp-detail-column\)/, '360pxでもDPS詳細列は共通tokenを維持する');
+assert.ok(css.includes('.fdcp-result-panel { grid-template-columns:minmax(104px,.8fr) minmax(0,2.45fr); width:100%;') , 'mobileのDPS全体カードは9桁表示分の幅を確保する');
+assert.ok(css.includes('.fdcp-result-panel { grid-template-columns:minmax(104px,.8fr) minmax(0,2.45fr); }'), '360pxでもDPS全体カードは9桁表示分の幅を確保する');
 assert.ok(html.includes('id="fdcp-dps-compare-toggle-label"') && html.includes('fdcp-dps-compare-toggle" class="fdc-compare-float-toggle'), 'DPS比較toggleは通常比較と同じactive表示用のlabel/button構造を持つ');
 assert.ok(script.includes("toggle?.classList?.toggle('is-active', hasBaseline)") && script.includes('dataset.fdcpComparison = state'), 'DPS比較の基準保存・差分表示状態をtoggleと下バーdata属性へ同期する');
 assert.ok(css.includes('.fdcp-bottom-bar[data-fdcp-comparison="waiting"]') && css.includes('.fdcp-bottom-bar[data-fdcp-comparison="active"]'), '基準保存待機と差分表示中を通常比較と同じactive視覚言語で強調する');
 assert.ok(css.includes('body.theme-light .fdcp-result-panel .fdcp-dps-primary') && css.includes('background:linear-gradient(135deg,#fcfdff,#f1f0ff)') && css.includes('body.theme-dark .fdcp-result-panel .fdcp-dps-primary'), 'DPS全体カードはlight/darkで明示的に別配色を持つ');
 assert.ok(css.includes('body.theme-light .fdcp-dps-primary canvas { opacity:.15; }') && !css.includes('body.theme-light .fdcp-dps-primary canvas { opacity:.36; }'), 'lightの全体期待DPSカードは白寄りの面と控えめなsparklineを使う');
-assert.match(script, /function drawSparkline[\s\S]*?clearRect[\s\S]*?if \(!series\.length\) return;[\s\S]*?strokeStyle = '#87aaff'/, 'sparklineは暗い塗りつぶしをせず、線だけを重ねる');
+assert.ok(script.includes('createDpsDamageGraphModel') && script.includes('this.damageGraphModel?.current') && script.includes("strokeStyle = '#87aaff'"),
+  'sparklineは共有済みグラフ系列から線だけを重ねる');
+assert.ok(css.includes('.fdcp-dps-recalc-spinner') && css.includes('fdcp-dps-recalc-spin') && css.includes('animation:'),
+  '全体期待DPSカードに再計算中の回転indicatorを持つ');
+assert.ok(script.includes('setRecalculationIndicator') && script.includes('renderRecalculationState') && script.includes('前回の計算結果を表示中'),
+  '再計算中は前回結果を残した状態表示を使う');
+assert.ok(script.includes('renderDpsExternalInputContent') && script.includes('handleExternalInputChange') && script.includes('externalEvents: snapshot.externalEvents || []'),
+  '外部入力は詳細シートの動的controlsからDPS入力へ渡す');
+assert.ok(script.includes('renderDpsDamageGraphContent') && script.includes('drawDpsDamageGraph(canvas, this.damageGraphModel)'),
+  'ダメージ推移グラフはDPS詳細シートへ動的canvasを描画する');
+assert.ok(script.includes('createDpsTimingDetailRows') && script.includes("title: '行動タイミング'"),
+  'DPS詳細へ普通攻撃間隔と各モーション硬直の行動タイミングを表示する');
+assert.ok(script.includes('createDpsDamageGraphTicks(durationFrames, 10)'),
+  '詳細グラフの横軸は10秒刻みのtick生成を使う');
+assert.ok(script.includes("window.addEventListener('resize', redrawDpsDamageGraph)") && script.includes("window.addEventListener('trickcal:theme-changed', redrawDpsDamageGraph)"),
+  '詳細グラフは表示中のresize・theme変更で再描画する');
+const graphPainterSource = script.slice(script.indexOf('function drawDpsDamageGraph'), script.indexOf('function drawSparkline'));
+assert.ok(!graphPainterSource.includes('createDpsDamageGraphSeries'), 'グラフの描画処理は系列を再生成せず共有済みmodelだけを描画する');
+assert.ok(script.includes('refreshDamageGraphModel()') && script.includes('this.renderDamageGraphs({ detail: false, sparkline: true })'),
+  '背景sparklineと詳細グラフは同じキャッシュmodelの更新経路を使う');
 assert.ok(css.includes('body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="basicAttack"] { background:#eff6ff;') && css.includes('body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="other"] { background:#f0fdfa;'), 'lightでは行動チップを明るい識別色へ分離する');
 assert.ok(css.includes('body.theme-light .fdcp-dps-primary .fdcp-total-delta[data-delta-state="positive"]') && css.includes('color:#047857') && css.includes('color:#b91c1c'), 'lightのDPS差分は十分濃い正負色を使う');
 assert.ok(!/body\.theme-light[^\{]*\{[^}]*#83f0bb/.test(css) && !/body\.theme-light[^\{]*\{[^}]*#ffaeae/.test(css), 'lightの差分へ旧dark向け低コントラスト色を使わない');
@@ -85,6 +106,17 @@ assert.equal((html.match(/data-fdcp-column="dps"/g) || []).length, 5, '5行す�
 assert.equal((html.match(/data-fdcp-column="delta"/g) || []).length, 5, '5行すべてに比較差分の予約列を持つ');
 assert.equal((html.match(/data-fdcp-column="share"/g) || []).length, 5, '5行すべてに構成比列を持つ');
 assert.equal((html.match(/data-fdcp-column="count"/g) || []).length, 5, '5行すべてに回数列を持つ');
+assert.equal((html.match(/data-fdcp-short-label="(?:基|強|低|高|他)"/g) || []).length, 5, 'スマホ用に5行の短縮行動ラベルを持つ');
+assert.ok(css.includes('--fdcp-breakdown-columns:minmax(1.4rem,.42fr) minmax(3.7rem,1.3fr) minmax(0,.72fr) minmax(2.75rem,.64fr)') && css.includes('[data-fdcp-column="count"] { display:none; }'), 'スマホでは使用回数列を省略してDPS数値へ幅を回す');
+assert.ok(css.includes('[data-fdcp-column="action"]::after') && css.includes('content:attr(data-fdcp-short-label)'), 'スマホの行動ラベルは基/強/低/高/他を表示する');
+assert.ok(css.includes('.fdcp-dps-primary strong { overflow-wrap:normal; line-height:1.05; text-overflow:clip; white-space:nowrap; word-break:normal; }'), 'スマホの全体DPSは9桁の数値を折り返さず表示する');
+assert.ok(css.includes('.fdc-result-hp-rate { font-size:.49rem; letter-spacing:-.04em; }'), 'スマホの残HP表示はカード内に収まるサイズへ調整する');
+assert.ok(css.includes('.fdcp-bottom-bar .fdcp-mode-tabs { top:calc(-1.7rem - 1px);') && css.includes('.fdcp-page .fdc-card-cost-controller,'), 'スマホの結果タブを上端へ移し、コインを上方へ逃がす');
+assert.ok(css.includes('.result-card .value:not(.is-compare) { overflow-wrap:anywhere; text-overflow:clip; white-space:normal; }'), 'スマホの通常計算値は長い数値を省略せず折り返す');
+assert.ok(css.includes('grid-template-columns:minmax(104px,.8fr) minmax(0,2.45fr);') && css.includes('minmax(2.25rem,.42fr)'), 'スマホの比較差分短縮分を全体DPS枠へ配分する');
+assert.ok(html.includes('class="fdcp-detail-controls"') && css.includes('.fdcp-detail-controls { position:absolute;') && css.includes('top:calc(-1.7rem - 1px)'), '詳細操作を下バー上端の独立スロットへ移し、開閉時の位置を固定する');
+assert.ok(css.includes('[data-mode="single"] #fdcp-dps-detail') && css.includes('[data-mode="dps"] #fdc-result-detail-toggle'), '通常/DPSで対応する詳細ボタンだけを表示する');
+assert.ok(script.includes('formatCompactComparisonDelta(row.percentChange)') && script.includes('formatCompactComparisonDelta(comparison.meanDpsPercent)'), '下バーの比較差分は個別・全体とも割合表示を使う');
 assert.ok(!html.includes('比較用DPS β') && !html.includes('構造化効果監査') && !html.includes('単一seed タイムライン'), '詳細から試験・監査用の旧文言を除去する');
 assert.ok(html.includes('同じ使徒の設定比較用です。使徒間比較には使用できません。'), 'DPSの比較範囲は設定popoverにだけ簡潔に残す');
 assert.ok(!html.includes('使徒同士の性能比較や実戦値保証には使えません'), '詳細内へ長い注意文を常時表示しない');
@@ -103,6 +135,7 @@ assert.ok(!/iframe|contentWindow/i.test(html), 'prototype HTMLはiframeを含ま
 assert.ok(!/iframe|contentWindow/i.test(script), 'prototype controllerはiframe参照を含まない');
 assert.ok(script.includes('createDirectDamageAdapter'), 'direct adapterで単発ページを分離する');
 assert.ok(script.includes('createDpsEvaluationInput'), 'DPS入力はsnapshot APIを使う');
+assert.ok(script.includes('createInputSnapshot(snapshot = {})') && script.includes('externalEvents: normalizeDpsExternalEvents(this.externalEvents)'), '通常snapshotを変更せず外部入力をDPS実行snapshotへ合成する');
 assert.ok(script.includes('axesMatch'), '基準比較に比較軸guardを持つ');
 assert.ok(script.includes('applyBaselineComparison({ resultReady: true })'), '正常なDPS計算完了時に基準比較を自動適用する');
 assert.ok(!script.includes('compareBaseline()') && !script.includes('baselineCompare'), '手動比較のcontroller参照を残さない');
@@ -127,17 +160,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828c'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828g'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828a'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828o'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828c'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828g'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828a'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828o'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260828b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260828n'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -169,7 +202,7 @@ const makeElement = () => {
 const renderElements = {
   value: makeElement(), total: makeElement(), totalDelta: makeElement(), state: makeElement(), meta: makeElement(),
   provisionalBadge: makeElement(), drawerStatus: makeElement(), detailGrid: makeElement(), sparklineMeta: makeElement(),
-  sparkline: {}, baselineSave: makeElement(), baselineClear: makeElement(), baselineNote: makeElement(),
+  recalcIndicator: makeElement(), sparkline: {}, baselineSave: makeElement(), baselineClear: makeElement(), baselineNote: makeElement(),
   compareToggle: makeElement(), compareToggleLabel: makeElement(), bottomBar: makeElement(), primary: makeElement()
 };
 const renderController = new testing.PrototypeDpsController({}, renderElements);
@@ -183,8 +216,31 @@ renderController.latest = {
 };
 assert.doesNotThrow(() => renderController.renderLatest(), '計算成功後のrenderLatestは削除済み詳細DOMへ触れず完了する');
 assert.match(renderElements.drawerStatus.textContent, /計算済み/, '計算成功後に詳細ヘッダーを計算済みへ更新する');
+assert.equal(renderElements.recalcIndicator.hidden, true, '新しい計算結果を適用したら再計算indicatorを隠す');
 assert.match(renderElements.detailGrid.innerHTML, /計測情報[\s\S]*行動別適用効果[\s\S]*通常 \/ 物理ダメージ[\s\S]*タイムライン/, '計算成功後の詳細は計測情報・行動別適用効果・タイムラインを表示する');
 assert.equal(renderController.latest.aggregate.meanDps, 1234, '詳細描画成功時に集計済みのlatest結果を保持する');
+const pendingElements = {
+  value: makeElement(), totalDelta: makeElement(), state: makeElement(), meta: makeElement(), provisionalBadge: makeElement(),
+  recalcIndicator: makeElement(), drawerStatus: makeElement(), detailGrid: makeElement(), sparkline: {}, sparklineMeta: makeElement(),
+  baselineSave: makeElement(), baselineClear: makeElement(), baselineNote: makeElement(), compareToggle: makeElement(), compareToggleLabel: makeElement(),
+  bottomBar: makeElement(), primary: makeElement(), run: makeElement(), duration: { value: '90' }, highMode: { value: 'disabled' },
+  seed: { value: '1' }, trials: { value: '16' }, autoRun: { checked: true }
+};
+const pendingController = new testing.PrototypeDpsController({}, pendingElements);
+const pendingSnapshot = { targetId: 'chloe', targetName: 'クロエ', apostle: { id: 'chloe' }, scenario: {}, skillLevels: {} };
+pendingController.latest = {
+  aggregate: { meanDps: 1234, totalExpectedDamage: 111060, evaluatedTrials: 16, range: { p10: 100000, p90: 120000 }, byAction: {} },
+  support: { label: 'クロエ', configuration: '通常', provisional: false },
+  options: { durationSeconds: 90, seed: 1, trials: 16 }, config: {}, axis: {}, inputFingerprint: 'old-result',
+  single: { seed: 1, damageSeries: [], timeline: [] }, snapshot: { actionEffectAudit: {} }
+};
+pendingElements.value.textContent = '1,234';
+pendingController.renderAvailability(pendingSnapshot, { supported: true, label: 'クロエ', configuration: '通常' });
+assert.equal(pendingController.latest.aggregate.meanDps, 1234, '再計算待ちでも前回のlatest結果を保持する');
+assert.equal(pendingElements.value.textContent, '1,234', '再計算待ちでも全体期待DPSの表示値を保持する');
+assert.equal(pendingElements.recalcIndicator.hidden, false, '再計算待ちでは左上indicatorを表示する');
+assert.equal(pendingElements.recalcIndicator.dataset.fdcpRecalculation, 'pending', '再計算待ちindicatorの状態を明示する');
+assert.match(pendingElements.drawerStatus.textContent, /再計算待ち[\s\S]*前回の計算結果/, '詳細ヘッダーにも前回結果を表示中と示す');
 renderController.baseline = { axis: {} };
 renderController.comparison = null;
 renderController.syncComparisonUi();
@@ -231,6 +287,65 @@ const standaloneDpsAudit = testing.renderDpsActionEffectContent({
 });
 assert.match(standaloneDpsAudit, /<details class="fdc-dps-effect-audit-panel"><summary>行動別適用効果 <span>1効果<\/span><\/summary>[\s\S]*fdc-dps-effect-matrix[\s\S]*基本攻撃[\s\S]*強化攻撃[\s\S]*fdc-dps-effect-state is-on[\s\S]*fdc-dps-effect-state is-off/,
   '行動別適用効果は独立DPS上段と同じ効果行×行動列matrixを使う');
+const normalizedExternalEvent = testing.getDpsExternalEvent({ type: 'shieldBreak', seconds: 1.5, intervalSeconds: 2, repeatCount: 3, sourceId: 'enemy-1', value: '50', reason: '' });
+assert.deepEqual(JSON.parse(JSON.stringify(normalizedExternalEvent)), {
+  id: 'manual:1', type: 'shieldBreak', frame: 90, intervalFrames: 120, repeatCount: 3,
+  sourceId: 'enemy-1', value: '50', reason: '手動シールド破壊'
+}, '外部イベント入力は秒・間隔をsimulator用frameへ正規化し、既定表示名を補う');
+assert.deepEqual(JSON.parse(JSON.stringify(testing.normalizeDpsExternalEvents([
+  { type: 'damageTaken', frame: 30 }, { type: '', seconds: 2 }, { type: 'statusApplied', seconds: 3, reason: '状態付与' }
+]))), [
+  { id: 'manual:1', type: 'damageTaken', frame: 30, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '手動被弾' },
+  { id: 'manual:3', type: 'statusApplied', frame: 180, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '状態付与' }
+], '空の外部イベントを除外し、複数行を同じ形式へ正規化する');
+const externalInput = testing.getDpsExternalInputContent(
+  [{ type: 'shieldBreak', seconds: 1.5, reason: '<手動>' }],
+  [{ id: 'candidate-1', label: '候補<1>', basis: '普通攻撃', effectLabels: ['<効果>'] }]
+);
+assert.match(externalInput, /<details class="fdc-dps-external-events"[\s\S]*外部イベント（手動）[\s\S]*標準OFF[\s\S]*data-fdcp-dps-external-event-add[\s\S]*data-fdc-dps-external-seconds[\s\S]*data-fdc-dps-external-remove/,
+  '外部入力は独立DPSと同じdetails・追加ボタン・編集行を持つ');
+assert.match(externalInput, /data-fdcp-detail-section="external-candidates"[\s\S]*候補&lt;1&gt;[\s\S]*対象効果: &lt;効果&gt;[\s\S]*data-fdc-dps-formation-event-add="candidate-1"/,
+  '編成候補から追加するdetailsと表示値をHTML escapeする');
+const graphResult = {
+  durationFrames: 120,
+  damageSeries: [
+    { type: 'hit', frame: 0, expectedDamage: 10 },
+    { type: 'statusTick', frame: 60, expectedDamage: 5 },
+    { type: 'hit', frame: 90, expectedDamage: 0 }
+  ]
+};
+const graphSeries = testing.createDpsDamageGraphSeries(graphResult);
+assert.equal(graphSeries.durationFrames, 120, '詳細グラフ系列は計測frameを保持する');
+assert.equal(graphSeries.rawHitCount, 2, '詳細グラフ系列は正のhit/statusTickだけを集計する');
+assert.equal(graphSeries.bucketCount, 20, '詳細グラフ系列は6frame単位で最大400点へbinningする');
+assert.equal(graphSeries.totalDamage, 15, '詳細グラフ系列の累積総量を保持する');
+assert.equal(graphSeries.points[10].yValue, 15, '詳細グラフ系列は時系列順に累積する');
+const graphModel = testing.createDpsDamageGraphModel(graphResult, { durationFrames: 120, damageSeries: [{ type: 'hit', frame: 0, expectedDamage: 7 }] });
+assert.equal(graphModel.current.totalDamage, 15, '共有グラフmodelへcurrent系列を格納する');
+assert.equal(graphModel.baseline.totalDamage, 7, '共有グラフmodelへbaseline系列を格納する');
+assert.deepEqual(JSON.parse(JSON.stringify(testing.createDpsDamageGraphTicks(90 * 60).map(tick => tick.seconds))), [0, 10, 20, 30, 40, 50, 60, 70, 80, 90],
+  '詳細グラフの横軸は90秒なら10秒ごとの目盛りを生成する');
+assert.deepEqual(JSON.parse(JSON.stringify(testing.createDpsDamageGraphTicks(35 * 60).map(tick => tick.seconds))), [0, 10, 20, 30, 35],
+  '計測時間が10秒の倍数でなくても終点を補助目盛りとして残す');
+const timingRows = testing.createDpsTimingDetailRows({
+  normalAttackIntervalFrames: 182,
+  initialNormalAttackIntervalFrames: 140,
+  initialAttackSpeedP: 30,
+  actions: {
+    basicAttack: { label: '基本攻撃', motionFramesByVariant: { default: 80 } },
+    enhancedAttack: { label: '強化攻撃', motionFramesByVariant: { default: 90, A: 120 } },
+    lowSkill: { label: '低学年', motionFrames: 130 }
+  }
+});
+assert.deepEqual(JSON.parse(JSON.stringify(timingRows)), [
+  ['普通攻撃間隔（補正前）', '182F（3.03秒）'],
+  ['普通攻撃間隔（補正後）', '140F（2.33秒） / 開始時攻撃速度+30.0%'],
+  ['基本攻撃のモーション硬直', '80F（1.33秒）'],
+  ['強化攻撃のモーション硬直', '90F（1.5秒） / A: 120F（2秒）'],
+  ['低学年のモーション硬直', '130F（2.17秒）']
+], '詳細の行動タイミングは補正前後の普通攻撃間隔と各モーション硬直を表示する');
+assert.match(testing.renderDpsDamageGraphContent(), /fdc-dps-damage-graph-panel[\s\S]*fdcp-dps-damage-graph[\s\S]*fdcp-damage-graph-baseline-legend/,
+  '詳細グラフは独立DPSと同じcanvas・凡例構造を使う');
 assert.ok(!css.includes('.fdc-dps-effect-matrix-wrap') && !css.includes('overflow-x:auto') && !css.includes('min-width:560px') && !css.includes('.fdcp-detail-collapsible') && !css.includes('.fdcp-action-effect-list') && !css.includes('.fdcp-timeline-list') && script.includes('fdc-dps-effect-matrix') && !script.includes('fdc-dps-effect-action-details') && !script.includes('fdc-dps-effect-action-detail'),
   '共有詳細は横scroll用wrap・固定min-width・旧縦action detailsを持たず、幅内matrixを使う');
 assert.ok(css.includes('.fdcp-dps-detail-panel .fdc-dps-runtime-settings,') && css.includes('.fdcp-dps-detail-panel .fdc-dps-effect-matrix,') && css.includes('.fdcp-dps-detail-panel .fdc-dps-timeline { display:block; }'),
@@ -312,6 +427,11 @@ assert.notEqual(testing.createDpsInputFingerprint(snapshot, options), testing.cr
   'スキルレベル変化をfingerprintで検知する');
 assert.notEqual(testing.createDpsInputFingerprint(snapshot, options), testing.createDpsInputFingerprint({ ...snapshot, scenario: { ...snapshot.scenario, actors: { ...snapshot.scenario.actors, enemy: { stats: { mdef: 81 } } } } }, options),
   '敵ステータス変化をfingerprintで検知する');
+const externalSnapshot = { ...snapshot, externalEvents: [{ type: 'shieldBreak', frame: 90, reason: '手動' }] };
+assert.equal(testing.createDpsInputProjection(externalSnapshot).externalEvents[0].frame, 90,
+  'DPS入力projectionへ外部イベントを含める');
+assert.notEqual(testing.createDpsInputFingerprint(snapshot, options), testing.createDpsInputFingerprint(externalSnapshot, options),
+  '外部イベントの追加・変更をfingerprintで検知する');
 assert.equal(testing.getSnapshotFreshness('same', 'same').shouldInvalidate, false,
   'run/mode/detail/baselineクリック相当の同一fingerprintでは最新結果を維持する');
 assert.equal(testing.getSnapshotFreshness('before', 'after').shouldInvalidate, true,
@@ -428,6 +548,8 @@ assert.equal(testing.formatSignedDamage(0), '±0', 'ゼロ差分は記号で明�
 assert.equal(testing.formatSignedDamage(-12), '-12', '負差分は符号で明示する');
 assert.equal(testing.formatSignedPercent(10), '+10.0%', '比率差分は符号で明示する');
 assert.equal(testing.formatSignedPercent(null), '', '基準DPSが0の比率はゼロと誤表示しない');
+assert.equal(testing.formatCompactComparisonDelta(10), '+10.0%', '下バーの比較差分は割合を表示する');
+assert.equal(testing.formatCompactComparisonDelta(null), '基準0', '基準DPSが0なら割合なしを短く表示する');
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'self-only' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 2, trials: 16, formationTimelineMode: 'self-only' }), false, '初期seedが異なる結果は同じ比較軸として扱わない');
 
 testing.runSimulationWorker({}, { trials: 256, seed: 1, exactTrials: true }, 'aggregate', null, note => {
