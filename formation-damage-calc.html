@@ -38,7 +38,7 @@
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
-  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260828o">
+  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260828p">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -950,6 +950,7 @@
       <div id="fdcp-breakdown" class="fdcp-breakdown" aria-label="行動別比較用DPS内訳"><div data-fdcp-breakdown="basicAttack" aria-label="基本: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action" data-fdcp-short-label="基">基本</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="enhancedAttack" aria-label="強化: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action" data-fdcp-short-label="強">強化</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="lowSkill" aria-label="低学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action" data-fdcp-short-label="低">低学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="highSkill" aria-label="高学年: DPS、基準比、構成比、平均行動回数"><span data-fdcp-column="action" data-fdcp-short-label="高">高学年</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="平均行動回数">—</small></div><div data-fdcp-breakdown="other" aria-label="その他: DPS、基準比、構成比、発動回数は集計しない"><span data-fdcp-column="action" data-fdcp-short-label="他">その他</span><b data-fdcp-column="dps">—</b><small data-fdcp-column="delta" title="基準比" aria-hidden="true"></small><small data-fdcp-column="share" title="構成比">—</small><small data-fdcp-column="count" title="発動回数">—</small></div></div>
     </div>
     <div class="fdcp-detail-controls" aria-label="詳細表示">
+      <button type="button" id="fdcp-high-mode-quick" class="fdcp-high-mode-note" data-fdcp-high-mode="disabled" aria-pressed="false" aria-controls="fdcp-high-mode" aria-label="高学年モード: OFF" title="高学年: OFF（クリックでAUTOへ切替）"><span class="label">高学年</span><strong data-fdcp-high-mode-label>OFF</strong></button>
       <button type="button" class="result-card fdc-detail-toggle" id="fdc-result-detail-toggle" aria-expanded="false">
         <span class="label">詳細</span>
         <svg class="value fdc-detail-toggle-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m6 15 6-6 6 6"></path></svg>
@@ -970,7 +971,7 @@
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260821o"></script>
-  <script src="app-cache.js?v=20260828n"></script>
+  <script src="app-cache.js?v=20260828o"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="combat-scenario.js?v=20260824a"></script>
   <script src="dps-trigger-policy.js?v=20260826c"></script>
@@ -978,6 +979,6 @@
   <script src="dps-simulator.js?v=20260827n"></script>
   <script src="dps-support-registry.js?v=20260827c"></script>
   <script src="formation-damage-calc.js?v=20260828b"></script>
-  <script src="formation-damage-dps-prototype.js?v=20260828g"></script>
+  <script src="formation-damage-dps-prototype.js?v=20260828h"></script>
 </body>
 </html>

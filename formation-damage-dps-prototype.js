@@ -919,7 +919,7 @@
     return {
       bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), recalcIndicator: document.getElementById('fdcp-dps-recalc-indicator'), run: document.getElementById('fdcp-dps-run'),
       drawer: document.getElementById('fdcp-dps-detail-panel'), drawerStatus: document.getElementById('fdcp-drawer-status'), detailGrid: document.getElementById('fdcp-dps-detail-grid'),
-      duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
+      duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), highModeQuick: document.getElementById('fdcp-high-mode-quick'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
       settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
       baselineSave: document.getElementById('fdcp-baseline-save'), baselineClear: document.getElementById('fdcp-baseline-clear'), baselineNote: document.getElementById('fdcp-baseline-note')
     };
@@ -963,6 +963,18 @@
       dpsDetailToggle.classList.toggle('is-open', open);
       document.body.classList.toggle('fdc-result-detail-open', open);
       if (open) controller.renderDamageGraphs({ detail: true, sparkline: false });
+    };
+    const syncHighModeQuickControl = () => {
+      const quick = elements.highModeQuick;
+      if (!quick) return;
+      const auto = elements.highMode?.value === 'auto';
+      const label = auto ? 'AUTO' : 'OFF';
+      quick.dataset.fdcpHighMode = auto ? 'auto' : 'disabled';
+      quick.setAttribute('aria-pressed', String(auto));
+      quick.setAttribute('aria-label', `高学年モード: ${label}`);
+      quick.title = `高学年: ${label}（クリックで${auto ? 'OFF' : 'AUTO'}へ切替）`;
+      const labelElement = quick.querySelector?.('[data-fdcp-high-mode-label]');
+      if (labelElement) labelElement.textContent = label;
     };
     const closeSingleDetail = () => {
       singleDetailPanel.hidden = true;
@@ -1035,6 +1047,12 @@
     }));
     elements.run.addEventListener('click', () => controller.run());
     dpsDetailToggle.addEventListener('click', () => setDpsDetailOpen(elements.drawer.hidden));
+    elements.highModeQuick?.addEventListener('click', () => {
+      if (!elements.highMode) return;
+      elements.highMode.value = elements.highMode.value === 'auto' ? 'disabled' : 'auto';
+      syncHighModeQuickControl();
+      elements.highMode.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     elements.detailGrid?.addEventListener('click', event => controller.handleDetailClick(event));
     elements.detailGrid?.addEventListener('change', event => controller.handleDetailChange(event));
     const redrawDpsDamageGraph = () => {
@@ -1076,6 +1094,7 @@
     singleCompareToggle.addEventListener('click', () => { if (currentMode === 'single') syncNativeFloat(singleComparePanel, 'singleCompare'); });
     saveMenu.addEventListener('toggle', () => { if (saveMenu.open) applyFloatState('save'); });
     const refreshDpsSettings = () => {
+      syncHighModeQuickControl();
       if (currentMode !== 'dps') return;
       controller.refreshAvailability();
       controller.requestAutoRun();
@@ -1109,6 +1128,7 @@
     window.addEventListener('trickcal:damage-calculator-rendered', () => {
       scheduleAvailabilityRefresh({ delay: 0 });
     });
+    syncHighModeQuickControl();
     setMode('single');
     controller.refreshAvailability({ render: false });
   }
