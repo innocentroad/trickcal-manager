@@ -1256,11 +1256,18 @@
     const afterAggregate = current.aggregate || {};
     const beforeRows = baseline.breakdown || createDpsBottomBreakdown(beforeAggregate);
     const afterRows = current.breakdown || createDpsBottomBreakdown(afterAggregate);
+    // 比較欄の数値は整数表示なので、表示上0になる小さな残差を割合計算へ
+    // 持ち込まない。特に「その他」は総DPSから行動DPSを引いた残差のため、
+    // 丸め誤差だけで0→0が-100%になることがある。
+    const normalizeComparisonValue = value => {
+      const number = Number(value);
+      return Number.isFinite(number) && Math.abs(number) >= .5 ? number : 0;
+    };
     const compareValue = (before, after) => {
-      const base = Number(before) || 0;
-      const now = Number(after) || 0;
+      const base = normalizeComparisonValue(before);
+      const now = normalizeComparisonValue(after);
       const difference = now - base;
-      return { before: base, after: now, difference, percentChange: base === 0 ? null : difference / base * 100 };
+      return { before: base, after: now, difference, percentChange: base === 0 ? (now === 0 ? 0 : null) : difference / base * 100 };
     };
     const meanDps = compareValue(beforeAggregate.meanDps, afterAggregate.meanDps);
     const totalExpectedDamage = compareValue(beforeAggregate.totalExpectedDamage, afterAggregate.totalExpectedDamage);
@@ -1342,7 +1349,9 @@
   function getDeltaState(value) { const number = Number(value) || 0; return number > 0 ? 'positive' : number < 0 ? 'negative' : 'zero'; }
   function formatSignedDamage(value) { const number = Math.round(Number(value) || 0); return number === 0 ? '±0' : `${number > 0 ? '+' : '-'}${formatDamage(Math.abs(number))}`; }
   function formatSignedPercent(value) { if (value === null || value === undefined || !Number.isFinite(Number(value))) return ''; const number = Number(value); return number === 0 ? '±0.0%' : `${number > 0 ? '+' : '-'}${Math.abs(number).toFixed(1)}%`; }
-  function formatCompactComparisonDelta(value) { return formatSignedPercent(value) || '基準0'; }
+  function formatCompactComparisonDelta(value) {
+    return value !== null && value !== undefined && Number(value) === 0 ? '±0' : formatSignedPercent(value) || '基準0';
+  }
   function getDpsDetailStatusLabel(state = '') {
     if (/未対応|利用できません/.test(state)) return 'この構成ではDPSを利用できません。';
     if (/エラー/.test(state)) return 'DPS入力を準備できません。通常計算の設定を確認してください。';
@@ -1757,7 +1766,7 @@
       const before = formatDamage(values?.before);
       const after = formatDamage(values?.after);
       const difference = `${formatSignedDamage(values?.difference)}${unit}`;
-      const percent = values?.percentChange === null ? '基準0' : formatSignedPercent(values?.percentChange);
+      const percent = values?.percentChange === undefined ? '' : formatCompactComparisonDelta(values.percentChange);
       const className = values?.difference > 0 ? 'is-comparison-up' : values?.difference < 0 ? 'is-comparison-down' : 'is-comparison-change';
       return { label, value: `${before} → ${after} / ${difference}${percent ? `（${percent}）` : ''}`, className };
     });

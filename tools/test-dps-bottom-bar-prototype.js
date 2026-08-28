@@ -160,17 +160,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828h'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828i'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828r'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828s'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828h'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828i'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828r'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828s'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260828q'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260828r'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -544,6 +544,26 @@ const comparison = testing.createDpsComparison({
 assert.equal(comparison.meanDpsDifference, 20, '全体DPS差分を保持する');
 assert.equal(comparison.breakdown.find(item => item.key === 'basicAttack').differenceDps, -2, '個別カテゴリDPS差分を保持する');
 assert.ok(Math.abs(comparison.breakdown.find(item => item.key === 'other').percentChange - 100 / 3) < 1e-9, 'その他を含む個別カテゴリの基準比を保持する');
+const zeroComparison = testing.createDpsComparison({
+  aggregate: { meanDps: 0, totalExpectedDamage: 0, range: { p10: 0, p90: 0 } },
+  breakdown: [{ key: 'other', contributionDps: 0 }]
+}, {
+  aggregate: { meanDps: 0, totalExpectedDamage: 0, range: { p10: 0, p90: 0 } },
+  breakdown: [{ key: 'other', contributionDps: 0 }]
+});
+assert.equal(zeroComparison.meanDpsPercent, 0, '基準0から現在0の変化なしは割合0として扱う');
+assert.equal(zeroComparison.breakdown[0].percentChange, 0, '基準0から現在0の個別差分は割合0として扱う');
+assert.equal(testing.formatCompactComparisonDelta(0), '±0', '変化なしの比較表示は±0にする');
+assert.match(testing.createDpsDetailComparisonRows(zeroComparison)[0].value, /±0 DPS（±0）/, '詳細比較でも変化なしを±0で表示する');
+const residualZeroComparison = testing.createDpsComparison({
+  aggregate: { meanDps: 100 },
+  breakdown: [{ key: 'other', contributionDps: 0.4 }]
+}, {
+  aggregate: { meanDps: 100 },
+  breakdown: [{ key: 'other', contributionDps: 0 }]
+});
+assert.equal(residualZeroComparison.breakdown[0].differenceDps, 0, '表示上0になるその他の残差は差分0に正規化する');
+assert.equal(residualZeroComparison.breakdown[0].percentChange, 0, '表示上0になるその他の残差は-100%にしない');
 assert.equal(testing.formatSignedDamage(0), '±0', 'ゼロ差分は記号で明示する');
 assert.equal(testing.formatSignedDamage(-12), '-12', '負差分は符号で明示する');
 assert.equal(testing.formatSignedPercent(10), '+10.0%', '比率差分は符号で明示する');
