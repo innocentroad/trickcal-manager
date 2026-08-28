@@ -162,15 +162,15 @@ assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-ca
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
 assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828h'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828p'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828r'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
 assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828h'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828p'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828r'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260828o'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260828q'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {

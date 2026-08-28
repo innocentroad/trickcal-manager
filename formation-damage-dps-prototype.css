@@ -12,8 +12,10 @@
 .fdcp-bottom-bar[data-mode="dps"] #fdc-result-detail-panel,.fdcp-bottom-bar[data-mode="dps"] .bottom-results-grid { display:none !important; }
 
 /* Native float groups keep their clearance above the fixed result bar. */
-.fdcp-page .fdc-card-cost-controller,.fdcp-page .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
-.fdcp-page.fdc-result-detail-open .fdc-card-cost-controller,.fdcp-page.fdc-result-detail-open .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
+.fdcp-page .fdc-card-cost-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+.fdcp-page .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
+.fdcp-page.fdc-result-detail-open .fdc-card-cost-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+.fdcp-page.fdc-result-detail-open .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
 /* The detail control shares the bar's top edge. Keep the native calculation
    controls above that edge so the two button groups never intercept each
    other's clicks. */

@@ -23,7 +23,7 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260828p',
+      'formation-damage-dps-prototype.css?v=20260828r',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260801a',
       'public-release-config.js?v=20260828a',
@@ -45,7 +45,7 @@
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260828p',
+      'formation-damage-dps-prototype.css?v=20260828r',
       'formation-damage-dps-prototype.js?v=20260828h',
       'public-release-config.js?v=20260828a',
       'stat-engine.js?v=20260828a',
