@@ -8,7 +8,7 @@
     stat: [
       'stat-dashboard.html',
       'stat-prototype.css?v=20260813f',
-      'stat-dashboard.css?v=20260813c',
+      'stat-dashboard.css?v=20260828e',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260727b',
       'public-release-config.js?v=20260828a',

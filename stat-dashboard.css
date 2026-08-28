@@ -7491,7 +7491,7 @@ body.dashboard-page.is-booting::after {
   }
 
   .card-manager-kind-grid {
-    grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
     gap: 7px;
   }
 
@@ -7526,8 +7526,29 @@ body.dashboard-page.is-booting::after {
     font-size: 0.78rem;
   }
 
-  .resource-card-star-overlay {
-    display: none;
+  .resource-card-artifact .resource-card-star-overlay,
+  .resource-card-spell .resource-card-star-overlay {
+    left: 2px;
+    right: 2px;
+    display: flex;
+    justify-content: center;
+    transform: none;
+  }
+
+  .resource-card-star-overlay .resource-grade-picker {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 22px;
+    height: 22px;
+    padding: 2px 3px;
+  }
+
+  .resource-card-star-overlay .resource-grade-btn {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    height: 18px;
+    margin: 0;
   }
 
   .resource-solder-overlay {
@@ -7569,6 +7590,9 @@ body.dashboard-page.is-booting::after {
     font-weight: 900;
     text-align: center;
     touch-action: manipulation;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: none;
   }
 
   .resource-card-mobile-controls select:disabled {
@@ -8098,6 +8122,12 @@ body.dashboard-page.is-booting::after {
   }
 }
 
+@media (max-width: 480px) {
+  .card-manager-kind-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 360px) {
   .dashboard-layout {
     padding-inline: 4px;
@@ -8330,9 +8360,6 @@ body.dashboard-page.is-booting::after {
     font-size: 0.47rem;
   }
 
-  .resource-card-star-overlay {
-    transform: translateX(-50%) scale(0.7);
-  }
 }
 
 :root[data-theme="dark"] .dashboard-page {
