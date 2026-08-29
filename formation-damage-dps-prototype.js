@@ -136,6 +136,7 @@
       this.externalEvents = [];
       this.externalEventsInitialized = false;
       this.damageGraphModel = null;
+      this.updateExternalEventCount();
       // 対応可否の判定はDPS表示中だけに閉じない。通常表示のまま使徒を
       // 選び直しても、次にDPSを開けるかを軽量snapshotから更新する。
       this.currentTargetId = '';
@@ -246,6 +247,7 @@
           this.externalEvents = normalizeDpsExternalEvents(snapshot?.externalEvents || []);
           this.externalEventsInitialized = true;
         }
+        this.updateExternalEventCount();
         const support = this.getSupport(snapshot);
         const targetId = String(snapshot?.targetId || '').trim().toLowerCase();
         const transition = getDpsTargetChangeTransition({
@@ -475,6 +477,7 @@
     markExternalEventsChanged(events = []) {
       this.externalEvents = normalizeDpsExternalEvents(events);
       this.externalEventsInitialized = true;
+      this.updateExternalEventCount();
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
       this.refreshAvailability({ render: true });
@@ -487,6 +490,12 @@
 
     addExternalEvent(value = {}) {
       this.markExternalEventsChanged([...this.externalEvents, value]);
+    }
+
+    updateExternalEventCount() {
+      const count = this.elements.externalEventCount;
+      if (!count) return;
+      count.textContent = `${formatNumber(this.externalEvents.length)}件 / 追加後は詳細で編集`;
     }
 
     removeExternalEvent(index) {
@@ -503,13 +512,13 @@
         this.addExternalEvent({ type: 'shieldBreak' });
         return;
       }
-      const remove = event.target.closest?.('[data-fdcp-dps-external-remove]');
+      const remove = event.target.closest?.('[data-fdc-dps-external-remove]');
       if (remove) {
         const row = remove.closest?.('.fdc-dps-external-event-row');
         this.removeExternalEvent(row?.dataset?.fdcpExternalIndex);
         return;
       }
-      const add = event.target.closest?.('[data-fdcp-dps-formation-event-add]');
+      const add = event.target.closest?.('[data-fdc-dps-formation-event-add]');
       if (add) {
         const snapshot = this.latest?.snapshot || this.availability?.snapshot || {};
         const candidate = (Array.isArray(snapshot.formationEventCandidates) ? snapshot.formationEventCandidates : [])
@@ -920,7 +929,7 @@
       bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), recalcIndicator: document.getElementById('fdcp-dps-recalc-indicator'), run: document.getElementById('fdcp-dps-run'),
       drawer: document.getElementById('fdcp-dps-detail-panel'), drawerStatus: document.getElementById('fdcp-drawer-status'), detailGrid: document.getElementById('fdcp-dps-detail-grid'),
       duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), highModeQuick: document.getElementById('fdcp-high-mode-quick'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
-      settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
+      settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), externalEventCount: document.getElementById('fdcp-dps-external-event-count'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
       baselineSave: document.getElementById('fdcp-baseline-save'), baselineClear: document.getElementById('fdcp-baseline-clear'), baselineNote: document.getElementById('fdcp-baseline-note')
     };
   }
@@ -1055,6 +1064,7 @@
     });
     elements.detailGrid?.addEventListener('click', event => controller.handleDetailClick(event));
     elements.detailGrid?.addEventListener('change', event => controller.handleDetailChange(event));
+    elements.settingsPanel?.addEventListener('click', event => controller.handleDetailClick(event));
     const redrawDpsDamageGraph = () => {
       if (!elements.drawer.hidden) controller.renderDamageGraphs({ detail: true, sparkline: false });
     };
@@ -1452,8 +1462,7 @@
       <details class="fdc-dps-external-events" data-fdcp-detail-section="external">
         <summary>外部イベント（手動） <small>標準OFF</small></summary>
         <div class="fdc-dps-external-events-head">
-          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。間隔0は単発、回数0は計測終了まで繰り返します。</p>
-          <button type="button" data-fdcp-dps-external-event-add>＋ イベント追加</button>
+          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。追加はDPS計算から行い、ここで時刻・間隔を編集できます。</p>
         </div>
         <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="external-candidates">
           <summary>編成から追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>

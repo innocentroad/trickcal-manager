@@ -16,7 +16,7 @@ const appCache = fs.readFileSync(path.join(root, 'app-cache.js'), 'utf8');
   'fdcp-bottom-bar', 'fdcp-dps-detail-panel', 'fdcp-dps-run', 'fdcp-baseline-save', 'fdcp-baseline-clear',
   'fdc-result-normal', 'fdc-result-detail-panel', 'fdc-target-preview', 'fdc-formation-picker', 'fdc-self-skill',
   'fdcp-sparkline', 'fdcp-breakdown', 'fdcp-dps-settings-toggle', 'fdcp-dps-settings-panel', 'fdcp-dps-compare-toggle', 'fdcp-dps-compare-panel',
-  'fdcp-auto-run', 'fdcp-high-mode', 'fdcp-high-mode-quick', 'fdcp-duration', 'fdcp-trials', 'fdcp-seed', 'fdcp-dps-detail', 'fdcp-dps-detail-grid', 'fdcp-dps-recalc-indicator'
+  'fdcp-auto-run', 'fdcp-high-mode', 'fdcp-high-mode-quick', 'fdcp-duration', 'fdcp-trials', 'fdcp-seed', 'fdcp-dps-detail', 'fdcp-dps-detail-grid', 'fdcp-dps-recalc-indicator', 'fdcp-dps-external-control', 'fdcp-dps-external-event-count'
 ].forEach(id => assert.ok(html.includes(`id="${id}"`), `${id} is present`));
 assert.ok(html.includes('id="fdcp-provisional-badge"'), '暫定対応は下バー内の常時視認badgeを持つ');
 assert.ok(!html.includes('id="fdcp-total-value"'), 'collapsed DPSカードに平均総ダメージ表示を残さない');
@@ -51,6 +51,8 @@ assert.match(css, /fdcp-mode-tabs[^\{]*\{[^}]*top:calc\(-1\.7rem - 1px\)[^}]*lef
 assert.ok(!css.includes('var(--fdcp-mode-tabs-gutter)') && css.includes('writing-mode:horizontal-tb'), '上端付箋化後は通常/DPS双方にタブ用の横幅gutterを残さない');
 assert.ok(css.includes('.fdcp-dps-compare-slot { grid-column:2; }') && css.includes('.fdcp-dps-settings-slot { grid-column:3; }'), 'DPS比較・設定floatは保存の右側2 slotを使う');
 assert.ok(css.includes('.fdcp-dps-float-slot { position:relative;') && css.includes('.fdcp-dps-float-slot .fdcp-float-panel { right:0; }'), 'DPS popoverは各toggleのslotをanchorにする');
+assert.ok(css.includes('.fdcp-dps-external-control { display:grid;') && css.includes('.fdcp-dps-external-control button'), '外部イベント追加はDPS設定float内でコンパクトに表示する');
+assert.ok(html.indexOf('id="fdcp-dps-settings-panel"') < html.indexOf('id="fdcp-dps-external-control"') && html.indexOf('id="fdcp-dps-external-control"') < html.indexOf('id="fdcp-dps-settings-panel"') + 1200, '外部イベント追加controlをDPS計算floatへ置く');
 assert.ok(css.includes('fdc-card-cost-controller') && css.includes('+ .45rem') && css.includes('fdc-result-detail-open'), '左タブ化に伴いcoin・floatを通常の上端余白へ戻す');
 assert.ok(!css.includes('.fdcp-dps-drawer') && !css.includes('.fdcp-dps-top') && !css.includes('.fdcp-quick-high') && !css.includes('.fdcp-advanced-controls'), '削除済みDPS DOM専用CSSを残さない');
 assert.ok(!html.includes('fdcp-dps-drawer'), '旧fixed drawerをHTMLに残さない');
@@ -79,8 +81,9 @@ assert.ok(css.includes('.fdcp-dps-recalc-spinner') && css.includes('fdcp-dps-rec
   '全体期待DPSカードに再計算中の回転indicatorを持つ');
 assert.ok(script.includes('setRecalculationIndicator') && script.includes('renderRecalculationState') && script.includes('前回の計算結果を表示中'),
   '再計算中は前回結果を残した状態表示を使う');
-assert.ok(script.includes('renderDpsExternalInputContent') && script.includes('handleExternalInputChange') && script.includes('externalEvents: snapshot.externalEvents || []'),
-  '外部入力は詳細シートの動的controlsからDPS入力へ渡す');
+assert.ok(script.includes('renderDpsExternalInputContent') && script.includes('handleExternalInputChange') && script.includes('externalEvents: snapshot.externalEvents || []') && script.includes("elements.settingsPanel?.addEventListener('click'"),
+  '外部入力は詳細シートの編集とDPS設定floatの追加controlからDPS入力へ渡す');
+assert.ok(script.includes('updateExternalEventCount') && script.includes('externalEventCount'), 'DPS設定floatへ外部イベント件数を同期する');
 assert.ok(script.includes('renderDpsDamageGraphContent') && script.includes('drawDpsDamageGraph(canvas, this.damageGraphModel)'),
   'ダメージ推移グラフはDPS詳細シートへ動的canvasを描画する');
 assert.ok(script.includes('createDpsTimingDetailRows') && script.includes("title: '行動タイミング'"),
@@ -160,17 +163,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828i'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260828k'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828s'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260828t'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828i'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260828k'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828s'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260828t'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260828r'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260828t'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -302,10 +305,51 @@ const externalInput = testing.getDpsExternalInputContent(
   [{ type: 'shieldBreak', seconds: 1.5, reason: '<手動>' }],
   [{ id: 'candidate-1', label: '候補<1>', basis: '普通攻撃', effectLabels: ['<効果>'] }]
 );
-assert.match(externalInput, /<details class="fdc-dps-external-events"[\s\S]*外部イベント（手動）[\s\S]*標準OFF[\s\S]*data-fdcp-dps-external-event-add[\s\S]*data-fdc-dps-external-seconds[\s\S]*data-fdc-dps-external-remove/,
-  '外部入力は独立DPSと同じdetails・追加ボタン・編集行を持つ');
+assert.match(externalInput, /<details class="fdc-dps-external-events"[\s\S]*外部イベント（手動）[\s\S]*標準OFF[\s\S]*data-fdc-dps-external-seconds[\s\S]*data-fdc-dps-external-remove/,
+  '外部入力詳細は独立DPSと同じdetails・編集行を持つ');
+assert.ok(!externalInput.includes('data-fdcp-dps-external-event-add'), '外部イベント追加ボタンは詳細シートに重複配置しない');
 assert.match(externalInput, /data-fdcp-detail-section="external-candidates"[\s\S]*候補&lt;1&gt;[\s\S]*対象効果: &lt;効果&gt;[\s\S]*data-fdc-dps-formation-event-add="candidate-1"/,
   '編成候補から追加するdetailsと表示値をHTML escapeする');
+assert.ok(script.includes("event.target.closest?.('[data-fdc-dps-external-remove]')")
+  && !script.includes("event.target.closest?.('[data-fdcp-dps-external-remove]')"),
+  '外部イベント削除ボタンの委譲セレクタが描画属性と一致する');
+assert.ok(script.includes("event.target.closest?.('[data-fdc-dps-formation-event-add]')")
+  && !script.includes("event.target.closest?.('[data-fdcp-dps-formation-event-add]')")
+  && script.includes('add.dataset.fdcDpsFormationEventAdd'),
+  '編成候補追加ボタンの委譲セレクタとdatasetキーが描画属性と一致する');
+const detailClickController = new testing.PrototypeDpsController({}, {});
+detailClickController.latest = {
+  snapshot: {
+    formationEventCandidates: [{
+      id: 'candidate-1', type: 'damageTaken', startSeconds: 2, intervalSeconds: 1,
+      repeatCount: 2, sourceId: 'enemy-1', label: '候補イベント'
+    }]
+  }
+};
+let addedCandidate = null;
+detailClickController.addExternalEvent = value => { addedCandidate = value; };
+const candidateButton = {
+  dataset: { fdcDpsFormationEventAdd: 'candidate-1' },
+  closest(selector) {
+    return selector === '[data-fdc-dps-formation-event-add]' ? this : null;
+  }
+};
+detailClickController.handleDetailClick({ target: candidateButton });
+assert.deepEqual(JSON.parse(JSON.stringify(addedCandidate)), {
+  type: 'damageTaken', seconds: 2, intervalSeconds: 1, repeatCount: 2,
+  sourceId: 'enemy-1', reason: '候補イベント'
+}, '編成候補追加のクリック委譲はcandidate datasetから外部イベントを作成する');
+let removedIndex = null;
+detailClickController.removeExternalEvent = index => { removedIndex = index; };
+const removeButton = {
+  closest(selector) {
+    if (selector === '[data-fdc-dps-external-remove]') return this;
+    if (selector === '.fdc-dps-external-event-row') return { dataset: { fdcpExternalIndex: '0' } };
+    return null;
+  }
+};
+detailClickController.handleDetailClick({ target: removeButton });
+assert.equal(removedIndex, '0', '外部イベント削除のクリック委譲は行のindexを渡す');
 const graphResult = {
   durationFrames: 120,
   damageSeries: [

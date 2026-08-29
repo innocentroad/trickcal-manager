@@ -38,7 +38,7 @@
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
-  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260828s">
+  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260828t">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -862,6 +862,10 @@
       <section id="fdcp-dps-settings-panel" class="fdcp-float-panel" aria-label="DPS計算設定" hidden>
         <strong>比較用DPS 計算</strong>
         <small class="fdcp-dps-usage-note">同じ使徒の設定比較用です。使徒間比較には使用できません。</small>
+        <div id="fdcp-dps-external-control" class="fdcp-dps-external-control" aria-label="外部イベント追加">
+          <span><strong>外部イベント</strong><small id="fdcp-dps-external-event-count">0件 / 追加後は詳細で編集</small></span>
+          <button type="button" data-fdcp-dps-external-event-add aria-controls="fdcp-dps-detail-panel">＋追加</button>
+        </div>
         <label><input id="fdcp-auto-run" type="checkbox" checked>自動計算</label>
         <label>高学年 <select id="fdcp-high-mode"><option value="disabled" selected>なし</option><option value="auto">オート</option></select></label>
         <label>計測時間 <select id="fdcp-duration"><option value="30">30秒</option><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option><option value="180">180秒</option></select></label>
@@ -971,7 +975,7 @@
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260821o"></script>
-  <script src="app-cache.js?v=20260828r"></script>
+  <script src="app-cache.js?v=20260828t"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="combat-scenario.js?v=20260824a"></script>
   <script src="dps-trigger-policy.js?v=20260826c"></script>
@@ -979,6 +983,6 @@
   <script src="dps-simulator.js?v=20260827n"></script>
   <script src="dps-support-registry.js?v=20260827c"></script>
   <script src="formation-damage-calc.js?v=20260828b"></script>
-  <script src="formation-damage-dps-prototype.js?v=20260828i"></script>
+  <script src="formation-damage-dps-prototype.js?v=20260828k"></script>
 </body>
 </html>
