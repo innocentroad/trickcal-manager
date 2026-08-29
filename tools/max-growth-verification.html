@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>表示検証用 最大育成状態</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #151820; color: #eef1f7; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+    main { width: min(680px, calc(100% - 32px)); padding: 28px; border: 1px solid #394354; border-radius: 14px; background: #202532; box-sizing: border-box; }
+    h1 { margin: 0 0 12px; font-size: 1.35rem; }
+    p { line-height: 1.65; }
+    .warning { color: #ffd98b; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+    button, a { border: 1px solid #65728a; border-radius: 8px; padding: 10px 14px; color: inherit; background: #30394a; font: inherit; text-decoration: none; cursor: pointer; }
+    button:hover, a:hover { background: #3b4860; }
+    button:disabled, a[aria-disabled="true"] { opacity: .45; cursor: default; pointer-events: none; }
+    #status { min-height: 1.5em; color: #a9d8ff; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>表示検証用・全育成最大</h1>
+    <p>現在の生成データから作成した最大育成状態を、保存スロット6へ適用します。既存のスロット1〜5は変更しません。</p>
+    <p class="warning">現在の編集中ドラフトと、スロット6の内容は適用前に退避されます。元に戻す場合はこのページを再度開いて復元してください。</p>
+    <p id="status" role="status">fixtureを読み込み中...</p>
+    <div class="actions">
+      <button type="button" id="apply">最大育成状態を適用</button>
+      <button type="button" id="restore" disabled>適用前の状態を復元</button>
+      <a href="../stat-dashboard.html" id="dashboard" aria-disabled="true">ステータス管理を開く</a>
+      <a href="../formation-damage-calc.html" id="damage" aria-disabled="true">ダメージ計算を開く</a>
+    </div>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+
+      const FIXTURE_URL = 'fixtures/max-growth-verification-state.json';
+      const BACKUP_KEY = 'trickcal_codex_max_growth_backup_v1';
+      const SLOT_KEY = 'trickcal_stat_slots_v2';
+      const WORKSPACE_KEY = 'trickcal_stat_workspace_v2';
+      const LIVE_KEY = 'trickcal_stat_live_v2';
+      const LEGACY_KEY = 'trickcal_stat_prototype_v1';
+      const status = document.getElementById('status');
+      const applyButton = document.getElementById('apply');
+      const restoreButton = document.getElementById('restore');
+      const links = [document.getElementById('dashboard'), document.getElementById('damage')];
+      let fixture = null;
+
+      function parseStorage(key, fallback) {
+        try {
+          return JSON.parse(localStorage.getItem(key) || '') || fallback;
+        } catch {
+          return fallback;
+        }
+      }
+
+      function getBackup() {
+        try {
+          return JSON.parse(localStorage.getItem(BACKUP_KEY) || 'null');
+        } catch {
+          return null;
+        }
+      }
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.style.color = isError ? '#ff9e9e' : '#a9d8ff';
+      }
+
+      function setLinksEnabled(enabled) {
+        links.forEach(link => link.setAttribute('aria-disabled', String(!enabled)));
+      }
+
+      function saveBackup() {
+        if (getBackup()) return;
+        const backup = {
+          savedAt: new Date().toISOString(),
+          local: Object.fromEntries([SLOT_KEY, LIVE_KEY, LEGACY_KEY].map(key => [key, localStorage.getItem(key)])),
+          session: Object.fromEntries([WORKSPACE_KEY].map(key => [key, sessionStorage.getItem(key)]))
+        };
+        localStorage.setItem(BACKUP_KEY, JSON.stringify(backup));
+      }
+
+      function createNextSlotStore(snapshot) {
+        const current = parseStorage(SLOT_KEY, { schemaVersion: 2, storeRevision: 0, slots: {} });
+        const slots = current && typeof current.slots === 'object' ? { ...current.slots } : {};
+        const previousRevision = Number(slots['6']?.slotRevision) || 0;
+        slots['6'] = {
+          slotRevision: previousRevision + 1,
+          savedAt: snapshot.savedAt,
+          savedBy: 'codex-max-growth-verification',
+          snapshot
+        };
+        return {
+          schemaVersion: 2,
+          storeRevision: (Number(current.storeRevision) || 0) + 1,
+          slots
+        };
+      }
+
+      function applyFixture() {
+        if (!fixture?.snapshot) return;
+        saveBackup();
+        const snapshot = JSON.parse(JSON.stringify(fixture.snapshot));
+        snapshot.activeStateSlot = 6;
+        const previousLive = parseStorage(LIVE_KEY, {});
+        const revision = (Number(previousLive.revision) || 0) + 1;
+        const legacy = { ...snapshot, syncRevision: revision, activeStateSlot: 6 };
+        localStorage.setItem(SLOT_KEY, JSON.stringify(createNextSlotStore(snapshot)));
+        localStorage.setItem(LEGACY_KEY, JSON.stringify(legacy));
+        localStorage.setItem(LIVE_KEY, JSON.stringify({
+          schemaVersion: 2,
+          revision,
+          sourceTabInstanceId: 'codex-max-growth-verification',
+          sourceSlot: '6',
+          publishedAt: new Date().toISOString(),
+          snapshot
+        }));
+        sessionStorage.removeItem(WORKSPACE_KEY);
+        applyButton.disabled = true;
+        restoreButton.disabled = false;
+        setLinksEnabled(true);
+        setStatus('適用しました。ステータス管理またはダメージ計算を開いてください。');
+      }
+
+      function restoreBackup() {
+        const backup = getBackup();
+        if (!backup) {
+          setStatus('復元できる退避状態がありません。', true);
+          return;
+        }
+        Object.entries(backup.local || {}).forEach(([key, value]) => {
+          if (value === null || value === undefined) localStorage.removeItem(key);
+          else localStorage.setItem(key, value);
+        });
+        Object.entries(backup.session || {}).forEach(([key, value]) => {
+          if (value === null || value === undefined) sessionStorage.removeItem(key);
+          else sessionStorage.setItem(key, value);
+        });
+        localStorage.removeItem(BACKUP_KEY);
+        applyButton.disabled = false;
+        restoreButton.disabled = true;
+        setLinksEnabled(false);
+        setStatus('復元しました。必要なら元の画面を再読み込みしてください。');
+      }
+
+      applyButton.addEventListener('click', applyFixture);
+      restoreButton.addEventListener('click', restoreBackup);
+      fetch(FIXTURE_URL)
+        .then(response => {
+          if (!response.ok) throw new Error(`fixtureの読み込みに失敗しました (${response.status})`);
+          return response.json();
+        })
+        .then(payload => {
+          fixture = payload;
+          setStatus(`fixture準備完了（${Object.keys(payload.snapshot?.apostles || {}).length}使徒 / ${Object.keys(payload.snapshot?.cards || {}).length}カード）`);
+          restoreButton.disabled = !getBackup();
+        })
+        .catch(error => {
+          applyButton.disabled = true;
+          setStatus(error.message, true);
+        });
+    })();
+  </script>
+</body>
+</html>

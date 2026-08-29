@@ -38,7 +38,7 @@
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
-  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260828t">
+  <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260829e">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -859,15 +859,19 @@
       <button type="button" id="fdcp-dps-settings-toggle" class="fdc-apply-float-toggle fdcp-dps-float-toggle" aria-expanded="false" aria-controls="fdcp-dps-settings-panel" aria-label="DPS計算設定">
         <span>DPS計算</span>
       </button>
-      <section id="fdcp-dps-settings-panel" class="fdcp-float-panel" aria-label="DPS計算設定" hidden>
+      <section id="fdcp-dps-settings-panel" class="fdcp-float-panel fdcp-dps-settings-panel" aria-label="DPS計算設定" hidden>
         <strong>比較用DPS 計算</strong>
         <small class="fdcp-dps-usage-note">同じ使徒の設定比較用です。使徒間比較には使用できません。</small>
         <div id="fdcp-dps-external-control" class="fdcp-dps-external-control" aria-label="外部イベント追加">
-          <span><strong>外部イベント</strong><small id="fdcp-dps-external-event-count">0件 / 追加後は詳細で編集</small></span>
-          <button type="button" data-fdcp-dps-external-event-add aria-controls="fdcp-dps-detail-panel">＋追加</button>
+          <span><strong>外部イベント</strong><small id="fdcp-dps-external-event-count">0件 / 追加・編集</small></span>
+          <button type="button" data-fdcp-dps-external-event-add aria-controls="fdcp-dps-external-input">＋追加</button>
         </div>
+        <div id="fdcp-dps-external-input" class="fdcp-dps-external-input"></div>
+        <div id="fdcp-dps-runtime-settings" class="fdcp-dps-runtime-settings-host"></div>
         <label><input id="fdcp-auto-run" type="checkbox" checked>自動計算</label>
         <label>高学年 <select id="fdcp-high-mode"><option value="disabled" selected>なし</option><option value="auto">オート</option></select></label>
+        <label>編成行動推定 <select id="fdcp-formation-timeline-mode"><option value="off" selected>OFF</option><option value="supportEstimate" disabled>支援効果のみ</option></select></label>
+        <label>編成高学年 <select id="fdcp-formation-high-mode"><option value="disabled" selected>発動なし</option><option value="auto" disabled>オート</option></select></label>
         <label>計測時間 <select id="fdcp-duration"><option value="30">30秒</option><option value="60">60秒</option><option value="90" selected>90秒</option><option value="120">120秒</option><option value="180">180秒</option></select></label>
         <label>統計試行数 <select id="fdcp-trials"><option value="16" selected>16回（16 seed平均）</option><option value="64">64回（64 seed平均）</option><option value="256">256回（256 seed平均）</option></select></label>
         <label>初期seed <input id="fdcp-seed" type="number" value="1" min="1" step="1"></label>
@@ -975,14 +979,14 @@
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260821o"></script>
-  <script src="app-cache.js?v=20260828t"></script>
+  <script src="app-cache.js?v=20260829m"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="combat-scenario.js?v=20260824a"></script>
   <script src="dps-trigger-policy.js?v=20260826c"></script>
   <script src="dps-timing-data.js?v=20260827b"></script>
   <script src="dps-simulator.js?v=20260827n"></script>
   <script src="dps-support-registry.js?v=20260827c"></script>
-  <script src="formation-damage-calc.js?v=20260828b"></script>
-  <script src="formation-damage-dps-prototype.js?v=20260828k"></script>
+  <script src="formation-damage-calc.js?v=20260829a"></script>
+  <script src="formation-damage-dps-prototype.js?v=20260829k"></script>
 </body>
 </html>

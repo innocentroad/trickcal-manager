@@ -2,7 +2,8 @@
   'use strict';
 
   const presets = typeof ENEMY_PRESETS === 'undefined' ? {} : ENEMY_PRESETS;
-  const entries = Object.entries(presets);
+  const entries = Object.entries(presets).filter(([key, preset]) => !isHiddenPreset(key, preset));
+  const entryKeys = new Set(entries.map(([key]) => key));
   const el = {
     search: document.getElementById('enemy-status-search'),
     group: document.getElementById('enemy-status-group'),
@@ -12,7 +13,7 @@
     theme: document.getElementById('enemy-status-theme')
   };
   const params = new URLSearchParams(location.search);
-  const initialKey = presets[params.get('preset')] ? params.get('preset') : entries[0]?.[0] || '';
+  const initialKey = entryKeys.has(params.get('preset')) ? params.get('preset') : entries[0]?.[0] || '';
   const state = {
     key: initialKey,
     phase: Math.max(0, Number(params.get('phase')) || 0),
@@ -75,16 +76,13 @@
       const phase = selected ? getPhase(preset, state.phase) : null;
       const scaled = scalePreset(preset, phase);
       const metadata = getEnemyPresetMetadata(preset, key);
+      const selectionContext = [metadata.selectionContentLabel, metadata.modeLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel].filter(Boolean).join(' ');
       return `
         <button type="button" class="enemy-list-button${selected ? ' is-selected' : ''}" data-enemy-key="${escapeAttr(key)}" aria-pressed="${selected}">
           <span class="enemy-list-name">${escapeHtml(metadata.name || key)}</span>
           <span class="enemy-list-meta">
-            ${metadata.selectionContentLabel ? `<span>${escapeHtml(metadata.selectionContentLabel)}</span>` : ''}
-            ${metadata.modeLabel ? `<span>${escapeHtml(metadata.modeLabel)}</span>` : ''}
+            ${selectionContext ? `<span class="enemy-list-context">${escapeHtml(selectionContext)}</span>` : ''}
             ${metadata.personality ? `<span>${escapeHtml(metadata.personality)}</span>` : ''}
-            ${metadata.difficultyLabel ? `<span>${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
-            ${metadata.worldLabel ? `<span>${escapeHtml(metadata.worldLabel)}</span>` : ''}
-            ${metadata.stageLabel ? `<span>${escapeHtml(metadata.stageLabel)}</span>` : ''}
             ${metadata.sizeLabel ? `<span>${escapeHtml(metadata.sizeLabel)}</span>` : ''}
             <span>${formatDamageType(preset.dmgType)}</span>
             <span>HP ${formatNumber(scaled.hp)}</span>
@@ -109,32 +107,34 @@
     const ruleLabels = formatContentRules(metadata.rules);
     const weakness = formatWeakness(preset.weakness);
     const modifiers = formatModifiers(preset.modifiers);
+    const contextItems = [
+      { label: metadata.selectionContentLabel, primary: true, title: metadata.contentLabel || metadata.selectionContentLabel },
+      { label: metadata.modeLabel },
+      { label: metadata.difficultyLabel },
+      { label: metadata.worldLabel },
+      { label: metadata.stageLabel }
+    ].filter(item => item.label);
+    const attackValue = preset.dmgType === 'mag' ? scaled.atk_m : scaled.atk_p;
+    const [specialInteger, specialDecimal] = formatNumber(scaled.special).split('.');
     const stats = [
       ['HP', scaled.hp, 'hp'],
-      ['物理攻撃', scaled.atk_p, 'attack'],
-      ['魔法攻撃', scaled.atk_m, 'attack'],
+      ['攻撃', attackValue, 'attack'],
       ['物理防御', scaled.def_p, 'defense'],
       ['魔法防御', scaled.def_m, 'defense'],
       ['会心', scaled.crit, 'critical'],
       ['会心DMG', scaled.critDmg, 'critical'],
       ['会心抵抗', scaled.critRes, 'resist'],
-      ['会心DMG抵抗', scaled.critDmgRes, 'resist'],
-      ['特殊補正', scaled.special, 'neutral']
+      ['会心DMG抵抗', scaled.critDmgRes, 'resist']
     ];
     const skills = Array.isArray(preset.skills) ? preset.skills : [];
     el.detail.innerHTML = `
       <div class="detail-head">
         <div>
           <h2>${escapeHtml(metadata.name || state.key)}</h2>
+          ${contextItems.length ? `<div class="detail-context" aria-label="敵の分類">${contextItems.map(item => `<span class="detail-context-item${item.primary ? ' is-primary' : ''}"${item.title ? ` title="${escapeAttr(item.title)}"` : ''}>${escapeHtml(item.label)}</span>`).join('')}</div>` : ''}
           <div class="detail-chips">
-            ${metadata.contentLabel ? `<span class="detail-chip">${escapeHtml(metadata.contentLabel)}</span>` : ''}
-            ${metadata.modeLabel ? `<span class="detail-chip">${escapeHtml(metadata.modeLabel)}</span>` : ''}
             ${metadata.personality ? `<span class="detail-chip">${escapeHtml(metadata.personality)}</span>` : ''}
-            ${metadata.difficultyLabel ? `<span class="detail-chip">${escapeHtml(metadata.difficultyLabel)}</span>` : ''}
-            ${metadata.worldLabel ? `<span class="detail-chip">${escapeHtml(metadata.worldLabel)}</span>` : ''}
-            ${metadata.stageLabel ? `<span class="detail-chip">${escapeHtml(metadata.stageLabel)}</span>` : ''}
             ${metadata.sizeLabel ? `<span class="detail-chip">${escapeHtml(metadata.sizeLabel)}</span>` : ''}
-            ${ruleLabels.map(label => `<span class="detail-chip">${escapeHtml(label)}</span>`).join('')}
             <span class="detail-chip ${preset.dmgType === 'mag' ? 'is-magic' : 'is-physical'}">${formatDamageType(preset.dmgType)}</span>
             ${weakness.map(item => `<span class="detail-chip">${escapeHtml(item)}</span>`).join('')}
             ${phases.length ? `<span class="detail-chip">${phases.length}フェーズ</span>` : ''}
@@ -148,18 +148,28 @@
             </select>
           </label>` : ''}
       </div>
-      <div class="stat-grid">
-        ${stats.map(([label, value, tone]) => `
-          <div class="stat-card" data-tone="${tone}">
-            <div class="stat-label">${label}</div>
-            <div class="stat-value">${formatNumber(value)}</div>
-          </div>`).join('')}
+      <div class="stat-table-wrap">
+        <table class="stat-table" aria-label="敵ステータス">
+          <tbody>${stats.map(([label, value, tone]) => `
+            <tr>
+              <th scope="row" class="stat-label">${label}</th>
+              <td class="stat-value" data-tone="${tone}">${formatNumber(value)}</td>
+            </tr>`).join('')}</tbody>
+        </table>
       </div>
+      ${ruleLabels.length ? `
+        <div class="detail-rules" aria-label="ステージ設定">
+          ${ruleLabels.map(label => `<span class="detail-rule">${escapeHtml(label)}</span>`).join('')}
+        </div>` : ''}
       ${modifiers.length ? `
         <section class="detail-section">
           <h3>固有バフ/デバフ</h3>
           <div class="note-list">${modifiers.map(item => `<span class="note-item">${escapeHtml(item)}</span>`).join('')}</div>
         </section>` : ''}
+      <div class="enemy-special-modifier" aria-label="敵用補正">
+        <span class="enemy-special-modifier-label">敵用補正</span>
+        <strong class="enemy-special-modifier-value"><span class="enemy-special-modifier-integer">${escapeHtml(specialInteger)}</span>${specialDecimal ? `<span class="enemy-special-modifier-fraction">.${escapeHtml(specialDecimal)}</span>` : ''}<span class="enemy-special-modifier-unit">%</span></strong>
+      </div>
       <section class="detail-section">
         <h3>行動・スキル倍率</h3>
         ${skills.length ? `
@@ -196,6 +206,10 @@
   function getPresetGroup(key, preset) {
     const metadata = getEnemyPresetMetadata(preset, key);
     return metadata.type === 'dungeon' && metadata.mode ? `dungeon:${metadata.mode}` : metadata.type || 'other';
+  }
+
+  function isHiddenPreset(key, preset) {
+    return `${key} ${preset?.name || ''}`.toLocaleLowerCase('en-US').includes('dummy');
   }
 
   function formatContentRules(rules = {}) {

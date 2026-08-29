@@ -22,6 +22,15 @@
   // 独立DPS画面と同一の保存先を使う。通常計算のsnapshotは変更せず、
   // DPS実行用の複製だけへoverrideを反映する。
   const DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1';
+  const DPS_SETTINGS_STORAGE_KEY = 'trickcal:dps-settings:v1';
+  const DEFAULT_DPS_SETTINGS = Object.freeze({
+    durationSeconds: 90, highSkillMode: 'disabled', formationTimelineMode: 'off', formationHighSkillMode: 'disabled', seed: 1, trials: 16, autoRun: true, externalEvents: []
+  });
+  const DPS_DURATION_OPTIONS = Object.freeze([30, 60, 90, 120, 180]);
+  const DPS_TRIAL_OPTIONS = Object.freeze([16, 64, 256]);
+  const DPS_HIGH_MODE_OPTIONS = Object.freeze(['disabled', 'auto']);
+  const DPS_FORMATION_TIMELINE_OPTIONS = Object.freeze(['off', 'supportEstimate']);
+  const DPS_FORMATION_HIGH_MODE_OPTIONS = Object.freeze(['disabled', 'auto']);
 
   function loadDpsRuntimeEffectOverrides() {
     try {
@@ -33,6 +42,40 @@
   function saveDpsRuntimeEffectOverrides(overrides) {
     dpsRuntimeEffectOverrides = overrides && typeof overrides === 'object' ? overrides : {};
     try { window.localStorage?.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(dpsRuntimeEffectOverrides)); } catch (_) { /* 保存不可でもこのタブ内の設定は維持する。 */ }
+  }
+  function loadDpsSettingsStore() {
+    try {
+      const parsed = JSON.parse(window.localStorage?.getItem(DPS_SETTINGS_STORAGE_KEY) || '{}');
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) { return {}; }
+  }
+  let dpsSettingsStore = loadDpsSettingsStore();
+  function saveDpsSettingsStore(store) {
+    dpsSettingsStore = store && typeof store === 'object' && !Array.isArray(store) ? store : {};
+    try { window.localStorage?.setItem(DPS_SETTINGS_STORAGE_KEY, JSON.stringify(dpsSettingsStore)); } catch (_) { /* 保存不可でもこのタブ内の設定は維持する。 */ }
+  }
+  function chooseDpsSetting(value, fallback, choices) {
+    const candidate = String(value ?? '');
+    const fallbackValue = String(fallback ?? '');
+    return choices.includes(candidate) ? candidate : choices.includes(fallbackValue) ? fallbackValue : String(choices[0]);
+  }
+  function normalizeDpsSettings(value = {}, fallback = DEFAULT_DPS_SETTINGS) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const base = fallback && typeof fallback === 'object' ? fallback : DEFAULT_DPS_SETTINGS;
+    const duration = chooseDpsSetting(source.durationSeconds, base.durationSeconds, DPS_DURATION_OPTIONS.map(String));
+    const trials = chooseDpsSetting(source.trials, base.trials, DPS_TRIAL_OPTIONS.map(String));
+    const rawSeed = Number(source.seed);
+    const fallbackSeed = Number(base.seed);
+    return {
+      durationSeconds: Number(duration),
+      highSkillMode: chooseDpsSetting(source.highSkillMode, base.highSkillMode, DPS_HIGH_MODE_OPTIONS),
+      formationTimelineMode: chooseDpsSetting(source.formationTimelineMode, base.formationTimelineMode, DPS_FORMATION_TIMELINE_OPTIONS),
+      formationHighSkillMode: chooseDpsSetting(source.formationHighSkillMode, base.formationHighSkillMode, DPS_FORMATION_HIGH_MODE_OPTIONS),
+      seed: Math.max(1, Math.floor(Number.isFinite(rawSeed) ? rawSeed : (Number.isFinite(fallbackSeed) ? fallbackSeed : 1))),
+      trials: Number(trials),
+      autoRun: typeof source.autoRun === 'boolean' ? source.autoRun : base.autoRun !== false,
+      externalEvents: normalizeDpsExternalEvents(Array.isArray(source.externalEvents) ? source.externalEvents : base.externalEvents)
+    };
   }
   function getDpsRuntimeEffectOverride(targetId, effectId, overrides = dpsRuntimeEffectOverrides) {
     return overrides?.[String(targetId || '')]?.[String(effectId || '')] || null;
@@ -135,6 +178,17 @@
       this.timelineVisibleLimit = 160;
       this.externalEvents = [];
       this.externalEventsInitialized = false;
+      this.dpsSettingsTargetId = '';
+      this.defaultDpsSettings = normalizeDpsSettings({
+        durationSeconds: this.elements.duration?.value,
+        highSkillMode: this.elements.highMode?.value,
+        formationTimelineMode: this.elements.formationTimelineMode?.value,
+        formationHighSkillMode: this.elements.formationHighMode?.value,
+        seed: this.elements.seed?.value,
+        trials: this.elements.trials?.value,
+        autoRun: this.elements.autoRun?.checked,
+        externalEvents: []
+      });
       this.damageGraphModel = null;
       this.updateExternalEventCount();
       // 対応可否の判定はDPS表示中だけに閉じない。通常表示のまま使徒を
@@ -144,20 +198,86 @@
       this.onAvailabilityChange = null;
     }
 
+    getDpsSettings() {
+      return normalizeDpsSettings({
+        durationSeconds: this.elements.duration?.value,
+        highSkillMode: this.elements.highMode?.value,
+        formationTimelineMode: this.elements.formationTimelineMode?.value,
+        formationHighSkillMode: this.elements.formationHighMode?.value,
+        seed: this.elements.seed?.value,
+        trials: this.elements.trials?.value,
+        autoRun: this.elements.autoRun?.checked,
+        externalEvents: this.externalEvents
+      }, this.defaultDpsSettings || DEFAULT_DPS_SETTINGS);
+    }
+
+    applyDpsSettings(settings = {}) {
+      const next = normalizeDpsSettings(settings, this.defaultDpsSettings || DEFAULT_DPS_SETTINGS);
+      if (this.elements.duration) this.elements.duration.value = String(next.durationSeconds);
+      if (this.elements.highMode) this.elements.highMode.value = next.highSkillMode;
+      if (this.elements.formationTimelineMode) this.elements.formationTimelineMode.value = next.formationTimelineMode;
+      if (this.elements.formationHighMode) this.elements.formationHighMode.value = next.formationHighSkillMode;
+      if (this.elements.seed) this.elements.seed.value = String(next.seed);
+      if (this.elements.trials) this.elements.trials.value = String(next.trials);
+      if (this.elements.autoRun) this.elements.autoRun.checked = next.autoRun;
+      this.externalEvents = normalizeDpsExternalEvents(next.externalEvents);
+      this.externalEventsInitialized = true;
+      this.updateExternalEventCount();
+      return next;
+    }
+
+    restoreDpsSettingsForTarget(targetId, fallbackExternalEvents = []) {
+      const key = String(targetId || '').trim().toLowerCase();
+      if (!key) return false;
+      const saved = dpsSettingsStore[key];
+      const fallback = {
+        ...(this.defaultDpsSettings || DEFAULT_DPS_SETTINGS),
+        externalEvents: normalizeDpsExternalEvents(fallbackExternalEvents)
+      };
+      this.applyDpsSettings(saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : fallback);
+      return true;
+    }
+
+    persistDpsSettingsForTarget(targetId = this.dpsSettingsTargetId || this.currentTargetId) {
+      const key = String(targetId || '').trim().toLowerCase();
+      if (!key) return false;
+      saveDpsSettingsStore({ ...dpsSettingsStore, [key]: this.getDpsSettings() });
+      return true;
+    }
+
+    syncDpsSettingsForTarget(targetId, snapshot = {}) {
+      const key = String(targetId || '').trim().toLowerCase();
+      if (!key) {
+        if (this.dpsSettingsTargetId) this.persistDpsSettingsForTarget(this.dpsSettingsTargetId);
+        this.dpsSettingsTargetId = '';
+        return false;
+      }
+      if (this.dpsSettingsTargetId !== key) {
+        if (this.dpsSettingsTargetId) this.persistDpsSettingsForTarget(this.dpsSettingsTargetId);
+        this.restoreDpsSettingsForTarget(key, snapshot?.externalEvents || []);
+        this.dpsSettingsTargetId = key;
+        this.persistDpsSettingsForTarget(key);
+        return true;
+      }
+      this.persistDpsSettingsForTarget(key);
+      return false;
+    }
+
     getOptions() {
-      const { duration, highMode, seed, trials } = this.elements;
+      const settings = this.getDpsSettings();
       return {
-        durationSeconds: Number(duration.value) || 60,
-        highSkillMode: highMode.value || 'disabled',
+        durationSeconds: Number(settings.durationSeconds) || 60,
+        highSkillMode: settings.highSkillMode || 'disabled',
         // 初動は試験版UIから外し、比較軸をぶらさない固定値とする。
         initialActionDelayFrames: 60,
-        seed: Math.max(1, Math.floor(Number(seed.value) || 1)),
-        trials: Math.max(1, Math.floor(Number(trials.value) || 16)),
+        seed: Math.max(1, Math.floor(Number(settings.seed) || 1)),
+        trials: Math.max(1, Math.floor(Number(settings.trials) || 16)),
         // 「統計試行数」は表示用の目安ではなく、集計に使うseed数そのもの。
         // この試験UIでは収束短縮を許可せず、指定された連番seedをすべて実行する。
         exactTrials: true,
         adaptiveTrials: false,
-        formationTimelineMode: 'self-only'
+        formationTimelineMode: settings.formationTimelineMode || 'off',
+        formationHighSkillMode: settings.formationHighSkillMode || 'disabled'
       };
     }
 
@@ -174,7 +294,8 @@
         initialActionDelayFrames: Number(options.initialActionDelayFrames) || 0,
         seed: Number(options.seed) || 0,
         trials: Number(options.trials) || 0,
-        formationTimelineMode: options.formationTimelineMode || 'self-only'
+        formationTimelineMode: options.formationTimelineMode || 'off',
+        formationHighSkillMode: options.formationHighSkillMode || 'disabled'
       };
     }
 
@@ -243,13 +364,12 @@
     refreshAvailability({ render = this.dpsModeActive } = {}) {
       try {
         const snapshot = createDpsSnapshotWithRuntimeOverrides(this.adapter);
-        if (!this.externalEventsInitialized) {
-          this.externalEvents = normalizeDpsExternalEvents(snapshot?.externalEvents || []);
-          this.externalEventsInitialized = true;
-        }
-        this.updateExternalEventCount();
-        const support = this.getSupport(snapshot);
         const targetId = String(snapshot?.targetId || '').trim().toLowerCase();
+        this.syncDpsSettingsForTarget(targetId, snapshot);
+        this.updateExternalEventCount();
+        this.renderDpsExternalInput(snapshot);
+        this.renderDpsRuntimeSettings(snapshot);
+        const support = this.getSupport(snapshot);
         const transition = getDpsTargetChangeTransition({
           previousTargetId: this.currentTargetId,
           nextTargetId: targetId,
@@ -462,7 +582,8 @@
     }
 
     readExternalEventsFromDetail() {
-      const rows = Array.from(this.elements.detailGrid?.querySelectorAll?.('.fdc-dps-external-event-row') || []);
+      const input = this.elements.externalInput || this.elements.detailGrid;
+      const rows = Array.from(input?.querySelectorAll?.('.fdc-dps-external-event-row') || []);
       return normalizeDpsExternalEvents(rows.map(row => ({
         type: row.querySelector?.('[data-fdc-dps-external-type]')?.value || '',
         seconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-seconds]')?.value) || 0),
@@ -477,6 +598,7 @@
     markExternalEventsChanged(events = []) {
       this.externalEvents = normalizeDpsExternalEvents(events);
       this.externalEventsInitialized = true;
+      this.persistDpsSettingsForTarget();
       this.updateExternalEventCount();
       this.requiresRecalculation = true;
       this.lastAutoFingerprint = '';
@@ -490,12 +612,37 @@
 
     addExternalEvent(value = {}) {
       this.markExternalEventsChanged([...this.externalEvents, value]);
+      this.elements.externalInput?.querySelector?.('[data-fdcp-detail-section="external"]')?.setAttribute('open', '');
     }
 
     updateExternalEventCount() {
       const count = this.elements.externalEventCount;
       if (!count) return;
-      count.textContent = `${formatNumber(this.externalEvents.length)}件 / 追加後は詳細で編集`;
+      count.textContent = `${formatNumber(this.externalEvents.length)}件 / 追加・編集`;
+    }
+
+    renderDpsExternalInput(snapshot = null) {
+      const host = this.elements.externalInput;
+      if (!host) return;
+      const previousExternalDetails = host.querySelector?.('[data-fdcp-detail-section="external"]');
+      const previousCandidateDetails = host.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
+      const sourceSnapshot = snapshot || this.latest?.snapshot || this.availability?.snapshot || {};
+      host.innerHTML = renderDpsExternalInputContent(
+        this.externalEvents,
+        sourceSnapshot.formationEventCandidates || []
+      );
+      const externalDetails = host.querySelector?.('[data-fdcp-detail-section="external"]');
+      const candidateDetails = host.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
+      if (externalDetails) externalDetails.open = previousExternalDetails ? !!previousExternalDetails.open : this.externalEvents.length > 0;
+      if (candidateDetails) candidateDetails.open = !!previousCandidateDetails?.open;
+    }
+
+    renderDpsRuntimeSettings(snapshot = null) {
+      const host = this.elements.runtimeSettings;
+      if (!host) return;
+      const previousDetails = host.querySelector?.('[data-fdcp-detail-section="runtime-settings"]');
+      const sourceSnapshot = snapshot || this.latest?.snapshot || this.availability?.snapshot || {};
+      host.innerHTML = renderDpsRuntimeSettingsContent(sourceSnapshot.runtimeEffects || {}, !!previousDetails?.open);
     }
 
     removeExternalEvent(index) {
@@ -743,25 +890,11 @@
     }
 
     renderDpsDetail() {
+      this.renderDpsExternalInput();
       const grid = this.elements.detailGrid;
       if (!grid) return;
-      const previousExternalDetails = grid.querySelector?.('[data-fdcp-detail-section="external"]');
-      const previousCandidateDetails = grid.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
-      const disclosureState = {
-        external: !!previousExternalDetails?.open,
-        candidates: !!previousCandidateDetails?.open
-      };
       const latest = this.latest;
-      const sourceSnapshot = latest?.snapshot || this.availability?.snapshot || {};
       const commonGroups = [
-        {
-          title: '',
-          className: 'is-wide',
-          content: renderDpsExternalInputContent(
-            this.externalEvents,
-            sourceSnapshot.formationEventCandidates || []
-          )
-        },
         {
           title: '',
           className: 'is-wide',
@@ -785,7 +918,9 @@
               ['平均総ダメージ', formatDamage(aggregate.totalExpectedDamage)],
               ['ばらつき（P10～P90）', `${formatDamage(aggregate.range?.p10)}～${formatDamage(aggregate.range?.p90)}`],
               ['計測時間', `${formatNumber(options.durationSeconds)}秒`],
-              ['統計試行', `${formatNumber(trialSummary.evaluated)}回`]
+              ['統計試行', `${formatNumber(trialSummary.evaluated)}回`],
+              ['編成行動推定', getDpsFormationTimelineModeLabel(options.formationTimelineMode)],
+              ['編成高学年', getDpsFormationHighModeLabel(options.formationHighSkillMode)]
             ]
           },
           ...(timingRows.length ? [{ title: '行動タイミング', className: 'is-wide', rows: timingRows }] : []),
@@ -814,10 +949,6 @@
         }
         grid.innerHTML = renderDpsDetailGroups(groups);
       }
-      const externalDetails = grid.querySelector?.('[data-fdcp-detail-section="external"]');
-      const candidateDetails = grid.querySelector?.('[data-fdcp-detail-section="external-candidates"]');
-      if (externalDetails) externalDetails.open = disclosureState.external;
-      if (candidateDetails) candidateDetails.open = disclosureState.candidates;
       this.renderDamageGraphs({ detail: true, sparkline: false });
     }
 
@@ -928,8 +1059,8 @@
     return {
       bottomBar: document.getElementById('fdcp-bottom-bar'), primary: document.querySelector('.fdcp-dps-primary'), value: document.getElementById('fdcp-dps-value'), totalDelta: document.getElementById('fdcp-total-delta'), state: document.getElementById('fdcp-dps-state'), meta: document.getElementById('fdcp-dps-meta'), provisionalBadge: document.getElementById('fdcp-provisional-badge'), recalcIndicator: document.getElementById('fdcp-dps-recalc-indicator'), run: document.getElementById('fdcp-dps-run'),
       drawer: document.getElementById('fdcp-dps-detail-panel'), drawerStatus: document.getElementById('fdcp-drawer-status'), detailGrid: document.getElementById('fdcp-dps-detail-grid'),
-      duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), highModeQuick: document.getElementById('fdcp-high-mode-quick'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
-      settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), externalEventCount: document.getElementById('fdcp-dps-external-event-count'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
+      duration: document.getElementById('fdcp-duration'), highMode: document.getElementById('fdcp-high-mode'), formationTimelineMode: document.getElementById('fdcp-formation-timeline-mode'), formationHighMode: document.getElementById('fdcp-formation-high-mode'), highModeQuick: document.getElementById('fdcp-high-mode-quick'), seed: document.getElementById('fdcp-seed'), trials: document.getElementById('fdcp-trials'), autoRun: document.getElementById('fdcp-auto-run'), sparkline: document.getElementById('fdcp-sparkline'), sparklineMeta: document.getElementById('fdcp-sparkline-meta'),
+      settingsToggle: document.getElementById('fdcp-dps-settings-toggle'), settingsPanel: document.getElementById('fdcp-dps-settings-panel'), settingsSlot: document.getElementById('fdcp-dps-settings-slot'), externalEventCount: document.getElementById('fdcp-dps-external-event-count'), externalInput: document.getElementById('fdcp-dps-external-input'), runtimeSettings: document.getElementById('fdcp-dps-runtime-settings'), compareToggle: document.getElementById('fdcp-dps-compare-toggle'), compareToggleLabel: document.getElementById('fdcp-dps-compare-toggle-label'), comparePanel: document.getElementById('fdcp-dps-compare-panel'), compareSlot: document.getElementById('fdcp-dps-compare-slot'),
       baselineSave: document.getElementById('fdcp-baseline-save'), baselineClear: document.getElementById('fdcp-baseline-clear'), baselineNote: document.getElementById('fdcp-baseline-note')
     };
   }
@@ -971,7 +1102,15 @@
       dpsDetailToggle.setAttribute('aria-expanded', String(open));
       dpsDetailToggle.classList.toggle('is-open', open);
       document.body.classList.toggle('fdc-result-detail-open', open);
-      if (open) controller.renderDamageGraphs({ detail: true, sparkline: false });
+      if (open) {
+        controller.renderDamageGraphs({ detail: true, sparkline: false });
+        // The detail sheet may have been hidden when the first render ran.
+        // Paint once after layout so the canvas measures its final visible
+        // width instead of retaining the hidden-state fallback width.
+        window.setTimeout(() => {
+          if (!elements.drawer.hidden) controller.renderDamageGraphs({ detail: true, sparkline: false });
+        }, 0);
+      }
     };
     const syncHighModeQuickControl = () => {
       const quick = elements.highModeQuick;
@@ -1045,6 +1184,7 @@
       return true;
     };
     controller.onAvailabilityChange = availability => {
+      syncHighModeQuickControl();
       renderDpsTabAvailability(availability);
       // DPS表示中に未対応構成へ変わった時だけ通常計算へ退避する。通常表示で
       // 未対応→対応になっても自動でDPSへ戻さず、ユーザーのtab選択を待つ。
@@ -1064,7 +1204,17 @@
     });
     elements.detailGrid?.addEventListener('click', event => controller.handleDetailClick(event));
     elements.detailGrid?.addEventListener('change', event => controller.handleDetailChange(event));
-    elements.settingsPanel?.addEventListener('click', event => controller.handleDetailClick(event));
+    elements.settingsPanel?.addEventListener('click', event => {
+      const externalMutation = event.target.closest?.(
+        '[data-fdcp-dps-external-event-add], [data-fdc-dps-external-remove], [data-fdc-dps-formation-event-add]'
+      );
+      if (externalMutation) event.stopPropagation();
+      controller.handleDetailClick(event);
+      // 再描画で外側click判定の対象から外れても、外部イベントの追加・削除中は
+      // DPS設定floatを開いたままにする。
+      if (externalMutation) applyFloatState('dpsSettings');
+    });
+    elements.settingsPanel?.addEventListener('change', event => controller.handleDetailChange(event));
     const redrawDpsDamageGraph = () => {
       if (!elements.drawer.hidden) controller.renderDamageGraphs({ detail: true, sparkline: false });
     };
@@ -1109,7 +1259,7 @@
       controller.refreshAvailability();
       controller.requestAutoRun();
     };
-    [elements.highMode, elements.duration, elements.seed, elements.trials, elements.autoRun]
+    [elements.highMode, elements.formationTimelineMode, elements.formationHighMode, elements.duration, elements.seed, elements.trials, elements.autoRun]
       .forEach(input => input.addEventListener('change', refreshDpsSettings));
     const scheduleAvailabilityRefresh = ({ delay = 120 } = {}) => {
       window.clearTimeout(refreshTimer);
@@ -1138,12 +1288,14 @@
     window.addEventListener('trickcal:damage-calculator-rendered', () => {
       scheduleAvailabilityRefresh({ delay: 0 });
     });
+    window.addEventListener('pagehide', () => controller.persistDpsSettingsForTarget());
     syncHighModeQuickControl();
     setMode('single');
     controller.refreshAvailability({ render: false });
+    syncHighModeQuickControl();
   }
 
-  function axesMatch(left = {}, right = {}) { return ['targetId', 'enemy', 'durationSeconds', 'highSkillMode', 'initialActionDelayFrames', 'seed', 'trials', 'formationTimelineMode'].every(key => left[key] === right[key]); }
+  function axesMatch(left = {}, right = {}) { return ['targetId', 'enemy', 'durationSeconds', 'highSkillMode', 'initialActionDelayFrames', 'seed', 'trials', 'formationTimelineMode', 'formationHighSkillMode'].every(key => left[key] === right[key]); }
   function getBaselineComparisonDecision({ hasBaseline = false, hasLatest = false, isFresh = false, axesEqual = false, running = false } = {}) {
     if (!hasBaseline) return 'none';
     if (running) return 'running';
@@ -1261,6 +1413,12 @@
       detail: truncated ? `統計試行数 指定${requested} seed / 実行${actual} seed（短縮）` : `統計試行数 ${actual} seed`
     });
   }
+  function getDpsFormationTimelineModeLabel(mode = 'off') {
+    return mode === 'supportEstimate' ? '支援効果のみ推定' : 'OFF';
+  }
+  function getDpsFormationHighModeLabel(mode = 'disabled') {
+    return mode === 'auto' ? 'オート発動' : '発動なし';
+  }
   function createDpsComparison(baseline = {}, current = {}) {
     const beforeAggregate = baseline.aggregate || {};
     const afterAggregate = current.aggregate || {};
@@ -1309,7 +1467,8 @@
       initialActionDelayFrames: options.initialActionDelayFrames,
       seed: options.seed,
       trials: options.trials,
-      formationTimelineMode: options.formationTimelineMode
+      formationTimelineMode: options.formationTimelineMode,
+      formationHighSkillMode: options.formationHighSkillMode
     });
     return createFingerprint(`${source}\n${settings}`);
   }
@@ -1462,7 +1621,7 @@
       <details class="fdc-dps-external-events" data-fdcp-detail-section="external">
         <summary>外部イベント（手動） <small>標準OFF</small></summary>
         <div class="fdc-dps-external-events-head">
-          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。追加はDPS計算から行い、ここで時刻・間隔を編集できます。</p>
+          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。種類・時刻・間隔・回数・発動元・条件値・表示名をここで編集できます。</p>
         </div>
         <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="external-candidates">
           <summary>編成から追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>
@@ -1487,6 +1646,7 @@
         <div class="fdc-dps-damage-graph-wrap">
           <canvas id="fdcp-dps-damage-graph" data-fdcp-damage-graph aria-label="ダメージ推移グラフ"></canvas>
         </div>
+        <div class="fdc-dps-damage-graph-axis-label" data-fdcp-damage-graph-x-label>経過秒数</div>
         <div class="fdc-dps-damage-graph-legend" aria-hidden="true">
           <span><i class="is-cumulative"></i>現在</span>
           <span data-fdcp-damage-graph-baseline-legend hidden><i class="is-baseline"></i>基準</span>
@@ -1636,6 +1796,16 @@
     }).join('');
     return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理、固定は指定スタックを常時適用、OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
   }
+  function renderDpsRuntimeSettingsContent(runtimeEffects = {}, open = false) {
+    const controls = renderDpsRuntimeEffectControls(runtimeEffects)
+      .replace('<strong>時系列効果設定</strong>', '<strong>効果一覧</strong>');
+    if (!controls) return '';
+    return '<details class="fdcp-dps-runtime-settings-disclosure" data-fdcp-detail-section="runtime-settings"'
+      + (open ? ' open' : '')
+      + '><summary>時系列効果設定 <small>DPSの計算条件</small></summary>'
+      + controls
+      + '</details>';
+  }
   function renderDpsActionEffectContent(audit = {}, _profiles = {}, runtimeEffects = {}, single = {}, additionalDamageComponents = []) {
     const actionMaps = Object.fromEntries(Object.keys(ACTION_LABELS).map(key => [key, new Map((audit?.[key]?.rows || []).map(row => [getDpsAuditRowKey(row), row]))]));
     const seenComponents = new Set();
@@ -1660,7 +1830,8 @@
       ...supplementalColumns
     ];
     const effectKeys = uniqueDps(columns.flatMap(column => Array.from(column.rows.keys()))).filter(Boolean);
-    const runtimeControls = renderDpsRuntimeEffectControls(runtimeEffects);
+    // 操作欄はDPS計算フロートへ集約し、詳細側は適用状態の監査に専念させる。
+    const runtimeControls = '';
     if (!effectKeys.length) return `<details class="fdc-dps-effect-audit-panel"><summary>行動別適用効果 <span>0効果</span></summary><p>固定効果はON/OFF、時間変化する効果はDPS自動の発動実績・起点・適用対象を表示します。単発計算の仮定トグルとは独立しています。</p>${runtimeControls}<p class="fdc-dps-empty">表示できる行動別効果がありません。</p></details>`;
     const descriptors = buildDpsRuntimeEffectDescriptors(runtimeEffects, single);
     const hasResult = Array.isArray(single?.timeline);
@@ -1824,12 +1995,21 @@
   function drawDpsDamageGraph(canvas, model = null) {
     const context = canvas?.getContext?.('2d');
     if (!context) return;
+    // A previous paint may have happened while the detail sheet was hidden.
+    // Restore the responsive CSS width before measuring so that a fallback
+    // width can never become the next measurement's own constraint.
+    canvas.style.width = '100%';
     const rect = canvas.getBoundingClientRect?.() || {};
-    const width = Math.max(280, Math.floor(rect.width || canvas.parentElement?.clientWidth || 600));
+    // Use the rendered CSS width as the drawing coordinate width.  A fixed
+    // minimum here makes the backing canvas wider than the detail sheet on
+    // narrow screens, so later ticks drift past their actual grid positions.
+    const width = Math.max(1, Number(rect.width) || Number(canvas.clientWidth) || Number(canvas.parentElement?.clientWidth) || 600);
     const height = 180;
     const ratio = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = width * ratio;
-    canvas.height = height * ratio;
+    const pixelWidth = Math.max(1, Math.round(width * ratio));
+    const pixelHeight = Math.max(1, Math.round(height * ratio));
+    canvas.width = pixelWidth;
+    canvas.height = pixelHeight;
     canvas.style.height = `${height}px`;
     const panel = canvas.closest?.('.fdc-dps-damage-graph-panel');
     const note = panel?.querySelector?.('[data-fdcp-damage-graph-note]');
@@ -1838,7 +2018,7 @@
     const colors = light
       ? { text: '#526783', grid: 'rgba(74, 111, 157, .2)', cumulative: '#1768a8', fill: 'rgba(23, 104, 168, .12)', baseline: '#7b8797' }
       : { text: '#9db0ca', grid: 'rgba(142, 174, 218, .2)', cumulative: '#72b9ff', fill: 'rgba(114, 185, 255, .12)', baseline: '#aeb9c8' };
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.setTransform(pixelWidth / width, 0, 0, pixelHeight / height, 0, 0);
     context.clearRect(0, 0, width, height);
     const current = model?.current || null;
     const baseline = model?.baseline || null;
@@ -1873,9 +2053,8 @@
       context.beginPath(); context.moveTo(xx, pad.top); context.lineTo(xx, pad.top + plotHeight); context.stroke();
       context.save();
       context.translate(xx, height - 7);
-      if (xTicks.length > 8) context.rotate(-Math.PI / 6);
       context.textAlign = index === 0 ? 'left' : index === xTicks.length - 1 ? 'right' : 'center';
-      context.fillText(`${formatNumber(tick.seconds)}秒`, 0, 0);
+      context.fillText(formatNumber(tick.seconds), 0, 0);
       context.restore();
     });
     const drawSeries = (series, strokeStyle, { fillStyle = '', dashed = false } = {}) => {
@@ -1974,7 +2153,7 @@
   }
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();

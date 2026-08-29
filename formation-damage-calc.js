@@ -7080,10 +7080,14 @@
     const diffText = formatResultDiff(ratio, diff, options);
     const direction = options.invertForDefense === false ? diff : view.perspective === 'enemy' ? -diff : diff;
     const tone = direction > 0 ? 'is-positive' : direction < 0 ? 'is-negative' : 'is-neutral';
+    const beforeLabel = String(options.beforeLabel || '変更前');
+    const compactBeforeLabel = beforeLabel === '現在' ? '今' : beforeLabel === '変更前' ? '前' : beforeLabel;
+    const plannedText = formatResultMetric(planned, options);
+    const currentText = formatResultMetric(current, options);
     element.classList.add('is-compare');
     element.innerHTML = `
-      <span class="fdc-result-current">${escapeHtml(formatResultMetric(planned, options))}</span>
-      <span class="fdc-result-before">${escapeHtml(options.beforeLabel || '変更前')} ${escapeHtml(formatResultMetric(current, options))}</span>
+      <span class="fdc-result-current"><span class="fdc-result-number">${escapeHtml(plannedText)}</span></span>
+      <span class="fdc-result-before" data-compact-label="${escapeHtml(compactBeforeLabel)}" title="${escapeHtml(`${beforeLabel} ${currentText}`)}"><span class="fdc-result-before-label">${escapeHtml(beforeLabel)}</span><span class="fdc-result-number">${escapeHtml(currentText)}</span></span>
       <span class="fdc-result-diff ${tone}">${escapeHtml(diffText)}</span>
     `;
   }

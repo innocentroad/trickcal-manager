@@ -23,7 +23,7 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260828t',
+      'formation-damage-dps-prototype.css?v=20260829e',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260801a',
       'public-release-config.js?v=20260828a',
@@ -39,14 +39,14 @@
       'dps-simulator.js?v=20260827n',
       'dps-simulator-worker.js?v=20260827m',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260828b',
-      'formation-damage-dps-prototype.js?v=20260828k',
+      'formation-damage-calc.js?v=20260829a',
+      'formation-damage-dps-prototype.js?v=20260829k',
       'image-preload.js?v=20260727a'
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260828t',
-      'formation-damage-dps-prototype.js?v=20260828k',
+      'formation-damage-dps-prototype.css?v=20260829e',
+      'formation-damage-dps-prototype.js?v=20260829k',
       'public-release-config.js?v=20260828a',
       'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',
@@ -55,7 +55,7 @@
       'dps-simulator-worker.js?v=20260827m',
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-calc.js?v=20260828b'
+      'formation-damage-calc.js?v=20260829a'
     ]
   };
 
