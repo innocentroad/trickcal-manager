@@ -893,7 +893,7 @@ const ENEMY_PRESETS = {
             { action: "攻撃", name: "普通攻撃", mult: 150, note: "AoE" }
         ]
     },
-    "Isamurayon": {
+    "Isamurayon_ef_42": {
         name: "イサムレヨン",
         size: "large",
         content: { type: "eliasFrontier", stage: 8 },
