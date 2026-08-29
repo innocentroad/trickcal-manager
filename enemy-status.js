@@ -157,6 +157,7 @@
             </tr>`).join('')}</tbody>
         </table>
       </div>
+      <p class="stat-note">※会心・会心抵抗は、会心ダメージ・会心ダメージ抵抗から予測される値です。</p>
       ${ruleLabels.length ? `
         <div class="detail-rules" aria-label="ステージ設定">
           ${ruleLabels.map(label => `<span class="detail-rule">${escapeHtml(label)}</span>`).join('')}

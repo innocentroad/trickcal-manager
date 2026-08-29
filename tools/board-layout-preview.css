@@ -220,10 +220,14 @@ button, select { font: inherit; }
 .unified-board.is-vertical .unified-board-head {
   display: block;
   text-align: center;
+}
+.unified-board.is-vertical .board-grid {
+  margin-inline: auto;
 }.board-grid {
   display: grid;
   gap: 0;
   position: relative;
+  width: max-content;
 }
 .board-layer-background {
   position: absolute;
@@ -239,6 +243,23 @@ button, select { font: inherit; }
 .board-layer-b1 { border-color: rgba(48, 132, 77, .26); background: rgba(75, 165, 102, .11); }
 .board-layer-b2 { border-color: rgba(57, 105, 176, .26); background: rgba(75, 126, 198, .1); }
 .board-layer-b3 { border-color: rgba(137, 77, 181, .26); background: rgba(155, 94, 196, .1); }
+.board-layer-label {
+  position: absolute;
+  z-index: 2;
+  left: calc(var(--layer-left) * var(--cell-size) + 8px);
+  top: calc(var(--layer-top) * var(--cell-size) + 6px);
+  border-radius: 999px;
+  padding: 3px 6px;
+  color: #315741;
+  background: rgba(255, 255, 255, .72);
+  box-shadow: 0 1px 3px rgba(27, 57, 39, .12);
+  font-size: .68rem;
+  font-weight: 950;
+  line-height: 1;
+  pointer-events: none;
+}
+.board-layer-label-b2 { color: #365b91; }
+.board-layer-label-b3 { color: #68428a; }
 .board-cell {
   width: var(--cell-size);
   height: var(--cell-size);
@@ -461,6 +482,9 @@ button, select { font: inherit; }
 :root[data-theme="dark"] .board-layer-b1 { border-color: rgba(89, 190, 119, .28); background: rgba(64, 155, 92, .11); }
 :root[data-theme="dark"] .board-layer-b2 { border-color: rgba(102, 153, 228, .28); background: rgba(70, 117, 187, .11); }
 :root[data-theme="dark"] .board-layer-b3 { border-color: rgba(187, 125, 228, .28); background: rgba(144, 82, 184, .11); }
+:root[data-theme="dark"] .board-layer-label { color: #c8ebd2; background: rgba(13, 26, 35, .76); box-shadow: 0 1px 3px rgba(0, 0, 0, .24); }
+:root[data-theme="dark"] .board-layer-label-b2 { color: #c5d7ff; }
+:root[data-theme="dark"] .board-layer-label-b3 { color: #ead2ff; }
 :root[data-theme="dark"] .special-board-b1 { border-color: rgba(89, 190, 119, .24); background: rgba(64, 155, 92, .08); }
 :root[data-theme="dark"] .special-board-b2 { border-color: rgba(102, 153, 228, .24); background: rgba(70, 117, 187, .08); }
 :root[data-theme="dark"] .special-board-b3 { border-color: rgba(187, 125, 228, .24); background: rgba(144, 82, 184, .08); }

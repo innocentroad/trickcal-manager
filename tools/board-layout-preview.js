@@ -10,6 +10,9 @@
   const MIN_VIEW_SCALE = 0.6;
   const MAX_VIEW_SCALE = 1.6;
   const VIEW_SCALE_STEP = 0.1;
+  const BOARD_CROSS_SIZE = 7;
+  const BOARD_LAYER_PROGRESS_CELLS = [13, 13, 12];
+  const BOARD_TOTAL_PROGRESS_CELLS = BOARD_LAYER_PROGRESS_CELLS.reduce((sum, size) => sum + size, 0);
 
   const BOARD_TIER_VALUES = {
     hp: { 1: [50, 99], 2: [71, 141], 3: [92, 183], 4: [113, 225], 5: [134, 267] },
@@ -489,9 +492,10 @@
         y: Number(row.Y_pos) + yOffsets[layerIndex]
       };
     });
+    // 空きマスも含めて、横7列・縦38列（B1/B2はゲート込み13列、B3は12列）を常に確保する。
     const minX = Math.min(1, ...positioned.map(item => item.x));
-    const maxX = Math.max(7, ...positioned.map(item => item.x));
-    const maxY = 38;
+    const maxX = Math.max(BOARD_CROSS_SIZE, ...positioned.map(item => item.x));
+    const maxY = BOARD_TOTAL_PROGRESS_CELLS;
     const byPos = new Map(positioned.map(item => [`${item.x}:${item.y}`, item]));
     const cells = [];
     if (orientation === 'vertical') {
@@ -511,54 +515,64 @@
     }
     const columnCount = orientation === 'vertical' ? maxX - minX + 1 : maxY;
     const rowCount = orientation === 'vertical' ? maxY : maxX - minX + 1;
-    const layerBackgrounds = renderLayerBackgrounds(positioned, orientation, maxX, maxY);
+    const layerBackgrounds = renderLayerBackgrounds(positioned, orientation, minX, maxX, maxY);
     const heading = orientation === 'vertical'
       ? '<span>上から ボード3（25）・ボード2（25）・ボード1（41）</span>'
       : '<span>ボード1 <small>41マス</small></span><span>ボード2 <small>25マス</small></span><span>ボード3 <small>25マス</small></span>';
     return `
       <section class="unified-board is-${orientation}">
         <div class="unified-board-head">${heading}</div>
-        <div class="board-grid" style="grid-template-columns: repeat(${columnCount}, var(--cell-size)); grid-template-rows: repeat(${rowCount}, var(--cell-size));">
+        <div class="board-grid" style="width: max-content; grid-template-columns: repeat(${columnCount}, var(--cell-size)); grid-template-rows: repeat(${rowCount}, var(--cell-size));">
           ${layerBackgrounds}
           ${cells.join('')}
         </div>
       </section>
     `;
   }
-  function renderLayerBackgrounds(positioned, orientation, maxX, maxY) {
-    const bounds = [1, 2, 3].map(layer => {
-      const layerItems = positioned.filter(item => Number(item.row.ボード階層) === layer);
-      if (!layerItems.length) return null;
-      const xs = layerItems.map(item => item.x);
-      const ys = layerItems.map(item => item.y);
-      const minLayerX = Math.min(...xs);
-      const maxLayerX = Math.max(...xs);
-      const minLayerY = Math.min(...ys);
-      const maxLayerY = Math.max(...ys);
-      return {
-        layer,
-        crossStart: maxX - maxLayerX,
-        crossSize: maxLayerX - minLayerX + 1,
-        progressSize: maxLayerY - minLayerY + 1
-      };
+  function renderLayerBackgrounds(positioned, orientation, minX, maxX, maxY) {
+    const crossSize = maxX - minX + 1;
+    const expectedGateYs = [
+      BOARD_LAYER_PROGRESS_CELLS[0],
+      BOARD_LAYER_PROGRESS_CELLS[0] + BOARD_LAYER_PROGRESS_CELLS[1]
+    ];
+    const gateCenters = expectedGateYs.map((expectedY, index) => {
+      const layer = index + 1;
+      const gate = positioned.find(item => Number(item.row.ボード階層) === layer && item.row.マス_type === 'ゲート');
+      const gateY = Number(gate?.y);
+      const expectedCenter = orientation === 'vertical' ? maxY - expectedY + 0.5 : expectedY - 0.5;
+      if (!Number.isFinite(gateY)) return expectedCenter;
+      const actualCenter = orientation === 'vertical' ? maxY - gateY + 0.5 : gateY - 0.5;
+      return actualCenter >= 0 && actualCenter <= maxY ? actualCenter : expectedCenter;
     });
-    const visibleBounds = bounds.filter(Boolean);
-    const sharedCrossSize = Math.max(...visibleBounds.map(item => item.crossSize)) + 1;
-    const sharedProgressSize = Math.max(...visibleBounds.map(item => item.progressSize));
-    const crossMin = Math.min(...visibleBounds.map(item => item.crossStart));
-    const crossMax = Math.max(...visibleBounds.map(item => item.crossStart + item.crossSize));
-    const sharedCrossStart = crossMin - (sharedCrossSize - (crossMax - crossMin)) / 2;
-    return bounds.map(item => {
-      if (!item) return '';
-      const { layer } = item;
-      const left = orientation === 'vertical' ? sharedCrossStart : (layer - 1) * sharedProgressSize - 0.5;
-      const top = orientation === 'vertical' ? (3 - layer) * sharedProgressSize - 0.5 : sharedCrossStart;
-      const width = orientation === 'vertical' ? sharedCrossSize : sharedProgressSize;
-      const height = orientation === 'vertical' ? sharedProgressSize : sharedCrossSize;
+    const [firstGateCenter, secondGateCenter] = gateCenters;
+    const bounds = orientation === 'vertical'
+      ? [
+        { start: firstGateCenter, end: maxY },
+        { start: secondGateCenter, end: firstGateCenter },
+        { start: 0, end: secondGateCenter }
+      ]
+      : [
+        { start: 0, end: firstGateCenter },
+        { start: firstGateCenter, end: secondGateCenter },
+        { start: secondGateCenter, end: maxY }
+      ];
+    const crossPadding = 0.5;
+    const crossStart = -crossPadding;
+    const crossExtent = crossSize + crossPadding * 2;
+    return bounds.map(({ start, end }, index) => {
+      const layer = index + 1;
+      const left = orientation === 'vertical' ? crossStart : start;
+      const top = orientation === 'vertical' ? start : crossStart;
+      const width = orientation === 'vertical' ? crossExtent : end - start;
+      const height = orientation === 'vertical' ? end - start : crossExtent;
+      const label = orientation === 'vertical'
+        ? `<span class="board-layer-label board-layer-label-b${layer}" aria-hidden="true" style="--layer-left:${left};--layer-top:${top}">B${layer}</span>`
+        : '';
       return `<span class="board-layer-background board-layer-b${layer}" aria-hidden="true"
-        style="--layer-left:${left};--layer-top:${top};--layer-width:${width};--layer-height:${height}"></span>`;
+        style="--layer-left:${left};--layer-top:${top};--layer-width:${width};--layer-height:${height}"></span>${label}`;
     }).join('');
-  }  function formatSpecialSummaryEffect(row) {
+  }
+  function formatSpecialSummaryEffect(row) {
     return formatBoardEffect({
       ...row,
       効果1_type: String(row.効果1_type || '').replace(/^全体/, ''),

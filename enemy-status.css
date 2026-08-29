@@ -184,6 +184,7 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 .stat-table .stat-value[data-tone="defense"] { color: var(--defense); }
 .stat-table .stat-value[data-tone="critical"] { color: var(--critical); }
 .stat-table .stat-value[data-tone="resist"] { color: var(--resist); }
+.stat-note { margin: 6px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
 
 @media (max-width: 1100px) {
   .stat-table tbody { grid-template-columns: repeat(2, minmax(0, 1fr)); }
