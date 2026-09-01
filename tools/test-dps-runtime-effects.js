@@ -77,6 +77,8 @@ function createFixture({
   externalEvents = [],
   resources = [],
   timingEvents = null,
+  lowTimingEvents = [],
+  highTimingEvents = [],
   generatedObjects = [],
   movementTransitions = [],
   durationSeconds = 1,
@@ -137,12 +139,12 @@ function createFixture({
       lowSkill: {
         motionFrames: 2,
         motionVariants: [{ branch: '', gameFrames: 2 }],
-        timingEvents: []
+        timingEvents: lowTimingEvents
       },
       highSkill: {
         motionFrames: 2,
         motionVariants: [{ branch: '', gameFrames: 2 }],
-        timingEvents: []
+        timingEvents: highTimingEvents
       }
     }
   };
@@ -290,6 +292,79 @@ assert.equal(externalEventResult.timeline.find(event => event.type === 'external
   '外部イベントを指定フレームに投入する');
 assert.equal(externalEventResult.timeline.find(event => event.type === 'statusApplied' && event.status === '検証状態')?.frame, 12,
   'シールド破壊イベントから効果処理グループを起動する');
+const sourceLessShieldEndedResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  externalEvents: [{
+    id: 'shield-ended-without-id',
+    type: 'シールド終了時',
+    frame: 12,
+    reason: 'シールド終了（発動元IDなし）'
+  }],
+  eventEffects: [{
+    id: 'shield-ended-status',
+    label: 'シールド終了時の検証状態',
+    triggerType: 'シールド終了時',
+    triggerSourceId: 'vivi_shield_effect',
+    steps: [{
+      type: 'status',
+      order: 1,
+      application: {
+        status: 'シールド終了状態', durationFrames: 60, stackable: false, maxStacks: 1,
+        stackGroupId: 'shield-ended-status', dealsPeriodicDamage: false,
+        tickFrames: 0, tickMultiplier: 0
+      }
+    }]
+  }]
+});
+assert.equal(sourceLessShieldEndedResult.timeline.find(event => (
+  event.type === 'statusApplied' && event.status === 'シールド終了状態'
+))?.frame, 12, '発動元IDを入力しないシールド終了イベントでも連鎖効果を起動する');
+const directExternalStatusResult = createFixture({
+  durationSeconds: 2,
+  includePoison: false,
+  externalEvents: [{
+    id: 'direct-status-1',
+    type: 'statusApplied',
+    frame: 12,
+    sourceId: 'status-source',
+    status: '毒',
+    statusDurationFrames: 90,
+    reason: '外部状態を直接付与'
+  }],
+  eventEffects: [{
+    id: 'direct-status-chain',
+    label: '直接付与状態の連鎖',
+    triggerType: '状態付与時',
+    triggerSourceId: '毒',
+    conditionType: '付与者',
+    conditionValue: 'status-source',
+    steps: [{
+      type: 'status',
+      order: 1,
+      application: {
+        status: '直接付与連鎖状態', durationFrames: 60, stackable: false, maxStacks: 1,
+        stackGroupId: 'direct-status-chain', dealsPeriodicDamage: false,
+        tickFrames: 0, tickMultiplier: 0
+      }
+    }]
+  }],
+  statusDamageProfiles: { 毒: { expectedDamage: 1 } }
+});
+assert.equal(directExternalStatusResult.timeline.find(event => (
+  event.type === 'statusApplied' && event.status === '毒'
+))?.frame, 12, '外部イベントのstatus値から状態を直接付与する');
+assert.equal(directExternalStatusResult.timeline.filter(event => (
+  event.type === 'statusApplied' && event.status === '直接付与連鎖状態'
+)).length, 1, '外部から直接付与した状態を状態付与時の連鎖へ一度だけ接続する');
+assert.equal(directExternalStatusResult.timeline.find(event => (
+  event.type === 'statusTick' && event.status === '毒'
+))?.frame, 72, '外部から直接付与したDoT状態も既存の周期処理へ接続する');
+assert.equal(directExternalStatusResult.timeline.find(event => (
+  event.type === 'statusExpired' && event.status === '毒'
+))?.frame, 102, '外部から直接付与した状態の持続時間を処理する');
+assert.equal(directExternalStatusResult.finalState.activeStatuses.毒, 0,
+  '外部状態の期限後はアクティブ状態から除外する');
 const hpThresholdEventResult = createFixture({
   durationSeconds: 1,
   includePoison: false,
@@ -638,6 +713,24 @@ assert.ok(actionTimedSpeedResult.timeline.some(event => (
 )), '行動起点の攻撃速度バフで次回普通攻撃間隔を再計算する');
 assert.ok(actionTimedSpeedResult.timeline.some(event => event.type === 'attackSpeedExpired'),
   '行動起点の攻撃速度バフを個別期限で終了する');
+assert.ok(actionTimedSpeedResult.timeline.some(event => (
+  event.type === 'effectStateChanged' && event.kind === 'attackSpeed' && event.label === '高学年後の攻撃速度増加'
+)), '攻撃速度の状態遷移を共通ログへ記録する');
+assert.ok(actionTimedSpeedResult.publicTimeline.some(event => (
+  event.type === 'effectStateChanged' && event.kind === 'attackSpeed' && event.operation === 'apply'
+)), '公開タイムラインへ攻撃速度の共通状態遷移を渡す');
+assert.equal(actionTimedSpeedResult.publicTimeline.some(event => event.type === 'attackSpeedApplied'), false,
+  '公開タイムラインでは共通状態遷移と重複する攻撃速度専用行を省略する');
+
+const deduplicatedPublicTimeline = simulator.createDpsPublicTimeline([
+  { tick: 10, type: 'effectStateChanged', kind: 'debuff', effectId: 'poison', label: '毒', status: '毒', operation: 'apply' },
+  { tick: 10, type: 'statusApplied', status: '毒' },
+  { tick: 10, type: 'actionStart', actionLabel: '基本攻撃' },
+  { tick: 20, type: 'statusApplied', status: '毒' }
+]);
+assert.deepEqual(deduplicatedPublicTimeline.map(event => event.type), [
+  'effectStateChanged', 'actionStart', 'statusApplied'
+], '共通状態遷移と同一時刻の旧ログだけを公開表示から重複除去する');
 
 const refreshedSpeedResult = createFixture({
   durationSeconds: 1,
@@ -1132,6 +1225,175 @@ assert.ok(chargeProcResult.timeline.some(event => (
 assert.ok(chargeProcResult.timeline.some(event => event.type === 'statusApplied' && event.status === '気絶'),
   '追加攻撃と同時に気絶を付与する');
 
+const resourceTransitionHookResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  resources: [{ id: 'test-charge', name: '検証チャージ', initialStacks: 0, maxStacks: 3 }],
+  damageBuffEffects: [{
+    id: 'test-charge-buff',
+    label: '検証チャージ時バフ',
+    mode: 'resourceChanged',
+    triggerType: 'リソース獲得時',
+    triggerSourceId: 'test-charge',
+    durationFrames: 10,
+    modifiers: { atkP: 10 }
+  }],
+  eventEffects: [
+    {
+      id: 'test-charge-gain',
+      triggerType: '普通攻撃使用時',
+      triggerActionKeys: ['basicAttack'],
+      oncePerAction: true,
+      steps: [{ type: 'resource', order: 1, resourceId: 'test-charge', operation: 'gain', amount: 1 }]
+    },
+    {
+      id: 'test-charge-state',
+      triggerType: 'リソース獲得時',
+      triggerSourceId: 'test-charge',
+      steps: [{
+        type: 'status',
+        order: 1,
+        application: {
+          status: 'チャージ状態',
+          applicationEffectId: 'test-charge-state',
+          durationFrames: 5,
+          stackable: false,
+          maxStacks: 1,
+          stackGroupId: 'test-charge-state',
+          dealsPeriodicDamage: false,
+          tickFrames: 0,
+          tickMultiplier: 0
+        }
+      }]
+    }
+  ]
+});
+assert.equal(resourceTransitionHookResult.finalState.resources['test-charge'], 3,
+  '実際に増加したリソースだけを上限まで積む');
+assert.equal(resourceTransitionHookResult.timeline.filter(event => (
+  event.type === 'resourceChange'
+    && event.resourceId === 'test-charge'
+    && event.amount > 0
+)).length, 3, 'リソース上限到達後は変化イベントを追加発火しない');
+assert.equal(resourceTransitionHookResult.timeline.filter(event => (
+  event.type === 'statusApplied' && event.status === 'チャージ状態'
+)).length, 3, 'リソース獲得時の状態付与を実際の増加ごとに一度だけ処理する');
+assert.equal(resourceTransitionHookResult.timeline.filter(event => (
+  event.type === 'runtimeBuffApplied' && event.effectId === 'test-charge-buff'
+)).length, 3, 'リソース獲得時のダメージバフを実際の増加ごとに処理する');
+
+const statusEndHookResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  resources: [{ id: 'status-end-count', name: '状態終了回数', initialStacks: 0, maxStacks: 10 }],
+  eventEffects: [
+    {
+      id: 'short-status-apply',
+      triggerType: '普通攻撃使用時',
+      triggerActionKeys: ['basicAttack'],
+      oncePerAction: true,
+      steps: [{
+        type: 'status',
+        order: 1,
+        application: {
+          status: '短時間状態',
+          applicationEffectId: 'short-status',
+          durationFrames: 5,
+          stackable: false,
+          maxStacks: 1,
+          stackGroupId: 'short-status',
+          dealsPeriodicDamage: false,
+          tickFrames: 0,
+          tickMultiplier: 0
+        }
+      }]
+    },
+    {
+      id: 'short-status-expired',
+      triggerType: '状態終了時',
+      triggerSourceId: 'short-status',
+      steps: [{ type: 'resource', order: 1, resourceId: 'status-end-count', operation: 'gain', amount: 1 }]
+    }
+  ]
+});
+assert.deepEqual(
+  statusEndHookResult.timeline
+    .filter(event => event.type === 'resourceChange' && event.resourceId === 'status-end-count')
+    .map(event => event.frame),
+  [5, 15, 25, 35, 45, 55],
+  '状態終了時の効果を状態インスタンスごとに一度だけ発火する'
+);
+
+const skillBoundaryHookResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  spRecoveryEffects: [{ id: 'initial-full-sp-for-boundary', mode: 'initial', fixed: 300 }],
+  lowTimingEvents: [{ frame: 1, order: 1, effectKind: 'ダメージ', effectId: 'damage' }],
+  resources: [
+    { id: 'low-hit-count', name: '低学年命中回数', initialStacks: 0, maxStacks: 10 },
+    { id: 'low-end-count', name: '低学年終了回数', initialStacks: 0, maxStacks: 10 }
+  ],
+  eventEffects: [
+    {
+      id: 'low-skill-hit-hook',
+      triggerType: '低学年スキル命中時',
+      triggerActionKeys: ['lowSkill'],
+      oncePerAction: true,
+      steps: [{ type: 'resource', order: 1, resourceId: 'low-hit-count', operation: 'gain', amount: 1 }]
+    },
+    {
+      id: 'low-skill-end-hook',
+      triggerType: '低学年スキル終了時',
+      triggerActionKeys: ['lowSkill'],
+      oncePerAction: true,
+      steps: [{ type: 'resource', order: 1, resourceId: 'low-end-count', operation: 'gain', amount: 1 }]
+    }
+  ]
+});
+assert.equal(skillBoundaryHookResult.finalState.resources['low-hit-count'], 1,
+  '低学年スキル命中時の効果を一度だけ発火する');
+assert.equal(skillBoundaryHookResult.finalState.resources['low-end-count'], 1,
+  '低学年スキル終了時の効果を一度だけ発火する');
+const lowSkillEndFrame = skillBoundaryHookResult.timeline.find(event => (
+  event.type === 'actionEnd' && event.actionKey === 'lowSkill'
+))?.frame;
+assert.equal(
+  skillBoundaryHookResult.timeline.find(event => (
+    event.type === 'resourceChange' && event.resourceId === 'low-end-count'
+  ))?.frame,
+  lowSkillEndFrame,
+  '低学年終了時効果をactionEndと同じフレームで処理する'
+);
+
+const finalHitHookResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  spRecoveryEffects: [{ id: 'initial-full-sp-for-final-hit', mode: 'initial', fixed: 300 }],
+  lowTimingEvents: [
+    { frame: 1, order: 1, effectKind: 'ダメージ', effectId: 'damage' },
+    { frame: 2, order: 2, effectKind: 'ダメージ', effectId: 'damage' }
+  ],
+  resources: [{ id: 'low-final-hit-count', name: '低学年最終命中回数', initialStacks: 0, maxStacks: 10 }],
+  eventEffects: [{
+    id: 'low-final-hit-hook',
+    triggerType: '低学年スキル最終ヒット命中時',
+    triggerActionKeys: ['lowSkill'],
+    oncePerAction: true,
+    finalHitOnly: true,
+    steps: [{ type: 'resource', order: 1, resourceId: 'low-final-hit-count', operation: 'gain', amount: 1 }]
+  }]
+});
+const finalHitResourceChanges = finalHitHookResult.timeline.filter(event => (
+  event.type === 'resourceChange' && event.resourceId === 'low-final-hit-count'
+));
+const finalHitActionStart = finalHitHookResult.timeline.find(event => (
+  event.type === 'actionStart' && event.actionKey === 'lowSkill'
+));
+assert.equal(finalHitResourceChanges.length, 1,
+  '低学年最終ヒット時の効果を行動ごとに一度だけ発火する');
+assert.equal(finalHitResourceChanges[0]?.frame, finalHitActionStart?.frame + 2,
+  '低学年最終ヒット時の効果を最後のダメージイベントへ結び付ける');
+
 const generatedTriggerResult = createFixture({
   durationSeconds: 2,
   statusDamageProfiles: { '凍傷': { expectedDamage: 90 } },
@@ -1524,6 +1786,14 @@ assert.deepEqual(
     { branch: '__exclusive:Xion_favorite_1_e02', weight: 66 }
   ],
   '基本攻撃ごとに選べる弾種と確率を保持する'
+);
+assert.deepEqual(
+  xionWithFavorite.actions.basicAttack.variantLabels,
+  {
+    '__exclusive:Xion_favorite_1_e01': '物理ダメージ',
+    '__exclusive:Xion_favorite_1_e02': '強化の弾丸物理ダメージ'
+  },
+  '確率分岐の表示用ラベルは効果種別を使い、内部IDを表示層へ渡さない'
 );
 assert.deepEqual(
   Object.fromEntries(xionWithFavorite.actions.basicAttack.variantSelection.choices.map(choice => [

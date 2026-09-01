@@ -239,10 +239,31 @@
   font-size: 10px;
 }
 
+.formation-dps-prototype .fdc-dps-formation-event-candidate strong.is-trigger {
+  display: block;
+}
+
+.formation-dps-prototype .fdc-dps-formation-event-candidate strong.is-effect {
+  display: block;
+  color: #f5c45b;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
 .formation-dps-prototype .fdc-dps-formation-event-candidate span,
 .formation-dps-prototype .fdc-dps-formation-event-candidate small {
   color: #8297b5;
   font-size: 8px;
+}
+
+.formation-dps-prototype .fdc-dps-formation-event-candidate .is-event-kind {
+  color: #f59e0b;
+  font-weight: 800;
+}
+
+.formation-dps-prototype .fdc-dps-formation-event-candidate .is-periodic-kind {
+  color: #60a5fa;
+  font-weight: 750;
 }
 
 .formation-dps-prototype .fdc-dps-formation-event-candidate button {
@@ -267,11 +288,19 @@
   color: #334f72;
 }
 
+.formation-dps-prototype.theme-light .fdc-dps-formation-event-candidate strong.is-effect {
+  color: #9a6400;
+}
+
 .formation-dps-prototype .fdc-dps-external-event-row {
   display: grid;
   grid-template-columns: minmax(120px, 1.1fr) 72px 72px 62px minmax(110px, 1fr) 30px;
   align-items: end;
   gap: 5px;
+}
+
+.formation-dps-prototype .fdc-dps-external-event-row.is-event-driven {
+  border-color: rgba(245, 158, 11, 0.46);
 }
 
 .formation-dps-prototype .fdc-dps-external-event-row .is-value {
@@ -280,6 +309,12 @@
 
 .formation-dps-prototype .fdc-dps-external-event-row .is-reason {
   grid-column: 3 / span 3;
+}
+.formation-dps-prototype .fdc-dps-external-event-row .is-status {
+  grid-column: 1 / span 2;
+}
+.formation-dps-prototype .fdc-dps-external-event-row .is-status-duration {
+  grid-column: 3;
 }
 
 .formation-dps-prototype .fdc-dps-external-event-row label {
@@ -344,7 +379,9 @@
   }
 
   .formation-dps-prototype .fdc-dps-external-event-row .is-value,
-  .formation-dps-prototype .fdc-dps-external-event-row .is-reason {
+  .formation-dps-prototype .fdc-dps-external-event-row .is-reason,
+  .formation-dps-prototype .fdc-dps-external-event-row .is-status,
+  .formation-dps-prototype .fdc-dps-external-event-row .is-status-duration {
     grid-column: span 2;
   }
 }
@@ -372,7 +409,9 @@
   }
 
   .formation-dps-prototype .fdc-dps-external-event-row .is-value,
-  .formation-dps-prototype .fdc-dps-external-event-row .is-reason {
+  .formation-dps-prototype .fdc-dps-external-event-row .is-reason,
+  .formation-dps-prototype .fdc-dps-external-event-row .is-status,
+  .formation-dps-prototype .fdc-dps-external-event-row .is-status-duration {
     grid-column: 1 / -1;
   }
 }

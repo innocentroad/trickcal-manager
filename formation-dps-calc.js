@@ -41,6 +41,68 @@
     lowSkill: '低学年',
     highSkill: '高学年'
   };
+  const EXTERNAL_EVENT_TYPES = {
+    shieldBreak: 'シールド破壊',
+    hpThreshold: 'HP閾値',
+    damageTaken: '被弾',
+    statusApplied: '状態付与',
+    'シールド破壊時': 'シールド破壊',
+    'シールド終了時': 'シールド終了',
+    'HP閾値': 'HP閾値',
+    '被弾時': '被弾',
+    '味方戦闘不能時': '味方戦闘不能',
+    '自身戦闘不能時': '自身戦闘不能',
+    '低学年スキルで敵撃破時': '低学年スキルで敵撃破',
+    '高学年スキルで敵撃破時': '高学年スキルで敵撃破',
+    '普通攻撃で敵撃破時': '普通攻撃で敵撃破',
+    '強化攻撃で敵撃破時': '強化攻撃で敵撃破',
+    '敵撃破時': '敵撃破',
+    '固有状態付与時': '固有状態付与',
+    '固有状態終了時': '固有状態終了',
+    '状態付与時': '状態付与',
+    '状態終了時': '状態終了',
+    '状態発動時': '状態発動',
+    '状態最大スタック到達時': '状態最大スタック',
+    'リソース変化時': 'リソース変化',
+    'n回ごと': 'n回ごと',
+    '規定ヒット時': '規定ヒット',
+    '低学年スキル効果発生時': '低学年スキル効果発生',
+    '高学年スキル効果発生時': '高学年スキル効果発生',
+    '低学年スキル最終ヒット命中時': '低学年最終ヒット命中',
+    'スキル使用時': 'スキル使用',
+    'スキル発動時': 'スキル発動',
+    'スキル終了時': 'スキル終了',
+    '生成物生成時': '生成物生成',
+    '生成物攻撃時': '生成物攻撃',
+    '生成物命中時': '生成物命中',
+    '生成物接触時': '生成物接触',
+    '生成物到着時': '生成物到着',
+    '生成物帰還時': '生成物帰還',
+    '生成物消滅時': '生成物消滅',
+    '攻撃対象未撃破時': '攻撃対象未撃破',
+    '攻撃対象設定時': '攻撃対象設定',
+    '攻撃対象変更時': '攻撃対象変更',
+    'ダメージ命中時': 'ダメージ命中',
+    '竜巻ダメージ発生時': '竜巻ダメージ発生',
+    '効果発生時': '効果発生',
+    '効果発生後': '効果発生後',
+    '対象状態成立時': '対象状態成立',
+    '呪い状態の敵が存在': '呪い状態の敵が存在',
+    '攻撃命中時': '攻撃命中',
+    '直接攻撃命中時': '直接攻撃命中',
+    '回復時': '回復'
+  };
+  function getExternalEventTypeEntries(currentType = '') {
+    const current = String(currentType || '');
+    const currentLabel = EXTERNAL_EVENT_TYPES[current] || '';
+    const seenLabels = new Set();
+    return Object.entries(EXTERNAL_EVENT_TYPES).filter(([value, label]) => {
+      if (current && currentLabel && label === currentLabel && value !== current) return false;
+      if (seenLabels.has(label)) return false;
+      seenLabels.add(label);
+      return true;
+    });
+  }
   const DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1';
   const DEFAULT_FORMATION_TIMELINE_MODE = 'off';
   let rerunTimer = 0;
@@ -88,7 +150,22 @@
       intervalSeconds: candidate.intervalSeconds,
       repeatCount: candidate.repeatCount,
       sourceId: candidate.sourceId,
-      reason: candidate.label
+      value: candidate.value ?? candidate.conditionValue ?? candidate.triggerValue ?? '',
+      triggerSourceId: candidate.triggerSourceId || '',
+      conditionType: candidate.conditionType || '',
+      conditionValue: candidate.conditionValue ?? '',
+      status: candidate.status,
+      statusDurationFrames: candidate.statusDurationFrames,
+      reason: candidate.label,
+      candidateId: candidate.id,
+      candidateLabel: candidate.label,
+      candidateBasis: candidate.basis || '',
+      candidateEffectLabels: Array.isArray(candidate.effectLabels) ? candidate.effectLabels : [],
+      timingMode: candidate.timingMode || '',
+      eventClass: candidate.eventClass || '',
+      eventLabel: candidate.eventLabel || '',
+      repeatability: candidate.repeatability || '',
+      inputMode: candidate.inputMode || ''
     });
     scheduleReusableRun();
   });
@@ -116,19 +193,33 @@
     if (!el.externalEventList) return;
     const row = document.createElement('div');
     row.className = 'fdc-dps-external-event-row';
+    if (value.timingMode === 'event') row.classList.add('is-event-driven');
+    if (value.candidateId) {
+      row.dataset.fdcpExternalCandidateId = value.candidateId;
+      row.dataset.fdcpExternalCandidateLabel = value.candidateLabel || value.reason || '';
+      row.dataset.fdcpExternalCandidateBasis = value.candidateBasis || '';
+      row.dataset.fdcpExternalCandidateEffects = JSON.stringify(value.candidateEffectLabels || []);
+      row.dataset.fdcpExternalCandidateMeta = JSON.stringify({
+        timingMode: value.timingMode || '',
+        eventClass: value.eventClass || '',
+        eventLabel: value.eventLabel || '',
+        repeatability: value.repeatability || '',
+        inputMode: value.inputMode || '',
+        triggerSourceId: value.triggerSourceId || '',
+        conditionType: value.conditionType || '',
+        conditionValue: value.conditionValue ?? ''
+      });
+    }
     row.innerHTML = `
-      <label class="is-type"><span>種類</span><select data-fdc-dps-external-type>
-        <option value="shieldBreak">シールド破壊</option>
-        <option value="hpThreshold">HP閾値</option>
-        <option value="damageTaken">被弾</option>
-        <option value="statusApplied">状態付与</option>
-      </select></label>
+      <label class="is-type"><span>種類</span><select data-fdc-dps-external-type>${getExternalEventTypeEntries(value.type || 'shieldBreak').map(([type, label]) => `<option value="${escapeAttr(type)}">${escapeHtml(label)}</option>`).join('')}</select></label>
       <label class="is-start"><span>開始秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.seconds ?? 0)}" data-fdc-dps-external-seconds></label>
-      <label class="is-interval"><span>間隔秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.intervalSeconds ?? 0)}" data-fdc-dps-external-interval></label>
+      <label class="is-interval"><span>${value.timingMode === 'event' ? '間隔（任意）' : '間隔秒'}</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.intervalSeconds ?? 0)}" placeholder="非周期" data-fdc-dps-external-interval></label>
       <label class="is-count"><span>回数</span><input type="number" min="0" max="10000" step="1" value="${escapeAttr(value.repeatCount ?? 0)}" title="0または空欄で計測終了まで" data-fdc-dps-external-count></label>
       <label class="is-source"><span>発動元ID</span><input type="text" value="${escapeAttr(value.sourceId || '')}" placeholder="任意" data-fdc-dps-external-source></label>
       <label class="is-value"><span>条件値</span><input type="text" value="${escapeAttr(value.value ?? '')}" placeholder="任意" data-fdc-dps-external-value></label>
       <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(value.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
+      <label class="is-status"><span>直接付与状態</span><input type="text" value="${escapeAttr(value.status || '')}" placeholder="任意" data-fdc-dps-external-status></label>
+      <label class="is-status-duration"><span>状態秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.statusDurationSeconds ?? (Number(value.statusDurationFrames) > 0 ? Number(value.statusDurationFrames) / 60 : ''))}" placeholder="無期限" data-fdc-dps-external-status-duration></label>
       <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
     `;
     const typeSelect = row.querySelector('[data-fdc-dps-external-type]');
@@ -154,27 +245,47 @@
       el.formationEventCandidateList.innerHTML = '<p class="is-empty">現在の編成に、外部行動待ちの効果はありません。</p>';
       return;
     }
-    el.formationEventCandidateList.innerHTML = normalized.map(candidate => `
-      <article class="fdc-dps-formation-event-candidate">
-        <div>
-          <strong>${escapeHtml(candidate.label || candidate.type)}</strong>
-          <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
-          ${candidate.effectLabels?.length ? `<small>対象効果: ${escapeHtml(candidate.effectLabels.slice(0, 3).join('・'))}${candidate.effectLabels.length > 3 ? ` ほか${candidate.effectLabels.length - 3}件` : ''}</small>` : ''}
-        </div>
-        <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id)}">追加</button>
-      </article>
-    `).join('');
+    el.formationEventCandidateList.innerHTML = normalized.map(candidate => {
+      const effectSummary = formatFormationEventEffectSummary(candidate, 3);
+      return `
+        <article class="fdc-dps-formation-event-candidate">
+          <div>
+            <strong class="is-trigger">${escapeHtml(candidate.label || candidate.type)}</strong>
+            ${effectSummary ? `<strong class="is-effect">発動効果: ${escapeHtml(effectSummary)}</strong>` : ''}
+            ${candidate.timingMode === 'event' ? `<span class="is-event-kind">非周期 / ${({ once: '一回型', repeatable: '反復型', counted: 'カウント型' }[candidate.repeatability] || '発生秒指定')}</span>` : '<span class="is-periodic-kind">周期推定</span>'}
+            <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
+          </div>
+          <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id)}">追加</button>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function formatFormationEventEffectSummary(candidate = {}, limit = 3) {
+    const labels = Array.isArray(candidate.effectLabels)
+      ? candidate.effectLabels.map(label => String(label || '').trim()).filter(Boolean)
+      : [];
+    if (!labels.length) return '';
+    const visible = labels.slice(0, Math.max(1, limit));
+    return `${visible.join('・')}${labels.length > visible.length ? ` ほか${labels.length - visible.length}件` : ''}`;
   }
 
   function collectExternalEvents() {
     return Array.from(el.externalEventList?.querySelectorAll('.fdc-dps-external-event-row') || [])
       .map((row, index) => {
+        let candidateMeta = {};
+        try {
+          const parsed = JSON.parse(row.dataset.fdcpExternalCandidateMeta || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) candidateMeta = parsed;
+        } catch (_) { /* metadata is optional */ }
         const type = row.querySelector('[data-fdc-dps-external-type]')?.value || '';
         const seconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-seconds]')?.value) || 0);
         const intervalSeconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-interval]')?.value) || 0);
         const repeatCount = Math.max(0, Math.floor(Number(row.querySelector('[data-fdc-dps-external-count]')?.value) || 0));
         const sourceId = row.querySelector('[data-fdc-dps-external-source]')?.value?.trim() || '';
         const value = row.querySelector('[data-fdc-dps-external-value]')?.value?.trim() || '';
+        const status = row.querySelector('[data-fdc-dps-external-status]')?.value?.trim() || '';
+        const statusDurationSeconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-status-duration]')?.value) || 0);
         const reason = row.querySelector('[data-fdc-dps-external-reason]')?.value?.trim() || '';
         return {
           id: `manual:${index + 1}`,
@@ -184,12 +295,24 @@
           repeatCount,
           sourceId,
           value,
+          status,
+          statusDurationFrames: statusDurationSeconds * 60,
           reason: reason || ({
             shieldBreak: '手動シールド破壊',
             hpThreshold: '手動HP閾値',
             damageTaken: '手動被弾',
             statusApplied: '手動状態付与'
-          })[type] || '手動外部イベント'
+          })[type] || '手動外部イベント',
+          candidateId: row.dataset.fdcpExternalCandidateId || '',
+          candidateLabel: row.dataset.fdcpExternalCandidateLabel || '',
+          candidateBasis: row.dataset.fdcpExternalCandidateBasis || '',
+          candidateEffectLabels: (() => {
+            try {
+              const parsed = JSON.parse(row.dataset.fdcpExternalCandidateEffects || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (_) { return []; }
+          })(),
+          ...candidateMeta
         };
       })
       .filter(event => event.type);
@@ -512,7 +635,7 @@
       }, 0);
     };
     try {
-      singleWorker = new Worker('dps-simulator-worker.js?v=20260826l');
+      singleWorker = new Worker('dps-simulator-worker.js?v=20260901b');
       singleWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         singleWorker?.terminate();
@@ -566,7 +689,7 @@
       return;
     }
     try {
-      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260826l');
+      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260901b');
       aggregateWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         if (event.data.progress) {
@@ -1075,13 +1198,14 @@
       latestTimelineResult = result;
       timelineVisibleLimit = 160;
     }
-    const visible = result.timeline.slice(0, timelineVisibleLimit);
+    const timeline = getDpsTimelineForDisplay(result);
+    const visible = timeline.slice(0, timelineVisibleLimit);
     el.timeline.innerHTML = visible.length
       ? visible.map(renderTimelineRow).join('')
       : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>';
-    const timelineStats = result.timelineStats || {};
+    const timelineStats = result.publicTimelineStats || result.timelineStats || {};
     const omittedCount = Math.max(0, Number(timelineStats.omitted) || 0);
-    const remaining = Math.max(0, result.timeline.length - visible.length);
+    const remaining = Math.max(0, timeline.length - visible.length);
     if (remaining > 0) {
       el.timeline.insertAdjacentHTML('beforeend', `
         <div class="fdc-dps-timeline-more">
@@ -1091,7 +1215,7 @@
       `);
     }
     if (omittedCount > 0) {
-      const total = Number(timelineStats.total) || result.timeline.length + omittedCount;
+      const total = Number(timelineStats.total) || timeline.length + omittedCount;
       el.timeline.insertAdjacentHTML('beforeend', `<p class="fdc-dps-empty">記録上限により計${formatNumber(total)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`);
     }
   }
@@ -1569,7 +1693,7 @@
       if (key) activityCounts.set(key, (activityCounts.get(key) || 0) + 1);
     };
     (result?.timeline || []).forEach(event => {
-      if (['attackSpeedApplied', 'runtimeBuffApplied', 'runtimeEffectHit', 'spRecoveryEvent', 'cooldownChanged', 'statusApplied'].includes(event.type)) {
+      if (['attackSpeedApplied', 'runtimeBuffApplied', 'runtimeEffectHit', 'spRecoveryEvent', 'cooldownChanged', 'statusApplied', 'effectStateChanged'].includes(event.type)) {
         addActivity(event.runtimeEffectId || event.effectId || event.applicationEffectId);
       }
     });
@@ -1766,6 +1890,9 @@
     const cooldownChange = event.operation === 'multiply'
       ? `CT ×${formatNumber(event.multiplier)}`
       : `CT ${Number(event.afterFrames) <= Number(event.beforeFrames) ? '-' : '+'}${formatNumber(cooldownDeltaFrames / 60)}秒`;
+    const statusDuration = Number.isFinite(Number(event.durationFrames)) && Number(event.durationFrames) > 0
+      ? `${formatNumber(Number(event.durationFrames) / 60)}秒`
+      : '計測中維持';
     const map = {
       skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
       movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
@@ -1790,10 +1917,11 @@
       runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
       runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
       runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
-      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
-      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
+      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.status ? ` / ${event.status}付与` : ''}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
+      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${statusDuration}`,
       statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusReaction}${statusDamageWeakness}`,
-      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`
+      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`,
+      effectStateChanged: formatDpsEffectStateChange(event)
     };
     return `
       <div class="fdc-dps-timeline-row type-${escapeAttr(event.type)}">
@@ -1801,6 +1929,55 @@
         <span${evaluationTitle ? ` title="${escapeAttr(evaluationTitle)}"` : ''}>${escapeHtml(map[event.type] || event.type)}</span>
       </div>
     `;
+  }
+
+  function formatDpsEffectStateChange(event = {}) {
+    const kindLabel = ({
+      attackSpeed: '攻撃速度',
+      buff: '時系列効果',
+      debuff: '状態',
+      selfState: '固有状態',
+      resourceBuff: 'リソース効果',
+      resource: 'リソース'
+    })[String(event.kind || '')] || '状態';
+    const label = String(event.label || event.status || '').trim() || kindLabel;
+    const operation = ({
+      apply: '付与',
+      update: '更新',
+      remove: '置換',
+      expire: '終了',
+      reset: 'リセット',
+      gain: '増加',
+      consume: '消費'
+    })[String(event.operation || '')] || '変更';
+    const resourceValue = event.kind === 'resource' && (event.before != null || event.after != null)
+      ? ` / ${formatNumber(event.before)}→${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`
+      : '';
+    const stackValue = event.kind !== 'resource' && (event.stackCount || event.maxStacks > 1)
+      ? ` / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック`
+      : '';
+    const modifierValue = event.modifiers
+      ? formatRuntimeBuffModifiers(event.modifiers)
+      : event.kind === 'attackSpeed' && Number(event.totalHasteP)
+        ? `攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`
+        : '';
+    const duration = Number(event.durationFrames) > 0
+      ? ` / ${formatNumber(Number(event.durationFrames) / 60)}秒`
+      : Number(event.expireFrame) > Number(event.appliedFrame)
+        ? ` / 期限 ${formatNumber(Number(event.expireFrame) / 60)}秒`
+        : '';
+    const source = event.sourceActionLabel ? ` / ${event.sourceActionLabel}` : '';
+    const reason = event.reason && event.reason !== event.timingQuality ? ` / ${event.reason}` : '';
+    return `${label} ${operation}${resourceValue || stackValue}${modifierValue ? ` / ${modifierValue}` : ''}${duration}${source}${reason}`;
+  }
+
+  function getDpsTimelineForDisplay(result = {}) {
+    if (Array.isArray(result?.publicTimeline)) return result.publicTimeline;
+    const timeline = Array.isArray(result?.timeline) ? result.timeline : [];
+    const simulator = typeof window !== 'undefined' ? window.TRICKCAL_DPS_SIMULATOR : null;
+    return typeof simulator?.createDpsPublicTimeline === 'function'
+      ? simulator.createDpsPublicTimeline(timeline)
+      : timeline;
   }
 
   function formatRuntimeBuffModifiers(modifiers = {}) {

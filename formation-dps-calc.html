@@ -37,7 +37,7 @@
   <link rel="prefetch" href="stat-dashboard.js?v=20260808c" as="script">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
-  <link rel="stylesheet" href="formation-dps-calc.css?v=20260826b">
+  <link rel="stylesheet" href="formation-dps-calc.css?v=20260830c">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -131,12 +131,12 @@
       <details class="fdc-dps-external-events">
         <summary>外部イベント（手動） <small>標準OFF</small></summary>
         <div class="fdc-dps-external-events-head">
-          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。間隔0は単発、回数0は計測終了まで繰り返します。</p>
+          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。直接付与状態を指定すると、既存の状態反応・DoTへ接続します。状態秒が空欄なら計測中は維持します。</p>
           <button type="button" id="fdc-dps-external-event-add">＋ イベント追加</button>
         </div>
         <details class="fdc-dps-formation-event-candidates">
           <summary>編成から追加 <span id="fdc-dps-formation-event-candidate-note"></span></summary>
-          <p>編成使徒のCT・SP・普通攻撃間隔から発動時刻を軽量推定します。候補を追加した後に時刻・間隔を調整できます。</p>
+          <p>周期型はCT・SP・普通攻撃間隔から軽量推定し、被弾・シールド破壊・撃破・状態遷移などの非周期型は発生秒を手動指定します。</p>
           <div id="fdc-dps-formation-event-candidate-list" class="fdc-dps-formation-event-candidate-list"></div>
         </details>
         <div id="fdc-dps-external-event-list" class="fdc-dps-external-event-list"></div>
@@ -1037,13 +1037,13 @@
   <script src="cards.js?v=20260813a"></script>
   <script src="synergy.js"></script>
   <script src="enemy-presets.js?v=20260821o"></script>
-  <script src="app-cache.js?v=20260828b"></script>
+  <script src="app-cache.js?v=20260902b"></script>
   <script src="image-preload.js?v=20260727a"></script>
   <script src="dps-timing-data.js?v=20260826b"></script>
-  <script src="dps-simulator.js?v=20260826m"></script>
+  <script src="dps-simulator.js?v=20260902d"></script>
   <script src="combat-scenario.js?v=20260824a"></script>
-  <script src="dps-trigger-policy.js?v=20260826c"></script>
-  <script src="formation-damage-calc.js?v=20260828b"></script>
-  <script src="formation-dps-calc.js?v=20260826f"></script>
+  <script src="dps-trigger-policy.js?v=20260901c"></script>
+  <script src="formation-damage-calc.js?v=20260902f"></script>
+  <script src="formation-dps-calc.js?v=20260901b"></script>
 </body>
 </html>

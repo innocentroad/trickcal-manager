@@ -7,7 +7,7 @@
   const ROUTE_ASSETS = {
     stat: [
       'stat-dashboard.html',
-      'stat-prototype.css?v=20260813f',
+      'stat-prototype.css?v=20260902k',
       'stat-dashboard.css?v=20260828e',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260727b',
@@ -15,7 +15,7 @@
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260813a',
-      'stat-prototype.js?v=20260813l',
+      'stat-prototype.js?v=20260902e',
       'stat-dashboard.js?v=20260808c',
       'image-preload.js?v=20260727a'
     ],
@@ -23,7 +23,7 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260829e',
+      'formation-damage-dps-prototype.css?v=20260902b',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260801a',
       'public-release-config.js?v=20260828a',
@@ -34,28 +34,29 @@
       'synergy.js',
       'enemy-presets.js?v=20260821o',
       'combat-scenario.js?v=20260824a',
-      'dps-trigger-policy.js?v=20260826c',
+      'dps-trigger-policy.js?v=20260901c',
       'dps-timing-data.js?v=20260827b',
-      'dps-simulator.js?v=20260827n',
-      'dps-simulator-worker.js?v=20260827m',
+      'dps-simulator.js?v=20260902d',
+      'dps-simulator-worker.js?v=20260901b',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260829a',
-      'formation-damage-dps-prototype.js?v=20260829k',
+      'formation-damage-calc.js?v=20260902f',
+      'formation-damage-dps-prototype.js?v=20260902c',
       'image-preload.js?v=20260727a'
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260829e',
-      'formation-damage-dps-prototype.js?v=20260829k',
+      'formation-damage-dps-prototype.css?v=20260902b',
+      'formation-damage-dps-prototype.js?v=20260902c',
       'public-release-config.js?v=20260828a',
       'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',
       'dps-timing-data.js?v=20260827b',
-      'dps-simulator.js?v=20260827n',
-      'dps-simulator-worker.js?v=20260827m',
+      'dps-simulator.js?v=20260902d',
+      'dps-simulator-worker.js?v=20260901b',
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-calc.js?v=20260829a'
+      'dps-trigger-policy.js?v=20260901c',
+      'formation-damage-calc.js?v=20260902f'
     ]
   };
 

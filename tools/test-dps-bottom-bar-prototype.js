@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const simulator = require('../dps-simulator.js');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'formation-damage-dps-prototype.html'), 'utf8');
@@ -54,7 +55,10 @@ assert.ok(css.includes('.fdcp-dps-float-slot { position:relative;') && css.inclu
 assert.ok(css.includes('.fdcp-dps-external-control { display:grid;') && css.includes('.fdcp-dps-external-control button'), '外部イベント追加はDPS設定float内でコンパクトに表示する');
 assert.ok(html.indexOf('id="fdcp-dps-settings-panel"') < html.indexOf('id="fdcp-dps-external-control"') && html.indexOf('id="fdcp-dps-external-control"') < html.indexOf('id="fdcp-dps-settings-panel"') + 1200, '外部イベント追加controlをDPS計算floatへ置く');
 assert.ok(html.indexOf('id="fdcp-dps-external-control"') < html.indexOf('id="fdcp-dps-external-input"'), '外部イベント編集欄をDPS計算float内へ置く');
-assert.ok(css.includes('.fdcp-dps-settings-panel { width:min(34rem,calc(100vw - 1rem));') && css.includes('.fdcp-dps-settings-panel .fdc-dps-external-events'), '外部イベント移動に合わせてDPS設定modalを拡張する');
+assert.ok(css.includes('.fdcp-dps-settings-panel { grid-template-columns:repeat(2,minmax(0,1fr)); width:min(48rem,calc(100vw - 1rem));')
+  && css.includes('.fdcp-dps-settings-panel .fdc-dps-external-events')
+  && css.includes('.fdcp-dps-settings-panel .fdc-dps-external-event-compact')
+  && css.includes('.fdcp-dps-settings-panel .fdc-dps-external-advanced'), '外部イベント移動に合わせてDPS設定modalを拡張する');
 assert.ok(css.includes('.fdcp-dps-detail-panel .fdc-dps-timeline-row { display:flex; flex-direction:row;'), 'スマホ詳細でもタイムラインのフレーム・秒とイベント内容を横並びに保つ');
 assert.ok(css.includes('fdc-card-cost-controller') && css.includes('+ .45rem') && css.includes('fdc-result-detail-open'), '左タブ化に伴いcoin・floatを通常の上端余白へ戻す');
 assert.ok(!css.includes('.fdcp-dps-drawer') && !css.includes('.fdcp-dps-top') && !css.includes('.fdcp-quick-high') && !css.includes('.fdcp-advanced-controls'), '削除済みDPS DOM専用CSSを残さない');
@@ -176,17 +180,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260829k'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260902c'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260829e'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260902b'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260829k'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260902c'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
-assert.ok(html.includes('dps-simulator.js?v=20260827n') && appCache.includes('dps-simulator.js?v=20260827n'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
-assert.ok(script.includes("dps-simulator-worker.js?v=20260827m") && appCache.includes('dps-simulator-worker.js?v=20260827m'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260829e'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(html.includes('dps-simulator.js?v=20260902d') && appCache.includes('dps-simulator.js?v=20260902d'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
+assert.ok(script.includes("dps-simulator-worker.js?v=20260901b") && appCache.includes('dps-simulator-worker.js?v=20260901b'), 'Workerのcache-bustを起動側とmanifestで揃える');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260902b'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260829m'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260902b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -198,7 +202,8 @@ const context = {
         trials: workerOptions.trials,
         evaluatedTrials: workerOptions.trials,
         trialSeeds: Array.from({ length: workerOptions.trials }, (_, index) => workerOptions.seed + index)
-      })
+      }),
+      createDpsPublicTimeline: simulator.createDpsPublicTimeline
     }
   },
   location: { protocol: 'file:' }
@@ -343,8 +348,10 @@ const externalInput = testing.getDpsExternalInputContent(
 assert.match(externalInput, /<details class="fdc-dps-external-events"[\s\S]*外部イベント（手動）[\s\S]*標準OFF[\s\S]*data-fdc-dps-external-seconds[\s\S]*data-fdc-dps-external-remove/,
   '外部入力詳細はDPS設定float内でdetails・編集行を持つ');
 assert.ok(!externalInput.includes('data-fdcp-dps-external-event-add'), '外部イベント追加ボタンは詳細シートに重複配置しない');
-assert.match(externalInput, /data-fdcp-detail-section="external-candidates"[\s\S]*候補&lt;1&gt;[\s\S]*対象効果: &lt;効果&gt;[\s\S]*data-fdc-dps-formation-event-add="candidate-1"/,
+assert.match(externalInput, /data-fdcp-detail-section="external-candidates"[\s\S]*候補&lt;1&gt;[\s\S]*class="is-effect">発動効果: &lt;効果&gt;[\s\S]*data-fdc-dps-formation-event-add="candidate-1"/,
   '編成候補から追加するdetailsと表示値をHTML escapeする');
+assert.match(externalInput, /fdc-dps-external-event-compact[\s\S]*fdc-dps-external-advanced[\s\S]*詳細設定[\s\S]*data-fdc-dps-external-source/,
+  '外部イベントは時刻系のcompact行と技術項目の折りたたみ詳細へ分ける');
 assert.ok(script.includes("event.target.closest?.('[data-fdc-dps-external-remove]')")
   && !script.includes("event.target.closest?.('[data-fdcp-dps-external-remove]')"),
   '外部イベント削除ボタンの委譲セレクタが描画属性と一致する');
@@ -375,8 +382,25 @@ const candidateButton = {
 detailClickController.handleDetailClick({ target: candidateButton });
 assert.deepEqual(JSON.parse(JSON.stringify(addedCandidate)), {
   type: 'damageTaken', seconds: 2, intervalSeconds: 1, repeatCount: 2,
-  sourceId: 'enemy-1', reason: '候補イベント'
+  sourceId: 'enemy-1', value: '', triggerSourceId: '', conditionType: '', conditionValue: '',
+  reason: '候補イベント', candidateId: 'candidate-1', candidateLabel: '候補イベント',
+  candidateBasis: '', candidateEffectLabels: [], timingMode: '', eventClass: '', eventLabel: '',
+  repeatability: '', inputMode: ''
 }, '編成候補追加のクリック委譲はcandidate datasetから外部イベントを作成する');
+assert.deepEqual(JSON.parse(JSON.stringify(testing.getDpsExternalEvent({
+  type: '被弾時',
+  candidateId: 'event-candidate',
+  timingMode: 'event',
+  eventClass: 'damage-taken-count',
+  repeatability: 'counted',
+  conditionValue: 3
+}))), {
+  id: 'manual:1', type: '被弾時', frame: 0, intervalFrames: 0, repeatCount: 0,
+  sourceId: '', value: '', reason: '手動被弾', candidateId: 'event-candidate',
+  candidateLabel: '', candidateBasis: '', candidateEffectLabels: [], timingMode: 'event',
+  eventClass: 'damage-taken-count', eventLabel: '', repeatability: 'counted', inputMode: '',
+  triggerSourceId: '', conditionType: '', conditionValue: '3'
+}, '非周期候補の分類メタデータと条件値を外部イベントへ保持する');
 let removedIndex = null;
 detailClickController.removeExternalEvent = index => { removedIndex = index; };
 const removeButton = {
@@ -426,6 +450,47 @@ assert.deepEqual(JSON.parse(JSON.stringify(timingRows)), [
   ['強化攻撃のモーション硬直', '90F（1.5秒） / A: 120F（2秒）'],
   ['低学年のモーション硬直', '130F（2.17秒）']
 ], '詳細の行動タイミングは補正前後の普通攻撃間隔と各モーション硬直を表示する');
+const exclusiveTimingRows = testing.createDpsTimingDetailRows({
+  actions: {
+    basicAttack: {
+      label: '基本攻撃（基本）',
+      motionFramesByVariant: {
+        default: 138,
+        '__exclusive:Xion_favorite_1_e01': 138,
+        '__exclusive:Xion_favorite_1_e02': 138
+      },
+      variantLabels: {
+        '__exclusive:Xion_favorite_1_e01': '物理ダメージ',
+        '__exclusive:Xion_favorite_1_e02': '強化の弾丸物理ダメージ'
+      }
+    }
+  }
+});
+assert.deepEqual(JSON.parse(JSON.stringify(exclusiveTimingRows)), [
+  ['基本攻撃（基本）のモーション硬直', '138F（2.3秒）']
+], '同じ硬直の確率分岐は内部IDを出さず1件へまとめる');
+const exclusiveTimelineText = testing.formatDpsTimelineEvent({
+  type: 'hit',
+  actionLabel: '基本攻撃（基本）',
+  variant: '__exclusive:Xion_favorite_1_e02',
+  variantLabel: '強化の弾丸物理ダメージ',
+  effectId: 'Xion_favorite_1_e02',
+  effectValueKind: '強化の弾丸物理ダメージ',
+  expectedDamage: 444
+});
+assert.match(exclusiveTimelineText, /強化の弾丸物理ダメージ/);
+assert.doesNotMatch(exclusiveTimelineText, /__exclusive|Xion_favorite_1_e02/,
+  'タイムラインの確率分岐は表示用ラベルだけを使い内部IDを出さない');
+assert.match(testing.formatDpsTimelineEvent({
+  type: 'generatedEffect', actionLabel: '低学年', label: '生成物生成', timingQuality: 'provisional'
+}), /生成物生成（暫定時刻）/, '暫定発生時刻はタイムラインへ利用者向け表示を付ける');
+assert.match(testing.formatDpsTimelineEvent({
+  type: 'effectStateChanged', label: '状態', operation: 'apply', timingQuality: 'external'
+}), /状態 付与（外部指定）/, '外部指定の状態遷移はタイムラインへ利用者向け表示を付ける');
+const unknownTimelineHtml = testing.renderDpsTimelineContent({
+  timeline: [{ frame: 1, type: 'internalOnlyEvent', label: '__exclusive:Xion_favorite_1_e01' }]
+});
+assert.doesNotMatch(unknownTimelineHtml, /__exclusive|Xion_favorite_1_e01/, '未知イベントのfallback表示でも内部IDを公開しない');
 assert.match(testing.renderDpsDamageGraphContent(), /fdc-dps-damage-graph-panel[\s\S]*fdcp-dps-damage-graph[\s\S]*fdcp-damage-graph-baseline-legend/,
   '詳細グラフは独立DPSと同じcanvas・凡例構造を使う');
 assert.match(testing.renderDpsDamageGraphContent(), /fdcp-damage-graph-x-label[^>]*>経過秒数<\/div>/,
@@ -490,6 +555,22 @@ assert.match(timelineCooldownLine, /高学年[\s\S]*CT ×0\.8[\s\S]*残り8秒/,
 const timelineBuffLine = testing.formatDpsTimelineEvent({ type: 'runtimeBuffApplied', label: '時系列与ダメージ', stackCount: 2, maxStacks: 3, modifiers: { addP: 20, lowSkillAddP: 10 }, durationFrames: 120 });
 assert.match(timelineBuffLine, /時系列与ダメージ[\s\S]*2\/3スタック[\s\S]*与ダメージ量 \+20% \/ 低学年スキルダメージ量 \+10%[\s\S]*2秒/,
   'タイムラインは試験版と同じ時系列バフの補正内容を表示する');
+const timelineStateLine = testing.formatDpsTimelineEvent({
+  type: 'effectStateChanged', kind: 'attackSpeed', effectId: 'internal-haste-id', label: '攻撃速度増加',
+  operation: 'apply', stackCount: 1, maxStacks: 3, totalHasteP: 20, normalAttackIntervalFrames: 50,
+  reason: '普通攻撃命中時'
+});
+assert.match(timelineStateLine, /攻撃速度増加 付与[\s\S]*1\/3スタック[\s\S]*攻撃速度 \+20%[\s\S]*普通攻撃間隔 50F/,
+  '共通状態遷移を利用者向けの攻撃速度・スタック表示へ変換する');
+assert.equal(timelineStateLine.includes('internal-haste-id'), false,
+  '共通状態遷移の公開文面へ内部effectIdを出さない');
+const publicTimeline = testing.getDpsTimelineForDisplay({ timeline: [
+  { tick: 10, type: 'effectStateChanged', kind: 'debuff', effectId: 'poison', status: '毒', label: '毒', operation: 'apply' },
+  { tick: 10, type: 'statusApplied', status: '毒' },
+  { tick: 10, type: 'actionStart', actionLabel: '基本攻撃' }
+] });
+assert.deepEqual(publicTimeline.map(event => event.type), ['effectStateChanged', 'actionStart'],
+  '詳細タイムラインは同一状態の旧ログを重複表示しない');
 const standaloneDpsTimeline = testing.renderDpsTimelineContent({ timeline: [{ frame: 1, type: 'runtimeEffectProbability', label: '<竜巻>', probability: 75, success: true }] });
 assert.match(standaloneDpsTimeline, /<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン<\/summary>[\s\S]*fdc-dps-timeline-row type-runtimeEffectProbability/,
   'タイムラインは独立DPS画面と同じ初期openのdetails・typed row構造を使う');
@@ -667,6 +748,43 @@ assert.equal(testing.formatSignedPercent(10), '+10.0%', '比率差分は符号�
 assert.equal(testing.formatSignedPercent(null), '', '基準DPSが0の比率はゼロと誤表示しない');
 assert.equal(testing.formatCompactComparisonDelta(10), '+10.0%', '下バーの比較差分は割合を表示する');
 assert.equal(testing.formatCompactComparisonDelta(null), '基準0', '基準DPSが0なら割合なしを短く表示する');
+const comparisonAxisSnapshot = {
+  targetId: 'vivi',
+  scenario: {
+    actors: { enemy: { id: 'r41', presetKey: 'ef-spicy-2' } },
+    battleConditions: {
+      perspective: 'self',
+      enemyPresetKey: 'ef-spicy-2',
+      inputs: { atk: '19476', selfHp: '451600', def: '50682', enemyAtk: '12795' }
+    }
+  }
+};
+const comparisonAxisBaseline = testing.createDpsComparisonAxis(comparisonAxisSnapshot, {
+  durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60,
+  seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled'
+});
+const comparisonAxisSelfStatChanged = testing.createDpsComparisonAxis({
+  ...comparisonAxisSnapshot,
+  scenario: {
+    ...comparisonAxisSnapshot.scenario,
+    battleConditions: {
+      ...comparisonAxisSnapshot.scenario.battleConditions,
+      inputs: { ...comparisonAxisSnapshot.scenario.battleConditions.inputs, atk: '20000' }
+    }
+  }
+}, comparisonAxisBaseline);
+assert.equal(testing.axesMatch(comparisonAxisBaseline, comparisonAxisSelfStatChanged), true, '自キャラの攻撃力変更は比較軸不一致にしない');
+const comparisonAxisEnemyChanged = testing.createDpsComparisonAxis({
+  ...comparisonAxisSnapshot,
+  scenario: {
+    ...comparisonAxisSnapshot.scenario,
+    battleConditions: {
+      ...comparisonAxisSnapshot.scenario.battleConditions,
+      inputs: { ...comparisonAxisSnapshot.scenario.battleConditions.inputs, def: '60000' }
+    }
+  }
+}, comparisonAxisBaseline);
+assert.equal(testing.axesMatch(comparisonAxisBaseline, comparisonAxisEnemyChanged), false, '敵防御力変更は比較軸不一致として扱う');
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 2, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }), false, '初期seedが異なる結果は同じ比較軸として扱わない');
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled' }), false, '編成行動推定モードが異なる結果は同じ比較軸として扱わない');
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'auto' }), false, '編成高学年設定が異なる結果は同じ比較軸として扱わない');

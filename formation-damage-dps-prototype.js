@@ -11,13 +11,95 @@
     shieldBreak: 'シールド破壊',
     hpThreshold: 'HP閾値',
     damageTaken: '被弾',
-    statusApplied: '状態付与'
+    statusApplied: '状態付与',
+    'シールド破壊時': 'シールド破壊',
+    'シールド終了時': 'シールド終了',
+    'HP閾値': 'HP閾値',
+    '被弾時': '被弾',
+    '味方戦闘不能時': '味方戦闘不能',
+    '自身戦闘不能時': '自身戦闘不能',
+    '低学年スキルで敵撃破時': '低学年スキルで敵撃破',
+    '高学年スキルで敵撃破時': '高学年スキルで敵撃破',
+    '普通攻撃で敵撃破時': '普通攻撃で敵撃破',
+    '強化攻撃で敵撃破時': '強化攻撃で敵撃破',
+    '敵撃破時': '敵撃破',
+    '固有状態付与時': '固有状態付与',
+    '固有状態終了時': '固有状態終了',
+    '状態付与時': '状態付与',
+    '状態終了時': '状態終了',
+    '状態発動時': '状態発動',
+    '状態最大スタック到達時': '状態最大スタック',
+    'リソース変化時': 'リソース変化',
+    'n回ごと': 'n回ごと',
+    '規定ヒット時': '規定ヒット',
+    '低学年スキル効果発生時': '低学年スキル効果発生',
+    '高学年スキル効果発生時': '高学年スキル効果発生',
+    '低学年スキル最終ヒット命中時': '低学年最終ヒット命中',
+    'スキル使用時': 'スキル使用',
+    'スキル発動時': 'スキル発動',
+    'スキル終了時': 'スキル終了',
+    '生成物生成時': '生成物生成',
+    '生成物攻撃時': '生成物攻撃',
+    '生成物命中時': '生成物命中',
+    '生成物接触時': '生成物接触',
+    '生成物到着時': '生成物到着',
+    '生成物帰還時': '生成物帰還',
+    '生成物消滅時': '生成物消滅',
+    '攻撃対象未撃破時': '攻撃対象未撃破',
+    '攻撃対象設定時': '攻撃対象設定',
+    '攻撃対象変更時': '攻撃対象変更',
+    'ダメージ命中時': 'ダメージ命中',
+    '竜巻ダメージ発生時': '竜巻ダメージ発生',
+    '効果発生時': '効果発生',
+    '効果発生後': '効果発生後',
+    '対象状態成立時': '対象状態成立',
+    '呪い状態の敵が存在': '呪い状態の敵が存在',
+    '攻撃命中時': '攻撃命中',
+    '直接攻撃命中時': '直接攻撃命中',
+    '回復時': '回復'
   });
+  function getExternalEventTypeEntries(currentType = '') {
+    const current = String(currentType || '');
+    const currentLabel = EXTERNAL_EVENT_TYPES[current] || '';
+    const seenLabels = new Set();
+    return Object.entries(EXTERNAL_EVENT_TYPES).filter(([value, label]) => {
+      if (current && currentLabel && label === currentLabel && value !== current) return false;
+      if (seenLabels.has(label)) return false;
+      seenLabels.add(label);
+      return true;
+    });
+  }
   const DEFAULT_EXTERNAL_EVENT_REASONS = Object.freeze({
     shieldBreak: '手動シールド破壊',
     hpThreshold: '手動HP閾値',
     damageTaken: '手動被弾',
-    statusApplied: '手動状態付与'
+    statusApplied: '手動状態付与',
+    'シールド破壊時': '手動シールド破壊',
+    'シールド終了時': '手動シールド終了',
+    'HP閾値': '手動HP閾値',
+    '被弾時': '手動被弾',
+    '味方戦闘不能時': '手動味方戦闘不能',
+    '自身戦闘不能時': '手動自身戦闘不能',
+    '敵撃破時': '手動敵撃破',
+    '状態付与時': '手動状態付与',
+    '状態終了時': '手動状態終了',
+    'リソース変化時': '手動リソース変化',
+    'n回ごと': '手動n回ごと',
+    '低学年スキル効果発生時': '手動低学年スキル効果発生',
+    '高学年スキル効果発生時': '手動高学年スキル効果発生',
+    'スキル使用時': '手動スキル使用',
+    'スキル発動時': '手動スキル発動',
+    'スキル終了時': '手動スキル終了',
+    '竜巻ダメージ発生時': '手動竜巻ダメージ発生',
+    '効果発生時': '手動効果発生',
+    '効果発生後': '手動効果発生後',
+    '規定ヒット時': '手動規定ヒット',
+    '対象状態成立時': '手動対象状態成立',
+    '呪い状態の敵が存在': '手動呪い状態成立',
+    '攻撃対象設定時': '手動攻撃対象設定',
+    '攻撃命中時': '手動攻撃命中',
+    '直接攻撃命中時': '手動直接攻撃命中',
+    '低学年スキル最終ヒット命中時': '手動低学年最終ヒット命中'
   });
   // 独立DPS画面と同一の保存先を使う。通常計算のsnapshotは変更せず、
   // DPS実行用の複製だけへoverrideを反映する。
@@ -126,8 +208,26 @@
     const intervalFrames = Number.isFinite(Number(value?.intervalFrames))
       ? Number(value.intervalFrames)
       : Math.max(0, Number(value?.intervalSeconds) || 0) * 60;
+    const statusDurationFrames = Number.isFinite(Number(value?.statusDurationFrames))
+      ? Number(value.statusDurationFrames)
+      : Math.max(0, Number(value?.statusDurationSeconds) || 0) * 60;
     const repeatCount = Math.max(0, Math.floor(Number(value?.repeatCount) || 0));
-    return {
+    const status = String(value?.status || '').trim();
+    const candidateId = String(value?.candidateId || value?.formationCandidateId || '').trim();
+    const candidateLabel = String(value?.candidateLabel || '').trim();
+    const candidateBasis = String(value?.candidateBasis || '').trim();
+    const candidateEffectLabels = Array.isArray(value?.candidateEffectLabels)
+      ? value.candidateEffectLabels.map(label => String(label || '').trim()).filter(Boolean)
+      : [];
+    const timingMode = String(value?.timingMode || value?.candidateTimingMode || '').trim();
+    const eventClass = String(value?.eventClass || value?.candidateEventClass || '').trim();
+    const eventLabel = String(value?.eventLabel || value?.candidateEventLabel || '').trim();
+    const repeatability = String(value?.repeatability || value?.candidateRepeatability || '').trim();
+    const inputMode = String(value?.inputMode || value?.candidateInputMode || '').trim();
+    const triggerSourceId = String(value?.triggerSourceId || '').trim();
+    const conditionType = String(value?.conditionType || '').trim();
+    const conditionValue = String(value?.conditionValue ?? '').trim();
+    const normalized = {
       id: String(value?.id || `manual:${index + 1}`),
       type,
       frame: Math.max(0, frame),
@@ -137,6 +237,40 @@
       value: String(value?.value ?? '').trim(),
       reason: String(value?.reason || '').trim() || DEFAULT_EXTERNAL_EVENT_REASONS[type] || '手動外部イベント'
     };
+    if (candidateId) {
+      Object.assign(normalized, {
+        candidateId,
+        candidateLabel,
+        candidateBasis,
+        candidateEffectLabels,
+        timingMode,
+        eventClass,
+        eventLabel,
+        repeatability,
+        inputMode,
+        triggerSourceId,
+        conditionType,
+        conditionValue
+      });
+    }
+    if (status || Number(statusDurationFrames) > 0) {
+      Object.assign(normalized, {
+        status,
+        statusDurationFrames: Math.max(0, statusDurationFrames),
+        statusStackable: value?.statusStackable === true || value?.stackable === true,
+        statusMaxStacks: Math.max(1, Math.floor(Number(value?.statusMaxStacks ?? value?.maxStacks) || 1)),
+        statusStackGroupId: String(value?.statusStackGroupId || value?.stackGroupId || '').trim(),
+        statusApplicationEffectId: String(value?.statusApplicationEffectId || value?.applicationEffectId || '').trim(),
+        statusSourceId: String(value?.statusSourceId || '').trim(),
+        statusSourceSelf: value?.statusSourceSelf === true,
+        statusDealsPeriodicDamage: value?.statusDealsPeriodicDamage == null
+          ? null
+          : value.statusDealsPeriodicDamage === true,
+        statusTickFrames: Math.max(0, Number(value?.statusTickFrames) || 0),
+        statusTickMultiplier: Number(value?.statusTickMultiplier) || 0
+      });
+    }
+    return normalized;
   }
 
   function normalizeDpsExternalEvents(values = []) {
@@ -282,21 +416,7 @@
     }
 
     createAxis(snapshot, options) {
-      const scenario = snapshot?.scenario || {};
-      return {
-        targetId: String(snapshot?.targetId || ''),
-        enemy: stableStringify({
-          battleConditions: scenario.battleConditions || {},
-          enemy: scenario.actors?.enemy || {}
-        }),
-        durationSeconds: Number(options.durationSeconds) || 0,
-        highSkillMode: options.highSkillMode || 'disabled',
-        initialActionDelayFrames: Number(options.initialActionDelayFrames) || 0,
-        seed: Number(options.seed) || 0,
-        trials: Number(options.trials) || 0,
-        formationTimelineMode: options.formationTimelineMode || 'off',
-        formationHighSkillMode: options.formationHighSkillMode || 'disabled'
-      };
+      return createDpsComparisonAxis(snapshot, options);
     }
 
     getSupport(snapshot) {
@@ -584,15 +704,34 @@
     readExternalEventsFromDetail() {
       const input = this.elements.externalInput || this.elements.detailGrid;
       const rows = Array.from(input?.querySelectorAll?.('.fdc-dps-external-event-row') || []);
-      return normalizeDpsExternalEvents(rows.map(row => ({
-        type: row.querySelector?.('[data-fdc-dps-external-type]')?.value || '',
-        seconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-seconds]')?.value) || 0),
-        intervalSeconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-interval]')?.value) || 0),
-        repeatCount: Math.max(0, Math.floor(Number(row.querySelector?.('[data-fdc-dps-external-count]')?.value) || 0)),
-        sourceId: row.querySelector?.('[data-fdc-dps-external-source]')?.value || '',
-        value: row.querySelector?.('[data-fdc-dps-external-value]')?.value || '',
-        reason: row.querySelector?.('[data-fdc-dps-external-reason]')?.value || ''
-      })));
+      return normalizeDpsExternalEvents(rows.map(row => {
+        let candidateMeta = {};
+        try {
+          const parsed = JSON.parse(row.dataset?.fdcpExternalCandidateMeta || '{}');
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) candidateMeta = parsed;
+        } catch (_) { /* metadata is optional */ }
+        return {
+          type: row.querySelector?.('[data-fdc-dps-external-type]')?.value || '',
+          seconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-seconds]')?.value) || 0),
+          intervalSeconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-interval]')?.value) || 0),
+          repeatCount: Math.max(0, Math.floor(Number(row.querySelector?.('[data-fdc-dps-external-count]')?.value) || 0)),
+          sourceId: row.querySelector?.('[data-fdc-dps-external-source]')?.value || '',
+          value: row.querySelector?.('[data-fdc-dps-external-value]')?.value || '',
+          status: row.querySelector?.('[data-fdc-dps-external-status]')?.value || '',
+          statusDurationSeconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-status-duration]')?.value) || 0),
+          reason: row.querySelector?.('[data-fdc-dps-external-reason]')?.value || '',
+          candidateId: row.dataset?.fdcpExternalCandidateId || '',
+          candidateLabel: row.dataset?.fdcpExternalCandidateLabel || '',
+          candidateBasis: row.dataset?.fdcpExternalCandidateBasis || '',
+          candidateEffectLabels: (() => {
+            try {
+              const parsed = JSON.parse(row.dataset?.fdcpExternalCandidateEffects || '[]');
+              return Array.isArray(parsed) ? parsed : [];
+            } catch (_) { return []; }
+          })(),
+          ...candidateMeta
+        };
+      }));
     }
 
     markExternalEventsChanged(events = []) {
@@ -677,7 +816,22 @@
           intervalSeconds: candidate.intervalSeconds,
           repeatCount: candidate.repeatCount,
           sourceId: candidate.sourceId,
-          reason: candidate.label
+          value: candidate.value ?? candidate.conditionValue ?? candidate.triggerValue ?? '',
+          triggerSourceId: candidate.triggerSourceId || '',
+          conditionType: candidate.conditionType || '',
+          conditionValue: candidate.conditionValue ?? '',
+          status: candidate.status,
+          statusDurationFrames: candidate.statusDurationFrames,
+          reason: candidate.label,
+          candidateId: candidate.id,
+          candidateLabel: candidate.label,
+          candidateBasis: candidate.basis || '',
+          candidateEffectLabels: Array.isArray(candidate.effectLabels) ? candidate.effectLabels : [],
+          timingMode: candidate.timingMode || '',
+          eventClass: candidate.eventClass || '',
+          eventLabel: candidate.eventLabel || '',
+          repeatability: candidate.repeatability || '',
+          inputMode: candidate.inputMode || ''
         });
       }
     }
@@ -687,7 +841,7 @@
         this.handleRuntimeEffectSettingChange(event);
         return;
       }
-      if (event.target.closest?.('[data-fdc-dps-external-type], [data-fdc-dps-external-seconds], [data-fdc-dps-external-interval], [data-fdc-dps-external-count], [data-fdc-dps-external-source], [data-fdc-dps-external-value], [data-fdc-dps-external-reason]')) {
+      if (event.target.closest?.('[data-fdc-dps-external-type], [data-fdc-dps-external-seconds], [data-fdc-dps-external-interval], [data-fdc-dps-external-count], [data-fdc-dps-external-source], [data-fdc-dps-external-value], [data-fdc-dps-external-reason], [data-fdc-dps-external-status], [data-fdc-dps-external-status-duration]')) {
         this.handleExternalInputChange();
       }
     }
@@ -709,6 +863,13 @@
 
     run() {
       if (!this.dpsModeActive || this.running) return;
+      // ボタン操作で直前の入力欄からchangeが届かない環境でも、計算開始時点の
+      // 外部イベント設定を取り込む。状態欄を含むDOM入力を古いstateで上書きしない。
+      const detailEvents = this.readExternalEventsFromDetail();
+      if (detailEvents.length || this.externalEventsInitialized) {
+        this.externalEvents = detailEvents;
+        this.externalEventsInitialized = true;
+      }
       const available = this.refreshAvailability({ render: true });
       if (!this.dpsModeActive || !available?.support?.supported) return;
       const simulator = window.TRICKCAL_DPS_SIMULATOR;
@@ -1295,6 +1456,38 @@
     syncHighModeQuickControl();
   }
 
+  function isDpsEnemyInputKey(key) {
+    const value = String(key || '');
+    return value.startsWith('enemy') || ['def', 'critRes', 'critDmgRes'].includes(value);
+  }
+  function createDpsComparisonAxis(snapshot = {}, options = {}) {
+    const scenario = snapshot?.scenario || {};
+    const battleConditions = scenario.battleConditions || {};
+    const { inputs = {}, ...conditionAxis } = battleConditions;
+    // battleConditions.inputs contains both sides' raw calculator fields. A
+    // self-stat change is exactly what DPS comparison is meant to show, so it
+    // must not turn into an enemy/axis mismatch. Keep the enemy fields here;
+    // otherwise manually entered enemy defense/resistance changes would be
+    // incorrectly accepted as the same comparison condition.
+    const enemyInputs = Object.fromEntries(
+      Object.entries(inputs || {}).filter(([key]) => isDpsEnemyInputKey(key))
+    );
+    return {
+      targetId: String(snapshot?.targetId || ''),
+      enemy: stableStringify({
+        battleConditions: conditionAxis,
+        enemy: scenario.actors?.enemy || {},
+        inputs: enemyInputs
+      }),
+      durationSeconds: Number(options.durationSeconds) || 0,
+      highSkillMode: options.highSkillMode || 'disabled',
+      initialActionDelayFrames: Number(options.initialActionDelayFrames) || 0,
+      seed: Number(options.seed) || 0,
+      trials: Number(options.trials) || 0,
+      formationTimelineMode: options.formationTimelineMode || 'off',
+      formationHighSkillMode: options.formationHighSkillMode || 'disabled'
+    };
+  }
   function axesMatch(left = {}, right = {}) { return ['targetId', 'enemy', 'durationSeconds', 'highSkillMode', 'initialActionDelayFrames', 'seed', 'trials', 'formationTimelineMode', 'formationHighSkillMode'].every(key => left[key] === right[key]); }
   function getBaselineComparisonDecision({ hasBaseline = false, hasLatest = false, isFresh = false, axesEqual = false, running = false } = {}) {
     if (!hasBaseline) return 'none';
@@ -1547,6 +1740,30 @@
     if (!Number.isFinite(number)) return '—';
     return `${formatNumber(number)}F（${formatNumber(number / 60)}秒）`;
   }
+  function formatDpsVariantLabel(variant = '', explicitLabel = '') {
+    const raw = String(variant || '').trim();
+    const label = String(explicitLabel || '').trim();
+    if (label) return label;
+    if (!raw || raw === 'default') return '';
+    if (/^__exclusive:/.test(raw)) return '確率分岐';
+    if (/^__/.test(raw)) return '分岐';
+    return raw;
+  }
+  function formatDpsTimelineQualitySuffix(event = {}) {
+    return ({
+      provisional: '（暫定時刻）',
+      fallbackEnd: '（終了時補完）',
+      external: '（外部指定）',
+      'initial-target': '（初期対象仮定）'
+    })[String(event?.timingQuality || '').trim()] || '';
+  }
+  function formatDpsTimelineFallbackLabel(event = {}) {
+    const label = String(event?.label || '').trim();
+    if (/^__exclusive:/.test(label)) return '確率分岐';
+    if (/^__[A-Za-z0-9:_-]+$/.test(label)) return 'イベント';
+    if (/(?:^|[_:])(?:favorite|aside)_\d+_e\d+$/i.test(label)) return '効果';
+    return label || EXTERNAL_EVENT_TYPES[event?.type] || 'イベント';
+  }
   function createDpsTimingDetailRows(config = {}) {
     const rows = [];
     const normalInterval = Number(config?.normalAttackIntervalFrames);
@@ -1569,9 +1786,17 @@
         variants.push({ branch: '', frames: Number(action.motionFrames) });
       }
       if (!variants.length) return;
-      const values = variants.map(({ branch, frames }) => (
-        `${branch && branch !== 'default' ? `${branch}: ` : ''}${formatDpsFrameValue(frames)}`
-      ));
+      const hasExclusiveVariants = variants.some(({ branch }) => /^__exclusive:/.test(String(branch || '')));
+      const displayVariants = hasExclusiveVariants
+        ? variants.filter(({ branch }) => branch !== 'default')
+        : variants;
+      const distinctFrames = new Set(displayVariants.map(({ frames }) => Number(frames))).size > 1;
+      const values = (distinctFrames ? displayVariants : displayVariants.slice(0, 1)).map(({ branch, frames }, index) => {
+        const branchLabel = distinctFrames && branch && branch !== 'default'
+          ? formatDpsVariantLabel(branch, action.variantLabels?.[branch]) || `分岐${index + 1}`
+          : '';
+        return `${branchLabel ? `${branchLabel}: ` : ''}${formatDpsFrameValue(frames)}`;
+      });
       rows.push([`${action.label || defaultLabel}のモーション硬直`, values.join(' / ')]);
     });
     return rows;
@@ -1579,39 +1804,101 @@
 
   function renderDpsExternalEventRow(event = {}, index = 0) {
     const type = String(event.type || 'shieldBreak');
-    const typeOptions = Object.entries(EXTERNAL_EVENT_TYPES)
+    const isFormationCandidate = !!String(event.candidateId || '').trim();
+    const timingModeLabel = event.timingMode === 'event'
+      ? '非周期・発生秒指定'
+      : event.timingMode === 'periodic' ? '周期推定' : '';
+    const repeatabilityLabel = ({ once: '一回型', repeatable: '反復型', counted: 'カウント型' })[event.repeatability] || '';
+    const eventTitle = isFormationCandidate
+      ? String(event.candidateLabel || event.reason || EXTERNAL_EVENT_TYPES[type] || type)
+      : '';
+    const candidateEffectSummary = isFormationCandidate
+      ? formatDpsExternalCandidateEffectSummary(event, 2)
+      : '';
+    const summaryParts = [];
+    if (timingModeLabel) summaryParts.push(timingModeLabel);
+    if (repeatabilityLabel) summaryParts.push(repeatabilityLabel);
+    if (isFormationCandidate && event.candidateBasis) summaryParts.push(event.candidateBasis);
+    if (event.status) {
+      const statusDuration = Number(event.statusDurationFrames);
+      summaryParts.push(`状態: ${event.status}${statusDuration > 0 ? ` / ${formatNumber(statusDuration / 60)}秒` : ' / 計測中維持'}`);
+    }
+    const candidateMetadata = {
+      timingMode: event.timingMode || '',
+      eventClass: event.eventClass || '',
+      eventLabel: event.eventLabel || '',
+      repeatability: event.repeatability || '',
+      inputMode: event.inputMode || '',
+      triggerSourceId: event.triggerSourceId || '',
+      conditionType: event.conditionType || '',
+      conditionValue: event.conditionValue ?? ''
+    };
+    const candidateAttributes = isFormationCandidate
+      ? ` data-fdcp-external-candidate-id="${escapeAttr(event.candidateId)}" data-fdcp-external-candidate-label="${escapeAttr(event.candidateLabel || eventTitle)}" data-fdcp-external-candidate-basis="${escapeAttr(event.candidateBasis || '')}" data-fdcp-external-candidate-effects="${escapeAttr(JSON.stringify(event.candidateEffectLabels || []))}" data-fdcp-external-candidate-meta="${escapeAttr(JSON.stringify(candidateMetadata))}"`
+      : '';
+    const typeOptions = getExternalEventTypeEntries(type)
       .map(([value, label]) => `<option value="${escapeAttr(value)}"${value === type ? ' selected' : ''}>${escapeHtml(label)}</option>`)
       .join('');
     const customType = !Object.prototype.hasOwnProperty.call(EXTERNAL_EVENT_TYPES, type) && type
       ? `<option value="${escapeAttr(type)}" selected>${escapeHtml(type)}</option>`
       : '';
+    const eventIdentity = isFormationCandidate
+      ? `<input type="hidden" value="${escapeAttr(type)}" data-fdc-dps-external-type><strong>${escapeHtml(eventTitle)}</strong>`
+      : `<label class="is-type"><span>イベント</span><select data-fdc-dps-external-type>${typeOptions}${customType}</select></label>`;
+    const eventSummary = candidateEffectSummary
+      ? `<strong class="is-effect">発動効果: ${escapeHtml(candidateEffectSummary)}</strong>${summaryParts.length ? `<small>${escapeHtml(summaryParts.join(' / '))}</small>` : ''}`
+      : summaryParts.length
+      ? `<small>${escapeHtml(summaryParts.join(' / '))}</small>`
+      : (!isFormationCandidate ? '<small>時刻を手動設定</small>' : '');
     return `
-      <div class="fdc-dps-external-event-row" data-fdcp-external-index="${index}">
-        <label class="is-type"><span>種類</span><select data-fdc-dps-external-type>${typeOptions}${customType}</select></label>
-        <label class="is-start"><span>開始秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.frame) || 0) / 60))}" data-fdc-dps-external-seconds></label>
-        <label class="is-interval"><span>間隔秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.intervalFrames) || 0) / 60))}" data-fdc-dps-external-interval></label>
-        <label class="is-count"><span>回数</span><input type="number" min="0" max="10000" step="1" value="${escapeAttr(event.repeatCount || 0)}" title="0または空欄で計測終了まで" data-fdc-dps-external-count></label>
-        <label class="is-source"><span>発動元ID</span><input type="text" value="${escapeAttr(event.sourceId || '')}" placeholder="任意" data-fdc-dps-external-source></label>
-        <label class="is-value"><span>条件値</span><input type="text" value="${escapeAttr(event.value || '')}" placeholder="任意" data-fdc-dps-external-value></label>
-        <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(event.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
-        <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
+      <div class="fdc-dps-external-event-row${isFormationCandidate ? ' is-formation-candidate' : ''}${event.timingMode === 'event' ? ' is-event-driven' : ''}" data-fdcp-external-index="${index}"${candidateAttributes}>
+        <div class="fdc-dps-external-event-compact">
+          <div class="fdc-dps-external-event-identity">${eventIdentity}${eventSummary}</div>
+          <label class="is-start"><span>発動秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.frame) || 0) / 60))}" data-fdc-dps-external-seconds></label>
+          <label class="is-interval"><span>${event.timingMode === 'event' ? '間隔（任意）' : '間隔'}</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(formatNumber((Number(event.intervalFrames) || 0) / 60))}" placeholder="非周期" data-fdc-dps-external-interval></label>
+          <label class="is-count"><span>回数</span><input type="number" min="0" max="10000" step="1" value="${escapeAttr(event.repeatCount > 0 ? event.repeatCount : '')}" placeholder="無制限" title="空欄または0で計測終了まで" data-fdc-dps-external-count></label>
+          <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
+        </div>
+        <details class="fdc-dps-external-advanced">
+          <summary>詳細設定</summary>
+          <div class="fdc-dps-external-advanced-grid">
+            <label class="is-source"><span>発動元ID</span><input type="text" value="${escapeAttr(event.sourceId || '')}" placeholder="任意" data-fdc-dps-external-source></label>
+            <label class="is-value"><span>条件値</span><input type="text" value="${escapeAttr(event.value || '')}" placeholder="任意" data-fdc-dps-external-value></label>
+            <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(event.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
+            <label class="is-status"><span>直接付与状態</span><input type="text" value="${escapeAttr(event.status || '')}" placeholder="任意" data-fdc-dps-external-status></label>
+            <label class="is-status-duration"><span>状態秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(event.statusDurationFrames > 0 ? formatNumber(event.statusDurationFrames / 60) : '')}" placeholder="無期限" data-fdc-dps-external-status-duration></label>
+          </div>
+        </details>
       </div>
     `;
+  }
+
+  function formatDpsExternalCandidateEffectSummary(candidate = {}, limit = 3) {
+    const labels = Array.isArray(candidate.candidateEffectLabels || candidate.effectLabels)
+      ? (candidate.candidateEffectLabels || candidate.effectLabels).map(label => String(label || '').trim()).filter(Boolean)
+      : [];
+    if (!labels.length) return '';
+    const visible = labels.slice(0, Math.max(1, limit));
+    return `${visible.join('・')}${labels.length > visible.length ? ` ほか${labels.length - visible.length}件` : ''}`;
   }
 
   function renderDpsFormationEventCandidates(candidates = []) {
     const normalized = Array.isArray(candidates) ? candidates : [];
     if (!normalized.length) return '<p class="is-empty">現在の編成に、外部行動待ちの効果はありません。</p>';
-    return normalized.map(candidate => `
-      <article class="fdc-dps-formation-event-candidate">
-        <div>
-          <strong>${escapeHtml(candidate.label || candidate.type)}</strong>
-          <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
-          ${candidate.effectLabels?.length ? `<small>対象効果: ${escapeHtml(candidate.effectLabels.slice(0, 3).join('・'))}${candidate.effectLabels.length > 3 ? ` ほか${candidate.effectLabels.length - 3}件` : ''}</small>` : ''}
-        </div>
-        <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">追加</button>
-      </article>
-    `).join('');
+    return normalized.map(candidate => {
+      const effectSummary = formatDpsExternalCandidateEffectSummary(candidate, 3);
+      return `
+        <article class="fdc-dps-formation-event-candidate">
+          <div>
+            <strong class="is-trigger">${escapeHtml(candidate.label || candidate.type)}</strong>
+            ${effectSummary ? `<strong class="is-effect">発動効果: ${escapeHtml(effectSummary)}</strong>` : ''}
+            ${candidate.timingMode === 'event' ? `<span class="is-event-kind">非周期 / ${{ once: '一回型', repeatable: '反復型', counted: 'カウント型' }[candidate.repeatability] || '発生秒指定'}</span>` : '<span class="is-periodic-kind">周期推定</span>'}
+            <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
+          </div>
+          <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">追加</button>
+        </article>
+      `;
+    }).join('');
   }
 
   function renderDpsExternalInputContent(events = [], candidates = []) {
@@ -1621,11 +1908,11 @@
       <details class="fdc-dps-external-events" data-fdcp-detail-section="external">
         <summary>外部イベント（手動） <small>標準OFF</small></summary>
         <div class="fdc-dps-external-events-head">
-          <p>敵行動をまだ自動計上できない条件を指定秒に発生させます。種類・時刻・間隔・回数・発動元・条件値・表示名をここで編集できます。</p>
+          <p>周期候補は推定時刻で追加されます。非周期候補は発生秒を指定するイベントとして追加されるため、間隔を推測せず必要な回数だけ個別に設定します。</p>
         </div>
         <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="external-candidates">
           <summary>編成から追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>
-          <p>編成使徒のCT・SP・普通攻撃間隔から発動時刻を軽量推定します。候補を追加した後に時刻・間隔を調整できます。</p>
+          <p>周期型はCT・SP・普通攻撃間隔から軽量推定し、被弾・シールド破壊・撃破・状態遷移などの非周期型は発生秒を手動指定します。</p>
           <div class="fdc-dps-formation-event-candidate-list">${renderDpsFormationEventCandidates(normalizedCandidates)}</div>
         </details>
         <div class="fdc-dps-external-event-list">${normalizedEvents.map(renderDpsExternalEventRow).join('')}</div>
@@ -1717,7 +2004,7 @@
     const descriptors = new Map();
     const activityCounts = new Map();
     (single?.timeline || []).forEach(event => {
-      if (!['attackSpeedApplied', 'runtimeBuffApplied', 'runtimeEffectHit', 'spRecoveryEvent', 'cooldownChanged', 'statusApplied'].includes(event?.type)) return;
+      if (!['attackSpeedApplied', 'runtimeBuffApplied', 'runtimeEffectHit', 'spRecoveryEvent', 'cooldownChanged', 'statusApplied', 'effectStateChanged'].includes(event?.type)) return;
       const id = String(event.runtimeEffectId || event.effectId || event.applicationEffectId || '');
       if (id) activityCounts.set(id, (activityCounts.get(id) || 0) + 1);
     });
@@ -1883,8 +2170,10 @@
   }
   function formatDpsTimelineEvent(event = {}) {
     const action = event.actionLabel || '';
-    const variant = event.variant ? ` / ${event.variant}` : '';
-    const generated = event.generatedObjectId ? ` / ${event.generatedObjectName || event.generatedObjectId}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}` : '';
+    const variantLabel = formatDpsVariantLabel(event.variant, event.variantLabel);
+    const variant = variantLabel ? ` / ${variantLabel}` : '';
+    const generated = event.generatedObjectId ? ` / ${event.generatedObjectName || '生成物'}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}` : '';
+    const effectLabel = String(event.effectValueKind || '').trim();
     const statusReaction = event.statusTakenDmgP ? ` / 状態反応 +${formatNumber(event.statusTakenDmgP)}%` : '';
     const statusDamageWeakness = event.statusDamageP ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%` : '';
     const hitEvaluation = event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001 ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）` : '';
@@ -1893,14 +2182,17 @@
     const cooldownChange = event.operation === 'multiply'
       ? `CT ×${formatNumber(event.multiplier)}`
       : `CT ${Number(event.afterFrames) <= Number(event.beforeFrames) ? '-' : '+'}${formatNumber(cooldownDeltaFrames / 60)}秒`;
+    const statusDuration = Number.isFinite(Number(event.durationFrames)) && Number(event.durationFrames) > 0
+      ? `${formatNumber(Number(event.durationFrames) / 60)}秒`
+      : '計測中維持';
     const map = {
       skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
       movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
       movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
       actionStart: `${action}${variant} 開始`,
       actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
-      effect: `${action}${variant} 効果発生${event.effectId ? ` / ${event.effectId}` : ''}`,
+      hit: `${action}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      effect: `${action}${variant} 効果発生${effectLabel ? ` / ${effectLabel}` : ''}`,
       spRecovery: event.capped ? `SP回復周期 / 上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
       spRecoveryEvent: `${event.label || 'SP回復'} / ${event.reason || '効果発生'} / ${event.capped ? `上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`}`,
       cooldownChanged: `${event.label || 'クールタイム変更'} / ${cooldownChange} → 残り${formatNumber((Number(event.afterFrames) || 0) / 60)}秒${event.ready ? '（発動可能）' : ''}`,
@@ -1916,19 +2208,69 @@
       runtimeEffectProbability: `${action ? `${action} / ` : ''}${event.label || '時系列効果'} 発動抽選 / ${formatNumber(event.probability)}% ${event.success ? '成功' : '不発'}${event.reason ? ` / ${event.reason}` : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
       runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
       runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
-      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
-      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${formatNumber(event.durationFrames / 60)}秒`,
+      externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.status ? ` / ${event.status}付与` : ''}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
+      statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${statusDuration}`,
       statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusReaction}${statusDamageWeakness}`,
-      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`
+      statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`,
+      effectStateChanged: formatDpsEffectStateChange(event)
     };
-    return map[event.type] || `${action}${action ? ' / ' : ''}${event.label || event.type || 'イベント'}`;
+    const fallbackLabel = formatDpsTimelineFallbackLabel(event);
+    const message = map[event.type] || `${action}${action ? ' / ' : ''}${fallbackLabel}`;
+    return `${message}${formatDpsTimelineQualitySuffix(event)}`;
+  }
+  function formatDpsEffectStateChange(event = {}) {
+    const kindLabel = ({
+      attackSpeed: '攻撃速度',
+      buff: '時系列効果',
+      debuff: '状態',
+      selfState: '固有状態',
+      resourceBuff: 'リソース効果',
+      resource: 'リソース'
+    })[String(event.kind || '')] || '状態';
+    const label = String(event.label || event.status || '').trim() || kindLabel;
+    const operation = ({
+      apply: '付与',
+      update: '更新',
+      remove: '置換',
+      expire: '終了',
+      reset: 'リセット',
+      gain: '増加',
+      consume: '消費'
+    })[String(event.operation || '')] || '変更';
+    const resourceValue = event.kind === 'resource' && (event.before != null || event.after != null)
+      ? ` / ${formatNumber(event.before)}→${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`
+      : '';
+    const stackValue = event.kind !== 'resource' && (event.stackCount || event.maxStacks > 1)
+      ? ` / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック`
+      : '';
+    const modifierValue = event.modifiers
+      ? formatDpsRuntimeBuffModifiers(event.modifiers)
+      : event.kind === 'attackSpeed' && Number(event.totalHasteP)
+        ? `攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`
+        : '';
+    const duration = Number(event.durationFrames) > 0
+      ? ` / ${formatNumber(Number(event.durationFrames) / 60)}秒`
+      : Number(event.expireFrame) > Number(event.appliedFrame)
+        ? ` / 期限 ${formatNumber(Number(event.expireFrame) / 60)}秒`
+        : '';
+    const source = event.sourceActionLabel ? ` / ${event.sourceActionLabel}` : '';
+    const reason = event.reason && event.reason !== event.timingQuality ? ` / ${event.reason}` : '';
+    return `${label} ${operation}${resourceValue || stackValue}${modifierValue ? ` / ${modifierValue}` : ''}${duration}${source}${reason}`;
+  }
+  function getDpsTimelineForDisplay(single = {}) {
+    if (Array.isArray(single?.publicTimeline)) return single.publicTimeline;
+    const timeline = Array.isArray(single?.timeline) ? single.timeline : [];
+    const simulator = typeof window !== 'undefined' ? window.TRICKCAL_DPS_SIMULATOR : null;
+    return typeof simulator?.createDpsPublicTimeline === 'function'
+      ? simulator.createDpsPublicTimeline(timeline)
+      : timeline;
   }
   function renderDpsTimelineContent(single = {}, visibleLimit = 160) {
-    const timeline = Array.isArray(single?.timeline) ? single.timeline : [];
+    const timeline = getDpsTimelineForDisplay(single);
     const visible = timeline.slice(0, Math.max(160, visibleLimit));
     const remaining = Math.max(0, timeline.length - visible.length);
     const more = remaining ? `<div class="fdc-dps-timeline-more"><span>${formatNumber(visible.length)} / ${formatNumber(timeline.length)}件を表示</span><button type="button" data-fdcp-timeline-more>続きを${formatNumber(Math.min(100, remaining))}件表示</button></div>` : '';
-    const timelineStats = single?.timelineStats || {};
+    const timelineStats = single?.publicTimelineStats || single?.timelineStats || {};
     const omittedCount = Math.max(0, Number(timelineStats.omitted) || 0);
     const omitted = omittedCount
       ? `<p class="fdc-dps-empty">記録上限により計${formatNumber(Number(timelineStats.total) || timeline.length + omittedCount)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`
@@ -2123,7 +2465,7 @@
     try {
       return new Promise((resolve, reject) => {
         let finished = false;
-        const worker = new Worker('dps-simulator-worker.js?v=20260827m');
+        const worker = new Worker('dps-simulator-worker.js?v=20260901b');
         const cleanup = () => { if (!finished) { finished = true; worker.terminate(); } };
         const cleanupCancellation = cancellation?.onCancel(() => {
           if (finished) return;
@@ -2153,7 +2495,8 @@
   }
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    createDpsComparisonAxis,
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();

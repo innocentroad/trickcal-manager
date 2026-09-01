@@ -11114,7 +11114,10 @@
     if (valueClass && valueClass !== '倍率') return false;
     if (effectType && !/攻撃|ダメージ/.test(effectType)) return false;
     if (!/ダメージ/.test(valueKind)) return false;
-    if (/被ダメージ|被スキルダメージ|ダメージ量減少|回復|シールド/.test(valueKind)) return false;
+    if (/被ダメージ|被スキルダメージ|ダメージ量減少|回復/.test(valueKind)) return false;
+    // シールド自体は攻撃倍率ではないが、「シールド終了時ダメージ」や
+    // 「シールド破壊時の物理ダメージ」は外部イベントで発生する攻撃。
+    if (/シールド/.test(valueKind) && !/シールド.*ダメージ/.test(valueKind)) return false;
     return true;
   }
 
@@ -11687,42 +11690,94 @@
     Object.values(audit || {}).forEach(actionAudit => {
       normalizeFdcArray(actionAudit?.rows).forEach(row => {
         if (!row?.externalActionRequired || row.sourceDisabled || !row.ownerId) return;
-        const triggerType = normalizeDpsFormationActionTriggerType(row.triggerType, row.category);
-        if (!/(?:低学年|高学年|普通攻撃|強化攻撃)/.test(triggerType)) return;
+        // 編成から追加する候補は別使徒の発生条件だけに限定する。
+        // 選択中本人の外部条件は、手動イベントの種別選択から指定する。
+        if (row.sourceGroup && row.sourceGroup !== 'formation') return;
+        const rawTriggerType = String(row.triggerType || '').trim();
+        const triggerType = normalizeDpsFormationActionTriggerType(rawTriggerType, row.category);
+        // 正規化後の「被弾時」だけを見ると、「被ダメージ回数」などの
+        // カウント型情報が失われるため、分類は原文を優先して解決する。
+        const classification = getDpsFormationEventClassification(rawTriggerType, row.category)
+          || getDpsFormationEventClassification(triggerType, row.category);
+        // 「低学年スキルで敵撃破時」のように行動名を含むイベントを、
+        // 行動周期へ誤接続しない。周期候補は明示的な使用・発動・命中・
+        // 終了条件だけに限定し、その他は分類済みイベント候補へ送る。
+        const isActionCandidate = /^(?:低学年スキル|高学年スキル|普通攻撃|強化攻撃)(?:使用|発動|終了|命中)時(?:一定確率)?$/.test(triggerType);
+        if (!isActionCandidate && !classification) return;
         const ownerId = String(row.ownerId);
-        const key = `${ownerId}:${triggerType}`;
+        const eventActionLabel = classification ? getDpsFormationEventActionLabel(row) : '';
+        const periodicActionLabel = getDpsFormationEventPeriodicActionLabel(row, rawTriggerType || triggerType);
+        const isPeriodicCandidate = !!periodicActionLabel;
+        const eventDiscriminator = classification
+          ? [row.triggerSourceId, row.triggerValue, row.conditionType, row.conditionValue, row.targetSkill, row.effectTarget, eventActionLabel]
+            .map(value => String(value ?? '').trim()).join('|')
+          : '';
+        const key = `${ownerId}:${triggerType}:${eventDiscriminator}`;
         const ownerName = row.ownerName || membersById.get(ownerId)?.name || ownerId;
+        const eventLabel = getDpsFormationEventDisplayLabel(row, classification, triggerType);
         const group = groups.get(key) || {
-          id: `formation:${ownerId}:${triggerType}`,
+          id: `formation:${ownerId}:${triggerType}${eventDiscriminator ? `:${eventDiscriminator}` : ''}`,
           ownerId,
           ownerName,
           type: triggerType,
           sourceId: ownerId,
-          label: `${ownerName} / ${triggerType.replace(/時$/, '')}`,
+          label: `${ownerName} / ${eventLabel}`,
           effectLabels: [],
           startSeconds: 0,
           intervalSeconds: 0,
           repeatCount: 0,
           confidence: 'estimate',
-          basis: ''
+          basis: '',
+          timingMode: isPeriodicCandidate ? 'periodic' : (classification?.timingMode || 'periodic'),
+          eventClass: classification?.eventClass || 'action',
+          eventLabel,
+          eventActionLabel,
+          periodicActionLabel,
+          repeatability: classification?.repeatability || 'repeatable',
+          inputMode: isPeriodicCandidate ? 'periodic' : (classification?.inputMode || 'periodic'),
+          value: '',
+          conditionType: '',
+          conditionValue: '',
+          triggerSourceId: ''
         };
         if (row.label && !group.effectLabels.includes(row.label)) group.effectLabels.push(row.label);
+        if (!group.value) {
+          const candidateValue = row.triggerValue !== '' && row.triggerValue != null
+            ? row.triggerValue
+            : row.conditionValue;
+          if (candidateValue !== '' && candidateValue != null) group.value = candidateValue;
+        }
+        if (!group.conditionType && row.conditionType) group.conditionType = row.conditionType;
+        if (!group.conditionValue && row.conditionValue !== '' && row.conditionValue != null) group.conditionValue = row.conditionValue;
+        if (!group.triggerSourceId && row.triggerSourceId) group.triggerSourceId = row.triggerSourceId;
         groups.set(key, group);
       });
     });
 
     groups.forEach(group => {
+      if (group.timingMode === 'event') {
+        group.startSeconds = 0;
+        group.intervalSeconds = 0;
+        group.repeatCount = 1;
+        group.confidence = 'manual';
+        const valueLabel = group.value !== '' && group.value != null ? ` / 条件値 ${group.value}` : '';
+        group.basis = `${group.eventLabel || group.type.replace(/時$/, '')} / 発生秒を指定（周期推定なし）${valueLabel}`;
+        return;
+      }
       const member = membersById.get(group.ownerId);
       const apostle = member ? getApostleSkillData(member) : null;
       const skills = normalizeFdcArray(apostle?.skills);
-      if (/高学年/.test(group.type)) {
+      const periodicActionLabel = group.periodicActionLabel || '';
+      if (periodicActionLabel === '高学年' || /高学年/.test(group.type)) {
         const highSkill = skills.find(skill => /高学年/.test(getFdcApostleSkillCategory(skill, '通常')));
         const cooldown = getFdcHighSkillCooldownSeconds(highSkill, '高学年スキル');
         group.startSeconds = cooldown;
         group.intervalSeconds = cooldown;
         group.confidence = cooldown > 0 ? 'estimate' : 'manual';
-        group.basis = cooldown > 0 ? `高学年CT ${formatPlainNumber(cooldown)}秒基準` : '高学年CTを取得できないため時刻を設定してください';
-      } else if (/低学年/.test(group.type)) {
+        group.basis = cooldown > 0
+          ? `高学年CT ${formatPlainNumber(cooldown)}秒基準${periodicActionLabel && !/高学年/.test(group.type) ? '（発動元行動周期の暫定値）' : ''}`
+          : '高学年CTを取得できないため時刻を設定してください';
+      } else if (periodicActionLabel === '低学年' || /低学年/.test(group.type)) {
         const lowSkill = skills.find(skill => /低学年/.test(getFdcApostleSkillCategory(skill, '通常')));
         const requiredSp = getFdcLowSkillRequiredSp(lowSkill);
         const initialSp = Math.max(0, Number(apostle?.basic?.initialSp) || 0);
@@ -11732,7 +11787,7 @@
         group.intervalSeconds = seconds;
         group.confidence = seconds > 0 ? 'estimate' : 'manual';
         group.basis = seconds > 0
-          ? `SP ${formatPlainNumber(requiredSp)} / 毎秒+${formatPlainNumber(spRegen)}の簡易推定（行動待ち・モーションは未計上）`
+          ? `SP ${formatPlainNumber(requiredSp)} / 毎秒+${formatPlainNumber(spRegen)}の簡易推定（行動待ち・モーションは未計上${periodicActionLabel && !/低学年/.test(group.type) ? '・発動元行動周期の暫定値' : ''}）`
           : '毎秒SP回復量を取得できないため時刻を設定してください';
       } else {
         const timing = typeof DPS_TIMING_DATA === 'undefined'
@@ -11969,7 +12024,8 @@
       // 除外されてイベントだけが残り、期待ダメージ0になる。
       .filter(option => !directlyTimedEffectIds.has(String(option.effectId || '')))
       .filter(option => (
-        /^(?:n秒ごと|n回ごと|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|普通攻撃使用時|低学年スキル使用時|低学年スキル命中時|高学年スキル使用時|高学年スキル命中時|強化攻撃使用時|生成物命中時|生成物接触時|生成物攻撃時|生成物帰還時|生成物到着時|生成物消滅時|状態付与時|状態異常付与時|状態最大スタック到達時|状態終了時|シールド終了時)$/.test(String(option.triggerType || ''))
+        /^(?:n秒ごと|n回ごと|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|普通攻撃使用時|普通攻撃終了時|低学年スキル使用時|低学年スキル命中時|低学年スキル最終ヒット命中時|低学年スキル終了時|高学年スキル使用時|高学年スキル命中時|高学年スキル最終ヒット命中時|高学年スキル終了時|スキル命中時|スキル使用時|スキル発動時|スキル終了時|攻撃命中時|強化攻撃使用時|強化攻撃終了時|生成物命中時|生成物接触時|生成物攻撃時|生成物帰還時|生成物到着時|生成物消滅時|状態付与時|状態異常付与時|状態最大スタック到達時|状態終了時|固有状態付与時|固有状態終了時|リソース変化時|リソース獲得時|リソース消費時|シールド終了時)$/.test(String(option.triggerType || ''))
+        || !!getDpsFormationEventClassification(option.triggerType, option.category)
         || isDpsEffectSourceTrigger(option)
         || /リソース(?:スタック|未所持)/.test(String(option.conditionType || ''))
       ))
@@ -12034,7 +12090,7 @@
       && (getDpsStructuredTriggerProbability(option) != null || isDpsEffectSourceTrigger(option));
     if (isRuntimeAdditionalDamage) return true;
     const triggerText = getDpsRuntimeTriggerText(option, text);
-    const changesDuringBattle = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|接触時|到着時|消滅時|攻撃時|状態(?:異常)?付与時|リソース変化時/.test(triggerText);
+    const changesDuringBattle = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|接触時|到着時|消滅時|攻撃時|状態(?:異常)?付与時|固有状態(?:付与|終了)時|リソース(?:変化|獲得|消費)時/.test(triggerText);
     const implicitActionTimed = Number(option.durationSeconds) > 0
       && (/低学年|高学年/.test(String(option.category || ''))
         || getDpsTargetActionKeys(option.targetSkill || '').length > 0)
@@ -12044,6 +12100,8 @@
   }
 
   function isDpsFormationExternalActionRequired(option = {}) {
+    if (typeof window !== 'undefined'
+      && window.TRICKCAL_DPS_TRIGGER_POLICY?.isExternalOccurrenceOnly?.(option)) return true;
     if (option.group !== 'formation') return false;
     const triggerType = String(option.triggerType || '').trim();
     // 編成内の別使徒について再現できるのは、共通戦闘時計だけで発火時刻が
@@ -12313,7 +12371,17 @@
   }
 
   function isDpsUnsupportedRuntimeTrigger(effect = {}, fallbackText = '') {
-    return window.TRICKCAL_DPS_TRIGGER_POLICY.isUnsupported(effect, fallbackText);
+    // 単体DPSでも、シールド終了・HP閾値・被弾などは本人の行動時計だけ
+    // では発生時刻を確定できない。外部イベント入力へ委ねることで、
+    // selected apostle の効果も編成候補と同じ境界で扱う。
+    const externalActionRequired = effect?.externalActionRequired === true
+      || isDpsFormationExternalActionRequired(effect);
+    const policyEffect = externalActionRequired && effect?.externalActionRequired !== true
+      ? { ...effect, externalActionRequired: true }
+      : effect;
+    if (policyEffect?.externalActionRequired === true
+      && getDpsFormationEventClassification(policyEffect.triggerType, policyEffect.category)) return false;
+    return window.TRICKCAL_DPS_TRIGGER_POLICY.isUnsupported(policyEffect, fallbackText);
   }
 
   function getDpsStructuredIntervalSeconds(effect = {}, fallbackText = '') {
@@ -12372,12 +12440,86 @@
   }
 
   function normalizeDpsExternalTriggerType(triggerType = '') {
+    const policy = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policy?.normalizeExternalEventType === 'function') {
+      const normalized = policy.normalizeExternalEventType(triggerType);
+      // 既存のskillmotion・連鎖イベントは元のトリガー名を監査へ残す。
+      // 外部入力と共通化する必要がある別名だけを正規化し、それ以外の
+      // 分類済みイベントは候補の種別と発動元を一対一で対応させる。
+      if (/^(?:シールド破壊時|シールド終了時|HP閾値|被弾時|状態付与時)$/.test(normalized)) {
+        return normalized;
+      }
+      return String(triggerType || '').replace(/[\s　]+/g, '');
+    }
     const value = String(triggerType || '').replace(/\s+/g, '');
     if (/シールド破壊/.test(value)) return 'シールド破壊時';
     if (/被ダメージ|被撃|被弾/.test(value)) return '被弾時';
     if (/HP.*(?:以下|未満|以上|超過|閾値|到達)/.test(value) || /残りHP/.test(value)) return 'HP閾値';
     if (/状態付与/.test(value)) return '状態付与時';
     return value;
+  }
+
+  function getDpsFormationEventClassification(triggerType = '', category = '') {
+    const policy = window.TRICKCAL_DPS_TRIGGER_POLICY;
+    const classification = policy?.getExternalEventClassification?.({ triggerType, category });
+    if (classification) return classification;
+    const normalized = normalizeDpsExternalTriggerType(triggerType);
+    if (!normalized || /^(?:戦闘開始時|ウェーブ開始時|n秒ごと)$/.test(normalized)) return null;
+    if (/シールド破壊時|シールド終了時|HP閾値|被弾時|戦闘不能時|敵撃破時|状態(?:異常)?(?:付与|終了)時|固有状態(?:付与|終了)時|状態発動時|状態最大スタック到達時|リソース(?:変化|獲得|消費)時|n回ごと|規定ヒット時|(?:低学年|高学年)スキル(?:効果発生|最終ヒット命中|命中|終了)時|スキル(?:命中|使用|発動|終了)時|攻撃命中時|生成物(?:生成|攻撃|命中|接触|到着|帰還|消滅)時|攻撃対象(?:未撃破|設定|変更)時|ダメージ命中時|竜巻ダメージ発生時|効果発生(?:後)?時|対象状態成立時|回復時/.test(normalized)) {
+      return {
+        eventType: normalized,
+        eventClass: 'event',
+        label: normalized.replace(/時$/, ''),
+        timingMode: 'event',
+        repeatability: /HP閾値|シールド破壊時|自身戦闘不能時/.test(normalized) ? 'once' : 'repeatable',
+        inputMode: 'occurrence'
+      };
+    }
+    return null;
+  }
+
+  function getDpsFormationEventActionLabel(row = {}) {
+    const text = [row.category, row.targetSkill, row.targetSkillName, row.effectId, row.triggerSourceId]
+      .filter(Boolean).join(' ');
+    if (/(?:高学年|(?:^|[_:])high(?:[_:]|$))/i.test(text)) return '高学年';
+    if (/(?:低学年|(?:^|[_:])low(?:[_:]|$))/i.test(text)) return '低学年';
+    if (/強化攻撃/.test(text)) return '強化攻撃';
+    if (/(?:普通|通常|基本)攻撃/.test(text)) return '基本攻撃';
+    return '';
+  }
+
+  function getDpsFormationEventPeriodicActionLabel(row = {}, triggerType = '') {
+    const normalizedTrigger = String(triggerType || row.triggerType || '').replace(/[\s　]+/g, '');
+    const actionLabel = getDpsFormationEventActionLabel(row);
+    const triggerActionLabel = getDpsFormationEventActionLabel({
+      ...row,
+      category: [row.category, normalizedTrigger].filter(Boolean).join(' ')
+    });
+    const resolvedActionLabel = actionLabel || triggerActionLabel;
+    if (!resolvedActionLabel) return '';
+
+    // 行動そのものの使用・命中・終了は、その行動の間隔を初期値にできる。
+    const directActionTrigger = /^(?:低学年スキル|高学年スキル|普通攻撃|強化攻撃)(?:使用|発動|終了|命中)時(?:一定確率)?$/.test(normalizedTrigger);
+    if (directActionTrigger) return resolvedActionLabel;
+
+    // 効果発生・固有状態付与は発動元の行動が明示されている場合だけ、
+    // 行動周期で近似する。状態終了や被弾・撃破などは発生条件が別にある
+    // ため、同じ使徒のスキル名だけで周期へ接続しない。
+    const actionLinkedEffectTrigger = /^(?:低学年|高学年)スキル(?:効果発生|最終ヒット命中)時$/.test(normalizedTrigger)
+      || /^スキル(?:使用|発動|終了)時$/.test(normalizedTrigger)
+      || /^(?:固有)?状態付与時$/.test(normalizedTrigger) && !!String(row.triggerSourceId || '').trim()
+      || /^効果発生(?:後)?時$/.test(normalizedTrigger) && !!String(row.triggerSourceId || '').trim();
+    return actionLinkedEffectTrigger ? resolvedActionLabel : '';
+  }
+
+  function getDpsFormationEventDisplayLabel(row = {}, classification = null, triggerType = '') {
+    const baseLabel = classification?.label || String(triggerType || '').replace(/時$/, '');
+    const normalized = baseLabel.replace(/[\s　]/g, '');
+    const actionLabel = getDpsFormationEventActionLabel(row);
+    const isStateEvent = /^(?:固有)?状態(?:付与|終了|発動|最大スタック)$/.test(normalized);
+    return actionLabel && isStateEvent && !normalized.includes(actionLabel)
+      ? `${actionLabel}${baseLabel}`
+      : baseLabel;
   }
 
   function createDpsStructuredRuntimeEvents(options = {}) {
@@ -12407,6 +12549,28 @@
       .filter(option => option.effectId)
       .map(option => [option.effectId, option]));
     const resources = new Map();
+    const uniqueResourceDefinitions = normalizeFdcArray(apostle.uniqueStates)
+      .filter(state => /固有リソース|resource/i.test(String(state?.category || '')));
+    const resolveResourceIdentity = (name, reference = '') => {
+      const nameText = String(name || '').trim();
+      const referenceText = String(reference || '').trim();
+      const definition = uniqueResourceDefinitions.find(state => (
+        referenceText && String(state?.stateId || state?.id || '').trim() === referenceText
+      )) || uniqueResourceDefinitions.find(state => (
+        [state?.name, state?.stateName, state?.stateId, state?.id]
+          .map(value => String(value || '').trim())
+          .includes(nameText)
+      ));
+      return {
+        id: String(definition?.stateId || definition?.id || referenceText || nameText).trim(),
+        name: String(definition?.name || definition?.stateName || nameText || referenceText).trim(),
+        initialStacks: Math.max(0, Number(definition?.initialValue) || 0),
+        maxStacks: Math.max(1, Number(definition?.maxValue) || 1),
+        changeEventBasis: String(definition?.changeEventBasis || ''),
+        verificationStatus: String(definition?.verificationStatus || ''),
+        calculationSupportLevel: String(definition?.calculationSupportLevel || '')
+      };
+    };
     const groups = new Map();
     collectFdcApostleSkillSources(apostle, skillLevels, target, context)
       .forEach(({ skill, sourceKey, sourceLabel }) => {
@@ -12440,7 +12604,8 @@
           // 明示トリガーが未対応でも、skillmotionで同じeffectIdの発生時刻が
           // 計測済みなら、その時刻を唯一の発火元として採用する。反対に、
           // 時刻のない未知条件は従来どおり自動推測しない。
-          if (!/^(?:n秒ごと|n回ごと|ダメージ命中時|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|強化攻撃命中時|低学年スキル使用時|高学年スキル使用時|強化攻撃使用時|普通攻撃使用時|対象スキル使用時|生成物命中時|生成物帰還時|生成物接触時|生成物攻撃時|生成物到着時|生成物消滅時|状態最大スタック到達時|状態終了時|シールド終了時|シールド破壊時|被弾時|HP閾値|状態付与時|状態異常付与時)$/.test(triggerType)
+          if (!/^(?:n秒ごと|n回ごと|ダメージ命中時|攻撃命中時|スキル命中時|普通攻撃命中時|通常攻撃命中時|普通攻撃命中時一定確率|通常攻撃命中時一定確率|強化攻撃命中時|低学年スキル使用時|低学年スキル命中時|低学年スキル最終ヒット命中時|低学年スキル終了時|高学年スキル使用時|高学年スキル命中時|高学年スキル最終ヒット命中時|高学年スキル終了時|スキル使用時|スキル発動時|スキル終了時|強化攻撃使用時|強化攻撃終了時|普通攻撃使用時|普通攻撃終了時|対象スキル使用時|生成物命中時|生成物帰還時|生成物接触時|生成物攻撃時|生成物到着時|生成物消滅時|状態最大スタック到達時|状態終了時|固有状態付与時|固有状態終了時|シールド終了時|シールド破壊時|被弾時|HP閾値|状態付与時|状態異常付与時|リソース変化時|リソース獲得時|リソース消費時)$/.test(triggerType)
+            && !getDpsFormationEventClassification(triggerType, category)
             && !isDpsEffectSourceTrigger(effect)
             && !timingSourceEffectId) return;
           // processGroupId is a semantic processing group, not a guarantee that
@@ -12466,15 +12631,30 @@
             category
           ].filter(Boolean).join(' ');
           const ordinaryAttackProbabilityTrigger = getDpsStructuredTriggerProbability(effect) != null;
+          const structuredTriggerActionKeys = getDpsStructuredTriggerActionKeys(effect, triggerText);
+          const genericSkillActionKeys = structuredTriggerActionKeys.length
+            ? structuredTriggerActionKeys
+            : ['lowSkill', 'highSkill'];
+          const genericAttackActionKeys = structuredTriggerActionKeys.length
+            ? structuredTriggerActionKeys
+            : ['basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill'];
           const triggerActionKeys = triggerType === '普通攻撃命中時'
             || ordinaryAttackProbabilityTrigger
             ? ['basicAttack', 'enhancedAttack']
             : triggerType === '強化攻撃命中時'
               ? ['enhancedAttack']
+            : ['低学年スキル命中時', '低学年スキル最終ヒット命中時', '低学年スキル終了時'].includes(triggerType)
+              ? ['lowSkill']
+            : ['高学年スキル命中時', '高学年スキル最終ヒット命中時', '高学年スキル終了時'].includes(triggerType)
+              ? ['highSkill']
+            : ['スキル命中時', 'スキル使用時', 'スキル発動時', 'スキル終了時'].includes(triggerType)
+              ? genericSkillActionKeys
+            : triggerType === '攻撃命中時'
+              ? genericAttackActionKeys
             : triggerType === 'ダメージ命中時'
               ? implicitTargetActionKeys
             : triggerType === 'n回ごと'
-              ? getDpsStructuredTriggerActionKeys(effect, triggerText)
+              ? structuredTriggerActionKeys
               : triggerType === '低学年スキル使用時'
                 ? ['lowSkill']
                 : triggerType === '高学年スキル使用時'
@@ -12502,6 +12682,8 @@
             triggerEveryCount: normalAttackCountTrigger
               ? getDpsStructuredTriggerCount(effect, triggerText)
               : 0,
+            finalHitOnly: triggerType === '低学年スキル最終ヒット命中時'
+              || triggerType === '高学年スキル最終ヒット命中時',
             intervalFrames: triggerType === 'n秒ごと'
               ? Math.max(0, Number(effect.triggerValue) || 0) * 60
               : 0,
@@ -12509,8 +12691,18 @@
               triggerType === '普通攻撃命中時'
               || ordinaryAttackProbabilityTrigger
               || triggerType === '強化攻撃命中時'
+              || triggerType === '低学年スキル命中時'
+              || triggerType === '低学年スキル最終ヒット命中時'
+              || triggerType === '高学年スキル命中時'
+              || triggerType === '高学年スキル最終ヒット命中時'
+              || triggerType === 'スキル命中時'
               || triggerType === '低学年スキル使用時'
               || triggerType === '高学年スキル使用時'
+              || triggerType === '低学年スキル終了時'
+              || triggerType === '高学年スキル終了時'
+              || triggerType === 'スキル使用時'
+              || triggerType === 'スキル発動時'
+              || triggerType === 'スキル終了時'
               || triggerType === '強化攻撃使用時'
               || triggerType === '普通攻撃使用時'
               || normalAttackCountTrigger
@@ -12544,37 +12736,67 @@
           if (conditionType === '固有状態中' && conditionValue && triggerType === 'n秒ごと') {
             group.startOnSelfStateId = conditionValue;
           }
-          if (triggerType === '状態最大スタック到達時' && effect.consumeOnMaxStack === true) {
+          if (triggerType === '状態最大スタック到達時'
+            && (effect.consumeOnMaxStack === true
+              || /最大(?:\d+)?スタック[^。\n]*消費/.test(String(effect.condition || '')))) {
             group.consumeMaxStacks = true;
           }
-          if (/^リソース(?:未所持|スタック)/.test(conditionType)) {
-            const [resourceId, amountText] = conditionValue.split(':');
-            if (resourceId) {
-              group.conditionResource = conditionType === 'リソース未所持'
-                ? { id: resourceId, max: 0 }
-                : { id: resourceId, min: Math.max(1, Number(amountText) || 1) };
+          if (/^(?:発動前)?リソース(?:未所持|スタック)/.test(conditionType)) {
+            const [resourceName, amountText = ''] = conditionValue.split(':');
+            const resourceIdentity = resolveResourceIdentity(resourceName, resourceName);
+            const rangeMatch = amountText.match(/^(-?\d+(?:\.\d+)?)\s*[-~～〜]\s*(-?\d+(?:\.\d+)?)$/);
+            const exactValue = Number(amountText);
+            if (resourceName) {
+              if (/未所持/.test(conditionType)) {
+                group.conditionResource = { id: resourceIdentity.id, max: 0 };
+              } else if (rangeMatch) {
+                group.conditionResource = {
+                  id: resourceIdentity.id,
+                  min: Math.max(0, Number(rangeMatch[1])),
+                  max: Math.max(0, Number(rangeMatch[2]))
+                };
+              } else if (Number.isFinite(exactValue)) {
+                group.conditionResource = {
+                  id: resourceIdentity.id,
+                  min: Math.max(0, exactValue),
+                  max: Math.max(0, exactValue)
+                };
+              } else {
+                group.conditionResource = { id: resourceIdentity.id, min: 1 };
+              }
             }
           }
           const valueKind = String(effect.valueKind || '');
           const skillLevel = getFdcSkillLevelForEffect(skillLevels, effect, category);
-          const value = Number(getFdcEffectLevelInfo(effect, skillLevel)?.value) || 0;
+          const valueInfo = getFdcEffectLevelInfo(effect, skillLevel);
+          const value = Number(valueInfo?.value) || 0;
           const resourceMatch = valueKind.match(/^(.+?)(獲得|消費)$/);
           if (resourceMatch) {
-            const resourceId = resourceMatch[1];
+            const resourceIdentity = resolveResourceIdentity(resourceMatch[1], effect.reference);
+            const resourceId = resourceIdentity.id;
             const resource = resources.get(resourceId) || {
-              id: resourceId,
-              name: resourceId,
-              initialStacks: 0,
-              maxStacks: 1
+              ...resourceIdentity
             };
-            resource.maxStacks = Math.max(resource.maxStacks, Number(effect.maxStack) || 1);
+            resource.name = resourceIdentity.name || resource.name;
+            resource.initialStacks = Math.max(resource.initialStacks || 0, resourceIdentity.initialStacks || 0);
+            resource.maxStacks = Math.max(resource.maxStacks || 1, resourceIdentity.maxStacks || 1, Number(effect.maxStack) || 1);
+            if (resourceIdentity.changeEventBasis) resource.changeEventBasis = resourceIdentity.changeEventBasis;
+            if (resourceIdentity.verificationStatus) resource.verificationStatus = resourceIdentity.verificationStatus;
+            if (resourceIdentity.calculationSupportLevel) resource.calculationSupportLevel = resourceIdentity.calculationSupportLevel;
             resources.set(resourceId, resource);
+            const isRandomConsume = resourceMatch[2] === '消費' && valueInfo?.isRange === true;
             group.steps.push({
               type: 'resource',
+              effectId: effect.effectId || '',
               order: Number(effect.processOrder) || 0,
               resourceId,
               operation: resourceMatch[2] === '獲得' ? 'gain' : 'consume',
-              amount: Math.max(1, value || 1)
+              amount: Math.max(0, Number(valueInfo?.min ?? value) || 0),
+              amountMin: Math.max(0, Number(valueInfo?.min ?? value) || 0),
+              amountMax: Math.max(0, Number(valueInfo?.max ?? value) || 0),
+              random: isRandomConsume,
+              provisional: isRandomConsume,
+              changeEventBasis: resource.changeEventBasis || '実際の増減時'
             });
           } else if (isFdcApostleAttackMultiplierEffect(effect)) {
             if (!isRuntimeOwnedDamage(effect, timingSourceEffectId)) {
@@ -12616,6 +12838,7 @@
                 status,
                 stateId: effect.effectId || status,
                 applicationEffectId: effect.effectId || '',
+                reference: effect.reference || '',
                 durationEffectId: durationEffect?.effectId || '',
                 // 最大スタック到達時に消費するだけで個別の持続時間が記載されない
                 // 状態は、最大到達まで残存する。勝手に短い持続時間を推測しない。
@@ -12774,6 +12997,7 @@
         const runtimeTriggerText = getDpsRuntimeTriggerText(row, runtimeText);
         const implicitTargetActionKeys = getDpsEffectTargetActionKeys(row);
         const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|状態(?:異常)?付与時|\d+\s*回ごと/.test(runtimeTriggerText)
+          || !!getDpsFormationEventClassification(row.triggerType, row.category)
           || (implicitTargetActionKeys.length > 0 && Number(row.durationSeconds) > 0);
         if (row.singleManualDisabled && !hasDeterministicRuntimeTrigger) return;
         if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
@@ -12966,12 +13190,16 @@
           ? [...explicitTargetActionKeys]
           : getDpsStructuredTriggerActionKeys(row, text);
         const triggerText = getDpsRuntimeTriggerText(row, text);
+        const externalEventTrigger = !!getDpsFormationEventClassification(row.triggerType, row.category);
+        const resourceChangeTrigger = /リソース(?:変化|獲得|消費)時/.test(triggerText);
         const hitTriggered = !explicitTargetActionKeys.length
           && /命中(?:時|するたび|する度|すると)|衝突時/.test(triggerText);
         const initialTrigger = /戦闘開始時|ウェーブ開始時/.test(triggerText);
         const statusApplicationTrigger = /状態(?:異常)?付与時/.test(triggerText);
         const actionTrigger = structuredActionKeys.length > 0
           || statusApplicationTrigger
+          || resourceChangeTrigger
+          || externalEventTrigger
           || /使用時|使用後|発動時|終了時|命中(?:時|するたび|する度|すると)|衝突時|攻撃時/.test(triggerText);
         if (!initialTrigger && !actionTrigger && !statusCondition) return;
         const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
@@ -12982,27 +13210,30 @@
         if (actionTrigger && !triggerActionKeys.length && /低学年/.test(row.category || '')) triggerActionKeys.push('lowSkill');
         if (actionTrigger && !triggerActionKeys.length && /高学年/.test(row.category || '')) triggerActionKeys.push('highSkill');
         if (actionTrigger && !statusApplicationTrigger && !triggerActionKeys.length && row.actionScoped) triggerActionKeys.push(actionKey);
-        if (actionTrigger && !statusApplicationTrigger && !triggerActionKeys.length) return;
+        if (actionTrigger && !statusApplicationTrigger && !externalEventTrigger && !triggerActionKeys.length) return;
         const sourceId = row.sourceId || row.cardId || row.source || 'effect';
         const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
         const key = createDpsRuntimeEffectIdentity(row, options);
+        const runtimeMode = resourceChangeTrigger
+          ? 'resourceChanged'
+          : statusApplicationTrigger
+            ? 'statusApplicationTimed'
+            : timingSourceEffectId
+              ? 'sourceEventTimed'
+              : statusCondition
+                ? 'conditionalStatus'
+                : initialTrigger
+                  ? 'initialTimed'
+                  : usesDpsSourceEffectOccurrence(row)
+                    ? 'sourceEventTimed'
+                    : hitTriggered ? 'actionHitTimed' : 'actionTimed';
         const effect = damageBuffGroups.get(key) || {
           id: createDpsRuntimeEffectId(row, options, key),
           sourceId: sourceId === 'effect' ? '' : sourceId,
           ownerId: getDpsRuntimeEffectOwnerId(row, options),
           ownerName: row.ownerName || getDpsRuntimeEffectOwnerId(row, options),
           label: row.label || '時限ダメージバフ',
-          mode: statusApplicationTrigger
-            ? 'statusApplicationTimed'
-            : (timingSourceEffectId
-            ? 'sourceEventTimed'
-            : (statusCondition
-            ? 'conditionalStatus'
-            : (initialTrigger
-              ? 'initialTimed'
-              : (usesDpsSourceEffectOccurrence(row)
-                ? 'sourceEventTimed'
-                : (hitTriggered ? 'actionHitTimed' : 'actionTimed'))))),
+          mode: runtimeMode,
           triggerActionKeys: [],
           triggerPhase: getDpsStructuredTriggerPhase(row, triggerText),
           processGroupId: row.processGroupId || '',
@@ -13096,7 +13327,7 @@
         ].filter(value => value !== '' && value != null).join(' ');
         const hasDeterministicRuntimeTrigger = /戦闘開始時|ウェーブ開始時|カード選択時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|使用時|使用後|発動時|命中時|衝突時|攻撃時/.test(
           getDpsRuntimeTriggerText(row, structuredTriggerText || runtimeText)
-        );
+        ) || !!getDpsFormationEventClassification(row.triggerType, row.category);
         if (row.singleManualDisabled && !hasDeterministicRuntimeTrigger) return;
         if (!row.enabled && !hasDeterministicRuntimeTrigger) return;
         const key = row.key || [row.sourceId, row.effectId, row.label].filter(Boolean).join(':');
@@ -13480,7 +13711,9 @@
           reason: unsupportedRuntimeTrigger
             ? `DPS未対応の発動条件${option.triggerType ? `: ${option.triggerType}` : ''}`
             : externalActionRequired
-            ? '編成使徒本人の行動タイムライン未計上'
+            ? option.group === 'formation'
+              ? '編成使徒本人の行動タイムライン未計上'
+              : '外部イベント入力待ち'
             : enabled
               ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
               : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')

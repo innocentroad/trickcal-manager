@@ -178,6 +178,13 @@ body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-settings { background:co
 
 /* DPS settings and comparison are the only prototype popovers. */
 .fdcp-float-panel { position:absolute; z-index:130; right:0; bottom:calc(100% + 7px); display:grid; gap:7px; min-width:188px; padding:10px; border:1px solid var(--fdc-border); border-radius:9px; color:var(--fdc-text); background:var(--fdc-panel-strong); box-shadow:0 10px 30px color-mix(in srgb,var(--fdc-shadow) 55%,transparent); }.fdcp-float-panel[hidden] { display:none; }.fdcp-float-panel strong { font-size:.76rem; }.fdcp-float-panel label { display:flex; justify-content:space-between; align-items:center; gap:8px; color:var(--fdc-muted); font-size:.7rem; font-weight:800; }.fdcp-float-panel select,.fdcp-float-panel input { max-width:94px; min-height:27px; color:var(--fdc-text); background:var(--fdc-input); border:1px solid var(--fdc-border); border-radius:5px; }.fdcp-float-panel button { min-height:29px; border:1px solid var(--fdc-border); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.68rem; font-weight:850; cursor:pointer; }.fdcp-dps-compare-panel { grid-template-columns:1fr auto; }.fdcp-dps-compare-panel strong,.fdcp-dps-compare-panel small { grid-column:1 / -1; }.fdcp-dps-compare-panel small { color:var(--fdc-muted); font-size:.61rem; }
+/* The expanded detail sheet moves the fixed controller upward and exposes the
+   result bar's measured height through --fdc-result-bar-height.  Keep DPS
+   popovers below their sticky-note button in that state; otherwise the
+   collapsed-mode bottom calculation is reused and the panel can leave the
+   viewport.  The fixed position also avoids the narrow mobile slot becoming
+   the containing block for a wide settings panel. */
+.fdcp-page.fdc-result-detail-open .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) { position:fixed; top:calc(100dvh - var(--fdc-result-bar-height,6.35rem) - 1.7rem); right:clamp(.75rem,3vw,1.35rem); bottom:auto; left:auto; max-height:calc(var(--fdc-result-bar-height,6.35rem) - 1rem); overflow-y:auto; }
 .fdcp-dps-usage-note { color:var(--fdc-muted); font-size:.61rem; line-height:1.35; }
 .fdcp-dps-external-control { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:7px; margin-top:2px; padding:6px; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#0b2440 30%,var(--fdc-panel)); }
 .fdcp-dps-external-control > span { display:grid; gap:2px; min-width:0; }
@@ -186,7 +193,13 @@ body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-settings { background:co
 .fdcp-dps-external-control button { min-height:29px; padding:0 7px; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; font-size:.62rem; font-weight:850; cursor:pointer; }
 body.theme-dark .fdcp-dps-external-control { background:color-mix(in srgb,#071a31 56%,var(--fdc-panel)); }
 body.theme-dark .fdcp-dps-external-control button { color:#dceaff; background:rgba(47,105,172,.24); }
-.fdcp-dps-settings-panel { width:min(34rem,calc(100vw - 1rem)); max-height:calc(100dvh - 6.5rem); overflow:auto; overscroll-behavior:contain; }
+.fdcp-dps-settings-panel { grid-template-columns:repeat(2,minmax(0,1fr)); width:min(48rem,calc(100vw - 1rem)); max-height:calc(100dvh - 6.5rem); overflow:auto; overscroll-behavior:contain; }
+.fdcp-dps-settings-panel > strong,
+.fdcp-dps-settings-panel > .fdcp-dps-usage-note,
+.fdcp-dps-settings-panel > .fdcp-dps-external-control,
+.fdcp-dps-settings-panel > .fdcp-dps-external-input,
+.fdcp-dps-settings-panel > .fdcp-dps-runtime-settings-host,
+.fdcp-dps-settings-panel > #fdcp-dps-run { grid-column:1 / -1; }
 .fdcp-dps-settings-panel .fdcp-dps-external-input { display:block; min-width:0; }
 #fdcp-baseline-note[data-fdcp-comparison-state="waiting"] { color:#475569; font-weight:900; }
 #fdcp-baseline-note[data-fdcp-comparison-state="active"] { color:#5b21b6; font-weight:950; }
@@ -225,6 +238,7 @@ body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="active"] { color
    of the fixed bar.  Releasing the side gutter gives both result modes their
    full width; lift the cost coin so it does not sit underneath the note. */
 @media (max-width:680px) {
+  .fdcp-page.fdc-result-detail-open .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) { right:max(.5rem,env(safe-area-inset-right)); left:max(.5rem,env(safe-area-inset-left)); width:auto; }
   .fdcp-bottom-bar .fdcp-mode-tabs { top:calc(-1.7rem - 1px); right:auto; bottom:auto; left:max(.34rem,env(safe-area-inset-left)); display:flex; grid-template-rows:none; gap:2px; height:1.7rem; padding:0; }
   .fdcp-mode-tabs button { flex:0 0 3.15rem; width:3.15rem; height:1.7rem; border-left-width:1px; border-bottom:0; border-radius:7px 7px 0 0; padding:3px 6px; writing-mode:horizontal-tb; text-orientation:mixed; box-shadow:0 -2px 7px rgba(15,23,42,.2); }
   .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { padding-left:.34rem; }
@@ -259,16 +273,15 @@ body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="active"] { color
   .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before .fdc-result-number { font-size:.5rem; }
 }
 
-/* External events are edited in the DPS calculation popover.  Keep the
-   source details layout, but widen the popover so desktop rows fit and let the
-   existing mobile row breakpoints continue to stack the fields. */
+/* External events keep the timing controls visible and move technical/source
+   fields into an optional details block.  This keeps each event to one compact
+   row in the wide popover while preserving every value used by the simulator. */
 .fdcp-dps-settings-panel .fdc-dps-external-events { display:block; margin:0; padding:.45rem .52rem; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:9px; background:color-mix(in srgb,#0b2440 38%,var(--fdc-panel)); }
 .fdcp-dps-settings-panel .fdc-dps-external-events > summary { color:var(--fdc-text); font-size:.69rem; font-weight:850; cursor:pointer; }
 .fdcp-dps-settings-panel .fdc-dps-external-events > summary small { margin-left:.28rem; color:var(--fdc-muted); font-size:.55rem; }
 .fdcp-dps-settings-panel .fdc-dps-external-events-head { display:flex; align-items:center; justify-content:space-between; gap:.45rem; margin-top:.42rem; }
 .fdcp-dps-settings-panel .fdc-dps-external-events-head p { flex:1; margin:0; color:var(--fdc-muted); font-size:.57rem; line-height:1.35; }
-.fdcp-dps-settings-panel .fdc-dps-external-events-head button,
-.fdcp-dps-settings-panel .fdc-dps-external-event-row > button { min-height:1.7rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; font-size:.58rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-events-head button { min-height:1.7rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; font-size:.58rem; font-weight:850; cursor:pointer; }
 .fdcp-dps-settings-panel .fdc-dps-external-event-list { display:grid; gap:.32rem; margin-top:.4rem; }
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidates { display:block; margin-top:.42rem; padding:.3rem .4rem; border:1px solid color-mix(in srgb,#60a5fa 36%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#1e4b79 22%,var(--fdc-input)); }
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidates > summary { color:color-mix(in srgb,#60a5fa 76%,var(--fdc-text)); font-size:.6rem; font-weight:850; cursor:pointer; }
@@ -282,22 +295,42 @@ body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="active"] { color
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate span,
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate small { overflow-wrap:anywhere; }
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong { color:var(--fdc-text); font-size:.58rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-trigger { display:block; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-effect { display:block; color:#f5c45b; font-size:.57rem; line-height:1.25; }
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate span,
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate small { color:var(--fdc-muted); font-size:.5rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate .is-event-kind { color:#f59e0b; font-weight:850; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate .is-periodic-kind { color:#60a5fa; font-weight:750; }
 .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate button { flex:0 0 auto; min-height:1.55rem; padding:0 .48rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:5px; color:#075985; background:#eff6ff; font:inherit; font-size:.53rem; font-weight:850; cursor:pointer; }
-.fdcp-dps-settings-panel .fdc-dps-external-event-row { display:grid; grid-template-columns:minmax(120px,1.1fr) 72px 72px 62px minmax(110px,1fr) 30px; align-items:end; gap:.3rem; }
-.fdcp-dps-settings-panel .fdc-dps-external-event-row .is-value { grid-column:1 / span 2; }
-.fdcp-dps-settings-panel .fdc-dps-external-event-row .is-reason { grid-column:3 / span 3; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row { display:grid; min-width:0; gap:.24rem; padding:.34rem; border:1px solid color-mix(in srgb,var(--fdc-border) 74%,transparent); border-radius:7px; background:color-mix(in srgb,var(--fdc-panel) 72%,var(--fdc-input)); }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row.is-event-driven { border-color:color-mix(in srgb,#f59e0b 48%,var(--fdc-border)); }
+.fdcp-dps-settings-panel .fdc-dps-external-event-compact { display:grid; grid-template-columns:minmax(0,2fr) 72px 72px 64px 28px; align-items:end; min-width:0; gap:.3rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity { display:grid; align-content:center; min-width:0; min-height:1.7rem; gap:.1rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong,
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > small { overflow:hidden; min-width:0; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong { color:var(--fdc-text); font-size:.6rem; line-height:1.15; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > small { color:var(--fdc-muted); font-size:.49rem; line-height:1.15; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong.is-effect { display:block; overflow:visible; color:#f5c45b; font-size:.56rem; line-height:1.25; text-overflow:clip; white-space:normal; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type { display:grid; min-width:0; gap:.12rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type > span { color:var(--fdc-muted); font-size:.49rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type select { width:100%; }
 .fdcp-dps-settings-panel .fdc-dps-external-event-row label { display:grid; gap:.12rem; min-width:0; }
 .fdcp-dps-settings-panel .fdc-dps-external-event-row label > span { color:var(--fdc-muted); font-size:.49rem; }
 .fdcp-dps-settings-panel .fdc-dps-external-event-row input,
 .fdcp-dps-settings-panel .fdc-dps-external-event-row select { box-sizing:border-box; width:100%; min-width:0; height:1.7rem; padding:.18rem .3rem; border:1px solid color-mix(in srgb,#60a5fa 38%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.55rem; }
-.fdcp-dps-settings-panel .fdc-dps-external-event-row > button { width:1.7rem; padding:0; color:#b91c1c; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-compact > button { width:1.7rem; min-height:1.7rem; padding:0; border:1px solid color-mix(in srgb,#ef4444 42%,var(--fdc-border)); border-radius:6px; color:#b91c1c; background:transparent; font:inherit; font-size:.72rem; font-weight:900; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced { min-width:0; margin-top:.04rem; border-top:1px solid color-mix(in srgb,var(--fdc-border) 64%,transparent); }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced > summary { padding-top:.22rem; color:var(--fdc-muted); font-size:.5rem; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.26rem; padding-top:.26rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-reason,
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-status { grid-column:span 2; }
 body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-events-head button,
-body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-row > button,
 body.theme-dark .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate button { color:#dceaff; background:rgba(47,105,172,.24); }
-body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-row > button { color:#ffaaa5; }
+body.theme-light .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-effect,
+body.theme-light .fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong.is-effect { color:#9a6400; }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-compact > button { color:#ffaaa5; background:rgba(127,29,29,.16); }
 body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-events { background:color-mix(in srgb,#071a31 56%,var(--fdc-panel)); }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-row { background:color-mix(in srgb,#071a31 42%,var(--fdc-panel)); }
 
 /* Runtime effect choices are calculated from the current snapshot and live
    in the DPS settings popover.  Keep them compact and independently
@@ -352,20 +385,17 @@ body.theme-dark .fdcp-dps-detail-panel .fdc-dps-damage-graph-legend i.is-baselin
 
 @media (max-width:720px) {
   .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate-list { grid-template-columns:1fr; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row { grid-template-columns:minmax(105px,1fr) 62px 62px 30px; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row > button { grid-column:4; grid-row:1; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row .is-count { grid-column:1; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row .is-source { grid-column:2 / span 3; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row .is-value,
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row .is-reason { grid-column:span 2; }
+  .fdcp-dps-settings-panel .fdc-dps-external-event-compact { grid-template-columns:minmax(0,1fr) 62px 62px 52px 28px; }
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-reason,
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-status { grid-column:1 / -1; }
 }
 @media (max-width:680px) {
-  .fdcp-dps-settings-panel { position:fixed; right:max(.5rem,env(safe-area-inset-right)); bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem + 2.1rem + 7px); left:max(.5rem,env(safe-area-inset-left)); width:auto; }
+  .fdcp-dps-settings-panel { position:fixed; right:max(.5rem,env(safe-area-inset-right)); bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem + 2.1rem + 7px); left:max(.5rem,env(safe-area-inset-left)); width:auto; grid-template-columns:1fr; }
 }
 @media (max-width:420px) {
   .fdcp-dps-settings-panel .fdc-dps-external-events-head { align-items:stretch; flex-direction:column; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row { grid-template-columns:minmax(92px,1fr) 54px 54px 28px; }
-  .fdcp-dps-settings-panel .fdc-dps-external-event-row > button { grid-column:4; }
+  .fdcp-dps-settings-panel .fdc-dps-external-event-compact { grid-template-columns:minmax(0,1fr) 54px 54px 48px 28px; gap:.2rem; }
   .fdcp-dps-detail-panel .fdc-dps-damage-graph-panel .fdc-dps-section-head { display:grid; }
   .fdcp-dps-detail-panel .fdc-dps-damage-graph-panel [data-fdcp-damage-graph-note] { text-align:left; }
 }

@@ -7959,6 +7959,8 @@
       progressTotal: 0,
       flat: createEmptyTotals(),
       percent: createEmptyTotals(),
+      maxFlat: createEmptyTotals(),
+      maxPercent: createEmptyTotals(),
       advancedCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }])),
       specialCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }]))
     });
@@ -7991,6 +7993,7 @@
             if (filled) layer.advancedCounts[key].filled += 1;
           });
         }
+        addBoardRowToSummary(row, layer.maxFlat, layer.maxPercent);
         if (filled) addBoardRowToSummary(row, layer.flat, layer.percent);
       });
     });
@@ -8022,6 +8025,16 @@
     const label = isSpecial ? '特殊マス' : '上級マス';
     const icon = isSpecial ? 'Tileicon_3.webp' : 'Tileicon_2.webp';
     const suffix = isSpecial ? '%' : '';
+    const aggregateTotals = createEmptyTotals();
+    const aggregateMaxTotals = createEmptyTotals();
+    [1, 2, 3].forEach(layer => {
+      const values = isSpecial ? layers[layer].percent : layers[layer].flat;
+      const maxValues = isSpecial ? layers[layer].maxPercent : layers[layer].maxFlat;
+      Object.keys(aggregateTotals).forEach(key => {
+        aggregateTotals[key] += Number(values[key]) || 0;
+        aggregateMaxTotals[key] += Number(maxValues[key]) || 0;
+      });
+    });
     return `
       <table class="board-global-stat-matrix board-global-effect-type-matrix is-${escapeAttr(tileType)}">
         <thead>
@@ -8035,16 +8048,23 @@
         <tbody>
           ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
             <tr>
-              <th title="${escapeAttr(group.label)}"><img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}"></th>
+              <th title="${escapeAttr(group.label)}">
+                <span class="board-global-stat-cell">
+                  <span class="board-global-stat-icon">
+                    <img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}">
+                  </span>
+                  <small class="board-global-stat-total" title="${escapeAttr(`${label} B1〜B3合計効果値（現在 / 最大）`)}">
+                    <span class="board-global-count-current board-global-total-current">${renderBoardGlobalGroupedValue(aggregateTotals, group, suffix)}</span><span class="board-global-count-separator board-global-total-separator">/</span><span class="board-global-count-total board-global-total-max">${renderBoardGlobalGroupedValue(aggregateMaxTotals, group, suffix)}</span>
+                  </small>
+                </span>
+              </th>
               ${[1, 2, 3].map(layer => {
                 const values = layers[layer];
                 const counts = isSpecial ? values.specialCounts[group.key] : values.advancedCounts[group.key];
-                const totals = isSpecial ? values.percent : values.flat;
                 const isComplete = counts.total > 0 && counts.filled === counts.total;
                 return `
-                  <td class="board-global-special-value board-global-matrix-layer-${layer}${isComplete ? ' is-complete' : ''}">
-                    <strong>${renderBoardGlobalGroupedValue(totals, group, suffix)}</strong>
-                    <small${isComplete ? ' class="is-complete"' : ''} title="${escapeAttr(label)}達成数${isComplete ? '（100%達成）' : ''}">
+                  <td class="board-global-special-value board-global-matrix-count-cell board-global-matrix-layer-${layer}${isComplete ? ' is-complete' : ''}">
+                    <small class="board-global-matrix-count${isComplete ? ' is-complete' : ''}" title="${escapeAttr(`${label} B${layer}マス数${isComplete ? '（100%達成）' : ''}`)}">
                       <span class="board-global-count-current">${counts.filled}</span><span class="board-global-count-separator">/</span><span class="board-global-count-total">${counts.total}</span>
                     </small>
                   </td>

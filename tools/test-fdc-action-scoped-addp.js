@@ -128,6 +128,7 @@ const fdcRuntimeSource = source
     '    createDpsEvaluationInput,\n',
     [
       '    createDpsEvaluationInput,',
+      '    createDpsFormationEventCandidates,',
       '    collectEffects,',
       '    createDpsActionEffectAudit,',
       '    createDpsRuntimeEffects,',
@@ -137,6 +138,8 @@ const fdcRuntimeSource = source
       '    buildFdcApostleSkillOptions,',
       '    buildDpsActionProfiles,',
       '    getDpsRuntimeManagedSkillEffects,',
+      '    isDpsFormationExternalActionRequired,',
+      '    isDpsUnsupportedRuntimeTrigger,',
       '    normalizeCardEffectBonuses,',
       '    getEffectText,',
       '    getDpsDirectTimingSourceEffectId,'
@@ -326,6 +329,437 @@ const sameEffectPiraRuntime = fdcApi.createDpsRuntimeEffects({
 assert.equal(sameEffectPiraRuntime.attackSpeedEffects.length, 1,
   '同効果非スタックONの効果は装備者をまたいで1件に統合する');
 
+const formationEventCandidates = fdcApi.createDpsFormationEventCandidates({
+  basicAttack: {
+    rows: [
+      {
+        externalActionRequired: true,
+        sourceDisabled: false,
+        ownerId: 'AllyA',
+        ownerName: '味方A',
+        triggerType: 'シールド破壊時',
+        label: 'シールド破壊で攻撃力上昇',
+        triggerValue: ''
+      },
+      {
+        externalActionRequired: true,
+        sourceDisabled: false,
+        ownerId: 'AllyA',
+        ownerName: '味方A',
+        triggerType: '被ダメージ回数',
+        label: '被弾回数で攻撃速度上昇',
+        triggerValue: 3
+      },
+      {
+        externalActionRequired: true,
+        sourceDisabled: false,
+        ownerId: 'AllyA',
+        ownerName: '味方A',
+        triggerType: '低学年スキルで敵撃破時',
+        label: '低学年撃破で攻撃力上昇'
+      },
+      {
+        externalActionRequired: true,
+        sourceDisabled: false,
+        ownerId: 'AllyA',
+        ownerName: '味方A',
+        triggerType: '低学年スキル効果発生時',
+        label: '低学年効果発生で攻撃力上昇'
+      }
+    ]
+  },
+  highSkill: {
+    actionCategory: '高学年スキル',
+    rows: [
+      {
+        externalActionRequired: true,
+        sourceDisabled: false,
+        ownerId: 'AllyA',
+        ownerName: '味方A',
+        category: '高学年スキル',
+        triggerType: '固有状態付与時',
+        triggerSourceId: 'AllyA_high_state',
+        label: '高学年固有状態による攻撃力上昇'
+      }
+    ]
+  }
+}, { members: [{ id: 'AllyA', name: '味方A' }] });
+const shieldCandidate = formationEventCandidates.find(item => item.type === 'シールド破壊時');
+assert.equal(shieldCandidate?.timingMode, 'event', 'シールド破壊候補をイベント駆動型として分類する');
+assert.equal(shieldCandidate?.repeatability, 'once', 'シールド破壊候補を一回型として分類する');
+assert.equal(shieldCandidate?.intervalSeconds, 0, 'イベント駆動型候補へ周期間隔を推測しない');
+assert.equal(shieldCandidate?.repeatCount, 1, '一回型候補の初期回数を1回にする');
+assert.match(shieldCandidate?.basis || '', /周期推定なし/, 'イベント駆動型候補へ周期推定なしの根拠を残す');
+const damageCountCandidate = formationEventCandidates.find(item => item.eventClass === 'damage-taken-count');
+assert.equal(damageCountCandidate?.type, '被弾時', '被ダメージ回数を被弾イベントへ正規化する');
+assert.equal(damageCountCandidate?.repeatability, 'counted', '被ダメージ回数をカウント型として分類する');
+assert.equal(damageCountCandidate?.value, 3, 'カウント型候補の条件値を保持する');
+const killCandidate = formationEventCandidates.find(item => item.type === '低学年スキルで敵撃破時');
+assert.equal(killCandidate?.timingMode, 'event', '撃破条件を低学年スキル周期へ誤接続しない');
+const effectOccurrenceCandidate = formationEventCandidates.find(item => item.type === '低学年スキル効果発生時');
+assert.equal(effectOccurrenceCandidate?.timingMode, 'periodic', '低学年スキル効果発生を低学年スキル周期の暫定候補として分類する');
+const highStateCandidate = formationEventCandidates.find(item => item.eventLabel === '高学年固有状態付与');
+assert.equal(highStateCandidate?.label, '味方A / 高学年固有状態付与', '状態イベントへ発動元の学年を前置して表示する');
+
+const epicaFormationEventCandidates = fdcApi.createDpsFormationEventCandidates({
+  highSkill: {
+    actionCategory: '高学年スキル',
+    rows: [{
+      externalActionRequired: true,
+      sourceDisabled: false,
+      ownerId: 'epica',
+      ownerName: 'エピカ',
+      category: '高学年スキル',
+      triggerType: '固有状態付与時',
+      triggerSourceId: 'Epica_high_e03',
+      label: 'エピカ / 教主様に捧げる / 攻撃力増加'
+    }]
+  }
+}, {
+  members: [{
+    id: 'epica',
+    name: 'エピカ',
+    stats: { spRegen: 20 }
+  }]
+});
+const epicaStateCandidate = epicaFormationEventCandidates.find(item => item.eventLabel === '高学年固有状態付与');
+assert.equal(epicaStateCandidate?.timingMode, 'periodic', '高学年スキルに紐づく固有状態付与を周期推定候補にする');
+assert.equal(epicaStateCandidate?.intervalSeconds, 40, '高学年スキルに紐づく候補へ高学年CTを初期入力する');
+assert.equal(epicaStateCandidate?.startSeconds, 40, '高学年スキルに紐づく候補の開始秒にも高学年CTを初期入力する');
+assert.equal(epicaStateCandidate?.repeatCount, 0, '周期推定候補は計測終了まで反復する初期値にする');
+assert.match(epicaStateCandidate?.basis || '', /発動元行動周期の暫定値/, '周期推定候補に暫定値である根拠を表示する');
+
+const externalFormationRuntimeRow = {
+  key: 'skill:AllyA:formation:external',
+  effectId: 'AllyA_external_event_e01',
+  sourceId: 'AllyA:formation-skill',
+  ownerId: 'AllyA',
+  ownerName: '味方A',
+  category: '低学年',
+  effectType: 'バフ',
+  triggerType: 'シールド破壊時',
+  effectTarget: '味方',
+  durationSeconds: 5,
+  stackMax: 1,
+  stackable: false,
+  rawText: 'シールド破壊時 味方 攻撃速度 与ダメージ量',
+  bonuses: { hasteP: 12, addP: 8 },
+  runtimeBonuses: { hasteP: 12, addP: 8 },
+  enabled: false,
+  sourceDisabled: false,
+  singleManualDisabled: true,
+  externalActionRequired: true,
+  unsupportedRuntimeTrigger: false
+};
+const externalFormationRuntime = fdcApi.createDpsRuntimeEffects({
+  basicAttack: { rows: [externalFormationRuntimeRow] }
+}, {});
+const externalHaste = externalFormationRuntime.attackSpeedEffects.find(effect => (
+  String(effect.id || '').startsWith(externalFormationRuntimeRow.effectId)
+));
+assert.equal(externalHaste?.mode, 'externalTimed', 'イベント候補の攻撃速度効果を外部イベント起点へ接続する');
+assert.equal(externalHaste?.externalTriggerType, 'シールド破壊時', '外部攻撃速度効果のイベント種別を保持する');
+assert.equal(externalHaste?.externalSourceId, 'AllyA', '外部攻撃速度効果の発動元使徒を保持する');
+const externalDamageBuff = externalFormationRuntime.damageBuffEffects.find(effect => (
+  String(effect.id || '').startsWith(externalFormationRuntimeRow.effectId)
+));
+assert.equal(externalDamageBuff?.mode, 'externalTimed', 'イベント候補のダメージ効果を外部イベント起点へ接続する');
+assert.equal(externalDamageBuff?.externalTriggerType, 'シールド破壊時', '外部ダメージ効果のイベント種別を保持する');
+
+const selectedApostleExternalRow = {
+  group: 'self',
+  triggerType: 'シールド終了時',
+  category: '低学年',
+  label: 'シールド終了時の敵防御力減少',
+  effectType: 'デバフ',
+  effectTarget: '敵'
+};
+assert.equal(
+  fdcApi.isDpsFormationExternalActionRequired(selectedApostleExternalRow),
+  true,
+  '選択中本人のシールド終了条件も外部イベント入力待ちにする'
+);
+assert.equal(
+  fdcApi.isDpsUnsupportedRuntimeTrigger(selectedApostleExternalRow),
+  false,
+  '選択中本人の既知外部条件をDPS未対応として捨てない'
+);
+
+const viviApostle = apostleContext.library.find(apostle => apostle.id === 'vivi');
+const viviTarget = {
+  id: 'vivi',
+  name: 'ヴィヴィ',
+  position: '前列',
+  line: 1,
+  artifactIds: [],
+  role: '攻撃',
+  attackType: '魔法',
+  stats: { physicalAtk: 1, magicAtk: 1000 }
+};
+const viviFormation = {
+  rows: [
+    { apostles: ['vivi', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }
+  ],
+  spells: []
+};
+const viviCollectedEffects = fdcApi.collectEffects({
+  target: viviTarget,
+  formation: viviFormation,
+  cards: {},
+  damageType: 'magic',
+  state: { apostles: {}, cards: {} },
+  actionCategory: '低学年'
+});
+const viviLowAudit = fdcApi.createDpsActionEffectAudit({
+  target: viviTarget,
+  actionCategory: '低学年スキル',
+  damageType: 'magic',
+  state: { apostles: {}, cards: {} },
+  formation: viviFormation,
+  effects: viviCollectedEffects,
+  members: [{ id: 'vivi', name: 'ヴィヴィ', position: '前列', line: 1 }],
+  skillEffectStateOverrides: {}
+});
+const viviShieldRows = viviLowAudit.rows.filter(row => (
+  ['Vivi_low_e03', 'Vivi_low_e04'].includes(row.effectId)
+));
+assert.equal(viviShieldRows.length, 1, 'ヴィヴィ低学年のシールド終了効果をDPS監査へ同一効果行へまとめて保持する');
+assert.ok(viviShieldRows.every(row => row.externalActionRequired && !row.unsupportedRuntimeTrigger),
+  'ヴィヴィ低学年のシールド終了効果を外部イベント待ちとして保持する');
+const viviRuntime = fdcApi.createDpsRuntimeEffects({ lowSkill: viviLowAudit }, {});
+const viviShieldDebuff = viviRuntime.damageBuffEffects.find(effect => (
+  effect.externalTriggerType === 'シールド終了時'
+));
+assert.equal(viviShieldDebuff?.mode, 'externalTimed', 'ヴィヴィのシールド終了防御低下を外部イベント起点へ接続する');
+assert.equal(viviShieldDebuff?.modifiers.enemyDefDownP, 40, 'ヴィヴィのシールド終了防御低下40%を保持する');
+const viviRuntimeConfig = simulator.buildCombatantConfig(viviApostle, timingData.apostles.vivi, {
+  runtimeEffects: {
+    ...viviRuntime,
+    externalEvents: [{ type: 'シールド終了時', frame: 120, reason: 'シールド終了（手動）' }]
+  }
+});
+const viviRuntimeResult = simulator.simulate(viviRuntimeConfig, {
+  durationSeconds: 3,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  recordTimeline: true,
+  damageProfiles: {}
+});
+assert.ok(viviRuntimeResult.timeline.some(event => (
+  event.type === 'runtimeBuffApplied'
+    && event.effectId === viviShieldDebuff.id
+    && event.frame === 120
+)), 'ヴィヴィの手動シールド終了を実データDPSタイムラインへ反映する');
+
+const gabiaApostle = apostleContext.library.find(apostle => apostle.id === 'gabia');
+const gabiaShieldEndEffectKey = 'gabia-shield-end-damage';
+const structuredGabia = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: gabiaApostle,
+  target: { id: 'gabia', name: 'ガビア', artifactIds: [] },
+  context: { state: { cards: {} }, formation: { spells: [] } },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 0 },
+  timingEffectBindings: {},
+  runtimeManagedEffects: [{ effectId: 'Gabia_low_e02' }],
+  selectedSkillOptions: [{ effectId: 'Gabia_low_e02', key: gabiaShieldEndEffectKey }],
+  singleActionProfiles: {
+    [gabiaShieldEndEffectKey]: { damageResult: { expected: 321 } }
+  }
+});
+const gabiaShieldEndEvent = structuredGabia.eventEffects.find(effect => (
+  effect.triggerType === 'シールド終了時'
+    && effect.steps.some(step => step.effectId === 'Gabia_low_e02')
+));
+assert.ok(gabiaShieldEndEvent, 'ガビア低学年のシールド終了ダメージを構造化イベントへ保持する');
+assert.equal(gabiaShieldEndEvent.steps.find(step => step.effectId === 'Gabia_low_e02')?.expectedDamage, 321,
+  'ガビア低学年のシールド終了ダメージへ単体プロファイルを接続する');
+const gabiaRuntimeConfig = simulator.buildCombatantConfig(gabiaApostle, timingData.apostles.gabia, {
+  runtimeEffects: {
+    ...structuredGabia,
+    externalEvents: [{ type: 'シールド終了時', frame: 120, reason: 'シールド終了（手動）' }]
+  }
+});
+const gabiaRuntimeResult = simulator.simulate(gabiaRuntimeConfig, {
+  durationSeconds: 3,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  recordTimeline: true,
+  damageProfiles: {}
+});
+assert.ok(gabiaRuntimeResult.timeline.some(event => (
+  event.type === 'runtimeEffectHit'
+    && event.runtimeEffectId === gabiaShieldEndEvent.id
+    && event.effectId === 'Gabia_low_e02'
+    && event.frame === 120
+)), 'ガビアの手動シールド終了ダメージを実データDPSタイムラインへ1回反映する');
+
+// キャロットA2のシールド破壊時SP回復は、周期SP回復ではなく外部イベント
+// 入力から共通SPへ加算する。本人の外部条件を捨てず、既存のSP回復経路へ
+// 二重登録しないことを実データで確認する。
+const kyarotApostle = apostleContext.library.find(apostle => apostle.id === 'kyarot');
+const kyarotTarget = {
+  id: 'kyarot',
+  name: 'キャロット',
+  position: '前列',
+  line: 1,
+  artifactIds: [],
+  role: '守備',
+  attackType: '物理',
+  asideRank: 2,
+  asideLevel: 1,
+  stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 0 }
+};
+const kyarotFormation = {
+  rows: [
+    { apostles: ['kyarot', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }
+  ],
+  spells: []
+};
+const kyarotState = {
+  apostles: { kyarot: { asideRank: 2, asideLevel: 1 } },
+  cards: {}
+};
+const kyarotCollectedEffects = fdcApi.collectEffects({
+  target: kyarotTarget,
+  formation: kyarotFormation,
+  cards: {},
+  damageType: 'physical',
+  state: kyarotState,
+  actionCategory: '低学年'
+});
+const kyarotLowAudit = fdcApi.createDpsActionEffectAudit({
+  target: kyarotTarget,
+  actionCategory: '低学年スキル',
+  damageType: 'physical',
+  state: kyarotState,
+  formation: kyarotFormation,
+  effects: kyarotCollectedEffects,
+  members: [{ id: 'kyarot', name: 'キャロット', position: '前列', line: 1 }],
+  skillEffectStateOverrides: {}
+});
+const kyarotShieldRecoveryRows = kyarotLowAudit.rows.filter(row => (
+  row.effectId === 'Kyarot_aside_2_e03'
+));
+assert.equal(kyarotShieldRecoveryRows.length, 1, 'キャロットA2のシールド破壊時SP回復をDPS監査へ保持する');
+assert.equal(kyarotShieldRecoveryRows[0]?.bonuses?.spRecovery, 45, 'キャロットA2のSP回復量45を監査へ保持する');
+assert.ok(kyarotShieldRecoveryRows[0]?.externalActionRequired
+  && !kyarotShieldRecoveryRows[0]?.unsupportedRuntimeTrigger,
+  'キャロットA2のシールド破壊条件を外部イベント待ちとして保持する');
+const kyarotRuntime = fdcApi.createDpsRuntimeEffects({ lowSkill: kyarotLowAudit }, {
+  apostle: kyarotApostle,
+  target: kyarotTarget,
+  context: { state: { cards: {} }, formation: kyarotFormation },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 2 },
+  dpsSkillOverrides: {},
+  dpsTimingBranches: {},
+  timingEffectBindings: {},
+  selectedSkillOptions: [],
+  singleActionProfiles: {},
+  runtimeManagedEffects: []
+});
+const kyarotShieldRecovery = kyarotRuntime.spRecoveryEffects.find(effect => (
+  effect.effectId === 'Kyarot_aside_2_e03'
+));
+assert.equal(kyarotShieldRecovery?.mode, 'external', 'キャロットA2のSP回復を外部イベント起点へ接続する');
+assert.equal(kyarotShieldRecovery?.externalTriggerType, 'シールド破壊時', 'キャロットA2のSP回復イベント種別を保持する');
+assert.equal(
+  kyarotRuntime.spRecoveryEffects.filter(effect => effect.effectId === 'Kyarot_aside_2_e03').length,
+  1,
+  'キャロットA2のSP回復を周期経路と構造化イベントへ二重登録しない'
+);
+const kyarotRuntimeConfig = simulator.buildCombatantConfig(kyarotApostle, timingData.apostles.kyarot, {
+  runtimeEffects: {
+    ...kyarotRuntime,
+    externalEvents: [{ type: 'シールド破壊時', frame: 120, reason: 'シールド破壊（手動）' }]
+  }
+});
+const kyarotRuntimeResult = simulator.simulate(kyarotRuntimeConfig, {
+  durationSeconds: 3,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  recordTimeline: true,
+  damageProfiles: {}
+});
+const kyarotRecoveryEvents = kyarotRuntimeResult.timeline.filter(event => (
+  event.type === 'spRecoveryEvent'
+    && event.effectId === 'Kyarot_aside_2_e03'
+));
+assert.equal(kyarotRecoveryEvents.length, 1, 'キャロットA2の手動シールド破壊時SP回復を1回だけ反映する');
+assert.equal(kyarotRecoveryEvents[0]?.frame, 120, 'キャロットA2のSP回復を指定フレームへ反映する');
+assert.equal(kyarotRecoveryEvents[0]?.requestedAmount, 45, 'キャロットA2の手動SP回復量を45として反映する');
+
+const snorkyApostle = apostleContext.library.find(apostle => apostle.id === 'snorky');
+const snorkyTarget = {
+  id: 'snorky',
+  name: 'スノーキー',
+  position: '前列',
+  line: 1,
+  artifactIds: [],
+  role: '守備',
+  attackType: '物理',
+  stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 0 }
+};
+const snorkyFormation = {
+  rows: [
+    { apostles: ['snorky', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }
+  ],
+  spells: []
+};
+const snorkyCollectedEffects = fdcApi.collectEffects({
+  target: snorkyTarget,
+  formation: snorkyFormation,
+  cards: {},
+  damageType: 'physical',
+  state: { apostles: {}, cards: {} },
+  actionCategory: '低学年'
+});
+const snorkyLowAudit = fdcApi.createDpsActionEffectAudit({
+  target: snorkyTarget,
+  actionCategory: '低学年スキル',
+  damageType: 'physical',
+  state: { apostles: {}, cards: {} },
+  formation: snorkyFormation,
+  effects: snorkyCollectedEffects,
+  members: [{ id: 'snorky', name: 'スノーキー', position: '前列', line: 1 }],
+  skillEffectStateOverrides: {}
+});
+const snorkyShieldRows = snorkyLowAudit.rows.filter(row => (
+  ['Snorky_low_e03', 'Snorky_low_e04'].includes(row.effectId)
+));
+assert.equal(snorkyShieldRows.length, 1, 'スノーキー低学年のシールド終了デバフを1効果行へまとめて保持する');
+assert.ok(snorkyShieldRows[0]?.externalActionRequired
+  && !snorkyShieldRows[0]?.unsupportedRuntimeTrigger,
+  'スノーキー低学年のシールド終了条件を外部イベント待ちとして保持する');
+const snorkyRuntime = fdcApi.createDpsRuntimeEffects({ lowSkill: snorkyLowAudit }, {});
+const snorkyShieldDebuff = snorkyRuntime.damageBuffEffects.find(effect => (
+  effect.externalTriggerType === 'シールド終了時'
+));
+assert.equal(snorkyShieldDebuff?.mode, 'externalTimed', 'スノーキーのシールド終了防御低下を外部イベント起点へ接続する');
+assert.equal(snorkyShieldDebuff?.modifiers.enemyDefDownP, 50, 'スノーキーのシールド終了物理防御低下50%を保持する');
+const snorkyRuntimeConfig = simulator.buildCombatantConfig(snorkyApostle, timingData.apostles.snorky, {
+  runtimeEffects: {
+    ...snorkyRuntime,
+    externalEvents: [{ type: 'シールド終了時', frame: 120, reason: 'シールド終了（手動）' }]
+  }
+});
+const snorkyRuntimeResult = simulator.simulate(snorkyRuntimeConfig, {
+  durationSeconds: 3,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  recordTimeline: true,
+  damageProfiles: {}
+});
+assert.ok(snorkyRuntimeResult.timeline.some(event => (
+  event.type === 'runtimeBuffApplied'
+    && event.effectId === snorkyShieldDebuff.id
+    && event.frame === 120
+)), 'スノーキーの手動シールド終了デバフを実データDPSタイムラインへ反映する');
+
 // 本番の編成遺物収集経路でも、別使徒が装備した同じカードのownerIdを
 // 効果行へ保持し、DPSランタイムの分離まで届くことを確認する。
 const piraCard = cardDataContext.library.artifacts.find(card => (
@@ -484,6 +918,130 @@ assert.equal(
   'Barong_aside_2_e05',
   'FDC評価系の直接timing解決がBarong A2毒へ到達する'
 );
+
+// シオンの魔弾獲得は、skillmotionの直接効果行と構造化イベントの両方へ
+// 同じeffectIdが現れる。実データ経路では獲得を二重処理せず、1回の命中
+// イベントとして扱うことを確認する。
+const xionApostle = apostleContext.library.find(apostle => apostle.id === 'xion');
+const xionTiming = timingData.apostles.xion;
+const xionTimingBranches = timingBranchContext.api.createDpsAsideTimingBranches(xionTiming, 0);
+const xionTimingBindings = timingBranchContext.api.createDpsTimingEffectBindings(
+  xionTiming,
+  xionTimingBranches
+);
+const structuredXion = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: xionApostle,
+  target: { id: 'xion', name: 'シオン・ザ・DB', artifactIds: [] },
+  context: { state: { cards: {} }, formation: { spells: [] } },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 0 },
+  timingEffectBindings: xionTimingBindings,
+  runtimeManagedEffects: [],
+  selectedSkillOptions: [],
+  singleActionProfiles: {}
+});
+const xionLowResourceEvent = structuredXion.eventEffects.find(effect => (
+  effect.timingSourceEffectId === 'Xion_low_e02'
+));
+assert.equal(xionLowResourceEvent?.steps.filter(step => step.type === 'resource').length, 1,
+  '実データのシオン低学年へ魔弾獲得の構造化イベントを1件生成する');
+const xionRuntimeConfig = simulator.buildCombatantConfig(xionApostle, xionTiming, {
+  timingBranches: xionTimingBranches,
+  runtimeEffects: {
+    ...structuredXion,
+    spRecoveryEffects: [{ id: 'fdc-focused-xion-initial-sp', mode: 'initial', fixed: 300 }]
+  }
+});
+const xionRuntimeResult = simulator.simulate(xionRuntimeConfig, {
+  durationSeconds: 7,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  recordTimeline: true,
+  damageProfiles: {}
+});
+const xionLowResourceChanges = xionRuntimeResult.timeline.filter(event => (
+  event.type === 'resourceChange'
+    && event.actionKey === 'lowSkill'
+    && event.resourceName === '魔弾'
+    && event.operation === 'gain'
+));
+assert.equal(xionLowResourceChanges.length, 1,
+  'シオン低学年の魔弾獲得は直接効果行と構造化イベントで二重発火しない');
+assert.equal(xionLowResourceChanges[0]?.amount, 2,
+  'シオン低学年の魔弾獲得量を実データどおり2個にする');
+
+// ピラの富豪は、表示名ではなくuniqueStatesのPira_wealthを内部IDとして
+// 使い、高学年終了時の1～30消費を単一seedの暫定範囲として渡す。
+const piraApostle = apostleContext.library.find(apostle => apostle.id === 'pira');
+const structuredPira = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: piraApostle,
+  target: { id: 'pira', name: 'ピラ', artifactIds: [] },
+  context: { state: { cards: {} }, formation: { spells: [] } },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 0 },
+  timingEffectBindings: {},
+  runtimeManagedEffects: [],
+  selectedSkillOptions: [],
+  singleActionProfiles: {}
+});
+const piraHighConsume = structuredPira.eventEffects
+  .flatMap(effect => effect.steps.map(step => ({ effect, step })))
+  .find(({ effect, step }) => (
+    effect.triggerType === '高学年スキル終了時'
+      && step.type === 'resource'
+      && step.operation === 'consume'
+  ));
+assert.equal(piraHighConsume?.step.resourceId, 'Pira_wealth',
+  'ピラの富豪消費をuniqueStatesのPira_wealthへ結び付ける');
+assert.equal(piraHighConsume?.step.amountMin, 1,
+  'ピラ高学年終了時の富豪消費下限を1にする');
+assert.equal(piraHighConsume?.step.amountMax, 30,
+  'ピラ高学年終了時の富豪消費上限を30にする');
+assert.equal(piraHighConsume?.step.random, true,
+  'ピラ高学年終了時の富豪消費を単一seed抽選として扱う');
+assert.equal(piraHighConsume?.step.provisional, true,
+  'ピラ高学年終了時の未検証消費量へ暫定フラグを付ける');
+
+const chloeApostle = apostleContext.library.find(apostle => apostle.id === 'chloe');
+const structuredChloe = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: chloeApostle,
+  target: {
+    id: 'chloe',
+    name: 'クロエ',
+    artifactIds: ['artifact_chloe_sewing_chest']
+  },
+  context: {
+    state: { cards: { artifact_chloe_sewing_chest: { star: 1, solder: 0 } } },
+    formation: { spells: [] }
+  },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 0 },
+  timingEffectBindings: {},
+  selectedSkillOptions: [],
+  singleActionProfiles: {}
+});
+const chloeMaxStackEvent = structuredChloe.eventEffects.find(effect => (
+  effect.triggerType === '状態最大スタック到達時'
+));
+assert.ok(chloeMaxStackEvent?.steps.some(step => step.type === 'damage'),
+  'クロエの糸爆弾最大スタック到達時に爆発ダメージを生成する');
+assert.equal(chloeMaxStackEvent?.consumeMaxStacks, true,
+  'クロエの糸爆弾爆発後に明示された最大スタック消費を反映する');
+
+const haleyApostle = apostleContext.library.find(apostle => apostle.id === 'haley');
+const structuredHaley = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: haleyApostle,
+  target: { id: 'haley', name: 'ヘイリー', artifactIds: [] },
+  context: { state: { cards: {} }, formation: { spells: [] } },
+  skillLevels: { low: 1, high: 1, passive: 1, default: 1, asideRank: 2 },
+  timingEffectBindings: {},
+  selectedSkillOptions: [],
+  singleActionProfiles: {}
+});
+const haleyFinalHitEvent = structuredHaley.eventEffects.find(effect => (
+  effect.triggerType === '低学年スキル最終ヒット命中時'
+));
+assert.deepEqual(plain(haleyFinalHitEvent?.triggerActionKeys), ['lowSkill'],
+  'ヘイリーの低学年最終ヒット効果を低学年行動へ結び付ける');
+assert.equal(haleyFinalHitEvent?.finalHitOnly, true,
+  'ヘイリーの最終ヒット効果を最終ダメージイベント限定にする');
 
 // FDCで構造化した実データのイベントをそのままシミュレーターへ渡し、
 // 選択中A2の共通本体行も含めて低学年が実際にダメージを出すことを確認する。
