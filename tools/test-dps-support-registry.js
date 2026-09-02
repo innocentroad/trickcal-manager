@@ -98,12 +98,16 @@ const timingData = vm.runInContext('DPS_TIMING_DATA', actualContext);
 assert.equal(timingData.version, 8, 'generated timing schema is v8');
 assert.deepEqual(JSON.parse(JSON.stringify(timingData.summary.implementationStatuses)), {
   normal: { '暫定': 14, '未': 50, '済': 11, '途中': 0 },
-  aside: { '暫定': 8, '未': 62, '済': 5, '途中': 0 },
+  aside: { '暫定': 8, '未': 61, '済': 6, '途中': 0 },
   favorite: { '暫定': 4, '未': 66, '済': 5, '途中': 0 }
 }, 'generated data carries component-specific status summary');
 assert.equal(actualRegistry.evaluate(snapshot('sylla')).supported, true, 'actual normal configuration is enabled by its normal status');
 assert.equal(actualRegistry.evaluate(snapshot('sylla')).provisional, false, 'non-selected provisional aside does not badge');
 assert.equal(actualRegistry.evaluate(snapshot('sylla', { asideRank: 2 })).provisionalLabel, 'アサイド', 'actual selected provisional aside is named');
 assert.equal(actualRegistry.evaluate(snapshot('sylla', { favorite: 1 })).supported, false, 'actual blank favorite is 未');
+const kidianAside = actualRegistry.evaluate(snapshot('kidian', { asideRank: 3 }));
+assert.equal(kidianAside.supported, true, 'Kidian aside is enabled by its updated source status');
+assert.equal(kidianAside.implementationStatuses.aside, '済', 'Kidian aside uses the source status');
+assert.equal(kidianAside.provisional, false, 'Kidian aside is no longer provisional');
 
 console.log('DPS component support registry tests passed');

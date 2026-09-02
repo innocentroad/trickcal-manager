@@ -26,7 +26,7 @@ const DPS_TIMING_DATA = {
   },
   "summary": {
     "apostles": 76,
-    "usableApostles": 24,
+    "usableApostles": 25,
     "generatedObjects": 7,
     "endConditions": 9,
     "movementTransitions": 4,
@@ -40,8 +40,8 @@ const DPS_TIMING_DATA = {
       },
       "aside": {
         "暫定": 8,
-        "未": 62,
-        "済": 5,
+        "未": 61,
+        "済": 6,
         "途中": 0
       },
       "favorite": {
@@ -3504,6 +3504,217 @@ const DPS_TIMING_DATA = {
       },
       "implementationNote": ""
     },
+    "epica": {
+      "id": "epica",
+      "sourceId": "Epica",
+      "name": "エピカ",
+      "initialActionDelayFrames": 60,
+      "initialActionDelaySource": "default",
+      "measuredNormalAttackIntervalFrames": 93,
+      "normalAttackIntervalFrames": 121,
+      "normalAttackIntervalSource": {
+        "value": 93,
+        "unit": "録画F@▶",
+        "gameFrames": 121
+      },
+      "normalAttackIntervalVariants": [
+        {
+          "actionKey": "basicAttack",
+          "branch": "",
+          "value": 93,
+          "unit": "録画F@▶",
+          "gameFrames": 121
+        }
+      ],
+      "actions": {
+        "lowSkill": {
+          "label": "低学年",
+          "branch": "",
+          "motionFrames": 174,
+          "motionSource": {
+            "value": 174,
+            "unit": "ゲームF",
+            "gameFrames": 174
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 174,
+              "unit": "ゲームF",
+              "gameFrames": 174,
+              "researchStatus": "未",
+              "note": "",
+              "sourceLine": 40
+            }
+          ],
+          "researchStatus": "未",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": null,
+              "sourceTime": null,
+              "researchStatus": "",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 77
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "highSkill": {
+          "label": "高学年",
+          "branch": "",
+          "motionFrames": 600,
+          "motionSource": {
+            "value": 600,
+            "unit": "ゲームF",
+            "gameFrames": 600
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 600,
+              "unit": "ゲームF",
+              "gameFrames": 600,
+              "researchStatus": "未",
+              "note": "",
+              "sourceLine": 41
+            }
+          ],
+          "researchStatus": "未",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": null,
+              "sourceTime": null,
+              "researchStatus": "",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 78
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "basicAttack": {
+          "label": "普通攻撃_基本",
+          "branch": "",
+          "motionFrames": 100,
+          "motionSource": {
+            "value": 100.2,
+            "unit": "ゲームF",
+            "gameFrames": 100
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 100.2,
+              "unit": "ゲームF",
+              "gameFrames": 100,
+              "researchStatus": "未",
+              "note": "",
+              "sourceLine": 42
+            }
+          ],
+          "researchStatus": "未",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": 66,
+              "guaranteeSource": {
+                "value": 51,
+                "unit": "録画F@▶",
+                "gameFrames": 66
+              },
+              "frame": 96,
+              "sourceTime": {
+                "value": 74,
+                "unit": "録画F@▶",
+                "gameFrames": 96
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 79
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "enhancedAttack": {
+          "label": "普通攻撃_強化",
+          "branch": "",
+          "motionFrames": 120,
+          "motionSource": {
+            "value": 120,
+            "unit": "ゲームF",
+            "gameFrames": 120
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 120,
+              "unit": "ゲームF",
+              "gameFrames": 120,
+              "researchStatus": "未",
+              "note": "",
+              "sourceLine": 43
+            }
+          ],
+          "researchStatus": "未",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": null,
+              "sourceTime": null,
+              "researchStatus": "",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 80
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        }
+      },
+      "implementationStatuses": {
+        "normal": "未",
+        "aside": "未",
+        "favorite": "未"
+      },
+      "implementationNote": ""
+    },
     "erpin": {
       "id": "erpin",
       "sourceId": "Erpin",
@@ -5540,7 +5751,7 @@ const DPS_TIMING_DATA = {
       },
       "implementationStatuses": {
         "normal": "済",
-        "aside": "未",
+        "aside": "済",
         "favorite": "未"
       },
       "implementationNote": ""
@@ -11313,7 +11524,7 @@ const DPS_TIMING_DATA = {
       "name": "ギデオン",
       "statuses": {
         "normal": "済",
-        "aside": "未",
+        "aside": "済",
         "favorite": "未"
       },
       "note": "",
@@ -12017,13 +12228,6 @@ const DPS_TIMING_DATA = {
     }
   },
   "incompleteApostles": [
-    {
-      "id": "epica",
-      "name": "エピカ",
-      "missing": [
-        "普通攻撃間隔"
-      ]
-    },
     {
       "id": "carren",
       "name": "カレン",
