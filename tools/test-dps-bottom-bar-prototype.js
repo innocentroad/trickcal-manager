@@ -118,7 +118,7 @@ assert.ok(css.includes('body.theme-light .fdcp-dps-primary .fdcp-total-delta[dat
 assert.ok(!/body\.theme-light[^\{]*\{[^}]*#83f0bb/.test(css) && !/body\.theme-light[^\{]*\{[^}]*#ffaeae/.test(css), 'lightの差分へ旧dark向け低コントラスト色を使わない');
 assert.ok(css.includes('body.theme-dark .fdcp-dps-primary .fdcp-total-delta[data-delta-state="positive"]') && css.includes('body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="active"]'), 'darkでは既存の明るい差分色と比較状態文を維持する');
 assert.ok(html.includes('data-fdcp-mode="single">通常</button>'), '通常計算タブをコンパクトな縦書きラベルにする');
-assert.ok(html.includes('data-fdcp-mode="dps">DPS</button>'), 'DPSタブをコンパクトな縦書きラベルにする');
+assert.ok(html.includes('data-fdcp-mode="dps"') && html.includes('class="fdcp-beta-mark"') && html.includes('>β</small>'), 'DPSタブにβ版マークを付ける');
 assert.ok(!html.includes('id="fdcp-dps-notice"'), '常時表示のDPS注意文を下バーから除去する');
 assert.match(css, /data-mode="single"[\s\S]*?fdcp-result-panel[^\{]*\{ display:none !important/, '通常計算モードではDPS下バーを明示的に隠す');
 assert.equal((html.match(/data-fdcp-column="action"/g) || []).length, 5, '5行すべてに行動列を持つ');
@@ -182,15 +182,15 @@ assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-ca
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
 assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260902c'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260902b'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260902c'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
 assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260902c'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260902d') && appCache.includes('dps-simulator.js?v=20260902d'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260901b") && appCache.includes('dps-simulator-worker.js?v=20260901b'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260902b'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260902c'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260902b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260903b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {

@@ -17,8 +17,8 @@ const context = { window: {} };
 vm.runInNewContext(configSource, context, { filename: 'public-release-config.js' });
 const release = context.window.TRICKCAL_PUBLIC_RELEASE;
 
-assert.equal(release.isAsideEnabled('kidian'), false, 'ギデオンのアサイドを公開無効化する');
-assert.equal(release.isAsideEnabled('KIDIAN'), false, 'アサイドIDの大文字小文字を吸収する');
+assert.equal(release.isAsideEnabled('kidian'), true, 'ギデオンのアサイドを公開有効化する');
+assert.equal(release.isAsideEnabled('KIDIAN'), true, 'アサイドIDの大文字小文字を吸収する');
 assert.equal(release.isAsideEnabled('sylla'), true, '未指定のアサイドは公開有効のままにする');
 
 const statContext = { window: context.window };
@@ -35,14 +35,14 @@ const totals = {
   critRes: 100,
   critDmgRes: 100
 };
-const blockedBasic = { id: 'kidian', レア度: 3, 攻撃タイプ: '物理' };
-const blockedState = { asideRank: 3, skillLevels: { low: 1, high: 1, passive: 1 } };
-const noAsidePower = engine.calculateCombatPower(blockedBasic, { ...blockedState, asideRank: 0 }, totals);
-const blockedPower = engine.calculateCombatPower(blockedBasic, blockedState, totals);
-assert.equal(blockedPower, noAsidePower, '無効化したアサイドの戦闘力補正を止める');
+const enabledBasic = { id: 'kidian', レア度: 3, 攻撃タイプ: '物理' };
+const enabledState = { asideRank: 3, skillLevels: { low: 1, high: 1, passive: 1 } };
+const noAsidePower = engine.calculateCombatPower(enabledBasic, { ...enabledState, asideRank: 0 }, totals);
+const enabledPower = engine.calculateCombatPower(enabledBasic, enabledState, totals);
+assert.ok(enabledPower > noAsidePower, '公開有効化したギデオンのアサイド戦闘力補正を反映する');
 
 assert.match(statPrototypeSource, /function hasAsideEffects\(id\) \{[\s\S]*isPublicAsideEnabled\(id\)/, 'ステータス画面のアサイド表示を公開判定へ接続する');
 assert.match(damageCalcSource, /function getFdcEffectiveSkillLevels\(target\) \{[\s\S]*isPublicAsideEnabled\(target\)/, '本体DPSのアサイドスキルレベルを公開判定へ接続する');
-assert.ok(cacheSource.includes('public-release-config.js?v=20260828a'), '公開リリース設定をcache warmupへ追加する');
+assert.ok(cacheSource.includes('public-release-config.js?v=20260903a'), '公開リリース設定をcache warmupへ追加する');
 
 console.log('Public release config tests passed');

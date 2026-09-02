@@ -2,12 +2,12 @@
   "schema": "trickcal-stat-state",
   "version": 2,
   "kind": "slot",
-  "exportedAt": "2026-08-28T11:00:26+00:00",
+  "exportedAt": "2026-09-02T20:39:10+00:00",
   "sourceSlot": 6,
   "fixtureName": "Codex表示検証用・全育成最大",
-  "sourceDataGeneratedAt": "2026-08-28T11:00:26+00:00",
+  "sourceDataGeneratedAt": "2026-09-02T20:39:10+00:00",
   "snapshot": {
-    "savedAt": "2026-08-28T11:00:26+00:00",
+    "savedAt": "2026-09-02T20:39:10+00:00",
     "slotName": "Codex表示検証用・全育成最大",
     "apostleName": "モモ",
     "activeId": "Momo",
@@ -2420,12 +2420,12 @@
         "grade": 6,
         "gradeConfigured": true,
         "bond": 30,
-        "asideRank": 0,
-        "asideLevel": 0,
+        "asideRank": 3,
+        "asideLevel": 50,
         "skillLevels": {
-          "low": 12,
-          "high": 12,
-          "passive": 12
+          "low": 15,
+          "high": 15,
+          "passive": 15
         },
         "follow": false,
         "equipment": {
@@ -4370,12 +4370,12 @@
         "grade": 6,
         "gradeConfigured": true,
         "bond": 30,
-        "asideRank": 0,
-        "asideLevel": 0,
+        "asideRank": 3,
+        "asideLevel": 50,
         "skillLevels": {
-          "low": 12,
-          "high": 12,
-          "passive": 12
+          "low": 15,
+          "high": 15,
+          "passive": 15
         },
         "follow": false,
         "equipment": {

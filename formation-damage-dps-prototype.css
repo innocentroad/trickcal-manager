@@ -1,5 +1,6 @@
 /* Prototype-only additions. The copied ordinary result DOM stays governed by
    formation-damage-calc.css; these rules only switch in the DPS beta view. */
+.fdcp-mode-tabs button[data-fdcp-mode="dps"] .fdcp-beta-mark { display:inline-block; margin-left:.1rem; color:#f59e0b; font-size:.52rem; font-style:normal; font-weight:950; line-height:1; vertical-align:.18em; }
 .fdcp-bottom-bar { --fdcp-mode-tabs-width:3.15rem; --fdcp-collapsed-bar-height:5.35rem; --fdcp-detail-column:clamp(2.18rem,6vw,4.6rem); --fdcp-result-card-rows:1rem minmax(0,1fr) .88rem; --fdcp-result-card-padding:3px 5px; padding-top:0; }
 /* The result-mode switch is a top-edge sticky note at every viewport width.
    It stays outside the fixed bar's flow, so moving it above the bar does not

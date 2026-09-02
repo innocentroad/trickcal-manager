@@ -32,6 +32,8 @@
   };
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
+  const RESEARCH_MAX_LEVEL = 10;
+  const RESEARCH_MAX_PROGRESS = 45;
   const COMBAT_POWER_BASE_BY_RARITY = {
     1: 1.015,
     2: 1.03,
@@ -213,6 +215,7 @@
     historyRedo: null,
     image: document.getElementById('apostle-image'),
     profileAsideIcon: document.getElementById('profile-aside-icon'),
+    profileAsideFallback: document.getElementById('profile-aside-fallback'),
     profileFavoriteButton: document.getElementById('profile-favorite-button'),
     profileFavoriteImage: document.getElementById('profile-favorite-image'),
     profileFavoriteDialog: document.getElementById('profile-favorite-dialog'),
@@ -277,6 +280,7 @@
     researchProgressSelect: document.getElementById('research-progress-select'),
     researchLevelSelect: document.getElementById('research-level-select'),
     researchGrid: document.getElementById('research-grid'),
+    researchOverviewSummary: document.getElementById('research-overview-summary'),
     activeResearch: document.getElementById('active-research-list'),
     apostleBulkSearch: document.getElementById('apostle-bulk-search'),
     apostleBulkSort: document.getElementById('apostle-bulk-sort'),
@@ -619,12 +623,12 @@
     ].map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
     renderAsideLevelOptions(0);
 
-    elements.researchProgressSelect.innerHTML = Array.from({ length: 46 }, (_, index) => {
+    elements.researchProgressSelect.innerHTML = Array.from({ length: RESEARCH_MAX_PROGRESS + 1 }, (_, index) => {
       const label = index === 0 ? 'OFF' : `${index}回目`;
       return `<option value="${index}">${label}</option>`;
     }).join('');
 
-    elements.researchLevelSelect.innerHTML = Array.from({ length: 11 }, (_, index) => {
+    elements.researchLevelSelect.innerHTML = Array.from({ length: RESEARCH_MAX_LEVEL + 1 }, (_, index) => {
       const label = index === 0 ? 'OFF' : `${index}段階`;
       return `<option value="${index}">${label}</option>`;
     }).join('');
@@ -936,6 +940,16 @@
     });
 
     elements.profileAsideIcon?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggleProfileAsideRank();
+    });
+
+    elements.profileAsideFallback?.addEventListener('click', () => {
+      toggleProfileAsideRank();
+    });
+
+    elements.profileAsideFallback?.addEventListener('keydown', event => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
       toggleProfileAsideRank();
@@ -2293,9 +2307,41 @@
     return aliases[id] || id;
   }
 
+  function clearAsideImageFallback(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+    image.hidden = false;
+    image.classList.remove('is-aside-image-missing');
+    const wrapper = image.closest('[data-aside-image-wrap]');
+    wrapper?.classList.remove('is-aside-image-fallback');
+    const label = wrapper?.querySelector('[data-aside-image-fallback-label]');
+    if (label) label.hidden = true;
+  }
+
+  function showAsideImageFallback(image) {
+    if (!(image instanceof HTMLImageElement)) return false;
+    const wrapper = image.closest('[data-aside-image-wrap]');
+    if (!wrapper) return false;
+    const labelText = String(image.dataset.asideImageFallback || 'Aside').trim() || 'Aside';
+    let label = wrapper.querySelector('[data-aside-image-fallback-label]');
+    if (!label) {
+      label = document.createElement('span');
+      label.className = 'aside-image-fallback-label';
+      label.dataset.asideImageFallbackLabel = '';
+      wrapper.appendChild(label);
+    }
+    label.textContent = labelText;
+    label.hidden = false;
+    wrapper.classList.add('is-aside-image-fallback');
+    image.classList.add('is-aside-image-missing');
+    image.hidden = true;
+    image.dataset.fallback = 'true';
+    return true;
+  }
+
   function handleApostleImageError(event) {
     const image = event.target;
     if (!(image instanceof HTMLImageElement) || !image.hasAttribute('data-apostle-image')) return;
+    if (image.dataset.asideImageFallback && showAsideImageFallback(image)) return;
     const skillAssetId = image.dataset.apostleSkillAsset || '';
     const skillFallback = image.dataset.apostleSkillFallback || '';
     if (skillAssetId && skillFallback === 'passive') {
@@ -3925,11 +3971,22 @@
   function renderProfileAsideIcon(basic, state) {
     if (!elements.profileAsideIcon || !basic) return;
     const hasAside = hasAsideEffects(basic.id);
+    clearAsideImageFallback(elements.profileAsideIcon);
     elements.profileAsideIcon.hidden = !hasAside;
+    if (elements.profileAsideFallback) {
+      elements.profileAsideFallback.hidden = true;
+      elements.profileAsideFallback.textContent = 'Aside';
+      elements.profileAsideFallback.classList.remove('is-inactive');
+      elements.profileAsideFallback.setAttribute('aria-pressed', state.asideRank ? 'true' : 'false');
+      elements.profileAsideFallback.title = state.asideRank
+        ? `A${state.asideRank} 発現中: クリックでOFF`
+        : 'アサイド未発現: クリックでA1発現';
+    }
     if (!hasAside) return;
     const src = `img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(basic.id))}.webp`;
     elements.profileAsideIcon.classList.remove('is-loaded');
     elements.profileAsideIcon.onload = () => {
+      clearAsideImageFallback(elements.profileAsideIcon);
       elements.profileAsideIcon.classList.add('is-loaded');
     };
     elements.profileAsideIcon.dataset.fallback = 'false';
@@ -3942,6 +3999,7 @@
     elements.profileAsideIcon.setAttribute('role', 'button');
     elements.profileAsideIcon.setAttribute('aria-pressed', state.asideRank ? 'true' : 'false');
     elements.profileAsideIcon.classList.toggle('is-inactive', !(Number(state.asideRank) || 0));
+    elements.profileAsideFallback?.classList.toggle('is-inactive', !(Number(state.asideRank) || 0));
     elements.profileAsideIcon.title = state.asideRank
       ? `A${state.asideRank} 発現中: クリックでOFF`
       : 'アサイド未発現: クリックでA1発現';
@@ -4161,8 +4219,9 @@
     const grouped = groupRowsBy(rows, row => String(row.SLv ?? row.Lv ?? ''));
     elements.asideInfoList.innerHTML = `
       <article class="aside-info-card aside-info-overview">
-        <div class="aside-info-icon">
-          <img data-apostle-image src="img/Chara/Aside/AsideIcon_${escapeAttr(assetId)}.webp" alt="">
+        <div class="aside-info-icon" data-aside-image-wrap>
+          <img data-apostle-image data-aside-image-fallback="Aside" src="img/Chara/Aside/AsideIcon_${escapeAttr(assetId)}.webp" alt="">
+          <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
         </div>
         <div class="aside-info-body">
           <strong>${escapeHtml(asideName)}</strong>
@@ -4175,9 +4234,10 @@
 
   function renderAsideRankInfoCard(rank, rows, assetId) {
     const iconHtml = `
-      <div class="aside-info-icon aside-rank-icon">
-        <img data-apostle-image src="img/Chara/Aside/Aside_Skill_${escapeAttr(assetId)}_${rank}.webp" alt="">
-        <span>A${rank}</span>
+      <div class="aside-info-icon aside-rank-icon" data-aside-image-wrap>
+        <img data-apostle-image data-aside-image-fallback="A${rank}" src="img/Chara/Aside/Aside_Skill_${escapeAttr(assetId)}_${rank}.webp" alt="">
+        <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>A${rank}</span>
+        <span class="aside-rank-label">A${rank}</span>
       </div>
     `;
     if (!rows.length) {
@@ -4811,6 +4871,7 @@
   function renderResearchOverview() {
     const level = Number(appState.research.level) || 0;
     const progress = Number(appState.research.progress) || 0;
+    renderResearchOverviewSummary(level, progress);
     const rows = getActiveResearchRows();
     if (!rows.length) {
       elements.researchGrid.innerHTML = '<p class="empty-note">研究効果OFF</p>';
@@ -4827,6 +4888,24 @@
         value
       }));
     elements.researchGrid.innerHTML = renderResearchTable(entries, '研究効果なし', true);
+  }
+
+  function renderResearchOverviewSummary(level, progress) {
+    if (!elements.researchOverviewSummary) return;
+    const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
+    (DATA.sheets.research || [])
+      .filter(isResearchStatRow)
+      .forEach(row => {
+        addNamedStat(effects, row.ステータス, getResearchValue(row, level, progress));
+        addNamedStat(maximumEffects, row.ステータス, getResearchValue(row, RESEARCH_MAX_LEVEL, RESEARCH_MAX_PROGRESS));
+      });
+    elements.researchOverviewSummary.innerHTML = renderStatTotalsComparisonTable(
+      effects,
+      maximumEffects,
+      '研究効果なし',
+      '現在 / 全研究最大'
+    );
   }
 
   function renderResearchTable(entries, emptyText, showSpecies) {
@@ -4864,7 +4943,10 @@
         ${row.map((cell, index) => {
           const tag = index === 0 && options.firstColumnHeader ? 'th' : 'td';
           const className = options.valueColumn === index ? ' class="value"' : '';
-          return `<${tag}${className}>${escapeHtml(cell)}</${tag}>`;
+          const content = typeof options.renderCell === 'function'
+            ? options.renderCell(cell, index)
+            : escapeHtml(cell);
+          return `<${tag}${className}>${content}</${tag}>`;
         }).join('')}
       </tr>
     `).join('');
@@ -4878,6 +4960,11 @@
     `;
   }
 
+  function renderCurrentMaximumCell(cell, index) {
+    if (index !== 1 || !cell || typeof cell !== 'object') return escapeHtml(cell);
+    return `<span class="stat-summary-current">${escapeHtml(cell.current)}</span><span class="stat-summary-separator"> / </span><span class="stat-summary-max">${escapeHtml(cell.maximum)}</span>`;
+  }
+
   function renderStatTotalsTable(totals, emptyText) {
     const rows = TOTAL_LABELS.map(item => [
       item.label,
@@ -4888,14 +4975,42 @@
     return renderCompactTable(['ステータス', '上昇値'], rows, { firstColumnHeader: true, valueColumn: 1 });
   }
 
-  function renderStatPercentTotalsTable(totals, emptyText) {
-    const rows = TOTAL_LABELS.map(item => [
-      item.label,
-      totals[item.key] ? `+${formatBoardSummaryValue(totals[item.key])}%` : '-'
-    ]);
-    const hasValue = rows.some(([, value]) => value !== '-');
+  function renderStatTotalsComparisonTable(totals, maximumTotals, emptyText, comparisonHeader) {
+    const rows = TOTAL_LABELS.map(item => {
+      const current = Number(totals[item.key]) || 0;
+      const maximum = Number(maximumTotals[item.key]) || 0;
+      const formatValue = value => value ? `+${formatNumber(value)}` : '-';
+      return [item.label, {
+        current: formatValue(current),
+        maximum: formatValue(maximum)
+      }];
+    });
+    const hasValue = rows.some(([, value]) => value.current !== '-' || value.maximum !== '-');
     if (!hasValue) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
-    return renderCompactTable(['ステータス', '全体補正'], rows, { firstColumnHeader: true, valueColumn: 1 });
+    return renderCompactTable(
+      ['ステータス', comparisonHeader],
+      rows,
+      { firstColumnHeader: true, valueColumn: 1, renderCell: renderCurrentMaximumCell }
+    );
+  }
+
+  function renderStatPercentTotalsTable(totals, emptyText, maximumTotals = totals, comparisonHeader = '現在 / 全キャラ最大') {
+    const rows = TOTAL_LABELS.map(item => {
+      const current = Number(totals[item.key]) || 0;
+      const maximum = Number(maximumTotals[item.key]) || 0;
+      const formatValue = value => value ? `+${formatBoardSummaryValue(value)}%` : '-';
+      return [item.label, {
+        current: formatValue(current),
+        maximum: formatValue(maximum)
+      }];
+    });
+    const hasValue = rows.some(([, value]) => value.current !== '-' || value.maximum !== '-');
+    if (!hasValue) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
+    return renderCompactTable(
+      ['ステータス', comparisonHeader],
+      rows,
+      { firstColumnHeader: true, valueColumn: 1, renderCell: renderCurrentMaximumCell }
+    );
   }
 
   function formatStatSummary(totals, suffix) {
@@ -5208,11 +5323,13 @@
 
   function renderRankOverviewSummaryFromState() {
     const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
     DATA.sheets.rankGlobalBonuses.forEach(row => {
       const state = ensureApostleState(row.id);
       applyRankBonusToTotals(row, state.rank, effects);
+      applyRankBonusToTotals(row, 9, maximumEffects);
     });
-    elements.rankOverviewSummary.innerHTML = renderRankOverviewSummary(effects);
+    elements.rankOverviewSummary.innerHTML = renderRankOverviewSummary(effects, maximumEffects);
   }
 
   function renderRankOverviewFilters() {
@@ -5296,7 +5413,7 @@
     if (basic && card) card.outerHTML = renderRankOverviewCard(basic);
   }
 
-  function renderRankOverviewSummary(totals) {
+  function renderRankOverviewSummary(totals, maximumTotals = totals) {
     const groups = [
       [
         ['HP', 'hp'],
@@ -5312,13 +5429,25 @@
         ['会心DMG抵抗', 'critDmgRes']
       ]
     ];
-    const hasValue = groups.flat().some(([, key]) => Number(totals[key]));
+    const hasValue = groups.flat().some(([, key]) => Number(totals[key]) || Number(maximumTotals[key]));
     if (!hasValue) return '<p class="empty-note">Rank全体効果なし</p>';
     return `<div class="rank-summary-tables">${groups.map(rows =>
       renderCompactTable(
-        ['ステータス', '上昇値'],
-        rows.map(([label, key]) => [label, totals[key] ? `+${formatNumber(totals[key])}` : '-']),
-        { firstColumnHeader: true, valueColumn: 1 }
+        ['ステータス', '現在 / 全キャラ最大'],
+        rows.map(([label, key]) => {
+          const current = Number(totals[key]) || 0;
+          const maximum = Number(maximumTotals[key]) || 0;
+          const formatValue = value => value ? `+${formatNumber(value)}` : '-';
+          return [label, {
+            current: formatValue(current),
+            maximum: formatValue(maximum)
+          }];
+        }),
+        {
+          firstColumnHeader: true,
+          valueColumn: 1,
+          renderCell: renderCurrentMaximumCell
+        }
       )
     ).join('')}</div>`;
   }
@@ -5439,12 +5568,21 @@
 
   function renderAsideOverviewSummaryFromState() {
     const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
     DATA.sheets.basicInfo.filter(row => hasAsideEffects(row.id)).forEach(row => {
       const state = ensureApostleState(row.id);
-      if ((Number(state.asideRank) || 0) < 3) return;
-      collectAsideLevel3Entries(row.id).forEach(entry => addNamedStat(effects, entry.name, entry.value));
+      const entries = collectAsideLevel3Entries(row.id);
+      entries.forEach(entry => {
+        addNamedStat(maximumEffects, entry.name, entry.value);
+        if ((Number(state.asideRank) || 0) >= 3) addNamedStat(effects, entry.name, entry.value);
+      });
     });
-    elements.asideOverviewSummary.innerHTML = renderStatPercentTotalsTable(effects, 'A3全体効果なし');
+    elements.asideOverviewSummary.innerHTML = renderStatPercentTotalsTable(
+      effects,
+      'A3全体効果なし',
+      maximumEffects,
+      '現在A3 / 全キャラA3'
+    );
   }
 
   function renderAsideOverviewFilters() {
@@ -5495,8 +5633,9 @@
           ? 'aside-a1'
           : 'aside-off';
     return `
-      <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
-        <img data-apostle-image class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+      <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" data-aside-image-wrap title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
+        <img data-apostle-image data-aside-image-fallback="Aside" class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
         <strong class="rank-overview-value">${asideRank ? `A${asideRank}` : '未発現'}</strong>
         <select data-aside-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} アサイド段階">

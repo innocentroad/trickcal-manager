@@ -10851,7 +10851,144 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "メダル・オブ・サファイア",
+      "levels": {
+        "1": {
+          "name": "私だけのサファイアメダル",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Silphir_aside_1",
+              "effectId": "Silphir_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Silphir_aside_1",
+              "effectId": "Silphir_aside_1_e02",
+              "valueKind": "物理攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Silphir_aside_1",
+              "effectId": "Silphir_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Silphir_aside_1",
+              "effectId": "Silphir_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "万年3番手のシルフィール",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e01",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "triggerType": "ウェーブ開始時",
+              "condition": "ウェーブ開始時",
+              "effectTarget": "自身",
+              "fixedValue": 110.0
+            },
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e02",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "ウェーブ開始時",
+              "condition": "ウェーブ開始時",
+              "effectTarget": "自身",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e03",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 110.0
+            },
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e04",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e05",
+              "valueKind": "攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "triggerType": "普通攻撃がn回命中",
+              "triggerValue": 4.0,
+              "condition": "普通攻撃が敵に4回命中",
+              "effectTarget": "自身",
+              "fixedValue": 33.0
+            },
+            {
+              "skillId": "Silphir_aside_2",
+              "effectId": "Silphir_aside_2_e06",
+              "valueKind": "攻撃力増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "普通攻撃がn回命中",
+              "triggerValue": 4.0,
+              "condition": "普通攻撃が敵に4回命中",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "ウェーブ開始時に攻撃速度が増加する。\n低学年スキル使用後、攻撃速度が増加する。\n普通攻撃が敵に4回命中すると一定時間、攻撃力が増加する。"
+        },
+        "3": {
+          "name": "それでも誇らしい私",
+          "stats": [
+            {
+              "skillId": "Silphir_aside_3_global",
+              "effectId": "Silphir_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "物理攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Silphir_aside_3_global",
+              "effectId": "Silphir_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "物理防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [],
+          "description": "味方全員の敵からの被ダメージ量を減少させる。\n味方全員の攻撃速度を増加させる。"
+        }
+      }
     },
     "board": null
   },

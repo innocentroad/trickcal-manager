@@ -43,8 +43,8 @@
       document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
     })();
   </script>
-  <link rel="stylesheet" href="stat-prototype.css?v=20260902k">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260828e">
+  <link rel="stylesheet" href="stat-prototype.css?v=20260903n">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260903a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -95,9 +95,10 @@
   <div class="dashboard-layout">
     <article class="dashboard-card apostle-info-card dashboard-persistent-profile">
       <div class="apostle-info-profile">
-        <div class="portrait-frame dashboard-portrait">
+        <div class="portrait-frame dashboard-portrait" data-aside-image-wrap>
           <img id="apostle-image" data-apostle-image alt="">
-          <img id="profile-aside-icon" class="profile-aside-icon" data-apostle-image alt="">
+          <img id="profile-aside-icon" class="profile-aside-icon" data-apostle-image data-aside-image-fallback="Aside" alt="">
+          <span id="profile-aside-fallback" class="aside-image-fallback-label profile-aside-fallback-label" data-aside-image-fallback-label role="button" tabindex="0" hidden>Aside</span>
         </div>
         <div class="profile-identity">
           <div class="profile-name-row">
@@ -233,8 +234,9 @@
             <div>
               <h2>アサイド</h2>
             </div>
-            <span class="setting-block-icon aside-setting-icon-wrap">
-              <img id="aside-setting-icon" class="aside-setting-icon" alt="">
+            <span class="setting-block-icon aside-setting-icon-wrap" data-aside-image-wrap>
+              <img id="aside-setting-icon" class="aside-setting-icon" data-apostle-image data-aside-image-fallback="Aside" alt="">
+              <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
             </span>
           </div>
           <div class="setting-field-grid compact aside-control-grid">
@@ -368,7 +370,7 @@
             <div id="apostle-bulk-list" class="apostle-bulk-list"></div>
           </div>
           <div class="setting-panel is-active" data-setting-panel="research">
-            <p class="panel-note">研究は使徒設定ではなく、アカウント全体の設定として扱います。</p>
+            <p class="panel-note">研究は使徒設定ではなく、アカウント全体の設定として扱います。下部の合計は「現在の研究進行度 / 全研究最大（10段階・45回目）」で表示します。</p>
             <div class="research-controls">
               <label class="research-control"><span>段階</span><select id="research-level-select"></select></label>
               <label class="research-control"><span>回目</span><select id="research-progress-select"></select></label>
@@ -379,9 +381,10 @@
               <summary>研究全体の適用一覧</summary>
               <div id="research-grid" class="research-table-wrap"></div>
             </details>
+            <div id="research-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
           </div>
           <div class="setting-panel" data-setting-panel="rank">
-            <p class="panel-note">使徒ごとのRankとRank全体効果をまとめて管理します。</p>
+            <p class="panel-note">使徒ごとのRankとRank全体効果をまとめて管理します。下部の合計は「現在Rank / 全キャラ最大（Rank9）」で表示します。</p>
             <div class="rank-overview-tools">
               <label class="apostle-picker-sort">
                 <span>並び順</span>
@@ -418,7 +421,7 @@
             <div id="bond-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
           </div>
           <div class="setting-panel" data-setting-panel="aside">
-            <p class="panel-note">各使徒のアサイド発現状態とA3全体効果を管理します。</p>
+            <p class="panel-note">各使徒のアサイド発現状態とA3全体効果を管理します。下部の合計は「現在A3 / 全キャラA3」で表示します。</p>
             <div class="rank-overview-tools">
               <label class="apostle-picker-sort">
                 <span>並び順</span>
@@ -764,15 +767,15 @@
     <div id="board-progress-dialog-body" class="board-progress-dialog-body"></div>
   </dialog>
 
-  <script src="statData.js?v=20260801a"></script>
-  <script src="public-release-config.js?v=20260828a"></script>
+  <script src="statData.js?v=20260903a"></script>
+  <script src="public-release-config.js?v=20260903a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>
   <script src="cards.js?v=20260813a"></script>
   <script src="stat-engine.js?v=20260828a"></script>
-  <script src="app-cache.js?v=20260902j"></script>
+  <script src="app-cache.js?v=20260903b"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="stat-prototype.js?v=20260902e"></script>
-  <script src="stat-dashboard.js?v=20260808c"></script>
+  <script src="stat-prototype.js?v=20260903a"></script>
+  <script src="stat-dashboard.js?v=20260903a"></script>
 </body>
 </html>

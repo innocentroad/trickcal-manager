@@ -136,8 +136,20 @@
     if (!hasAside) asideLevelSelect.disabled = true;
 
     const assetId = apostleAssetAliases[apostleId] || apostleId;
+    resetAsideSettingIconFallback();
     asideSettingIcon.alt = hasAside ? `${apostleName} アサイド` : '';
+    asideSettingIcon.onload = resetAsideSettingIconFallback;
     asideSettingIcon.src = hasAside ? `img/Chara/Aside/AsideIcon_${assetId}.webp` : '';
+  }
+
+  function resetAsideSettingIconFallback() {
+    if (!asideSettingIcon) return;
+    asideSettingIcon.hidden = false;
+    asideSettingIcon.classList.remove('is-aside-image-missing');
+    const wrapper = asideSettingIcon.closest('[data-aside-image-wrap]');
+    wrapper?.classList.remove('is-aside-image-fallback');
+    const label = wrapper?.querySelector('[data-aside-image-fallback-label]');
+    if (label) label.hidden = true;
   }
 
   function syncSkillIcons(apostleId, apostleName) {

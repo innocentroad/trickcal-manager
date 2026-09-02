@@ -2509,6 +2509,16 @@ h3 {
   font-weight: 950;
 }
 
+.stat-summary-current {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.stat-summary-max {
+  color: var(--muted);
+  font-weight: 750;
+}
+
 .empty-note {
   margin: 0;
   border: 1px solid rgba(36, 83, 59, 0.12);
@@ -2525,7 +2535,8 @@ h3 {
 }
 
 [data-setting-panel="rank"] .rank-overview-summary,
-[data-setting-panel="aside"] .rank-overview-summary {
+[data-setting-panel="aside"] .rank-overview-summary,
+[data-setting-panel="research"] .rank-overview-summary {
   margin-top: 12px;
   margin-bottom: 0;
 }
