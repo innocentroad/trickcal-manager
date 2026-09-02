@@ -3683,7 +3683,12 @@
     const categoryOptions = view.selectedSkillCategory
       ? options.filter(option => option.category === view.selectedSkillCategory)
       : [];
-    const selectedOption = selectedOptionByKey
+    const preferredOption = categoryOptions.find(option => option.isPreferredForCurrentArtifactCount);
+    const selectedOption = (selectedOptionByKey?.isAsideRepeatVariant
+      && !selectedOptionByKey.isPreferredForCurrentArtifactCount
+      ? preferredOption
+      : selectedOptionByKey)
+      || preferredOption
       || categoryOptions.find(option => option.skillRewrite)
       || categoryOptions.find(option => !option.isSupersededBase)
       || categoryOptions[0]
@@ -3771,7 +3776,10 @@
   }
 
   function getFdcLowSkillSpInfoLines(option, target, context = null) {
-    if (getFdcSkillBaseCategory(option?.sourceCategory || option?.category) !== '低学年スキル') return [];
+    const optionCategory = option?.sourceCategory || option?.category || '';
+    const isLowSkillOption = getFdcSkillBaseCategory(optionCategory) === '低学年スキル'
+      || /低学年/.test(String(option?.targetSkill || ''));
+    if (!isLowSkillOption) return [];
     if (!target || typeof TRICKCAL_SP_ENGINE === 'undefined') return [];
     const apostle = getApostleSkillData(target) || getApostle(target.id) || {};
     const baseState = TRICKCAL_SP_ENGINE.createApostleState(apostle, target.stats || {}, {
@@ -10487,14 +10495,26 @@
         const targetActionCategory = getDpsTargetActionKeys(effect.targetSkill || '')
           .map(getDpsActionCategoryForKey)
           .find(Boolean) || category;
-        const sharedRepeatInfo = getFdcActionRepeatInfo(skillSources, levels, targetActionCategory);
+        // 追加攻撃回数は元の低学年倍率を上書きせず、後段でA2等の
+        // 「1回のダメージ×追加後の総回数」候補として分離する。
+        const sharedRepeatInfo = getFdcActionRepeatInfo(
+          skillSources,
+          levels,
+          targetActionCategory,
+          target,
+          { includeAdditionalAttack: false }
+        );
         const repeatInfo = sourceLabel === '通常'
           ? sharedRepeatInfo
           : mergeFdcRepeatInfo(
             getFdcAdditionalDamageRepeatInfo(skill, effect, skillLevel),
             sharedRepeatInfo
           );
-        const calcValue = baseCalcValue * repeatInfo.count;
+        const repeatScale = getFdcActionRepeatScale(effect, repeatInfo);
+        const calcValue = baseCalcValue * repeatScale;
+        const dpsBaseValue = repeatInfo.mode === 'additive' && isFdcPerHitDamageEffect(effect)
+          ? String(baseCalcValue)
+          : '';
         const cooldownSeconds = getFdcHighSkillCooldownSeconds(skill, sourceCategory)
           || (skillRewrite ? getFdcReplacementSkillCooldownSeconds(apostle, targetActionCategory) : 0);
         const triggerProbability = getFdcSkillTriggerProbabilityLabel(skill);
@@ -10531,7 +10551,9 @@
           cooldownSeconds,
           kind,
           baseValue: String(baseCalcValue),
+          dpsBaseValue,
           actionRepeatCount: repeatInfo.count,
+          actionRepeatMode: repeatInfo.mode || '',
           damageReference,
           reference: effect.reference || '',
           condition: effect.condition || '',
@@ -10549,7 +10571,7 @@
             triggerProbability,
             referenceLabel,
             guaranteedCrit ? '確定会心' : '',
-            repeatInfo.count > 1 ? `${repeatInfo.count}回分（基礎 ${formatPlainNumber(baseCalcValue)}% ×${formatPlainNumber(repeatInfo.count)}）` : '',
+            repeatInfo.count > 1 ? `${repeatInfo.count}回分（基礎 ${formatPlainNumber(baseCalcValue)}% ×${formatPlainNumber(repeatScale)}）` : '',
             effect.condition || '',
             levelInfo.isRange ? `範囲 ${formatPlainNumber(levelInfo.min)}～${formatPlainNumber(levelInfo.max)}${randomMaxLock ? ' / 最大固定' : ''}` : '',
             cooldownSeconds ? `CT ${formatPlainNumber(cooldownSeconds)}秒` : ''
@@ -10561,7 +10583,7 @@
             guaranteedCrit ? '確定会心: 会心率100%として計算' : '',
             effect.condition ? `条件: ${effect.condition}` : '',
             repeatInfo.count > 1
-              ? `回数補正: ${repeatInfo.labels.join(' / ')}（${formatPlainNumber(baseCalcValue)}% × ${formatPlainNumber(repeatInfo.count)} = ${formatPlainNumber(calcValue)}%）`
+              ? `回数補正: ${repeatInfo.labels.join(' / ')}（${formatPlainNumber(baseCalcValue)}% × ${formatPlainNumber(repeatScale)} = ${formatPlainNumber(calcValue)}%）`
               : '',
             levelInfo.isRange
               ? `範囲: ${levelInfo.raw || `${levelInfo.min}～${levelInfo.max}`} / 計算値: ${randomMaxLock ? `${randomMaxLock.sourceLabel} 最大固定 ${formatPlainNumber(calcValue)}%` : `平均 ${formatPlainNumber(calcValue)}%`}`
@@ -10570,6 +10592,12 @@
           order: getFdcApostleSkillOrder(sourceCategory)
         });
       });
+    });
+    appendFdcAsideActionRepeatOptions(options, {
+      apostle,
+      target,
+      levels,
+      skillSources
     });
     // 同一行動を対象にする確率ダメージ候補の合計が100%なら、追加攻撃ではなく
     // 置換後の弾種候補として扱う。各行動時には候補のうち1つだけを選ぶ。
@@ -10645,9 +10673,127 @@
       const isBase = String(option.sourceKey || '').startsWith('base:');
       option.isSupersededBase = isBase && getDpsActionKeysForSkillOption(option)
         .some(actionKey => rewrittenActionKeys.has(actionKey));
-      option.dpsEligible = !option.isSupersededBase;
+      option.dpsEligible = option.excludeFromDps ? false : !option.isSupersededBase;
     });
     return options.sort((a, b) => (a.order - b.order) || a.label.localeCompare(b.label, 'ja'));
+  }
+
+  function appendFdcAsideActionRepeatOptions(options = [], params = {}) {
+    const {
+      apostle = null,
+      target = null,
+      levels = {},
+      skillSources = []
+    } = params;
+    if (!Array.isArray(options) || !skillSources.length) return;
+
+    // 現在有効なソースのうち、低学年へ追加攻撃回数を与えるソースを探す。
+    // A2に限らず同じデータ形式の将来の追加攻撃効果にも利用できる。
+    const repeatSource = [...skillSources].reverse().find(({ skill, sourceLabel }) => {
+      if (!sourceLabel || sourceLabel === '通常') return false;
+      return normalizeFdcArray(skill?.effects).some(effect => {
+        if (!isFdcAdditionalAttackCountEffect(effect)) return false;
+        const targetActionKeys = getDpsTargetActionKeys(effect.targetSkill || '');
+        return targetActionKeys.includes('lowSkill')
+          || /低学年/.test(String(effect.attackCategory || ''))
+          || /低学年/.test(String(effect.targetSkill || ''));
+      });
+    });
+    if (!repeatSource) return;
+
+    const baseLowOptions = options.filter(option => (
+      option.sourceLabel === '通常'
+      && String(option.sourceKey || '').startsWith('base:')
+      && getDpsActionKeysForSkillOption(option).includes('lowSkill')
+    ));
+    const basePerHitOption = baseLowOptions.find(option => {
+      const valueKind = String(option.kind || option.valueKind || '');
+      return /物理ダメージ/.test(valueKind)
+        && isFdcPerHitDamageEffect({ valueKind });
+    });
+    const basePerHitValue = Number(basePerHitOption?.baseValue ?? basePerHitOption?.value);
+    if (!basePerHitOption || !Number.isFinite(basePerHitValue) || basePerHitValue <= 0) return;
+
+    const branchOptions = baseLowOptions.filter(option => {
+      const valueKind = String(option.kind || option.valueKind || '').replace(/[\s　]+/g, '');
+      const artifactCount = Number(String(option.conditionValue ?? '').match(/-?\d+(?:\.\d+)?/)?.[0]);
+      return /装備遺物数/.test(String(option.conditionType || '').replace(/[\s　]+/g, ''))
+        && /総.*物理ダメージ/.test(valueKind)
+        && Number.isInteger(artifactCount)
+        && artifactCount >= 0
+        && artifactCount <= 3;
+    });
+    if (!branchOptions.length) return;
+
+    const sourceLabel = String(repeatSource.sourceLabel || 'アサイド');
+    const sourceKey = String(repeatSource.sourceKey || 'aside:repeat');
+    const sourceSkill = repeatSource.skill || {};
+    const sourceSkillName = sourceSkill.skillName || sourceSkill.name || sourceLabel;
+    const sourceKeySuffix = sourceKey.replace(/[^A-Za-z0-9_-]+/g, '_');
+
+    branchOptions.forEach(baseOption => {
+      const artifactCount = Number(String(baseOption.conditionValue ?? '').match(/-?\d+(?:\.\d+)?/)?.[0]);
+      if (!Number.isInteger(artifactCount)) return;
+      const branchTarget = {
+        ...(target || {}),
+        artifactIds: Array.from(
+          { length: artifactCount },
+          (_, index) => `__fdc_repeat_artifact_${index}`
+        )
+      };
+      const repeatInfo = getFdcActionRepeatInfo(
+        skillSources,
+        levels,
+        '低学年スキル',
+        branchTarget
+      );
+      const totalCount = Math.max(1, Number(repeatInfo.count) || 1);
+      if (repeatInfo.mode !== 'additive' || !(Number(repeatInfo.additionalCount) > 0)) return;
+
+      const value = basePerHitValue * totalCount;
+      const baseEffectId = String(baseOption.effectId || baseOption.key || '低学年');
+      const effectId = `${baseEffectId}__${sourceKeySuffix}_repeat`;
+      const key = `${target?.id || apostle?.id || 'target'}:${sourceKey}:repeat:${baseEffectId}`;
+      const baseKind = basePerHitOption.kind || basePerHitOption.valueKind || '1回の物理ダメージ';
+      const branchKind = baseOption.kind || baseOption.valueKind || '総物理ダメージ';
+      const conditionLabel = baseOption.condition || `装備遺物${artifactCount}時`;
+      const repeatLabels = repeatInfo.labels.join(' / ');
+
+      options.push({
+        ...baseOption,
+        key,
+        effectId,
+        value: String(value),
+        label: `${sourceLabel} / ${branchKind} (${formatPlainNumber(value)}%)`,
+        category: '低学年スキル',
+        sourceCategory: sourceLabel,
+        sourceKey,
+        sourceLabel,
+        skillName: sourceSkillName,
+        targetSkill: '低学年スキル',
+        targetSkillName: '低学年スキル',
+        guaranteedCrit: !!basePerHitOption.guaranteedCrit,
+        skillRewrite: false,
+        skillRewriteLabel: '',
+        baseValue: String(basePerHitValue),
+        dpsBaseValue: '',
+        actionRepeatCount: totalCount,
+        actionRepeatMode: 'additive',
+        shortDetail: `${baseKind} ${formatPlainNumber(basePerHitValue)}% × ${formatPlainNumber(totalCount)}回`,
+        detailText: getFdcUniqueTextLines([
+          sourceSkill.description,
+          `元の低学年: ${baseKind} ${formatPlainNumber(basePerHitValue)}%`,
+          `${sourceLabel}: ${formatPlainNumber(totalCount)}回（${repeatLabels}）`,
+          `${formatPlainNumber(basePerHitValue)}% × ${formatPlainNumber(totalCount)}回 = ${formatPlainNumber(value)}%`,
+          `条件: ${conditionLabel}`
+        ]).join('\n'),
+        order: getFdcApostleSkillOrder('低学年スキル') + 0.5,
+        excludeFromDps: true,
+        isAsideRepeatVariant: true,
+        isPreferredForCurrentArtifactCount: artifactCount === getFdcTargetArtifactCount(target),
+        derivedFromEffectId: baseOption.effectId || ''
+      });
+    });
   }
 
   function hasFdcGuaranteedCritEffect(skill = {}, damageEffect = {}) {
@@ -10674,21 +10820,125 @@
     return damageEffects.length === 1;
   }
 
-  function getFdcActionRepeatInfo(skillSources, levels, actionCategory) {
+  function getFdcTargetArtifactCount(target = null) {
+    return normalizeFdcArray(target?.artifactIds).filter(Boolean).length;
+  }
+
+  function isFdcArtifactCountConditionActive(effect = {}, target = null) {
+    const conditionType = String(effect.conditionType || '').replace(/[\s　]+/g, '');
+    if (!/装備遺物数/.test(conditionType)) return true;
+    const conditionValue = Number(String(effect.conditionValue ?? '').match(/-?\d+(?:\.\d+)?/)?.[0]);
+    return !Number.isFinite(conditionValue)
+      || conditionValue === getFdcTargetArtifactCount(target);
+  }
+
+  function isFdcActionCategoryMatch(sourceCategory = '', actionCategory = '') {
+    const sourceKeys = getDpsTargetActionKeys(sourceCategory);
+    const actionKeys = getDpsTargetActionKeys(actionCategory);
+    return sourceKeys.length > 0
+      && actionKeys.length > 0
+      && sourceKeys.some(key => actionKeys.includes(key));
+  }
+
+  function getFdcBaseActionRepeatCount(skillSources, levels, actionCategory, target = null, artifactCountOverride = null) {
+    const countTarget = artifactCountOverride == null
+      ? target
+      : {
+          ...(target || {}),
+          artifactIds: Array.from({ length: Math.max(0, Number(artifactCountOverride) || 0) }, () => '__fdc_artifact__')
+        };
+    let baseCount = 0;
+    let fixedAdditionalCount = 0;
+    let perArtifactAdditionalCount = 0;
+    let maxAdditionalCount = Infinity;
+    normalizeFdcArray(skillSources).forEach(({ skill, sourceLabel }) => {
+      if (sourceLabel !== '通常') return;
+      const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
+      if (!isFdcActionCategoryMatch(sourceCategory, actionCategory)) return;
+      normalizeFdcArray(skill?.effects).forEach(effect => {
+        const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+        if (String(effect.valueClass || '').trim() !== '回数' || !/攻撃回数/.test(valueKind)) return;
+        if (!isFdcArtifactCountConditionActive(effect, countTarget)) return;
+        const skillLevel = getFdcSkillLevelForEffect(levels, effect, sourceCategory);
+        const value = Number(getFdcEffectLevelInfo(effect, skillLevel)?.value);
+        if (!Number.isFinite(value) || value <= 0) return;
+        if (/最大追加攻撃回数/.test(valueKind)) {
+          maxAdditionalCount = Math.min(maxAdditionalCount, value);
+        } else if (/1個ごとの追加攻撃回数/.test(valueKind)) {
+          perArtifactAdditionalCount += value;
+        } else if (/追加攻撃回数/.test(valueKind)) {
+          fixedAdditionalCount += value;
+        } else {
+          baseCount = Math.max(baseCount, value);
+        }
+      });
+    });
+    const resolvedBaseCount = Math.max(1, baseCount || 1);
+    const artifactAdditionalCount = Math.min(
+      getFdcTargetArtifactCount(countTarget),
+      Number.isFinite(maxAdditionalCount) ? maxAdditionalCount : Infinity
+    ) * perArtifactAdditionalCount;
+    return Math.max(1, resolvedBaseCount + fixedAdditionalCount + artifactAdditionalCount);
+  }
+
+  function getFdcActionRepeatScale(effect = {}, repeatInfo = {}) {
+    const count = Math.max(1, Number(repeatInfo?.count) || 1);
+    const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+    // 総ダメージはすでに基礎攻撃回数分を合算しているため、追加攻撃は
+    // 「合計回数 / 基礎回数」の比率で補正する。1回分の倍率は合計回数を
+    // そのまま掛ける。召喚回数・追加発射対象数の既存挙動は維持する。
+    if (repeatInfo?.mode === 'additive'
+      && /総.*ダメージ/.test(valueKind)) {
+      const branchArtifactCount = /装備遺物数/.test(String(effect.conditionType || ''))
+        ? Number(String(effect.conditionValue ?? '').match(/-?\d+(?:\.\d+)?/)?.[0])
+        : NaN;
+      const baseCount = Math.max(1, Number(
+        Number.isFinite(branchArtifactCount)
+          ? repeatInfo.baseCountByArtifactCount?.[String(branchArtifactCount)]
+          : repeatInfo.baseCount
+      ) || 1);
+      return count / baseCount;
+    }
+    return count;
+  }
+
+  function isFdcPerHitDamageEffect(effect = {}) {
+    const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+    return /(?:1回(?:あたり|の)|1ヒットあたり|各ヒット)/.test(valueKind);
+  }
+
+  function getFdcActionRepeatInfo(skillSources, levels, actionCategory, target = null, options = {}) {
+    const includeAdditionalAttack = options.includeAdditionalAttack !== false;
+    const baseCount = getFdcBaseActionRepeatCount(skillSources, levels, actionCategory, target);
+    const baseCountByArtifactCount = Object.fromEntries([0, 1, 2, 3].map(artifactCount => [
+      String(artifactCount),
+      getFdcBaseActionRepeatCount(skillSources, levels, actionCategory, target, artifactCount)
+    ]));
     const matches = [];
+    const additionalMatches = [];
     normalizeFdcArray(skillSources).forEach(({ skill, sourceLabel }) => {
       if (sourceLabel === '通常') return;
       const sourceCategory = getFdcApostleSkillCategory(skill, sourceLabel);
       normalizeFdcArray(skill?.effects).forEach(effect => {
         const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
         const isAdditionalLaunch = /追加発射対象数/.test(valueKind);
-        if (!isFdcActionRepeatCountEffect(effect) && !isAdditionalLaunch) return;
+        const isAdditionalAttack = isFdcAdditionalAttackCountEffect(effect);
+        if (!isFdcActionRepeatCountEffect(effect) && !isAdditionalLaunch && !isAdditionalAttack) return;
+        if (isAdditionalAttack && !includeAdditionalAttack) return;
+        if (!isFdcArtifactCountConditionActive(effect, target)) return;
         const skillLevel = getFdcSkillLevelForEffect(levels, effect, sourceCategory);
         const scope = judgeFdcEffectValueActionScope(effect, actionCategory);
         if (scope.hasActionScope && !scope.matched) return;
         const levelInfo = getFdcEffectLevelInfo(effect, skillLevel);
         const rawCount = Number(levelInfo?.value);
         if (!Number.isFinite(rawCount) || rawCount <= 0) return;
+        if (isAdditionalAttack) {
+          additionalMatches.push({
+            count: rawCount,
+            label: `${sourceLabel} ${effect.valueKind || '追加攻撃回数'} +${formatPlainNumber(rawCount)}回`
+          });
+          return;
+        }
         const count = isAdditionalLaunch ? 1 + rawCount : rawCount;
         if (count <= 1) return;
         matches.push({
@@ -10699,20 +10949,46 @@
         });
       });
     });
-    if (!matches.length) return { count: 1, labels: [] };
+    if (additionalMatches.length) {
+      const additionalCount = additionalMatches.reduce((sum, item) => sum + item.count, 0);
+      return {
+        count: baseCount + additionalCount,
+        baseCount,
+        baseCountByArtifactCount,
+        additionalCount,
+        mode: 'additive',
+        labels: additionalMatches.map(item => (
+          `${item.label}（合計${formatPlainNumber(baseCount + additionalCount)}回）`
+        ))
+      };
+    }
+    if (!matches.length) return { count: 1, baseCount, baseCountByArtifactCount, labels: [] };
     const count = Math.max(...matches.map(item => item.count));
     return {
       count,
+      baseCount,
+      baseCountByArtifactCount,
       labels: matches.filter(item => item.count === count).map(item => item.label)
     };
+  }
+
+  function isFdcAdditionalAttackCountEffect(effect = {}) {
+    const valueKind = String(effect.valueKind || '').replace(/[\s　]+/g, '');
+    const valueClass = String(effect.valueClass || '').trim();
+    return valueClass === '回数'
+      && /追加攻撃回数/.test(valueKind)
+      && !/最大追加攻撃回数/.test(valueKind);
   }
 
   function mergeFdcRepeatInfo(primary = { count: 1, labels: [] }, secondary = { count: 1, labels: [] }) {
     const primaryCount = Math.max(1, Number(primary?.count) || 1);
     const secondaryCount = Math.max(1, Number(secondary?.count) || 1);
-    return primaryCount >= secondaryCount
-      ? { count: primaryCount, labels: unique([...(primary?.labels || []), ...(secondary?.labels || [])]) }
-      : { count: secondaryCount, labels: unique([...(secondary?.labels || []), ...(primary?.labels || [])]) };
+    const winner = primaryCount >= secondaryCount ? primary : secondary;
+    return {
+      ...winner,
+      count: Math.max(primaryCount, secondaryCount),
+      labels: unique([...(primary?.labels || []), ...(secondary?.labels || [])])
+    };
   }
 
   function getFdcAdditionalDamageRepeatInfo(skill = {}, damageEffect = {}, skillLevel = 1) {
@@ -10743,7 +11019,7 @@
     const valueClass = String(effect.valueClass || '').trim();
     const effectType = String(effect.effectType || '').trim();
     // 「召喚回数」は対象行動全体の反復数として扱う。
-    // 追加攻撃回数や最大使用回数は別ダメージ・使用制限なのでここでは掛けない。
+    // 「追加攻撃回数」は基礎回数を解決した上で、別の分岐として加算する。
     return valueClass === '回数'
       && /召喚回数$/.test(valueKind)
       && (!effectType || /召喚/.test(effectType));
@@ -12225,7 +12501,10 @@
       });
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       actionContext.ignoreEnemyStatusDamageWeakness = true;
-      actionContext.selectedSkillOption = option;
+      const profileOption = option.dpsBaseValue !== '' && option.dpsBaseValue != null
+        ? { ...option, value: option.dpsBaseValue }
+        : option;
+      actionContext.selectedSkillOption = profileOption;
       const damage = calculateDamage(createDpsRuntimeSafeActionContext(actionContext));
       if (option.key) {
         singleActionProfiles[option.key] = {
@@ -12262,7 +12541,7 @@
           conditionValue: option.conditionValue ?? '',
           condition: option.condition || '',
           runtimeManaged: runtimeManagedEffects.some(item => item.effectId && item.effectId === option.effectId),
-          multiplier: Number(option.value) || 0,
+          multiplier: Number(profileOption.value) || 0,
           baseMultiplier: Number(option.baseValue) || Number(option.value) || 0,
           repeatCount: Math.max(1, Number(option.actionRepeatCount) || 1),
           expectedDamage: Math.max(0, Number(damage.expected) || 0),
@@ -13793,7 +14072,7 @@
     if (targetApostle) {
       const targetLevels = getFdcEffectiveSkillLevels(context.target);
       const targetSources = collectFdcApostleSkillSources(targetApostle, targetLevels, context.target, context);
-      getFdcActionRepeatInfo(targetSources, targetLevels, context.actionCategory)
+      getFdcActionRepeatInfo(targetSources, targetLevels, context.actionCategory, context.target)
         .labels
         .filter(label => /追加発射/.test(label))
         .forEach((label, index) => add({
@@ -13937,7 +14216,7 @@
     if (runtimeManaged) return { code: 'runtime', label: '条件成立時にDPS自動反映' };
     if (isFdcApostleAttackMultiplierEffect(effect)) return { code: 'damage', label: '行動ダメージへ反映' };
     const valueKind = String(effect.valueKind || '');
-    if (/召喚回数/.test(valueKind)) return { code: 'damage', label: '行動回数へ反映' };
+    if (/召喚回数|攻撃回数/.test(valueKind)) return { code: 'damage', label: '行動回数へ反映' };
     if (/乱数最大固定/.test(valueKind)) return { code: 'damage', label: 'スキル倍率へ反映' };
     if (/クールタイム/.test(valueKind)) return { code: 'runtime', label: '高学年CTへ反映' };
     return { code: 'display', label: '設定有効（単体DPS対象外）' };

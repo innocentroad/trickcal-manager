@@ -39,7 +39,7 @@
       'dps-simulator.js?v=20260902d',
       'dps-simulator-worker.js?v=20260901b',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260902f',
+      'formation-damage-calc.js?v=20260903c',
       'formation-damage-dps-prototype.js?v=20260902c',
       'image-preload.js?v=20260727a'
     ],
@@ -56,7 +56,7 @@
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
       'dps-trigger-policy.js?v=20260901c',
-      'formation-damage-calc.js?v=20260902f'
+      'formation-damage-calc.js?v=20260903c'
     ]
   };
 

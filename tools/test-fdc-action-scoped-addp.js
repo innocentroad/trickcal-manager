@@ -142,7 +142,8 @@ const fdcRuntimeSource = source
       '    isDpsUnsupportedRuntimeTrigger,',
       '    normalizeCardEffectBonuses,',
       '    getEffectText,',
-      '    getDpsDirectTimingSourceEffectId,'
+      '    getDpsDirectTimingSourceEffectId,',
+      '    getFdcActionRepeatInfo,'
     ].join('\n') + '\n'
   );
 const fdcInputValues = {
@@ -1569,6 +1570,102 @@ assert.equal(
   context.api.isFdcFormationOwnerRuntimeTrigger({ condition: '高学年スキル使用時' }),
   true,
   '旧形式の行動発動条件も編成使徒本人の条件として扱う'
+);
+
+const gideonApostle = apostleContext.library.find(apostle => apostle.id === 'kidian');
+assert.ok(gideonApostle, '生成データにギデオンが存在する');
+const gideonA2Target = {
+  id: 'kidian',
+  name: 'ギデオン',
+  artifactIds: [],
+  skillLevels: { low: 1, high: 1, passive: 1 },
+  asideRank: 2,
+  asideLevel: 1
+};
+const buildGideonOptions = target => fdcApi.buildFdcApostleSkillOptions(
+  target,
+  { state: { cards: {} }, formation: { spells: [] }, damageType: 'physical' }
+);
+const gideonBaseOptionValues = target => Object.fromEntries(buildGideonOptions(target)
+  .filter(option => /^Kidian_low_e(?:01|05|06|07|08)$/.test(option.effectId))
+  .map(option => [option.effectId, Number(option.value)]));
+const gideonA2VariantValues = target => Object.fromEntries(buildGideonOptions(target)
+  .filter(option => option.isAsideRepeatVariant && option.sourceLabel === 'A2')
+  .map(option => [Number(option.conditionValue), Number(option.value)]));
+const gideonA2VariantCounts = target => Object.fromEntries(buildGideonOptions(target)
+  .filter(option => option.isAsideRepeatVariant && option.sourceLabel === 'A2')
+  .map(option => [Number(option.conditionValue), Number(option.actionRepeatCount)]));
+const gideonDpsProfiles = fdcApi.buildDpsActionProfiles({
+  context: { state: { cards: {} }, formation: { spells: [] }, damageType: 'physical' },
+  target: gideonA2Target,
+  selectedSkillOptions: buildGideonOptions(gideonA2Target),
+  runtimeManagedEffects: []
+});
+const gideonDpsPerHit = gideonDpsProfiles.profiles.lowSkill?.variants?.default?.effects?.Kidian_low_e01;
+const gideonDpsArtifact0 = gideonDpsProfiles.profiles.lowSkill?.variants?.['遺物装備0']?.effects?.Kidian_low_e05;
+assert.equal(
+  Number(gideonDpsPerHit?.expectedDamage) * 4,
+  Number(gideonDpsArtifact0?.expectedDamage) * 2,
+  'ギデオンA2の表示用候補をDPSの行動プロファイルへ二重計上しない'
+);
+assert.deepEqual(
+  gideonBaseOptionValues(gideonA2Target),
+  {
+    Kidian_low_e05: 600,
+    Kidian_low_e06: 900,
+    Kidian_low_e07: 1200,
+    Kidian_low_e08: 1500,
+    Kidian_low_e01: 300
+  },
+  'ギデオンA2解放後も元の低学年倍率を保持する'
+);
+assert.deepEqual(
+  gideonA2VariantValues(gideonA2Target),
+  {
+    0: 1200,
+    1: 1500,
+    2: 1800,
+    3: 2100
+  },
+  'ギデオンA2を低学年の遺物数0～3の別候補として表示する'
+);
+assert.deepEqual(
+  gideonA2VariantCounts(gideonA2Target),
+  { 0: 4, 1: 5, 2: 6, 3: 7 },
+  'ギデオンA2の低学年別候補を4～7回として計算する'
+);
+assert.deepEqual(
+  gideonBaseOptionValues({ ...gideonA2Target, artifactIds: ['artifact-1', 'artifact-2', 'artifact-3'] }),
+  {
+    Kidian_low_e05: 600,
+    Kidian_low_e06: 900,
+    Kidian_low_e07: 1200,
+    Kidian_low_e08: 1500,
+    Kidian_low_e01: 300
+  },
+  'ギデオンA2解放後も元の低学年遺物数分岐を上書きしない'
+);
+assert.deepEqual(
+  gideonA2VariantValues({ ...gideonA2Target, asideRank: 1 }),
+  {},
+  'ギデオンA2未解放時はA2別候補を表示しない'
+);
+assert.deepEqual(
+  gideonBaseOptionValues({ ...gideonA2Target, asideRank: 1 }),
+  {
+    Kidian_low_e05: 600,
+    Kidian_low_e06: 900,
+    Kidian_low_e07: 1200,
+    Kidian_low_e08: 1500,
+    Kidian_low_e01: 300
+  },
+  'ギデオンA2未解放時も元の低学年倍率を保持する'
+);
+assert.equal(
+  Object.values(gideonDpsProfiles.profiles).some(profile => Object.values(profile.variants || {})
+    .some(variant => Object.keys(variant.effects || {}).some(effectId => /__aside_2_repeat$/.test(effectId)))),
+  false,
+  'ギデオンA2の表示用別候補をDPSプロファイルへ追加しない'
 );
 
 console.log('FDC action-scoped addP tests passed');
