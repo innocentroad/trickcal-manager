@@ -40,13 +40,13 @@
       'dps-simulator-worker.js?v=20260901b',
       'dps-support-registry.js?v=20260827c',
       'formation-damage-calc.js?v=20260903c',
-      'formation-damage-dps-prototype.js?v=20260902c',
+      'formation-damage-dps-prototype.js?v=20260903a',
       'image-preload.js?v=20260727a'
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
       'formation-damage-dps-prototype.css?v=20260902c',
-      'formation-damage-dps-prototype.js?v=20260902c',
+      'formation-damage-dps-prototype.js?v=20260903a',
       'public-release-config.js?v=20260903a',
       'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',

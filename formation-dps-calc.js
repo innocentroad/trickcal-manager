@@ -1415,6 +1415,31 @@
     return runtimeEffectOverrides?.[String(targetId || '')]?.[String(effectId || '')] || null;
   }
 
+  function isDpsHighSkillRuntimeEffect(effect = {}) {
+    const actionKeys = [
+      ...(Array.isArray(effect?.triggerActionKeys) ? effect.triggerActionKeys : []),
+      ...(Array.isArray(effect?.targetActionKeys) ? effect.targetActionKeys : [])
+    ].map(value => String(value || ''));
+    if (actionKeys.includes('highSkill')) return true;
+    return /高学年/.test([
+      effect.triggerType,
+      effect.triggerSourceId,
+      effect.targetSkill,
+      effect.targetSkillName,
+      effect.conditionType,
+      effect.conditionValue,
+      effect.condition,
+      effect.runtimeText,
+      effect.externalTriggerType,
+      effect.category,
+      effect.label
+    ].filter(Boolean).join(' '));
+  }
+
+  function getDpsRuntimeEffectDefaultMode(effect = {}) {
+    return isDpsHighSkillRuntimeEffect(effect) ? 'off' : 'auto';
+  }
+
   function handleRuntimeEffectSettingChange(event) {
     const modeSelect = event.target.closest?.('[data-fdc-dps-runtime-mode]');
     const stackInput = event.target.closest?.('[data-fdc-dps-runtime-stacks]');
@@ -1430,8 +1455,9 @@
         ? Math.max(1, Math.floor(Number(stackInput.value) || 1))
         : Math.max(1, Math.floor(Number(current.fixedStacks) || 1))
     };
-    if (next.mode === 'auto') delete targetOverrides[effectId];
-    else targetOverrides[effectId] = next;
+    // 高学年関連の未保存状態は初期OFFなので、ユーザーがAUTOを
+    // 選んだ事実も保存して次回描画・再計算へ引き継ぐ。
+    targetOverrides[effectId] = next;
     if (Object.keys(targetOverrides).length) runtimeEffectOverrides[activeTargetId] = targetOverrides;
     else delete runtimeEffectOverrides[activeTargetId];
     saveRuntimeEffectOverrides();
@@ -1454,9 +1480,11 @@
       display[collectionKey] = sourceRows.map(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
         const override = getRuntimeEffectOverride(targetId, effectId);
+        const defaultMode = getDpsRuntimeEffectDefaultMode(effect);
         return {
           ...effect,
-          runtimeOverrideMode: override?.mode || 'auto',
+          runtimeDefaultMode: defaultMode,
+          runtimeOverrideMode: override?.mode || defaultMode,
           runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)),
           runtimeSupportsFixed: supportsFixed
         };
@@ -1465,7 +1493,8 @@
       simulation[collectionKey] = simulationRows.flatMap(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
         const override = getRuntimeEffectOverride(targetId, effectId);
-        if (override?.mode === 'off') {
+        const mode = override?.mode || getDpsRuntimeEffectDefaultMode(effect);
+        if (mode === 'off') {
           // ダメージ補正は単発プロファイルに含まれた動的効果を差し引くため、
           // 定義だけ残して発動不能にする。削除すると単発側の仮定値がDPSへ残る。
           if (collectionKey === 'damageBuffEffects') {
@@ -1473,7 +1502,7 @@
           }
           return [];
         }
-        if (override?.mode !== 'fixed' || !supportsFixed) return [effect];
+        if (mode !== 'fixed' || !supportsFixed) return [effect];
         const maxStacks = Math.max(1, Math.floor(Number(effect.maxStacks) || 1));
         const fixedStacks = Math.min(maxStacks, Math.max(1, Math.floor(Number(override.fixedStacks) || 1)));
         return [{
@@ -1510,7 +1539,7 @@
           kinds: unique([...(current?.kinds || []), kindLabel]),
           supportsFixed: !!(current?.supportsFixed || supportsFixed),
           maxStacks: Math.max(current?.maxStacks || 1, maxStacks),
-          mode: effect.runtimeOverrideMode || current?.mode || 'auto',
+          mode: effect.runtimeOverrideMode || current?.mode || getDpsRuntimeEffectDefaultMode(effect),
           fixedStacks: effect.runtimeFixedStacks || current?.fixedStacks || 1
         });
       });
@@ -1532,7 +1561,7 @@
     }).join('');
     return `
       <div class="fdc-dps-runtime-settings">
-        <div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理、固定は指定スタックを常時適用、OFFはDPSから除外</small></div>
+        <div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理 / 高学年関連は初期OFF / 固定は指定スタックを常時適用 / OFFはDPSから除外</small></div>
         <div class="fdc-dps-runtime-settings-list">${rows}</div>
       </div>
     `;

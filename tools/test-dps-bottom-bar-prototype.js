@@ -180,17 +180,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260902c'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260903a'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
 assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260902c'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260902c'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260903a'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260902d') && appCache.includes('dps-simulator.js?v=20260902d'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260901b") && appCache.includes('dps-simulator-worker.js?v=20260901b'), 'Workerのcache-bustを起動側とmanifestで揃える');
 assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260902c'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260903b'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260903c'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -526,6 +526,20 @@ assert.equal(overrideApplied.display.damageBuffEffects[0].runtimeOverrideMode, '
 assert.equal(overrideApplied.simulation.damageBuffEffects[0].mode, 'fixed', '固定overrideはDPS simulation configへ適用する');
 assert.equal(overrideApplied.simulation.damageBuffEffects[0].fixedStacks, 3, '固定overrideのstack数をDPS simulation configへ適用する');
 assert.equal(overrideApplied.simulation.spRecoveryEffects.length, 0, 'OFF overrideはDPS simulationから除外する');
+const highSkillRuntimeDefault = testing.applyDpsRuntimeEffectOverrides({
+  damageBuffEffects: [{ id: 'high-skill-buff', maxStacks: 3, triggerActionKeys: ['highSkill'] }],
+  eventEffects: [{ id: 'high-skill-event', triggerType: '高学年スキル使用時' }]
+}, 'apostle', {});
+assert.equal(highSkillRuntimeDefault.display.damageBuffEffects[0].runtimeOverrideMode, 'off', '高学年関連の時系列効果は初期OFFで表示する');
+assert.equal(highSkillRuntimeDefault.simulation.damageBuffEffects[0].mode, 'off', '高学年関連の初期OFFをDPS simulationへ反映する');
+assert.equal(highSkillRuntimeDefault.simulation.eventEffects.length, 0, '高学年関連イベントも初期OFFではDPS simulationから除外する');
+const highSkillRuntimeOverride = testing.applyDpsRuntimeEffectOverrides({
+  damageBuffEffects: [{ id: 'high-skill-buff', maxStacks: 3, triggerActionKeys: ['highSkill'] }]
+}, 'apostle', { apostle: { 'high-skill-buff': { mode: 'auto' } } });
+assert.equal(highSkillRuntimeOverride.display.damageBuffEffects[0].runtimeOverrideMode, 'auto', '高学年関連効果のAUTO選択を保存値から復元する');
+assert.match(testing.renderDpsRuntimeEffectControls({
+  damageBuffEffects: [{ id: 'high-skill-buff', maxStacks: 3, triggerActionKeys: ['highSkill'] }]
+}), /data-fdc-dps-runtime-mode="high-skill-buff"[\s\S]*<option value="off" selected>OFF<\/option>/, '高学年関連効果の初期選択をOFFとして描画する');
 assert.ok(script.includes('handleRuntimeEffectSettingChange') && script.includes('saveDpsRuntimeEffectOverrides(overrides)') && script.includes('this.requestAutoRun()'),
   '時系列効果control変更は共通保存経路を更新し、DPSのみ再計算を要求する');
 const auditWithRuntimeAndAdditional = testing.renderDpsActionEffectContent({

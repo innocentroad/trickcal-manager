@@ -162,6 +162,29 @@
   function getDpsRuntimeEffectOverride(targetId, effectId, overrides = dpsRuntimeEffectOverrides) {
     return overrides?.[String(targetId || '')]?.[String(effectId || '')] || null;
   }
+  function isDpsHighSkillRuntimeEffect(effect = {}) {
+    const actionKeys = [
+      ...(Array.isArray(effect?.triggerActionKeys) ? effect.triggerActionKeys : []),
+      ...(Array.isArray(effect?.targetActionKeys) ? effect.targetActionKeys : [])
+    ].map(value => String(value || ''));
+    if (actionKeys.includes('highSkill')) return true;
+    return /高学年/.test([
+      effect.triggerType,
+      effect.triggerSourceId,
+      effect.targetSkill,
+      effect.targetSkillName,
+      effect.conditionType,
+      effect.conditionValue,
+      effect.condition,
+      effect.runtimeText,
+      effect.externalTriggerType,
+      effect.category,
+      effect.label
+    ].filter(Boolean).join(' '));
+  }
+  function getDpsRuntimeEffectDefaultMode(effect = {}) {
+    return isDpsHighSkillRuntimeEffect(effect) ? 'off' : 'auto';
+  }
   function applyDpsRuntimeEffectOverrides(runtimeEffects = {}, targetId = '', overrides = dpsRuntimeEffectOverrides) {
     const source = runtimeEffects || {};
     const display = { ...source };
@@ -174,19 +197,21 @@
       display[collectionKey] = displayRows.map(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
         const override = getDpsRuntimeEffectOverride(targetId, effectId, overrides);
-        return { ...effect, runtimeOverrideMode: override?.mode || 'auto', runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)), runtimeSupportsFixed: supportsFixed };
+        const defaultMode = getDpsRuntimeEffectDefaultMode(effect);
+        return { ...effect, runtimeDefaultMode: defaultMode, runtimeOverrideMode: override?.mode || defaultMode, runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)), runtimeSupportsFixed: supportsFixed };
       });
       simulation[collectionKey] = displayRows.flatMap(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
         const override = getDpsRuntimeEffectOverride(targetId, effectId, overrides);
-        if (override?.mode === 'off') {
+        const mode = override?.mode || getDpsRuntimeEffectDefaultMode(effect);
+        if (mode === 'off') {
           // 動的ダメージ補正はdefinitionを残して発動不能にする。完全に削除すると
           // 単発profile由来の仮定値がDPSへ残る場合がある。
           return collectionKey === 'damageBuffEffects'
             ? [{ ...effect, mode: 'off', triggerActionKeys: [], intervalFrames: 0 }]
             : [];
         }
-        if (override?.mode !== 'fixed' || !supportsFixed) return [effect];
+        if (mode !== 'fixed' || !supportsFixed) return [effect];
         const maxStacks = Math.max(1, Math.floor(Number(effect.maxStacks) || 1));
         const fixedStacks = Math.min(maxStacks, Math.max(1, Math.floor(Number(override.fixedStacks) || 1)));
         return [{ ...effect, mode: 'fixed', fixedStacks, durationFrames: 0, intervalFrames: 0, triggerEveryCount: 0, triggerActionKeys: [] }];
@@ -690,8 +715,9 @@
         mode: modeSelect ? modeSelect.value : current.mode,
         fixedStacks: stackInput ? Math.max(1, Math.floor(Number(stackInput.value) || 1)) : Math.max(1, Math.floor(Number(current.fixedStacks) || 1))
       };
-      if (next.mode === 'auto') delete targetOverrides[effectId];
-      else targetOverrides[effectId] = next;
+      // 高学年関連の未保存状態は初期OFFなので、ユーザーがAUTOを
+      // 選んだ事実も保存して次回描画・再計算へ引き継ぐ。
+      targetOverrides[effectId] = next;
       if (Object.keys(targetOverrides).length) overrides[targetId] = targetOverrides;
       else delete overrides[targetId];
       saveDpsRuntimeEffectOverrides(overrides);
@@ -2071,7 +2097,7 @@
           kinds: uniqueDps([...(current?.kinds || []), kindLabel]),
           supportsFixed: !!(current?.supportsFixed || supportsFixed),
           maxStacks: Math.max(current?.maxStacks || 1, maxStacks),
-          mode: effect.runtimeOverrideMode || current?.mode || 'auto',
+          mode: effect.runtimeOverrideMode || current?.mode || getDpsRuntimeEffectDefaultMode(effect),
           fixedStacks: effect.runtimeFixedStacks || current?.fixedStacks || 1
         });
       });
@@ -2081,7 +2107,7 @@
       const fixed = item.mode === 'fixed' && item.supportsFixed;
       return `<label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}"><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.kinds.join('・'))}</small></span><select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.label)}のDPS動作"><option value="auto"${item.mode === 'auto' ? ' selected' : ''}>自動</option>${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}<option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option></select>${item.supportsFixed ? `<span class="fdc-dps-runtime-stack${fixed ? '' : ' is-disabled'}"><input type="number" min="1" max="${item.maxStacks}" step="1" value="${Math.min(item.maxStacks, item.fixedStacks)}" data-fdc-dps-runtime-stacks="${escapeAttr(item.id)}"${fixed ? '' : ' disabled'}><small>/${item.maxStacks}</small></span>` : ''}</label>`;
     }).join('');
-    return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理、固定は指定スタックを常時適用、OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
+    return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理 / 高学年関連は初期OFF / 固定は指定スタックを常時適用 / OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
   }
   function renderDpsRuntimeSettingsContent(runtimeEffects = {}, open = false) {
     const controls = renderDpsRuntimeEffectControls(runtimeEffects)
@@ -2496,7 +2522,7 @@
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
     createDpsComparisonAxis,
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();
