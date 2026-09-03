@@ -213,6 +213,17 @@
       conditionValue: candidate.conditionValue ?? '',
       status: candidate.status,
       statusDurationFrames: candidate.statusDurationFrames,
+      ...(candidate.status ? {
+        statusStackable: candidate.statusStackable === true,
+        statusMaxStacks: candidate.statusMaxStacks,
+        statusStackCount: candidate.statusStackCount,
+        statusStackGroupId: candidate.statusStackGroupId || '',
+        statusApplicationEffectId: candidate.statusApplicationEffectId || '',
+        statusSourceId: candidate.statusSourceId || '',
+        statusSourceSelf: candidate.statusSourceSelf === true,
+        statusDealsPeriodicDamage: candidate.statusDealsPeriodicDamage,
+        statusReactionOnly: candidate.statusReactionOnly === true
+      } : {}),
       reason: candidate.label,
       candidateId: candidate.id,
       candidateLabel: candidate.label,
@@ -295,6 +306,7 @@
       <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(value.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
       <label class="is-status"><span>直接付与状態</span><input type="text" value="${escapeAttr(value.status || '')}" placeholder="任意" data-fdc-dps-external-status></label>
       <label class="is-status-duration"><span>状態秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(value.statusDurationSeconds ?? (Number(value.statusDurationFrames) > 0 ? Number(value.statusDurationFrames) / 60 : ''))}" placeholder="無期限" data-fdc-dps-external-status-duration></label>
+      ${value.status && value.statusStackable ? `<label class="is-status-stack"><span>付与スタック</span><input type="number" min="1" max="${escapeAttr(value.statusMaxStacks || 9)}" step="1" value="${escapeAttr(value.statusStackCount || 1)}" data-fdc-dps-external-status-stack-count></label>` : ''}
       <button type="button" data-fdc-dps-external-remove aria-label="外部イベントを削除" title="削除">×</button>
     `;
     const typeSelect = row.querySelector('[data-fdc-dps-external-type]');
@@ -424,6 +436,7 @@
         const value = row.querySelector('[data-fdc-dps-external-value]')?.value?.trim() || '';
         const status = row.querySelector('[data-fdc-dps-external-status]')?.value?.trim() || '';
         const statusDurationSeconds = Math.max(0, Number(row.querySelector('[data-fdc-dps-external-status-duration]')?.value) || 0);
+        const statusStackCount = Math.max(1, Math.min(9, Math.floor(Number(row.querySelector('[data-fdc-dps-external-status-stack-count]')?.value) || 1)));
         const reason = row.querySelector('[data-fdc-dps-external-reason]')?.value?.trim() || '';
         return {
           id: `manual:${index + 1}`,
@@ -435,6 +448,7 @@
           value,
           status,
           statusDurationFrames: statusDurationSeconds * 60,
+          ...(status ? { statusStackCount } : {}),
           reason: reason || ({
             shieldBreak: '手動シールド破壊',
             hpThreshold: '手動HP閾値',
@@ -1781,6 +1795,17 @@
           value: candidate?.value ?? candidate?.conditionValue ?? candidate?.triggerValue ?? '',
           status: candidate?.status || '',
           statusDurationFrames: Math.max(0, Number(candidate?.statusDurationFrames) || 0),
+          statusStackable: candidate?.statusStackable === true,
+          statusMaxStacks: Math.max(1, Math.floor(Number(candidate?.statusMaxStacks) || 1)),
+          statusStackGroupId: String(candidate?.statusStackGroupId || '').trim(),
+          statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(candidate?.statusStackCount) || 1))),
+          statusApplicationEffectId: String(candidate?.statusApplicationEffectId || '').trim(),
+          statusSourceId: String(candidate?.statusSourceId || candidate?.sourceId || '').trim(),
+          statusSourceSelf: candidate?.statusSourceSelf === true,
+          statusDealsPeriodicDamage: candidate?.statusDealsPeriodicDamage == null
+            ? null
+            : candidate.statusDealsPeriodicDamage === true,
+          statusReactionOnly: candidate?.statusReactionOnly === true,
           reason: `${String(candidate?.label || candidate?.type || '編成行動')}（自動推定）`,
           candidateId: String(candidate?.id || '').trim(),
           candidateLabel: String(candidate?.label || '').trim(),

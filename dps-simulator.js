@@ -2026,10 +2026,12 @@
         statusDurationFrames: Math.max(0, toFiniteNumber(event?.statusDurationFrames ?? event?.durationFrames)),
         statusStackable: event?.statusStackable === true || event?.stackable === true,
         statusMaxStacks: Math.max(1, Math.floor(toFiniteNumber(event?.statusMaxStacks ?? event?.maxStacks, 1))),
+        statusStackCount: Math.max(1, Math.min(DEFAULT_STATUS_MAX_STACKS, Math.floor(toFiniteNumber(event?.statusStackCount, 1) || 1))),
         statusStackGroupId: String(event?.statusStackGroupId || event?.stackGroupId || ''),
         statusApplicationEffectId: String(event?.statusApplicationEffectId || event?.applicationEffectId || ''),
         statusSourceId: String(event?.statusSourceId || ''),
         statusSourceSelf: event?.statusSourceSelf === true,
+        statusReactionOnly: event?.statusReactionOnly === true,
         statusDealsPeriodicDamage: event?.statusDealsPeriodicDamage == null
           ? null
           : event.statusDealsPeriodicDamage === true,
@@ -3743,7 +3745,7 @@
     let triggerRuntimeEventEffectsForResourceChange = null;
     let triggerRuntimeEventEffectsForStateChange = null;
 
-    const applyStatusApplication = (owner, application) => {
+    const applyStatusApplication = (owner, application, options = {}) => {
       if (!application?.status || !(application.durationFrames > 0)) return;
       const applicationSourceId = application.sourceId == null
         ? String(config.apostleId || '')
@@ -3763,7 +3765,7 @@
         ))[0];
         oldest.active = false;
         state.statusStacks = state.statusStacks.filter(stack => stack !== oldest);
-        logEffectStateChange({
+        if (!options.suppressLog) logEffectStateChange({
           kind: 'debuff',
           effectId: oldest.sourceRuntimeEffectId || oldest.status,
           label: oldest.status,
@@ -3803,12 +3805,13 @@
         nextTick: application.dealsPeriodicDamage
           ? state.tick + toTicks(application.tickFrames || STATUS_TICK_FRAMES, ticksPerFrame)
           : Infinity,
-        tickMultiplier: application.tickMultiplier
+        tickMultiplier: application.tickMultiplier,
+        reactionOnly: application.reactionOnly === true
       };
       state.statusStacks.push(stack);
       scheduleRuntimePeriodicEvent(stack);
       scheduleRuntimeExpireTick(stack);
-      logEffectStateChange({
+      if (!options.suppressLog) logEffectStateChange({
         kind: 'debuff',
         effectId: stack.sourceRuntimeEffectId || stack.status,
         label: stack.status,
@@ -3828,7 +3831,7 @@
           timingQuality: application.timingQuality || ''
         }
       });
-      log('statusApplied', {
+      if (!options.suppressLog) log('statusApplied', {
         actionKey: owner.key,
         actionLabel: owner.label,
         status: stack.status,
@@ -3837,8 +3840,8 @@
         durationFrames: application.durationFrames,
         timingQuality: application.timingQuality || ''
       });
-      triggerDamageBuffEffectsForStatusApplication(owner, application);
-      if (triggerRuntimeEventEffectsForStateChange
+      if (!options.suppressTriggers) triggerDamageBuffEffectsForStatusApplication(owner, application);
+      if (!options.suppressTriggers && triggerRuntimeEventEffectsForStateChange
         && (owner?.key !== 'external' || application.externalStateTransition === true)) {
         triggerRuntimeEventEffectsForStateChange(owner, {
           kind: 'status',
@@ -3856,7 +3859,7 @@
       const stackCount = state.statusStacks.filter(item => (
         item.stackGroupId === application.stackGroupId && state.tick < item.expireTick
       )).length;
-      if (application.stackable && stackCount >= application.maxStacks
+      if (!options.suppressTriggers && application.stackable && stackCount >= application.maxStacks
         && triggerRuntimeEventEffectsForStatusMaxStack) {
         triggerRuntimeEventEffectsForStatusMaxStack(owner, application, stackCount);
       }
@@ -4349,7 +4352,8 @@
       const maxStacks = stackable
         ? Math.max(1, Math.floor(toFiniteNumber(event?.statusMaxStacks ?? event?.maxStacks, DEFAULT_STATUS_MAX_STACKS)))
         : 1;
-      const periodicDamage = event?.statusDealsPeriodicDamage == null
+      const reactionOnly = event?.statusReactionOnly === true;
+      const periodicDamage = reactionOnly ? false : event?.statusDealsPeriodicDamage == null
         ? Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status)
         : event.statusDealsPeriodicDamage === true;
       const tickFrames = periodicDamage
@@ -4372,6 +4376,7 @@
         tickMultiplier,
         sourceId: String(event?.statusSourceId || event?.sourceId || `external:${eventGroupId}`),
         sourceSelf: event?.statusSourceSelf === true,
+        reactionOnly,
         externalStateTransition: true,
         timingQuality: 'external'
       };
@@ -4406,7 +4411,50 @@
           reason: event.reason
         });
         const statusApplication = createExternalStatusApplication(event);
-        if (statusApplication) applyStatusApplication(owner, statusApplication);
+        if (statusApplication) {
+          const requestedStacks = statusApplication.stackable
+            ? Math.max(1, Math.min(statusApplication.maxStacks, Math.floor(toFiniteNumber(event.statusStackCount, 1) || 1)))
+            : 1;
+          for (let stackIndex = 0; stackIndex < requestedStacks; stackIndex += 1) {
+            applyStatusApplication(owner, statusApplication, {
+              suppressLog: requestedStacks > 1,
+              suppressTriggers: statusApplication.reactionOnly
+            });
+          }
+          if (requestedStacks > 1) {
+            const activeStackCount = getActiveStatusStacks(statusApplication.status).length;
+            logEffectStateChange({
+              kind: 'debuff',
+              effectId: statusApplication.applicationEffectId || statusApplication.status,
+              label: statusApplication.status,
+              status: statusApplication.status,
+              operation: 'apply',
+              stackCount: activeStackCount,
+              maxStacks: statusApplication.maxStacks,
+              appliedTick: state.tick,
+              expireTick: state.tick + toTicks(statusApplication.durationFrames, ticksPerFrame),
+              sourceActionKey: owner.key,
+              sourceActionLabel: owner.label,
+              sourceId: statusApplication.sourceId,
+              reason: statusApplication.timingQuality || '',
+              details: {
+                appliedStackCount: requestedStacks,
+                reactionOnly: statusApplication.reactionOnly === true,
+                durationFrames: statusApplication.durationFrames
+              }
+            });
+            log('statusApplied', {
+              actionKey: owner.key,
+              actionLabel: owner.label,
+              status: statusApplication.status,
+              stackCount: activeStackCount,
+              maxStacks: statusApplication.maxStacks,
+              appliedStackCount: requestedStacks,
+              durationFrames: statusApplication.durationFrames,
+              timingQuality: statusApplication.timingQuality || ''
+            });
+          }
+        }
         const matchesExternalRuntimeEffect = effect => (
           effect.externalTriggerType === triggerType
           // sourceIdを空欄にした手動イベントは、発動元IDを知らなくても

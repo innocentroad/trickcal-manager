@@ -702,6 +702,17 @@
           value: candidate.value ?? candidate.conditionValue ?? candidate.triggerValue ?? '',
           status: candidate.status || '',
           statusDurationFrames: Math.max(0, Number(candidate.statusDurationFrames) || 0),
+          statusStackable: candidate.statusStackable === true,
+          statusMaxStacks: Math.max(1, Math.floor(Number(candidate.statusMaxStacks) || 1)),
+          statusStackGroupId: valueText(candidate.statusStackGroupId),
+          statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(candidate.statusStackCount) || 1))),
+          statusApplicationEffectId: valueText(candidate.statusApplicationEffectId),
+          statusSourceId: valueText(candidate.statusSourceId || candidate.sourceId),
+          statusSourceSelf: candidate.statusSourceSelf === true,
+          statusDealsPeriodicDamage: candidate.statusDealsPeriodicDamage == null
+            ? null
+            : candidate.statusDealsPeriodicDamage === true,
+          statusReactionOnly: candidate.statusReactionOnly === true,
           reason: `${valueText(candidate.label || candidate.type || '編成行動')}（自動推定）`,
           candidateId: valueText(candidate.id),
           candidateLabel: valueText(candidate.label),
@@ -716,7 +727,8 @@
           triggerSourceId: valueText(candidate.triggerSourceId),
           conditionType: valueText(candidate.conditionType),
           conditionValue: valueText(candidate.conditionValue),
-          provider: 'estimated'
+          provider: candidate?.provider || 'estimated',
+          candidateProvider: candidate?.provider || 'estimated'
         };
       })
       .filter(event => event.type && event.candidateId && event.intervalFrames > 0);

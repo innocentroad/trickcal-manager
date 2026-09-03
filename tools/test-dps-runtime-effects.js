@@ -365,6 +365,47 @@ assert.equal(directExternalStatusResult.timeline.find(event => (
 ))?.frame, 102, '外部から直接付与した状態の持続時間を処理する');
 assert.equal(directExternalStatusResult.finalState.activeStatuses.毒, 0,
   '外部状態の期限後はアクティブ状態から除外する');
+const frostbiteReaction = {
+  id: 'aya-frostbite-reaction-test',
+  status: '凍傷',
+  takenDmgP: 8,
+  perStack: true
+};
+const frostbiteBaseline = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  statusReactions: [frostbiteReaction]
+});
+const frostbiteBatchResult = createFixture({
+  durationSeconds: 1,
+  includePoison: false,
+  statusReactions: [frostbiteReaction],
+  externalEvents: [{
+    id: 'aya-formation-frostbite',
+    type: 'statusApplied',
+    frame: 0,
+    status: '凍傷',
+    statusDurationFrames: 600,
+    statusStackable: true,
+    statusMaxStacks: 9,
+    statusStackGroupId: '凍傷:stack:9',
+    statusStackCount: 4,
+    statusSourceId: 'aya',
+    statusReactionOnly: true,
+    statusDealsPeriodicDamage: false,
+    reason: 'アヤ / 低学年A2'
+  }]
+});
+assert.equal(frostbiteBatchResult.timeline.filter(event => (
+  event.type === 'statusApplied' && event.status === '凍傷'
+)).length, 1, '編成アヤの複数凍傷スタックはタイムライン上で一括表示する');
+assert.equal(frostbiteBatchResult.timeline.find(event => (
+  event.type === 'statusApplied' && event.status === '凍傷'
+))?.appliedStackCount, 4, '編成アヤの凍傷一括イベントは付与スタック数を保持する');
+assert.equal(frostbiteBatchResult.timeline.filter(event => event.type === 'statusTick' && event.status === '凍傷').length, 0,
+  '編成アヤの凍傷反応専用イベントは凍傷DoTを発生させない');
+assert.ok(frostbiteBatchResult.damage.totalExpectedDamage > frostbiteBaseline.damage.totalExpectedDamage,
+  '編成アヤの凍傷スタックが冷静使徒の被ダメージ補正へ反映される');
 const hpThresholdEventResult = createFixture({
   durationSeconds: 1,
   includePoison: false,

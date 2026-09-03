@@ -130,6 +130,7 @@ const fdcRuntimeSource = source
     [
       '    createDpsEvaluationInput,',
       '    createDpsFormationStatusReactions,',
+      '    createDpsFormationStatusCandidates,',
       '    createDpsFormationEventCandidates,',
       '    collectEffects,',
       '    createDpsActionEffectAudit,',
@@ -1708,6 +1709,27 @@ const ayaRuntimeState = {
   apostles: { aya: { asideRank: 2, asideLevel: 1 } },
   cards: { [ayaFavoriteCard.id]: { star: 1, solder: 0 } }
 };
+const syllaAyaStatusCandidates = fdcApi.createDpsFormationStatusCandidates(
+  {
+    id: 'sylla', name: 'シーラ', personality: '冷静',
+    stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 20 }
+  },
+  {
+    members: [
+      { id: 'sylla', name: 'シーラ', personality: '冷静', stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 20 } },
+      { ...ayaRuntimeTarget, asideRank: 2 }
+    ],
+    formation: ayaRuntimeFormation,
+    state: ayaRuntimeState
+  },
+  { battleConditions: { enemySize: 'medium', enemySizeRank: 3 } }
+);
+assert.equal(syllaAyaStatusCandidates.find(candidate => candidate.id === 'formation-status:aya:low:frostbite')?.statusStackCount, 4,
+  '編成アヤA2凍傷は中型敵の推定ヒット数を一括スタック数にする');
+assert.equal(syllaAyaStatusCandidates.find(candidate => candidate.id === 'formation-status:aya:favorite:frostbite')?.intervalSeconds, 10,
+  '編成アヤ愛用品凍傷は10秒周期候補にする');
+assert.equal(syllaAyaStatusCandidates.find(candidate => candidate.id === 'formation-status:aya:high:frostbite')?.statusReactionOnly, true,
+  '編成アヤ高学年凍傷は反応専用候補として保持する');
 const ayaRuntimeContext = {
   target: ayaRuntimeTarget,
   actionCategory: '低学年スキル',

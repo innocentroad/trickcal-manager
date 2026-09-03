@@ -399,6 +399,17 @@
           value: candidate?.value ?? candidate?.conditionValue ?? candidate?.triggerValue ?? '',
           status: candidate?.status || '',
           statusDurationFrames: Math.max(0, Number(candidate?.statusDurationFrames) || 0),
+          statusStackable: candidate?.statusStackable === true,
+          statusMaxStacks: Math.max(1, Math.floor(Number(candidate?.statusMaxStacks) || 1)),
+          statusStackGroupId: String(candidate?.statusStackGroupId || '').trim(),
+          statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(candidate?.statusStackCount) || 1))),
+          statusApplicationEffectId: String(candidate?.statusApplicationEffectId || '').trim(),
+          statusSourceId: String(candidate?.statusSourceId || candidate?.sourceId || '').trim(),
+          statusSourceSelf: candidate?.statusSourceSelf === true,
+          statusDealsPeriodicDamage: candidate?.statusDealsPeriodicDamage == null
+            ? null
+            : candidate.statusDealsPeriodicDamage === true,
+          statusReactionOnly: candidate?.statusReactionOnly === true,
           reason: `${String(candidate?.label || candidate?.type || '編成行動')}（自動推定）`,
           candidateId: String(candidate?.id || '').trim(),
           candidateLabel: String(candidate?.label || '').trim(),
@@ -552,12 +563,14 @@
         statusStackable: value?.statusStackable === true || value?.stackable === true,
         statusMaxStacks: Math.max(1, Math.floor(Number(value?.statusMaxStacks ?? value?.maxStacks) || 1)),
         statusStackGroupId: String(value?.statusStackGroupId || value?.stackGroupId || '').trim(),
+        statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(value?.statusStackCount) || 1))),
         statusApplicationEffectId: String(value?.statusApplicationEffectId || value?.applicationEffectId || '').trim(),
         statusSourceId: String(value?.statusSourceId || '').trim(),
         statusSourceSelf: value?.statusSourceSelf === true,
         statusDealsPeriodicDamage: value?.statusDealsPeriodicDamage == null
           ? null
           : value.statusDealsPeriodicDamage === true,
+        statusReactionOnly: value?.statusReactionOnly === true,
         statusTickFrames: Math.max(0, Number(value?.statusTickFrames) || 0),
         statusTickMultiplier: Number(value?.statusTickMultiplier) || 0
       });
@@ -1048,6 +1061,9 @@
           value: row.querySelector?.('[data-fdc-dps-external-value]')?.value || '',
           status: row.querySelector?.('[data-fdc-dps-external-status]')?.value || '',
           statusDurationSeconds: Math.max(0, Number(row.querySelector?.('[data-fdc-dps-external-status-duration]')?.value) || 0),
+          ...(row.querySelector?.('[data-fdc-dps-external-status]')?.value ? {
+            statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(row.querySelector?.('[data-fdc-dps-external-status-stack-count]')?.value) || 1)))
+          } : {}),
           reason: row.querySelector?.('[data-fdc-dps-external-reason]')?.value || '',
           candidateId: row.dataset?.fdcpExternalCandidateId || '',
           candidateLabel: row.dataset?.fdcpExternalCandidateLabel || '',
@@ -1115,7 +1131,7 @@
           || (scopedBindingKey && effectBinding === scopedBindingKey)
           || [...candidateEffectIds].some(effectId => effectIds.has(effectId));
       });
-      if (!matchedEffects.length) return;
+      if (!matchedEffects.length && candidate.provider !== 'formationStatus') return;
       const overrides = dpsRuntimeEffectOverrides || loadDpsRuntimeEffectOverrides();
       const targetOverrides = { ...(overrides[targetId] || {}) };
       matchedEffects.forEach(effect => {
@@ -1128,8 +1144,10 @@
           fixedStacks: Math.max(1, Math.floor(Number(current.fixedStacks) || 1))
         };
       });
-      overrides[targetId] = targetOverrides;
-      saveDpsRuntimeEffectOverrides(overrides);
+      if (matchedEffects.length) {
+        overrides[targetId] = targetOverrides;
+        saveDpsRuntimeEffectOverrides(overrides);
+      }
     }
 
     addExternalEvent(value = {}) {
@@ -1232,6 +1250,17 @@
           conditionValue: candidate.conditionValue ?? '',
           status: candidate.status,
           statusDurationFrames: candidate.statusDurationFrames,
+          ...(candidate.status ? {
+            statusStackable: candidate.statusStackable === true,
+            statusMaxStacks: candidate.statusMaxStacks,
+            statusStackCount: candidate.statusStackCount,
+            statusStackGroupId: candidate.statusStackGroupId || '',
+            statusApplicationEffectId: candidate.statusApplicationEffectId || '',
+            statusSourceId: candidate.statusSourceId || '',
+            statusSourceSelf: candidate.statusSourceSelf === true,
+            statusDealsPeriodicDamage: candidate.statusDealsPeriodicDamage,
+            statusReactionOnly: candidate.statusReactionOnly === true
+          } : {}),
           reason: candidate.label,
           candidateId: candidate.id,
           candidateLabel: candidate.label,
@@ -1252,7 +1281,7 @@
         this.handleRuntimeEffectSettingChange(event);
         return;
       }
-      if (event.target.closest?.('[data-fdc-dps-external-type], [data-fdc-dps-external-seconds], [data-fdc-dps-external-interval], [data-fdc-dps-external-count], [data-fdc-dps-external-source], [data-fdc-dps-external-value], [data-fdc-dps-external-reason], [data-fdc-dps-external-status], [data-fdc-dps-external-status-duration]')) {
+      if (event.target.closest?.('[data-fdc-dps-external-type], [data-fdc-dps-external-seconds], [data-fdc-dps-external-interval], [data-fdc-dps-external-count], [data-fdc-dps-external-source], [data-fdc-dps-external-value], [data-fdc-dps-external-reason], [data-fdc-dps-external-status], [data-fdc-dps-external-status-duration], [data-fdc-dps-external-status-stack-count]')) {
         this.handleExternalInputChange();
       }
     }
@@ -2279,6 +2308,7 @@
             <label class="is-reason"><span>表示名</span><input type="text" value="${escapeAttr(event.reason || '')}" placeholder="任意" data-fdc-dps-external-reason></label>
             <label class="is-status"><span>直接付与状態</span><input type="text" value="${escapeAttr(event.status || '')}" placeholder="任意" data-fdc-dps-external-status></label>
             <label class="is-status-duration"><span>状態秒</span><input type="number" min="0" max="600" step="0.1" value="${escapeAttr(event.statusDurationFrames > 0 ? formatNumber(event.statusDurationFrames / 60) : '')}" placeholder="無期限" data-fdc-dps-external-status-duration></label>
+            ${event.status && event.statusStackable ? `<label class="is-status-stack"><span>付与スタック</span><input type="number" min="1" max="${escapeAttr(event.statusMaxStacks || 9)}" step="1" value="${escapeAttr(event.statusStackCount || 1)}" data-fdc-dps-external-status-stack-count></label>` : ''}
           </div>
         </details>
       </div>

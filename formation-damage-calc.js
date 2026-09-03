@@ -11954,7 +11954,10 @@
       statusReactions: createDpsEnemyStatusReactions(),
       statusDamageWeaknessP: createDpsEnemyStatusDamageWeaknessP()
     });
-    const formationEventCandidates = createDpsFormationEventCandidates(actionDamageData.audit, context);
+    const formationEventCandidates = [
+      ...createDpsFormationEventCandidates(actionDamageData.audit, context),
+      ...createDpsFormationStatusCandidates(target, context, scenario)
+    ];
     return {
       scenario,
       targetId: target?.id || '',
@@ -12703,6 +12706,181 @@
     if (direct) return direct;
     const apostle = getApostleSkillData(target);
     return String(apostle?.basic?.personality || apostle?.personality || '').trim();
+  }
+
+  function getDpsAyaFrostbiteStackCount(scenario = {}) {
+    const enemy = scenario?.battleConditions || {};
+    const requestedRank = Number(enemy.enemySizeRank) || 0;
+    const branchRanks = {
+      '超小型敵': 1,
+      '小型敵': 2,
+      '中型敵': 3,
+      '大型敵': 4,
+      '超大型敵': 5
+    };
+    const timing = typeof DPS_TIMING_DATA === 'undefined'
+      ? null
+      : DPS_TIMING_DATA?.apostles?.aya;
+    const generatedObject = normalizeFdcArray(timing?.actions?.lowSkill?.generatedObjects)
+      .find(object => object?.id === 'Aya_low_butterfly');
+    const rows = normalizeFdcArray(generatedObject?.timingEvents)
+      .filter(row => row?.effectKind === 'ダメージ' && row?.effectId === 'Aya_low_e01');
+    const availableBranches = unique(rows.map(row => String(row?.branch || '').trim()).filter(Boolean));
+    const selectedBranch = requestedRank > 0 && availableBranches.length
+      ? availableBranches.slice().sort((a, b) => (
+        Math.abs((branchRanks[a] || 3) - requestedRank) - Math.abs((branchRanks[b] || 3) - requestedRank)
+          || (branchRanks[a] || 3) - (branchRanks[b] || 3)
+      ))[0]
+      : '';
+    const count = selectedBranch
+      ? rows.filter(row => row.branch === selectedBranch).length
+      : 1;
+    return {
+      count: Math.max(1, Math.min(9, count)),
+      branch: selectedBranch || String(enemy.enemySize || '').trim() || '不明',
+      provisional: !selectedBranch || rows.some(row => row.branch === selectedBranch && row.frame == null),
+      basis: selectedBranch
+        ? `${selectedBranch}の蝶ヒット数${count}（戻り命中を含む暫定値）`
+        : '敵サイズ不明のため凍傷1スタックで暫定'
+    };
+  }
+
+  function getDpsFormationLowSkillSchedule(member, apostle) {
+    const skills = normalizeFdcArray(apostle?.skills);
+    const lowSkill = skills.find(skill => /低学年/.test(getFdcApostleSkillCategory(skill, '通常')));
+    const requiredSp = getFdcLowSkillRequiredSp(lowSkill);
+    const initialSp = Math.max(0, Number(member?.stats?.initialSp ?? apostle?.basic?.initialSp) || 0);
+    const spRegen = Math.max(0, Number(member?.stats?.spRegen) || Number(apostle?.basic?.spRecoveryPerSecond) || 0);
+    if (!(requiredSp > 0) || !(spRegen > 0)) {
+      return { startSeconds: 0, intervalSeconds: 0, requiredSp, initialSp, spRegen };
+    }
+    return {
+      startSeconds: Math.max(0, Math.ceil(Math.max(0, requiredSp - initialSp) / spRegen)),
+      intervalSeconds: Math.max(1, Math.ceil(requiredSp / spRegen)),
+      requiredSp,
+      initialSp,
+      spRegen
+    };
+  }
+
+  function getDpsFormationStatusCandidateBase({
+    id,
+    label,
+    actionLabel,
+    effectIds,
+    startSeconds,
+    intervalSeconds,
+    stackCount,
+    basis,
+    triggerSourceId
+  } = {}) {
+    return {
+      id,
+      bindingKey: id,
+      ownerId: 'aya',
+      ownerName: 'アヤ',
+      sourceId: 'aya',
+      sourceLabel: 'アヤ',
+      sourceActionKey: actionLabel,
+      type: '状態付与時',
+      label,
+      effectLabels: [`凍傷 +${stackCount}スタック`, '冷静被ダメージ +8%／スタック'],
+      effectIds: effectIds.slice(),
+      startSeconds,
+      intervalSeconds,
+      repeatCount: 0,
+      confidence: 'estimate',
+      basis,
+      timingMode: 'periodic',
+      eventClass: 'status',
+      eventLabel: '凍傷付与',
+      periodicActionLabel: actionLabel === 'lowSkill'
+        ? '低学年'
+        : actionLabel === 'highSkill' ? '高学年' : '',
+      triggerActionKeys: actionLabel === 'lowSkill'
+        ? ['lowSkill']
+        : actionLabel === 'highSkill' ? ['highSkill'] : [],
+      repeatability: 'repeatable',
+      inputMode: 'periodic',
+      triggerSourceId,
+      value: String(stackCount),
+      conditionType: '編成中',
+      conditionValue: 'Aya',
+      status: '凍傷',
+      statusDurationFrames: 600,
+      statusStackable: true,
+      statusMaxStacks: 9,
+      statusStackGroupId: '凍傷:stack:9',
+      statusStackCount: Math.max(1, Math.min(9, Math.floor(Number(stackCount) || 1))),
+      statusApplicationEffectId: effectIds[0] || '',
+      statusSourceId: 'aya',
+      statusSourceSelf: false,
+      statusDealsPeriodicDamage: false,
+      statusReactionOnly: true,
+      provider: 'formationStatus'
+    };
+  }
+
+  function createDpsFormationStatusCandidates(target, context = {}, scenario = {}) {
+    if (!target || getDpsApostlePersonality(target) !== '冷静') return [];
+    const members = normalizeFdcArray(context?.members);
+    const ayaMember = members.find(member => isDpsAyaFormationMember(member));
+    if (!ayaMember || String(ayaMember.id || '').toLowerCase() === String(target.id || '').toLowerCase()) return [];
+    const aya = getApostleSkillData(ayaMember);
+    if (!aya) return [];
+    const candidates = [];
+    const asideRank = Math.max(0, Number(ayaMember.asideRank) || 0);
+    const asideTwoEffects = normalizeFdcArray(aya?.aside?.levels?.['2']?.effects);
+    if (asideRank >= 2 && isPublicAsideEnabled(aya) && asideTwoEffects.some(effect => effect?.effectId === 'Aya_aside_2_e06')) {
+      const schedule = getDpsFormationLowSkillSchedule(ayaMember, aya);
+      const hitInfo = getDpsAyaFrostbiteStackCount(scenario);
+      candidates.push(getDpsFormationStatusCandidateBase({
+        id: 'formation-status:aya:low:frostbite',
+        label: 'アヤ / 低学年A2 / 凍傷付与',
+        actionLabel: 'lowSkill',
+        effectIds: ['Aya_aside_2_e06', 'Aya_aside_2_e07'],
+        startSeconds: schedule.startSeconds,
+        intervalSeconds: schedule.intervalSeconds,
+        stackCount: hitInfo.count,
+        basis: `${hitInfo.basis} / 必要SP ${schedule.requiredSp}・初回${schedule.startSeconds}秒・以降${schedule.intervalSeconds}秒`,
+        triggerSourceId: 'Aya_low_butterfly'
+      }));
+    }
+    const activeFavoriteLevels = getActiveFdcFavoriteLevels(aya, ayaMember, context);
+    const favoriteEffects = activeFavoriteLevels.flatMap(level => normalizeFdcArray(
+      aya?.favoriteCard?.levels?.[level]
+    ).flatMap(skill => normalizeFdcArray(skill?.effects)));
+    if (activeFavoriteLevels.includes(1) && favoriteEffects.some(effect => effect?.effectId === 'Aya_favorite_1_e04')) {
+      candidates.push(getDpsFormationStatusCandidateBase({
+        id: 'formation-status:aya:favorite:frostbite',
+        label: 'アヤ / 愛用品Lv1 / 凍傷付与',
+        actionLabel: 'favorite',
+        effectIds: ['Aya_favorite_1_e04', 'Aya_favorite_1_e05'],
+        startSeconds: 10,
+        intervalSeconds: 10,
+        stackCount: 1,
+        basis: '愛用品Lv1の10秒ごと / 凍傷付与のみを編成DPSへ反映',
+        triggerSourceId: 'Aya_favorite_1'
+      }));
+    }
+    const highSkill = normalizeFdcArray(aya?.skills)
+      .find(skill => /高学年/.test(getFdcApostleSkillCategory(skill, '通常')));
+    const highEffects = normalizeFdcArray(highSkill?.effects);
+    const highCooldown = getFdcHighSkillCooldownSeconds(highSkill, '高学年スキル');
+    if (highEffects.some(effect => effect?.effectId === 'Aya_high_e03') && highCooldown > 0) {
+      candidates.push(getDpsFormationStatusCandidateBase({
+        id: 'formation-status:aya:high:frostbite',
+        label: 'アヤ / 高学年 / 凍傷付与',
+        actionLabel: 'highSkill',
+        effectIds: ['Aya_high_e03', 'Aya_high_e04'],
+        startSeconds: highCooldown,
+        intervalSeconds: highCooldown,
+        stackCount: 1,
+        basis: `高学年CT ${highCooldown}秒基準 / 初期OFF`,
+        triggerSourceId: 'Aya_high'
+      }));
+    }
+    return candidates;
   }
 
   function createDpsFormationStatusReactions(target, context = {}) {
@@ -14597,7 +14775,9 @@
     createSingleActionSnapshot: createCurrentSingleActionSnapshot,
     createDpsEvaluationInput,
     createDpsSnapshot: createDpsPrototypeSnapshot,
-    createFormationEventCandidates: createDpsFormationEventCandidates
+    createFormationEventCandidates: createDpsFormationEventCandidates,
+    createFormationStatusCandidates: createDpsFormationStatusCandidates,
+    createFormationStatusReactions: createDpsFormationStatusReactions
   });
 
   function renderUiIcon(name, className = '') {

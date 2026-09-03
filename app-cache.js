@@ -34,12 +34,12 @@
       'synergy.js',
       'enemy-presets.js?v=20260821o',
       'combat-scenario.js?v=20260824a',
-      'dps-trigger-policy.js?v=20260903e',
+      'dps-trigger-policy.js?v=20260904a',
       'dps-timing-data.js?v=20260903a',
-      'dps-simulator.js?v=20260902d',
+      'dps-simulator.js?v=20260904a',
       'dps-simulator-worker.js?v=20260901b',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260903g',
+      'formation-damage-calc.js?v=20260904a',
       'formation-damage-dps-prototype.js?v=20260903e',
       'image-preload.js?v=20260727a'
     ],
@@ -51,12 +51,12 @@
       'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',
       'dps-timing-data.js?v=20260903a',
-      'dps-simulator.js?v=20260902d',
+      'dps-simulator.js?v=20260904a',
       'dps-simulator-worker.js?v=20260901b',
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
-      'dps-trigger-policy.js?v=20260903e',
-      'formation-damage-calc.js?v=20260903g'
+      'dps-trigger-policy.js?v=20260904a',
+      'formation-damage-calc.js?v=20260904a'
     ]
   };
 
