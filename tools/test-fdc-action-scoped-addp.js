@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const simulator = require('../dps-simulator.js');
+const triggerPolicy = require('../dps-trigger-policy.js');
 
 const source = fs.readFileSync(path.resolve(__dirname, '..', 'formation-damage-calc.js'), 'utf8');
 
@@ -128,6 +129,7 @@ const fdcRuntimeSource = source
     '    createDpsEvaluationInput,\n',
     [
       '    createDpsEvaluationInput,',
+      '    createDpsFormationStatusReactions,',
       '    createDpsFormationEventCandidates,',
       '    collectEffects,',
       '    createDpsActionEffectAudit,',
@@ -136,6 +138,7 @@ const fdcRuntimeSource = source
       '    createDpsRuntimeEffectId,',
       '    createDpsStructuredRuntimeEvents,',
       '    buildFdcApostleSkillOptions,',
+      '    createFdcSkillEffectLabel,',
       '    buildDpsActionProfiles,',
       '    getDpsRuntimeManagedSkillEffects,',
       '    isDpsFormationExternalActionRequired,',
@@ -330,6 +333,40 @@ const sameEffectPiraRuntime = fdcApi.createDpsRuntimeEffects({
 assert.equal(sameEffectPiraRuntime.attackSpeedEffects.length, 1,
   '同効果非スタックONの効果は装備者をまたいで1件に統合する');
 
+const sharedLowHighRuntimeRow = {
+  key: 'skill:Kidian:shared-low-high',
+  effectId: 'Kidian_shared_runtime_e01',
+  sourceId: 'base:0',
+  ownerId: 'Kidian',
+  ownerName: 'ギデオン',
+  label: '低学年・高学年スキル使用時 攻撃速度増加',
+  source: '本人スキル',
+  category: 'スキル',
+  condition: '低学年・高学年スキル使用時',
+  triggerType: 'スキル使用時',
+  externalActionRequired: true,
+  durationSeconds: 4,
+  stackMax: 1,
+  stackable: false,
+  bonuses: { hasteP: 10 },
+  runtimeBonuses: { hasteP: 10 },
+  enabled: true,
+  sourceDisabled: false,
+  singleManualDisabled: false
+};
+const sharedLowHighRuntime = fdcApi.createDpsRuntimeEffects({
+  lowSkill: { rows: [sharedLowHighRuntimeRow] },
+  highSkill: { rows: [sharedLowHighRuntimeRow] }
+}, {});
+assert.deepEqual(
+  plain(sharedLowHighRuntime.attackSpeedEffects.map(effect => [effect.triggerActionKeys, effect.runtimePolicy?.defaultMode])),
+  [
+    [['lowSkill'], 'auto'],
+    [['highSkill'], 'off']
+  ],
+  '低学年・高学年共有効果をbinding単位へ分け、高学年だけ初期OFFにする'
+);
+
 const formationEventCandidates = fdcApi.createDpsFormationEventCandidates({
   basicAttack: {
     rows: [
@@ -399,8 +436,66 @@ const killCandidate = formationEventCandidates.find(item => item.type === '低�
 assert.equal(killCandidate?.timingMode, 'event', '撃破条件を低学年スキル周期へ誤接続しない');
 const effectOccurrenceCandidate = formationEventCandidates.find(item => item.type === '低学年スキル効果発生時');
 assert.equal(effectOccurrenceCandidate?.timingMode, 'periodic', '低学年スキル効果発生を低学年スキル周期の暫定候補として分類する');
+assert.match(effectOccurrenceCandidate?.bindingKey || '', /^AllyA::低学年スキル効果発生時/, '編成の周期候補へ効果binding keyを付与する');
 const highStateCandidate = formationEventCandidates.find(item => item.eventLabel === '高学年固有状態付与');
 assert.equal(highStateCandidate?.label, '味方A / 高学年固有状態付与', '状態イベントへ発動元の学年を前置して表示する');
+
+const candidateRuntimeBindingRow = {
+  key: 'skill:AllyA:formation:low-runtime',
+  effectId: 'AllyA_low_runtime_e01',
+  sourceId: 'AllyA:formation-low',
+  sourceGroup: 'formation',
+  ownerId: 'AllyA',
+  ownerName: '味方A',
+  category: '低学年スキル',
+  effectType: 'バフ',
+  triggerType: '低学年スキル使用時',
+  label: '低学年使用時の攻撃速度上昇',
+  externalActionRequired: true,
+  durationSeconds: 5,
+  stackMax: 1,
+  stackable: false,
+  bonuses: { hasteP: 12 },
+  runtimeBonuses: { hasteP: 12 },
+  enabled: false,
+  sourceDisabled: false,
+  singleManualDisabled: true
+};
+const candidateRuntimeAudit = {
+  lowSkill: {
+    actionCategory: '低学年スキル',
+    rows: [candidateRuntimeBindingRow]
+  }
+};
+const candidateRuntime = fdcApi.createDpsRuntimeEffects(candidateRuntimeAudit, {});
+const candidateRuntimeEffect = candidateRuntime.attackSpeedEffects.find(effect => (
+  String(effect.id || '').startsWith(candidateRuntimeBindingRow.effectId)
+));
+const candidateRuntimeCandidate = fdcApi.createDpsFormationEventCandidates(
+  candidateRuntimeAudit,
+  { members: [{ id: 'AllyA', name: '味方A', stats: { spRegen: 20 } }] }
+).find(item => item.effectIds?.includes(candidateRuntimeBindingRow.effectId));
+assert.ok(candidateRuntimeEffect, '周期候補に対応する低学年runtime effectを生成する');
+assert.equal(
+  candidateRuntimeCandidate?.bindingKey,
+  candidateRuntimeEffect?.bindingKey,
+  '周期候補とruntime effectが同じbinding単位で接続される'
+);
+assert.equal(
+  candidateRuntimeCandidate?.effectIds?.includes(candidateRuntimeBindingRow.effectId),
+  true,
+  '周期候補が対応するruntime effect IDを保持する'
+);
+const candidateRuntimeAutoEvent = triggerPolicy.createDpsFormationEstimatedEvents(
+  [candidateRuntimeCandidate],
+  {
+    formationTimelineMode: 'off',
+    bindingModes: { [candidateRuntimeCandidate?.bindingKey]: 'auto' }
+  },
+  []
+);
+assert.equal(candidateRuntimeAutoEvent.length, 1, 'binding単位の自動指定で周期推定イベントを一度だけ生成する');
+assert.equal(candidateRuntimeAutoEvent[0].bindingKey, candidateRuntimeEffect?.bindingKey, '推定イベントもruntime bindingを引き継ぐ');
 
 const epicaFormationEventCandidates = fdcApi.createDpsFormationEventCandidates({
   highSkill: {
@@ -883,6 +978,93 @@ const piraTwoCardConfig = simulator.buildCombatantConfig(syllaDpsApostle, syllaD
 assert.ok(
   piraTwoCardConfig.initialNormalAttackIntervalFrames < piraOneCardConfig.initialNormalAttackIntervalFrames,
   '名刺1個から2個へ増やすとDPS用通常攻撃間隔が短くなる'
+);
+
+// 編成側の愛用品も、選択中本人のスキル候補と同じ置換判定を使う。
+// キャロットの愛用品Lv1は低学年を「急成長の樹液発射」へ置き換えるため、
+// 編成効果へ通常低学年の攻撃力増加を残すと、旧効果と愛用品効果が二重に発動する。
+const kyarotFavoriteCard = cardDataContext.library.artifacts.find(card => (
+  card.id === 'artifact_kyarot_sugarcane'
+));
+assert.ok(kyarotFavoriteCard, 'キャロット愛用品カードが生成されている');
+const kyarotFormationTarget = {
+  id: 'Sylla',
+  name: 'シーラ',
+  position: '前列',
+  line: 1,
+  artifactIds: [],
+  role: '攻撃',
+  attackType: '物理',
+  personality: '冷静',
+  stats: { physicalAtk: 1000, magicAtk: 1 }
+};
+const kyarotFormationMember = {
+  id: 'kyarot',
+  name: 'キャロット',
+  position: '前列',
+  line: 1,
+  artifactIds: [kyarotFavoriteCard.id],
+  role: '守備',
+  attackType: '物理',
+  asideRank: 0,
+  stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 0 }
+};
+const kyarotFavoriteFormation = {
+  rows: [
+    { apostles: ['Sylla', 'kyarot', ''], artifacts: [[
+      '', '', ''
+    ], [kyarotFavoriteCard.id, '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }
+  ],
+  spells: []
+};
+const kyarotFavoriteContext = {
+  target: kyarotFormationTarget,
+  actionCategory: '基本攻撃',
+  damageType: 'physical',
+  state: {
+    apostles: {
+      Sylla: {},
+      kyarot: { asideRank: 0, asideLevel: 0 }
+    },
+    cards: { [kyarotFavoriteCard.id]: { star: 1, solder: 0 } }
+  },
+  formation: kyarotFavoriteFormation,
+  members: [kyarotFormationTarget, kyarotFormationMember],
+  effects: { applied: [], globalStats: [], conditional: [] },
+  skillEffectStateOverrides: {}
+};
+const kyarotFavoriteAudit = fdcApi.createDpsActionEffectAudit(kyarotFavoriteContext);
+const kyarotFavoriteRows = kyarotFavoriteAudit.rows.filter(row => row.ownerId === 'kyarot');
+assert.ok(kyarotFavoriteRows.some(row => row.effectId === 'Kyarot_favorite_1_e02'),
+  '編成キャロットの愛用品低学年効果をDPS監査へ保持する');
+assert.equal(
+  kyarotFavoriteRows.some(row => /^Kyarot_low_/.test(String(row.effectId || ''))),
+  false,
+  '編成キャロットの置換前低学年効果をDPS監査へ混在させない'
+);
+const kyarotFavoriteAttackPowerRow = kyarotFavoriteRows.find(row => (
+  row.effectId === 'Kyarot_favorite_1_e02'
+));
+assert.match(
+  kyarotFavoriteAttackPowerRow?.label || '',
+  /急成長の樹液発射 \[低\]\[愛\]/,
+  '編成キャロットの置換後効果へスキル名・対象学年・愛用品由来を表示する'
+);
+assert.equal(
+  fdcApi.createFdcSkillEffectLabel({
+    sourceLabel: '愛用品Lv1',
+    sourceKey: 'favorite:1:0',
+    category: '愛用品Lv1',
+    skillName: '愛用Lv1',
+    targetSkill: '低学年',
+    targetSkillName: '急成長の樹液発射',
+    effectLabel: '攻撃力増加',
+    ownerName: 'キャロット'
+  }),
+  'キャロット / 急成長の樹液発射 [低][愛] / 攻撃力増加',
+  '愛用品置換効果の公開ラベルを由来タグ付きで固定する'
 );
 
 const barongApostle = apostleContext.library.find(apostle => apostle.id === 'barong');
@@ -1493,6 +1675,229 @@ assert.deepEqual(
   { hasActionScope: true, matched: false },
   'アヤ愛用品Lv3を基本攻撃へ適用しない'
 );
+
+// アヤの凍傷は、低学年の蝶（A2）、高学年、愛用品の3経路が同じ
+// 凍傷スタック枠へ到達する。高学年は通常の行動statusとして扱い、
+// 蝶・愛用品だけを構造化runtimeイベントへ重複なく渡す。
+const ayaFavoriteCard = cardDataContext.library.spells.find(card => (
+  card.id === 'spell_aya_snowflake_magic'
+));
+assert.ok(ayaFavoriteCard, 'アヤ愛用スペルが生成されている');
+const ayaRuntimeTarget = {
+  id: 'aya',
+  name: 'アヤ',
+  position: '中列',
+  line: 1,
+  artifactIds: [],
+  role: '攻撃',
+  attackType: '魔法',
+  asideRank: 2,
+  asideLevel: 1,
+  skillLevels: { low: 1, high: 1, passive: 1, asideRank: 2 },
+  stats: { physicalAtk: 1, magicAtk: 1000, spRegen: 44 }
+};
+const ayaRuntimeFormation = {
+  rows: [
+    { apostles: ['aya', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] },
+    { apostles: ['', '', ''], artifacts: [['', '', ''], ['', '', ''], ['', '', '']] }
+  ],
+  spells: [ayaFavoriteCard.id]
+};
+const ayaRuntimeState = {
+  apostles: { aya: { asideRank: 2, asideLevel: 1 } },
+  cards: { [ayaFavoriteCard.id]: { star: 1, solder: 0 } }
+};
+const ayaRuntimeContext = {
+  target: ayaRuntimeTarget,
+  actionCategory: '低学年スキル',
+  damageType: 'magic',
+  state: ayaRuntimeState,
+  formation: ayaRuntimeFormation,
+  members: [ayaRuntimeTarget],
+  effects: { applied: [], globalStats: [], conditional: [] },
+  skillEffectStateOverrides: {}
+};
+const ayaRuntimeLevels = {
+  low: 1,
+  high: 1,
+  passive: 1,
+  default: 1,
+  asideRank: 2,
+  asideLevel: 1
+};
+const ayaTiming = timingData.apostles.aya;
+const ayaTimingBranches = timingBranchContext.api.createDpsAsideTimingBranches(ayaTiming, 2);
+const ayaTimingBindings = timingBranchContext.api.createDpsTimingEffectBindings(
+  ayaTiming,
+  ayaTimingBranches
+);
+const ayaSkillOptions = fdcApi.buildFdcApostleSkillOptions(ayaRuntimeTarget, ayaRuntimeContext);
+const ayaRuntimeManagedEffects = fdcApi.getDpsRuntimeManagedSkillEffects(
+  ayaRuntimeTarget,
+  ayaRuntimeContext,
+  ayaSkillOptions,
+  { timingEffectBindings: ayaTimingBindings }
+);
+const structuredAya = fdcApi.createDpsStructuredRuntimeEvents({
+  apostle: aya,
+  target: ayaRuntimeTarget,
+  context: ayaRuntimeContext,
+  skillLevels: ayaRuntimeLevels,
+  selectedSkillOptions: ayaSkillOptions,
+  singleActionProfiles: {},
+  runtimeManagedEffects: ayaRuntimeManagedEffects,
+  timingEffectBindings: ayaTimingBindings
+});
+const ayaAsideFrostbite = structuredAya.eventEffects.find(effect => (
+  effect.steps.some(step => step.application?.applicationEffectId === 'Aya_aside_2_e06')
+));
+assert.ok(ayaAsideFrostbite, 'アヤA2蝶命中の凍傷を構造化runtimeイベントへ収集する');
+assert.equal(ayaAsideFrostbite.triggerSourceId, 'Aya_low_butterfly',
+  'アヤA2凍傷を低学年の蝶イベントへ結び付ける');
+const ayaAsideFrostbiteStep = ayaAsideFrostbite.steps.find(step => (
+  step.application?.applicationEffectId === 'Aya_aside_2_e06'
+));
+assert.equal(ayaAsideFrostbiteStep.application.stackGroupId, '凍傷:stack:9',
+  'アヤA2凍傷を共通の9スタック枠へ入れる');
+assert.equal(ayaAsideFrostbiteStep.application.durationFrames, 600,
+  'アヤA2凍傷の持続時間10秒を構造化runtimeへ渡す');
+const ayaFavoriteFrostbite = structuredAya.eventEffects.find(effect => (
+  effect.steps.some(step => step.application?.applicationEffectId === 'Aya_favorite_1_e04')
+));
+assert.ok(ayaFavoriteFrostbite, 'アヤ愛用品の凍傷を構造化runtimeイベントへ収集する');
+assert.equal(ayaFavoriteFrostbite.intervalFrames, 600,
+  'アヤ愛用品の凍傷を10秒周期へ結び付ける');
+const ayaFavoriteFrostbiteStep = ayaFavoriteFrostbite.steps.find(step => (
+  step.application?.applicationEffectId === 'Aya_favorite_1_e04'
+));
+assert.equal(ayaFavoriteFrostbiteStep.application.stackGroupId, '凍傷:stack:9',
+  'アヤ愛用品の凍傷をA2と同じ9スタック枠へ入れる');
+assert.notEqual(ayaAsideFrostbite.id, ayaFavoriteFrostbite.id,
+  'アヤA2蝶命中と愛用品周期を別イベントとして保持する');
+const ayaRuntime = fdcApi.createDpsRuntimeEffects({}, {
+  apostle: aya,
+  target: ayaRuntimeTarget,
+  context: ayaRuntimeContext,
+  skillLevels: ayaRuntimeLevels,
+  dpsSkillOverrides: {},
+  timingEffectBindings: ayaTimingBindings,
+  selectedSkillOptions: ayaSkillOptions,
+  singleActionProfiles: {},
+  runtimeManagedEffects: ayaRuntimeManagedEffects,
+  structuredRuntime: structuredAya
+});
+assert.equal(
+  ayaRuntime.eventEffects.filter(effect => effect.steps.some(step => (
+    step.application?.applicationEffectId === 'Aya_aside_2_e06'
+  ))).length,
+  1,
+  '本番DPS runtimeへアヤA2凍傷を1イベントだけ登録する'
+);
+assert.equal(
+  ayaRuntime.eventEffects.filter(effect => effect.steps.some(step => (
+    step.application?.applicationEffectId === 'Aya_favorite_1_e04'
+  ))).length,
+  1,
+  '本番DPS runtimeへアヤ愛用品凍傷を1イベントだけ登録する'
+);
+assert.equal(
+  ayaRuntime.warnings.some(warning => /DPSランタイム効果(?:の重複|IDの内容衝突)/.test(warning)),
+  false,
+  'アヤ凍傷のDPS runtime重複警告を発生させない'
+);
+const syllaFormationTarget = {
+  id: 'sylla',
+  name: 'シーラ',
+  personality: '冷静',
+  position: '前列',
+  stats: { physicalAtk: 1000, magicAtk: 1, spRegen: 20 }
+};
+const ayaFormationMember = { id: 'aya', name: 'アヤ' };
+const syllaAyaReactions = fdcApi.createDpsFormationStatusReactions(
+  syllaFormationTarget,
+  { members: [syllaFormationTarget, ayaFormationMember] }
+);
+assert.equal(syllaAyaReactions.length, 1,
+  'アヤ編成時に別の冷静使徒へ凍傷反応を共有する');
+assert.equal(syllaAyaReactions[0].id, 'builtin:frostbite-calm-taken-damage',
+  '編成横断の凍傷反応は既存の組み込みIDを使う');
+assert.equal(syllaAyaReactions[0].sourceId, 'aya',
+  '編成横断の凍傷反応の発動元をアヤとして保持する');
+const noAyaReactions = fdcApi.createDpsFormationStatusReactions(
+  syllaFormationTarget,
+  { members: [syllaFormationTarget] }
+);
+assert.equal(noAyaReactions.length, 0,
+  'アヤがいない編成へアヤ由来の凍傷反応を追加しない');
+const nonCalmReactions = fdcApi.createDpsFormationStatusReactions(
+  { id: 'momo', name: 'モモ', personality: '活発' },
+  { members: [{ id: 'momo', name: 'モモ' }, ayaFormationMember] }
+);
+assert.equal(nonCalmReactions.length, 0,
+  '冷静以外の編成使徒へ凍傷の冷静反応を追加しない');
+const syllaSharedRuntime = fdcApi.createDpsRuntimeEffects({}, {
+  target: syllaFormationTarget,
+  context: { members: [syllaFormationTarget, ayaFormationMember] },
+  statusReactions: []
+});
+assert.equal(
+  syllaSharedRuntime.statusReactions.filter(reaction => reaction.id === 'builtin:frostbite-calm-taken-damage').length,
+  1,
+  '編成横断の凍傷反応をruntimeへ1件だけ登録する'
+);
+const syllaSharedConfig = simulator.buildCombatantConfig(
+  syllaApostle,
+  syllaTiming,
+  {
+    runtimeEffects: {
+      ...syllaSharedRuntime,
+      baseSpRegen: undefined
+    }
+  }
+);
+assert.equal(
+  syllaSharedConfig.runtimeEffects.statusReactions.filter(reaction => reaction.id === 'builtin:frostbite-calm-taken-damage').length,
+  1,
+  'simulatorの組み込み反応と編成共有反応を二重登録しない'
+);
+const ayaConfig = simulator.buildCombatantConfig(aya, ayaTiming, {
+  asideRank: 2,
+  skillLevels: ayaRuntimeLevels,
+  timingBranches: ayaTimingBranches,
+  runtimeEffects: {
+    ...ayaRuntime,
+    // createDpsRuntimeEffects の未指定値(null)は、単体テストの
+    // buildCombatantConfigでは「SP回復量0」と解釈されるため除去する。
+    baseSpRegen: undefined
+  }
+});
+const ayaHighFrostbite = ayaConfig.actions.highSkill.statusDefinitions.find(definition => (
+  definition.applicationEffectId === 'Aya_high_e03'
+));
+assert.equal(ayaHighFrostbite?.stackGroupId, '凍傷:stack:9',
+  'アヤ高学年の凍傷もA2・愛用品と同じ9スタック枠へ入れる');
+assert.equal(
+  ayaConfig.runtimeEffects.statusReactions.filter(reaction => reaction.status === '凍傷').length,
+  1,
+  'アヤの凍傷による冷静被ダメージ増加を組み込み反応1件だけで扱う'
+);
+const ayaRuntimeResult = simulator.simulate(ayaConfig, {
+  durationSeconds: 20,
+  initialActionDelayFrames: 0,
+  highSkillMode: 'disabled',
+  seed: 1,
+  recordTimeline: true,
+  damageProfiles: {}
+});
+assert.ok(ayaRuntimeResult.timeline.some(event => (
+  event.type === 'actionStart' && event.actionKey === 'lowSkill'
+)), 'アヤの低学年をDPS実行へ含める');
+assert.ok(ayaRuntimeResult.timeline.some(event => (
+  event.type === 'effectStateChanged'
+    && event.effectId === ayaAsideFrostbite.id
+    && event.status === '凍傷'
+)), 'アヤA2蝶命中時に凍傷を1回以上適用する');
 
 const highSkillOnly = {
   valueKind: '高学年スキルダメージ量増加',

@@ -4669,6 +4669,7 @@
         if (!bonuses || !Object.keys(bonuses).length) return;
         const label = createFdcSkillEffectLabel({
           sourceLabel,
+          sourceKey,
           category,
           skillName: skill.skillName || skill.name || '',
           effectLabel: `${stat.statName || 'ステータス'}増加`
@@ -4709,8 +4710,11 @@
         const durationSeconds = parseFdcDurationSeconds(durationText);
         const label = createFdcSkillEffectLabel({
           sourceLabel,
+          sourceKey,
           category,
           skillName: skill.skillName || skill.name || '',
+          targetSkill: effect.targetSkill || '',
+          targetSkillName: effect.targetSkillName || '',
           effectLabel: effect.valueKind || effect.effectType || '効果'
         });
         options.push({
@@ -4785,9 +4789,17 @@
       if (!apostle) return;
       const memberName = member.name || apostle?.name || member.id;
       const memberLevels = getFdcEffectiveSkillLevels(member);
-      collectFdcApostleSkillSources(apostle, memberLevels, member, context).forEach(({ skill, sourceKey, sourceLabel }) => {
+      const skillSources = collectFdcApostleSkillSources(apostle, memberLevels, member, context);
+      const rewrittenActionKeys = getFdcActiveSkillRewriteActionKeys(skillSources);
+      skillSources.forEach(({ skill, sourceKey, sourceLabel }) => {
         if (String(sourceKey || '') === 'aside:3') return;
         const category = getFdcApostleSkillCategory(skill, sourceLabel);
+        // 選択中本人と同じく、愛用品が低学年・高学年などの行動を
+        // 書き換えている場合は、編成側に残った通常スキルの効果を
+        // runtimeへ渡さない。ここを省くと、置換後の愛用品効果と
+        // 置換前の通常効果が同時に編成バフとして発動する。
+        if (String(sourceKey || '').startsWith('base:')
+          && getDpsTargetActionKeys(category).some(key => rewrittenActionKeys.has(key))) return;
         normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
           const effectText = getFdcSkillEffectConditionText(skill, effect);
           const skillLevel = getFdcSkillLevelForEffect(memberLevels, effect, category);
@@ -4846,8 +4858,11 @@
       ownerName: memberName,
       label: createFdcSkillEffectLabel({
         sourceLabel,
+        sourceKey,
         category,
         skillName: skill?.skillName || skill?.name || '',
+        targetSkill: effect.targetSkill || '',
+        targetSkillName: effect.targetSkillName || '',
         effectLabel: effect.valueKind || effect.effectType || '効果',
         ownerName: memberName
       }),
@@ -4917,7 +4932,10 @@
           ownerName: memberName,
           label: createFdcSkillEffectLabel({
             sourceLabel: 'A3',
+            sourceKey: 'aside:3',
             category: 'A3',
+            targetSkill: effect.targetSkill || '',
+            targetSkillName: effect.targetSkillName || '',
             effectLabel: effect.valueKind || effect.effectType || '効果',
             ownerName: memberName
           }),
@@ -5026,16 +5044,38 @@
     });
     return inherited;
   }
-  function createFdcSkillEffectLabel({ sourceLabel = '', category = '', skillName = '', effectLabel = '', ownerName = '' } = {}) {
+  function createFdcSkillEffectLabel({
+    sourceLabel = '',
+    sourceKey = '',
+    category = '',
+    skillName = '',
+    targetSkill = '',
+    targetSkillName = '',
+    effectLabel = '',
+    ownerName = ''
+  } = {}) {
     const owner = String(ownerName || '').trim();
     const action = getFdcApostleSkillActionLabel(category);
     const source = String(sourceLabel || '').trim();
-    const candidates = [skillName, effectLabel]
+    const displaySkillName = String(targetSkillName || '').trim() || skillName;
+    const candidates = [displaySkillName, effectLabel]
       .map(part => compactFdcSkillLabelPart(part, { source, category, action }))
       .filter(Boolean);
     const uniqueParts = unique(candidates);
-    const fallback = compactFdcSkillLabelPart(effectLabel || skillName || action || source || '効果', { source, category, action }) || '効果';
-    const body = uniqueParts.length ? uniqueParts.join(' / ') : fallback;
+    const fallback = compactFdcSkillLabelPart(effectLabel || displaySkillName || action || source || '効果', { source, category, action }) || '効果';
+    const bodyParts = uniqueParts.length ? uniqueParts : [fallback];
+    const actionKeys = getDpsTargetActionKeys([targetSkill, targetSkillName].filter(Boolean).join(' '));
+    const actionTag = actionKeys.length
+      ? ({ basicAttack: '基', enhancedAttack: '強', lowSkill: '低', highSkill: '高' }[actionKeys[0]] || '')
+      : '';
+    const sourceTag = String(sourceKey || '').match(/^favorite:\d+/)
+      ? '愛'
+      : String(sourceKey || '').match(/^aside:(\d+)/)?.[1]
+        ? `A${String(sourceKey).match(/^aside:(\d+)/)[1]}`
+        : '';
+    const lineageTag = [actionTag, sourceTag].filter(Boolean).map(tag => `[${tag}]`).join('');
+    if (lineageTag && bodyParts.length) bodyParts[0] = `${bodyParts[0]} ${lineageTag}`;
+    const body = bodyParts.join(' / ');
     return owner ? `${owner} / ${body}` : body;
   }
 
@@ -11984,6 +12024,19 @@
         const eventActionLabel = classification ? getDpsFormationEventActionLabel(row) : '';
         const periodicActionLabel = getDpsFormationEventPeriodicActionLabel(row, rawTriggerType || triggerType);
         const isPeriodicCandidate = !!periodicActionLabel;
+        const triggerActionKeys = getDpsStructuredTriggerActionKeys(row);
+        const bindingKey = getDpsRuntimeEffectBindingKey({
+          ...row,
+          ownerId,
+          // runtime側は外部イベントの照合元としてownerIdを保持する。
+          // 編成候補も同じ発動元をbindingへ使い、候補追加時に
+          // sourceId由来の別キーへ分岐しないようにする。
+          externalSourceId: row.externalSourceId || ownerId,
+          triggerType,
+          triggerSourceId: row.triggerSourceId || '',
+          conditionType: row.conditionType || '',
+          conditionValue: row.conditionValue ?? ''
+        });
         const eventDiscriminator = classification
           ? [row.triggerSourceId, row.triggerValue, row.conditionType, row.conditionValue, row.targetSkill, row.effectTarget, eventActionLabel]
             .map(value => String(value ?? '').trim()).join('|')
@@ -11993,6 +12046,7 @@
         const eventLabel = getDpsFormationEventDisplayLabel(row, classification, triggerType);
         const group = groups.get(key) || {
           id: `formation:${ownerId}:${triggerType}${eventDiscriminator ? `:${eventDiscriminator}` : ''}`,
+          bindingKey,
           ownerId,
           ownerName,
           type: triggerType,
@@ -12009,6 +12063,8 @@
           eventLabel,
           eventActionLabel,
           periodicActionLabel,
+          triggerActionKeys: unique(triggerActionKeys),
+          effectIds: [],
           repeatability: classification?.repeatability || 'repeatable',
           inputMode: isPeriodicCandidate ? 'periodic' : (classification?.inputMode || 'periodic'),
           value: '',
@@ -12017,6 +12073,11 @@
           triggerSourceId: ''
         };
         if (row.label && !group.effectLabels.includes(row.label)) group.effectLabels.push(row.label);
+        if (row.effectId && !group.effectIds.includes(row.effectId)) group.effectIds.push(row.effectId);
+        group.triggerActionKeys = unique([
+          ...(group.triggerActionKeys || []),
+          ...triggerActionKeys
+        ]);
         if (!group.value) {
           const candidateValue = row.triggerValue !== '' && row.triggerValue != null
             ? row.triggerValue
@@ -12026,6 +12087,7 @@
         if (!group.conditionType && row.conditionType) group.conditionType = row.conditionType;
         if (!group.conditionValue && row.conditionValue !== '' && row.conditionValue != null) group.conditionValue = row.conditionValue;
         if (!group.triggerSourceId && row.triggerSourceId) group.triggerSourceId = row.triggerSourceId;
+        if (!group.bindingKey) group.bindingKey = bindingKey;
         groups.set(key, group);
       });
     });
@@ -12625,6 +12687,41 @@
     }];
   }
 
+  function isDpsAyaFormationMember(member) {
+    if (!member) return false;
+    const memberId = String(member.id || '').trim().toLowerCase();
+    const memberName = String(member.name || '').trim();
+    if (memberId === 'aya' || memberName === 'アヤ') return true;
+    const apostle = getApostleSkillData(member);
+    return String(apostle?.id || '').trim().toLowerCase() === 'aya'
+      || String(apostle?.name || '').trim() === 'アヤ';
+  }
+
+  function getDpsApostlePersonality(target) {
+    if (!target) return '';
+    const direct = String(target.personality || '').trim();
+    if (direct) return direct;
+    const apostle = getApostleSkillData(target);
+    return String(apostle?.basic?.personality || apostle?.personality || '').trim();
+  }
+
+  function createDpsFormationStatusReactions(target, context = {}) {
+    if (getDpsApostlePersonality(target) !== '冷静') return [];
+    if (!normalizeFdcArray(context?.members).some(isDpsAyaFormationMember)) return [];
+    return [{
+      id: 'builtin:frostbite-calm-taken-damage',
+      label: '凍傷による冷静被ダメージ増加',
+      status: '凍傷',
+      takenDmgP: 8,
+      perStack: true,
+      maxStacks: 0,
+      attackerPersonality: '冷静',
+      sourceId: 'aya',
+      ownerId: 'aya',
+      ownerName: 'アヤ'
+    }];
+  }
+
   function createDpsEnemyStatusDamageWeaknessP() {
     if (view.enemySourceMode === 'apostle') return 0;
     // DPSでは状態異常ダメージだけに適用するため、現在選択中の単発行動分類を
@@ -12646,7 +12743,56 @@
   }
 
   function getDpsStructuredTriggerActionKeys(effect = {}, fallbackText = '') {
-    return window.TRICKCAL_DPS_TRIGGER_POLICY.getActionKeys(effect, fallbackText);
+    const policy = window.TRICKCAL_DPS_TRIGGER_POLICY;
+    if (typeof policy?.getStructuredTriggerActionKeys === 'function') {
+      const structured = policy.getStructuredTriggerActionKeys(effect);
+      if (structured.length || !fallbackText) return structured;
+    }
+    return policy.getActionKeys(effect, fallbackText);
+  }
+
+  function getDpsStructuredTriggerGrade(effect = {}) {
+    const policy = window.TRICKCAL_DPS_TRIGGER_POLICY;
+    if (typeof policy?.getStructuredTriggerGrade === 'function') {
+      return policy.getStructuredTriggerGrade(effect);
+    }
+    const actionKeys = getDpsStructuredTriggerActionKeys(effect);
+    const hasLow = actionKeys.includes('lowSkill');
+    const hasHigh = actionKeys.includes('highSkill');
+    return hasLow && hasHigh ? 'mixed' : hasHigh ? 'high' : hasLow ? 'low' : null;
+  }
+
+  function getDpsSplitActionTriggerType(effect = {}, actionKey = '') {
+    const triggerType = String(effect.triggerType || '').replace(/[\s　]+/g, '');
+    if (!['lowSkill', 'highSkill'].includes(actionKey)) return triggerType;
+    if (!/^スキル(?:使用|発動|終了|命中)時$/.test(triggerType)) return triggerType;
+    const prefix = actionKey === 'highSkill' ? '高学年' : '低学年';
+    return `${prefix}${triggerType}`;
+  }
+
+  // 旧シートの「スキル使用時」のように低学年・高学年を一行へまとめた
+  // 効果だけを、発動binding単位へ分ける。基本／強化の共有は状態を
+  // またぐリフレッシュ意味があるため、ここでは分割しない。
+  function splitDpsRuntimeEffectByActionBinding(effect = {}) {
+    const grade = getDpsStructuredTriggerGrade(effect);
+    if (grade !== 'mixed') return [effect];
+    const baseBindingKey = String(effect.bindingKey || getDpsRuntimeEffectBindingKey(effect)).trim();
+    const baseEffectId = String(effect.id || effect.effectId || 'effect').trim() || 'effect';
+    return ['lowSkill', 'highSkill'].map(actionKey => {
+      const triggerType = getDpsSplitActionTriggerType(effect, actionKey);
+      const splitId = `${baseEffectId}:action:${actionKey}`;
+      return {
+        ...effect,
+        id: splitId,
+        runtimeBaseEffectId: baseEffectId,
+        bindingKey: `${baseBindingKey}::${actionKey}`,
+        triggerType,
+        triggerActionKeys: [actionKey],
+        externalTriggerType: effect.externalActionRequired
+          ? triggerType
+          : effect.externalTriggerType
+      };
+    });
   }
 
   function isDpsUnsupportedRuntimeTrigger(effect = {}, fallbackText = '') {
@@ -12679,6 +12825,14 @@
     return typeof window.TRICKCAL_DPS_TRIGGER_POLICY.getProbability === 'function'
       ? window.TRICKCAL_DPS_TRIGGER_POLICY.getProbability(effect)
       : null;
+  }
+
+  function getDpsRuntimeEffectBindingKey(effect = {}) {
+    const policy = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policy?.getRuntimeEffectBindingKey === 'function') {
+      return policy.getRuntimeEffectBindingKey(effect);
+    }
+    return String(effect?.id || effect?.effectId || '').trim();
   }
 
   function isDpsEffectSourceTrigger(effect = {}) {
@@ -13809,6 +13963,17 @@
         });
       });
     }
+    const statusReactions = [];
+    const statusReactionIds = new Set();
+    [
+      ...normalizeArray(options.statusReactions),
+      ...createDpsFormationStatusReactions(options.target, options.context)
+    ].forEach((reaction, index) => {
+      const id = String(reaction?.id || `statusReaction:${index}`).trim();
+      if (!id || statusReactionIds.has(id)) return;
+      statusReactionIds.add(id);
+      statusReactions.push(reaction);
+    });
     const runtimeEffects = {
       attackSpeedEffects: actionSpeedEffects,
       periodicAttackSpeedStacks: [],
@@ -13818,7 +13983,7 @@
         .filter(Boolean)),
       damageBuffEffects,
       initialTargetStatuses,
-      statusReactions: normalizeArray(options.statusReactions),
+      statusReactions,
       statusDamageWeaknessP: Math.max(0, Number(options.statusDamageWeaknessP) || 0),
       spRegenEffects,
       spRecoveryEffects: [...initialSpEffects, ...spRecoveryEffects],
@@ -13826,6 +13991,47 @@
       eventEffects: [...structuredRuntime.eventEffects, ...cardStatusRuntimeEvents],
       resources: structuredRuntime.resources
     };
+    // 低学年・高学年を一つの旧効果行が兼ねる場合も、実行時には一つの
+    // action bindingへ分ける。これにより低学年の自動発動を維持しながら、
+    // 高学年側だけを初期OFFにできる。splitしない効果は従来どおり同じ
+    // runtime instanceを共有する。
+    [
+      'attackSpeedEffects',
+      'damageBuffEffects',
+      'spRecoveryEffects',
+      'cooldownEffects',
+      'eventEffects'
+    ].forEach(collectionKey => {
+      runtimeEffects[collectionKey] = normalizeArray(runtimeEffects[collectionKey])
+        .flatMap(effect => splitDpsRuntimeEffectByActionBinding({
+          ...effect,
+          bindingKey: effect.bindingKey || getDpsRuntimeEffectBindingKey(effect)
+        }));
+    });
+    const runtimePolicyCollections = [
+      ['attackSpeedEffects', true],
+      ['damageBuffEffects', true],
+      ['spRegenEffects', false],
+      ['spRecoveryEffects', false],
+      ['cooldownEffects', false],
+      ['eventEffects', false]
+    ];
+    runtimePolicyCollections.forEach(([collectionKey, supportsFixed]) => {
+      runtimeEffects[collectionKey] = normalizeArray(runtimeEffects[collectionKey]).map(effect => {
+        const policy = window.TRICKCAL_DPS_TRIGGER_POLICY?.getRuntimeEffectPolicy?.(effect, { supportsFixed });
+        if (!policy) return effect;
+        return {
+          ...effect,
+          runtimePolicy: policy,
+          runtimeCapability: policy.capability,
+          runtimeDefaultMode: policy.defaultMode,
+          runtimeTriggerDomain: policy.triggerDomain,
+          runtimeQuality: policy.quality,
+          runtimeReasonCode: policy.reasonCode,
+          runtimeStatus: policy.status
+        };
+      });
+    });
     runtimeEffects.warnings = createDpsRuntimeDuplicateWarnings(runtimeEffects);
     return runtimeEffects;
   }
@@ -13993,9 +14199,11 @@
             ? option.group === 'formation'
               ? '編成使徒本人の行動タイムライン未計上'
               : '外部イベント入力待ち'
-            : enabled
+              : enabled
               ? [manualState === true ? '手動ON' : '自動ON', option.condition, option.effectTarget].filter(Boolean).join(' / ')
-              : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / ')
+                : [manualState === false ? '手動OFF' : '条件不一致', option.condition || getSkillEffectConditionSummary(option), option.effectTarget].filter(Boolean).join(' / '),
+          triggerActionKeys: getDpsStructuredTriggerActionKeys(option),
+          targetActionKeys: getDpsEffectTargetActionKeys(option)
         });
       });
 
@@ -14333,6 +14541,11 @@
     // 追加ダメージ側からも除外されてしまう。
     if (!getDpsTargetActionKeys(option.targetSkill || '').length) return false;
     if (option.skillRewrite === true || option.dpsExclusiveProbabilityGroup) return true;
+    // 愛用品の「スキル変更」は、対象行動の倍率を直接持たない
+    // 対象追加なども含めて元スキルを置き換える宣言として扱う。
+    // アサイドの追加攻撃回数は同じ表記でも元スキルを残すため、
+    // 愛用品に限定して判定する。
+    if (/^favorite:/.test(sourceKey) && String(option.effectType || '') === 'スキル変更') return true;
     if (!/攻撃/.test(String(option.effectType || ''))) return false;
     if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return false;
     // 「○○状態の敵が存在」は追加打撃ではなく、通常攻撃を強化攻撃へ

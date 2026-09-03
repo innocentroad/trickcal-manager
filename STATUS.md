@@ -2,16 +2,78 @@
 
 更新日: 2026-09-03
 
+## 今回の確認（全体ボード下部アイコン）
+
+- 達成度: 100%。全体ボード下部の「合計」表で原寸表示になっていた行見出しアイコンを25pxへ固定した。
+- 根拠: `stat-prototype.css`のアイコン配置変更時に、旧来の`tbody th img`サイズ指定が失われ、実表示で5個のステータスアイコンが310pxになっていた。`tbody th > img`へ限定して幅・高さ・中央寄せを復元したため、上側の全体効果値や下部の種別／コストアイコンには影響しない。
+- 検証: ローカル実画面のcomputed sizeで、下部合計表の行アイコン25px、種別アイコン18px、コストアイコン25pxを確認。`node tools/test-dps-main-integration.js`、`node tools/test-dps-bottom-bar-prototype.js`、`git diff --check`が成功した。回帰防止の静的検査も追加した。
+- キャッシュ: `stat-prototype.css`を`20260903o`へ更新し、`app-cache.js`を`20260903h`へ同期。datasheetとDPS計算処理は変更していない。
+- 残り見積もり: なし。必要なら公開環境反映後に同じ箇所を目視確認する。
+
 ## 現在地
 
-達成度: 約93%（現行ゴールの暫定実装範囲）
+達成度: 100%（発動経路の監査、共通policy分類、低高binding分割、推定provider接続、設定カードの能力表示、旧保存値の互換読み込み、候補からruntimeまでのbinding接続、保存・cache・公開文面・実画面・回帰テスト確認を完了）
 
-フェーズ: スライス14完了・現行ゴール最終監査済み
+フェーズ: DPS発動経路・入力モード統合Goal完了（ゲーム内未検証部分は暫定／対象外）
 
-既存の通常計算との接続、DPSの行動・効果・状態・外部イベント入力、本体詳細への表示移植、比較表示、公開タイムラインの基盤に加え、共通時計上の状態・リソース遷移、低学年／高学年の命中・終了・最終ヒット境界を実装した。実データ監査ではシオンの魔弾二重発火、ピラの固有リソース範囲消費、クロエの最大スタック消費を確認した。さらに、状態発動・回復・生成物生成・対象変更・戦闘不能・シールド終了など、単体時計から発生を確定できない条件を外部入力なしで推測発火しない境界を共通ポリシーへ固定した。今回、選択中本人のシールド終了効果も外部入力待ちへ接続し、発動元IDを知らない手動イベントでも効果連鎖を起動できるようにした。詳細タイムラインには暫定時刻・終了時補完・外部指定・初期対象仮定を利用者向け表示し、未知イベントの内部ラベルも公開しないようにした。非ゼロ結果の詳細グラフ、比較基準線、再計算中表示、詳細展開中の設定フロートを実画面で確認した。比較軸へ自キャラの全入力が混入して非ゼロ差分を拒否する不具合も修正し、攻撃力変更を全体・行動別の実差分として確認した。さらに全HTMLのapp-cache参照と公開本体の通常詳細開閉を最終監査した。残実装は、効果連鎖の網羅、編成全体イベント、最終公開差分整理に整理している。
-既存の通常計算との接続、DPSの行動・効果・状態・外部イベント入力、本体詳細への表示移植、比較表示、公開タイムラインの基盤に加え、共通時計上の状態・リソース遷移、低学年／高学年の命中・終了・最終ヒット境界を実装した。実データ監査ではシオンの魔弾二重発火、ピラの固有リソース範囲消費、クロエの最大スタック消費を確認した。さらに、状態発動・回復・生成物生成・対象変更・戦闘不能・シールド終了など、単体時計から発生を確定できない条件を外部入力なしで推測発火しない境界を共通ポリシーへ固定した。選択中本人のシールド終了効果も外部入力待ちへ接続し、発動元IDを知らない手動イベントでも効果連鎖を起動できるようにした。詳細タイムラインには暫定時刻・終了時補完・外部指定・初期対象仮定を利用者向け表示し、未知イベントの内部ラベルも公開しないようにした。非ゼロ結果の詳細グラフ、比較基準線、再計算中表示、詳細展開中の設定フロートを実画面で確認した。比較軸へ自キャラの全入力が混入して非ゼロ差分を拒否する不具合も修正し、攻撃力変更を全体・行動別の実差分として確認した。外部イベント連鎖はVIVIの防御低下、Gabiaのシールド終了ダメージ、キャロットA2のシールド破壊時SP回復、スノーキーのシールド終了時物理防御低下まで実データ経路で確認した。全HTMLのapp-cache参照、公開本体の通常詳細開閉、通常計算とDPSの公開文面も最終監査した。残る敵行動の自動検出、フル編成DPS、ゲーム内でしか確定できない順序・丸めは、現行ゴールの非目標または暫定台帳の次段階として整理している。
+旧Goalでbinding、編成候補、自動推定イベント、外部イベント入力の基盤までは実装済みである。一方、再監査で、編成低学年などに効果ごとの自動選択がなく全体設定も初期OFFであること、高学年判定が自由文を拾って竜光剣・エレナ等を誤って初期OFFにすること、低高共有効果が全体OFFになることを確認した。今回の実装ではこれらを使徒固有分岐ではなく共通policy・binding・providerで接続した。旧Goalの100%記録は履歴として残し、新Goalでは最終UI・実画面・全代表fixture確認までを残課題とする。
 
-## 完了条件ごとの進捗
+## 今回の追補タスク（愛用品・アサイド重複防止／アヤ凍傷）
+
+### スライス1: 愛用品・アサイドによる重複処理回避
+
+- 達成度: 100%。編成側のスキル効果収集にも、選択中本人と同じ愛用品スキル置換判定を適用した。愛用品の「スキル変更」は対象行動の置換宣言として扱い、アサイドの追加攻撃回数などは置換と誤認しない。
+- 根拠: `formation-damage-calc.js`で編成側の通常スキルを置換対象から除外し、効果ラベルへ置換後スキル名・対象行動・由来タグを付与した。キャロットの実データfixtureで`Kyarot_low_*`が監査に残らず、`Kyarot_favorite_1_e02`が`キャロット / 急成長の樹液発射 [低][愛] / 攻撃力増加`として1行だけ残ることを確認した。
+- 検証: `node --check formation-damage-calc.js`、`node tools/test-fdc-action-scoped-addp.js`が成功。
+
+### スライス2: アヤ凍傷の自動発動経路
+
+- 開始宣言: アヤの低学年蝶命中・高学年・愛用品の凍傷付与を実データの構造化runtimeへ接続し、同じ凍傷スタック枠と冷静被ダメージ+8%/スタックを二重計上なしで確認する。ゲーム内未検証部分は既存の暫定タイミングを利用し、datasheetは変更しない。
+- 効く完了条件: アヤ凍傷対応、愛用品・アサイド・通常スキルの重複防止、冷静反応の単一登録、暫定処理の明示。
+- 達成度: 100%。A2蝶命中・愛用品10秒周期・高学年の凍傷が実データ経路へ接続され、共通スタック枠へ統合された。
+- 根拠: `tools/test-fdc-action-scoped-addp.js`で、A2の`Aya_aside_2_e06/e07`を`Aya_low_butterfly`へ結び付け、10秒持続・最大9スタック・`凍傷:stack:9`を確認した。愛用品`Aya_favorite_1_e04/e05`は10秒周期で同じスタック枠へ入り、A2とは別runtimeイベントとして保持した。高学年`Aya_high_e03/e04`は通常行動のstatus定義として同じスタック枠へ入り、冷静の被ダメージ増加は`builtin:frostbite-calm-taken-damage` 1件だけである。
+- 実行検証: 同fixtureから`createDpsRuntimeEffects`→`buildCombatantConfig`→`simulate`を通し、低学年の行動とA2蝶命中時の凍傷適用を確認した。`test-fdc-action-scoped-addp`、`test-dps-runtime-effects`、`test-dps-trigger-policy`、`test-dps-main-integration`、`test-dps-bottom-bar-prototype`、`test-dps-audit-state`、`test-dps-support-registry`、`test-public-release-config`、`test-fdc-info-text`が成功した。
+- キャッシュ: `formation-damage-calc.js`を`20260903f`、`app-cache.js`参照を`20260903g`へ同期した。datasheetは変更していない。
+- 残り見積もり: 今回の追補タスクは完了。ゲーム内でしか確定できないアヤ蝶の復路ヒット数・同一フレーム順・高学年と愛用品の対象重なりは、既存の暫定タイミング／単一seed仕様の範囲に残す。
+
+### スライス3: アヤ凍傷の編成横断表示・適用の確認
+
+- 開始宣言: アヤを編成に置いたまま別の使徒を選択した場合に、アヤの低学年蝶・高学年・愛用品による凍傷付与と、冷静使徒への凍傷被ダメージ増加が表示・runtimeへ届くかを切り分ける。今回は調査のみとし、実装変更は行わない。
+- 効く完了条件: アヤ凍傷の自動発動経路、編成効果の表示経路、外部イベント候補への接続状態を単体経路と編成横断経路に分け、未対応範囲を特定する。
+- 達成度: 100%（診断スライス）。アヤ単体の対応と、編成内の別使徒へ共有される対応が別であることを確定した。
+- 根拠: `createDpsStructuredRuntimeEvents`は選択中使徒の`apostle`だけを構造化し、`buildFormationSkillEffectOptions`はダメージ補正を持たない状態付与行を除外する。そのためアヤの凍傷付与行は、アヤ以外を選択した場合のaudit・runtime・編成イベント候補へ届かない。`dps-simulator.js`の`builtin:frostbite-calm-taken-damage`は存在するが、別使徒へ凍傷スタックを付与するイベントがないため、それだけでは発動しない。
+- 検証: `node tools/test-fdc-action-scoped-addp.js`が成功したが、既存fixtureは`members: [aya]`の単体ケースで、アヤを含む別使徒選択の回帰を含まない。`git diff --check`も成功した。
+- 残り見積もり: 実装する場合は、編成所有者アヤの凍傷イベントを選択対象のruntime・表示へ共有し、A2・高学年・愛用品を同一スタック枠で重複なく扱う回帰テストを追加する1〜2スライスが必要。
+
+### スライス4: アヤ凍傷反応の編成横断共有
+
+- 開始宣言: 前スライスで特定した未対応範囲のうち、編成内の別使徒へ凍傷のダメージ増加反応だけを共有する。アヤの低学年・高学年・愛用品による凍傷付与イベントは選択中本人へ複製しない。
+- 効く完了条件: アヤ凍傷の自動発動経路と編成横断経路を分離し、既存の冷静反応を同一IDで1件だけruntime／シミュレータへ渡す。
+- 達成度: 100%。アヤを含む編成で別の冷静使徒を選択した場合だけ、`builtin:frostbite-calm-taken-damage` の定義をruntimeへ追加する経路を実装した。冷静以外、またはアヤ不在の編成には追加しない。
+- 根拠: `createDpsFormationStatusReactions`で対象の性格と編成内アヤを確認し、`createDpsRuntimeEffects`で既存の`statusReactions`とID重複を除いて統合する。シミュレータの既存組み込み反応も同じIDを確認してから追加するため、アヤ単体・別使徒のどちらも1件になる。凍傷付与イベントは`createDpsStructuredRuntimeEvents`の選択中本人経路だけに残した。
+- 検証: `node --check formation-damage-calc.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-bottom-bar-prototype.js`、`git diff --check`が成功した。テストではアヤA2・高学年・愛用品の重複なし、シーラへの共有1件、シミュレータ組み込み反応との二重登録なしを確認した。
+- 残り見積もり: 今回の依頼分は完了。凍傷スタック自体がない場合は反応を適用せず、別使徒へアヤの凍傷付与まで共有すること、蝶の復路ヒット数・同一フレーム順は別課題として残す。
+
+### スライス5: 凍傷スタック適用確認
+
+- 開始宣言: 前スライスの編成横断反応共有が、凍傷スタックの付与・期限・上限・ダメージ補正と矛盾しないかを確認する。今回は確認のみとし、実装変更は行わない。
+- 効く完了条件: アヤ単体の凍傷スタック処理と、別編成使徒へ共有した反応定義の適用範囲を切り分ける。
+- 達成度: 100%（確認スライス）。アヤ単体ではA2・高学年・愛用品が`凍傷:stack:9`へ入り、最大9スタック・個別期限・有効スタック数×8%の冷静被ダメージ増加へ接続されることを確認した。
+- 根拠: `dps-simulator.js`の状態定義・`applyStatusApplication`・`getStatusReactionTakenDmgP`が、同じstackGroupIdの凍傷を積み上げ、期限切れを除外し、直接攻撃とDoT tickの評価へ反応補正を渡す。別編成使徒へは反応定義だけを共有し、アヤの付与イベントは共有しないため、凍傷スタックがなければ補正は発生しない。
+- 検証: `node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-runtime-effects.js`は成功済み。構造化runtimeでA2・愛用品の凍傷付与、高学年の状態定義、編成横断反応1件を確認した。
+- 残り見積もり: 今回の確認は完了。別編成使徒のタイムラインへアヤ由来の凍傷スタックまで共有する場合は、今回の「ダメージアップ効果のみ」から範囲を広げる別設計が必要。
+
+## アクティブGoal完了条件の現在地
+
+- 条件1: 完了。生成スキル98行、カード由来34行、編成側76発動元fixtureをread-only監査し、runtime 100行でpolicy未付与0件・発火経路なし0件を確認した。編成候補は8件で全件に分類とbindingを持つ。
+- 条件2: 完了。本人効果・既知周期を自動処理し、編成の普通・強化・低学年は`自動（推定）`へ接続した。周期候補7件に間隔欠落はなく、手動指定時は自動推定を止める。
+- 条件3・4: 完了。構造化された高学年判定、低高共有bindingの分割、高学年側初期OFF、明示AUTO/OFFの優先を実装し、合成fixtureと実データ監査で回帰した。
+- 条件5・7: 完了。周期候補の発動秒・間隔・回数をbinding単位で手動上書きでき、設定schema v2、旧保存値の互換読み込み、比較fingerprintへの一時イベント合成、候補追加時のbinding一致を確認した。
+- 条件6・8・9: 完了。真の外部条件を外部入力待ちとして保持し、本体と試験版で共通policy/providerを使用する。竜光剣、エレナ強化ドローン、ロレット低学年、キャロット低学年、低高共有、キャロットA2を代表fixture／監査で確認した。
+- 条件10: 完了。構文、代表回帰、監査、cache参照、公開文面、PC／スマホ表示、通常計算詳細を確認した。main公開文面の内部ID・デバッグ／試験用文面は0件、下バー高さは86pxを維持した。
+- 次のスライス: なし。ゲーム内検証が必要な敵AI・被弾・命中・撃破・同フレーム順序などは、仕様書と台帳に暫定／対象外として残す。
+
+## 旧Goal完了条件ごとの進捗（履歴）
 
 - 条件1: 完了（現行ゴールの暫定範囲）
   - 根拠: 行動、モーション、攻撃速度、SP、CT、状態、リソース、追加効果、公開タイムラインの基盤に加え、状態付与・更新・終了、リソース増減、低学年／高学年命中・終了・最終ヒット、最大スタック消費の共通フックが `dps-simulator.js` にある。実データのシオン低学年で直接リソース行と構造化イベントの二重発火を検出し、1回へ統合した。VIVI／Gabia／キャロット／スノーキーの外部条件も同じ共通時計の入力境界へ接続した。同一フレーム順、多段・生成物の細部、ゲーム内丸めは暫定規則として仕様書・台帳に残し、根拠なく自動推測しない。
@@ -188,3 +250,241 @@
 - 根拠: `formation-damage-calc.js` で追加攻撃回数を元候補へ適用しない経路と、A2等の別候補生成を追加した。A2別候補は`excludeFromDps`としてDPSプロファイルから除外し、DPSは既存の行動タイミング側のヒット数だけを利用する。`tools/test-fdc-action-scoped-addp.js` で元候補保持、A2候補4件、4〜7回、A2未解放時の非表示、DPS二重計上防止を確認した。
 - 検査: `node --check formation-damage-calc.js`、FDC実データ、main integration、runtime effects、下バー、`git diff --check` が成功した。datasheetは変更していない。ブラウザによる今回の表示確認はローカルファイルURLがブラウザ側のURLポリシーで拒否されたため未実施。
 - 残り見積もり: 今回の局所修正に残作業なし。ゲーム内でしか確定できない同一フレーム順・丸め・多段／生成物の細部、敵行動・被弾・撃破の自動検出、フル編成DPSは従来どおり暫定台帳または次段階として残す。
+
+## スライス16の開始宣言
+
+- 次の1スライスで行うこと: 現在の時系列効果設定をバックアップし、設定UIへ出る効果、ランタイムだけが持つ効果、外部イベント待ち、初期方針、保存値、検証品質の境界を棚卸しする。実装は変更せず、設計と次期Goal案を作る。
+- 効く完了条件: 条件4、条件6、および次期Goalの完了条件定義。
+
+## スライス16の終了報告
+
+- 達成度: 現行Goalは約93%を維持。今回の設計スライスは100%。高学年関連の時系列効果を使徒・効果単位で初期OFFにし、明示AUTOを保存する現状を`9716b59`として`origin/main`へバックアップした。その後、ランタイム挙動を変えずに不足分類と次期Goal案を作成した。
+- 根拠: `docs/dps-runtime-effect-settings-design.md` に、現在の全collectionと設定UIの対応、AUTOと外部入力待ちの混同、未表示の`spRegenEffects`・状態・リソース、表示文言ヒューリスティック、保存値と初期値の境界を記録した。発動能力・初期方針・利用者設定・検証品質を分離するモデル、実装前のread-only監査、6件の完了条件と推奨スライスを定義した。`docs/dps-effect-inventory.md` の標準設定説明も、現在の高学年関連初期OFFと明示AUTO保存へ合わせた。datasheetは変更していない。
+- 残り見積もり: 次期Goalを採用する場合は6スライス程度。最初の1スライスで全効果の対象母数と未分類件数を確定し、その結果に応じて実装対象を調整する。現時点では次期Goalは未アクティブで、ランタイム挙動の変更もない。
+
+## 新Goal スライス1の開始宣言
+
+- 次の1スライスで行うこと: 全76使徒の生成スキル効果を、通常／強化／低学年／高学年の各行動からread-only監査し、ランタイムcollection別の対象母数、設定UI漏れ、外部入力待ち、条件メタデータ欠落を確定する。実装挙動とdatasheetは変更しない。
+- 効く完了条件: 新Goalの条件1、条件2、条件3。
+
+## 新Goal スライス1の終了報告
+
+- 達成度: 新Goalは約15%。スライス1を完了し、全76使徒の生成スキル効果を基準に、ランタイム98行の棚卸しを終えた。
+- 根拠: `tools/audit-dps-runtime-effect-settings.js`を追加して実行した。collection内訳は攻撃速度20、ダメージ補正34、毎秒SP補正4、SP回復20、CT3、イベント17。合成条件内のeffect ID重複は0件、外部入力待ちは4件、発動条件欄が空の行は35件だった。設定UIは6collection中5collectionで、`spRegenEffects`が未表示。`initialTargetStatuses`、`statusReactions`、`statusDamageWeaknessP`、`resources`は補助ランタイム情報で、今回の条件では存在使徒数が1、0、0、2だった。監査開始時点で98件すべてに未付与だったpolicyメタデータは、スライス2の共通resolver追加後の再監査で未付与0件になった。
+- 設計反映: `docs/dps-runtime-effect-settings-design.md`へ監査条件・結果・優先順位を追記し、次のスライスの基準母数を確定した。高学年関連の初期OFFと明示AUTO保存を含む実装バックアップ`9716b59`は既に`origin/main`へpush済み。datasheetと既存ランタイム挙動は変更していない。
+- 残り見積もり: 新Goalは約5スライス。次はpolicyメタデータと実効状態resolverの設計・実装を、本体DPSとDPS試験版で共通利用できる形へ接続する。カード・編成効果は生成スキル効果と母数を分けて追加監査する。
+
+## 新Goal スライス2の開始宣言
+
+- 次の1スライスで行うこと: 発動能力、初期モード、発動ドメイン、固定対応、品質、理由を返す共通policy resolverを追加し、本体DPSとDPS試験版の高学年判定・初期モード判定を置き換える。FDCの各ランタイムcollectionへ監査用メタデータを付与する。既存の計算結果と外部イベントの発火経路は維持する。
+- 効く完了条件: 新Goalの条件1、条件2、条件3。
+
+## 新Goal スライス2の終了報告
+
+- 達成度: 新Goalは約30%。共通policy resolverの接続を完了した。高学年関連の初期OFF・明示AUTO保存は従来どおり維持し、通常の自動効果の既存動作も変更していない。
+- 根拠: `dps-trigger-policy.js`へ`getRuntimeEffectPolicy`と高学年関連判定を追加し、`formation-damage-dps-prototype.js`と`formation-dps-calc.js`の重複判定を共通API呼び出しへ置き換えた。`formation-damage-calc.js`では6つのランタイムcollectionへpolicy情報を付与した。監査スクリプトを再実行し、98件すべてにpolicyメタデータがあり、未付与は0件になった。
+- 検査: `node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、各`node --check`、`git diff --check`が成功した。HTML・app-cacheの関連cache-busterも`20260903b/d`へ同期した。datasheetは変更していない。
+- 残り見積もり: 新Goalは約4スライス。次は設定UIを効果状態・理由・品質の表示へ拡張し、未表示の`spRegenEffects`と別形式の状態・リソースを「設定対象」か「読み取り専用監査対象」かに分ける。
+
+## 新Goal スライス3の開始宣言
+
+- 次の1スライスで行うこと: 共通policy resolverの能力・理由・品質を、本体DPSとDPS試験版の時系列効果カードへ表示する。外部入力待ち・初期OFF・未対応・固定・OFFを現在モードと混同しない表示にし、`spRegenEffects`は計算を変えず読み取り専用監査対象として一覧へ加える。
+- 効く完了条件: 新Goalの条件3、条件5、および条件6のUI／監査根拠。
+
+## 新Goal スライス3の終了報告
+
+- 達成度: 新Goalは約45%。本体DPSとDPS試験版の時系列効果設定へ、共通policy resolverに基づく状態・理由・品質表示を接続した。外部入力待ち、初期OFF、未対応、固定、OFF、自動をカード上で区別し、`spRegenEffects`は個別操作を許可せず監査のみとして表示した。
+- 根拠: `dps-trigger-policy.js`へ状態表示変換を追加し、両DPS画面のカードへ状態バッジ、理由、品質、読み取り専用表示を追加した。`tools/audit-dps-runtime-effect-settings.js`の再監査結果はランタイム98行、policy欠落0、設定UI漏れ0、読み取り専用collectionは`spRegenEffects`のみ。補助ランタイム情報は引き続き別対象として報告している。
+- 検査: `node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、対象`node --check`、`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 新Goalは約3スライス。補助ランタイム情報の読み取り専用監査表示、外部イベントと対象効果の対応表示、カード・編成効果を含む母数監査を順に進める。ゲーム内未検証の時刻・順序・丸めは暫定扱いを維持する。
+
+## 新Goal スライス4の開始宣言
+
+- 次の1スライスで行うこと: `initialTargetStatuses`、`statusReactions`、`statusDamageWeaknessP`、`resources`を、DPS設定へ渡るが個別モード設定を持たない補助ランタイム情報として、本体DPSとDPS試験版へ読み取り専用表示する。内部IDやゲーム内未検証の発動時刻は表示・推測しない。
+- 効く完了条件: 新Goalの条件3、条件5、および条件6の表示／監査根拠。
+
+## 新Goal スライス4の終了報告
+
+- 達成度: 新Goalは約60%。初期対象状態、状態反応、状態異常弱点補正、固有リソースを「補助ランタイム（監査のみ）」として両DPS画面へ表示し、設定可能な効果collectionと区別した。値がない場合も「なし」として表示し、非表示のまま残る補助入力をなくした。
+- 根拠: `formation-dps-calc.js`と`formation-damage-dps-prototype.js`へ補助監査表示を追加し、`formation-damage-dps-prototype.css`と`formation-dps-calc.css`へ狭幅で折り返す表示規則を追加した。本体DPS設定フロートを実画面で展開し、時系列効果の状態バッジ、理由、品質、補助監査欄が表示されることと、フロート内の横はみ出しがないことを確認した。画面幅を直接変更するブラウザ機能は利用できなかったため、モバイルは既存静的テストとCSSの`minmax(0,1fr)`／`overflow-wrap:anywhere`で補完確認した。
+- 検査: `node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、`node tools/audit-dps-runtime-effect-settings.js`、対象`node --check`、`git diff --check`が成功した。cache-busterはpolicy／本体controller／試験版controller／本体DPS CSS／試験版CSSを`20260903c`へ同期し、datasheetは変更していない。
+- 残り見積もり: 新Goalは約2スライス。外部イベントと対象効果の対応表示・移動導線、カード・編成効果を含む母数監査を進める。ゲーム内未検証の時刻・順序・丸めは暫定扱いを維持する。
+
+## 新Goal スライス5の開始宣言
+
+- 次の1スライスで行うこと: 外部入力待ちの効果と設定済み外部イベントを共通policyで対応付け、「対応イベントあり／待機中」を本体DPSとDPS試験版のカードへ表示する。発動元ID省略時のワイルドカードと、発動元不一致時の非対応を維持し、イベント操作・シミュレーション経路は変更しない。
+- 効く完了条件: 新Goalの条件1、条件3、条件4、および条件6。
+
+## 新Goal スライス5の終了報告
+
+- 達成度: 新Goalは約75%。外部入力待ち効果について、設定済みイベントが対応する場合を「外部入力あり / 対応件数」、未設定・種別不一致・発動元不一致を「外部入力待ち / 対応イベントなし」として両DPS画面へ表示した。短縮イベント値の正規化と発動元ワイルドカードも共通policyへ集約した。
+- 根拠: `dps-trigger-policy.js`へ外部イベント種別aliasと`getRuntimeExternalEventMatchState`を追加し、`formation-damage-dps-prototype.js`と`formation-dps-calc.js`へ設定済みイベントを渡してカード表示へ反映した。既存の外部イベント追加・削除、保存、シミュレーション照合は変更していない。
+- 検査: `node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、`node tools/audit-dps-runtime-effect-settings.js`、対象`node --check`、`git diff --check`が成功した。ローカル実画面を更新後、本体DPS設定フロートを展開し、状態表示・補助監査欄・横幅を再確認し、ブラウザの警告／エラーは0件だった。datasheetは変更していない。
+- 残り見積もり: 新Goalは約1スライス。カード・編成効果を含む母数監査と最終仕様／台帳／公開表示／cache整合を確認する。ゲーム内未検証の時刻・順序・丸めは暫定扱いを維持する。
+
+## 新Goal スライス6の開始宣言
+
+- 次の1スライスで行うこと: カード単体・スペル・編成遺物を含むread-only監査fixtureを追加し、runtime collection、policy未付与、重複、設定UI漏れ、発火経路なしを生成スキル側と分けて確定する。
+- 効く完了条件: 新Goalの条件2（全runtime効果の監査）、条件5（全collectionの設定対象／監査のみ定義）、条件6（検証・文書・cache整合）。未検証のカード条件は推測でruntimeへ追加しない。
+
+## 新Goal スライス6の終了報告
+
+- 達成度: 約88%。遺物51・スペル35の条件効果75件を、★5／はんだ+2、物理・魔法、対象装備・編成遺物・スペルの274fixtureでread-only監査できるようにした。カード条件行332件を監査し、runtimeへ渡るカード由来行34件（対象装備24、編成遺物4、スペル6）をcollection別に記録した。
+- 根拠: `tools/audit-dps-runtime-effect-settings.js`の監査結果で、カード由来行のpolicy未付与0、重複ID0、設定UI漏れ0、発火経路なし0。空trigger欄14件は`missingTriggerMetadata` 8件と決定的経路保持6件に分類した。生成スキル側も空trigger欄35件を理由コード別に列挙し、発火経路なし0、policy未付与0だった。`docs/dps-runtime-effect-settings-design.md`と`docs/dps-effect-inventory.md`へ母数・fixture範囲・未検証境界を追記した。
+- 検証: `node --check`（監査スクリプト、policy、DPS本体、試験版）、`test-dps-trigger-policy`、`test-dps-bottom-bar-prototype`、`test-dps-main-integration`、`test-dps-runtime-effects`、`test-fdc-action-scoped-addp`、`test-dps-audit-state`、`test-dps-support-registry`、`audit-dps-runtime-effect-settings`、`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 実装上の必須スライスは完了。Goalを完了扱いにする前に、既存の実画面確認結果と最終差分／cache参照を一度だけ再点検し、未検証項目を暫定台帳へ残す。
+
+## 新Goal 最終確認
+
+- 達成度: 100%。最終確認スライスとして、Goalの完了条件1〜6、公開側のpolicy／DPS controller／CSS cache参照、datasheet非変更、監査の再現性を点検した。
+- 根拠: `node tools/audit-dps-runtime-effect-settings.js`で生成スキル98行とカード由来runtime34行を再監査し、policy未付与0、発火経路なし0、重複ID0、設定UI漏れ0、エラー0を確認した。カード監査は遺物51・スペル35を物理／魔法、対象装備／編成遺物／スペルの274fixtureで走査している。外部入力待ち・高学年初期OFF・監査のみcollectionの表示、設定保存、PC／スマホの詳細表示は既存の実画面確認結果を含めて仕様書と台帳へ固定した。
+- 検証: 対象構文検査、DPS policy／下バー／main integration／runtime effects／FDC実データ／audit state／support registryの回帰テスト、監査スクリプト、`git diff --check`が成功した。cache参照は`20260903c`（既存のFDC本体は`20260903d`）で整合し、datasheetは変更していない。
+- 残り見積もり: 0。ゲーム内未検証の順序・丸め・敵イベント時刻・全配置のカード条件は、完了条件の非目標／暫定台帳として残る。次に実機検証結果が得られた場合は、別Goalまたは台帳更新として扱う。
+
+## 後続設計スライス開始宣言
+
+- 次の1スライスで行うこと: 時系列効果設定と外部イベントの統合範囲を定義し、自動・推定・周期指定・発生秒指定・真の外部条件を同じ画面で誤認なく扱うUI、保存形式、二重発火防止規則を設計する。
+- 効く完了条件: 旧Goal条件1、3、4、6、および後続設計の「外部条件を残す」「対応能力を表示する」「統合可能な行動・周期だけを移す」という新しい完了条件。
+
+## 後続設計スライス終了報告
+
+- 達成度: 設計100%、実装0%。外部イベントを廃止せず、同じDPS計算フロート内で`時系列効果・発動タイミング`と`外部条件イベント`を分ける方針を確定した。
+- 根拠: `docs/dps-runtime-effect-settings-design.md`へ、論理効果・発動条件binding・occurrence providerの三層、発動方法、移動対象と残存対象、対応能力と現在状態の表示、共有schedule、保存互換、アヤ・凍傷の扱い、実装順、完了条件を追記した。シールド破壊・被弾・HP閾値などは外部条件として残し、普通・強化・低学年・既知周期・内部の未調査時刻は時系列効果側へ移す。`外部入力対応`は関連効果を起動できる意味であり、敵AIやシールド残量の完全再現ではないことも明記した。
+- 設計判断: 手動周期は同じbindingのAUTO／推定を置き換え、加算しない。複数効果が同じ発動条件を共有する場合はscheduleを一つにする。選択中本人の高学年周期上書きは、ダメージ・SP・モーションと効果を分離しない実装ができるまで解放しない。
+- 検証: 文書差分を読み直し、移動表、行動発動境界、完了条件で選択中本人の高学年の扱いが矛盾しないよう修正した。計算コードとdatasheetは変更していない。
+- 残り見積もり: 実装4スライス程度。順に、(1)binding／発動能力のread-only監査、(2)同一フロート内の二セクションUIと対応表示、(3)共有周期・発生秒providerと編成低学年推定、(4)旧外部候補整理・保存移行・二重発火／PC／スマホ回帰を行う。
+
+## 後続実装スライス1の開始宣言
+
+- 次の1スライスで行うこと: 共通policyへbinding key、行動連動／外部条件の判定、周期指定・外部入力の対応能力を追加し、本体DPSとDPS試験版が同じ分類を利用できるようにする。既存のシミュレーション発火経路は変更しない。
+- 効く完了条件: 後続設計の「責務分離」「対応能力表示」「外部イベントを残す」に加え、完了条件1の共通分類と完了条件6の回帰検証。
+
+## 後続実装スライス1の終了報告
+
+- 達成度: 後続Goalは約15%。共通policyの実装を完了した。効果ごとの安定したbinding key、行動連動／システム時計／外部条件の分類、`自動対応`・`周期推定`・`周期指定対応`・`外部入力対応`・`未対応`の能力表示を共通APIで取得できる。
+- 根拠: `dps-trigger-policy.js`へ`getRuntimeEffectBindingKey`、`getRuntimeEffectSchedulePolicy`、`getDpsFormationCandidateSchedulePolicy`を追加した。編成低学年などの周期候補は外部条件へ誤分類せず、シールド破壊は外部入力対応として残る。既存の`getRuntimeEffectPolicy`の戻り値と計算経路は変更していない。
+- 検証: `node --check dps-trigger-policy.js`、`node tools/test-dps-trigger-policy.js`、`git diff --check`が成功した。追加テストで、行動連動候補・シールド破壊候補・binding key・周期／外部分類を確認した。
+- 残り見積もり: 約3〜4スライス。次は本体DPSと試験版の同一設定フロートに周期候補を移し、外部条件候補は外部イベント欄へ残したまま、対応能力と初期推定値を表示する。
+
+## 後続実装スライス2の開始宣言
+
+- 次の1スライスで行うこと: 本体DPSとDPS試験版の設定UIを、時系列効果・周期設定と外部条件イベントの縦並びに分ける。周期候補・外部候補・追加済み行を共通分類で振り分け、対応能力と推定初期値を利用者向けに表示する。
+- 効く完了条件: 後続設計の「統合可能な行動・周期だけを移す」「外部条件を残す」「対応能力を表示する」「detailsで閉じる」「通常計算非破壊」に加え、完了条件3のUI接続。
+
+## 後続実装スライス2の終了報告
+
+- 達成度: 後続Goalは約35%。本体DPS設定フロートとDPS試験版を、時系列効果・行動連動の周期設定と外部条件イベントの縦並びへ分離した。周期型の編成候補・追加済み周期行は時系列効果側へ移し、シールド破壊・被弾・HP閾値・状態遷移などの候補と手動イベントは外部条件側へ残した。
+- 根拠: `formation-damage-dps-prototype.js`へ周期候補／周期イベントのrendererと共通分類filterを追加し、`formation-dps-calc.js`も同じ分類APIで二つの候補欄・二つのイベントhostを扱うようにした。`formation-damage-calc.html`と`formation-damage-dps-prototype.html`では時系列効果hostを外部イベントcontrolより前に配置し、`formation-dps-calc.html`では対応するdetailsを追加した。技術項目・candidate metadata・保存配列は従来形式を維持している。
+- 検証: `node --check formation-dps-calc.js`、`node --check formation-damage-dps-prototype.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`が成功した。追加テストで周期候補の移動、周期行の保持、外部候補の残存、周期の外部欄への重複表示なしを確認した。datasheetとシミュレーション計算経路は変更していない。
+- 残り見積もり: 約2〜3スライス。次はbinding単位の周期／発生秒設定を共通保存値として扱う境界を確認し、既定推定値・手動上書きの置換関係と二重発火防止をテストする。
+
+## 後続実装スライス3の開始宣言
+
+- 次の1スライスで行うこと: 周期候補へbinding keyを付与し、周期設定の再追加・旧保存値・異なる外部イベントの扱いを一意化する。効果カードにも自動／周期指定／外部入力などの対応能力を表示し、既存のシミュレーション発火経路は変えない。
+- 効く完了条件: 後続設計の「binding単位」「保存互換」「手動周期は同じbindingを置換」「二重発火防止」「対応能力表示」に加え、完了条件4の外部イベント互換。
+
+## 後続実装スライス3の終了報告
+
+- 達成度: 後続Goalは約50%。編成候補と追加済み周期行へbinding keyを付与し、周期行の再追加を同一candidate／bindingの置換として扱うようにした。保存値の正規化でも周期bindingだけを一意化し、独立したシールド破壊・被弾などの外部イベントは複数行を維持する。効果カードには共通policyの対応能力を併記した。
+- 根拠: `formation-damage-calc.js`の編成候補生成に共通binding keyを追加し、`formation-damage-dps-prototype.js`の候補metadata、保存正規化、再追加処理、周期／外部欄のfilterへ接続した。`formation-dps-calc.js`にも同じmetadataとDOM側の重複除去を実装した。bindingが保存されていない旧周期行はcandidate IDで置換対象として認識する。
+- 検証: `node --check formation-damage-calc.js`、`node --check formation-damage-dps-prototype.js`、`node --check formation-dps-calc.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-fdc-action-scoped-addp.js`、`git diff --check`が成功した。周期同一bindingの重複除去、独立外部イベントの複数保持、候補binding、効果カードの対応能力表示を追加テストで確認した。
+- 残り見積もり: 約2スライス。次は既存の`formationTimelineMode`と周期候補を実行providerへ接続するか、まず設定値だけで自動／推定を切り替えるかを既存シミュレーターの責務範囲内で実装する。高学年は初期OFFを維持し、選択中本人の行動置換を伴う周期上書きは解放しない。
+
+## 後続実装スライス4の開始宣言
+
+- 次の1スライスで行うこと: 既存の`formationTimelineMode`をDPS実行snapshotへ接続し、`自動（推定）`時だけ周期候補から一時的な外部イベントを生成する。同じcandidate／bindingの手動周期がある場合は自動分を抑止し、高学年初期OFFと真の外部条件イベントを維持する。本体DPSとDPS試験版へ同じ規則を接続する。
+- 効く完了条件: 後続設計の「自動・推定・周期をbinding単位で扱う」「手動周期は自動を置換する」「二重発火を防ぐ」「本体DPS／試験版共通化」、および完了条件3、5、7、8。
+
+## 後続実装スライス4の終了報告
+
+- 達成度: 後続Goalは約68%。`formationTimelineMode = 自動（推定）`を本体DPSとDPS試験版の実行入力へ接続した。周期候補は初回秒・間隔・回数を一時的なイベントへ変換し、保存値へ書き戻さない。同じcandidate／bindingの手動周期行がある場合は自動生成を止める。
+- 根拠: `formation-damage-dps-prototype.js`と`formation-dps-calc.js`に共通形の周期providerを追加し、DPS実行snapshot・config・fingerprintへだけ推定イベントを合成した。候補カードへ`自動（推定）`、`周期設定済み`、`初期OFF`、`時刻入力待ち`を表示し、対応能力の`周期指定対応`と分離した。`formation-damage-calc.html`、`formation-damage-dps-prototype.html`、`formation-dps-calc.html`で推定モードを選択可能にした。高学年は`formationHighSkillMode = auto`でない限り自動生成せず、シールド破壊・被弾・HP閾値など`timingMode: event`は外部条件欄に残している。
+- 検証: `node --check formation-damage-dps-prototype.js`、`node --check formation-dps-calc.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、`node tools/test-fdc-action-scoped-addp.js`、`git diff --check`が成功した。追加テストで、推定イベントのフレーム変換、OFF時の無生成、手動bindingによる抑止、高学年初期OFFを確認した。datasheetは変更していない。
+- 残り見積もり: 約1〜2スライス。実行時のbinding一致とイベント種別・発動元一致を実シミュレーションで確認し、旧保存値・比較基準・更新後保持、公開文面、cache-busterを最終整理する。本人高学年の行動全体置換とフル編成ダメージは引き続き対象外・暫定扱いとする。
+
+## 後続実装スライス5の開始宣言
+
+- 次の1スライスで行うこと: 自動推定イベントを最小シミュレーターへ渡し、イベント種別・発動元・bindingに一致する効果へ一度ずつ届くことを確認する。本体／試験版の比較経路が同じ実効イベントを使い、手動イベント保存へ推定イベントを書き戻さないことをテストで固定する。
+- 効く完了条件: 後続設計の「二重発火防止」「外部イベント互換」「比較結果の一貫性」、および完了条件5、7、8。
+
+## 後続実装スライス5の終了報告
+
+- 達成度: 後続Goalは約76%。自動推定イベントを実シミュレーターへ投入し、指定した編成低学年のbindingへフレーム60・180で一度ずつ効果が届くことを確認した。外部イベントの発生元・条件照合経路は既存のまま維持し、周期候補の手動行がある場合の自動抑止も既存テストで確認した。
+- 根拠: `tools/test-dps-runtime-effects.js`へ自動推定相当の周期イベントと`triggerSourceId`一致fixtureを追加し、`externalEvent`と対応`statusApplied`が同じ2フレームで出ることを確認した。`formation-damage-dps-prototype.js`は推定イベントを`createInputSnapshot()`の実行用snapshotへだけ合成し、`formation-dps-calc.js`も同じくeffective snapshot/config/fingerprintへだけ合成する。手動イベントは引き続き`externalEvents`の保存・編集対象である。
+- 検証: `node tools/test-dps-runtime-effects.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-fdc-action-scoped-addp.js`、対象`node --check`、`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 約1スライス。provider重複を共通policyへ寄せ、旧保存値・比較基準・公開文面・cache-busterを最終点検する。ゲーム内未検証の時刻・同一フレーム順序・フル編成ダメージは暫定／対象外のまま残す。
+
+## 後続実装スライス6の開始宣言
+
+- 次の1スライスで行うこと: 共通policy provider、本体DPS／DPS試験版の実効イベント合成、保存値との境界、外部条件の残存、公開cache参照を最終点検する。あわせて本体DPS設定フロートをPC幅・スマホ幅で実画面確認する。
+- 効く完了条件: 後続設計の「本体DPS／試験版共通化」「手動周期による自動置換」「外部イベントを残す」「PC／スマホ表示」、および完了条件1、3、4、5、6、7、8。
+
+## 後続実装スライス6の終了報告
+
+- 達成度: 後続Goalは100%。共通policyのbinding／候補／推定イベントproviderを本体DPSとDPS試験版へ接続し、手動イベントを保存対象として保持したまま、`自動（推定）`時だけ実行snapshot・比較fingerprintへ一時イベントを合成する境界を確定した。高学年は初期OFF、シールド破壊・被弾・HP閾値・状態遷移などは外部条件欄に残る。
+- 根拠: 同一candidate／bindingの手動周期がある場合に推定を抑止し、推定イベントが対応効果へ届くことをruntime testで確認した。本体DPSの設定フロートでは時系列効果設定と外部イベントが同一フロート内で縦に並び、周期候補の効果内容・対応能力・状態表示と補助ランタイム監査欄を確認した。PC幅と390px幅で横方向の文書はみ出しがなく、推定モード切替後に`自動（推定）`が表示されることを確認した。
+- 検証: `node --check`（policy／本体DPS／試験版）、`test-dps-trigger-policy`、`test-dps-bottom-bar-prototype`、`test-dps-main-integration`、`test-dps-runtime-effects`、`test-fdc-action-scoped-addp`、`test-dps-audit-state`、`test-dps-support-registry`、`test-public-release-config`、`audit-dps-runtime-effect-settings`、`git diff --check`が成功した。`stat-dashboard.html`のpolicy prefetchを`20260903d`へ揃え、関連app-cacheは`20260903e`、controllerは`20260903d`、共有CSSは`20260903c`で整合している。datasheetは変更していない。
+- 残り見積もり: 0。ゲーム内未検証の編成行動時刻、敵AI・被弾・撃破時刻、同一フレーム順序、全編成ダメージ加算は暫定／対象外として設計書と検証台帳に残る。実測値が得られた場合は別Goalまたは台帳更新で扱う。
+
+## DPS発動経路・入力モード統合Goal 設計スライス終了報告
+
+- 達成度: 0%。Goal設計とレビューは完了したが、計算コード・UI・テストの実装は開始していない。
+- 根拠: `GOAL.md`を、発動条件binding単位の分類、自動／推定の既定ON、高学年発動元だけの初期OFF、低高共有経路の分離、その場での周期・発生秒上書き、真の外部条件の維持、保存移行、代表fixtureを含む10件の完了条件へ更新した。`docs/dps-runtime-effect-settings-design.md`へ、旧Goal完了判定と利用者要件の乖離、表示変更だけでは解決しない理由、既存基盤の再利用範囲を追記した。
+- レビュー結果: キャロット固有修正ではなく共通schedule policyの再分類として実装すれば、編成内別使徒の普通・強化・低学年に汎用適用できる。自由文の高学年判定、旧全体OFFの移行、低高共有binding、真の外部条件との境界を完了条件へ入れたため、今回確認した問題を取りこぼしにくい。敵AI・フル編成DPSは非目標に維持し、スコープの過大化を避けた。
+- 検証: `GOAL.md`、`STATUS.md`、既存設計、現行policy・候補生成・UI表示経路を照合した。計算コードとdatasheetは変更していない。
+- 残り見積もり: 5スライス程度。順に、(1)read-only発動経路監査、(2)構造化分類と高学年判定、(3)低高binding分割とprovider統合、(4)個別UI・保存移行、(5)回帰・PC／スマホ・文書・cache確認を行う。
+
+## DPS発動経路監査スライス1の終了報告
+
+- 達成度: 約15%。生成スキル98行、カード由来34行、全76使徒を編成側発動元とした候補fixtureをread-only監査し、次の分類修正へ渡す母数と代表ケースを確定した。
+- 根拠: `tools/audit-dps-runtime-effect-settings.js`へ編成候補監査、構造化発動元と現行高学年判定の比較、代表policy fixtureを追加した。高学年誤判定は5行・ユニーク3効果、低高混在は2効果、編成候補は8件（周期7・イベント1）だった。キャロット低学年は周期推定値を持つが、現行policy能力が`external`となることを再現した。
+- 検証: `node --check tools/audit-dps-runtime-effect-settings.js`と`node tools/audit-dps-runtime-effect-settings.js`が成功し、エラー0件だった。対象計算コードとdatasheetは変更していない。対象条件の全組み合わせは未監査として設計書へ明記した。
+- 残り見積もり: 約4スライス。次は自由文を使わない構造化分類と高学年初期OFF判定を共通policyへ実装し、代表fixtureを回帰テストへ昇格する。
+
+## DPS発動経路分類スライス2の終了報告
+
+- 達成度: 約18%。`dps-trigger-policy.js`の発動能力を`exact`／`estimated`／`external`／`unsupported`へ再分類し、編成の普通・強化・低学年・高学年に連動する行を真の外部条件から分離した。高学年判定は発動元の構造化キーだけを参照し、効果対象・表示文の「高学年」では初期OFFにしない。
+- 根拠: `getStructuredTriggerActionKeys`、`getStructuredTriggerGrade`、`isExternalRuntimeCondition`を共通APIへ追加し、`getRuntimeEffectPolicy`、schedule policy、外部イベント照合、編成候補の高学年判定へ接続した。低高共有旧bindingは低学年を止めない`auto`として検出し、後続スライスでbinding分割する前提を固定した。
+- 検証: `node --check dps-trigger-policy.js`、`node tools/test-dps-trigger-policy.js`、`node tools/audit-dps-runtime-effect-settings.js`が成功し、監査上の構造化判定による高学年誤判定は0行、低高混在は2効果、編成候補は周期7・イベント1を確認した。datasheetと計算本体の発火処理はまだ変更していない。
+- 残り見積もり: 約3〜4スライス。次は低高共有bindingを個別scheduleへ分割し、推定周期・手動周期・外部イベントを同じ実行境界で置換関係にする。
+
+## DPS発動経路binding/provider接続スライス3の終了報告
+
+- 達成度: 約38%。低学年／高学年共有効果をaction bindingへ分割し、高学年側だけを初期OFFにした。編成周期候補はbinding単位の明示`auto`／`fixed`／`off`を参照し、手動周期がある間は推定providerを停止する。本体DPSとDPS試験版の両方へ同じbinding mode解決を接続した。
+- 根拠: `formation-damage-calc.js`で分割行に`runtimeBaseEffectId`とaction別`bindingKey`を保持し、`formation-damage-dps-prototype.js`で旧共有effectIdの保存値を分割行へフォールバックした。`formation-dps-calc.js`も保存済みbinding modeを推定イベントproviderへ渡すようにした。旧schemaの全体`formationTimelineMode: off`は新版の既定自動へ移行し、新版で明示された個別OFFは維持する。
+- 検証: `node --check`（policy／本体DPS／DPS試験版）、`node tools/test-dps-trigger-policy.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/audit-dps-runtime-effect-settings.js`が成功した。合成fixtureで旧共有AUTOの継承、分割後の明示OFF優先、binding mode providerへの伝達を固定した。datasheetは変更していない。
+- 残り見積もり: 約2〜3スライス。設定カードでの能力表示・周期／発生秒上書きの確認、候補追加から実効果までの代表fixture検証、保存・比較・公開文面・cache・PC／スマホ実画面の最終確認を残す。
+
+## 次の1スライス開始宣言
+
+- 次の1スライスで行うこと: 本体DPSとDPS試験版の設定カード／周期設定表示を確認し、`exact`・`自動（推定）`・`初期OFF`・`外部入力待ち`・`未対応`が現在モードと混同されないよう表示と保存再読込の不足を補う。低学年候補の追加、手動周期上書き、高学年の初期OFFが同じbinding規則で表示されることをテストへ追加する。
+- 効く完了条件: 条件2、条件3、条件5、条件6、条件7、条件8、条件10。
+
+## DPS発動経路設定UI・代表binding検証スライス4の終了報告
+
+- 達成度: 約50%。設定カードでは推定型を`自動（推定）`、未対応を操作不可の`未対応`として表示し、true externalは外部入力待ちのまま残した。本体DPSとDPS試験版の候補providerへ同じbinding modeを渡す経路を確認した。
+- 根拠: 編成低学年の代表fixtureで、候補のbinding key、runtime effectのbinding key、自動推定イベントのbinding keyが一致するよう修正した。runtime側が外部イベント照合用に`ownerId`を使う一方、候補側が`sourceId`を使って別キーになる汎用的不一致を、候補bindingでも`externalSourceId`を優先することで解消した。キャロット固有の分岐は追加していない。
+- 検証: `node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/audit-dps-runtime-effect-settings.js`が成功した。監査はruntime policy未付与0件、発火経路なし0件、編成候補8件（周期7・イベント1）、周期候補の間隔0件を維持した。`datasheet`は変更していない。
+- 残り見積もり: 約1スライス。保存・比較fingerprint・cache-buster・公開文面、本体／試験版のPC・スマホ表示、通常計算詳細回帰を最終確認する。ゲーム内未検証の行動時刻・敵AI・同一フレーム順は暫定／対象外のまま維持する。
+
+## 次の1スライス開始宣言
+
+- 次の1スライスで行うこと: 最終回帰として、設定値の更新後保持・比較入力・自動推定イベントの一時合成境界、公開画面の内部ID／試験文面漏れ、PC／スマホの設定カード、通常計算詳細を確認する。最後にcache-buster、仕様書・台帳、未コミット差分を整合させる。
+- 効く完了条件: 条件5、条件7、条件8、条件10。
+
+## DPS発動経路最終回帰スライス5の終了報告
+
+- 達成度: 100%。保存値、比較fingerprint、自動推定イベントの一時合成境界、公開文面、cache参照、PC／スマホ表示、通常計算詳細を確認した。
+- 根拠: 本体設定で期間90→60秒・seed 1→7を変更して再読み込み後も保持されることを確認し、最後に90秒・seed 1へ戻した。390pxでは文書幅375／スクロール幅375、詳細幅375、タイムライン幅319で縦スクロールを確認した。デスクトップでは文書幅1226／スクロール幅1226、タイムラインは縦スクロール、下バー高さ86pxを確認した。「続きを表示」は行数160→205へ追加表示された。公開本体の表示文面に`__exclusive`・`デバッグ`・`試験用`は0件だった。
+- 生成データ同期: 現行の`dps-timing-data.js`に合わせてsupport registryの期待値を更新し、最大育成fixtureを再生成した。datasheetは今回編集していない（`tools/trickcal_skillmotion.xlsx`の既存未コミット変更は維持）。
+- cache: 本体／試験版のpolicy・controller・CSSとHTML、`app-cache.js`の参照を同期し、今回の実装を参照するcache-busterを確認した。
+- 検証: `node --check`（policy／本体DPS／DPS試験版）、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、`node tools/test-public-release-config.js`、`node tools/test-fdc-info-text.js`、`node tools/test-max-growth-state.js`、`node tools/audit-dps-runtime-effect-settings.js`、`git diff --check`がすべて成功した。監査はruntime 100行、policy未付与0件、発火経路なし0件、編成候補8件（周期7・イベント1）、周期間隔欠落0件だった。
+- 残り見積もり: 0スライス。ゲーム内検証が必要な敵AI・被弾・命中・撃破・同一フレーム順序などは、仕様書と台帳に暫定／対象外として残す。
+
+## アヤ凍傷編成横断反映 設計スライス6の終了報告
+
+- 達成度: 100%（設計スライス）。実装Goal全体の達成ではなく、別編成使徒へアヤの凍傷ダメージ補正を反映するための実装境界を確定した。
+- 根拠: 凍傷の`statusReaction`（冷静被ダメージ+8%／スタック）と、アヤが生成する凍傷スタックの発生providerを分離する設計を`docs/dps-runtime-effect-settings-design.md`へ追記した。編成側はダメージ・モーション・SPを複製せず、低学年A2・高学年・愛用品を状態専用bindingとして実効イベントへ一時合成する。低学年は敵サイズ別スタック数を低学年SP周期でまとめて付与し、高学年は個別bindingの初期OFFを維持する。
+- 二重発火防止: 選択中アヤは本人経路のみ、別使徒選択時だけ編成状態providerを作る。同じbindingの手動入力は自動providerを置換し、reactionは選択中冷静使徒へ一度だけ登録する。共通`凍傷:stack:9`、`statusStackCount`、個別期限・上限9を既存状態処理へ接続する方針とした。
+- 暫定事項: 低学年の敵サイズ別値は小型2・中型4・大型5・超大型8（未検証の戻り命中を含む推定）。同一フレーム順序は、当面は効果時刻の次フレームへ置き、ゲーム内実測後にphaseへ置換可能とする。datasheet・計算コードは変更していない。
+- 残り見積もり: 約3スライス。候補providerと敵サイズresolver、`statusStackCount`を実装するスライス、設定UI・保存移行・手動置換を実装するスライス、本体／試験版・数値・表示の回帰検証を残す。

@@ -429,6 +429,37 @@ assert.deepEqual(
 assert.equal(periodicExternalEventResult.timeline.filter(event => (
   event.type === 'runtimeHealingEvent' && event.runtimeEffectId === 'periodic-damage-taken-effect'
 )).length, 3, '周期外部イベントの各回で効果処理を起動する');
+const estimatedFormationEventResult = createFixture({
+  durationSeconds: 4,
+  includePoison: false,
+  externalEvents: [{
+    id: 'auto:formation:ally-low', type: '低学年スキル使用時', frame: 60,
+    intervalFrames: 120, repeatCount: 2, sourceId: 'AllyA',
+    triggerSourceId: 'AllyA_low_skill', reason: '味方A / 低学年（自動推定）'
+  }],
+  eventEffects: [{
+    id: 'formation-low-effect', label: '編成低学年連動状態',
+    triggerType: '低学年スキル使用時', triggerSourceId: 'AllyA_low_skill',
+    steps: [{
+      type: 'status', order: 1,
+      application: {
+        status: '編成低学年状態', durationFrames: 90, stackable: false, maxStacks: 1,
+        stackGroupId: 'formation-low-effect', dealsPeriodicDamage: false,
+        tickFrames: 0, tickMultiplier: 0
+      }
+    }]
+  }]
+});
+assert.deepEqual(
+  estimatedFormationEventResult.timeline.filter(event => event.type === 'externalEvent').map(event => event.frame),
+  [60, 180],
+  '自動推定の編成周期イベントを指定秒・間隔でシミュレーターへ渡す'
+);
+assert.deepEqual(
+  estimatedFormationEventResult.timeline.filter(event => event.type === 'statusApplied' && event.status === '編成低学年状態').map(event => event.frame),
+  [60, 180],
+  '自動推定の編成周期イベントを対応bindingの効果へ一度ずつ届ける'
+);
 const openEndedExternalEventResult = createFixture({
   durationSeconds: 2,
   includePoison: false,

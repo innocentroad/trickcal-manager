@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const simulator = require('../dps-simulator.js');
+const triggerPolicy = require('../dps-trigger-policy.js');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'formation-damage-dps-prototype.html'), 'utf8');
@@ -88,7 +89,7 @@ assert.ok(css.includes('.fdcp-dps-recalc-spinner') && css.includes('fdcp-dps-rec
   '全体期待DPSカードに再計算中の回転indicatorを持つ');
 assert.ok(script.includes('setRecalculationIndicator') && script.includes('renderRecalculationState') && script.includes('前回の計算結果を表示中'),
   '再計算中は前回結果を残した状態表示を使う');
-assert.ok(script.includes('renderDpsExternalInput') && script.includes('renderDpsExternalInputContent') && script.includes('handleExternalInputChange') && script.includes('const input = this.elements.externalInput || this.elements.detailGrid') && script.includes('externalEvents: snapshot.externalEvents || []') && script.includes("elements.settingsPanel?.addEventListener('click'") && script.includes("elements.settingsPanel?.addEventListener('change'"),
+assert.ok(script.includes('renderDpsExternalInput') && script.includes('renderDpsExternalInputContent') && script.includes('handleExternalInputChange') && script.includes('this.elements.externalInput, this.elements.runtimeSettings, this.elements.detailGrid') && script.includes('externalEvents: snapshot.externalEvents || []') && script.includes("elements.settingsPanel?.addEventListener('click'") && script.includes("elements.settingsPanel?.addEventListener('change'"),
   '外部入力はDPS設定float内の編集・追加controlからDPS入力へ渡す');
 assert.ok(script.includes('updateExternalEventCount') && script.includes('externalEventCount'), 'DPS設定floatへ外部イベント件数を同期する');
 assert.ok(script.includes("trickcal:dps-settings:v1") && script.includes('syncDpsSettingsForTarget') && script.includes("window.addEventListener('pagehide'"),
@@ -155,7 +156,8 @@ assert.ok(!/iframe|contentWindow/i.test(html), 'prototype HTMLはiframeを含ま
 assert.ok(!/iframe|contentWindow/i.test(script), 'prototype controllerはiframe参照を含まない');
 assert.ok(script.includes('createDirectDamageAdapter'), 'direct adapterで単発ページを分離する');
 assert.ok(script.includes('createDpsEvaluationInput'), 'DPS入力はsnapshot APIを使う');
-assert.ok(script.includes('createInputSnapshot(snapshot = {})') && script.includes('externalEvents: normalizeDpsExternalEvents(this.externalEvents)'), '通常snapshotを変更せず外部入力をDPS実行snapshotへ合成する');
+assert.ok(script.includes('createInputSnapshot(snapshot = {})') && script.includes('externalEvents: this.getDpsEffectiveExternalEvents(snapshot)'), '通常snapshotを変更せず外部入力をDPS実行snapshotへ合成する');
+assert.ok(script.includes('createDpsFormationEstimatedEvents') && script.includes('getDpsEffectiveExternalEvents'), '編成行動推定をDPS実行snapshotへだけ合成する');
 assert.ok(script.includes('axesMatch'), '基準比較に比較軸guardを持つ');
 assert.ok(script.includes('applyBaselineComparison({ resultReady: true })'), '正常なDPS計算完了時に基準比較を自動適用する');
 assert.ok(!script.includes('compareBaseline()') && !script.includes('baselineCompare'), '手動比較のcontroller参照を残さない');
@@ -180,21 +182,22 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260903a'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260903e'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260902c'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260903d'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260903a'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260903e'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
 assert.ok(html.includes('dps-simulator.js?v=20260902d') && appCache.includes('dps-simulator.js?v=20260902d'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
 assert.ok(script.includes("dps-simulator-worker.js?v=20260901b") && appCache.includes('dps-simulator-worker.js?v=20260901b'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260902c'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260903d'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260903c'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260903h'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
     setTimeout(callback) { callback(); return 1; },
+    TRICKCAL_DPS_TRIGGER_POLICY: triggerPolicy,
     TRICKCAL_DPS_SIMULATOR: {
       simulate: (_config, workerOptions) => ({ mode: 'single', workerOptions }),
       simulateMany: (_config, workerOptions) => ({
@@ -294,7 +297,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(actionEffects.find(item => item.key =
   { label: '通常 / 物理ダメージ', value: '与ダメージ量 +20%', state: { code: 'on', label: '自動適用' } },
   { label: '条件OFFの効果', value: '与ダメージ量 +40%', state: { code: 'condition', label: 'OFF' } },
   { label: '未対応トリガー', value: '与ダメージ量 +30%', state: { code: 'unsupported', label: 'DPS未対応' } },
-  { label: '編成使徒の行動', value: '与ダメージ量 +10%', state: { code: 'external', label: '他使徒の行動待ち' } }
+  { label: '編成使徒の行動', value: '与ダメージ量 +10%', state: { code: 'external', label: '外部入力待ち' } }
 ], '行動別適用効果はON/OFF・未対応・外部待ちを区別し、同一状態だけを重複なく表示する');
 assert.deepEqual(JSON.parse(JSON.stringify(actionEffects.find(item => item.key === 'enhancedAttack').rows)), [{ label: 'アサイド / スキル変更', value: 'スキル効果を変更', state: { code: 'on', label: '自動適用' } }],
   'スキル書き換えは利用者向け名称・状態で表示する');
@@ -319,6 +322,12 @@ assert.deepEqual(JSON.parse(JSON.stringify(testing.normalizeDpsExternalEvents([
   { id: 'manual:1', type: 'damageTaken', frame: 30, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '手動被弾' },
   { id: 'manual:3', type: 'statusApplied', frame: 180, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '状態付与' }
 ], '空の外部イベントを除外し、複数行を同じ形式へ正規化する');
+assert.equal(testing.normalizeDpsExternalEvents([
+  { type: '低学年スキル使用時', timingMode: 'periodic', candidateId: 'candidate-low', bindingKey: 'Aya::低学年スキル使用時', seconds: 2 },
+  { type: '低学年スキル使用時', timingMode: 'periodic', candidateId: 'candidate-low', bindingKey: 'Aya::低学年スキル使用時', seconds: 4 },
+  { type: 'shieldBreak', seconds: 4 },
+  { type: 'shieldBreak', seconds: 5 }
+]).length, 3, '周期bindingだけを一意化し、独立した外部イベントの複数入力は残す');
 const settingsElements = {
   duration: { value: '90' }, highMode: { value: 'disabled' }, formationTimelineMode: { value: 'off' }, formationHighMode: { value: 'disabled' }, seed: { value: '1' }, trials: { value: '16' }, autoRun: { checked: true }
 };
@@ -329,7 +338,7 @@ settingsController.applyDpsSettings({
 });
 assert.deepEqual(JSON.parse(JSON.stringify(settingsController.getDpsSettings())), {
   durationSeconds: 120, highSkillMode: 'auto', formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'auto', seed: 37, trials: 64, autoRun: false,
-  externalEvents: [{ id: 'manual:1', type: 'damageTaken', frame: 150, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '外部被弾' }]
+  externalEvents: [{ id: 'manual:1', type: 'damageTaken', frame: 150, intervalFrames: 0, repeatCount: 0, sourceId: '', value: '', reason: '外部被弾' }], settingsVersion: 2
 }, 'DPS計測条件・編成推定設定と外部イベントをDOMへ復元し、同じ形式で読み戻す');
 assert.equal(testing.normalizeDpsSettings({ durationSeconds: 999, highSkillMode: 'invalid', trials: 999 }, {
   durationSeconds: 60, highSkillMode: 'auto', formationTimelineMode: 'off', formationHighSkillMode: 'disabled', trials: 64, seed: 3, autoRun: false, externalEvents: []
@@ -339,7 +348,7 @@ const normalizedFormationFallback = testing.normalizeDpsSettings({ formationTime
 });
 assert.equal(normalizedFormationFallback.formationTimelineMode, 'off', '編成行動推定の不正値はOFFへ戻す');
 assert.equal(normalizedFormationFallback.formationHighSkillMode, 'disabled', '編成高学年の不正値は発動なしへ戻す');
-assert.equal(testing.getDpsFormationTimelineModeLabel('supportEstimate'), '支援効果のみ推定', '編成行動推定の詳細表示名を固定する');
+assert.equal(testing.getDpsFormationTimelineModeLabel('supportEstimate'), '自動（推定）', '編成行動推定の詳細表示名を固定する');
 assert.equal(testing.getDpsFormationHighModeLabel('auto'), 'オート発動', '編成高学年の詳細表示名を固定する');
 const externalInput = testing.getDpsExternalInputContent(
   [{ type: 'shieldBreak', seconds: 1.5, reason: '<手動>' }],
@@ -501,6 +510,10 @@ assert.ok(css.includes('.fdcp-dps-detail-panel .fdc-dps-runtime-settings,') && c
   '通常詳細シートの汎用divスタイルがDPSの縦セクションへ漏れない');
 assert.ok(css.includes('.fdcp-dps-settings-panel .fdc-dps-runtime-settings') && css.includes('.fdcp-dps-runtime-settings-disclosure'),
   '時系列効果設定をDPS計算フロート内で縦・折りたたみ表示する');
+assert.ok(css.includes('.fdcp-dps-settings-panel .fdc-dps-runtime-schedule') && css.includes('fdc-dps-runtime-schedule-event-list'),
+  '周期指定欄をDPS計算フロート内の時系列効果セクションとして表示する');
+assert.ok(html.indexOf('id="fdcp-dps-runtime-settings"') < html.indexOf('id="fdcp-dps-external-control"'),
+  '本体DPS設定フロートでは時系列効果を外部条件より先に表示する');
 const runtimeControls = testing.renderDpsRuntimeEffectControls({
   damageBuffEffects: [{ id: 'damage-buff', label: '時系列与ダメージ', maxStacks: 5, runtimeOverrideMode: 'fixed', runtimeFixedStacks: 3 }],
   spRecoveryEffects: [{ id: 'sp-gain', label: 'SP回復', runtimeOverrideMode: 'off' }]
@@ -512,6 +525,85 @@ const runtimeSettings = testing.renderDpsRuntimeSettingsContent({
 }, true);
 assert.match(runtimeSettings, /<details class="fdcp-dps-runtime-settings-disclosure"[^>]*open[^>]*>[\s\S]*時系列効果設定[\s\S]*fdc-dps-runtime-settings[\s\S]*data-fdc-dps-runtime-mode="damage-buff"/,
   '時系列効果設定はDPS計算フロート内の開閉可能セクションへ移植する');
+const splitRuntimeSettings = testing.renderDpsRuntimeSettingsContent({
+  damageBuffEffects: [{ id: 'damage-buff', label: '時系列与ダメージ', maxStacks: 5, runtimeOverrideMode: 'auto' }]
+}, false, [
+  { id: 'manual:1', type: 'n回ごと', timingMode: 'periodic', candidateId: 'periodic-event', frame: 60, intervalFrames: 120, repeatCount: 3, candidateLabel: '編成低学年', candidateEffectLabels: ['与ダメージ量 +10%'] },
+  { id: 'manual:2', type: 'shieldBreak', frame: 180, reason: 'シールド破壊' }
+], [
+  { id: 'periodic-event', type: 'n回ごと', timingMode: 'periodic', label: '編成低学年', basis: 'SPから推定', effectLabels: ['与ダメージ量 +10%'] },
+  { id: 'external-event', type: 'shieldBreak', timingMode: 'event', label: 'シールド破壊反応', basis: '発生秒を指定', effectLabels: ['状態付与'] }
+]);
+assert.match(splitRuntimeSettings, /fdc-dps-runtime-schedule[\s\S]*編成低学年[\s\S]*周期指定対応[\s\S]*周期を(?:追加|調整)/,
+  '行動連動の周期候補と追加済み周期行を時系列効果側へ移す');
+assert.ok(splitRuntimeSettings.includes('data-fdcp-external-candidate-id="periodic-event"'),
+  '追加済み周期行へ候補metadataを保持する');
+assert.match(splitRuntimeSettings, /fdc-dps-external-event-row[\s\S]*編成低学年[\s\S]*data-fdc-dps-external-seconds/,
+  '追加済み周期イベントを同じ保存経路で保持する');
+const estimatedFormationCandidate = {
+  id: 'formation:ally-low',
+  type: '低学年スキル使用時',
+  label: '味方A / 低学年スキル',
+  ownerId: 'AllyA',
+  periodicActionLabel: '低学年',
+  timingMode: 'periodic',
+  startSeconds: 8,
+  intervalSeconds: 12,
+  repeatCount: 0,
+  bindingKey: 'AllyA::低学年スキル使用時',
+  effectLabels: ['与ダメージ量 +10%']
+};
+const estimatedFormationEvents = testing.createDpsFormationEstimatedEvents([estimatedFormationCandidate], {
+  formationTimelineMode: 'supportEstimate',
+  formationHighSkillMode: 'disabled'
+});
+assert.equal(estimatedFormationEvents.length, 1, '自動（推定）は周期候補をDPS入力へ生成する');
+assert.deepEqual(
+  { frame: estimatedFormationEvents[0].frame, intervalFrames: estimatedFormationEvents[0].intervalFrames, repeatCount: estimatedFormationEvents[0].repeatCount },
+  { frame: 480, intervalFrames: 720, repeatCount: 0 },
+  '編成周期候補の推定初期値をフレーム・間隔・回数へ変換する'
+);
+assert.equal(testing.createDpsFormationEstimatedEvents([estimatedFormationCandidate], {
+  formationTimelineMode: 'off', formationHighSkillMode: 'disabled'
+}).length, 0, '編成行動推定OFFでは自動イベントを生成しない');
+assert.equal(testing.createDpsFormationEstimatedEvents([estimatedFormationCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+}, [{ candidateId: estimatedFormationCandidate.id, bindingKey: estimatedFormationCandidate.bindingKey, timingMode: 'periodic' }]).length, 0,
+  '同じbindingの手動周期設定がある場合は自動イベントを二重生成しない');
+const estimatedHighCandidate = { ...estimatedFormationCandidate, id: 'formation:ally-high', type: '高学年スキル使用時', periodicActionLabel: '高学年', bindingKey: 'AllyA::高学年スキル使用時' };
+assert.equal(testing.createDpsFormationEstimatedEvents([estimatedHighCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+}).length, 0, '編成高学年は初期OFFの間、自動推定へ流さない');
+const controllerForEffectiveEvents = new testing.PrototypeDpsController({ createDpsSnapshot: () => ({}) }, {
+  duration: { value: '90' }, highMode: { value: 'disabled' }, formationTimelineMode: { value: 'supportEstimate' },
+  formationHighMode: { value: 'disabled' }, seed: { value: '1' }, trials: { value: '16' }, autoRun: { checked: true }
+});
+controllerForEffectiveEvents.externalEvents = [{ id: 'manual:shield', type: 'shieldBreak', frame: 30 }];
+const effectiveInputSnapshot = controllerForEffectiveEvents.createInputSnapshot({
+  formationEventCandidates: [estimatedFormationCandidate]
+});
+assert.equal(effectiveInputSnapshot.externalEvents.filter(event => event.type === '低学年スキル使用時').length, 1,
+  '本体controllerは自動推定イベントを実行snapshotへ合成する');
+assert.equal(controllerForEffectiveEvents.getDpsSettings().externalEvents.some(event => event.type === '低学年スキル使用時'), false,
+  '本体controllerは自動推定イベントを手動保存値へ書き戻さない');
+assert.equal(effectiveInputSnapshot.externalEvents.filter(event => event.type === 'shieldBreak').length, 1,
+  '本体controllerは既存の手動外部イベントを自動推定と共存させる');
+const splitExternalInput = testing.getDpsExternalInputContent(
+  [
+    { id: 'manual:1', type: 'n回ごと', timingMode: 'periodic', candidateId: 'periodic-event', frame: 60, intervalFrames: 120 },
+    { id: 'manual:2', type: 'shieldBreak', frame: 180, reason: 'シールド破壊' }
+  ],
+  [
+    { id: 'periodic-event', type: 'n回ごと', timingMode: 'periodic', label: '周期候補', effectLabels: ['周期効果'] },
+    { id: 'external-event', type: 'shieldBreak', timingMode: 'event', label: '外部候補', effectLabels: ['外部効果'] }
+  ]
+);
+assert.doesNotMatch(splitExternalInput, /周期候補|周期効果|data-fdcp-external-candidate-id="periodic-event"/,
+  '周期候補と周期イベントを外部条件欄へ重複表示しない');
+assert.match(splitExternalInput, /外部候補[\s\S]*外部効果[\s\S]*data-fdc-dps-formation-event-add="external-event"/,
+  '外部条件候補は外部イベント欄へ残す');
+assert.match(splitExternalInput, /fdc-dps-external-event-row[\s\S]*シールド破壊/,
+  '外部条件イベント行は外部欄へ残す');
 const actionAuditWithoutControls = testing.renderDpsActionEffectContent(
   { basicAttack: { rows: [{ key: 'damage-buff', label: '時系列与ダメージ', value: '与ダメージ量 +20%', enabled: true }] } },
   {},
@@ -526,6 +618,36 @@ assert.equal(overrideApplied.display.damageBuffEffects[0].runtimeOverrideMode, '
 assert.equal(overrideApplied.simulation.damageBuffEffects[0].mode, 'fixed', '固定overrideはDPS simulation configへ適用する');
 assert.equal(overrideApplied.simulation.damageBuffEffects[0].fixedStacks, 3, '固定overrideのstack数をDPS simulation configへ適用する');
 assert.equal(overrideApplied.simulation.spRecoveryEffects.length, 0, 'OFF overrideはDPS simulationから除外する');
+const splitLegacyOverride = testing.applyDpsRuntimeEffectOverrides({
+  damageBuffEffects: [
+    { id: 'shared:action:lowSkill', runtimeBaseEffectId: 'shared', triggerActionKeys: ['lowSkill'] },
+    { id: 'shared:action:highSkill', runtimeBaseEffectId: 'shared', triggerActionKeys: ['highSkill'] }
+  ]
+}, 'apostle', { apostle: { shared: { mode: 'auto' } } });
+assert.deepEqual(
+  splitLegacyOverride.display.damageBuffEffects.map(effect => effect.runtimeOverrideMode),
+  ['auto', 'auto'],
+  '低学年・高学年分割後も旧共有bindingのAUTO設定を継承する'
+);
+const splitExplicitOverride = testing.applyDpsRuntimeEffectOverrides({
+  damageBuffEffects: [
+    { id: 'shared:action:lowSkill', runtimeBaseEffectId: 'shared', triggerActionKeys: ['lowSkill'] },
+    { id: 'shared:action:highSkill', runtimeBaseEffectId: 'shared', triggerActionKeys: ['highSkill'] }
+  ]
+}, 'apostle', { apostle: { shared: { mode: 'auto' }, 'shared:action:highSkill': { mode: 'off' } } });
+assert.deepEqual(
+  splitExplicitOverride.display.damageBuffEffects.map(effect => effect.runtimeOverrideMode),
+  ['auto', 'off'],
+  '分割後に指定したbindingのOFFを旧共有設定より優先する'
+);
+assert.deepEqual(
+  testing.createDpsFormationBindingModes({
+    damageBuffEffects: [{ id: 'shared:action:lowSkill', bindingKey: 'AllyA::lowSkill', runtimeHasExplicitOverride: true, runtimeOverrideMode: 'auto' }],
+    eventEffects: [{ id: 'external-event', bindingKey: 'AllyA::event', runtimeHasExplicitOverride: true, runtimeOverrideMode: 'off' }]
+  }),
+  { 'AllyA::lowSkill': 'auto', 'shared:action:lowSkill': 'auto', 'AllyA::event': 'off', 'external-event': 'off' },
+  '保存済みのbinding単位モードを編成行動推定providerへ渡す'
+);
 const highSkillRuntimeDefault = testing.applyDpsRuntimeEffectOverrides({
   damageBuffEffects: [{ id: 'high-skill-buff', maxStacks: 3, triggerActionKeys: ['highSkill'] }],
   eventEffects: [{ id: 'high-skill-event', triggerType: '高学年スキル使用時' }]
@@ -540,6 +662,34 @@ assert.equal(highSkillRuntimeOverride.display.damageBuffEffects[0].runtimeOverri
 assert.match(testing.renderDpsRuntimeEffectControls({
   damageBuffEffects: [{ id: 'high-skill-buff', maxStacks: 3, triggerActionKeys: ['highSkill'] }]
 }), /data-fdc-dps-runtime-mode="high-skill-buff"[\s\S]*<option value="off" selected>OFF<\/option>/, '高学年関連効果の初期選択をOFFとして描画する');
+const runtimePolicyControls = testing.renderDpsRuntimeEffectControls({
+  eventEffects: [{ id: 'external-shield', label: 'シールド終了反応', triggerType: 'シールド終了時', externalActionRequired: true }],
+  damageBuffEffects: [{ id: 'unsupported-trigger', label: '未対応反応', triggerType: '将来追加される条件' }],
+  spRegenEffects: [{ id: 'sp-regen-audit', label: '毎秒SP増加', fixed: 2 }]
+});
+assert.match(runtimePolicyControls, /外部入力待ち[\s\S]*発生時刻を外部入力 \/ 暫定/, '外部入力待ちと発動条件・品質を表示する');
+assert.match(runtimePolicyControls, /未対応[\s\S]*発動条件未対応 \/ 暫定/, '未対応と発動条件・品質を表示する');
+assert.match(testing.renderDpsRuntimeEffectControls({
+  damageBuffEffects: [{ id: 'formation-periodic', label: '編成周期効果', triggerType: '低学年スキル使用時', triggerActionKeys: ['lowSkill'], externalActionRequired: true }]
+}), /編成周期効果[\s\S]*周期指定対応/, '効果カードへbindingの周期指定対応を表示する');
+const unsupportedRuntimeControls = testing.renderDpsRuntimeEffectControls({
+  damageBuffEffects: [{ id: 'unsupported-runtime', label: '未対応効果', triggerType: '将来追加される条件' }]
+});
+assert.match(unsupportedRuntimeControls, /未対応効果[\s\S]*未対応[\s\S]*fdc-dps-runtime-readonly/, '未対応bindingは操作可能なOFFではなく監査表示にする');
+assert.doesNotMatch(unsupportedRuntimeControls, /data-fdc-dps-runtime-mode="unsupported-runtime"/, '未対応bindingへ自動／固定／OFFの操作を表示しない');
+assert.match(runtimePolicyControls, /毎秒SP増加[\s\S]*監査のみ[\s\S]*fdc-dps-runtime-readonly/, '個別設定を持たない毎秒SP効果を監査のみで表示する');
+const matchedExternalControls = testing.renderDpsRuntimeEffectControls({
+  eventEffects: [{ id: 'external-shield', label: 'シールド破壊反応', triggerType: 'シールド破壊時', externalActionRequired: true }]
+}, [{ type: 'shieldBreak' }]);
+assert.match(matchedExternalControls, /外部入力あり[\s\S]*対応1件/, '設定済み外部イベントが対象効果へ対応済みと表示する');
+const auxiliaryRuntimeControls = testing.renderDpsRuntimeEffectControls({
+  initialTargetStatuses: [{ status: '凍傷', sourceSelf: true }],
+  statusReactions: [{ id: 'reaction-internal', label: '冷静', status: '凍傷', takenDmgP: 20 }],
+  statusDamageWeaknessP: 15,
+  resources: [{ id: 'internal-resource', name: '魔力', initialStacks: 1, maxStacks: 3 }]
+});
+assert.match(auxiliaryRuntimeControls, /補助ランタイム（監査のみ）[\s\S]*初期対象状態[\s\S]*凍傷[\s\S]*状態反応[\s\S]*冷静 \+20%[\s\S]*状態異常弱点[\s\S]*\+15%[\s\S]*固有リソース[\s\S]*魔力 1\/3/, '補助ランタイムの初期状態・状態反応・弱点補正・リソースを読み取り専用で表示する');
+assert.doesNotMatch(auxiliaryRuntimeControls, /internal-resource|reaction-internal/, '補助ランタイム表示へ内部IDを出さない');
 assert.ok(script.includes('handleRuntimeEffectSettingChange') && script.includes('saveDpsRuntimeEffectOverrides(overrides)') && script.includes('this.requestAutoRun()'),
   '時系列効果control変更は共通保存経路を更新し、DPSのみ再計算を要求する');
 const auditWithRuntimeAndAdditional = testing.renderDpsActionEffectContent({

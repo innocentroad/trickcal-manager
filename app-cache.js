@@ -7,7 +7,7 @@
   const ROUTE_ASSETS = {
     stat: [
       'stat-dashboard.html',
-      'stat-prototype.css?v=20260903n',
+      'stat-prototype.css?v=20260903o',
       'stat-dashboard.css?v=20260903a',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260903a',
@@ -23,7 +23,7 @@
       'formation-damage-calc.html',
       'style.css',
       'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260902c',
+      'formation-damage-dps-prototype.css?v=20260903d',
       'shared-topbar.css?v=20260727e',
       'statData.js?v=20260903a',
       'public-release-config.js?v=20260903a',
@@ -34,19 +34,19 @@
       'synergy.js',
       'enemy-presets.js?v=20260821o',
       'combat-scenario.js?v=20260824a',
-      'dps-trigger-policy.js?v=20260901c',
+      'dps-trigger-policy.js?v=20260903e',
       'dps-timing-data.js?v=20260903a',
       'dps-simulator.js?v=20260902d',
       'dps-simulator-worker.js?v=20260901b',
       'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260903c',
-      'formation-damage-dps-prototype.js?v=20260903a',
+      'formation-damage-calc.js?v=20260903g',
+      'formation-damage-dps-prototype.js?v=20260903e',
       'image-preload.js?v=20260727a'
     ],
     dpsPrototype: [
       'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260902c',
-      'formation-damage-dps-prototype.js?v=20260903a',
+      'formation-damage-dps-prototype.css?v=20260903d',
+      'formation-damage-dps-prototype.js?v=20260903e',
       'public-release-config.js?v=20260903a',
       'stat-engine.js?v=20260828a',
       'dps-support-registry.js?v=20260827c',
@@ -55,8 +55,8 @@
       'dps-simulator-worker.js?v=20260901b',
       'formation-damage-calc.html',
       'formation-damage-calc.css?v=20260826b',
-      'dps-trigger-policy.js?v=20260901c',
-      'formation-damage-calc.js?v=20260903c'
+      'dps-trigger-policy.js?v=20260903e',
+      'formation-damage-calc.js?v=20260903g'
     ]
   };
 

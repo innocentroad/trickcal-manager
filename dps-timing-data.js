@@ -26,27 +26,27 @@ const DPS_TIMING_DATA = {
   },
   "summary": {
     "apostles": 76,
-    "usableApostles": 25,
+    "usableApostles": 26,
     "generatedObjects": 7,
     "endConditions": 9,
     "movementTransitions": 4,
     "timingPatterns": 1,
     "implementationStatuses": {
       "normal": {
-        "暫定": 14,
-        "未": 50,
-        "済": 11,
+        "暫定": 15,
+        "未": 48,
+        "済": 12,
         "途中": 0
       },
       "aside": {
         "暫定": 8,
-        "未": 61,
-        "済": 6,
+        "未": 60,
+        "済": 7,
         "途中": 0
       },
       "favorite": {
-        "暫定": 4,
-        "未": 66,
+        "暫定": 5,
+        "未": 65,
         "済": 5,
         "途中": 0
       }
@@ -3524,6 +3524,13 @@ const DPS_TIMING_DATA = {
           "value": 93,
           "unit": "録画F@▶",
           "gameFrames": 121
+        },
+        {
+          "actionKey": "enhancedAttack",
+          "branch": "",
+          "value": 93,
+          "unit": "録画F@▶",
+          "gameFrames": 121
         }
       ],
       "actions": {
@@ -3542,29 +3549,73 @@ const DPS_TIMING_DATA = {
               "value": 174,
               "unit": "ゲームF",
               "gameFrames": 174,
-              "researchStatus": "未",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 40
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
               "branch": "",
               "order": 1,
-              "effectKind": "",
-              "effectId": "",
+              "effectKind": "攻撃速度増加",
+              "effectId": "Epica_low_e01",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": null,
-              "sourceTime": null,
-              "researchStatus": "",
+              "frame": 95,
+              "sourceTime": {
+                "value": 73,
+                "unit": "録画F@▶",
+                "gameFrames": 95
+              },
+              "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
               "note": "",
               "sourceLine": 77
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "攻撃速度増加",
+              "effectId": "Epica_low_e02",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 95,
+              "sourceTime": {
+                "value": 73,
+                "unit": "録画F@▶",
+                "gameFrames": 95
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 78
+            },
+            {
+              "branch": "",
+              "order": 3,
+              "effectKind": "攻撃速度増加",
+              "effectId": "Epica_low_e04",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 95,
+              "sourceTime": {
+                "value": 73,
+                "unit": "録画F@▶",
+                "gameFrames": 95
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 79
             }
           ],
           "timingPatterns": [],
@@ -3585,29 +3636,557 @@ const DPS_TIMING_DATA = {
               "value": 600,
               "unit": "ゲームF",
               "gameFrames": 600,
-              "researchStatus": "未",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 41
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
               "branch": "",
               "order": 1,
-              "effectKind": "",
-              "effectId": "",
+              "effectKind": "演奏",
+              "effectId": "Epica_high_e03",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": null,
-              "sourceTime": null,
-              "researchStatus": "",
+              "frame": 86,
+              "sourceTime": {
+                "value": 66,
+                "unit": "録画F@▶",
+                "gameFrames": 86
+              },
+              "researchStatus": "暫定",
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 78
+              "sourceLine": 80
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "攻撃力増加",
+              "effectId": "Epica_high_e04",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 86,
+              "sourceTime": {
+                "value": 66,
+                "unit": "録画F@▶",
+                "gameFrames": 86
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 81
+            },
+            {
+              "branch": "",
+              "order": 3,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 187,
+              "guaranteeSource": {
+                "value": 144,
+                "unit": "録画F@▶",
+                "gameFrames": 187
+              },
+              "frame": 204,
+              "sourceTime": {
+                "value": 157,
+                "unit": "録画F@▶",
+                "gameFrames": 204
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 82
+            },
+            {
+              "branch": "",
+              "order": 4,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 202,
+              "guaranteeSource": {
+                "value": 155,
+                "unit": "録画F@▶",
+                "gameFrames": 202
+              },
+              "frame": 220,
+              "sourceTime": {
+                "value": 169,
+                "unit": "録画F@▶",
+                "gameFrames": 220
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 83
+            },
+            {
+              "branch": "",
+              "order": 5,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 209,
+              "guaranteeSource": {
+                "value": 161,
+                "unit": "録画F@▶",
+                "gameFrames": 209
+              },
+              "frame": 226,
+              "sourceTime": {
+                "value": 174,
+                "unit": "録画F@▶",
+                "gameFrames": 226
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 84
+            },
+            {
+              "branch": "",
+              "order": 6,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 295,
+              "guaranteeSource": {
+                "value": 227,
+                "unit": "録画F@▶",
+                "gameFrames": 295
+              },
+              "frame": 312,
+              "sourceTime": {
+                "value": 240,
+                "unit": "録画F@▶",
+                "gameFrames": 312
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 85
+            },
+            {
+              "branch": "",
+              "order": 7,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 309,
+              "guaranteeSource": {
+                "value": 238,
+                "unit": "録画F@▶",
+                "gameFrames": 309
+              },
+              "frame": 325,
+              "sourceTime": {
+                "value": 250,
+                "unit": "録画F@▶",
+                "gameFrames": 325
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 86
+            },
+            {
+              "branch": "",
+              "order": 8,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 313,
+              "guaranteeSource": {
+                "value": 241,
+                "unit": "録画F@▶",
+                "gameFrames": 313
+              },
+              "frame": 330,
+              "sourceTime": {
+                "value": 254,
+                "unit": "録画F@▶",
+                "gameFrames": 330
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 87
+            },
+            {
+              "branch": "",
+              "order": 9,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 328,
+              "guaranteeSource": {
+                "value": 252,
+                "unit": "録画F@▶",
+                "gameFrames": 328
+              },
+              "frame": 346,
+              "sourceTime": {
+                "value": 266,
+                "unit": "録画F@▶",
+                "gameFrames": 346
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 88
+            },
+            {
+              "branch": "",
+              "order": 10,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 330,
+              "guaranteeSource": {
+                "value": 254,
+                "unit": "録画F@▶",
+                "gameFrames": 330
+              },
+              "frame": 346,
+              "sourceTime": {
+                "value": 266,
+                "unit": "録画F@▶",
+                "gameFrames": 346
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 89
+            },
+            {
+              "branch": "",
+              "order": 11,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 334,
+              "guaranteeSource": {
+                "value": 257,
+                "unit": "録画F@▶",
+                "gameFrames": 334
+              },
+              "frame": 352,
+              "sourceTime": {
+                "value": 271,
+                "unit": "録画F@▶",
+                "gameFrames": 352
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 90
+            },
+            {
+              "branch": "",
+              "order": 12,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 342,
+              "guaranteeSource": {
+                "value": 263,
+                "unit": "録画F@▶",
+                "gameFrames": 342
+              },
+              "frame": 359,
+              "sourceTime": {
+                "value": 276,
+                "unit": "録画F@▶",
+                "gameFrames": 359
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 91
+            },
+            {
+              "branch": "",
+              "order": 13,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 343,
+              "guaranteeSource": {
+                "value": 264,
+                "unit": "録画F@▶",
+                "gameFrames": 343
+              },
+              "frame": 360,
+              "sourceTime": {
+                "value": 277,
+                "unit": "録画F@▶",
+                "gameFrames": 360
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 92
+            },
+            {
+              "branch": "",
+              "order": 14,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 346,
+              "guaranteeSource": {
+                "value": 266,
+                "unit": "録画F@▶",
+                "gameFrames": 346
+              },
+              "frame": 367,
+              "sourceTime": {
+                "value": 282,
+                "unit": "録画F@▶",
+                "gameFrames": 367
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 93
+            },
+            {
+              "branch": "",
+              "order": 15,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 417,
+              "guaranteeSource": {
+                "value": 321,
+                "unit": "録画F@▶",
+                "gameFrames": 417
+              },
+              "frame": 437,
+              "sourceTime": {
+                "value": 336,
+                "unit": "録画F@▶",
+                "gameFrames": 437
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 94
+            },
+            {
+              "branch": "",
+              "order": 16,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 433,
+              "guaranteeSource": {
+                "value": 333,
+                "unit": "録画F@▶",
+                "gameFrames": 433
+              },
+              "frame": 452,
+              "sourceTime": {
+                "value": 348,
+                "unit": "録画F@▶",
+                "gameFrames": 452
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 95
+            },
+            {
+              "branch": "",
+              "order": 17,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 437,
+              "guaranteeSource": {
+                "value": 336,
+                "unit": "録画F@▶",
+                "gameFrames": 437
+              },
+              "frame": 456,
+              "sourceTime": {
+                "value": 351,
+                "unit": "録画F@▶",
+                "gameFrames": 456
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 96
+            },
+            {
+              "branch": "",
+              "order": 18,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 454,
+              "guaranteeSource": {
+                "value": 349,
+                "unit": "録画F@▶",
+                "gameFrames": 454
+              },
+              "frame": 472,
+              "sourceTime": {
+                "value": 363,
+                "unit": "録画F@▶",
+                "gameFrames": 472
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 97
+            },
+            {
+              "branch": "",
+              "order": 19,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 455,
+              "guaranteeSource": {
+                "value": 350,
+                "unit": "録画F@▶",
+                "gameFrames": 455
+              },
+              "frame": 473,
+              "sourceTime": {
+                "value": 364,
+                "unit": "録画F@▶",
+                "gameFrames": 473
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 98
+            },
+            {
+              "branch": "",
+              "order": 20,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 462,
+              "guaranteeSource": {
+                "value": 355,
+                "unit": "録画F@▶",
+                "gameFrames": 462
+              },
+              "frame": 480,
+              "sourceTime": {
+                "value": 369,
+                "unit": "録画F@▶",
+                "gameFrames": 480
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 99
+            },
+            {
+              "branch": "",
+              "order": 21,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 467,
+              "guaranteeSource": {
+                "value": 359,
+                "unit": "録画F@▶",
+                "gameFrames": 467
+              },
+              "frame": 485,
+              "sourceTime": {
+                "value": 373,
+                "unit": "録画F@▶",
+                "gameFrames": 485
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 100
+            },
+            {
+              "branch": "",
+              "order": 22,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 468,
+              "guaranteeSource": {
+                "value": 360,
+                "unit": "録画F@▶",
+                "gameFrames": 468
+              },
+              "frame": 486,
+              "sourceTime": {
+                "value": 374,
+                "unit": "録画F@▶",
+                "gameFrames": 486
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 101
+            },
+            {
+              "branch": "",
+              "order": 23,
+              "effectKind": "ダメージ",
+              "effectId": "Epica_high_e01",
+              "lv1PerHitMultiplier": 200,
+              "guaranteeFrames": 473,
+              "guaranteeSource": {
+                "value": 364,
+                "unit": "録画F@▶",
+                "gameFrames": 473
+              },
+              "frame": 491,
+              "sourceTime": {
+                "value": 378,
+                "unit": "録画F@▶",
+                "gameFrames": 491
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 102
             }
           ],
           "timingPatterns": [],
@@ -3618,28 +4197,28 @@ const DPS_TIMING_DATA = {
           "branch": "",
           "motionFrames": 100,
           "motionSource": {
-            "value": 100.2,
+            "value": 100,
             "unit": "ゲームF",
             "gameFrames": 100
           },
           "motionVariants": [
             {
               "branch": "",
-              "value": 100.2,
+              "value": 100,
               "unit": "ゲームF",
               "gameFrames": 100,
-              "researchStatus": "未",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 42
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
               "branch": "",
               "order": 1,
-              "effectKind": "",
+              "effectKind": "ダメージ",
               "effectId": "",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": 66,
@@ -3658,7 +4237,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 79
+              "sourceLine": 103
             }
           ],
           "timingPatterns": [],
@@ -3679,29 +4258,37 @@ const DPS_TIMING_DATA = {
               "value": 120,
               "unit": "ゲームF",
               "gameFrames": 120,
-              "researchStatus": "未",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 43
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
               "branch": "",
               "order": 1,
-              "effectKind": "",
+              "effectKind": "ダメージ",
               "effectId": "",
               "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": null,
-              "sourceTime": null,
-              "researchStatus": "",
+              "guaranteeFrames": 91,
+              "guaranteeSource": {
+                "value": 70,
+                "unit": "録画F@▶",
+                "gameFrames": 91
+              },
+              "frame": 147,
+              "sourceTime": {
+                "value": 113,
+                "unit": "録画F@▶",
+                "gameFrames": 147
+              },
+              "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 80
+              "sourceLine": 104
             }
           ],
           "timingPatterns": [],
@@ -3709,9 +4296,9 @@ const DPS_TIMING_DATA = {
         }
       },
       "implementationStatuses": {
-        "normal": "未",
+        "normal": "暫定",
         "aside": "未",
-        "favorite": "未"
+        "favorite": "暫定"
       },
       "implementationNote": ""
     },
@@ -3797,7 +4384,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 81
+              "sourceLine": 105
             },
             {
               "branch": "",
@@ -3821,7 +4408,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 82
+              "sourceLine": 106
             },
             {
               "branch": "",
@@ -3845,7 +4432,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 83
+              "sourceLine": 107
             }
           ],
           "timingPatterns": [],
@@ -3892,7 +4479,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "移動無視の最短",
-              "sourceLine": 84
+              "sourceLine": 108
             }
           ],
           "timingPatterns": [],
@@ -3943,7 +4530,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 85
+              "sourceLine": 109
             }
           ],
           "timingPatterns": [],
@@ -3999,7 +4586,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 86
+              "sourceLine": 110
             },
             {
               "branch": "エルフィンのアイスケーキ",
@@ -4019,7 +4606,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 87
+              "sourceLine": 111
             }
           ],
           "timingPatterns": [],
@@ -4108,7 +4695,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 88
+              "sourceLine": 112
             }
           ],
           "timingPatterns": [],
@@ -4164,7 +4751,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 89
+              "sourceLine": 113
             },
             {
               "branch": "",
@@ -4184,7 +4771,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 90
+              "sourceLine": 114
             },
             {
               "branch": "",
@@ -4204,7 +4791,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 91
+              "sourceLine": 115
             },
             {
               "branch": "",
@@ -4224,7 +4811,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 92
+              "sourceLine": 116
             },
             {
               "branch": "",
@@ -4244,7 +4831,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 93
+              "sourceLine": 117
             },
             {
               "branch": "",
@@ -4264,7 +4851,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 94
+              "sourceLine": 118
             },
             {
               "branch": "",
@@ -4284,7 +4871,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 95
+              "sourceLine": 119
             },
             {
               "branch": "",
@@ -4304,7 +4891,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 96
+              "sourceLine": 120
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4324,7 +4911,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 97
+              "sourceLine": 121
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4344,7 +4931,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 98
+              "sourceLine": 122
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4364,7 +4951,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 99
+              "sourceLine": 123
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4384,7 +4971,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 100
+              "sourceLine": 124
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4404,7 +4991,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 101
+              "sourceLine": 125
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4424,7 +5011,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 102
+              "sourceLine": 126
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4444,7 +5031,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 103
+              "sourceLine": 127
             },
             {
               "branch": "エレナの強化ドローン",
@@ -4464,7 +5051,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 104
+              "sourceLine": 128
             }
           ],
           "timingPatterns": [],
@@ -4515,7 +5102,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 105
+              "sourceLine": 129
             },
             {
               "branch": "",
@@ -4539,7 +5126,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 106
+              "sourceLine": 130
             },
             {
               "branch": "",
@@ -4563,7 +5150,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 107
+              "sourceLine": 131
             }
           ],
           "timingPatterns": [],
@@ -4614,7 +5201,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 108
+              "sourceLine": 132
             }
           ],
           "timingPatterns": [],
@@ -4692,7 +5279,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 109
+              "sourceLine": 133
             }
           ],
           "timingPatterns": [],
@@ -4739,7 +5326,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 110
+              "sourceLine": 134
             }
           ],
           "timingPatterns": [],
@@ -4790,7 +5377,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 111
+              "sourceLine": 135
             }
           ],
           "timingPatterns": [],
@@ -4875,7 +5462,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 116
+              "sourceLine": 140
             }
           ],
           "timingPatterns": [],
@@ -4918,7 +5505,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 117
+              "sourceLine": 141
             }
           ],
           "timingPatterns": [],
@@ -5044,7 +5631,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 118
+              "sourceLine": 142
             }
           ],
           "timingPatterns": [],
@@ -5095,7 +5682,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 119
+              "sourceLine": 143
             }
           ],
           "timingPatterns": [],
@@ -5200,7 +5787,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 120
+              "sourceLine": 144
             },
             {
               "branch": "遺物装備0",
@@ -5220,7 +5807,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 121
+              "sourceLine": 145
             },
             {
               "branch": "遺物装備1",
@@ -5240,7 +5827,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 122
+              "sourceLine": 146
             },
             {
               "branch": "遺物装備1",
@@ -5260,7 +5847,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 123
+              "sourceLine": 147
             },
             {
               "branch": "遺物装備1",
@@ -5280,7 +5867,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 124
+              "sourceLine": 148
             },
             {
               "branch": "遺物装備2",
@@ -5300,7 +5887,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 125
+              "sourceLine": 149
             },
             {
               "branch": "遺物装備2",
@@ -5320,7 +5907,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 126
+              "sourceLine": 150
             },
             {
               "branch": "遺物装備2",
@@ -5340,7 +5927,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 127
+              "sourceLine": 151
             },
             {
               "branch": "遺物装備2",
@@ -5360,7 +5947,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 128
+              "sourceLine": 152
             },
             {
               "branch": "遺物装備3",
@@ -5380,7 +5967,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 129
+              "sourceLine": 153
             },
             {
               "branch": "遺物装備3",
@@ -5400,7 +5987,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 130
+              "sourceLine": 154
             },
             {
               "branch": "遺物装備3",
@@ -5420,7 +6007,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 131
+              "sourceLine": 155
             },
             {
               "branch": "遺物装備3",
@@ -5440,7 +6027,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 132
+              "sourceLine": 156
             },
             {
               "branch": "遺物装備3",
@@ -5460,7 +6047,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "検証",
               "note": "",
-              "sourceLine": 133
+              "sourceLine": 157
             }
           ],
           "timingPatterns": [
@@ -5489,7 +6076,7 @@ const DPS_TIMING_DATA = {
               "researchStatus": "済",
               "adoption": "採用",
               "note": "",
-              "sourceLine": 134
+              "sourceLine": 158
             }
           ],
           "generatedObjects": []
@@ -5535,7 +6122,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 135
+              "sourceLine": 159
             },
             {
               "branch": "",
@@ -5555,7 +6142,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 136
+              "sourceLine": 160
             },
             {
               "branch": "",
@@ -5575,7 +6162,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 137
+              "sourceLine": 161
             },
             {
               "branch": "",
@@ -5595,7 +6182,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 138
+              "sourceLine": 162
             },
             {
               "branch": "",
@@ -5615,7 +6202,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 139
+              "sourceLine": 163
             },
             {
               "branch": "",
@@ -5635,7 +6222,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 140
+              "sourceLine": 164
             },
             {
               "branch": "",
@@ -5655,7 +6242,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 141
+              "sourceLine": 165
             },
             {
               "branch": "",
@@ -5675,7 +6262,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 142
+              "sourceLine": 166
             },
             {
               "branch": "",
@@ -5695,7 +6282,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 143
+              "sourceLine": 167
             }
           ],
           "timingPatterns": [],
@@ -5742,7 +6329,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 144
+              "sourceLine": 168
             }
           ],
           "timingPatterns": [],
@@ -5831,7 +6418,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 145
+              "sourceLine": 169
             },
             {
               "branch": "キャロットのサトウキビ",
@@ -5855,7 +6442,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 146
+              "sourceLine": 170
             }
           ],
           "timingPatterns": [],
@@ -5906,7 +6493,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 147
+              "sourceLine": 171
             },
             {
               "branch": "",
@@ -5930,7 +6517,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 148
+              "sourceLine": 172
             },
             {
               "branch": "",
@@ -5954,7 +6541,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 149
+              "sourceLine": 173
             },
             {
               "branch": "",
@@ -5978,7 +6565,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 150
+              "sourceLine": 174
             },
             {
               "branch": "",
@@ -6002,7 +6589,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 151
+              "sourceLine": 175
             },
             {
               "branch": "",
@@ -6026,7 +6613,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 152
+              "sourceLine": 176
             },
             {
               "branch": "",
@@ -6050,7 +6637,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 153
+              "sourceLine": 177
             },
             {
               "branch": "",
@@ -6074,7 +6661,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 154
+              "sourceLine": 178
             },
             {
               "branch": "",
@@ -6098,7 +6685,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 155
+              "sourceLine": 179
             },
             {
               "branch": "",
@@ -6122,7 +6709,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 156
+              "sourceLine": 180
             },
             {
               "branch": "",
@@ -6146,7 +6733,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 157
+              "sourceLine": 181
             },
             {
               "branch": "",
@@ -6170,7 +6757,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 158
+              "sourceLine": 182
             },
             {
               "branch": "",
@@ -6194,7 +6781,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 159
+              "sourceLine": 183
             },
             {
               "branch": "",
@@ -6218,7 +6805,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 160
+              "sourceLine": 184
             },
             {
               "branch": "",
@@ -6242,7 +6829,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 161
+              "sourceLine": 185
             },
             {
               "branch": "",
@@ -6266,7 +6853,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 162
+              "sourceLine": 186
             },
             {
               "branch": "",
@@ -6290,7 +6877,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 163
+              "sourceLine": 187
             },
             {
               "branch": "",
@@ -6314,7 +6901,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 164
+              "sourceLine": 188
             },
             {
               "branch": "",
@@ -6338,7 +6925,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 165
+              "sourceLine": 189
             },
             {
               "branch": "",
@@ -6362,7 +6949,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 166
+              "sourceLine": 190
             },
             {
               "branch": "",
@@ -6386,7 +6973,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 167
+              "sourceLine": 191
             },
             {
               "branch": "",
@@ -6410,7 +6997,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 168
+              "sourceLine": 192
             },
             {
               "branch": "",
@@ -6434,7 +7021,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 169
+              "sourceLine": 193
             },
             {
               "branch": "",
@@ -6458,7 +7045,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 170
+              "sourceLine": 194
             }
           ],
           "timingPatterns": [],
@@ -6509,7 +7096,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 171
+              "sourceLine": 195
             }
           ],
           "timingPatterns": [],
@@ -6556,7 +7143,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 172
+              "sourceLine": 196
             }
           ],
           "timingPatterns": [],
@@ -6641,7 +7228,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 176
+              "sourceLine": 200
             }
           ],
           "timingPatterns": [],
@@ -7050,7 +7637,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 177
+              "sourceLine": 201
             },
             {
               "branch": "ぬいぐるみの意志",
@@ -7070,7 +7657,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 178
+              "sourceLine": 202
             },
             {
               "branch": "ぬいぐるみの意志",
@@ -7090,7 +7677,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 179
+              "sourceLine": 203
             },
             {
               "branch": "ぬいぐるみの意志",
@@ -7110,7 +7697,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 180
+              "sourceLine": 204
             }
           ],
           "timingPatterns": [],
@@ -7153,7 +7740,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 181
+              "sourceLine": 205
             }
           ],
           "timingPatterns": [],
@@ -7235,7 +7822,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 190
+              "sourceLine": 214
             },
             {
               "branch": "",
@@ -7259,7 +7846,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 191
+              "sourceLine": 215
             },
             {
               "branch": "",
@@ -7283,7 +7870,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 192
+              "sourceLine": 216
             },
             {
               "branch": "",
@@ -7307,7 +7894,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 193
+              "sourceLine": 217
             },
             {
               "branch": "",
@@ -7331,7 +7918,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 194
+              "sourceLine": 218
             }
           ],
           "timingPatterns": [],
@@ -7382,7 +7969,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 195
+              "sourceLine": 219
             }
           ],
           "timingPatterns": [],
@@ -7433,7 +8020,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 196
+              "sourceLine": 220
             }
           ],
           "timingPatterns": [],
@@ -7454,19 +8041,19 @@ const DPS_TIMING_DATA = {
       "initialActionDelayFrames": 60,
       "initialActionDelaySource": "default",
       "measuredNormalAttackIntervalFrames": 104,
-      "normalAttackIntervalFrames": 6240,
+      "normalAttackIntervalFrames": 135,
       "normalAttackIntervalSource": {
         "value": 104,
-        "unit": "ゲーム秒",
-        "gameFrames": 6240
+        "unit": "録画F@▶",
+        "gameFrames": 135
       },
       "normalAttackIntervalVariants": [
         {
           "actionKey": "basicAttack",
           "branch": "",
           "value": 104,
-          "unit": "ゲーム秒",
-          "gameFrames": 6240
+          "unit": "録画F@▶",
+          "gameFrames": 135
         }
       ],
       "actions": {
@@ -7511,7 +8098,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 197
+              "sourceLine": 221
             },
             {
               "branch": "",
@@ -7531,7 +8118,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 198
+              "sourceLine": 222
             },
             {
               "branch": "",
@@ -7551,7 +8138,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 200
+              "sourceLine": 224
             },
             {
               "branch": "",
@@ -7571,7 +8158,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 201
+              "sourceLine": 225
             },
             {
               "branch": "",
@@ -7591,7 +8178,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 202
+              "sourceLine": 226
             },
             {
               "branch": "",
@@ -7611,7 +8198,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 203
+              "sourceLine": 227
             },
             {
               "branch": "",
@@ -7631,7 +8218,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 204
+              "sourceLine": 228
             },
             {
               "branch": "",
@@ -7651,7 +8238,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 205
+              "sourceLine": 229
             },
             {
               "branch": "",
@@ -7671,7 +8258,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 206
+              "sourceLine": 230
             },
             {
               "branch": "",
@@ -7691,7 +8278,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 207
+              "sourceLine": 231
             },
             {
               "branch": "",
@@ -7711,7 +8298,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 208
+              "sourceLine": 232
             },
             {
               "branch": "",
@@ -7731,7 +8318,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 209
+              "sourceLine": 233
             },
             {
               "branch": "",
@@ -7751,7 +8338,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 210
+              "sourceLine": 234
             },
             {
               "branch": "",
@@ -7771,7 +8358,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 211
+              "sourceLine": 235
             }
           ],
           "timingPatterns": [],
@@ -7818,7 +8405,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 212
+              "sourceLine": 236
             },
             {
               "branch": "",
@@ -7838,7 +8425,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 213
+              "sourceLine": 237
             },
             {
               "branch": "",
@@ -7858,7 +8445,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 214
+              "sourceLine": 238
             },
             {
               "branch": "",
@@ -7878,7 +8465,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 215
+              "sourceLine": 239
             },
             {
               "branch": "",
@@ -7898,7 +8485,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 216
+              "sourceLine": 240
             },
             {
               "branch": "",
@@ -7918,7 +8505,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 217
+              "sourceLine": 241
             },
             {
               "branch": "",
@@ -7938,7 +8525,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 218
+              "sourceLine": 242
             },
             {
               "branch": "",
@@ -7958,7 +8545,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 219
+              "sourceLine": 243
             }
           ],
           "timingPatterns": [],
@@ -8005,7 +8592,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 220
+              "sourceLine": 244
             }
           ],
           "timingPatterns": [],
@@ -8030,8 +8617,7 @@ const DPS_TIMING_DATA = {
       "normalAttackIntervalSource": {
         "value": 117,
         "unit": "録画F@▶",
-        "gameFrames": 152,
-        "unitInferred": true
+        "gameFrames": 152
       },
       "normalAttackIntervalVariants": [
         {
@@ -8039,16 +8625,14 @@ const DPS_TIMING_DATA = {
           "branch": "",
           "value": 117,
           "unit": "録画F@▶",
-          "gameFrames": 152,
-          "unitInferred": true
+          "gameFrames": 152
         },
         {
           "actionKey": "enhancedAttack",
           "branch": "",
           "value": 117,
           "unit": "録画F@▶",
-          "gameFrames": 152,
-          "unitInferred": true
+          "gameFrames": 152
         }
       ],
       "actions": {
@@ -8129,7 +8713,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 225
+              "sourceLine": 249
             },
             {
               "branch": "共通",
@@ -8149,7 +8733,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 226
+              "sourceLine": 250
             },
             {
               "branch": "魔弾1",
@@ -8169,7 +8753,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "56",
-              "sourceLine": 227
+              "sourceLine": 251
             },
             {
               "branch": "魔弾1",
@@ -8189,521 +8773,41 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 228
-            },
-            {
-              "branch": "魔弾2",
-              "order": 3,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 229
-            },
-            {
-              "branch": "魔弾2",
-              "order": 4,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 230
-            },
-            {
-              "branch": "魔弾2",
-              "order": 5,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "46",
-              "sourceLine": 231
-            },
-            {
-              "branch": "魔弾2",
-              "order": 6,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 232
-            },
-            {
-              "branch": "魔弾3",
-              "order": 3,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 233
-            },
-            {
-              "branch": "魔弾3",
-              "order": 4,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 234
-            },
-            {
-              "branch": "魔弾3",
-              "order": 5,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "0",
-              "sourceLine": 235
-            },
-            {
-              "branch": "魔弾3",
-              "order": 6,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 236
-            },
-            {
-              "branch": "魔弾3",
-              "order": 7,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "47",
-              "sourceLine": 237
-            },
-            {
-              "branch": "魔弾3",
-              "order": 8,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 238
-            },
-            {
-              "branch": "魔弾4",
-              "order": 3,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 239
-            },
-            {
-              "branch": "魔弾4",
-              "order": 4,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 240
-            },
-            {
-              "branch": "魔弾4",
-              "order": 5,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "-47",
-              "sourceLine": 241
-            },
-            {
-              "branch": "魔弾4",
-              "order": 6,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 242
-            },
-            {
-              "branch": "魔弾4",
-              "order": 7,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "0",
-              "sourceLine": 243
-            },
-            {
-              "branch": "魔弾4",
-              "order": 8,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 244
-            },
-            {
-              "branch": "魔弾4",
-              "order": 9,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 313,
-              "sourceTime": {
-                "value": 241,
-                "unit": "録画F@▶",
-                "gameFrames": 313
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "46",
-              "sourceLine": 245
-            },
-            {
-              "branch": "魔弾4",
-              "order": 10,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 313,
-              "sourceTime": {
-                "value": 241,
-                "unit": "録画F@▶",
-                "gameFrames": 313
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 246
-            },
-            {
-              "branch": "魔弾5",
-              "order": 3,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 247
-            },
-            {
-              "branch": "魔弾5",
-              "order": 4,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 133,
-              "sourceTime": {
-                "value": 102,
-                "unit": "録画F@▶",
-                "gameFrames": 133
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 248
-            },
-            {
-              "branch": "魔弾5",
-              "order": 5,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "-47.0",
-              "sourceLine": 249
-            },
-            {
-              "branch": "魔弾5",
-              "order": 6,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 192,
-              "sourceTime": {
-                "value": 148,
-                "unit": "録画F@▶",
-                "gameFrames": 192
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
-              "sourceLine": 250
-            },
-            {
-              "branch": "魔弾5",
-              "order": 7,
-              "effectKind": "魔弾消費",
-              "effectId": "",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "0.0",
-              "sourceLine": 251
-            },
-            {
-              "branch": "魔弾5",
-              "order": 8,
-              "effectKind": "ダメージ",
-              "effectId": "Xion_low_e01",
-              "lv1PerHitMultiplier": null,
-              "guaranteeFrames": null,
-              "guaranteeSource": null,
-              "frame": 254,
-              "sourceTime": {
-                "value": 195,
-                "unit": "録画F@▶",
-                "gameFrames": 254
-              },
-              "researchStatus": "済",
-              "timingMode": "個別",
-              "adoption": "",
-              "note": "",
               "sourceLine": 252
             },
             {
-              "branch": "魔弾5",
-              "order": 9,
+              "branch": "魔弾2",
+              "order": 3,
               "effectKind": "魔弾消費",
               "effectId": "",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": 313,
+              "frame": 133,
               "sourceTime": {
-                "value": 241,
+                "value": 102,
                 "unit": "録画F@▶",
-                "gameFrames": 313
+                "gameFrames": 133
               },
               "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
-              "note": "46.0",
+              "note": "",
               "sourceLine": 253
             },
             {
-              "branch": "魔弾5",
-              "order": 10,
+              "branch": "魔弾2",
+              "order": 4,
               "effectKind": "ダメージ",
               "effectId": "Xion_low_e01",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": 313,
+              "frame": 133,
               "sourceTime": {
-                "value": 241,
+                "value": 102,
                 "unit": "録画F@▶",
-                "gameFrames": 313
+                "gameFrames": 133
               },
               "researchStatus": "済",
               "timingMode": "個別",
@@ -8712,47 +8816,47 @@ const DPS_TIMING_DATA = {
               "sourceLine": 254
             },
             {
-              "branch": "魔弾5",
-              "order": 11,
+              "branch": "魔弾2",
+              "order": 5,
               "effectKind": "魔弾消費",
               "effectId": "",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": 373,
+              "frame": 192,
               "sourceTime": {
-                "value": 287,
+                "value": 148,
                 "unit": "録画F@▶",
-                "gameFrames": 373
+                "gameFrames": 192
               },
-              "researchStatus": "暫定",
+              "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
-              "note": "",
+              "note": "46",
               "sourceLine": 255
             },
             {
-              "branch": "魔弾5",
-              "order": 12,
+              "branch": "魔弾2",
+              "order": 6,
               "effectKind": "ダメージ",
               "effectId": "Xion_low_e01",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": 373,
+              "frame": 192,
               "sourceTime": {
-                "value": 287,
+                "value": 148,
                 "unit": "録画F@▶",
-                "gameFrames": 373
+                "gameFrames": 192
               },
-              "researchStatus": "暫定",
+              "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
               "note": "",
               "sourceLine": 256
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 3,
               "effectKind": "魔弾消費",
               "effectId": "",
@@ -8772,7 +8876,7 @@ const DPS_TIMING_DATA = {
               "sourceLine": 257
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 4,
               "effectKind": "ダメージ",
               "effectId": "Xion_low_e01",
@@ -8792,7 +8896,7 @@ const DPS_TIMING_DATA = {
               "sourceLine": 258
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 5,
               "effectKind": "魔弾消費",
               "effectId": "",
@@ -8808,11 +8912,11 @@ const DPS_TIMING_DATA = {
               "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
-              "note": "-47.0",
+              "note": "0",
               "sourceLine": 259
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 6,
               "effectKind": "ダメージ",
               "effectId": "Xion_low_e01",
@@ -8832,7 +8936,7 @@ const DPS_TIMING_DATA = {
               "sourceLine": 260
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 7,
               "effectKind": "魔弾消費",
               "effectId": "",
@@ -8848,11 +8952,11 @@ const DPS_TIMING_DATA = {
               "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
-              "note": "0.0",
+              "note": "47",
               "sourceLine": 261
             },
             {
-              "branch": "魔弾6",
+              "branch": "魔弾3",
               "order": 8,
               "effectKind": "ダメージ",
               "effectId": "Xion_low_e01",
@@ -8872,6 +8976,486 @@ const DPS_TIMING_DATA = {
               "sourceLine": 262
             },
             {
+              "branch": "魔弾4",
+              "order": 3,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 263
+            },
+            {
+              "branch": "魔弾4",
+              "order": 4,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 264
+            },
+            {
+              "branch": "魔弾4",
+              "order": 5,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "-47",
+              "sourceLine": 265
+            },
+            {
+              "branch": "魔弾4",
+              "order": 6,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 266
+            },
+            {
+              "branch": "魔弾4",
+              "order": 7,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "0",
+              "sourceLine": 267
+            },
+            {
+              "branch": "魔弾4",
+              "order": 8,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 268
+            },
+            {
+              "branch": "魔弾4",
+              "order": 9,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 313,
+              "sourceTime": {
+                "value": 241,
+                "unit": "録画F@▶",
+                "gameFrames": 313
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "46",
+              "sourceLine": 269
+            },
+            {
+              "branch": "魔弾4",
+              "order": 10,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 313,
+              "sourceTime": {
+                "value": 241,
+                "unit": "録画F@▶",
+                "gameFrames": 313
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 270
+            },
+            {
+              "branch": "魔弾5",
+              "order": 3,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 271
+            },
+            {
+              "branch": "魔弾5",
+              "order": 4,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 272
+            },
+            {
+              "branch": "魔弾5",
+              "order": 5,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "-47.0",
+              "sourceLine": 273
+            },
+            {
+              "branch": "魔弾5",
+              "order": 6,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 274
+            },
+            {
+              "branch": "魔弾5",
+              "order": 7,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "0.0",
+              "sourceLine": 275
+            },
+            {
+              "branch": "魔弾5",
+              "order": 8,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 276
+            },
+            {
+              "branch": "魔弾5",
+              "order": 9,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 313,
+              "sourceTime": {
+                "value": 241,
+                "unit": "録画F@▶",
+                "gameFrames": 313
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "46.0",
+              "sourceLine": 277
+            },
+            {
+              "branch": "魔弾5",
+              "order": 10,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 313,
+              "sourceTime": {
+                "value": 241,
+                "unit": "録画F@▶",
+                "gameFrames": 313
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 278
+            },
+            {
+              "branch": "魔弾5",
+              "order": 11,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 373,
+              "sourceTime": {
+                "value": 287,
+                "unit": "録画F@▶",
+                "gameFrames": 373
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 279
+            },
+            {
+              "branch": "魔弾5",
+              "order": 12,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 373,
+              "sourceTime": {
+                "value": 287,
+                "unit": "録画F@▶",
+                "gameFrames": 373
+              },
+              "researchStatus": "暫定",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 280
+            },
+            {
+              "branch": "魔弾6",
+              "order": 3,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 281
+            },
+            {
+              "branch": "魔弾6",
+              "order": 4,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 133,
+              "sourceTime": {
+                "value": 102,
+                "unit": "録画F@▶",
+                "gameFrames": 133
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 282
+            },
+            {
+              "branch": "魔弾6",
+              "order": 5,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "-47.0",
+              "sourceLine": 283
+            },
+            {
+              "branch": "魔弾6",
+              "order": 6,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 192,
+              "sourceTime": {
+                "value": 148,
+                "unit": "録画F@▶",
+                "gameFrames": 192
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 284
+            },
+            {
+              "branch": "魔弾6",
+              "order": 7,
+              "effectKind": "魔弾消費",
+              "effectId": "",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "0.0",
+              "sourceLine": 285
+            },
+            {
+              "branch": "魔弾6",
+              "order": 8,
+              "effectKind": "ダメージ",
+              "effectId": "Xion_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 286
+            },
+            {
               "branch": "魔弾6",
               "order": 9,
               "effectKind": "魔弾消費",
@@ -8889,7 +9473,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "46.0",
-              "sourceLine": 263
+              "sourceLine": 287
             },
             {
               "branch": "魔弾6",
@@ -8909,7 +9493,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 264
+              "sourceLine": 288
             },
             {
               "branch": "魔弾6",
@@ -8929,7 +9513,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 265
+              "sourceLine": 289
             },
             {
               "branch": "魔弾6",
@@ -8949,7 +9533,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 266
+              "sourceLine": 290
             },
             {
               "branch": "魔弾6",
@@ -8969,7 +9553,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 267
+              "sourceLine": 291
             },
             {
               "branch": "魔弾6",
@@ -8989,7 +9573,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 268
+              "sourceLine": 292
             }
           ],
           "timingPatterns": [],
@@ -9002,8 +9586,7 @@ const DPS_TIMING_DATA = {
           "motionSource": {
             "value": 328,
             "unit": "ゲームF",
-            "gameFrames": 328,
-            "unitInferred": true
+            "gameFrames": 328
           },
           "motionVariants": [
             {
@@ -9011,13 +9594,12 @@ const DPS_TIMING_DATA = {
               "value": 328,
               "unit": "ゲームF",
               "gameFrames": 328,
-              "unitInferred": true,
-              "researchStatus": "未",
+              "researchStatus": "暫定",
               "note": "",
               "sourceLine": 107
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "暫定",
           "note": "",
           "timingEvents": [
             {
@@ -9038,7 +9620,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 270
+              "sourceLine": 294
             },
             {
               "branch": "",
@@ -9058,7 +9640,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 271
+              "sourceLine": 295
             }
           ],
           "timingPatterns": [],
@@ -9071,8 +9653,7 @@ const DPS_TIMING_DATA = {
           "motionSource": {
             "value": 138,
             "unit": "ゲームF",
-            "gameFrames": 138,
-            "unitInferred": true
+            "gameFrames": 138
           },
           "motionVariants": [
             {
@@ -9080,13 +9661,12 @@ const DPS_TIMING_DATA = {
               "value": 138,
               "unit": "ゲームF",
               "gameFrames": 138,
-              "unitInferred": true,
-              "researchStatus": "未",
+              "researchStatus": "暫定",
               "note": "",
               "sourceLine": 108
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "暫定",
           "note": "",
           "timingEvents": [
             {
@@ -9107,7 +9687,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 272
+              "sourceLine": 296
             }
           ],
           "timingPatterns": [],
@@ -9120,8 +9700,7 @@ const DPS_TIMING_DATA = {
           "motionSource": {
             "value": 148,
             "unit": "ゲームF",
-            "gameFrames": 148,
-            "unitInferred": true
+            "gameFrames": 148
           },
           "motionVariants": [
             {
@@ -9129,13 +9708,12 @@ const DPS_TIMING_DATA = {
               "value": 148,
               "unit": "ゲームF",
               "gameFrames": 148,
-              "unitInferred": true,
-              "researchStatus": "未",
+              "researchStatus": "暫定",
               "note": "",
               "sourceLine": 109
             }
           ],
-          "researchStatus": "未",
+          "researchStatus": "暫定",
           "note": "",
           "timingEvents": [
             {
@@ -9156,7 +9734,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 273
+              "sourceLine": 297
             },
             {
               "branch": "",
@@ -9176,7 +9754,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 274
+              "sourceLine": 298
             },
             {
               "branch": "",
@@ -9196,7 +9774,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 275
+              "sourceLine": 299
             }
           ],
           "timingPatterns": [],
@@ -9207,6 +9785,472 @@ const DPS_TIMING_DATA = {
         "normal": "済",
         "aside": "済",
         "favorite": "済"
+      },
+      "implementationNote": ""
+    },
+    "silphir": {
+      "id": "silphir",
+      "sourceId": "Silphir",
+      "name": "シルフィール",
+      "initialActionDelayFrames": 60,
+      "initialActionDelaySource": "default",
+      "measuredNormalAttackIntervalFrames": 93,
+      "normalAttackIntervalFrames": 121,
+      "normalAttackIntervalSource": {
+        "value": 93,
+        "unit": "録画F@▶",
+        "gameFrames": 121
+      },
+      "normalAttackIntervalVariants": [
+        {
+          "actionKey": "basicAttack",
+          "branch": "",
+          "value": 93,
+          "unit": "録画F@▶",
+          "gameFrames": 121
+        },
+        {
+          "actionKey": "enhancedAttack",
+          "branch": "",
+          "value": 93,
+          "unit": "録画F@▶",
+          "gameFrames": 121
+        }
+      ],
+      "actions": {
+        "lowSkill": {
+          "label": "低学年",
+          "branch": "",
+          "motionFrames": 102,
+          "motionSource": {
+            "value": 102,
+            "unit": "ゲームF",
+            "gameFrames": 102
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 102,
+              "unit": "ゲームF",
+              "gameFrames": 102,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 122
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 40,
+              "sourceTime": {
+                "value": 31,
+                "unit": "録画F@▶",
+                "gameFrames": 40
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 312
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "SP減少",
+              "effectId": "Silphir_low_e02",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 40,
+              "sourceTime": {
+                "value": 31,
+                "unit": "録画F@▶",
+                "gameFrames": 40
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 313
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "highSkill": {
+          "label": "高学年",
+          "branch": "",
+          "motionFrames": 134,
+          "motionSource": {
+            "value": 134,
+            "unit": "ゲームF",
+            "gameFrames": 134
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 134,
+              "unit": "ゲームF",
+              "gameFrames": 134,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 123
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 74,
+              "sourceTime": {
+                "value": 57,
+                "unit": "録画F@▶",
+                "gameFrames": 74
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 314
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 77,
+              "sourceTime": {
+                "value": 59,
+                "unit": "録画F@▶",
+                "gameFrames": 77
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 315
+            },
+            {
+              "branch": "",
+              "order": 3,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 81,
+              "sourceTime": {
+                "value": 62,
+                "unit": "録画F@▶",
+                "gameFrames": 81
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 316
+            },
+            {
+              "branch": "",
+              "order": 4,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 86,
+              "sourceTime": {
+                "value": 66,
+                "unit": "録画F@▶",
+                "gameFrames": 86
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 317
+            },
+            {
+              "branch": "",
+              "order": 5,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 87,
+              "sourceTime": {
+                "value": 67,
+                "unit": "録画F@▶",
+                "gameFrames": 87
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 318
+            },
+            {
+              "branch": "",
+              "order": 6,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 92,
+              "sourceTime": {
+                "value": 71,
+                "unit": "録画F@▶",
+                "gameFrames": 92
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 319
+            },
+            {
+              "branch": "",
+              "order": 7,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 95,
+              "sourceTime": {
+                "value": 73,
+                "unit": "録画F@▶",
+                "gameFrames": 95
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 320
+            },
+            {
+              "branch": "",
+              "order": 8,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 99,
+              "sourceTime": {
+                "value": 76,
+                "unit": "録画F@▶",
+                "gameFrames": 99
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 321
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "basicAttack": {
+          "label": "普通攻撃_基本",
+          "branch": "",
+          "motionFrames": 68,
+          "motionSource": {
+            "value": 68,
+            "unit": "ゲームF",
+            "gameFrames": 68
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 68,
+              "unit": "ゲームF",
+              "gameFrames": 68,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 124
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_basic_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": 29,
+              "guaranteeSource": {
+                "value": 22,
+                "unit": "録画F@▶",
+                "gameFrames": 29
+              },
+              "frame": 36,
+              "sourceTime": {
+                "value": 28,
+                "unit": "録画F@▶",
+                "gameFrames": 36
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 322
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "enhancedAttack": {
+          "label": "普通攻撃_強化",
+          "branch": "",
+          "motionFrames": 122,
+          "motionSource": {
+            "value": 122,
+            "unit": "ゲームF",
+            "gameFrames": 122
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 122,
+              "unit": "ゲームF",
+              "gameFrames": 122,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 125
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_enhanced_e01",
+              "lv1PerHitMultiplier": 48,
+              "guaranteeFrames": 23,
+              "guaranteeSource": {
+                "value": 18,
+                "unit": "録画F@▶",
+                "gameFrames": 23
+              },
+              "frame": 31,
+              "sourceTime": {
+                "value": 24,
+                "unit": "録画F@▶",
+                "gameFrames": 31
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 323
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_enhanced_e01",
+              "lv1PerHitMultiplier": 48,
+              "guaranteeFrames": 48,
+              "guaranteeSource": {
+                "value": 37,
+                "unit": "録画F@▶",
+                "gameFrames": 48
+              },
+              "frame": 56,
+              "sourceTime": {
+                "value": 43,
+                "unit": "録画F@▶",
+                "gameFrames": 56
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 324
+            },
+            {
+              "branch": "",
+              "order": 3,
+              "effectKind": "ダメージ",
+              "effectId": "Silphir_enhanced_e02",
+              "lv1PerHitMultiplier": 64,
+              "guaranteeFrames": 73,
+              "guaranteeSource": {
+                "value": 56,
+                "unit": "録画F@▶",
+                "gameFrames": 73
+              },
+              "frame": 81,
+              "sourceTime": {
+                "value": 62,
+                "unit": "録画F@▶",
+                "gameFrames": 81
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 325
+            },
+            {
+              "branch": "",
+              "order": 4,
+              "effectKind": "SP減少",
+              "effectId": "Silphir_enhanced_e04",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": 73,
+              "guaranteeSource": {
+                "value": 56,
+                "unit": "録画F@▶",
+                "gameFrames": 73
+              },
+              "frame": 81,
+              "sourceTime": {
+                "value": 62,
+                "unit": "録画F@▶",
+                "gameFrames": 81
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 326
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        }
+      },
+      "implementationStatuses": {
+        "normal": "済",
+        "aside": "済",
+        "favorite": "未"
       },
       "implementationNote": ""
     },
@@ -9281,7 +10325,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 316
+              "sourceLine": 351
             }
           ],
           "timingPatterns": [],
@@ -9328,7 +10372,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 317
+              "sourceLine": 352
             },
             {
               "branch": "",
@@ -9348,7 +10392,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 318
+              "sourceLine": 353
             },
             {
               "branch": "",
@@ -9368,7 +10412,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 319
+              "sourceLine": 354
             },
             {
               "branch": "",
@@ -9388,7 +10432,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 320
+              "sourceLine": 355
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -9408,7 +10452,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 321
+              "sourceLine": 356
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -9428,7 +10472,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 322
+              "sourceLine": 357
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -9448,7 +10492,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 323
+              "sourceLine": 358
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -9468,7 +10512,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 324
+              "sourceLine": 359
             }
           ],
           "timingPatterns": [],
@@ -9515,7 +10559,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 325
+              "sourceLine": 360
             },
             {
               "branch": "",
@@ -9535,7 +10579,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 326
+              "sourceLine": 361
             }
           ],
           "timingPatterns": [],
@@ -9582,7 +10626,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 327
+              "sourceLine": 362
             },
             {
               "branch": "",
@@ -9602,7 +10646,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 328
+              "sourceLine": 363
             },
             {
               "branch": "",
@@ -9622,7 +10666,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 329
+              "sourceLine": 364
             }
           ],
           "timingPatterns": [],
@@ -9707,7 +10751,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 346
+              "sourceLine": 381
             },
             {
               "branch": "",
@@ -9727,7 +10771,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 347
+              "sourceLine": 382
             },
             {
               "branch": "",
@@ -9747,7 +10791,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 348
+              "sourceLine": 383
             },
             {
               "branch": "アサイド2",
@@ -9767,7 +10811,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 345
+              "sourceLine": 380
             },
             {
               "branch": "アサイド2",
@@ -9787,7 +10831,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 349
+              "sourceLine": 384
             },
             {
               "branch": "アサイド2",
@@ -9807,7 +10851,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 350
+              "sourceLine": 385
             }
           ],
           "timingPatterns": [],
@@ -9933,7 +10977,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 351
+              "sourceLine": 386
             },
             {
               "branch": "",
@@ -9953,7 +10997,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 352
+              "sourceLine": 387
             },
             {
               "branch": "",
@@ -9973,7 +11017,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 353
+              "sourceLine": 388
             }
           ],
           "timingPatterns": [],
@@ -10020,7 +11064,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 354
+              "sourceLine": 389
             }
           ],
           "timingPatterns": [],
@@ -10067,7 +11111,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 355
+              "sourceLine": 390
             },
             {
               "branch": "",
@@ -10087,7 +11131,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 356
+              "sourceLine": 391
             },
             {
               "branch": "",
@@ -10107,7 +11151,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 357
+              "sourceLine": 392
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -10127,7 +11171,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 358
+              "sourceLine": 393
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -10147,7 +11191,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 359
+              "sourceLine": 394
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -10167,7 +11211,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 360
+              "sourceLine": 395
             }
           ],
           "timingPatterns": [],
@@ -10534,7 +11578,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 437
+              "sourceLine": 472
             },
             {
               "branch": "",
@@ -10554,7 +11598,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 438
+              "sourceLine": 473
             },
             {
               "branch": "",
@@ -10574,7 +11618,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 439
+              "sourceLine": 474
             },
             {
               "branch": "",
@@ -10594,7 +11638,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 440
+              "sourceLine": 475
             }
           ],
           "timingPatterns": [],
@@ -10792,7 +11836,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 441
+              "sourceLine": 476
             },
             {
               "branch": "",
@@ -10816,7 +11860,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 442
+              "sourceLine": 477
             }
           ],
           "timingPatterns": [],
@@ -10905,7 +11949,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 455
+              "sourceLine": 490
             },
             {
               "branch": "",
@@ -10929,7 +11973,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 456
+              "sourceLine": 491
             },
             {
               "branch": "",
@@ -10953,7 +11997,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 457
+              "sourceLine": 492
             },
             {
               "branch": "",
@@ -10977,7 +12021,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 458
+              "sourceLine": 493
             },
             {
               "branch": "",
@@ -11001,7 +12045,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 459
+              "sourceLine": 494
             },
             {
               "branch": "",
@@ -11025,7 +12069,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 460
+              "sourceLine": 495
             },
             {
               "branch": "",
@@ -11049,7 +12093,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 461
+              "sourceLine": 496
             },
             {
               "branch": "",
@@ -11073,7 +12117,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 462
+              "sourceLine": 497
             },
             {
               "branch": "",
@@ -11097,7 +12141,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 463
+              "sourceLine": 498
             },
             {
               "branch": "",
@@ -11121,7 +12165,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 464
+              "sourceLine": 499
             },
             {
               "branch": "",
@@ -11145,7 +12189,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 465
+              "sourceLine": 500
             },
             {
               "branch": "",
@@ -11169,7 +12213,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 466
+              "sourceLine": 501
             }
           ],
           "timingPatterns": [],
@@ -11212,7 +12256,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 467
+              "sourceLine": 502
             }
           ],
           "timingPatterns": [],
@@ -11263,7 +12307,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 468
+              "sourceLine": 503
             }
           ],
           "timingPatterns": [],
@@ -11310,7 +12354,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 469
+              "sourceLine": 504
             }
           ],
           "timingPatterns": [],
@@ -11451,9 +12495,9 @@ const DPS_TIMING_DATA = {
       "sourceId": "Epica",
       "name": "エピカ",
       "statuses": {
-        "normal": "未",
+        "normal": "暫定",
         "aside": "未",
-        "favorite": "未"
+        "favorite": "暫定"
       },
       "note": "",
       "sourceLine": 12
@@ -11679,8 +12723,8 @@ const DPS_TIMING_DATA = {
       "sourceId": "Silphir",
       "name": "シルフィール",
       "statuses": {
-        "normal": "未",
-        "aside": "未",
+        "normal": "済",
+        "aside": "済",
         "favorite": "未"
       },
       "note": "",
@@ -12280,13 +13324,6 @@ const DPS_TIMING_DATA = {
     {
       "id": "jubee",
       "name": "ジュビー",
-      "missing": [
-        "普通攻撃間隔"
-      ]
-    },
-    {
-      "id": "silphir",
-      "name": "シルフィール",
       "missing": [
         "普通攻撃間隔"
       ]

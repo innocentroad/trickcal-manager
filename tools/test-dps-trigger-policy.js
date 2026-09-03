@@ -139,4 +139,211 @@ assert.deepEqual(
   '旧データの持続効果は説明中の効果対象ではなく所属スキルを発動元にする'
 );
 
+assert.equal(policy.isHighSkillRuntimeEffect({ triggerActionKeys: ['highSkill'] }), true,
+  '構造化された高学年行動キーを高学年関連効果として判定する');
+assert.equal(policy.isHighSkillRuntimeEffect({
+  triggerType: 'n秒ごと',
+  targetActionKeys: ['highSkill'],
+  targetSkill: '高学年スキル'
+}), false, '効果対象の高学年だけでは発動元を高学年扱いしない');
+assert.deepEqual(policy.getStructuredTriggerActionKeys({
+  triggerType: 'n秒ごと',
+  targetActionKeys: ['highSkill'],
+  targetSkill: '高学年スキル'
+}), [], '構造化された発動元と効果対象を分離する');
+assert.deepEqual(policy.getRuntimeEffectPolicy({ triggerActionKeys: ['highSkill'] }, { supportsFixed: true }), {
+  capability: 'exact',
+  defaultMode: 'off',
+  supportsFixed: true,
+  triggerDomain: 'selfAction',
+  reasonCode: 'highSkillOptIn',
+  quality: 'generated',
+  highSkill: true,
+  highSkillOnly: true,
+  mixedSkill: false,
+  status: 'optIn'
+}, '高学年関連効果は共通policyで個別初期OFFへ分類する');
+assert.deepEqual(policy.getRuntimeEffectPolicy({
+  ownerId: 'Aya',
+  triggerType: '低学年スキル効果発生時',
+  triggerActionKeys: ['lowSkill'],
+  externalActionRequired: true,
+  triggerSourceId: 'Aya_low_e01'
+}), {
+  capability: 'estimated',
+  defaultMode: 'auto',
+  supportsFixed: false,
+  triggerDomain: 'formationAction',
+  reasonCode: 'deterministicTrigger',
+  quality: 'generated',
+  highSkill: false,
+  highSkillOnly: false,
+  mixedSkill: false,
+  status: 'automatic'
+}, '編成行動に連動する効果は外部入力ではなく周期推定へ分類する');
+assert.equal(policy.getRuntimeEffectPolicy({
+  triggerActionKeys: ['lowSkill', 'highSkill'],
+  externalActionRequired: true
+}).defaultMode, 'auto', '低学年・高学年共通の旧binding全体を初期OFFにしない');
+assert.deepEqual(policy.getRuntimeEffectPolicy({
+  triggerType: 'シールド終了時',
+  externalActionRequired: true
+}), {
+  capability: 'external',
+  defaultMode: 'auto',
+  supportsFixed: false,
+  triggerDomain: 'external',
+  reasonCode: 'externalOccurrence',
+  quality: 'generated',
+  highSkill: false,
+  highSkillOnly: false,
+  mixedSkill: false,
+  status: 'externalWaiting'
+}, '外部入力待ち効果を自動発火と分離して分類する');
+assert.equal(policy.getRuntimeEffectPolicy({ triggerType: '将来追加される条件' }).status, 'unsupported',
+  '未知トリガーを未対応として分類する');
+assert.deepEqual(policy.getRuntimeEffectPolicyPresentation(
+  policy.getRuntimeEffectPolicy({ triggerActionKeys: ['highSkill'] }),
+  { mode: 'off', explicit: false }
+), {
+  mode: 'off',
+  label: '初期OFF',
+  statusCode: 'opt-in',
+  className: 'is-opt-in',
+  reasonLabel: '高学年関連',
+  qualityLabel: '暫定',
+  detailLabel: '高学年関連 / 暫定'
+}, '高学年関連の初期OFFを利用者向け状態へ変換する');
+assert.equal(policy.getRuntimeEffectPolicyPresentation(
+  policy.getRuntimeEffectPolicy({ triggerType: 'シールド終了時', externalActionRequired: true }),
+  { mode: 'auto' }
+).label, '外部入力待ち', '外部発生型は自動ではなく外部入力待ちとして表示する');
+assert.equal(policy.getRuntimeEffectPolicyPresentation(
+  policy.getRuntimeEffectPolicy({ triggerType: '低学年スキル使用時', triggerActionKeys: ['lowSkill'], externalActionRequired: true }),
+  { mode: 'auto' }
+).label, '自動（推定）', '推定型は自動と区別して自動（推定）として表示する');
+assert.equal(policy.getRuntimeEffectPolicyPresentation(
+  policy.getRuntimeEffectPolicy({ triggerType: '将来追加される条件' }),
+  { mode: 'off' }
+).label, '未対応', '未対応条件はOFFと区別して表示する');
+assert.equal(policy.normalizeExternalEventType('shieldBreak'), 'シールド破壊時',
+  '外部イベントUIの短縮値を共通トリガー種別へ正規化する');
+assert.deepEqual(policy.getRuntimeExternalEventMatchState({
+  triggerType: 'シールド破壊時',
+  externalActionRequired: true,
+  ownerId: 'vivi'
+}, [{ type: 'shieldBreak' }]), {
+  required: true,
+  matched: true,
+  count: 1,
+  expectedType: 'シールド破壊時',
+  expectedLabel: 'シールド破壊'
+}, '発動元ID省略の同種外部イベントをワイルドカードとして対応付ける');
+assert.equal(policy.getRuntimeExternalEventMatchState({
+  triggerType: 'シールド破壊時',
+  externalActionRequired: true,
+  ownerId: 'vivi'
+}, [{ type: 'shieldEnded', sourceId: 'snorky' }]).matched, false,
+  '種別または発動元が異なる外部イベントを対応済みにしない');
+
+const formationLowSkillEffect = {
+  ownerId: 'Aya',
+  triggerType: '低学年スキル効果発生時',
+  triggerActionKeys: ['lowSkill'],
+  externalActionRequired: true,
+  triggerSourceId: 'Aya_low_e01'
+};
+const formationLowSchedule = policy.getRuntimeEffectSchedulePolicy(formationLowSkillEffect);
+assert.equal(formationLowSchedule.actionLinked, true,
+  '編成低学年効果を外部条件ではなく行動連動bindingとして分類する');
+assert.equal(formationLowSchedule.externalCondition, false,
+  '編成行動連動効果を外部条件入力へ重複表示しない');
+assert.equal(formationLowSchedule.supportsPeriodic, true,
+  '編成行動連動効果を周期指定可能として扱う');
+assert.match(formationLowSchedule.capabilityLabel, /周期指定対応/,
+  '編成行動連動効果に周期指定対応を表示する');
+
+const shieldBreakSchedule = policy.getRuntimeEffectSchedulePolicy({
+  ownerId: 'Aya',
+  triggerType: 'シールド破壊時',
+  externalActionRequired: true
+});
+assert.equal(shieldBreakSchedule.actionLinked, false,
+  'シールド破壊を行動連動bindingへ誤分類しない');
+assert.equal(shieldBreakSchedule.externalCondition, true,
+  'シールド破壊を外部条件bindingとして分類する');
+assert.equal(shieldBreakSchedule.supportsExternalInput, true,
+  'シールド破壊を外部入力対応として扱う');
+assert.equal(shieldBreakSchedule.capabilityLabel, '外部入力対応',
+  '外部条件の対応能力ラベルを固定する');
+
+assert.equal(
+  policy.getRuntimeEffectBindingKey({
+    ownerId: 'Aya',
+    triggerType: '低学年スキル効果発生時',
+    triggerSourceId: 'Aya_low_e01',
+    conditionType: '凍傷スタック'
+  }),
+  'Aya::低学年スキル効果発生時::Aya_low_e01::凍傷スタック',
+  'binding keyはowner・trigger・source・conditionから安定生成する'
+);
+assert.deepEqual(policy.getDpsFormationCandidateSchedulePolicy({ timingMode: 'periodic' }), {
+  mode: 'periodic',
+  actionLinked: true,
+  capability: 'periodic',
+  capabilityLabel: '周期指定対応',
+  inputLabel: '時系列効果・発動タイミング',
+  eventClass: '',
+  reason: '編成行動に連動する効果。初期値は行動間隔・SP・CTからの推定値。'
+}, '周期候補を時系列効果設定へ分類する');
+assert.equal(policy.getDpsFormationCandidateSchedulePolicy({ timingMode: 'event' }).mode, 'external',
+  '非周期候補を外部条件イベントへ分類する');
+const periodicCandidate = {
+  id: 'formation:ally-low',
+  type: '低学年スキル使用時',
+  label: '味方A / 低学年',
+  ownerId: 'AllyA',
+  timingMode: 'periodic',
+  periodicActionLabel: '低学年',
+  startSeconds: 8,
+  intervalSeconds: 12,
+  repeatCount: 0,
+  bindingKey: 'AllyA::低学年スキル使用時'
+};
+assert.equal(policy.isDpsFormationCandidateAutoEnabled(periodicCandidate, {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+}), true, '共通policyは周期候補を自動推定対象として判定する');
+assert.equal(policy.createDpsFormationEstimatedEvents([periodicCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+})[0].intervalFrames, 720, '共通policyは周期候補を秒からフレームへ変換する');
+assert.equal(policy.createDpsFormationEstimatedEvents([periodicCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+}, [{ candidateId: periodicCandidate.id, bindingKey: periodicCandidate.bindingKey }]).length, 0,
+  '共通policyは手動周期bindingがある候補を自動推定しない');
+assert.equal(policy.createDpsFormationEstimatedEvents([{
+  ...periodicCandidate,
+  id: 'formation:ally-high',
+  type: '高学年スキル使用時',
+  periodicActionLabel: '高学年'
+}], { formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled' }).length, 0,
+  '共通policyは高学年初期OFFを自動推定へ流さない');
+assert.equal(policy.isDpsFormationCandidateAutoEnabled({
+  ...periodicCandidate,
+  id: 'formation:ally-high-binding',
+  type: '高学年スキル使用時',
+  periodicActionLabel: '高学年',
+  bindingKey: 'AllyA::高学年スキル使用時'
+}, {
+  formationTimelineMode: 'off',
+  formationHighSkillMode: 'disabled',
+  bindingModes: { 'AllyA::高学年スキル使用時::highSkill': 'auto' }
+}), true, 'binding単位で高学年を明示AUTOにした場合は全体設定に関係なく推定する');
+assert.equal(policy.isDpsFormationCandidateAutoEnabled({
+  ...periodicCandidate,
+  bindingKey: 'AllyA::低学年スキル使用時'
+}, {
+  formationTimelineMode: 'supportEstimate',
+  bindingModes: { 'AllyA::低学年スキル使用時::lowSkill': 'off' }
+}), false, 'binding単位の明示OFFは低学年の推定も止める');
+
 console.log('DPS trigger policy tests passed');

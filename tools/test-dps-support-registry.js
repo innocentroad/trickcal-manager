@@ -97,9 +97,9 @@ const actualRegistry = actualContext.window.TRICKCAL_DPS_SUPPORT_REGISTRY;
 const timingData = vm.runInContext('DPS_TIMING_DATA', actualContext);
 assert.equal(timingData.version, 8, 'generated timing schema is v8');
 assert.deepEqual(JSON.parse(JSON.stringify(timingData.summary.implementationStatuses)), {
-  normal: { '暫定': 14, '未': 50, '済': 11, '途中': 0 },
-  aside: { '暫定': 8, '未': 61, '済': 6, '途中': 0 },
-  favorite: { '暫定': 4, '未': 66, '済': 5, '途中': 0 }
+  normal: { '暫定': 15, '未': 48, '済': 12, '途中': 0 },
+  aside: { '暫定': 8, '未': 60, '済': 7, '途中': 0 },
+  favorite: { '暫定': 5, '未': 65, '済': 5, '途中': 0 }
 }, 'generated data carries component-specific status summary');
 assert.equal(actualRegistry.evaluate(snapshot('sylla')).supported, true, 'actual normal configuration is enabled by its normal status');
 assert.equal(actualRegistry.evaluate(snapshot('sylla')).provisional, false, 'non-selected provisional aside does not badge');

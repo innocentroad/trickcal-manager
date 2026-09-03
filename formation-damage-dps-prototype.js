@@ -105,8 +105,9 @@
   // DPS実行用の複製だけへoverrideを反映する。
   const DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1';
   const DPS_SETTINGS_STORAGE_KEY = 'trickcal:dps-settings:v1';
+  const DPS_SETTINGS_SCHEMA_VERSION = 2;
   const DEFAULT_DPS_SETTINGS = Object.freeze({
-    durationSeconds: 90, highSkillMode: 'disabled', formationTimelineMode: 'off', formationHighSkillMode: 'disabled', seed: 1, trials: 16, autoRun: true, externalEvents: []
+    durationSeconds: 90, highSkillMode: 'disabled', formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled', seed: 1, trials: 16, autoRun: true, externalEvents: [], settingsVersion: DPS_SETTINGS_SCHEMA_VERSION
   });
   const DPS_DURATION_OPTIONS = Object.freeze([30, 60, 90, 120, 180]);
   const DPS_TRIAL_OPTIONS = Object.freeze([16, 64, 256]);
@@ -156,34 +157,266 @@
       seed: Math.max(1, Math.floor(Number.isFinite(rawSeed) ? rawSeed : (Number.isFinite(fallbackSeed) ? fallbackSeed : 1))),
       trials: Number(trials),
       autoRun: typeof source.autoRun === 'boolean' ? source.autoRun : base.autoRun !== false,
-      externalEvents: normalizeDpsExternalEvents(Array.isArray(source.externalEvents) ? source.externalEvents : base.externalEvents)
+      externalEvents: normalizeDpsExternalEvents(Array.isArray(source.externalEvents) ? source.externalEvents : base.externalEvents),
+      settingsVersion: DPS_SETTINGS_SCHEMA_VERSION
     };
   }
   function getDpsRuntimeEffectOverride(targetId, effectId, overrides = dpsRuntimeEffectOverrides) {
     return overrides?.[String(targetId || '')]?.[String(effectId || '')] || null;
   }
+  function getDpsRuntimeEffectOverrideForEffect(targetId, effect = {}, overrides = dpsRuntimeEffectOverrides) {
+    const effectId = String(effect?.id || effect?.effectId || '').trim();
+    const direct = getDpsRuntimeEffectOverride(targetId, effectId, overrides);
+    if (direct) return direct;
+    // 低学年／高学年共有行をbinding分割した後も、旧版で保存した
+    // 共有effectIdの明示設定（auto/fixed/off）を失わない。
+    const legacyEffectId = String(effect?.runtimeBaseEffectId || '').trim();
+    return legacyEffectId && legacyEffectId !== effectId
+      ? getDpsRuntimeEffectOverride(targetId, legacyEffectId, overrides)
+      : null;
+  }
+  function getDpsRuntimeEffectPolicy(effect = {}, options = {}) {
+    const policy = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policy?.getRuntimeEffectPolicy === 'function') {
+      return policy.getRuntimeEffectPolicy(effect, options);
+    }
+    return {
+      capability: 'unsupported',
+      defaultMode: 'off',
+      supportsFixed: !!options.supportsFixed,
+      triggerDomain: 'unknown',
+      reasonCode: 'policyUnavailable',
+      quality: 'unknown',
+      highSkill: false,
+      highSkillOnly: false,
+      mixedSkill: false,
+      status: 'unsupported'
+    };
+  }
   function isDpsHighSkillRuntimeEffect(effect = {}) {
-    const actionKeys = [
-      ...(Array.isArray(effect?.triggerActionKeys) ? effect.triggerActionKeys : []),
-      ...(Array.isArray(effect?.targetActionKeys) ? effect.targetActionKeys : [])
-    ].map(value => String(value || ''));
-    if (actionKeys.includes('highSkill')) return true;
-    return /高学年/.test([
-      effect.triggerType,
-      effect.triggerSourceId,
-      effect.targetSkill,
-      effect.targetSkillName,
-      effect.conditionType,
-      effect.conditionValue,
-      effect.condition,
-      effect.runtimeText,
-      effect.externalTriggerType,
-      effect.category,
-      effect.label
-    ].filter(Boolean).join(' '));
+    return !!getDpsRuntimeEffectPolicy(effect).highSkill;
   }
   function getDpsRuntimeEffectDefaultMode(effect = {}) {
-    return isDpsHighSkillRuntimeEffect(effect) ? 'off' : 'auto';
+    return getDpsRuntimeEffectPolicy(effect).defaultMode;
+  }
+
+  function getDpsRuntimeEffectPolicyPresentation(policy = {}, options = {}) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.getRuntimeEffectPolicyPresentation === 'function') {
+      return policyApi.getRuntimeEffectPolicyPresentation(policy, options);
+    }
+    const mode = ['auto', 'fixed', 'off'].includes(options.mode) ? options.mode : (policy.defaultMode || 'auto');
+    const readOnly = options.readOnly === true;
+    const label = readOnly ? '監査のみ' : mode === 'fixed' ? '固定' : mode === 'off' ? 'OFF' : policy.capability === 'estimated' ? '自動（推定）' : '自動';
+    const statusCode = readOnly ? 'readonly' : policy.capability === 'estimated' && mode === 'auto' ? 'estimated' : mode;
+    const className = readOnly ? 'is-readonly' : policy.capability === 'estimated' && mode === 'auto' ? 'is-estimated' : `is-${mode}`;
+    return { mode, label, statusCode, className, reasonLabel: '発動条件要確認', qualityLabel: '未確認', detailLabel: '発動条件要確認 / 未確認' };
+  }
+  function getDpsRuntimeExternalEventMatchState(effect = {}, events = []) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.getRuntimeExternalEventMatchState === 'function') {
+      return policyApi.getRuntimeExternalEventMatchState(effect, events);
+    }
+    return { required: effect?.externalActionRequired === true, matched: false, count: 0, expectedType: '', expectedLabel: 'イベント種別未設定' };
+  }
+  function getDpsRuntimeEffectSchedulePolicy(effect = {}, options = {}) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.getRuntimeEffectSchedulePolicy === 'function') {
+      return policyApi.getRuntimeEffectSchedulePolicy(effect, options);
+    }
+    return {
+      bindingKey: String(effect?.id || effect?.effectId || 'effect:unbound'),
+      triggerType: String(effect?.triggerType || ''),
+      triggerLabel: String(effect?.triggerType || '発動条件未設定').replace(/時$/, ''),
+      actionKeys: [],
+      actionLinked: false,
+      externalOccurrenceOnly: false,
+      externalCondition: effect?.externalActionRequired === true,
+      scheduleDomain: effect?.externalActionRequired === true ? 'externalCondition' : 'unknown',
+      supportsAutomatic: effect?.externalActionRequired !== true,
+      supportsEstimated: false,
+      supportsPeriodic: false,
+      supportsOccurrences: effect?.externalActionRequired === true,
+      supportsExternalInput: effect?.externalActionRequired === true,
+      capabilityLabels: effect?.externalActionRequired === true ? ['外部入力対応'] : ['未対応'],
+      capabilityLabel: effect?.externalActionRequired === true ? '外部入力対応' : '未対応',
+      reasonCode: 'policyUnavailable', quality: 'unknown', defaultMode: 'off', highSkill: false
+    };
+  }
+  function getDpsFormationCandidateSchedulePolicy(candidate = {}) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.getDpsFormationCandidateSchedulePolicy === 'function') {
+      return policyApi.getDpsFormationCandidateSchedulePolicy(candidate);
+    }
+    const periodic = String(candidate?.timingMode || '').toLowerCase() === 'periodic';
+    return {
+      mode: periodic ? 'periodic' : 'external',
+      actionLinked: periodic,
+      capability: periodic ? 'periodic' : 'external',
+      capabilityLabel: periodic ? '周期指定対応' : '外部入力対応',
+      inputLabel: periodic ? '時系列効果・発動タイミング' : '外部条件イベント',
+      eventClass: String(candidate?.eventClass || ''),
+      reason: periodic ? '編成行動に連動する効果。初期値は行動間隔・SP・CTからの推定値。' : '敵状態や戦闘結果など、時刻を自動確定しない条件。'
+    };
+  }
+  function isDpsPeriodicFormationEvent(value = {}) {
+    return !!(String(value?.candidateId || '').trim() || String(value?.bindingKey || '').trim())
+      && getDpsFormationCandidateSchedulePolicy(value).mode === 'periodic';
+  }
+  function getDpsExternalEventBindingIdentity(value = {}) {
+    const bindingKey = String(value?.bindingKey || value?.candidateBindingKey || '').trim();
+    if (bindingKey) return `binding:${bindingKey}`;
+    const candidateId = String(value?.candidateId || value?.formationCandidateId || '').trim();
+    return candidateId ? `candidate:${candidateId}` : '';
+  }
+  function isDpsExternalEventSameBinding(first = {}, second = {}) {
+    const firstCandidateId = String(first?.candidateId || first?.formationCandidateId || '').trim();
+    const secondCandidateId = String(second?.candidateId || second?.formationCandidateId || '').trim();
+    if (firstCandidateId && secondCandidateId && firstCandidateId === secondCandidateId) return true;
+    const firstBindingKey = String(first?.bindingKey || first?.candidateBindingKey || '').trim();
+    const secondBindingKey = String(second?.bindingKey || second?.candidateBindingKey || '').trim();
+    return !!firstBindingKey && !!secondBindingKey && firstBindingKey === secondBindingKey;
+  }
+  function dedupeDpsExternalEventsByBinding(events = []) {
+    const seenPeriodicBindings = new Set();
+    return (Array.isArray(events) ? events : []).filter(event => {
+      if (!isDpsPeriodicFormationEvent(event)) return true;
+      const identity = getDpsExternalEventBindingIdentity(event);
+      if (!identity || seenPeriodicBindings.has(identity)) return false;
+      seenPeriodicBindings.add(identity);
+      return true;
+    });
+  }
+  function getDpsExternalConditionEvents(events = []) {
+    return (Array.isArray(events) ? events : []).filter(event => !isDpsPeriodicFormationEvent(event));
+  }
+  function isDpsHighSkillFormationCandidate(candidate = {}) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.isHighSkillFormationCandidate === 'function') {
+      return policyApi.isHighSkillFormationCandidate(candidate);
+    }
+    const periodicActionLabel = String(candidate?.periodicActionLabel || '').trim();
+    if (periodicActionLabel === '高学年') return true;
+    return /高学年/.test([
+      candidate?.eventLabel,
+      candidate?.type,
+      candidate?.label
+    ].filter(Boolean).join(' '));
+  }
+  function isDpsFormationCandidateManuallyScheduled(candidate = {}, events = []) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.isFormationCandidateManuallyScheduled === 'function') {
+      return policyApi.isFormationCandidateManuallyScheduled(candidate, events);
+    }
+    const candidateId = String(candidate?.id || '').trim();
+    const bindingKey = String(candidate?.bindingKey || '').trim();
+    return (Array.isArray(events) ? events : []).some(event => {
+      const eventCandidateId = String(event?.candidateId || event?.formationCandidateId || '').trim();
+      const eventBindingKey = String(event?.bindingKey || event?.candidateBindingKey || '').trim();
+      return (candidateId && eventCandidateId === candidateId)
+        || (bindingKey && eventBindingKey === bindingKey);
+    });
+  }
+  function isDpsFormationCandidateAutoEnabled(candidate = {}, options = {}, events = []) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.isDpsFormationCandidateAutoEnabled === 'function') {
+      return policyApi.isDpsFormationCandidateAutoEnabled(candidate, options, events);
+    }
+    const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
+    if (schedulePolicy.mode !== 'periodic') return false;
+    if (String(options?.formationTimelineMode || 'off') !== 'supportEstimate') return false;
+    if (!(Number(candidate?.intervalSeconds) > 0)) return false;
+    if (isDpsHighSkillFormationCandidate(candidate)
+      && String(options?.formationHighSkillMode || 'disabled') !== 'auto') return false;
+    return !isDpsFormationCandidateManuallyScheduled(candidate, events);
+  }
+  function getDpsFormationCandidateScheduleState(candidate = {}, options = {}, events = []) {
+    const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
+    if (schedulePolicy.mode !== 'periodic') {
+      return { code: 'external', label: '外部入力待ち' };
+    }
+    if (isDpsFormationCandidateManuallyScheduled(candidate, events)) {
+      return { code: 'manual', label: '周期設定済み' };
+    }
+    if (isDpsFormationCandidateAutoEnabled(candidate, options, events)) {
+      return { code: 'estimated', label: '自動（推定）' };
+    }
+    if (isDpsHighSkillFormationCandidate(candidate)) {
+      return { code: 'high-off', label: '初期OFF' };
+    }
+    if (!(Number(candidate?.intervalSeconds) > 0)) {
+      return { code: 'missing', label: '時刻入力待ち' };
+    }
+    return { code: 'manual', label: '手動設定' };
+  }
+  function getDpsFormationBindingModes(runtimeEffects = {}) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.getDpsFormationBindingModes === 'function') {
+      return policyApi.getDpsFormationBindingModes(runtimeEffects);
+    }
+    const modes = {};
+    [
+      'attackSpeedEffects',
+      'damageBuffEffects',
+      'spRecoveryEffects',
+      'cooldownEffects',
+      'eventEffects'
+    ].forEach(collectionKey => {
+      (runtimeEffects?.[collectionKey] || []).forEach(effect => {
+        if (effect?.runtimeHasExplicitOverride !== true) return;
+        const bindingKey = String(effect?.bindingKey || '').trim();
+        const effectId = String(effect?.id || effect?.effectId || '').trim();
+        const mode = ['auto', 'fixed', 'off'].includes(String(effect?.runtimeOverrideMode || ''))
+          ? String(effect.runtimeOverrideMode)
+          : '';
+        if (!mode) return;
+        if (bindingKey) modes[bindingKey] = mode;
+        if (effectId) modes[effectId] = mode;
+      });
+    });
+    return modes;
+  }
+  function createDpsFormationEstimatedEvents(candidates = [], options = {}, manualEvents = []) {
+    const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
+    if (typeof policyApi?.createDpsFormationEstimatedEvents === 'function') {
+      return policyApi.createDpsFormationEstimatedEvents(candidates, options, manualEvents);
+    }
+    const sourceCandidates = Array.isArray(candidates) ? candidates : [];
+    const sourceEvents = Array.isArray(manualEvents) ? manualEvents : [];
+    return sourceCandidates
+      .filter(candidate => isDpsFormationCandidateAutoEnabled(candidate, options, sourceEvents))
+      .map(candidate => {
+        const startSeconds = Math.max(0, Number(candidate?.startSeconds) || 0);
+        const intervalSeconds = Math.max(0, Number(candidate?.intervalSeconds) || 0);
+        const repeatCount = Math.max(0, Math.floor(Number(candidate?.repeatCount) || 0));
+        return {
+          id: `auto:${String(candidate?.id || 'formation')}`,
+          type: String(candidate?.type || '').trim(),
+          frame: startSeconds * 60,
+          intervalFrames: intervalSeconds * 60,
+          repeatCount,
+          sourceId: String(candidate?.sourceId || candidate?.ownerId || '').trim(),
+          value: candidate?.value ?? candidate?.conditionValue ?? candidate?.triggerValue ?? '',
+          status: candidate?.status || '',
+          statusDurationFrames: Math.max(0, Number(candidate?.statusDurationFrames) || 0),
+          reason: `${String(candidate?.label || candidate?.type || '編成行動')}（自動推定）`,
+          candidateId: String(candidate?.id || '').trim(),
+          candidateLabel: String(candidate?.label || '').trim(),
+          candidateBasis: String(candidate?.basis || '').trim(),
+          candidateEffectLabels: Array.isArray(candidate?.effectLabels) ? candidate.effectLabels : [],
+          bindingKey: String(candidate?.bindingKey || '').trim(),
+          timingMode: 'periodic',
+          eventClass: String(candidate?.eventClass || '').trim(),
+          eventLabel: String(candidate?.eventLabel || '').trim(),
+          repeatability: String(candidate?.repeatability || '').trim(),
+          inputMode: 'periodic',
+          triggerSourceId: String(candidate?.triggerSourceId || '').trim(),
+          conditionType: String(candidate?.conditionType || '').trim(),
+          conditionValue: String(candidate?.conditionValue ?? '').trim(),
+          provider: 'estimated'
+        };
+      })
+      .filter(event => event.type && event.candidateId && event.intervalFrames > 0);
   }
   function applyDpsRuntimeEffectOverrides(runtimeEffects = {}, targetId = '', overrides = dpsRuntimeEffectOverrides) {
     const source = runtimeEffects || {};
@@ -196,13 +429,14 @@
       const displayRows = Array.isArray(source[collectionKey]) ? source[collectionKey] : [];
       display[collectionKey] = displayRows.map(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
-        const override = getDpsRuntimeEffectOverride(targetId, effectId, overrides);
-        const defaultMode = getDpsRuntimeEffectDefaultMode(effect);
-        return { ...effect, runtimeDefaultMode: defaultMode, runtimeOverrideMode: override?.mode || defaultMode, runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)), runtimeSupportsFixed: supportsFixed };
+        const override = getDpsRuntimeEffectOverrideForEffect(targetId, effect, overrides);
+        const runtimePolicy = getDpsRuntimeEffectPolicy(effect, { supportsFixed });
+        const defaultMode = runtimePolicy.defaultMode;
+        return { ...effect, runtimePolicy, runtimeDefaultMode: defaultMode, runtimeHasExplicitOverride: !!override, runtimeOverrideMode: override?.mode || defaultMode, runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)), runtimeSupportsFixed: runtimePolicy.supportsFixed };
       });
       simulation[collectionKey] = displayRows.flatMap(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
-        const override = getDpsRuntimeEffectOverride(targetId, effectId, overrides);
+        const override = getDpsRuntimeEffectOverrideForEffect(targetId, effect, overrides);
         const mode = override?.mode || getDpsRuntimeEffectDefaultMode(effect);
         if (mode === 'off') {
           // 動的ダメージ補正はdefinitionを残して発動不能にする。完全に削除すると
@@ -223,6 +457,36 @@
     const source = adapter.createDpsSnapshot();
     const settings = applyDpsRuntimeEffectOverrides(source?.runtimeEffects || {}, source?.targetId || '');
     return { ...source, runtimeEffects: settings.display, dpsRuntimeSimulationEffects: settings.simulation };
+  }
+
+  function renderDpsRuntimeAuxiliaryAudit(runtimeEffects = {}) {
+    const statuses = Array.isArray(runtimeEffects.initialTargetStatuses)
+      ? runtimeEffects.initialTargetStatuses.map(item => String(item?.status || '').trim()).filter(Boolean)
+      : [];
+    const reactions = Array.isArray(runtimeEffects.statusReactions)
+      ? runtimeEffects.statusReactions.map(item => {
+        const label = String(item?.label || item?.status || '').trim();
+        const value = Number(item?.takenDmgP) || 0;
+        return label ? `${label}${value ? ` +${formatNumber(value)}%` : ''}` : '';
+      }).filter(Boolean)
+      : [];
+    const weakness = Number(runtimeEffects.statusDamageWeaknessP) || 0;
+    const resources = Array.isArray(runtimeEffects.resources)
+      ? runtimeEffects.resources.map(item => {
+        const name = String(item?.name || '').trim();
+        if (!name) return '';
+        const initial = Math.max(0, Math.floor(Number(item?.initialStacks) || 0));
+        const max = Math.max(1, Math.floor(Number(item?.maxStacks) || 1));
+        return `${name} ${initial}/${max}`;
+      }).filter(Boolean)
+      : [];
+    const rows = [
+      ['初期対象状態', statuses.join('・') || 'なし'],
+      ['状態反応', reactions.join('・') || 'なし'],
+      ['状態異常弱点', weakness ? `その他倍率 +${formatNumber(weakness)}%` : 'なし'],
+      ['固有リソース', resources.join('・') || 'なし']
+    ];
+    return `<div class="fdc-dps-runtime-auxiliary" data-fdc-dps-runtime-readonly="auxiliary"><strong>補助ランタイム（監査のみ）</strong><small>現在のDPSへ渡る初期状態・状態反応・リソース。個別発動モードは設定しません。</small><div class="fdc-dps-runtime-auxiliary-list">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('')}</div></div>`;
   }
 
   function normalizeDpsExternalEvent(value = {}, index = 0) {
@@ -252,6 +516,7 @@
     const triggerSourceId = String(value?.triggerSourceId || '').trim();
     const conditionType = String(value?.conditionType || '').trim();
     const conditionValue = String(value?.conditionValue ?? '').trim();
+    const bindingKey = String(value?.bindingKey || value?.candidateBindingKey || '').trim();
     const normalized = {
       id: String(value?.id || `manual:${index + 1}`),
       type,
@@ -263,7 +528,7 @@
       reason: String(value?.reason || '').trim() || DEFAULT_EXTERNAL_EVENT_REASONS[type] || '手動外部イベント'
     };
     if (candidateId) {
-      Object.assign(normalized, {
+      const candidateFields = {
         candidateId,
         candidateLabel,
         candidateBasis,
@@ -276,7 +541,9 @@
         triggerSourceId,
         conditionType,
         conditionValue
-      });
+      };
+      if (bindingKey) candidateFields.bindingKey = bindingKey;
+      Object.assign(normalized, candidateFields);
     }
     if (status || Number(statusDurationFrames) > 0) {
       Object.assign(normalized, {
@@ -299,9 +566,10 @@
   }
 
   function normalizeDpsExternalEvents(values = []) {
-    return (Array.isArray(values) ? values : [])
+    const normalized = (Array.isArray(values) ? values : [])
       .map((value, index) => normalizeDpsExternalEvent(value, index))
       .filter(event => event.type);
+    return dedupeDpsExternalEventsByBinding(normalized);
   }
 
   // 通常計算の結果表示を読まず、同一windowの公開snapshot APIだけをDPS入力に使う。
@@ -389,11 +657,21 @@
       const key = String(targetId || '').trim().toLowerCase();
       if (!key) return false;
       const saved = dpsSettingsStore[key];
+      const migratedSaved = saved && typeof saved === 'object' && !Array.isArray(saved)
+        ? {
+            ...saved,
+            // 旧版は編成行動推定の全体OFFを保存していた。これは個別bindingの
+            // 明示OFFではないため、新版の既定自動へ移行する。
+            formationTimelineMode: saved.settingsVersion == null && saved.formationTimelineMode === 'off'
+              ? 'supportEstimate'
+              : saved.formationTimelineMode
+          }
+        : null;
       const fallback = {
         ...(this.defaultDpsSettings || DEFAULT_DPS_SETTINGS),
         externalEvents: normalizeDpsExternalEvents(fallbackExternalEvents)
       };
-      this.applyDpsSettings(saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : fallback);
+      this.applyDpsSettings(migratedSaved || fallback);
       return true;
     }
 
@@ -491,10 +769,32 @@
       this.renderDpsDetail();
     }
 
+    getDpsFormationEstimatedEvents(snapshot = {}, settings = this.getDpsSettings()) {
+      return createDpsFormationEstimatedEvents(
+        snapshot?.formationEventCandidates || [],
+        {
+          formationTimelineMode: settings?.formationTimelineMode || 'off',
+          formationHighSkillMode: settings?.formationHighSkillMode || 'disabled',
+          bindingModes: getDpsFormationBindingModes(snapshot?.runtimeEffects || {})
+        },
+        this.externalEvents
+      );
+    }
+
+    getDpsEffectiveExternalEvents(snapshot = {}, settings = this.getDpsSettings()) {
+      return normalizeDpsExternalEvents([
+        ...normalizeDpsExternalEvents(this.externalEvents),
+        ...this.getDpsFormationEstimatedEvents(snapshot, settings)
+      ]);
+    }
+
     createInputSnapshot(snapshot = {}) {
       return {
         ...snapshot,
-        externalEvents: normalizeDpsExternalEvents(this.externalEvents)
+        // 手動イベントの保存値と、自動（推定）で今回だけ生成するイベントを
+        // 分離する。推定イベントをlocalStorageへ書き戻すと、OFFへ戻しても
+        // 古い周期が残り、同じbindingが二重発火するためである。
+        externalEvents: this.getDpsEffectiveExternalEvents(snapshot)
       };
     }
 
@@ -728,8 +1028,11 @@
     }
 
     readExternalEventsFromDetail() {
-      const input = this.elements.externalInput || this.elements.detailGrid;
-      const rows = Array.from(input?.querySelectorAll?.('.fdc-dps-external-event-row') || []);
+      const hosts = [this.elements.externalInput, this.elements.runtimeSettings, this.elements.detailGrid]
+        .filter(Boolean);
+      const rows = Array.from(new Set(hosts.flatMap(host => Array.from(
+        host.querySelectorAll?.('.fdc-dps-external-event-row') || []
+      ))));
       return normalizeDpsExternalEvents(rows.map(row => {
         let candidateMeta = {};
         try {
@@ -755,6 +1058,7 @@
               return Array.isArray(parsed) ? parsed : [];
             } catch (_) { return []; }
           })(),
+          bindingKey: row.dataset?.fdcpExternalBindingKey || '',
           ...candidateMeta
         };
       }));
@@ -775,15 +1079,78 @@
       this.markExternalEventsChanged(this.readExternalEventsFromDetail());
     }
 
+    enableDpsFormationCandidate(candidate = {}) {
+      if (getDpsFormationCandidateSchedulePolicy(candidate).mode !== 'periodic') return;
+      const targetId = String(this.availability?.snapshot?.targetId || this.currentTargetId || '').trim();
+      if (!targetId) return;
+      const bindingKey = String(candidate.bindingKey || '').trim();
+      const bindingActionKey = candidate.periodicActionLabel === '高学年'
+        ? 'highSkill'
+        : candidate.periodicActionLabel === '低学年'
+          ? 'lowSkill'
+          : '';
+      const scopedBindingKey = bindingKey && bindingActionKey
+        ? `${bindingKey}::${bindingActionKey}`
+        : '';
+      const candidateEffectIds = new Set((Array.isArray(candidate.effectIds) ? candidate.effectIds : [])
+        .map(value => String(value || '').trim()).filter(Boolean));
+      const runtimeCollections = [
+        'attackSpeedEffects',
+        'damageBuffEffects',
+        'spRecoveryEffects',
+        'cooldownEffects',
+        'eventEffects'
+      ];
+      const snapshot = this.availability?.snapshot || this.latest?.snapshot || {};
+      const matchedEffects = runtimeCollections.flatMap(collectionKey => (
+        snapshot.runtimeEffects?.[collectionKey] || []
+      )).filter(effect => {
+        const effectBinding = String(effect?.bindingKey || '').trim();
+        const effectIds = new Set([
+          effect?.id,
+          effect?.effectId,
+          ...(effect?.effectIds || [])
+        ].map(value => String(value || '').trim()).filter(Boolean));
+        return (bindingKey && effectBinding === bindingKey)
+          || (scopedBindingKey && effectBinding === scopedBindingKey)
+          || [...candidateEffectIds].some(effectId => effectIds.has(effectId));
+      });
+      if (!matchedEffects.length) return;
+      const overrides = dpsRuntimeEffectOverrides || loadDpsRuntimeEffectOverrides();
+      const targetOverrides = { ...(overrides[targetId] || {}) };
+      matchedEffects.forEach(effect => {
+        const effectId = String(effect?.id || effect?.effectId || '').trim();
+        if (!effectId) return;
+        const current = targetOverrides[effectId] || {};
+        targetOverrides[effectId] = {
+          ...current,
+          mode: 'auto',
+          fixedStacks: Math.max(1, Math.floor(Number(current.fixedStacks) || 1))
+        };
+      });
+      overrides[targetId] = targetOverrides;
+      saveDpsRuntimeEffectOverrides(overrides);
+    }
+
     addExternalEvent(value = {}) {
-      this.markExternalEventsChanged([...this.externalEvents, value]);
-      this.elements.externalInput?.querySelector?.('[data-fdcp-detail-section="external"]')?.setAttribute('open', '');
+      const periodic = isDpsPeriodicFormationEvent(value);
+      const identity = periodic ? getDpsExternalEventBindingIdentity(value) : '';
+      const existingIndex = identity
+        ? this.externalEvents.findIndex(event => isDpsExternalEventSameBinding(event, value))
+        : -1;
+      const next = existingIndex >= 0
+        ? this.externalEvents.map((event, index) => index === existingIndex ? { ...event, ...value, id: event.id } : event)
+        : [...this.externalEvents, value];
+      this.markExternalEventsChanged(next);
+      const section = value.timingMode === 'periodic' ? 'runtime-schedule' : 'external';
+      const host = value.timingMode === 'periodic' ? this.elements.runtimeSettings : this.elements.externalInput;
+      host?.querySelector?.(`[data-fdcp-detail-section="${section}"]`)?.setAttribute('open', '');
     }
 
     updateExternalEventCount() {
       const count = this.elements.externalEventCount;
       if (!count) return;
-      count.textContent = `${formatNumber(this.externalEvents.length)}件 / 追加・編集`;
+      count.textContent = `${formatNumber(getDpsExternalConditionEvents(this.externalEvents).length)}件 / 追加・編集`;
     }
 
     renderDpsExternalInput(snapshot = null) {
@@ -806,8 +1173,24 @@
       const host = this.elements.runtimeSettings;
       if (!host) return;
       const previousDetails = host.querySelector?.('[data-fdcp-detail-section="runtime-settings"]');
+      const previousSchedule = host.querySelector?.('[data-fdcp-detail-section="runtime-schedule"]');
       const sourceSnapshot = snapshot || this.latest?.snapshot || this.availability?.snapshot || {};
-      host.innerHTML = renderDpsRuntimeSettingsContent(sourceSnapshot.runtimeEffects || {}, !!previousDetails?.open);
+      const settings = this.getDpsSettings();
+      host.innerHTML = renderDpsRuntimeSettingsContent(
+        sourceSnapshot.runtimeEffects || {},
+        !!previousDetails?.open,
+        this.externalEvents,
+        sourceSnapshot.formationEventCandidates || [],
+        !!previousSchedule?.open,
+        {
+          formationTimelineMode: settings.formationTimelineMode,
+          formationHighSkillMode: settings.formationHighSkillMode,
+          bindingModes: getDpsFormationBindingModes(sourceSnapshot.runtimeEffects || {})
+        },
+        this.getDpsEffectiveExternalEvents(sourceSnapshot, settings)
+      );
+      const schedule = host.querySelector?.('[data-fdcp-detail-section="runtime-schedule"]');
+      if (schedule && previousSchedule) schedule.open = !!previousSchedule.open;
     }
 
     removeExternalEvent(index) {
@@ -836,6 +1219,7 @@
         const candidate = (Array.isArray(snapshot.formationEventCandidates) ? snapshot.formationEventCandidates : [])
           .find(item => String(item?.id || '') === String(add.dataset.fdcDpsFormationEventAdd || ''));
         if (!candidate) return;
+        this.enableDpsFormationCandidate(candidate);
         this.addExternalEvent({
           type: candidate.type,
           seconds: candidate.startSeconds,
@@ -853,6 +1237,7 @@
           candidateLabel: candidate.label,
           candidateBasis: candidate.basis || '',
           candidateEffectLabels: Array.isArray(candidate.effectLabels) ? candidate.effectLabels : [],
+          ...(candidate.bindingKey ? { bindingKey: candidate.bindingKey } : {}),
           timingMode: candidate.timingMode || '',
           eventClass: candidate.eventClass || '',
           eventLabel: candidate.eventLabel || '',
@@ -1633,7 +2018,7 @@
     });
   }
   function getDpsFormationTimelineModeLabel(mode = 'off') {
-    return mode === 'supportEstimate' ? '支援効果のみ推定' : 'OFF';
+    return mode === 'supportEstimate' ? '自動（推定）' : 'OFF';
   }
   function getDpsFormationHighModeLabel(mode = 'disabled') {
     return mode === 'auto' ? 'オート発動' : '発動なし';
@@ -1855,12 +2240,13 @@
       eventLabel: event.eventLabel || '',
       repeatability: event.repeatability || '',
       inputMode: event.inputMode || '',
+      bindingKey: event.bindingKey || '',
       triggerSourceId: event.triggerSourceId || '',
       conditionType: event.conditionType || '',
       conditionValue: event.conditionValue ?? ''
     };
     const candidateAttributes = isFormationCandidate
-      ? ` data-fdcp-external-candidate-id="${escapeAttr(event.candidateId)}" data-fdcp-external-candidate-label="${escapeAttr(event.candidateLabel || eventTitle)}" data-fdcp-external-candidate-basis="${escapeAttr(event.candidateBasis || '')}" data-fdcp-external-candidate-effects="${escapeAttr(JSON.stringify(event.candidateEffectLabels || []))}" data-fdcp-external-candidate-meta="${escapeAttr(JSON.stringify(candidateMetadata))}"`
+      ? ` data-fdcp-external-candidate-id="${escapeAttr(event.candidateId)}" data-fdcp-external-candidate-label="${escapeAttr(event.candidateLabel || eventTitle)}" data-fdcp-external-candidate-basis="${escapeAttr(event.candidateBasis || '')}" data-fdcp-external-candidate-effects="${escapeAttr(JSON.stringify(event.candidateEffectLabels || []))}" data-fdcp-external-binding-key="${escapeAttr(event.bindingKey || '')}" data-fdcp-external-candidate-meta="${escapeAttr(JSON.stringify(candidateMetadata))}"`
       : '';
     const typeOptions = getExternalEventTypeEntries(type)
       .map(([value, label]) => `<option value="${escapeAttr(value)}"${value === type ? ' selected' : ''}>${escapeHtml(label)}</option>`)
@@ -1908,40 +2294,91 @@
     return `${visible.join('・')}${labels.length > visible.length ? ` ほか${labels.length - visible.length}件` : ''}`;
   }
 
-  function renderDpsFormationEventCandidates(candidates = []) {
-    const normalized = Array.isArray(candidates) ? candidates : [];
-    if (!normalized.length) return '<p class="is-empty">現在の編成に、外部行動待ちの効果はありません。</p>';
+  function renderDpsFormationEventCandidates(candidates = [], options = {}) {
+    const requestedMode = String(options.mode || 'all');
+    const normalized = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => requestedMode === 'all'
+        || getDpsFormationCandidateSchedulePolicy(candidate).mode === requestedMode);
+    if (!normalized.length) {
+      return `<p class="is-empty">${escapeHtml(options.emptyMessage || (requestedMode === 'periodic'
+        ? '現在の編成に、周期指定できる行動連動効果はありません。'
+        : '現在の編成に、外部条件として入力できる効果はありません。'))}</p>`;
+    }
     return normalized.map(candidate => {
       const effectSummary = formatDpsExternalCandidateEffectSummary(candidate, 3);
+      const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
+      const isPeriodic = schedulePolicy.mode === 'periodic';
+      const repeatabilityLabel = ({ once: '一回型', repeatable: '反復型', counted: 'カウント型' })[candidate.repeatability] || '発生秒指定';
+      const scheduleState = getDpsFormationCandidateScheduleState(
+        candidate,
+        options,
+        options.manualEvents || []
+      );
+      const stateLabel = isPeriodic
+        ? `${scheduleState.label} / ${schedulePolicy.capabilityLabel}`
+        : `${schedulePolicy.capabilityLabel} / 非周期・${repeatabilityLabel}`;
+      const actionLabel = !isPeriodic
+        ? '追加'
+        : scheduleState.code === 'manual'
+          ? '周期を調整'
+          : scheduleState.code === 'estimated'
+            ? '周期を上書き'
+            : '周期を追加';
       return `
-        <article class="fdc-dps-formation-event-candidate">
+        <article class="fdc-dps-formation-event-candidate is-${escapeAttr(scheduleState.code)}">
           <div>
             <strong class="is-trigger">${escapeHtml(candidate.label || candidate.type)}</strong>
             ${effectSummary ? `<strong class="is-effect">発動効果: ${escapeHtml(effectSummary)}</strong>` : ''}
-            ${candidate.timingMode === 'event' ? `<span class="is-event-kind">非周期 / ${{ once: '一回型', repeatable: '反復型', counted: 'カウント型' }[candidate.repeatability] || '発生秒指定'}</span>` : '<span class="is-periodic-kind">周期推定</span>'}
+            <span class="${isPeriodic ? 'is-periodic-kind' : 'is-event-kind'}" data-fdc-dps-formation-event-state="${escapeAttr(scheduleState.code)}">${escapeHtml(stateLabel)}</span>
             <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
           </div>
-          <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">追加</button>
+          <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">${actionLabel}</button>
         </article>
       `;
     }).join('');
   }
 
-  function renderDpsExternalInputContent(events = [], candidates = []) {
+  function renderDpsRuntimeScheduleContent(candidates = [], events = [], open = false, options = {}) {
+    const normalizedCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => getDpsFormationCandidateSchedulePolicy(candidate).mode === 'periodic');
     const normalizedEvents = normalizeDpsExternalEvents(events);
-    const normalizedCandidates = Array.isArray(candidates) ? candidates : [];
+    const periodicEvents = normalizedEvents
+      .map((event, index) => ({ event, index }))
+      .filter(({ event }) => isDpsPeriodicFormationEvent(event));
+    const automaticCount = normalizedCandidates.filter(candidate => isDpsFormationCandidateAutoEnabled(candidate, options, options.manualEvents || events)).length;
+    const count = normalizedCandidates.length + periodicEvents.length;
+    const scheduleStatus = automaticCount
+      ? `自動（推定）${automaticCount}件 / ${count}件`
+      : count ? `${count}件` : '周期指定対応';
+    return `<details class="fdc-dps-runtime-schedule" data-fdcp-detail-section="runtime-schedule"${open ? ' open' : ''}>
+      <summary>行動連動・周期設定 <small>${scheduleStatus}</small></summary>
+      <p>編成使徒の行動に連動する効果です。追加時はCT・SP・普通攻撃間隔から求めた推定初期値を入れ、必要なら発動秒・間隔・回数を調整します。</p>
+      <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="runtime-schedule-candidates">
+        <summary>編成から周期を追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>
+        <div class="fdc-dps-formation-event-candidate-list">${renderDpsFormationEventCandidates(normalizedCandidates, { ...options, mode: 'periodic' })}</div>
+      </details>
+      <div class="fdc-dps-runtime-schedule-event-list">${periodicEvents.map(({ event, index }) => renderDpsExternalEventRow(event, index)).join('')}</div>
+    </details>`;
+  }
+
+  function renderDpsExternalInputContent(events = [], candidates = []) {
+    const normalizedEvents = normalizeDpsExternalEvents(events)
+      .map((event, index) => ({ event, index }))
+      .filter(({ event }) => !isDpsPeriodicFormationEvent(event));
+    const normalizedCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => getDpsFormationCandidateSchedulePolicy(candidate).mode === 'external');
     return `
       <details class="fdc-dps-external-events" data-fdcp-detail-section="external">
         <summary>外部イベント（手動） <small>標準OFF</small></summary>
         <div class="fdc-dps-external-events-head">
-          <p>周期候補は推定時刻で追加されます。非周期候補は発生秒を指定するイベントとして追加されるため、間隔を推測せず必要な回数だけ個別に設定します。</p>
+          <p>シールド破壊・被弾・HP閾値・状態遷移など、時刻を自動確定しない条件を入力します。行動連動の周期設定は上の時系列効果欄で行います。</p>
         </div>
         <details class="fdc-dps-formation-event-candidates" data-fdcp-detail-section="external-candidates">
           <summary>編成から追加 <span>${normalizedCandidates.length ? `${normalizedCandidates.length}件` : '候補なし'}</span></summary>
-          <p>周期型はCT・SP・普通攻撃間隔から軽量推定し、被弾・シールド破壊・撃破・状態遷移などの非周期型は発生秒を手動指定します。</p>
-          <div class="fdc-dps-formation-event-candidate-list">${renderDpsFormationEventCandidates(normalizedCandidates)}</div>
+          <p>被弾・シールド破壊・撃破・状態遷移などの非周期型は、発生秒を手動指定します。</p>
+          <div class="fdc-dps-formation-event-candidate-list">${renderDpsFormationEventCandidates(normalizedCandidates, { mode: 'external' })}</div>
         </details>
-        <div class="fdc-dps-external-event-list">${normalizedEvents.map(renderDpsExternalEventRow).join('')}</div>
+        <div class="fdc-dps-external-event-list">${normalizedEvents.map(({ event, index }) => renderDpsExternalEventRow(event, index)).join('')}</div>
       </details>
     `;
   }
@@ -1990,8 +2427,10 @@
     return '適用';
   }
   function getDpsActionEffectState(row = {}) {
+    const runtimePolicy = getDpsRuntimeEffectPolicy(row);
     if (row.unsupportedRuntimeTrigger) return { code: 'unsupported', label: 'DPS未対応' };
-    if (row.externalActionRequired) return { code: 'external', label: '他使徒の行動待ち' };
+    if (runtimePolicy.capability === 'external') return { code: 'external', label: '外部入力待ち' };
+    if (runtimePolicy.capability === 'estimated') return { code: 'estimated', label: '自動（推定）' };
     if (row.sourceDisabled) return { code: 'off', label: '適用元OFF' };
     if (row.manualDisabled || row.singleManualDisabled) return { code: 'off', label: '手動OFF' };
     if (!row.enabled) return { code: 'condition', label: /条件|不一致/.test(String(row.reason || '')) ? '条件不一致' : 'OFF' };
@@ -2061,7 +2500,9 @@
       }
       return { label: '未対応', className: 'is-runtime-waiting', title: row.reason || '発動時刻を再現できない条件のためDPS自動計算から除外' };
     }
-    if (row.externalActionRequired) return { label: '外部待ち', className: 'is-runtime-waiting', title: '編成内の別使徒本人の行動タイムラインを未計上のため発動させません' };
+    const runtimePolicy = getDpsRuntimeEffectPolicy(row);
+    if (runtimePolicy.capability === 'external') return { label: '外部待ち', className: 'is-runtime-waiting', title: '発生時刻を外部イベントで指定してください' };
+    if (runtimePolicy.capability === 'estimated' && !descriptor) return { label: '自動（推定）', className: 'is-runtime-waiting', title: '編成行動の周期推定を実行時に適用します' };
     if (descriptor?.overrideMode === 'off') return { label: 'OFF', className: 'is-off', title: 'DPSの時系列効果設定で除外' };
     if (descriptor?.overrideMode === 'fixed') {
       if (!descriptor.targetActionKeys.includes(actionKey)) return { label: '—', className: 'is-none', title: '固定補正の適用対象外' };
@@ -2081,41 +2522,74 @@
     if (!values.length) return '0';
     return values.length === 1 || Math.abs(values[0] - values.at(-1)) < .5 ? formatDamage(values[0]) : `${formatDamage(values[0])}～${formatDamage(values.at(-1))}`;
   }
-  function renderDpsRuntimeEffectControls(runtimeEffects = {}) {
+  function renderDpsRuntimeEffectControls(runtimeEffects = {}, externalEvents = []) {
     const definitions = new Map();
-    [
-      ['attackSpeedEffects', true, '攻撃速度'], ['damageBuffEffects', true, 'ダメージ補正'],
-      ['spRecoveryEffects', false, 'SP回復'], ['cooldownEffects', false, 'クールタイム'], ['eventEffects', false, 'イベント']
-    ].forEach(([collectionKey, supportsFixed, kindLabel]) => {
-      (runtimeEffects?.[collectionKey] || []).forEach(effect => {
-        const id = String(effect?.id || effect?.effectId || '');
-        if (!id) return;
-        const current = definitions.get(id);
-        const maxStacks = Math.max(1, Math.floor(Number(effect?.maxStacks) || 1));
-        definitions.set(id, {
-          id, label: effect.label || current?.label || '時系列効果',
-          kinds: uniqueDps([...(current?.kinds || []), kindLabel]),
-          supportsFixed: !!(current?.supportsFixed || supportsFixed),
-          maxStacks: Math.max(current?.maxStacks || 1, maxStacks),
-          mode: effect.runtimeOverrideMode || current?.mode || getDpsRuntimeEffectDefaultMode(effect),
-          fixedStacks: effect.runtimeFixedStacks || current?.fixedStacks || 1
-        });
+    const register = (collectionKey, supportsFixed, kindLabel, readOnly = false) => (runtimeEffects?.[collectionKey] || []).forEach(effect => {
+      const id = String(effect?.id || effect?.effectId || '');
+      if (!id) return;
+      const current = definitions.get(id);
+      const maxStacks = Math.max(1, Math.floor(Number(effect?.maxStacks) || 1));
+      const runtimePolicy = effect.runtimePolicy || getDpsRuntimeEffectPolicy(effect, { supportsFixed });
+      definitions.set(id, {
+        id, label: effect.label || current?.label || '時系列効果',
+        kinds: uniqueDps([...(current?.kinds || []), kindLabel]),
+        supportsFixed: !!(current?.supportsFixed || supportsFixed),
+        readOnly: current ? !!(current.readOnly && readOnly) : readOnly,
+        maxStacks: Math.max(current?.maxStacks || 1, maxStacks),
+        mode: effect.runtimeOverrideMode || current?.mode || runtimePolicy.defaultMode,
+        fixedStacks: effect.runtimeFixedStacks || current?.fixedStacks || 1,
+        runtimePolicy: current?.runtimePolicy || runtimePolicy,
+        explicit: !!(current?.explicit || effect.runtimeHasExplicitOverride),
+        runtimeEffect: current?.runtimeEffect || effect
       });
     });
-    if (!definitions.size) return '';
+    register('attackSpeedEffects', true, '攻撃速度');
+    register('damageBuffEffects', true, 'ダメージ補正');
+    register('spRecoveryEffects', false, 'SP回復');
+    register('cooldownEffects', false, 'クールタイム');
+    register('eventEffects', false, 'イベント');
+    // 毎秒SPは現行シミュレーションへ渡るが、個別モード設定は未定義。
+    // 設定可能と誤認させず、監査対象としてだけ一覧へ出す。
+    register('spRegenEffects', false, '毎秒SP', true);
+    const auxiliaryAudit = renderDpsRuntimeAuxiliaryAudit(runtimeEffects);
+    if (!definitions.size && !auxiliaryAudit) return '';
     const rows = Array.from(definitions.values()).map(item => {
-      const fixed = item.mode === 'fixed' && item.supportsFixed;
-      return `<label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}"><span><strong>${escapeHtml(item.label)}</strong><small>${escapeHtml(item.kinds.join('・'))}</small></span><select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.label)}のDPS動作"><option value="auto"${item.mode === 'auto' ? ' selected' : ''}>自動</option>${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}<option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option></select>${item.supportsFixed ? `<span class="fdc-dps-runtime-stack${fixed ? '' : ' is-disabled'}"><input type="number" min="1" max="${item.maxStacks}" step="1" value="${Math.min(item.maxStacks, item.fixedStacks)}" data-fdc-dps-runtime-stacks="${escapeAttr(item.id)}"${fixed ? '' : ' disabled'}><small>/${item.maxStacks}</small></span>` : ''}</label>`;
+      const unsupported = item.runtimePolicy.capability === 'unsupported';
+      const fixed = item.mode === 'fixed' && item.supportsFixed && !item.readOnly && !unsupported;
+      const externalMatch = getDpsRuntimeExternalEventMatchState(item.runtimeEffect, externalEvents);
+      const presentation = getDpsRuntimeEffectPolicyPresentation(item.runtimePolicy, { mode: item.mode, explicit: item.explicit, readOnly: item.readOnly, externalMatched: externalMatch.matched });
+      const schedulePolicy = getDpsRuntimeEffectSchedulePolicy(item.runtimeEffect, { policy: item.runtimePolicy, supportsFixed: item.supportsFixed });
+      const policyClass = `is-policy-${presentation.className.replace(/^is-/, '')}`;
+      const externalDetail = externalMatch.required
+        ? ` / ${externalMatch.matched ? `対応${externalMatch.count}件` : `対応イベントなし（${externalMatch.expectedLabel}）`}`
+        : '';
+      const detailLabel = `${presentation.detailLabel} / ${schedulePolicy.capabilityLabel}${externalDetail}`;
+      const title = `${item.label} / ${presentation.label} / ${detailLabel}`;
+      const readOnlyControl = item.readOnly || unsupported;
+      const control = readOnlyControl
+        ? `<span class="fdc-dps-runtime-readonly" title="${escapeAttr(title)}">${unsupported ? '未対応' : '監査'}</span>`
+        : `<select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.label)}のDPS動作"><option value="auto"${item.mode === 'auto' ? ' selected' : ''}>${item.runtimePolicy.capability === 'external' ? '外部入力' : '自動'}</option>${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}<option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option></select>`;
+      const stack = item.supportsFixed && !readOnlyControl
+        ? `<span class="fdc-dps-runtime-stack${fixed ? '' : ' is-disabled'}"><input type="number" min="1" max="${item.maxStacks}" step="1" value="${Math.min(item.maxStacks, item.fixedStacks)}" data-fdc-dps-runtime-stacks="${escapeAttr(item.id)}"${fixed ? '' : ' disabled'}><small>/${item.maxStacks}</small></span>`
+        : '';
+      return `<label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}${readOnlyControl ? ' is-readonly' : ''}" data-runtime-policy-status="${escapeAttr(presentation.statusCode)}" title="${escapeAttr(title)}"><span><strong>${escapeHtml(item.label)} <b class="fdc-dps-runtime-policy ${policyClass}">${escapeHtml(presentation.label)}</b></strong><small>${escapeHtml(item.kinds.join('・'))} / ${escapeHtml(detailLabel)}</small></span>${control}${stack}</label>`;
     }).join('');
-    return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動はタイムライン処理 / 高学年関連は初期OFF / 固定は指定スタックを常時適用 / OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
+    return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動・外部入力待ち・初期OFF・未対応を区別 / 固定は指定スタックを常時適用 / OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div>${auxiliaryAudit}</div>`;
   }
-  function renderDpsRuntimeSettingsContent(runtimeEffects = {}, open = false) {
-    const controls = renderDpsRuntimeEffectControls(runtimeEffects)
+  function renderDpsRuntimeSettingsContent(runtimeEffects = {}, open = false, externalEvents = [], formationEventCandidates = [], scheduleOpen = false, scheduleOptions = {}, effectiveExternalEvents = externalEvents) {
+    const controls = renderDpsRuntimeEffectControls(runtimeEffects, effectiveExternalEvents)
       .replace('<strong>時系列効果設定</strong>', '<strong>効果一覧</strong>');
-    if (!controls) return '';
+    const schedule = renderDpsRuntimeScheduleContent(
+      formationEventCandidates,
+      externalEvents,
+      scheduleOpen,
+      { ...scheduleOptions, manualEvents: externalEvents }
+    );
+    if (!controls && !schedule) return '';
     return '<details class="fdcp-dps-runtime-settings-disclosure" data-fdcp-detail-section="runtime-settings"'
       + (open ? ' open' : '')
       + '><summary>時系列効果設定 <small>DPSの計算条件</small></summary>'
+      + schedule
       + controls
       + '</details>';
   }
@@ -2522,7 +2996,7 @@
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
     createDpsComparisonAxis,
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsFormationEstimatedEvents, createDpsFormationBindingModes: getDpsFormationBindingModes, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationCandidateAutoEnabled: isDpsFormationCandidateAutoEnabled, getDpsFormationCandidateSchedulePolicy, getDpsFormationCandidateScheduleState, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsRuntimeEffectSchedulePolicy, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeScheduleContent, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();

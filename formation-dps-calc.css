@@ -144,6 +144,44 @@
   font-size: 9px;
 }
 
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel {
+  margin-top: 7px;
+  padding: 6px 8px;
+  border: 1px solid rgba(98, 214, 163, 0.28);
+  border-radius: 9px;
+  background: rgba(8, 39, 37, 0.34);
+}
+
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel > summary {
+  cursor: pointer;
+  color: #c2f3db;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel > summary small {
+  margin-left: 4px;
+  color: #70d6a8;
+  font-size: 9px;
+}
+
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel > p {
+  margin: 6px 0 0;
+  color: #8bbba8;
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel .fdc-dps-runtime-schedule-event-list {
+  display: grid;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.formation-dps-prototype .fdc-dps-runtime-schedule-panel .fdc-dps-runtime-schedule-event-list:empty {
+  display: none;
+}
+
 .formation-dps-prototype .fdc-dps-external-events-head {
   display: flex;
   align-items: center;
@@ -290,6 +328,23 @@
 
 .formation-dps-prototype.theme-light .fdc-dps-formation-event-candidate strong.is-effect {
   color: #9a6400;
+}
+
+.formation-dps-prototype.theme-light .fdc-dps-runtime-schedule-panel {
+  border-color: rgba(22, 145, 94, 0.28);
+  background: rgba(235, 251, 244, 0.78);
+}
+
+.formation-dps-prototype.theme-light .fdc-dps-runtime-schedule-panel > summary {
+  color: #176443;
+}
+
+.formation-dps-prototype.theme-light .fdc-dps-runtime-schedule-panel > summary small {
+  color: #27865c;
+}
+
+.formation-dps-prototype.theme-light .fdc-dps-runtime-schedule-panel > p {
+  color: #507a66;
 }
 
 .formation-dps-prototype .fdc-dps-external-event-row {
@@ -1569,3 +1624,35 @@ body.theme-light .fdc-dps-additional-overview-state {
     grid-column: 2;
   }
 }
+
+/* Runtime policy is shown inline to preserve the compact source-page layout
+   while distinguishing automatic, external, opt-in, unsupported, and
+   read-only effects. */
+.formation-dps-prototype .fdc-dps-runtime-policy { display:inline-flex; align-items:center; margin-left:.2rem; padding:0 .24rem; border:1px solid currentColor; border-radius:999px; font-size:7px; font-weight:900; line-height:1.35; vertical-align:middle; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-auto { color:#7ee2a6; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-estimated { color:#7ee2a6; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-external { color:#ffc66d; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-external-active { color:#7ee2a6; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-opt-in { color:#ffbd87; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-unsupported { color:#ff9fae; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-fixed { color:#82d8ff; }
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-off,
+.formation-dps-prototype .fdc-dps-runtime-policy.is-policy-readonly { color:#9aabc3; }
+.formation-dps-prototype .fdc-dps-runtime-setting.is-readonly { border-style:dashed; }
+.formation-dps-prototype .fdc-dps-runtime-readonly { display:inline-flex; align-items:center; justify-content:center; min-width:42px; min-height:25px; padding:0 4px; border:1px dashed rgba(154,171,195,.55); border-radius:6px; color:#9aabc3; font-size:8px; font-weight:800; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-auto { color:#187a42; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-estimated { color:#187a42; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-external { color:#a15a00; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-external-active { color:#187a42; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-opt-in { color:#b45309; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-unsupported { color:#b91c1c; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-fixed { color:#0369a1; }
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-off,
+.formation-dps-prototype.theme-light .fdc-dps-runtime-policy.is-policy-readonly { color:#64748b; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary { display:grid; gap:4px; margin-top:6px; padding:6px 5px 1px; border-top:1px solid rgba(121,161,222,.2); }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary > strong { font-size:8px; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary > small { color:#8299b8; font-size:7px; line-height:1.35; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary-list { display:grid; gap:3px; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary-list > div { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:baseline; gap:5px; min-width:0; font-size:8px; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary-list span { color:#8299b8; font-weight:800; }
+.formation-dps-prototype .fdc-dps-runtime-auxiliary-list b { min-width:0; overflow-wrap:anywhere; font-weight:700; }

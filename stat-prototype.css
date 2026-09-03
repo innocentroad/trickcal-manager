@@ -3387,6 +3387,14 @@ h3 {
   text-align: center;
 }
 
+.board-global-stat-matrix tbody th > img {
+  display: block;
+  width: 25px;
+  height: 25px;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
 .board-global-stat-cell {
   display: grid;
   align-items: center;
