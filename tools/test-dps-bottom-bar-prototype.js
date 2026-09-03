@@ -182,17 +182,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260903e'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260904c'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
-assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260903d'), 'prototype stylesheetは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260904a'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260903e'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260904c'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
-assert.ok(html.includes('dps-simulator.js?v=20260902d') && appCache.includes('dps-simulator.js?v=20260902d'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
-assert.ok(script.includes("dps-simulator-worker.js?v=20260901b") && appCache.includes('dps-simulator-worker.js?v=20260901b'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260903d'), 'cache manifestも最新stylesheet queryを参照する');
+assert.ok(html.includes('dps-simulator.js?v=20260904a') && appCache.includes('dps-simulator.js?v=20260904a'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
+assert.ok(script.includes("dps-simulator-worker.js?v=20260904a") && appCache.includes('dps-simulator-worker.js?v=20260904a'), 'Workerのcache-bustを起動側とmanifestで揃える');
+assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260904a'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260903h'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260904a'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {
@@ -368,6 +368,9 @@ assert.ok(script.includes("event.target.closest?.('[data-fdc-dps-formation-event
   && !script.includes("event.target.closest?.('[data-fdcp-dps-formation-event-add]')")
   && script.includes('add.dataset.fdcDpsFormationEventAdd'),
   '編成候補追加ボタンの委譲セレクタとdatasetキーが描画属性と一致する');
+assert.ok(script.includes("const formationControl = event.target.closest?.('[data-fdc-dps-formation-mode]')")
+  && script.includes('handleFormationCandidateSettingChange(formationControl)'),
+  '編成由来状態効果のAUTO/OFF変更を設定委譲から受け取る');
 assert.ok(script.includes("if (externalMutation) event.stopPropagation()")
   && script.includes("if (externalMutation) applyFloatState('dpsSettings')"),
   '外部イベントの追加・削除ではDPS設定floatを閉じずに維持する');
@@ -574,6 +577,58 @@ const estimatedHighCandidate = { ...estimatedFormationCandidate, id: 'formation:
 assert.equal(testing.createDpsFormationEstimatedEvents([estimatedHighCandidate], {
   formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
 }).length, 0, '編成高学年は初期OFFの間、自動推定へ流さない');
+const ayaLowStatusCandidate = {
+  ...estimatedFormationCandidate,
+  id: 'formation-status:aya:low:frostbite',
+  bindingKey: 'formation-status:aya:low:frostbite',
+  provider: 'formationStatus',
+  label: 'アヤ / 低学年A2 / 凍傷付与',
+  periodicActionLabel: '低学年',
+  effectLabels: ['凍傷 +4スタック', '冷静被ダメージ +8%／スタック']
+};
+const ayaHighStatusCandidate = {
+  ...ayaLowStatusCandidate,
+  id: 'formation-status:aya:high:frostbite',
+  bindingKey: 'formation-status:aya:high:frostbite',
+  label: 'アヤ / 高学年 / 凍傷付与',
+  periodicActionLabel: '高学年'
+};
+assert.equal(testing.getDpsFormationCandidateMode(ayaLowStatusCandidate, 'calm', {}).toString(), 'auto',
+  '編成アヤ低学年凍傷は初期AUTOとして扱う');
+assert.equal(testing.getDpsFormationCandidateMode(ayaHighStatusCandidate, 'calm', {}).toString(), 'off',
+  '編成アヤ高学年凍傷は個別設定の初期OFFとして扱う');
+assert.equal(testing.getDpsFormationCandidateBindingModes([ayaLowStatusCandidate, ayaHighStatusCandidate], 'calm', {})[ayaHighStatusCandidate.id], 'off',
+  '編成アヤ高学年凍傷の初期OFFを推定policyへ渡す');
+const ayaStatusSettings = testing.renderDpsRuntimeSettingsContent({}, false, [], [ayaLowStatusCandidate, ayaHighStatusCandidate], false, {
+  targetId: 'calm', formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled'
+});
+assert.match(ayaStatusSettings, /編成由来状態効果[\s\S]*アヤ \/ 低学年A2 \/ 凍傷付与[\s\S]*<b class="fdc-dps-runtime-policy is-policy-estimated">自動<\/b>[\s\S]*data-fdc-dps-formation-mode="formation-status:aya:low:frostbite"[\s\S]*<option value="auto" selected>自動<\/option>/,
+  '時系列効果設定へアヤ低学年凍傷の自動/OFF操作を表示する');
+assert.match(ayaStatusSettings, /アヤ \/ 高学年 \/ 凍傷付与[\s\S]*data-fdc-dps-formation-mode="formation-status:aya:high:frostbite"[\s\S]*<option value="off" selected>OFF<\/option>/,
+  '時系列効果設定へアヤ高学年凍傷の初期OFFを表示する');
+const ayaDefaultStatusEvents = testing.createDpsFormationEstimatedEvents([ayaLowStatusCandidate, ayaHighStatusCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled',
+  bindingModes: testing.getDpsFormationCandidateBindingModes([ayaLowStatusCandidate, ayaHighStatusCandidate], 'calm', {})
+});
+assert.equal(ayaDefaultStatusEvents.filter(event => event.candidateId === ayaLowStatusCandidate.id).length, 1,
+  '編成アヤ低学年凍傷は既存の自動推定経路で初期反映する');
+assert.equal(ayaDefaultStatusEvents.filter(event => event.candidateId === ayaHighStatusCandidate.id).length, 0,
+  '編成アヤ高学年凍傷は個別初期OFFのままタイムラインへ追加しない');
+const ayaManualEvent = {
+  id: 'manual:aya-low', type: '状態付与時', timingMode: 'periodic', candidateId: ayaLowStatusCandidate.id,
+  bindingKey: ayaLowStatusCandidate.bindingKey, frame: 60, intervalFrames: 600, repeatCount: 0
+};
+const offAyaOverrides = {
+  calm: { [`formationCandidate:${ayaLowStatusCandidate.bindingKey}`]: { mode: 'off' } }
+};
+assert.equal(testing.filterDpsFormationManualEvents([ayaManualEvent, { type: 'shieldBreak' }], [ayaLowStatusCandidate], 'calm', offAyaOverrides).length, 1,
+  '編成アヤ凍傷を明示OFFにしたとき手動周期も計算入力から除外する');
+assert.equal(testing.filterDpsFormationManualEvents([ayaManualEvent, { type: 'shieldBreak' }], [ayaLowStatusCandidate], 'calm', {}).length, 2,
+  '編成アヤ凍傷のOFF解除時は保存済み手動周期を再利用できる');
+const ayaLowOffModes = testing.getDpsFormationCandidateBindingModes([ayaLowStatusCandidate], 'calm', offAyaOverrides);
+assert.equal(testing.createDpsFormationEstimatedEvents([ayaLowStatusCandidate], {
+  formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled', bindingModes: ayaLowOffModes
+}).length, 0, '編成アヤ低学年凍傷の個別OFFは自動推定も停止する');
 const controllerForEffectiveEvents = new testing.PrototypeDpsController({ createDpsSnapshot: () => ({}) }, {
   duration: { value: '90' }, highMode: { value: 'disabled' }, formationTimelineMode: { value: 'supportEstimate' },
   formationHighMode: { value: 'disabled' }, seed: { value: '1' }, trials: { value: '16' }, autoRun: { checked: true }

@@ -513,3 +513,21 @@
 - 検証: A2中型敵4スタック、愛用品10秒周期、高学年反応専用候補をfixtureで確認した。複数スタックの一括タイムライン、冷静DPS増加、凍傷DoTなし、既存外部状態処理、`node --check`、DPS主要回帰テスト、`git diff --check`が成功した。cache-busterは`20260904a`へ更新した。datasheetは変更していない。
 - 暫定事項: A2の戻り命中を含む敵サイズ別2／4／5／8スタックは未検証推定値。高学年は従来方針どおり初期OFF。ゲーム内検証後に候補値・発動順を調整する。
 - 残り見積もり: 約1スライス。実画面での編成切替、A2・愛用品の自動反映、高学年個別ON、保存／手動周期上書き、スマホ表示を確認する。
+
+## アヤ凍傷の時系列効果設定接続 実装スライス10の終了報告
+
+- 達成度: 100%（今回の実装範囲）。編成由来のアヤ凍傷を、時系列効果設定から低学年・愛用・高学年ごとにAUTO／OFF操作できるようにした。
+- 実施: 本体DPS下バーのDPS計算設定内へ「編成由来状態効果」を追加し、既存の「行動連動・周期設定」と縦に並べた。DPS試験版にも同じcandidate mode保存・表示・計算経路を接続した。由来・効果・推定根拠はカード内で折り返し表示し、長い名称を省略しない。
+- 初期方針: 低学年A2と愛用品は従来どおりAUTO、高学年は個別bindingだけ初期OFF。高学年のAUTOを選んだ場合だけ保存済み個別設定で推定providerを有効化する。したがって初期状態の低学年・愛用品・高学年のタイムラインは実装前と同じ。
+- 二重発火防止: 同じbindingの明示OFFだけは保存済み手動周期も実行入力から除外し、AUTO／未保存時の手動周期は既存どおり手動providerを優先する。自動推定イベントを保存値へ書き戻さず、アヤ本人の行動・ダメージ・DoTは複製しない。
+- Worker／cache: `statusStackCount`・`statusReactionOnly`を含む最新`dps-simulator.js?v=20260904a`をWorkerが読むよう参照を統一し、本体・試験版・app-cacheのcontroller／policy／stylesheet参照も更新した。
+- 検証: `node --check`（本体DPS／DPS試験版／policy／Worker）、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`node tools/test-dps-support-registry.js`、`node tools/test-public-release-config.js`、`node tools/test-fdc-info-text.js`、`node tools/test-max-growth-state.js`、`node tools/audit-dps-runtime-effect-settings.js`、`git diff --check`が成功した。fixtureで低学年の初期自動反映、高学年の初期OFF、個別OFFによる自動・手動周期停止、設定カード表示を固定した。
+- 実画面: 本体DPSタブ、再計算中表示、DPS計算設定フロートの表示を確認した。確認時の編成はアヤ未選択だったため、アヤ候補3行の実操作はfixtureで検証している。
+- 残り見積もり: 0スライス（今回の実装）。ゲーム内で未検証のアヤ低学年の敵サイズ別ヒット数・発動順・高学年時刻は、従来どおり暫定値として残る。
+
+## 状態効果表示用語統一 実装スライス11の終了報告
+
+- 達成度: 100%（今回の表示変更範囲）。状態効果の自動選択表示を、既存の効果一覧と同じ「自動」へ統一した。
+- 根拠: 本体DPS下バー詳細とDPS試験版の状態効果カードで、表示バッジ・タイトル・`auto`選択肢を「自動」に変更した。保存値・内部モード名`auto`・OFFの挙動は変更していない。
+- cache／検証: 本体・試験版controllerと`app-cache.js`の参照を`20260904c`へ更新した。`node --check`（本体DPS／DPS試験版）、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-trigger-policy.js`、`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 0スライス（今回の表示変更）。

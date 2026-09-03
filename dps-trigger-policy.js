@@ -631,15 +631,12 @@
     });
   }
 
-  function isDpsFormationCandidateAutoEnabled(candidate = {}, options = {}, events = []) {
-    const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
-    if (schedulePolicy.mode !== 'periodic') return false;
-    if (!(Number(candidate.intervalSeconds) > 0)) return false;
-    const bindingKey = valueText(candidate.bindingKey);
-    const candidateId = valueText(candidate.id);
+  function getDpsFormationCandidateExplicitMode(candidate = {}, options = {}) {
     const bindingModes = options.bindingModes && typeof options.bindingModes === 'object'
       ? options.bindingModes
       : {};
+    const bindingKey = valueText(candidate.bindingKey);
+    const candidateId = valueText(candidate.id);
     const candidateActionKey = candidate.periodicActionLabel === '高学年'
       ? 'highSkill'
       : candidate.periodicActionLabel === '低学年'
@@ -648,11 +645,19 @@
     const scopedBindingKey = bindingKey && candidateActionKey
       ? `${bindingKey}::${candidateActionKey}`
       : '';
-    const explicitMode = valueText(
+    const mode = valueText(
       (scopedBindingKey && bindingModes[scopedBindingKey])
         || (bindingKey && bindingModes[bindingKey])
         || (candidateId && bindingModes[candidateId])
     );
+    return ['auto', 'fixed', 'off'].includes(mode) ? mode : '';
+  }
+
+  function isDpsFormationCandidateAutoEnabled(candidate = {}, options = {}, events = []) {
+    const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
+    if (schedulePolicy.mode !== 'periodic') return false;
+    if (!(Number(candidate.intervalSeconds) > 0)) return false;
+    const explicitMode = getDpsFormationCandidateExplicitMode(candidate, options);
     if (explicitMode === 'off' || explicitMode === 'fixed') return false;
     if (explicitMode === 'auto') return !isFormationCandidateManuallyScheduled(candidate, events);
     if (isHighSkillFormationCandidate(candidate)

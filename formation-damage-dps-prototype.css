@@ -359,6 +359,9 @@ body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-row { backgroun
 .fdcp-dps-settings-panel .fdc-dps-runtime-setting strong,.fdcp-dps-settings-panel .fdc-dps-runtime-setting small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fdcp-dps-settings-panel .fdc-dps-runtime-setting strong { color:var(--fdc-text); font-size:.54rem; }
 .fdcp-dps-settings-panel .fdc-dps-runtime-setting small { color:var(--fdc-muted); font-size:.48rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting > span:first-child { align-self:stretch; gap:.1rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting strong,
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting small { overflow:visible; overflow-wrap:anywhere; text-overflow:clip; white-space:normal; line-height:1.25; }
 .fdcp-dps-settings-panel .fdc-dps-runtime-setting select { width:3.55rem; max-width:none; min-width:0; min-height:1.45rem; padding-inline:.2rem; border:1px solid color-mix(in srgb,#60a5fa 42%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.53rem; }
 .fdcp-dps-settings-panel .fdc-dps-runtime-stack { display:flex; align-items:center; gap:1px; min-width:0; color:var(--fdc-muted); font-size:.47rem; }
 .fdcp-dps-settings-panel .fdc-dps-runtime-stack input { width:2.1rem; min-height:1.45rem; padding:0 .16rem; text-align:center; border:1px solid color-mix(in srgb,#60a5fa 42%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.53rem; }

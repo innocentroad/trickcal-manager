@@ -376,6 +376,64 @@
     });
     return modes;
   }
+  const DPS_FORMATION_CANDIDATE_OVERRIDE_PREFIX = 'formationCandidate:';
+  function getDpsFormationCandidateOverrideKey(candidate = {}) {
+    const identity = String(candidate?.bindingKey || candidate?.id || '').trim();
+    return identity ? `${DPS_FORMATION_CANDIDATE_OVERRIDE_PREFIX}${identity}` : '';
+  }
+  function getDpsFormationCandidateOverride(targetId, candidate = {}, overrides = dpsRuntimeEffectOverrides) {
+    const targetOverrides = overrides?.[String(targetId || '')] || {};
+    const storageKey = getDpsFormationCandidateOverrideKey(candidate);
+    const direct = storageKey ? targetOverrides[storageKey] : null;
+    if (direct) return direct;
+    const legacyKeys = [candidate?.bindingKey, candidate?.id]
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    return legacyKeys.map(key => targetOverrides[key]).find(Boolean) || null;
+  }
+  function getDpsFormationCandidateMode(candidate = {}, targetId = '', overrides = dpsRuntimeEffectOverrides) {
+    const savedMode = String(getDpsFormationCandidateOverride(targetId, candidate, overrides)?.mode || '').trim();
+    if (['auto', 'off'].includes(savedMode)) return savedMode;
+    return isDpsHighSkillFormationCandidate(candidate) ? 'off' : 'auto';
+  }
+  function isDpsFormationCandidateExplicitlyOff(candidate = {}, targetId = '', overrides = dpsRuntimeEffectOverrides) {
+    return String(getDpsFormationCandidateOverride(targetId, candidate, overrides)?.mode || '').trim() === 'off';
+  }
+  function getDpsFormationCandidateBindingModes(candidates = [], targetId = '', overrides = dpsRuntimeEffectOverrides) {
+    const modes = {};
+    (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => candidate?.provider === 'formationStatus')
+      .forEach(candidate => {
+        const saved = getDpsFormationCandidateOverride(targetId, candidate, overrides);
+        const savedMode = String(saved?.mode || '').trim();
+        // 高学年由来の編成状態効果だけは初期OFFをbindingへ明示する。
+        // 手動で周期を追加した場合は、保存済みの明示OFFでない限り従来どおり利用できる。
+        const mode = ['auto', 'off'].includes(savedMode)
+          ? savedMode
+          : isDpsHighSkillFormationCandidate(candidate) ? 'off' : '';
+        if (!['auto', 'off'].includes(mode)) return;
+        const bindingKey = String(candidate?.bindingKey || '').trim();
+        const candidateId = String(candidate?.id || '').trim();
+        const actionKey = candidate?.periodicActionLabel === '高学年'
+          ? 'highSkill'
+          : candidate?.periodicActionLabel === '低学年' ? 'lowSkill' : '';
+        if (bindingKey) modes[bindingKey] = mode;
+        if (candidateId) modes[candidateId] = mode;
+        if (bindingKey && actionKey) modes[`${bindingKey}::${actionKey}`] = mode;
+      });
+    return modes;
+  }
+  function filterDpsFormationManualEvents(events = [], candidates = [], targetId = '', overrides = dpsRuntimeEffectOverrides) {
+    const statusCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => candidate?.provider === 'formationStatus');
+    return (Array.isArray(events) ? events : []).filter(event => {
+      if (!isDpsPeriodicFormationEvent(event)) return true;
+      return !statusCandidates.some(candidate => (
+        isDpsFormationCandidateExplicitlyOff(candidate, targetId, overrides)
+        && isDpsExternalEventSameBinding(event, candidate)
+      ));
+    });
+  }
   function createDpsFormationEstimatedEvents(candidates = [], options = {}, manualEvents = []) {
     const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
     if (typeof policyApi?.createDpsFormationEstimatedEvents === 'function') {
@@ -788,15 +846,28 @@
         {
           formationTimelineMode: settings?.formationTimelineMode || 'off',
           formationHighSkillMode: settings?.formationHighSkillMode || 'disabled',
-          bindingModes: getDpsFormationBindingModes(snapshot?.runtimeEffects || {})
+          bindingModes: {
+            ...getDpsFormationBindingModes(snapshot?.runtimeEffects || {}),
+            ...getDpsFormationCandidateBindingModes(
+              snapshot?.formationEventCandidates || [],
+              snapshot?.targetId || this.currentTargetId || ''
+            )
+          }
         },
         this.externalEvents
       );
     }
 
     getDpsEffectiveExternalEvents(snapshot = {}, settings = this.getDpsSettings()) {
+      const candidates = snapshot?.formationEventCandidates || [];
+      const targetId = snapshot?.targetId || this.currentTargetId || '';
+      const manualEvents = filterDpsFormationManualEvents(
+        normalizeDpsExternalEvents(this.externalEvents),
+        candidates,
+        targetId
+      );
       return normalizeDpsExternalEvents([
-        ...normalizeDpsExternalEvents(this.externalEvents),
+        ...manualEvents,
         ...this.getDpsFormationEstimatedEvents(snapshot, settings)
       ]);
     }
@@ -1013,6 +1084,27 @@
       if (this.baseline) this.elements.baselineNote.textContent = 'DPS入力を取得できないため、基準との差分は表示できません。';
     }
 
+    handleFormationCandidateSettingChange(control) {
+      if (!control) return;
+      const targetId = String(this.availability?.snapshot?.targetId || this.currentTargetId || '').trim();
+      const candidateId = String(control.dataset?.fdcDpsFormationMode || '').trim();
+      const snapshot = this.latest?.snapshot || this.availability?.snapshot || {};
+      const candidate = (Array.isArray(snapshot.formationEventCandidates) ? snapshot.formationEventCandidates : [])
+        .find(item => String(item?.id || '') === candidateId);
+      const mode = String(control.value || '').trim();
+      const storageKey = getDpsFormationCandidateOverrideKey(candidate || { id: candidateId });
+      if (!targetId || !storageKey || !['auto', 'off'].includes(mode)) return;
+      const overrides = dpsRuntimeEffectOverrides || loadDpsRuntimeEffectOverrides();
+      const targetOverrides = { ...(overrides[targetId] || {}) };
+      targetOverrides[storageKey] = { mode, fixedStacks: 1 };
+      overrides[targetId] = targetOverrides;
+      saveDpsRuntimeEffectOverrides(overrides);
+      this.requiresRecalculation = true;
+      this.lastAutoFingerprint = '';
+      this.refreshAvailability({ render: true });
+      this.requestAutoRun();
+    }
+
     handleRuntimeEffectSettingChange(event) {
       const modeSelect = event.target.closest?.('[data-fdc-dps-runtime-mode]');
       const stackInput = event.target.closest?.('[data-fdc-dps-runtime-stacks]');
@@ -1203,7 +1295,14 @@
         {
           formationTimelineMode: settings.formationTimelineMode,
           formationHighSkillMode: settings.formationHighSkillMode,
-          bindingModes: getDpsFormationBindingModes(sourceSnapshot.runtimeEffects || {})
+          targetId: sourceSnapshot?.targetId || this.currentTargetId || '',
+          bindingModes: {
+            ...getDpsFormationBindingModes(sourceSnapshot.runtimeEffects || {}),
+            ...getDpsFormationCandidateBindingModes(
+              sourceSnapshot.formationEventCandidates || [],
+              sourceSnapshot?.targetId || this.currentTargetId || ''
+            )
+          }
         },
         this.getDpsEffectiveExternalEvents(sourceSnapshot, settings)
       );
@@ -1277,6 +1376,11 @@
     }
 
     handleDetailChange(event) {
+      const formationControl = event.target.closest?.('[data-fdc-dps-formation-mode]');
+      if (formationControl) {
+        this.handleFormationCandidateSettingChange(formationControl);
+        return;
+      }
       if (event.target.closest?.('[data-fdc-dps-runtime-mode], [data-fdc-dps-runtime-stacks]')) {
         this.handleRuntimeEffectSettingChange(event);
         return;
@@ -2368,6 +2472,33 @@
     }).join('');
   }
 
+  function renderDpsFormationStatusControls(candidates = [], options = {}) {
+    const targetId = String(options?.targetId || '').trim();
+    const statusCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => candidate?.provider === 'formationStatus'
+        && getDpsFormationCandidateSchedulePolicy(candidate).mode === 'periodic');
+    if (!statusCandidates.length) return '';
+    const rows = statusCandidates.map(candidate => {
+      const mode = getDpsFormationCandidateMode(candidate, targetId);
+      const effectSummary = formatDpsExternalCandidateEffectSummary(candidate, 3);
+      const scheduleState = getDpsFormationCandidateScheduleState(candidate, options, options.manualEvents || []);
+      const detail = [
+        effectSummary,
+        candidate.basis || '',
+        scheduleState.code === 'manual' ? '手動周期設定あり' : ''
+      ].filter(Boolean).join(' / ');
+      const title = `${candidate.label || '編成由来状態効果'} / ${mode === 'off' ? 'OFF' : '自動'}`;
+      return `<label class="fdc-dps-runtime-setting fdc-dps-formation-status-setting${mode === 'off' ? ' is-off' : ''}" title="${escapeAttr(title)}">
+        <span><strong>${escapeHtml(candidate.label || '編成由来状態効果')} <b class="fdc-dps-runtime-policy ${mode === 'off' ? 'is-policy-off' : 'is-policy-estimated'}">${mode === 'off' ? 'OFF' : '自動'}</b></strong><small>${escapeHtml(detail || '編成由来の状態効果')}</small></span>
+        <select data-fdc-dps-formation-mode="${escapeAttr(candidate.id || '')}" aria-label="${escapeAttr(candidate.label || '編成由来状態効果')}のDPS動作">
+          <option value="auto"${mode === 'auto' ? ' selected' : ''}>自動</option>
+          <option value="off"${mode === 'off' ? ' selected' : ''}>OFF</option>
+        </select>
+      </label>`;
+    }).join('');
+    return `<div class="fdc-dps-runtime-settings fdc-dps-formation-status-settings"><div class="fdc-dps-runtime-settings-head"><strong>編成由来状態効果</strong><small>編成中アヤの凍傷を、選択中の冷静使徒へ状態反応専用で反映します。</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
+  }
+
   function renderDpsRuntimeScheduleContent(candidates = [], events = [], open = false, options = {}) {
     const normalizedCandidates = (Array.isArray(candidates) ? candidates : [])
       .filter(candidate => getDpsFormationCandidateSchedulePolicy(candidate).mode === 'periodic');
@@ -2609,17 +2740,20 @@
   function renderDpsRuntimeSettingsContent(runtimeEffects = {}, open = false, externalEvents = [], formationEventCandidates = [], scheduleOpen = false, scheduleOptions = {}, effectiveExternalEvents = externalEvents) {
     const controls = renderDpsRuntimeEffectControls(runtimeEffects, effectiveExternalEvents)
       .replace('<strong>時系列効果設定</strong>', '<strong>効果一覧</strong>');
+    const formationOptions = { ...scheduleOptions, manualEvents: externalEvents };
+    const formationStatusControls = renderDpsFormationStatusControls(formationEventCandidates, formationOptions);
     const schedule = renderDpsRuntimeScheduleContent(
       formationEventCandidates,
       externalEvents,
       scheduleOpen,
-      { ...scheduleOptions, manualEvents: externalEvents }
+      formationOptions
     );
     if (!controls && !schedule) return '';
     return '<details class="fdcp-dps-runtime-settings-disclosure" data-fdcp-detail-section="runtime-settings"'
       + (open ? ' open' : '')
       + '><summary>時系列効果設定 <small>DPSの計算条件</small></summary>'
       + schedule
+      + formationStatusControls
       + controls
       + '</details>';
   }
@@ -2995,7 +3129,7 @@
     try {
       return new Promise((resolve, reject) => {
         let finished = false;
-        const worker = new Worker('dps-simulator-worker.js?v=20260901b');
+        const worker = new Worker('dps-simulator-worker.js?v=20260904a');
         const cleanup = () => { if (!finished) { finished = true; worker.terminate(); } };
         const cleanupCancellation = cancellation?.onCancel(() => {
           if (finished) return;
@@ -3026,7 +3160,7 @@
 
   window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING = Object.freeze({
     createDpsComparisonAxis,
-    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsFormationEstimatedEvents, createDpsFormationBindingModes: getDpsFormationBindingModes, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationCandidateAutoEnabled: isDpsFormationCandidateAutoEnabled, getDpsFormationCandidateSchedulePolicy, getDpsFormationCandidateScheduleState, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsRuntimeEffectSchedulePolicy, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsRuntimeEffectControls, renderDpsRuntimeScheduleContent, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
+    PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsFormationEstimatedEvents, createDpsFormationBindingModes: getDpsFormationBindingModes, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, filterDpsFormationManualEvents, getDpsFormationCandidateBindingModes, getDpsFormationCandidateMode, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationCandidateAutoEnabled: isDpsFormationCandidateAutoEnabled, getDpsFormationCandidateSchedulePolicy, getDpsFormationCandidateScheduleState, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsRuntimeEffectSchedulePolicy, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsFormationStatusControls, renderDpsRuntimeEffectControls, renderDpsRuntimeScheduleContent, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
 })();

@@ -317,6 +317,34 @@
   cursor: pointer;
 }
 
+.formation-dps-prototype .fdc-dps-formation-candidate-mode {
+  display: grid;
+  flex: 0 0 48px;
+  gap: 2px;
+  min-width: 44px;
+  align-self: stretch;
+  align-content: center;
+}
+
+.formation-dps-prototype .fdc-dps-formation-candidate-mode > span {
+  color: #8297b5;
+  font-size: 8px;
+  line-height: 1;
+}
+
+.formation-dps-prototype .fdc-dps-formation-candidate-mode select {
+  width: 100%;
+  min-width: 0;
+  min-height: 24px;
+  padding: 0 3px;
+  border: 1px solid rgba(113, 159, 218, 0.38);
+  border-radius: 5px;
+  background: #101e37;
+  color: #d4e7fa;
+  font: inherit;
+  font-size: 8px;
+}
+
 .formation-dps-prototype.theme-light .fdc-dps-formation-event-candidates,
 .formation-dps-prototype.theme-light .fdc-dps-formation-event-candidate {
   background: rgba(235, 244, 255, 0.72);
@@ -328,6 +356,11 @@
 
 .formation-dps-prototype.theme-light .fdc-dps-formation-event-candidate strong.is-effect {
   color: #9a6400;
+}
+
+.formation-dps-prototype.theme-light .fdc-dps-formation-candidate-mode select {
+  background: #fff;
+  color: #334f72;
 }
 
 .formation-dps-prototype.theme-light .fdc-dps-runtime-schedule-panel {

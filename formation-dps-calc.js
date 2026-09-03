@@ -240,6 +240,8 @@
   };
   [el.formationEventCandidateList, el.externalFormationEventCandidateList]
     .forEach(host => host?.addEventListener('click', handleFormationEventCandidateClick));
+  [el.formationEventCandidateList, el.externalFormationEventCandidateList]
+    .forEach(host => host?.addEventListener('change', handleRuntimeEffectSettingChange));
   el.baselineSave?.addEventListener('click', saveBaseline);
   el.baselineCompare?.addEventListener('click', compareWithBaseline);
   el.baselineClear?.addEventListener('click', () => clearBaseline());
@@ -324,7 +326,10 @@
     const normalized = Array.isArray(candidates) ? candidates : [];
     const currentMode = el.formationTimelineMode?.value || DEFAULT_FORMATION_TIMELINE_MODE;
     const manualEvents = collectExternalEvents();
-    const bindingModes = getDpsFormationBindingModes(runtimeEffects);
+    const bindingModes = {
+      ...getDpsFormationBindingModes(runtimeEffects),
+      ...getDpsFormationCandidateBindingModes(normalized, activeTargetId)
+    };
     const fingerprint = createDataFingerprint({
       candidates: normalized,
       formationTimelineMode: currentMode,
@@ -355,6 +360,10 @@
         formationHighSkillMode: 'disabled',
         bindingModes
       }, manualEvents);
+      const isFormationStatus = candidate?.provider === 'formationStatus';
+      const formationStatusMode = isFormationStatus
+        ? getDpsFormationCandidateMode(candidate, activeTargetId)
+        : '';
       const stateLabel = isPeriodic
         ? `${scheduleState.label} / ${schedulePolicy.capabilityLabel}`
         : `${schedulePolicy.capabilityLabel} / 非周期・${repeatabilityLabel}`;
@@ -373,6 +382,7 @@
             <span class="${isPeriodic ? 'is-periodic-kind' : 'is-event-kind'}" data-fdc-dps-formation-event-state="${escapeAttr(scheduleState.code)}">${escapeHtml(stateLabel)}</span>
             <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
           </div>
+          ${isFormationStatus ? `<label class="fdc-dps-formation-candidate-mode"><span>動作</span><select data-fdc-dps-formation-mode="${escapeAttr(candidate.id || '')}" aria-label="${escapeAttr(candidate.label || '編成由来状態効果')}のDPS動作"><option value="auto"${formationStatusMode === 'auto' ? ' selected' : ''}>自動</option><option value="off"${formationStatusMode === 'off' ? ' selected' : ''}>OFF</option></select></label>` : ''}
           <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id)}">${actionLabel}</button>
         </article>
       `;
@@ -497,6 +507,73 @@
     });
     return modes;
   }
+  const DPS_FORMATION_CANDIDATE_OVERRIDE_PREFIX = 'formationCandidate:';
+  function getDpsFormationCandidateOverrideKey(candidate = {}) {
+    const identity = String(candidate?.bindingKey || candidate?.id || '').trim();
+    return identity ? `${DPS_FORMATION_CANDIDATE_OVERRIDE_PREFIX}${identity}` : '';
+  }
+  function getDpsFormationCandidateOverride(targetId, candidate = {}, overrides = runtimeEffectOverrides) {
+    const targetOverrides = overrides?.[String(targetId || '')] || {};
+    const storageKey = getDpsFormationCandidateOverrideKey(candidate);
+    const direct = storageKey ? targetOverrides[storageKey] : null;
+    if (direct) return direct;
+    const legacyKeys = [candidate?.bindingKey, candidate?.id]
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    return legacyKeys.map(key => targetOverrides[key]).find(Boolean) || null;
+  }
+  function getDpsFormationCandidateMode(candidate = {}, targetId = '', overrides = runtimeEffectOverrides) {
+    const savedMode = String(getDpsFormationCandidateOverride(targetId, candidate, overrides)?.mode || '').trim();
+    if (['auto', 'off'].includes(savedMode)) return savedMode;
+    return isDpsHighSkillFormationCandidate(candidate) ? 'off' : 'auto';
+  }
+  function getDpsFormationCandidateBindingModes(candidates = [], targetId = '', overrides = runtimeEffectOverrides) {
+    const modes = {};
+    (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => candidate?.provider === 'formationStatus')
+      .forEach(candidate => {
+        const saved = getDpsFormationCandidateOverride(targetId, candidate, overrides);
+        const savedMode = String(saved?.mode || '').trim();
+        // 高学年由来の編成状態効果だけは初期OFFをbindingへ明示する。
+        // 手動で周期を追加した場合は、保存済みの明示OFFでない限り従来どおり利用できる。
+        const mode = ['auto', 'off'].includes(savedMode)
+          ? savedMode
+          : isDpsHighSkillFormationCandidate(candidate) ? 'off' : '';
+        if (!['auto', 'off'].includes(mode)) return;
+        const bindingKey = String(candidate?.bindingKey || '').trim();
+        const candidateId = String(candidate?.id || '').trim();
+        const actionKey = candidate?.periodicActionLabel === '高学年'
+          ? 'highSkill'
+          : candidate?.periodicActionLabel === '低学年' ? 'lowSkill' : '';
+        if (bindingKey) modes[bindingKey] = mode;
+        if (candidateId) modes[candidateId] = mode;
+        if (bindingKey && actionKey) modes[`${bindingKey}::${actionKey}`] = mode;
+      });
+    return modes;
+  }
+
+  function isDpsFormationCandidateExplicitlyOff(candidate = {}, targetId = '', overrides = runtimeEffectOverrides) {
+    return String(getDpsFormationCandidateOverride(targetId, candidate, overrides)?.mode || '').trim() === 'off';
+  }
+  function isDpsFormationCandidateEventSameBinding(event = {}, candidate = {}) {
+    const eventCandidateId = String(event?.candidateId || event?.formationCandidateId || '').trim();
+    const candidateId = String(candidate?.id || '').trim();
+    if (eventCandidateId && candidateId && eventCandidateId === candidateId) return true;
+    const eventBindingKey = String(event?.bindingKey || event?.candidateBindingKey || '').trim();
+    const bindingKey = String(candidate?.bindingKey || '').trim();
+    return !!eventBindingKey && !!bindingKey && eventBindingKey === bindingKey;
+  }
+  function filterDpsFormationManualEvents(events = [], candidates = [], targetId = '', overrides = runtimeEffectOverrides) {
+    const statusCandidates = (Array.isArray(candidates) ? candidates : [])
+      .filter(candidate => candidate?.provider === 'formationStatus');
+    return (Array.isArray(events) ? events : []).filter(event => {
+      if (!isDpsPeriodicFormationEvent(event)) return true;
+      return !statusCandidates.some(candidate => (
+        isDpsFormationCandidateExplicitlyOff(candidate, targetId, overrides)
+        && isDpsFormationCandidateEventSameBinding(event, candidate)
+      ));
+    });
+  }
 
   function getDpsEffectiveExternalEvents(
     snapshot = {},
@@ -504,14 +581,26 @@
     runtimeEffects = snapshot?.runtimeEffects || {}
   ) {
     const formationTimelineMode = el.formationTimelineMode?.value || DEFAULT_FORMATION_TIMELINE_MODE;
+    const candidates = snapshot?.formationEventCandidates || [];
+    const manualFormationEvents = filterDpsFormationManualEvents(
+      manualEvents,
+      candidates,
+      snapshot?.targetId || activeTargetId
+    );
     return dedupeDpsExternalEventsByBinding([
-      ...(Array.isArray(manualEvents) ? manualEvents : []),
+      ...manualFormationEvents,
       ...createDpsFormationEstimatedEvents(
-        snapshot?.formationEventCandidates || [],
+        candidates,
         {
           formationTimelineMode,
           formationHighSkillMode: 'disabled',
-          bindingModes: getDpsFormationBindingModes(runtimeEffects)
+          bindingModes: {
+            ...getDpsFormationBindingModes(runtimeEffects),
+            ...getDpsFormationCandidateBindingModes(
+              snapshot?.formationEventCandidates || [],
+              activeTargetId
+            )
+          }
         },
         manualEvents
       )
@@ -839,7 +928,7 @@
       }, 0);
     };
     try {
-      singleWorker = new Worker('dps-simulator-worker.js?v=20260901b');
+      singleWorker = new Worker('dps-simulator-worker.js?v=20260904a');
       singleWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         singleWorker?.terminate();
@@ -893,7 +982,7 @@
       return;
     }
     try {
-      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260901b');
+      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260904a');
       aggregateWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         if (event.data.progress) {
@@ -1826,7 +1915,27 @@
       .filter(event => event.type && event.candidateId && event.intervalFrames > 0);
   }
 
+  function handleFormationCandidateSettingChange(control) {
+    if (!control || !activeTargetId) return;
+    const candidateId = String(control.dataset?.fdcDpsFormationMode || '').trim();
+    const candidate = latestFormationEventCandidates.find(item => String(item?.id || '') === candidateId);
+    const mode = String(control.value || '').trim();
+    const storageKey = getDpsFormationCandidateOverrideKey(candidate || { id: candidateId });
+    if (!storageKey || !['auto', 'off'].includes(mode)) return;
+    const targetOverrides = { ...(runtimeEffectOverrides[activeTargetId] || {}) };
+    targetOverrides[storageKey] = { mode, fixedStacks: 1 };
+    runtimeEffectOverrides[activeTargetId] = targetOverrides;
+    saveRuntimeEffectOverrides();
+    renderFormationEventCandidates(latestFormationEventCandidates, latestRuntimeEffectsDisplay || latestSourceSnapshot?.runtimeEffects || {});
+    scheduleReusableRun();
+  }
+
   function handleRuntimeEffectSettingChange(event) {
+    const formationControl = event.target.closest?.('[data-fdc-dps-formation-mode]');
+    if (formationControl) {
+      handleFormationCandidateSettingChange(formationControl);
+      return;
+    }
     const modeSelect = event.target.closest?.('[data-fdc-dps-runtime-mode]');
     const stackInput = event.target.closest?.('[data-fdc-dps-runtime-stacks]');
     const control = modeSelect || stackInput;
