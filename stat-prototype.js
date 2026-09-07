@@ -8192,7 +8192,8 @@
                   <span class="board-global-stat-icon">
                     <img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}">
                   </span>
-                  <small class="board-global-stat-total" title="${escapeAttr(`${label} B1〜B3合計効果値（現在 / 最大）`)}">
+                  <small class="board-global-stat-total" title="${escapeAttr(`${label} B1〜B3合計効果値（現在 / 最大${isSpecial ? '、%' : '、加算値'}）`)}">
+                    ${!isSpecial ? '<span class="board-global-total-unit" aria-hidden="true">＋</span>' : ''}
                     <span class="board-global-count-current board-global-total-current">${renderBoardGlobalGroupedValue(aggregateTotals, group, suffix)}</span><span class="board-global-count-separator board-global-total-separator">/</span><span class="board-global-count-total board-global-total-max">${renderBoardGlobalGroupedValue(aggregateMaxTotals, group, suffix)}</span>
                   </small>
                 </span>

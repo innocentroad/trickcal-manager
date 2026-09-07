@@ -531,3 +531,42 @@
 - 根拠: 本体DPS下バー詳細とDPS試験版の状態効果カードで、表示バッジ・タイトル・`auto`選択肢を「自動」に変更した。保存値・内部モード名`auto`・OFFの挙動は変更していない。
 - cache／検証: 本体・試験版controllerと`app-cache.js`の参照を`20260904c`へ更新した。`node --check`（本体DPS／DPS試験版）、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-trigger-policy.js`、`git diff --check`が成功した。datasheetは変更していない。
 - 残り見積もり: 0スライス（今回の表示変更）。
+
+## ティグ愛用火傷DoTのDPS回帰修正 実装スライス13の終了報告
+
+- 達成度: 100%（今回の不具合修正範囲）。DPS設定の初期OFFフィルタで、ティグ愛用の前提状態「オーバードラ火ブ」まで削除されていた問題を修正した。
+- 根拠: `timingSourceEffectId`で実測発生元へ結び付いた`対象スキル使用時`だけをDPS trigger policyの対応済みトリガーとして扱い、状態イベントを`eventEffects`へ保持するようにした。発生元のない未知条件は未対応のまま維持する。これにより高学年スキル本体の初期OFF方針を維持したまま、状態中条件の強化攻撃火傷が各ヒットで付与され、火傷DoT tickが発生することを実データfixtureで確認した。原因は凍傷の`statusReactionOnly`ではなく、前提となる固有状態イベントの誤削除だった。
+- 検証: `node --check dps-trigger-policy.js`、`node --check formation-damage-dps-prototype.js`、`node tools/test-dps-trigger-policy.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-fdc-action-scoped-addp.js`、`node tools/test-dps-audit-state.js`、`git diff --check`が成功した。policyのcache-busterを`20260907a`へ更新し、HTML・`app-cache.js`・prefetch・統合テストを同期した。datasheetは変更していない。
+- 残り見積もり: 0スライス（今回のティグ火傷回帰修正）。ゲーム内実測が必要なDoT倍率・発火タイミングの暫定方針は維持する。
+
+## DPS自動再計算予約の競合修正 実装スライス12の終了報告
+
+- 達成度: 100%（今回の不具合修正範囲）。モモでのDPS初回自動計算と、計算中の入力変更後の自動再計算が停止しない実行経路へ修正した。
+- 根拠: 自動計算のdebounce timerが計算中に発火した場合、従来は`running`を見て予約を破棄していた。発火時に`pendingAutoRun`へ繰り越し、run完了時に入力fingerprint差分を検出した場合も`followUpAutoRun`で最新条件の再計算を予約するようにした。手動計算開始時は古いtimerと保留フラグを消費し、二重実行を防いだ。
+- 実画面: 本体DPSでモモを選択し、256 seed集計中に攻撃力を変更した。旧DPS値を保持したまま再計算中を表示し、完了後に変更後の値へ更新されることを確認した。
+- cache／検証: 本体・prototype HTMLと`app-cache.js`のcontroller参照を`20260905a`へ更新した。`node --check formation-damage-dps-prototype.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-audit-state.js`、`git diff --check`が成功した。自動timerが実行中に発火しても保留される回帰fixtureを追加し、datasheetは変更していない。
+- 残り見積もり: 0スライス（今回の不具合修正）。ゲーム内未検証のDPS挙動や既存Goal全体の未完了項目は、従来の暫定・対象外方針を維持する。
+
+## 全体ボード合計値の視認性改善 実装スライス14の終了報告
+
+- 達成度: 100%（今回のUI変更範囲）。全体効果値の分数表示と、右側のB1〜B3達成率を色・記号・補足表示で識別しやすくした。
+- 根拠: 特殊マスの現在値を紫、上級マスの現在値を青、分母を控えめな色に分離した。上級マスには加算値を示す`＋`を付け、ツールチップにも`加算値`を表示した。右側の達成率は既存の緑表示を維持し、特殊マスの`%`表示も維持した。ダークテーマ用の色も追加した。
+- 実画面: `stat-dashboard.html?global=board-global`で、特殊値が`581%/581%`、上級値が`＋10,488/10,488`の形式で表示され、達成率の`28/28`等と色が分離されることを確認した。上級値のツールチップが`現在 / 最大、加算値`になっていることも確認した。
+- cache／検証: `stat-prototype.css`・`stat-prototype.js`の参照を`20260907a`へ更新した。`node --check stat-prototype.js`、`node tools/test-max-growth-state.js`、`node tools/test-dps-main-integration.js`、`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 0スライス（今回のUI変更）。
+
+## 全体ボードのダークモード合計値配色修正 実装スライス15の終了報告
+
+- 達成度: 100%（今回の不具合修正範囲）。ダークモードで全体値が一律黄色へ上書きされる問題を修正し、ライトモードと同じ種別差を保つようにした。
+- 根拠: 後読み込みの`stat-dashboard.css`にある共通`.board-global-count-current`指定が、特殊・上級の合計値へ優先適用されていた。`stat-prototype.css`側で合計値専用セレクタの優先度を上げ、特殊の現在値を薄紫、上級の現在値と`＋`を薄青、分母を灰色に固定した。B1〜B3達成率のシアン系表示は変更していない。
+- 実画面: ダークモードで特殊値が`581%/581%`の薄紫、上級値が`＋10,488/10,488`の薄青／灰色、達成率がシアン系になることをDOMの実効色とスクリーンショットで確認した。
+- cache／検証: `stat-prototype.css`の参照を`20260907b`へ更新し、HTMLと`app-cache.js`を同期した。`git diff --check`が成功した。datasheetは変更していない。
+- 残り見積もり: 0スライス（今回のダークモード配色修正）。
+
+## 高学年中の毎秒SP回復停止 実装スライス16の終了報告
+
+- 達成度: 100%（今回の仕様変更範囲）。高学年スキルの2F移行開始からモーション終了まで、低学年と同様に基礎の毎秒SP回復を停止するよう変更した。
+- 根拠: 高学年移行開始時に毎秒SP周期の残りtickを保持して停止し、モーション終了後に残り時間から再開する。高学年中に発生する独立した周期SP回復イベントは従来どおり停止しない。高学年開始2F、終了4F、保持した残り3Fから最初の基礎SP回復が7Fになるfixtureと、高学年中3Fに独立SP回復が発生するfixtureを追加した。
+- 仕様・台帳: `docs/dps-specification.md`、`docs/dps-simulation-design.md`、`tools/dps-frame-rules.tsv`へ新しい停止規則を反映した。TSVは13列を維持し、`SP_HIGH_PAUSE`行を読み込み確認した。datasheetは変更していない。
+- cache／検証: DPS kernelとWorkerの参照を`20260907b`へ更新した。`node --check dps-simulator.js`、`node --check dps-simulator-worker.js`、`node tools/test-dps-runtime-effects.js`、`node tools/test-dps-bottom-bar-prototype.js`、`node tools/test-dps-main-integration.js`、`node tools/test-dps-audit-state.js`、`node tools/test-fdc-action-scoped-addp.js`、`git diff --check`が成功した。
+- 残り見積もり: 0スライス（今回の仕様変更）。

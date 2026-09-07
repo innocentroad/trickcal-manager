@@ -3200,6 +3200,8 @@ h3 {
   --board-global-layer-bg: rgba(236, 224, 255, 0.52);
   --board-global-layer-head: rgba(126, 87, 184, 0.18);
   --board-global-layer-text: #6b4592;
+  --board-global-total-current: #7c3aed;
+  --board-global-total-max: #8b7aa8;
 }
 
 .board-global-effect-type-matrix.is-advanced {
@@ -3207,6 +3209,8 @@ h3 {
   --board-global-layer-bg: rgba(216, 235, 255, 0.52);
   --board-global-layer-head: rgba(49, 111, 180, 0.18);
   --board-global-layer-text: #285d91;
+  --board-global-total-current: #2563eb;
+  --board-global-total-max: #7184a3;
 }
 
 .board-global-stat-matrix {
@@ -3451,12 +3455,39 @@ h3 {
   color: #e2e8f0;
 }
 
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-special {
+  --board-global-total-current: #c4b5fd;
+  --board-global-total-max: #94a3b8;
+}
+
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-advanced {
+  --board-global-total-current: #93c5fd;
+  --board-global-total-max: #94a3b8;
+}
+
+/* stat-dashboard.cssの全体マス共通色より、合計値の種別色を優先する。 */
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-special .board-global-stat-total .board-global-total-current,
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-special .board-global-stat-total .board-global-total-unit {
+  color: #c4b5fd;
+}
+
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-advanced .board-global-stat-total .board-global-total-current,
+:root[data-theme="dark"] .board-global-effect-type-matrix.is-advanced .board-global-stat-total .board-global-total-unit {
+  color: #93c5fd;
+}
+
+:root[data-theme="dark"] .board-global-effect-type-matrix .board-global-stat-total .board-global-total-max {
+  color: #94a3b8;
+}
+
 .board-global-stat-total .board-global-total-current {
+  color: var(--board-global-total-current, #334155);
   font-size: 0.72rem;
   font-weight: 1000;
 }
 
 .board-global-stat-total .board-global-total-max {
+  color: var(--board-global-total-max, #66756b);
   font-size: 0.52rem;
   font-weight: 900;
 }
@@ -3465,6 +3496,14 @@ h3 {
   margin: 0 1px;
   font-size: 0.54rem;
   opacity: 0.72;
+}
+
+.board-global-stat-total .board-global-total-unit {
+  color: var(--board-global-total-current, #334155);
+  margin-right: 1px;
+  font-size: 0.54rem;
+  font-weight: 1000;
+  line-height: 1;
 }
 
 .board-global-matrix-count-cell {

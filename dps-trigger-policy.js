@@ -767,6 +767,10 @@
     // 未知の明示条件は推測せず、対応実装が入るまで外部条件として保留する。
     if (isOrdinaryAttackProbabilityTrigger(effect)) return false;
     if (isEffectSourceTrigger(effect)) return false;
+    // 「対象スキル使用時」は単独では発動元を確定できないため未対応のままにする。
+    // skillmotionの実測イベントへtimingSourceEffectIdで結び付いた内部状態だけは、
+    // source-eventフックで正確に発火できるため対応済みとして扱う。
+    if (normalizedTriggerType === '対象スキル使用時' && valueText(effect.timingSourceEffectId)) return false;
     return !/^(?:戦闘開始時|ウェーブ開始時|カード選択時|n秒ごと|n回ごと|(?:普通攻撃|強化攻撃|低学年スキル|高学年スキル|スキル)(?:使用時|発動時|終了時|命中時|効果発生時|最終ヒット命中時)|生成物(?:命中時|接触時|攻撃時|帰還時|到着時|消滅時|生成時)|ダメージ命中時|攻撃命中時|直接攻撃命中時|効果発生後|状態(?:異常)?付与時|状態発動時|状態最大スタック到達時|状態終了時|固有状態付与時|固有状態終了時|回復時|リソース変化時|リソース獲得時|シールド終了時)$/.test(normalizedTriggerType);
   }
 

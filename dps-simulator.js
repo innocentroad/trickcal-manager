@@ -4869,7 +4869,7 @@
     const startAction = (actionKey, selectedVariant = '') => {
       const action = config.actions[actionKey];
       if (!action) return false;
-      if (actionKey === 'lowSkill') pauseBaseSpRecovery();
+      if (actionKey === 'lowSkill' || actionKey === 'highSkill') pauseBaseSpRecovery();
       if (actionKey === 'lowSkill') resetRuntimeEffectsForAction(actionKey);
       const normalAttack = actionKey === 'basicAttack' || actionKey === 'enhancedAttack';
       if (normalAttack) {
@@ -4966,7 +4966,7 @@
     const beginSkillTransition = (actionKey, selectedVariant = '') => {
       const action = config.actions[actionKey];
       if (!action) return false;
-      if (actionKey === 'lowSkill') pauseBaseSpRecovery();
+      if (actionKey === 'lowSkill' || actionKey === 'highSkill') pauseBaseSpRecovery();
       const transitionFrames = Math.max(0, toFiniteNumber(action.transitionFrames, 2));
       if (transitionFrames <= 0) return startAction(actionKey, selectedVariant);
       state.skillTransition = {
@@ -5167,8 +5167,8 @@
       expireRuntimeBuffs();
       expireSelfStates();
       processExternalEvents();
-      const pausesSpRecovery = state.currentAction?.key === 'lowSkill'
-        || state.skillTransition?.actionKey === 'lowSkill';
+      const pausesSpRecovery = ['lowSkill', 'highSkill'].includes(state.currentAction?.key)
+        || ['lowSkill', 'highSkill'].includes(state.skillTransition?.actionKey);
       if (state.tick > 0 && !pausesSpRecovery && config.spRegen > 0) {
         state.spRecoveryRemainingTicks = Math.max(0, state.spRecoveryNextTick - state.tick);
       }
@@ -5209,6 +5209,8 @@
         if (finished.key === 'lowSkill') {
           state.nextNormalAttackTick = state.tick;
           scheduleRuntimeStateTimer('nextNormalAttackTick');
+        }
+        if (finished.key === 'lowSkill' || finished.key === 'highSkill') {
           resumeBaseSpRecovery();
         }
       }

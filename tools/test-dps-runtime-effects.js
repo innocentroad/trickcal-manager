@@ -596,6 +596,48 @@ assert.deepEqual(
   '低学年中に停止した基礎SP回復を再開しても時系列を変えない'
 );
 
+const highSkillPausedSpResult = createFixture({
+  durationSeconds: 1,
+  highSkillCooldownSeconds: 10,
+  highSkillMode: 'auto',
+  initialHighSkillCooldownMultiplier: 0,
+  includePoison: false,
+  baseSpRegen: 10,
+  spRecoveryIntervalFrames: 3
+});
+const highSkillStart = highSkillPausedSpResult.timeline.find(event => (
+  event.type === 'actionStart' && event.actionKey === 'highSkill'
+));
+const highSkillEnd = highSkillPausedSpResult.timeline.find(event => (
+  event.type === 'actionEnd' && event.actionKey === 'highSkill'
+));
+const firstSpRecoveryAfterHighSkill = highSkillPausedSpResult.timeline.find(event => event.type === 'spRecovery');
+assert.equal(highSkillStart?.frame, 2, '高学年は2Fの移行後に開始する');
+assert.equal(highSkillEnd?.frame, 4, '高学年モーション終了時刻を確認する');
+assert.equal(firstSpRecoveryAfterHighSkill?.frame, 7,
+  '高学年移行・モーション中は基礎SP周期を停止し、終了後に残り時間から再開する');
+
+const highSkillIndependentSpResult = createFixture({
+  durationSeconds: 1,
+  highSkillCooldownSeconds: 10,
+  highSkillMode: 'auto',
+  initialHighSkillCooldownMultiplier: 0,
+  includePoison: false,
+  baseSpRegen: 0,
+  spRecoveryEffects: [{
+    id: 'independent-periodic-sp',
+    label: '独立周期SP回復',
+    mode: 'periodic',
+    fixed: 10,
+    intervalFrames: 3
+  }]
+});
+assert.ok(highSkillIndependentSpResult.timeline.some(event => (
+  event.type === 'spRecoveryEvent'
+  && event.effectId === 'independent-periodic-sp'
+  && event.frame === 3
+)), '独立した周期SP回復は高学年モーション中も停止しない');
+
 const movementResult = createFixture({
   durationSeconds: 1,
   includePoison: false,

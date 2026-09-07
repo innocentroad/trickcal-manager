@@ -928,7 +928,7 @@
       }, 0);
     };
     try {
-      singleWorker = new Worker('dps-simulator-worker.js?v=20260904a');
+      singleWorker = new Worker('dps-simulator-worker.js?v=20260907b');
       singleWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         singleWorker?.terminate();
@@ -982,7 +982,7 @@
       return;
     }
     try {
-      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260904a');
+      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260907b');
       aggregateWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         if (event.data.progress) {

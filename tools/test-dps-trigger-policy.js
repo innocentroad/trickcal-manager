@@ -82,6 +82,19 @@ assert.equal(policy.getTriggerCount({ triggerType: 'n回ごと', triggerValue: 3
   '回数値は発動条件値を優先する');
 assert.equal(policy.isUnsupported({ triggerType: '状態異常付与時' }), false,
   '状態異常付与時は本人の状態付与フックで処理できる');
+const measuredTargetSkillState = {
+  triggerType: '対象スキル使用時',
+  triggerSourceId: 'Tig_favorite_1_e08',
+  timingSourceEffectId: 'Tig_favorite_1_e08',
+  triggerActionKeys: [],
+  steps: [{ type: 'selfState' }]
+};
+assert.equal(policy.isUnsupported(measuredTargetSkillState), false,
+  '実測の対象スキル発生元へ結び付いた固有状態付与を未対応扱いにしない');
+assert.equal(policy.getRuntimeEffectPolicy(measuredTargetSkillState).defaultMode, 'auto',
+  '実測の対象スキル固有状態は自動適用し、高学年状態を前提にする効果を成立させる');
+assert.equal(policy.isUnsupported({ triggerType: '対象スキル使用時' }), true,
+  '発生元のない対象スキル条件は未対応のまま自動推測しない');
 assert.deepEqual(
   policy.getActionKeys({ triggerType: 'n回ごと', triggerValue: 3, targetSkill: '普通攻撃' }),
   ['basicAttack', 'enhancedAttack'],

@@ -163,6 +163,8 @@ assert.ok(script.includes('applyBaselineComparison({ resultReady: true })'), '�
 assert.ok(!script.includes('compareBaseline()') && !script.includes('baselineCompare'), '手動比較のcontroller参照を残さない');
 assert.ok(script.includes('requestAutoRun'), '自動計算のdebounce制御を持つ');
 assert.ok(script.includes('dpsModeActive') && script.includes('if (!this.dpsModeActive || this.running) return;'), 'DPSタブ以外からのrun開始をcontroller入口で拒否する');
+assert.match(script, /if \(this\.running\) \{\s*this\.pendingAutoRun = true;\s*return;/, '自動計算タイマーが計算中に発火しても予約を完了後へ繰り越す');
+assert.ok(script.includes('let followUpAutoRun = false') && script.includes('followUpAutoRun = true') && script.includes('(this.pendingAutoRun || followUpAutoRun)'), '計算中の入力差分を検出したrunは完了後に自動再計算を予約する');
 assert.ok(script.includes('dpsModeActive: this.dpsModeActive') && script.includes('if (currentMode !== \'dps\') return;'), 'auto requestと通常計算由来の変更refreshをDPS modeでgateする');
 assert.ok(script.includes("window.addEventListener('trickcal:damage-calculator-rendered'"), '通常計算のrender完了通知で使徒選択後のDPS対応可否を再評価する');
 assert.ok(script.includes('refreshAvailability({ render: activeDps })') && script.includes('if (activeDps) controller.requestAutoRun()'), '通常中は対応可否だけ更新し、DPS中だけ自動計算を要求する');
@@ -182,14 +184,14 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260904c'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260905a'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
 assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260904a'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260904c'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260905a'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
-assert.ok(html.includes('dps-simulator.js?v=20260904a') && appCache.includes('dps-simulator.js?v=20260904a'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
-assert.ok(script.includes("dps-simulator-worker.js?v=20260904a") && appCache.includes('dps-simulator-worker.js?v=20260904a'), 'Workerのcache-bustを起動側とmanifestで揃える');
+assert.ok(html.includes('dps-simulator.js?v=20260907b') && appCache.includes('dps-simulator.js?v=20260907b'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
+assert.ok(script.includes("dps-simulator-worker.js?v=20260907b") && appCache.includes('dps-simulator-worker.js?v=20260907b'), 'Workerのcache-bustを起動側とmanifestで揃える');
 assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260904a'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
 assert.ok(html.includes('app-cache.js?v=20260904a'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
@@ -214,6 +216,25 @@ const context = {
 vm.createContext(context);
 vm.runInContext(script, context, { filename: 'formation-damage-dps-prototype.js' });
 const testing = context.window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING;
+const measuredStateRuntimeEvent = {
+  id: 'tig-favorite-overdrive',
+  label: 'オーバードラ火ブ',
+  triggerType: '対象スキル使用時',
+  triggerSourceId: 'Tig_favorite_1_e08',
+  timingSourceEffectId: 'Tig_favorite_1_e08',
+  triggerActionKeys: [],
+  steps: [{
+    type: 'selfState',
+    application: { stateId: 'Tig_favorite_1_e08', status: 'オーバードラ火ブ', durationFrames: 600 }
+  }]
+};
+const measuredStateOverride = testing.applyDpsRuntimeEffectOverrides({
+  eventEffects: [measuredStateRuntimeEvent]
+}, 'Tig', {});
+assert.equal(measuredStateOverride.simulation.eventEffects.length, 1,
+  '実測の対象スキル固有状態イベントをDPSの初期OFFフィルタで削除しない');
+assert.equal(measuredStateOverride.simulation.eventEffects[0].id, measuredStateRuntimeEvent.id,
+  '固有状態イベントを発生元イベント処理へ保持する');
 context.document = { querySelector() { return null; } };
 const makeElement = () => {
   const classes = new Set();
@@ -265,6 +286,33 @@ assert.equal(pendingElements.value.textContent, '1,234', '再計算待ちでも�
 assert.equal(pendingElements.recalcIndicator.hidden, false, '再計算待ちでは左上indicatorを表示する');
 assert.equal(pendingElements.recalcIndicator.dataset.fdcpRecalculation, 'pending', '再計算待ちindicatorの状態を明示する');
 assert.match(pendingElements.drawerStatus.textContent, /再計算待ち[\s\S]*前回の計算結果/, '詳細ヘッダーにも前回結果を表示中と示す');
+const originalSetTimeout = context.window.setTimeout;
+const originalClearTimeout = context.window.clearTimeout;
+const autoTimerCallbacks = new Map();
+let autoTimerId = 0;
+context.window.setTimeout = callback => {
+  const id = ++autoTimerId;
+  autoTimerCallbacks.set(id, callback);
+  return id;
+};
+context.window.clearTimeout = id => { autoTimerCallbacks.delete(id); };
+const autoRunElements = {
+  run: makeElement(), duration: { value: '90' }, highMode: { value: 'disabled' },
+  formationTimelineMode: { value: 'off' }, formationHighMode: { value: 'disabled' },
+  seed: { value: '1' }, trials: { value: '16' }, autoRun: { checked: true }
+};
+const autoRunController = new testing.PrototypeDpsController({}, autoRunElements);
+autoRunController.dpsModeActive = true;
+autoRunController.currentInputFingerprint = 'new-input';
+autoRunController.lastAutoFingerprint = 'old-input';
+autoRunController.requestAutoRun();
+const [autoTimerEntry] = autoTimerCallbacks.entries();
+assert.ok(autoTimerEntry, '入力差分から自動計算タイマーを登録する');
+autoRunController.running = true;
+autoTimerEntry[1]();
+assert.equal(autoRunController.pendingAutoRun, true, '自動計算タイマーが実行中に発火した場合も完了後の再計算を保留する');
+context.window.setTimeout = originalSetTimeout;
+context.window.clearTimeout = originalClearTimeout;
 renderController.baseline = { axis: {} };
 renderController.comparison = null;
 renderController.syncComparisonUi();

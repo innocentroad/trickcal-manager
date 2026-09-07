@@ -973,7 +973,14 @@
       window.clearTimeout(this.autoTimer);
       this.autoTimer = window.setTimeout(() => {
         this.autoTimer = 0;
-        if (!this.dpsModeActive || !this.elements.autoRun?.checked || this.running) return;
+        if (!this.dpsModeActive || !this.elements.autoRun?.checked) return;
+        // 予約タイマーが計算中に発火しても、予約を捨てずに現在のrun完了後へ
+        // 繰り越す。長いseed集計中にこの分岐へ入ると、従来は「再計算待ち」の
+        // 表示だけが残り、次のrunが永遠に始まらないことがあった。
+        if (this.running) {
+          this.pendingAutoRun = true;
+          return;
+        }
         this.run();
       }, 500);
     }
@@ -1407,6 +1414,12 @@
 
     run() {
       if (!this.dpsModeActive || this.running) return;
+      // 手動実行が先に始まった場合も、古い自動実行予約が後から発火して
+      // 現在のrunを取り違えないようにする。手動run自体が最新入力を読むため、
+      // ここで保留フラグも消費する。
+      window.clearTimeout(this.autoTimer);
+      this.autoTimer = 0;
+      this.pendingAutoRun = false;
       // ボタン操作で直前の入力欄からchangeが届かない環境でも、計算開始時点の
       // 外部イベント設定を取り込む。状態欄を含むDOM入力を古いstateで上書きしない。
       const detailEvents = this.readExternalEventsFromDetail();
@@ -1436,6 +1449,7 @@
       const runFingerprint = createDpsInputFingerprint(snapshot, options);
       const fallbackNotes = new Set();
       const noteFallback = message => fallbackNotes.add(message);
+      let followUpAutoRun = false;
       // UIを先に更新してから計算を開始し、長いseed計算でも状態が見えるようにする。
       setTimeout(async () => {
         try {
@@ -1480,6 +1494,7 @@
           if (!this.isCurrentRun(runToken, cancellation)) return;
           if (currentFingerprint !== runFingerprint) {
             this.requiresRecalculation = true;
+            followUpAutoRun = true;
             this.renderAvailability(currentSnapshot, this.getSupport(currentSnapshot));
             return;
           }
@@ -1502,7 +1517,7 @@
           this.elements.run.textContent = 'DPS計算';
           this.elements.run.disabled = false;
           this.updateBaselineControls();
-          if (this.dpsModeActive && this.pendingAutoRun) {
+          if (this.dpsModeActive && this.elements.autoRun?.checked && (this.pendingAutoRun || followUpAutoRun)) {
             this.pendingAutoRun = false;
             this.refreshAvailability();
             this.requestAutoRun();
@@ -3129,7 +3144,7 @@
     try {
       return new Promise((resolve, reject) => {
         let finished = false;
-        const worker = new Worker('dps-simulator-worker.js?v=20260904a');
+        const worker = new Worker('dps-simulator-worker.js?v=20260907b');
         const cleanup = () => { if (!finished) { finished = true; worker.terminate(); } };
         const cleanupCancellation = cancellation?.onCancel(() => {
           if (finished) return;
