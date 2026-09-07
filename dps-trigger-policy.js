@@ -669,6 +669,7 @@
     const modes = {};
     [
       'attackSpeedEffects',
+      'accelerationEffects',
       'damageBuffEffects',
       'spRecoveryEffects',
       'cooldownEffects',

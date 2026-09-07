@@ -89,7 +89,9 @@
     'attackSpeedInitial',
     'attackSpeedApplied',
     'attackSpeedExpired',
-    'attackSpeedReset'
+    'attackSpeedReset',
+    'accelerationApplied',
+    'accelerationExpired'
   ]));
 
   function getTimelineEventTime(event = {}) {
@@ -112,7 +114,9 @@
       attackSpeedInitial: ['attackSpeed'],
       attackSpeedApplied: ['attackSpeed'],
       attackSpeedExpired: ['attackSpeed'],
-      attackSpeedReset: ['attackSpeed']
+      attackSpeedReset: ['attackSpeed'],
+      accelerationApplied: ['acceleration'],
+      accelerationExpired: ['acceleration']
     }[legacyType] || [];
     if (!compatibleKinds.includes(kind)) return false;
     const stateIds = [stateEvent.effectId, stateEvent.status, stateEvent.label]
@@ -1804,6 +1808,43 @@
       resetActionKeys: normalizeArray(effect?.resetActionKeys).map(String),
       sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed')
     })).filter(effect => effect.id && effect.hasteP);
+    const accelerationEffects = normalizeArray(buildOptions.runtimeEffects?.accelerationEffects)
+      .map((effect, index) => ({
+        id: String(effect?.id || `acceleration:${index}`),
+        effectId: String(effect?.effectId || ''),
+        sourceId: String(effect?.sourceId || ''),
+        externalSourceId: String(effect?.externalSourceId || ''),
+        externalTriggerType: String(effect?.externalTriggerType || ''),
+        label: String(effect?.label || effect?.id || '全行動速度効果'),
+        mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
+        triggerSourceId: String(effect?.triggerSourceId || ''),
+        accelerationP: toFiniteNumber(effect?.accelerationP),
+        maxAccelerationP: Math.max(
+          0,
+          toFiniteNumber(effect?.maxAccelerationP, toFiniteNumber(effect?.accelerationP))
+        ),
+        maxActionSpeedP: Math.max(
+          100,
+          toFiniteNumber(effect?.maxActionSpeedP, 100 + toFiniteNumber(
+            effect?.maxAccelerationP,
+            toFiniteNumber(effect?.accelerationP)
+          ))
+        ),
+        curve: String(effect?.curve || 'constant'),
+        rampFrames: Math.max(0, toFiniteNumber(effect?.rampFrames)),
+        holdFrames: Math.max(0, toFiniteNumber(effect?.holdFrames)),
+        durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
+        intervalFrames: Math.max(0, toFiniteNumber(effect?.intervalFrames)),
+        triggerEveryCount: Math.max(0, Math.floor(toFiniteNumber(effect?.triggerEveryCount))),
+        triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
+        triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
+        maxStacks: Math.max(0, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
+        fixedStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.fixedStacks, 1))),
+        stackable: !!effect?.stackable,
+        resetActionKeys: normalizeArray(effect?.resetActionKeys).map(String),
+        sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed')
+      }))
+      .filter(effect => effect.id && effect.accelerationP);
     const initialAttackSpeedP = attackSpeedEffects.reduce((total, effect) => (
       ['constant', 'initialTimed', 'manualInitialTimed', 'fixed'].includes(effect.mode)
         ? total + effect.hasteP * (effect.mode === 'fixed' ? effect.fixedStacks : 1)
@@ -1997,6 +2038,7 @@
       lowSkillSpPolicy: 'reset',
       runtimeEffects: {
         attackSpeedEffects,
+        accelerationEffects,
         spRegenEffects,
         spRecoveryEffects,
         cooldownEffects,
@@ -2549,6 +2591,8 @@
       normalAttackSequence: 0,
       lastCompletedAction: null,
       lastNormalAttackStartTick: null,
+      normalAttackProgressFrames: null,
+      normalAttackProgressLastTick: null,
       runtimeAttackSpeedEffects: normalizeArray(config.runtimeEffects?.attackSpeedEffects).map(effect => ({
         ...effect,
         stackCount: effect.mode === 'fixed'
@@ -2558,6 +2602,14 @@
           ? [toTicks(effect.durationFrames, ticksPerFrame)]
           : [],
         nextTick: effect.intervalFrames > 0 ? toTicks(effect.intervalFrames, ticksPerFrame) : Infinity
+      })),
+      runtimeAccelerationEffects: normalizeArray(config.runtimeEffects?.accelerationEffects).map(effect => ({
+        ...effect,
+        active: false,
+        startTick: -1,
+        expireTick: Infinity,
+        triggerCount: 0,
+        lastActionInstanceId: null
       })),
       runtimeSpRecoveryEffects: normalizeArray(config.runtimeEffects?.spRecoveryEffects).map(effect => ({
         ...effect,
@@ -2914,6 +2966,7 @@
 
     state.runtimeAttackSpeedEffects.forEach(scheduleRuntimePeriodicEvent);
     state.runtimeAttackSpeedEffects.forEach(scheduleRuntimeExpireTicks);
+    state.runtimeAccelerationEffects.forEach(scheduleRuntimeExpireTick);
     state.runtimeSpRecoveryEffects.forEach(scheduleRuntimePeriodicEvent);
     state.runtimeEventEffects.forEach(scheduleRuntimePeriodicEvent);
     state.statusStacks.forEach(scheduleRuntimePeriodicEvent);
@@ -3167,6 +3220,69 @@
       total + effect.stackCount * effect.hasteP
     ), 0);
 
+    const getAccelerationContribution = (effect, fromTick, toTick) => {
+      if (!effect?.active || !(toTick > fromTick)) return 0;
+      const startTick = Number.isFinite(Number(effect.startTick)) ? Number(effect.startTick) : fromTick;
+      const fromFrame = Math.max(0, (fromTick - startTick) / ticksPerFrame);
+      const toFrame = Math.max(fromFrame, (toTick - startTick) / ticksPerFrame);
+      const durationFrames = effect.durationFrames > 0 ? effect.durationFrames : Infinity;
+      const clippedTo = Math.min(toFrame, durationFrames);
+      if (!(clippedTo > fromFrame)) return 0;
+      const maxAccelerationP = Math.max(0, toFiniteNumber(
+        effect.maxAccelerationP,
+        toFiniteNumber(effect.accelerationP)
+      ));
+      if (!(maxAccelerationP > 0)) return 0;
+      const curve = String(effect.curve || 'constant');
+      if (curve !== 'linearHold' || !(effect.rampFrames > 0)) {
+        return (clippedTo - Math.min(fromFrame, clippedTo)) * maxAccelerationP / 100;
+      }
+      const rampEnd = Math.min(durationFrames, effect.rampFrames);
+      const rampFrom = Math.min(Math.max(fromFrame, 0), rampEnd);
+      const rampTo = Math.min(Math.max(clippedTo, 0), rampEnd);
+      const rampContribution = rampTo > rampFrom
+        ? maxAccelerationP / 100 * (rampTo * rampTo - rampFrom * rampFrom) / (2 * effect.rampFrames)
+        : 0;
+      const holdStart = rampEnd;
+      const holdEnd = Math.min(durationFrames, rampEnd + Math.max(0, effect.holdFrames));
+      const holdFrom = Math.max(fromFrame, holdStart);
+      const holdTo = Math.min(clippedTo, holdEnd);
+      const holdContribution = holdTo > holdFrom
+        ? (holdTo - holdFrom) * maxAccelerationP / 100
+        : 0;
+      return rampContribution + holdContribution;
+    };
+
+    const integrateActionSpeedFrames = (fromTick, toTick) => {
+      if (!(toTick > fromTick)) return 0;
+      const baseFrames = (toTick - fromTick) / ticksPerFrame;
+      return baseFrames + state.runtimeAccelerationEffects.reduce((total, effect) => (
+        total + getAccelerationContribution(effect, fromTick, toTick)
+      ), 0);
+    };
+
+    const hasActiveAcceleration = () => state.runtimeAccelerationEffects.some(effect => (
+      effect.active && effect.expireTick > state.tick
+    ));
+
+    const advanceCurrentActionProgress = () => {
+      const current = state.currentAction;
+      if (!current?.dynamicTiming || current.progressLastTick >= state.tick) return;
+      current.progressFrames += integrateActionSpeedFrames(current.progressLastTick, state.tick);
+      current.progressLastTick = state.tick;
+    };
+
+    const advanceNormalAttackProgress = () => {
+      if (state.normalAttackProgressFrames == null
+        || state.normalAttackProgressLastTick == null
+        || state.normalAttackProgressLastTick >= state.tick) return;
+      state.normalAttackProgressFrames += integrateActionSpeedFrames(
+        state.normalAttackProgressLastTick,
+        state.tick
+      );
+      state.normalAttackProgressLastTick = state.tick;
+    };
+
     const getEffectiveNormalAttackIntervalFrames = () => (
       config.normalAttackIntervalFrames / (1 + getRuntimeAttackSpeedP() / 100)
     );
@@ -3286,6 +3402,98 @@
       state.runtimeAttackSpeedEffects.forEach(effect => {
         if (effect.mode !== 'actionTimed' || effect.triggerPhase !== phase || !effect.triggerActionKeys.includes(actionKey)) return;
         applyAttackSpeedEffect(effect, `${ACTION_LABELS[actionKey] || actionKey}${phase === 'end' ? '終了' : '発動'}`);
+      });
+    };
+
+    const applyAccelerationEffect = (effect, reason = '') => {
+      if (!effect) return;
+      const wasActive = !!effect.active;
+      const previousStartTick = effect.startTick;
+      effect.active = true;
+      effect.startTick = state.tick;
+      effect.expireTick = effect.durationFrames > 0
+        ? state.tick + toTicks(effect.durationFrames, ticksPerFrame)
+        : Infinity;
+      effect.triggerCount += 1;
+      scheduleRuntimeExpireTick(effect);
+      logEffectStateChange({
+        kind: 'acceleration',
+        effectId: effect.id,
+        label: effect.label,
+        operation: wasActive ? 'update' : 'apply',
+        stackCount: 1,
+        maxStacks: 1,
+        appliedTick: state.tick,
+        expireTick: effect.expireTick,
+        sourceId: effect.sourceId,
+        reason,
+        details: {
+          accelerationP: effect.accelerationP,
+          maxAccelerationP: effect.maxAccelerationP,
+          maxActionSpeedP: effect.maxActionSpeedP,
+          curve: effect.curve,
+          rampFrames: effect.rampFrames,
+          holdFrames: effect.holdFrames,
+          durationFrames: effect.durationFrames,
+          previousStartTick
+        }
+      });
+      log('accelerationApplied', {
+        effectId: effect.id,
+        sourceId: effect.sourceId,
+        label: effect.label,
+        reason,
+        accelerationP: effect.accelerationP,
+        maxAccelerationP: effect.maxAccelerationP,
+        maxActionSpeedP: effect.maxActionSpeedP,
+        curve: effect.curve,
+        rampFrames: effect.rampFrames,
+        holdFrames: effect.holdFrames,
+        durationFrames: effect.durationFrames
+      });
+    };
+
+    const expireAccelerationEffects = () => {
+      state.runtimeAccelerationEffects.forEach(effect => {
+        if (!effect.active || effect.expireTick > state.tick) return;
+        effect.active = false;
+        logEffectStateChange({
+          kind: 'acceleration',
+          effectId: effect.id,
+          label: effect.label,
+          operation: 'expire',
+          stackCount: 0,
+          maxStacks: 1,
+          appliedTick: effect.startTick,
+          expireTick: effect.expireTick,
+          sourceId: effect.sourceId,
+          reason: '持続時間終了',
+          details: {
+            accelerationP: effect.accelerationP,
+            maxAccelerationP: effect.maxAccelerationP,
+            maxActionSpeedP: effect.maxActionSpeedP,
+            curve: effect.curve,
+            rampFrames: effect.rampFrames,
+            holdFrames: effect.holdFrames,
+            durationFrames: effect.durationFrames
+          }
+        });
+        log('accelerationExpired', {
+          effectId: effect.id,
+          sourceId: effect.sourceId,
+          label: effect.label,
+          accelerationP: effect.accelerationP,
+          maxAccelerationP: effect.maxAccelerationP,
+          maxActionSpeedP: effect.maxActionSpeedP,
+          durationFrames: effect.durationFrames
+        });
+      });
+    };
+
+    const triggerAccelerationEffectsForAction = (actionKey, phase = 'start') => {
+      state.runtimeAccelerationEffects.forEach(effect => {
+        if (effect.mode !== 'actionTimed' || effect.triggerPhase !== phase || !effect.triggerActionKeys.includes(actionKey)) return;
+        applyAccelerationEffect(effect, `${ACTION_LABELS[actionKey] || actionKey}${phase === 'end' ? '終了' : '発動'}`);
       });
     };
 
@@ -3462,6 +3670,11 @@
         if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
         if (!matchesOwner(effect)) return;
         applyAttackSpeedEffect(effect, `${sourceEffectId}発生時`);
+      });
+      state.runtimeAccelerationEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
+        if (!matchesOwner(effect)) return;
+        applyAccelerationEffect(effect, `${sourceEffectId}発生時`);
       });
       state.runtimeDamageBuffEffects.forEach(effect => {
         if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
@@ -4466,6 +4679,10 @@
           if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect)) return;
           applyAttackSpeedEffect(effect, `${triggerType} / ${event.reason || event.id}`);
         });
+        state.runtimeAccelerationEffects.forEach(effect => {
+          if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect)) return;
+          applyAccelerationEffect(effect, `${triggerType} / ${event.reason || event.id}`);
+        });
         state.runtimeDamageBuffEffects.forEach(effect => {
           if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect)) return;
           effect.triggerCount += 1;
@@ -4761,7 +4978,11 @@
       const current = state.currentAction;
       if (!current) return;
       current.events.forEach(event => {
-        if (event.emitted || current.startTick + event.relativeTick !== state.tick) return;
+        if (event.emitted) return;
+        const due = current.dynamicTiming
+          ? current.progressFrames + 1e-9 >= event.relativeFrames
+          : current.startTick + event.relativeTick === state.tick;
+        if (!due) return;
         event.emitted = true;
         emitEvent(current, event);
       });
@@ -4877,6 +5098,7 @@
         triggerAttackSpeedEffectsForNormalAttackCount();
       }
       triggerAttackSpeedEffectsForAction(actionKey);
+      triggerAccelerationEffectsForAction(actionKey);
       const variant = selectedVariant || pickVariant(action, state, random);
       const variantLabel = String(action.variantLabels?.[variant] || '').trim();
       const sourceEvents = action.variants[variant] || action.variants.default || [];
@@ -4893,9 +5115,14 @@
         variantLabel,
         instanceId,
         startTick: state.tick,
+        dynamicTiming: state.runtimeAccelerationEffects.length > 0,
+        progressFrames: 0,
+        progressLastTick: state.tick,
+        motionFrames,
         endTick: state.tick + Math.max(1, toTicks(motionFrames, ticksPerFrame)),
         events: sourceEvents.map(event => ({
           ...event,
+          relativeFrames: event.frame * motionScale,
           relativeTick: toTicks(event.frame * motionScale, ticksPerFrame),
           emitted: false
         }))
@@ -4928,6 +5155,8 @@
       counts[actionKey] += 1;
       if (actionKey === 'basicAttack' || actionKey === 'enhancedAttack') {
         state.lastNormalAttackStartTick = state.tick;
+        state.normalAttackProgressFrames = 0;
+        state.normalAttackProgressLastTick = state.tick;
         state.nextNormalAttackTick = state.tick + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
         scheduleRuntimeStateTimer('nextNormalAttackTick');
       } else if (actionKey === 'lowSkill') {
@@ -5038,7 +5267,13 @@
     };
 
     const tryStartNormalAttack = () => {
-      if (state.tick < state.nextNormalAttackTick) return false;
+      if (state.runtimeAccelerationEffects.length > 0) {
+        if (state.normalAttackProgressFrames == null) {
+          if (state.tick < state.nextNormalAttackTick) return false;
+        } else if (state.normalAttackProgressFrames + 1e-9 < getEffectiveNormalAttackIntervalFrames()) {
+          return false;
+        }
+      } else if (state.tick < state.nextNormalAttackTick) return false;
       const enhancedAction = config.actions.enhancedAttack;
       const nextNormalAttackSequence = state.normalAttackSequence + 1;
       const enhancedBlocked = normalizeArray(enhancedAction?.blockedBySelfStateIds)
@@ -5092,6 +5327,12 @@
         normalAttackIntervalFrames: getEffectiveNormalAttackIntervalFrames()
       });
     });
+    state.runtimeAccelerationEffects
+      .filter(effect => ['constant', 'initialTimed', 'manualInitialTimed', 'fixed'].includes(effect.mode))
+      .forEach(effect => applyAccelerationEffect(
+        effect,
+        effect.mode === 'fixed' ? '固定設定' : '戦闘開始時'
+      ));
     state.runtimeDamageBuffEffects
       .filter(effect => effect.mode === 'initialTimed' || effect.mode === 'fixed')
       .forEach(effect => {
@@ -5118,6 +5359,7 @@
       add(state.actionStartAllowedTick);
       add(getNextActionInternalEventTick());
       add(getNextRuntimePeriodicEventTick());
+      state.runtimeAccelerationEffects.forEach(effect => add(effect.active ? effect.expireTick : Infinity));
       add(getNextPendingGeneratedEventTick());
       // 外部イベントは通常のランタイム周期キューとは別配列で管理している。
       // ここを候補に含めないと、外部イベントしか残っていない待機区間を
@@ -5132,6 +5374,7 @@
 
     const fastForwardIdleTicks = () => {
       if (options.enableFastForward === false) return false;
+      if (hasActiveAcceleration()) return false;
       const isDue = value => Number.isFinite(Number(value)) && Number(value) <= state.tick;
       const actionPhaseActive = !!(
         state.currentAction
@@ -5162,6 +5405,9 @@
     for (state.tick = 0; state.tick <= durationTicks; state.tick += 1) {
       processedTickCount += 1;
       if (fastForwardIdleTicks()) continue;
+      advanceCurrentActionProgress();
+      advanceNormalAttackProgress();
+      expireAccelerationEffects();
       expireAttackSpeedEffects();
       processRuntimeAttackSpeedStacks();
       expireRuntimeBuffs();
@@ -5191,7 +5437,12 @@
       emitDueActionEvents();
       emitDueGeneratedEvents();
       expireStatuses();
-      if (state.currentAction && state.currentAction.endTick === state.tick) {
+      const currentActionComplete = state.currentAction && (
+        state.currentAction.dynamicTiming
+          ? state.currentAction.progressFrames + 1e-9 >= state.currentAction.motionFrames
+          : state.currentAction.endTick === state.tick
+      );
+      if (currentActionComplete) {
         const finished = state.currentAction;
         log('actionEnd', { actionKey: finished.key, actionLabel: finished.label, variant: finished.variant, variantLabel: finished.variantLabel });
         triggerRuntimeEventEffectsForAction(finished, 'end');
@@ -5204,10 +5455,15 @@
           variantLabel: finished.variantLabel
         };
         triggerAttackSpeedEffectsForAction(finished.key, 'end');
+        triggerAccelerationEffectsForAction(finished.key, 'end');
         triggerDamageBuffEffectsForAction(finished, 'end');
         triggerCooldownEffectsForAction(finished, 'end');
         if (finished.key === 'lowSkill') {
           state.nextNormalAttackTick = state.tick;
+          if (state.normalAttackProgressFrames != null) {
+            state.normalAttackProgressFrames = getEffectiveNormalAttackIntervalFrames();
+            state.normalAttackProgressLastTick = state.tick;
+          }
           scheduleRuntimeStateTimer('nextNormalAttackTick');
         }
         if (finished.key === 'lowSkill' || finished.key === 'highSkill') {
@@ -5292,6 +5548,23 @@
           maxStacks: effect.maxStacks,
           hastePerStackP: effect.hasteP,
           durationFrames: effect.durationFrames
+        })),
+        accelerationEffects: state.runtimeAccelerationEffects.map(effect => ({
+          id: effect.id,
+          effectId: effect.effectId,
+          label: effect.label,
+          mode: effect.mode,
+          active: effect.active,
+          triggerCount: effect.triggerCount,
+          accelerationP: effect.accelerationP,
+          maxAccelerationP: effect.maxAccelerationP,
+          maxActionSpeedP: effect.maxActionSpeedP,
+          curve: effect.curve,
+          rampFrames: effect.rampFrames,
+          holdFrames: effect.holdFrames,
+          durationFrames: effect.durationFrames,
+          startTick: effect.startTick,
+          expireTick: effect.expireTick
         })),
         spRegen: config.spRegen,
         spRegenEffects: normalizeArray(config.runtimeEffects?.spRegenEffects).map(effect => ({

@@ -11919,12 +11919,12 @@ const DPS_TIMING_DATA = {
               "value": 298,
               "unit": "ゲームF",
               "gameFrames": 298,
-              "researchStatus": "",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 265
             }
           ],
-          "researchStatus": "",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
@@ -12234,25 +12234,29 @@ const DPS_TIMING_DATA = {
               "value": 962,
               "unit": "ゲームF",
               "gameFrames": 962,
-              "researchStatus": "",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 266
             }
           ],
-          "researchStatus": "",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
               "branch": "",
               "order": 1,
-              "effectKind": "",
-              "effectId": "",
+              "effectKind": "加速",
+              "effectId": "Renewa_high_e01",
               "lv1PerHitMultiplier": null,
               "guaranteeFrames": null,
               "guaranteeSource": null,
-              "frame": null,
-              "sourceTime": null,
-              "researchStatus": "",
+              "frame": 254,
+              "sourceTime": {
+                "value": 195,
+                "unit": "録画F@▶",
+                "gameFrames": 254
+              },
+              "researchStatus": "済",
               "timingMode": "個別",
               "adoption": "",
               "note": "",
@@ -12277,12 +12281,12 @@ const DPS_TIMING_DATA = {
               "value": 162,
               "unit": "ゲームF",
               "gameFrames": 162,
-              "researchStatus": "",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 267
             }
           ],
-          "researchStatus": "",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {
@@ -12328,12 +12332,12 @@ const DPS_TIMING_DATA = {
               "value": 172,
               "unit": "ゲームF",
               "gameFrames": 172,
-              "researchStatus": "",
+              "researchStatus": "済",
               "note": "",
               "sourceLine": 268
             }
           ],
-          "researchStatus": "",
+          "researchStatus": "済",
           "note": "",
           "timingEvents": [
             {

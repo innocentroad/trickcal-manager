@@ -89,6 +89,7 @@ const api = context.api;
 const actionCategories = ['基本攻撃', '強化攻撃', '低学年スキル', '高学年スキル'];
 const collectionKeys = [
   'attackSpeedEffects',
+  'accelerationEffects',
   'damageBuffEffects',
   'spRegenEffects',
   'spRecoveryEffects',
@@ -97,6 +98,7 @@ const collectionKeys = [
 ];
 const collectionLabels = {
   attackSpeedEffects: '攻撃速度',
+  accelerationEffects: '全行動速度',
   damageBuffEffects: 'ダメージ補正',
   spRegenEffects: '毎秒SP補正',
   spRecoveryEffects: 'SP回復',
@@ -422,6 +424,11 @@ function getRuntimeAuditFields(effect, collection) {
     intervalFrames: Number(effect?.intervalFrames) || 0,
     durationFrames: Number(effect?.durationFrames) || 0,
     triggerEveryCount: Number(effect?.triggerEveryCount) || 0,
+    accelerationP: Number(effect?.accelerationP) || 0,
+    maxAccelerationP: Number(effect?.maxAccelerationP) || 0,
+    maxActionSpeedP: Number(effect?.maxActionSpeedP) || 0,
+    rampFrames: Number(effect?.rampFrames) || 0,
+    holdFrames: Number(effect?.holdFrames) || 0,
     hasTriggerPath,
     triggerPathReason: hasTriggerPath ? '' : (runtimePolicy.reasonCode || 'missingTriggerMetadata'),
     ...cardRuntimePolicyFields(effect)

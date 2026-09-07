@@ -24578,7 +24578,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "高学年スキル",
             "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
-            "fixedValue": 7.0
+            "fixedValue": 10.0
           },
           {
             "effectId": "Renewa_high_e03",

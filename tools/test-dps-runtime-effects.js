@@ -71,6 +71,7 @@ function createFixture({
   initialTargetStatuses = [],
   damageBuffEffects = [],
   attackSpeedEffects = [],
+  accelerationEffects = [],
   spRecoveryEffects = [],
   cooldownEffects = [],
   eventEffects = [],
@@ -93,6 +94,7 @@ function createFixture({
   statusReactions = [],
   runtimeWarnings = [],
   basicRuntimeBase = null,
+  basicMotionFrames = 2,
   normalAttackIntervalFrames = 10,
   enableFastForward = true
 } = {}) {
@@ -128,8 +130,8 @@ function createFixture({
     movementTransitions,
     actions: {
       basicAttack: {
-        motionFrames: 2,
-        motionVariants: [{ branch: '', gameFrames: 2 }],
+        motionFrames: basicMotionFrames,
+        motionVariants: [{ branch: '', gameFrames: basicMotionFrames }],
         timingEvents: timingEvents || [
           { frame: 1, order: 1, effectKind: 'ダメージ', effectId: 'damage' },
           { frame: 1, order: 2, effectKind: '効果', effectId: 'poison' }
@@ -153,6 +155,7 @@ function createFixture({
       initialTargetStatuses,
       damageBuffEffects,
       attackSpeedEffects,
+      accelerationEffects,
       spRecoveryEffects,
       cooldownEffects,
       eventEffects,
@@ -218,6 +221,49 @@ assert.ok(fixedHighStartWithoutFastForward, '低速基準でも高学年を発�
 assert.equal(fixedHighStart?.frame, fixedHighStartWithoutFastForward.frame, '待機中の高速化で高学年発動時刻を変えない');
 assert.ok(fixedHighStart && fixedHighStart.frame >= 60,
   'CT変更がない場合は従来どおり基礎CT経過後に高学年を発動する');
+
+const accelerationResult = createFixture({
+  durationSeconds: 11,
+  includePoison: false,
+  basicMotionFrames: 100,
+  normalAttackIntervalFrames: 100,
+  timingEvents: [],
+  accelerationEffects: [{
+    id: 'renewa-high-acceleration-test',
+    effectId: 'Renewa_high_e01',
+    mode: 'initialTimed',
+    accelerationP: 76,
+    maxAccelerationP: 228,
+    curve: 'linearHold',
+    rampFrames: 510,
+    holdFrames: 90,
+    durationFrames: 600
+  }]
+});
+const accelerationStart = accelerationResult.timeline.find(event => (
+  event.type === 'actionStart' && event.actionKey === 'basicAttack'
+));
+const accelerationEnd = accelerationResult.timeline.find(event => (
+  event.type === 'actionEnd' && event.actionKey === 'basicAttack'
+));
+assert.ok(accelerationStart && accelerationEnd, '全行動速度加速中も通常攻撃を開始・終了する');
+assert.ok(accelerationEnd.frame > 80 && accelerationEnd.frame < 90,
+  '8.5秒かけて線形加速するため、最初の100F行動は約84Fで終了する');
+assert.equal(
+  accelerationResult.timeline.find(event => event.type === 'accelerationApplied')?.maxAccelerationP,
+  228,
+  '設定76%の3倍を最大加速228%として記録する'
+);
+assert.equal(
+  accelerationResult.timeline.find(event => event.type === 'accelerationApplied')?.maxActionSpeedP,
+  328,
+  '最大速度は基準速度100%に最大加速228%を加えた328%とする'
+);
+assert.equal(
+  accelerationResult.timeline.find(event => event.type === 'accelerationExpired')?.frame,
+  600,
+  '加速効果は設定した10秒後に終了する'
+);
 
 const reducedCooldownResult = createFixture({
   durationSeconds: 2,

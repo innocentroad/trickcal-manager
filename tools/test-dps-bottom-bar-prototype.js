@@ -184,17 +184,17 @@ assert.ok(script.includes('runSimulationWorker'), '複数seed集計はworker pro
 assert.ok(script.includes('exactTrials: true') && script.includes('adaptiveTrials: false'), 'prototype DPSは指定した統計試行数を短縮せず集計へ渡す');
 assert.ok(html.indexOf('dps-timing-data.js') < html.indexOf('formation-damage-calc.js'), 'DPS kernelは単発controllerより先に読む');
 assert.ok(html.indexOf('formation-damage-calc.js') < html.indexOf('formation-damage-dps-prototype.js'), 'prototype controllerは単発controllerの後に読む');
-assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260905a'), 'prototype controllerは最新cache-bustを参照する');
+assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260907c'), 'prototype controllerは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
 assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260904a'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260905a'), 'cache manifestも最新controller queryを参照する');
+assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260907c'), 'cache manifestも最新controller queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
-assert.ok(html.includes('dps-simulator.js?v=20260907b') && appCache.includes('dps-simulator.js?v=20260907b'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
-assert.ok(script.includes("dps-simulator-worker.js?v=20260907b") && appCache.includes('dps-simulator-worker.js?v=20260907b'), 'Workerのcache-bustを起動側とmanifestで揃える');
+assert.ok(html.includes('dps-simulator.js?v=20260907c') && appCache.includes('dps-simulator.js?v=20260907c'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
+assert.ok(script.includes("dps-simulator-worker.js?v=20260907c") && appCache.includes('dps-simulator-worker.js?v=20260907c'), 'Workerのcache-bustを起動側とmanifestで揃える');
 assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260904a'), 'cache manifestも最新stylesheet queryを参照する');
 assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260904a'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(html.includes('app-cache.js?v=20260907c'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
 
 const context = {
   window: {

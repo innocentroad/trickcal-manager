@@ -153,6 +153,7 @@
       .map(value => String(value || '').trim()).filter(Boolean));
     const runtimeCollections = [
       'attackSpeedEffects',
+      'accelerationEffects',
       'damageBuffEffects',
       'spRecoveryEffects',
       'cooldownEffects',
@@ -488,6 +489,7 @@
     const modes = {};
     [
       'attackSpeedEffects',
+      'accelerationEffects',
       'damageBuffEffects',
       'spRecoveryEffects',
       'cooldownEffects',
@@ -928,7 +930,7 @@
       }, 0);
     };
     try {
-      singleWorker = new Worker('dps-simulator-worker.js?v=20260907b');
+      singleWorker = new Worker('dps-simulator-worker.js?v=20260907c');
       singleWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         singleWorker?.terminate();
@@ -982,7 +984,7 @@
       return;
     }
     try {
-      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260907b');
+      aggregateWorker = new Worker('dps-simulator-worker.js?v=20260907c');
       aggregateWorker.onmessage = event => {
         if (event.data?.requestId !== requestId) return;
         if (event.data.progress) {
@@ -1965,6 +1967,7 @@
     const simulation = { ...source };
     const collections = [
       ['attackSpeedEffects', true],
+      ['accelerationEffects', false],
       ['damageBuffEffects', true],
       ['spRecoveryEffects', false],
       ['cooldownEffects', false],
@@ -2070,6 +2073,7 @@
       });
     });
     register('attackSpeedEffects', true, '攻撃速度');
+    register('accelerationEffects', false, '全行動速度');
     register('damageBuffEffects', true, 'ダメージ補正');
     register('spRecoveryEffects', false, 'SP回復');
     register('cooldownEffects', false, 'クールタイム');
@@ -2300,6 +2304,12 @@
       ['basicAttack', 'enhancedAttack'],
       effect.triggerActionKeys || []
     ));
+    (runtimeEffects.accelerationEffects || []).forEach(effect => register(
+      effect,
+      'acceleration',
+      ['basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill'],
+      effect.triggerActionKeys || []
+    ));
     (runtimeEffects.spRecoveryEffects || []).forEach(effect => register(
       effect,
       'sp',
@@ -2487,6 +2497,8 @@
       attackSpeedApplied: `${event.label} ${formatNumber(event.stackCount)}スタック / 今回+${formatNumber(event.addedHasteP)}%・累計+${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
       attackSpeedExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック / 攻撃速度 +${formatNumber(event.totalHasteP)}%`,
       attackSpeedReset: `${event.label} リセット / ${formatNumber(event.previousStackCount)}→0スタック / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`,
+      accelerationApplied: `${event.label} 加速開始 / 最大速度 ${formatNumber(event.maxActionSpeedP)}% / ${formatNumber(event.durationFrames / 60)}秒`,
+      accelerationExpired: `${event.label} 加速終了`,
       resourceChange: `${event.resourceName} ${event.operation === 'gain' ? '+' : '-'}${formatNumber(event.amount)} → ${formatNumber(event.after)}/${formatNumber(event.maxStacks)}`,
       runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${runtimeBuffValue}${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
       runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
@@ -2509,6 +2521,7 @@
   function formatDpsEffectStateChange(event = {}) {
     const kindLabel = ({
       attackSpeed: '攻撃速度',
+      acceleration: '全行動速度',
       buff: '時系列効果',
       debuff: '状態',
       selfState: '固有状態',
@@ -2535,6 +2548,8 @@
       ? formatRuntimeBuffModifiers(event.modifiers)
       : event.kind === 'attackSpeed' && Number(event.totalHasteP)
         ? `攻撃速度 +${formatNumber(event.totalHasteP)}% / 普通攻撃間隔 ${formatNumber(event.normalAttackIntervalFrames)}F`
+        : event.kind === 'acceleration' && Number(event.maxActionSpeedP)
+          ? `最大速度 ${formatNumber(event.maxActionSpeedP)}% / 線形加速 ${formatNumber(event.rampFrames)}F + 最大速度 ${formatNumber(event.holdFrames)}F`
         : '';
     const duration = Number(event.durationFrames) > 0
       ? ` / ${formatNumber(Number(event.durationFrames) / 60)}秒`

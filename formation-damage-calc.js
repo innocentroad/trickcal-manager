@@ -5111,6 +5111,7 @@
       'physicalDefP',
       'magicDefP',
       'hasteP',
+      'accelerationP',
       'critP',
       'critRateP',
       'critDmgP',
@@ -5321,6 +5322,7 @@
     if (valueClass === '与ダメージ量増加') add('addP');
     else if (valueClass === '被ダメージ量減少') add('takenDmgP');
     else if (isOtherMultiplier) addSigned('otherP');
+    else if (/全行動速度/.test(valueKind) && !targetEnemy) add('accelerationP');
     else if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
     else if (/攻撃力/.test(valueKind) && !targetEnemy) addSigned('atkP');
     else if (/防御力/.test(valueKind)) {
@@ -6976,6 +6978,7 @@
       'critDmgP',
       'critDmgAddP',
       'hasteP',
+      'accelerationP',
       'addP',
       'actionMultiplierBonusP',
       'normalAttackMultiplierBonusP',
@@ -8727,6 +8730,7 @@
       critDmgP: ['会心DMGステ'],
       critDmgAddP: ['会心DMG増'],
       hasteP: ['攻撃速度'],
+      accelerationP: ['全行動速度'],
       addP: ['与ダメ'],
       specialP: ['特殊'],
       otherP: ['その他'],
@@ -11560,6 +11564,7 @@
       critDmgP: '会心DMGステ',
       critDmgAddP: '会心DMG増',
       hasteP: '攻撃速度',
+      accelerationP: '全行動速度',
       addP: '与被DMG',
       actionMultiplierBonusP: '行動倍率',
       normalAttackMultiplierBonusP: '普通攻撃行動倍率',
@@ -12509,9 +12514,9 @@
     if (isDpsUnsupportedRuntimeTrigger(effect, descriptiveText)) return false;
     const triggerText = getDpsRuntimeTriggerText(effect, descriptiveText);
     const deterministicTrigger = /戦闘開始時|ウェーブ開始時|n秒ごと|n回ごと|\d+(?:\.\d+)?\s*秒ごと|\d+\s*回ごと|使用時|使用後|発動時|終了時|命中時|衝突時|攻撃時|状態(?:異常)?付与時|リソース変化時/.test(triggerText);
-    const runtimeValue = /攻撃速度|クールタイム|SP回復|状態付与/.test(descriptiveText)
+    const runtimeValue = /攻撃速度|全行動速度|クールタイム|SP回復|状態付与/.test(descriptiveText)
       || Object.keys(effect.bonuses || {}).some(key => [
-        'hasteP', 'spRecovery', 'spRecoveryP', 'spRegen', 'spRegenP',
+        'hasteP', 'accelerationP', 'spRecovery', 'spRecoveryP', 'spRegen', 'spRegenP',
         'atkP', 'physicalAtkP', 'magicAtkP', 'addP', 'normalAttackAddP',
         'basicAddP', 'enhancedAddP', 'skillAddP', 'lowSkillAddP', 'highSkillAddP', 'actionMultiplierBonusP',
         'normalAttackMultiplierBonusP', 'basicMultiplierBonusP',
@@ -13596,12 +13601,15 @@
       options.dpsSkillOverrides
     );
     const grouped = new Map();
+    const accelerationGrouped = new Map();
     actionEntries.forEach(([actionKey, actionAudit]) => {
       normalizeArray(actionAudit?.rows).forEach(row => {
         if (isSupersededRow(row)) return;
         if (row.unsupportedRuntimeTrigger) return;
         const hasteP = Number(row?.bonuses?.hasteP) || 0;
-        if (!hasteP || row.sourceDisabled) return;
+        const accelerationP = Number(row?.bonuses?.accelerationP) || 0;
+        if ((!hasteP && !accelerationP) || row.sourceDisabled) return;
+        const effectGroups = accelerationP ? accelerationGrouped : grouped;
         const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
           .filter(Boolean).join(' ');
         if (isDpsUnsupportedRuntimeTrigger(row, runtimeText)) return;
@@ -13626,17 +13634,21 @@
           ? createDpsRuntimeEffectIdentity(
             row,
             options,
-            `:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
+            accelerationP
+              ? `:shared-low-high-speed:${row.label || ''}:${accelerationP}:${durationFrames}`
+              : `:shared-low-high-haste:${row.label || ''}:${hasteP}:${durationFrames}`
           )
           : createDpsRuntimeEffectIdentity(row, options);
         const timingSourceEffectId = getDpsDirectTimingSourceEffectId(row, options);
-        const item = grouped.get(key) || {
+        const item = effectGroups.get(key) || {
           id: createDpsRuntimeEffectId(row, options, key),
+          effectId: row.effectId || '',
           sourceId: sourceId === 'effect' ? '' : sourceId,
           ownerId,
           ownerName: row.ownerName || ownerId,
-          label: row.label || '攻撃速度効果',
+          label: row.label || (accelerationP ? '全行動速度効果' : '攻撃速度効果'),
           hasteP,
+          accelerationP,
           condition: row.condition || '',
           triggerType: row.triggerType || '',
           triggerValue: row.triggerValue ?? '',
@@ -13667,6 +13679,7 @@
           item.triggerActionKeys = [];
         }
         item.hasteP = Math.max(item.hasteP, hasteP);
+        item.accelerationP = Math.max(item.accelerationP, accelerationP);
         item.durationFrames = Math.max(item.durationFrames, durationFrames);
         item.maxStacks = Math.max(item.maxStacks, Math.max(1, Number(row.stackMax) || 1));
         item.stackable ||= !!row.stackable;
@@ -13687,11 +13700,11 @@
           item.condition = [item.condition, row.condition].filter(Boolean).join(' ');
         }
         item.enabledActions.push(actionKey);
-        grouped.set(key, item);
+        effectGroups.set(key, item);
       });
     });
 
-    const actionSpeedEffects = Array.from(grouped.values()).map(effect => {
+    const finalizeSpeedEffect = (effect, kind = 'attack') => {
       const text = [effect.runtimeText, effect.condition, effect.label, effect.category].filter(Boolean).join(' ');
       const runtimeTriggerText = unique(effect.runtimeTriggerTexts || []).join(' ');
       const conditionText = String(effect.condition || '');
@@ -13735,9 +13748,28 @@
         maxStacks: effect.id === 'artifact_tig_blazing_sword_e01' ? 10 : (mode === 'periodicStack' ? 0 : effect.maxStacks),
         stackable: effect.id === 'artifact_tig_blazing_sword_e01' || mode === 'periodicStack' || effect.stackable,
         resetActionKeys: effect.id === 'artifact_dragonlight_sword_e01' ? ['lowSkill'] : [],
-        sourceEventFallbackMode: getDpsSourceEventFallbackMode(effect, 'actionTimed')
+        sourceEventFallbackMode: getDpsSourceEventFallbackMode(effect, 'actionTimed'),
+        ...(kind === 'acceleration'
+          ? {
+            curve: effect.effectId === 'Renewa_high_e01' ? 'linearHold' : 'constant',
+            maxAccelerationP: effect.effectId === 'Renewa_high_e01'
+              ? effect.accelerationP * 3
+              : effect.accelerationP,
+            maxActionSpeedP: 100 + (effect.effectId === 'Renewa_high_e01'
+              ? effect.accelerationP * 3
+              : effect.accelerationP),
+            rampFrames: effect.effectId === 'Renewa_high_e01' ? 8.5 * 60 : 0,
+            holdFrames: effect.effectId === 'Renewa_high_e01' ? 1.5 * 60 : effect.durationFrames
+          }
+          : {})
       };
-    }).filter(Boolean);
+    };
+    const actionSpeedEffects = Array.from(grouped.values())
+      .map(effect => finalizeSpeedEffect(effect, 'attack'))
+      .filter(Boolean);
+    const accelerationEffects = Array.from(accelerationGrouped.values())
+      .map(effect => finalizeSpeedEffect(effect, 'acceleration'))
+      .filter(Boolean);
     const damageBuffKeys = new Set([
       'atkP',
       'physicalAtkP',
@@ -14154,6 +14186,7 @@
     });
     const runtimeEffects = {
       attackSpeedEffects: actionSpeedEffects,
+      accelerationEffects,
       periodicAttackSpeedStacks: [],
       baseSpRegen: Number.isFinite(Number(options.baseSpRegen)) ? Number(options.baseSpRegen) : null,
       damageEffectIds: unique(normalizeArray(options.runtimeManagedEffects)
@@ -14175,6 +14208,7 @@
     // runtime instanceを共有する。
     [
       'attackSpeedEffects',
+      'accelerationEffects',
       'damageBuffEffects',
       'spRecoveryEffects',
       'cooldownEffects',
@@ -14188,6 +14222,7 @@
     });
     const runtimePolicyCollections = [
       ['attackSpeedEffects', true],
+      ['accelerationEffects', false],
       ['damageBuffEffects', true],
       ['spRegenEffects', false],
       ['spRecoveryEffects', false],
@@ -14217,6 +14252,7 @@
   function createDpsRuntimeDuplicateWarnings(runtimeEffects = {}) {
     const categories = [
       'attackSpeedEffects',
+      'accelerationEffects',
       'spRegenEffects',
       'spRecoveryEffects',
       'cooldownEffects',
@@ -14243,6 +14279,11 @@
           fixed: Number(effect?.fixed) || 0,
           percent: Number(effect?.percent) || 0,
           hasteP: Number(effect?.hasteP) || 0,
+          accelerationP: Number(effect?.accelerationP) || 0,
+          maxAccelerationP: Number(effect?.maxAccelerationP) || 0,
+          maxActionSpeedP: Number(effect?.maxActionSpeedP) || 0,
+          rampFrames: Number(effect?.rampFrames) || 0,
+          holdFrames: Number(effect?.holdFrames) || 0,
           modifiers: Object.fromEntries(Object.entries(effect?.modifiers || {}).sort(([a], [b]) => a.localeCompare(b))),
           steps: normalizeFdcArray(effect?.steps)
         });
