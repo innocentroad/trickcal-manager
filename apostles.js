@@ -9248,16 +9248,23 @@ const APOSTLE_LIBRARY = [
       }
     ],
     "favoriteCard": {
+      "name": "シェルムの羊皮紙の巻物",
       "kind": "遺物",
       "levels": {
-        "0": [
+        "1": [
           {
             "effects": [],
-            "skillId": "Sherum_favorite_1"
-          },
+            "skillId": "Sherum_favorite_1",
+            "skillName": "愛用Lv1",
+            "description": "仮"
+          }
+        ],
+        "3": [
           {
             "effects": [],
-            "skillId": "Sherum_favorite_3"
+            "skillId": "Sherum_favorite_3",
+            "skillName": "愛用Lv3",
+            "description": "仮"
           }
         ]
       }

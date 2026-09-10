@@ -6935,8 +6935,8 @@
           <span>所持${isAuto ? '<em>自動</em>' : ''}</span>
           <button type="button" class="formation-coin-input-wrap" data-formation-coin-open aria-expanded="false" title="クリックして所持コインを入力">
             <img src="img/Card/ef_coin.webp" alt="">
-            <span class="formation-coin-display formation-coin-display-stroke" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
-            <span class="formation-coin-display formation-coin-display-fill" data-formation-coin-display>${escapeHtml(formatNumber(ownedCoins))}</span>
+            <span class="formation-coin-display formation-coin-display-stroke" data-formation-coin-display>${escapeHtml(formatFormationCoinCount(ownedCoins))}</span>
+            <span class="formation-coin-display formation-coin-display-fill" data-formation-coin-display>${escapeHtml(formatFormationCoinCount(ownedCoins))}</span>
           </button>
           <span class="formation-coin-popover" data-formation-coin-popover hidden>
             <span class="formation-coin-auto-note">総合CP ${escapeHtml(formatNumber(totalCombatPower))} → ${escapeHtml(formatNumber(autoCoins))}枚</span>
@@ -6959,9 +6959,9 @@
         </span>
         <span class="formation-coin-remain">
           <span>残り</span>
-          <strong class="formation-metric-number ${remainingCoins < 0 ? 'is-negative' : ''}" data-formation-coin-remain aria-label="${escapeAttr(`残り${formatNumber(remainingCoins)}`)}">
-            <span class="formation-metric-number-stroke">${escapeHtml(formatNumber(remainingCoins))}</span>
-            <span class="formation-metric-number-fill">${escapeHtml(formatNumber(remainingCoins))}</span>
+          <strong class="formation-metric-number ${remainingCoins < 0 ? 'is-negative' : ''}" data-formation-coin-remain aria-label="${escapeAttr(`残り${formatFormationCoinCount(remainingCoins)}`)}">
+            <span class="formation-metric-number-stroke">${escapeHtml(formatFormationCoinCount(remainingCoins))}</span>
+            <span class="formation-metric-number-fill">${escapeHtml(formatFormationCoinCount(remainingCoins))}</span>
           </strong>
         </span>
       </div>
@@ -6983,13 +6983,13 @@
     box.classList.toggle('is-short', remainingCoins < 0);
     box.classList.toggle('is-auto', formation.coinMode === 'auto');
     box.classList.toggle('is-manual', formation.coinMode !== 'auto');
-    displays?.forEach(display => { display.textContent = formatNumber(ownedCoins); });
+    displays?.forEach(display => { display.textContent = formatFormationCoinCount(ownedCoins); });
     if (input && document.activeElement !== input) input.value = String(ownedCoins);
     if (note) note.textContent = `総合CP ${formatNumber(totalCombatPower)} → ${formatNumber(autoCoins)}枚`;
     remain.classList.toggle('is-negative', remainingCoins < 0);
-    remain.setAttribute('aria-label', `残り${formatNumber(remainingCoins)}`);
+    remain.setAttribute('aria-label', `残り${formatFormationCoinCount(remainingCoins)}`);
     remain.querySelectorAll('.formation-metric-number-stroke, .formation-metric-number-fill')
-      .forEach(node => { node.textContent = formatNumber(remainingCoins); });
+      .forEach(node => { node.textContent = formatFormationCoinCount(remainingCoins); });
   }
 
   function getFormationMasterPowers() {
@@ -11983,6 +11983,11 @@
     const num = Number(value);
     if (!Number.isFinite(num)) return '-';
     return Math.round(num).toLocaleString();
+  }
+
+  function formatFormationCoinCount(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? String(Math.round(num)) : '-';
   }
 
   function formatBreakdownValue(value) {

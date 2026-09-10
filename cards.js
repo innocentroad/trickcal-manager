@@ -1821,6 +1821,45 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "artifact_sherum_parchment_scroll",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "シェルムの羊皮紙の巻物",
+            "signature": true,
+            "favoriteCharacter": "シェルム",
+            "cost": 25,
+            "bonusesByStar": [
+                {
+                    "critDmgP": 10.7,
+                    "critRateP": 20.1
+                },
+                {
+                    "critDmgP": 13.4,
+                    "critRateP": 25.2
+                },
+                {
+                    "critDmgP": 16.1,
+                    "critRateP": 30.2
+                },
+                {
+                    "critDmgP": 18.8,
+                    "critRateP": 35.2
+                },
+                {
+                    "critDmgP": 21.5,
+                    "critRateP": 40.3
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "artifact_sherum_parchment_scroll_e01",
+                    "type": "info",
+                    "label": "artifact_sherum_parchment_scroll_e01",
+                    "effectStack": false
+                }
+            ]
+        },
+        {
             "id": "artifact_dragonlight_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -5407,6 +5446,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "defP": 9.7,
             "hpP": 9.7
+        }
+    },
+    "artifact_sherum_parchment_scroll": {
+        "1": {
+            "critDmgP": 2.6999999999999993,
+            "critRateP": 5.100000000000001
+        },
+        "2": {
+            "critDmgP": 5.399999999999999,
+            "critRateP": 10.200000000000003
         }
     },
     "artifact_dragonlight_sword": {

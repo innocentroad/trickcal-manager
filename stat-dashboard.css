@@ -5247,9 +5247,11 @@ body.dashboard-page.is-booting::after {
   position: relative;
   border: 0;
   padding: 0;
-  width: 30px;
+  width: max-content;
+  min-width: 30px;
   height: 30px;
   display: inline-grid;
+  grid-template-columns: max-content;
   place-items: center;
   color: inherit;
   background: transparent;
@@ -5268,9 +5270,10 @@ body.dashboard-page.is-booting::after {
   position: relative;
   z-index: 2;
   transform: translateY(1px) scaleX(0.92);
-  max-width: 3.2em;
-  overflow: hidden;
+  max-width: none;
+  overflow: visible;
   pointer-events: none;
+  white-space: nowrap;
   text-align: center;
 }
 
@@ -5346,6 +5349,7 @@ body.dashboard-page.is-booting::after {
   font-weight: 950;
   line-height: 1;
   letter-spacing: -0.02em;
+  white-space: nowrap;
 }
 
 .formation-coin-owned .formation-coin-display,
@@ -5359,9 +5363,10 @@ body.dashboard-page.is-booting::after {
 .formation-metric-number {
   position: relative;
   display: inline-grid;
-  width: 30px;
+  width: max-content;
+  min-width: 30px;
   height: 30px;
-  min-width: 1.35em;
+  grid-template-columns: max-content;
   place-items: center;
   transform: translateY(1px) scaleX(0.92);
 }
@@ -5404,12 +5409,16 @@ body.dashboard-page.is-booting::after {
   right: auto;
   bottom: auto;
   flex: 0 0 auto;
-  width: 30px;
+  width: max-content;
+  min-width: 30px;
   height: 30px;
   font-size: 0.9rem;
 }
 
 .formation-total-cost .formation-cost-badge img {
+  width: 30px;
+  height: 30px;
+  justify-self: center;
   transform: scale(1.1);
 }
 
@@ -7700,8 +7709,8 @@ body.dashboard-page.is-booting::after {
   }
 
   .formation-coin-box {
-    grid-template-columns: repeat(3, minmax(46px, 1fr));
-    justify-content: stretch;
+    grid-template-columns: repeat(3, minmax(46px, max-content));
+    justify-content: end;
     gap: 2px;
     padding: 4px 5px;
   }
@@ -7730,8 +7739,14 @@ body.dashboard-page.is-booting::after {
   }
 
   .formation-coin-input-wrap,
-  .formation-coin-input-wrap img,
   .formation-total-cost .formation-cost-badge {
+    width: max-content;
+    min-width: 28px;
+    height: 28px;
+  }
+
+  .formation-coin-input-wrap img,
+  .formation-total-cost .formation-cost-badge img {
     width: 28px;
     height: 28px;
   }
@@ -7747,6 +7762,12 @@ body.dashboard-page.is-booting::after {
   .formation-total-cost .formation-cost-text,
   .formation-coin-remain .formation-metric-number {
     font-size: 0.82rem;
+  }
+
+  .formation-coin-remain .formation-metric-number {
+    width: max-content;
+    min-width: 28px;
+    height: 28px;
   }
 
   .formation-coin-popover {
