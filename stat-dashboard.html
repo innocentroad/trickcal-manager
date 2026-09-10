@@ -44,7 +44,7 @@
     })();
   </script>
   <link rel="stylesheet" href="stat-prototype.css?v=20260907b">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260903a">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260910a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -542,6 +542,7 @@
               <p class="panel-note">使徒・遺物・スペル・教主の権能をまとめて編成し、名前とタグ付きで保存できます。</p>
             </div>
             <div class="formation-tools">
+              <button type="button" id="formation-share-open">共有</button>
               <button type="button" id="formation-clear">編成をクリア</button>
             </div>
           </div>
@@ -767,15 +768,48 @@
     <div id="board-progress-dialog-body" class="board-progress-dialog-body"></div>
   </dialog>
 
+  <dialog id="formation-share-dialog" class="formation-share-dialog" aria-labelledby="formation-share-dialog-title">
+    <div class="formation-share-dialog-head">
+      <div>
+        <span class="formation-share-dialog-kicker">編成共有</span>
+        <h2 id="formation-share-dialog-title">この編成を共有</h2>
+      </div>
+      <button type="button" id="formation-share-close">閉じる</button>
+    </div>
+    <div class="formation-share-dialog-tools">
+      <label class="formation-share-global-toggle">
+        <input type="checkbox" id="formation-share-global-percent" checked>
+        <span>全体強化数値を含める</span>
+      </label>
+      <button type="button" id="formation-share-update">最新の編成で更新</button>
+    </div>
+    <div class="formation-share-preview-wrap">
+      <iframe id="formation-share-preview" title="編成共有プレビュー" loading="lazy"></iframe>
+    </div>
+    <div class="formation-share-url-row">
+      <label for="formation-share-url">共有URL</label>
+      <input id="formation-share-url" type="text" readonly spellcheck="false" autocomplete="off">
+      <span id="formation-share-url-length"></span>
+    </div>
+    <p id="formation-share-status" class="formation-share-status" aria-live="polite"></p>
+    <div class="formation-share-dialog-actions">
+      <button type="button" id="formation-share-copy" class="primary">URLをコピー</button>
+      <button type="button" id="formation-share-close-bottom">閉じる</button>
+    </div>
+  </dialog>
+
   <script src="statData.js?v=20260907c"></script>
   <script src="public-release-config.js?v=20260903a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>
-  <script src="cards.js?v=20260813a"></script>
+  <script src="cards.js?v=20260910b"></script>
   <script src="stat-engine.js?v=20260828a"></script>
   <script src="app-cache.js?v=20260907c"></script>
   <script src="image-preload.js?v=20260727a"></script>
-  <script src="stat-prototype.js?v=20260907a"></script>
+  <script src="stat-prototype.js?v=20260910b"></script>
+  <script src="formation-share-catalog.js?v=20260910a"></script>
+  <script src="formation-share-codec.js?v=20260910a"></script>
+  <script src="formation-share-create.js?v=20260910a"></script>
   <script src="stat-dashboard.js?v=20260903a"></script>
 </body>
 </html>

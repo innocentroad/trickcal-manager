@@ -593,7 +593,11 @@ def render_cards_js(
         "}\n\n"
         "const CARD_INDEX = Object.fromEntries(\n"
         "    [...CARD_LIBRARY.artifacts, ...CARD_LIBRARY.spells].map(card => [card.id, card])\n"
-        ");\n"
+        ");\n\n"
+        "if (typeof window !== 'undefined') {\n"
+        "    window.TRICKCAL_CARD_LIBRARY = CARD_LIBRARY;\n"
+        "    window.TRICKCAL_CARD_INDEX = CARD_INDEX;\n"
+        "}\n"
     )
 
 

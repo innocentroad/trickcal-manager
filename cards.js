@@ -6577,3 +6577,8 @@ for (const card of [...CARD_LIBRARY.artifacts, ...CARD_LIBRARY.spells]) {
 const CARD_INDEX = Object.fromEntries(
     [...CARD_LIBRARY.artifacts, ...CARD_LIBRARY.spells].map(card => [card.id, card])
 );
+
+if (typeof window !== 'undefined') {
+    window.TRICKCAL_CARD_LIBRARY = CARD_LIBRARY;
+    window.TRICKCAL_CARD_INDEX = CARD_INDEX;
+}

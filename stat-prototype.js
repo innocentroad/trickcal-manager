@@ -11373,6 +11373,138 @@
     return ensureApostleState(view.id);
   }
 
+  function getShareStateNumber(state, key, min, max) {
+    if (!state || !Object.prototype.hasOwnProperty.call(state, key) || state[key] == null) return null;
+    const value = Number(state[key]);
+    if (!Number.isInteger(value) || value < min || value > max) {
+      throw new Error('共有対象の' + key + 'が範囲外です');
+    }
+    return value;
+  }
+
+  function getShareCardState(cardId) {
+    const state = appState.cards?.[cardId];
+    return {
+      star: getShareStateNumber(state, 'star', 1, APOSTLE_STAR_MAX),
+      solder: getShareStateNumber(state, 'solder', 0, 2)
+    };
+  }
+
+  function createShareCardEntry(cardId, count = 1) {
+    if (!cardId) return null;
+    return { id: String(cardId), ...getShareCardState(cardId), count };
+  }
+
+  function aggregateShareCards(cardIds) {
+    const entries = [];
+    const indexes = new Map();
+    (cardIds || []).forEach(cardId => {
+      const entry = createShareCardEntry(cardId);
+      if (!entry) return;
+      const key = [
+        entry.id,
+        entry.star == null ? '?' : entry.star,
+        entry.solder == null ? '?' : entry.solder
+      ].join(':');
+      const existingIndex = indexes.get(key);
+      if (existingIndex === undefined) {
+        indexes.set(key, entries.length);
+        entries.push(entry);
+        return;
+      }
+      entries[existingIndex].count += 1;
+    });
+    return entries;
+  }
+
+  function getFormationShareGlobalPercent() {
+    const basic = DATA.getById('basicInfo', view.id);
+    const state = appState.apostles?.[view.id];
+    if (!basic || !state) return TOTAL_LABELS.map(() => null);
+    const calculationState = cloneJson(state);
+    calculationState.follow = false;
+    const previousSnapshotBoardMode = snapshotBoardMode;
+    snapshotBoardMode = 'current';
+    try {
+      const snapshot = calculateStatSnapshotForApostle(
+        basic,
+        calculationState,
+        null,
+        'current'
+      );
+      const rates = snapshot?.globalPercentRates || {};
+      const snapshotKeys = {
+        hp: 'hp',
+        patk: 'physicalAtk',
+        matk: 'magicAtk',
+        pdef: 'physicalDef',
+        mdef: 'magicDef',
+        crit: 'crit',
+        critDmg: 'critDmg',
+        critRes: 'critRes',
+        critDmgRes: 'critDmgRes',
+        spRegen: 'spRegen'
+      };
+      return TOTAL_LABELS.map(item => {
+        const value = rates[snapshotKeys[item.key]];
+        if (value == null || value === '') return null;
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+          throw new Error('共有対象の全体%補正（' + item.label + '）が不正です');
+        }
+        return numeric;
+      });
+    } finally {
+      snapshotBoardMode = previousSnapshotBoardMode;
+    }
+  }
+
+  function createFormationShareSnapshot(options = {}) {
+    const formation = ensureFormationState();
+    const members = [];
+    const relicSlots = [];
+    (formation.rows || []).forEach(row => {
+      const apostles = Array.isArray(row?.apostles) ? row.apostles : [];
+      const artifacts = Array.isArray(row?.artifacts) ? row.artifacts : [];
+      for (let index = 0; index < 3; index += 1) {
+        const id = apostles[index] || '';
+        if (!id) {
+          members.push(null);
+        } else {
+          const state = appState.apostles?.[id];
+          members.push({
+            id: String(id),
+            star: getShareStateNumber(state, 'star', 1, APOSTLE_STAR_MAX),
+            asideRank: !isPublicAsideEnabled(id)
+              ? 'notApplicable'
+              : getShareStateNumber(state, 'asideRank', 0, 3)
+          });
+        }
+        const artifactLine = Array.isArray(artifacts[index]) ? artifacts[index] : [];
+        for (let slot = 0; slot < 3; slot += 1) {
+          const cardId = artifactLine[slot] || '';
+          relicSlots.push(cardId ? {
+            id: String(cardId),
+            ...getShareCardState(cardId)
+          } : null);
+        }
+      }
+    });
+    return {
+      v: 1,
+      m: 1,
+      members,
+      relicSlots,
+      spells: aggregateShareCards(formation.spells),
+      powers: Array.isArray(formation.masterPowers)
+        ? formation.masterPowers.filter(Boolean).map(String)
+        : [],
+      globalPercent: options.includeGlobalPercent === false
+        ? null
+        : getFormationShareGlobalPercent()
+    };
+  }
+
   function installStatEngineApi() {
     window.TRICKCAL_STAT_ENGINE = {
       version: 1,
@@ -11395,7 +11527,8 @@
         return window.TRICKCAL_SP_ENGINE.createApostleState(basic, snapshot, options);
       },
       calculateApostleStats: calculateApostleStatsForEngine,
-      refreshSnapshots: refreshAllStatSnapshots
+      refreshSnapshots: refreshAllStatSnapshots,
+      getFormationShareSnapshot: createFormationShareSnapshot
     };
   }
 

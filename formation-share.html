@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>編成共有 | Trickcal Manager</title>
+  <meta name="description" content="Trickcal Managerの編成共有">
+  <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
+  <script>
+    (() => {
+      const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
+      document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
+    })();
+  </script>
+  <link rel="stylesheet" href="formation-share-prototype.css?v=20260910s">
+</head>
+<body class="formation-share-page">
+  <header class="share-topbar">
+    <div class="share-topbar-brand">
+      <span class="share-kicker">TRICKCAL MANAGER</span>
+      <h1>編成共有</h1>
+    </div>
+    <div class="share-topbar-actions">
+      <button type="button" class="theme-button" id="theme-toggle" aria-label="テーマ切替" aria-pressed="true">
+        <span aria-hidden="true">☼</span><span class="theme-button-label">ライト</span>
+      </button>
+      <a href="stat-dashboard.html" class="back-link">ステータス管理へ</a>
+    </div>
+  </header>
+
+  <main class="share-shell">
+    <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
+      <h2>共有編成を表示できません</h2>
+      <p id="share-error-message">URLの内容を確認してください。</p>
+      <a href="stat-dashboard.html" class="back-link">ステータス管理へ戻る</a>
+    </section>
+
+    <div id="share-content">
+      <section class="share-panel formation-preview-panel" aria-labelledby="formation-preview-title">
+        <div class="panel-heading">
+          <div class="formation-heading-title">
+            <h2 id="formation-preview-title">編成配置</h2>
+          </div>
+          <div class="formation-heading-tools">
+            <span id="formation-total-cost" class="formation-total-cost" aria-label="総合コスト"></span>
+          </div>
+        </div>
+        <div id="formation-grid" class="formation-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="share-support-grid">
+        <div class="share-support-top">
+          <article class="share-panel support-panel spell-panel" aria-labelledby="spell-title">
+            <div class="panel-heading compact-heading">
+              <h2 id="spell-title">スペル</h2>
+              <span id="spell-count" class="support-count"></span>
+            </div>
+            <div id="spell-list" class="support-card-list"></div>
+          </article>
+
+          <article class="share-panel support-panel master-power-panel" aria-labelledby="power-title">
+            <div class="panel-heading compact-heading">
+              <h2 id="power-title">教主の権能</h2>
+              <span id="power-count" class="support-count"></span>
+            </div>
+            <div id="master-power" class="master-power-list"></div>
+          </article>
+        </div>
+
+        <article id="global-enhancement-panel" class="share-panel support-panel global-enhancement-panel" aria-labelledby="global-enhancement-title">
+          <div class="panel-heading compact-heading">
+            <h2 id="global-enhancement-title">全体強化数値</h2>
+          </div>
+          <div id="global-enhancement-list" class="global-enhancement-list" aria-live="polite"></div>
+        </article>
+      </section>
+    </div>
+  </main>
+
+  <script src="statData.js?v=20260907c"></script>
+  <script src="cards.js?v=20260910b"></script>
+  <script src="formation-share-catalog.js?v=20260910a"></script>
+  <script src="formation-share-codec.js?v=20260910a"></script>
+  <script src="formation-share.js?v=20260910d"></script>
+</body>
+</html>

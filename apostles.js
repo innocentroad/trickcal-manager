@@ -4387,6 +4387,15 @@ const APOSTLE_LIBRARY = [
             "effectType": "バフ",
             "effectTarget": "自身",
             "reference": "普通攻撃_強化"
+          },
+          {
+            "effectId": "Epica_low_e05",
+            "valueKind": "強化攻撃化",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "reference": "普通攻撃_強化",
+            "fixedValue": 9.0
           }
         ],
         "skillId": "Epica_low",
@@ -9186,6 +9195,132 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "sherum",
+    "name": "シェルム",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "純粋",
+      "race": "魔女",
+      "role": "攻撃",
+      "position": "前列",
+      "attackType": "魔法"
+    },
+    "statTypes": {
+      "hp": 5.0,
+      "atkM": 4.0,
+      "defP": 3.0,
+      "defM": 3.0,
+      "crit": 4.0,
+      "critDmg": 4.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [],
+        "skillId": "Sherum_low",
+        "skillType": "低学年",
+        "skillName": "ウィッチアーカイブ"
+      },
+      {
+        "effects": [],
+        "skillId": "Sherum_high",
+        "skillType": "高学年",
+        "skillName": "生々しい黒歴史"
+      },
+      {
+        "effects": [],
+        "skillId": "Sherum_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル"
+      },
+      {
+        "effects": [],
+        "skillId": "Sherum_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本"
+      },
+      {
+        "effects": [],
+        "skillId": "Sherum_enhanced",
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化"
+      }
+    ],
+    "favoriteCard": {
+      "kind": "遺物",
+      "levels": {
+        "0": [
+          {
+            "effects": [],
+            "skillId": "Sherum_favorite_1"
+          },
+          {
+            "effects": [],
+            "skillId": "Sherum_favorite_3"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "エーリアスレコード",
+      "levels": {
+        "1": {
+          "name": "仮",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Sherum_aside_1",
+              "effectId": "Sherum_aside_1_e01",
+              "valueKind": "仮"
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "仮",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Sherum_aside_2",
+              "effectId": "Sherum_aside_2_e01",
+              "valueKind": "仮"
+            }
+          ],
+          "description": "仮"
+        },
+        "3": {
+          "name": "仮",
+          "stats": [
+            {
+              "skillId": "Sherum_aside_3_global",
+              "effectId": "Sherum_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Sherum_aside_3_global",
+              "effectId": "Sherum_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Sherum_aside_3_battle",
+              "effectId": "Sherum_aside_3_battle_e01",
+              "valueKind": "仮"
+            }
+          ],
+          "description": "味方全員の会心と会心ダメージを増加させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "xion",
     "name": "シオン・ザ・DB",
     "basic": {
@@ -13431,6 +13566,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Tig_high_e05",
             "processGroupId": "Tig_high_overdrive",
+            "processOrder": 1.0,
             "valueKind": "オーバードライブ",
             "valueClass": "状態付与",
             "effectType": "固有状態",
@@ -13439,6 +13575,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Tig_high_e06",
             "processGroupId": "Tig_high_overdrive",
+            "processOrder": 2.0,
             "valueKind": "オーバードライブ",
             "valueClass": "持続時間",
             "effectType": "固有状態",
@@ -15339,6 +15476,60 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "barie",
+    "name": "バリエ",
+    "basic": {
+      "rarity": 2.0,
+      "personality": "憂鬱",
+      "race": "魔女",
+      "role": "支援",
+      "position": "後列",
+      "attackType": "魔法"
+    },
+    "statTypes": {
+      "hp": 5.0,
+      "atkM": 2.0,
+      "defP": 5.0,
+      "defM": 5.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 4.0,
+      "critDmgRes": 4.0
+    },
+    "skills": [
+      {
+        "effects": [],
+        "skillId": "Barie_low",
+        "skillType": "低学年"
+      },
+      {
+        "effects": [],
+        "skillId": "Barie_high",
+        "skillType": "高学年"
+      },
+      {
+        "effects": [],
+        "skillId": "Barie_passive",
+        "skillType": "パッシブ"
+      },
+      {
+        "effects": [],
+        "skillId": "Barie_basic",
+        "skillType": "普通攻撃_基本"
+      },
+      {
+        "effects": [],
+        "skillId": "Barie_enhanced",
+        "skillType": "普通攻撃_強化"
+      }
+    ],
+    "favoriteCard": {},
+    "aside": {
+      "levels": {}
+    },
+    "board": null
+  },
+  {
     "id": "barong",
     "name": "バロン",
     "basic": {
@@ -15956,7 +16147,7 @@ const APOSTLE_LIBRARY = [
               "skillId": "Barong_aside_3_global",
               "effectId": "Barong_aside_3_global_e02",
               "statApplyTo": "全体",
-              "statName": "物理防御力",
+              "statName": "魔法防御力",
               "increaseP": 3.0
             }
           ],
@@ -24578,7 +24769,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "高学年スキル",
             "condition": "高学年使用時",
             "effectTarget": "フィールド上の味方全体",
-            "fixedValue": 10.0
+            "fixedValue": 7.0
           },
           {
             "effectId": "Renewa_high_e03",

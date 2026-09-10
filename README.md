@@ -3,6 +3,16 @@
 Trickcalの使徒ステータス、編成、カード、ボード、編成ダメージを管理・計算する静的Webアプリです。
 GitHub Pagesで配信することを前提に、ステータス管理画面とダメージ計算画面を別HTMLとして構成しています。
 
+## 開発文書の入口
+
+- [STATUS.md](STATUS.md): 現在の到達点、完了根拠、検証待ち、次の作業。
+- [GOAL.md](GOAL.md): 現在の作業目標と、完了済み計画への参照。
+- [DPS仕様書](docs/dps-specification.md): 現行の計算境界・発動方針・表示・検証。
+- [2026-09-07までの作業履歴](docs/history/status-through-2026-09-07.md): 旧STATUSの全文。途中の達成度や残り見積もりは当時の記録。
+- [完了済みDPS発動経路統合Goal](docs/history/goal-dps-trigger-integration.md): 開始時の計画・完了条件の原文。
+
+現在地はSTATUS、現行規則は各仕様書、過去の実施記録は履歴へ記載する。
+
 ## 画面
 
 - `stat-dashboard.html`: ステータス管理画面

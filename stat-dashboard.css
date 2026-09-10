@@ -5409,6 +5409,10 @@ body.dashboard-page.is-booting::after {
   font-size: 0.9rem;
 }
 
+.formation-total-cost .formation-cost-badge img {
+  transform: scale(1.1);
+}
+
 .formation-member-summary {
   display: flex;
   flex-wrap: wrap;
@@ -5913,6 +5917,242 @@ body.dashboard-page.is-booting::after {
   line-height: 0;
   box-shadow: 0 4px 10px rgba(35, 45, 35, 0.12);
   cursor: pointer;
+}
+
+.formation-share-dialog {
+  width: min(1120px, calc(100vw - 24px));
+  max-width: none;
+  max-height: calc(100dvh - 24px);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid rgba(45, 91, 62, 0.28);
+  border-radius: 20px;
+  padding: 0;
+  color: var(--ink);
+  background: var(--paper-strong);
+  box-shadow: 0 26px 74px rgba(17, 45, 27, 0.3);
+}
+
+.formation-share-dialog::backdrop {
+  background: rgba(9, 22, 15, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.formation-share-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid rgba(57, 104, 74, 0.16);
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(231, 247, 236, 0.96), rgba(237, 245, 255, 0.96));
+}
+
+.formation-share-dialog-head > div {
+  display: grid;
+  gap: 1px;
+}
+
+.formation-share-dialog-kicker {
+  color: rgba(48, 83, 58, 0.72);
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+.formation-share-dialog-head h2 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 1.08rem;
+}
+
+.formation-share-dialog-head button,
+.formation-share-dialog-actions button,
+.formation-share-dialog-tools button {
+  min-height: 34px;
+  border: 1px solid rgba(36, 83, 59, 0.2);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: var(--green-dark);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.72rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.formation-share-dialog-actions button.primary {
+  color: #fff;
+  border-color: #3976a8;
+  background: #3976a8;
+}
+
+.formation-share-dialog-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+}
+
+.formation-share-global-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.formation-share-global-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #3976a8;
+}
+
+.formation-share-preview-wrap {
+  height: min(64dvh, 650px);
+  margin: 0 16px;
+  overflow: hidden;
+  border: 1px solid rgba(57, 104, 74, 0.16);
+  border-radius: 14px;
+  background: #11151e;
+}
+
+.formation-share-preview-wrap iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #11151e;
+}
+
+.formation-share-url-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+
+.formation-share-url-row label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.formation-share-url-row input {
+  min-width: 0;
+  height: 34px;
+  border: 1px solid rgba(57, 104, 74, 0.22);
+  border-radius: 8px;
+  padding: 0 8px;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.82);
+  font-size: 0.68rem;
+}
+
+.formation-share-url-row span {
+  color: var(--muted);
+  font-size: 0.66rem;
+  white-space: nowrap;
+}
+
+.formation-share-status {
+  min-height: 1.2em;
+  margin: 5px 16px 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.formation-share-status.is-error {
+  color: #b33d43;
+}
+
+.formation-share-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 7px 16px 14px;
+}
+
+:root[data-theme="dark"] .formation-share-dialog {
+  border-color: rgba(166, 180, 197, 0.24);
+  background: rgba(14, 24, 38, 0.98);
+  box-shadow: 0 28px 78px rgba(0, 0, 0, 0.66);
+}
+
+:root[data-theme="dark"] .formation-share-dialog::backdrop {
+  background: rgba(2, 8, 15, 0.78);
+}
+
+:root[data-theme="dark"] .formation-share-dialog-head {
+  border-bottom-color: rgba(166, 180, 197, 0.16);
+  background: rgba(14, 24, 38, 0.96);
+}
+
+:root[data-theme="dark"] .formation-share-dialog-head h2 {
+  color: #dbeafe;
+}
+
+:root[data-theme="dark"] .formation-share-dialog-head button,
+:root[data-theme="dark"] .formation-share-dialog-actions button,
+:root[data-theme="dark"] .formation-share-dialog-tools button {
+  color: #dbeafe;
+  border-color: rgba(166, 180, 197, 0.24);
+  background: rgba(28, 43, 62, 0.9);
+}
+
+:root[data-theme="dark"] .formation-share-url-row input {
+  color: #e5edf8;
+  border-color: rgba(166, 180, 197, 0.24);
+  background: rgba(20, 34, 52, 0.9);
+}
+
+@media (max-width: 700px) {
+  .formation-share-dialog {
+    width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    border-radius: 16px;
+  }
+
+  .formation-share-dialog-tools {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .formation-share-preview-wrap {
+    height: min(58dvh, 520px);
+    margin-right: 8px;
+    margin-left: 8px;
+  }
+
+  .formation-share-url-row {
+    grid-template-columns: 1fr auto;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .formation-share-url-row label {
+    grid-column: 1 / -1;
+  }
+
+  .formation-share-url-row input {
+    grid-column: 1;
+  }
+
+  .formation-share-url-row span {
+    grid-column: 2;
+  }
+
+  .formation-share-status {
+    margin-right: 8px;
+    margin-left: 8px;
+  }
+
+  .formation-share-dialog-actions {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
 }
 
 .formation-column-head button .ui-icon {
