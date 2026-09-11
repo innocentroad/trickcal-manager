@@ -4149,7 +4149,7 @@
     if (!label) return '';
     const value = formatEffectValue(row, level);
     const effectType = String(row.効果タイプ || row.ステ適用 || '').trim();
-    return [label, value, effectType && effectType !== rawLabel ? effectType : ''].filter(Boolean).join(' ');
+    return formatCompactEffectSummary(label, value, { effectType, rawLabel });
   }
 
   function renderSkillInfoList(basic) {
@@ -4391,12 +4391,28 @@
     const label = row.値の種類 || row.ステ能力値 || '';
     if (!label) return '';
     const value = formatEffectValue(row, level);
-    const parts = [
-      label,
-      value,
-      row.値分類 && row.値分類 !== '倍率' ? row.値分類 : '',
-      row.効果タイプ || row.ステ適用 || ''
-    ].filter(Boolean);
+    const valueClass = String(row.値分類 || '').trim();
+    const effectType = String(row.効果タイプ || row.ステ適用 || '').trim();
+    return formatCompactEffectSummary(label, value, { valueClass, effectType });
+  }
+
+  function formatCompactEffectSummary(label, value, options = {}) {
+    const rawLabel = String(label || '').trim();
+    if (!rawLabel) return '';
+    const parts = [rawLabel, value].filter(Boolean);
+    const valueClass = String(options.valueClass || '').trim();
+    const effectType = String(options.effectType || '').trim();
+    const classification = valueClass && valueClass !== '倍率' && valueClass !== rawLabel
+      ? valueClass
+      : '';
+    if (classification) parts.push(classification);
+    if (effectType
+      && effectType !== rawLabel
+      && effectType !== valueClass
+      && effectType !== classification
+      && effectType !== String(options.rawLabel || '').trim()) {
+      parts.push(effectType);
+    }
     return parts.join(' ');
   }
 
@@ -4419,7 +4435,7 @@
     const formatted = formatBoardSummaryValue(value);
     const kind = String(row.値分類 || '');
     const name = String(row.値の種類 || row.ステ能力値 || '');
-    if (kind.includes('持続時間')) return `${formatted}秒`;
+    if (kind.includes('持続時間') || kind.includes('クールタイム')) return `${formatted}秒`;
     if (kind.includes('倍率') || name.includes('ダメージ量') || name.includes('回復量') || name.includes('確率') || name.includes('率') || name.includes('割合')) {
       return `${formatted}%`;
     }

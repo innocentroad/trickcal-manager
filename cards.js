@@ -1853,9 +1853,120 @@ const CARD_LIBRARY = {
             "conditionalEffects": [
                 {
                     "id": "artifact_sherum_parchment_scroll_e01",
-                    "type": "info",
-                    "label": "artifact_sherum_parchment_scroll_e01",
-                    "effectStack": false
+                    "type": "toggle",
+                    "label": "低学年スキルの直接ダメージ命中時 攻撃力増加",
+                    "triggerType": "低学年スキル命中時",
+                    "triggerSourceId": "低学年スキル",
+                    "effectType": "バフ",
+                    "effectStack": true,
+                    "maxStack": 20,
+                    "condition": "低学年スキルの直接ダメージ命中時",
+                    "shortLabel": "攻撃力増加",
+                    "valueClass": "倍率",
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "攻撃力増加1% (低学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (低学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (低学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (低学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (低学年スキルの直接ダメージ命中時 / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "artifact_sherum_parchment_scroll_e02",
+                    "type": "toggle",
+                    "label": "高学年スキルの直接ダメージ命中時 攻撃力増加",
+                    "triggerType": "高学年スキル命中時",
+                    "triggerSourceId": "高学年スキル",
+                    "effectType": "バフ",
+                    "effectStack": true,
+                    "maxStack": 20,
+                    "condition": "高学年スキルの直接ダメージ命中時",
+                    "shortLabel": "攻撃力増加",
+                    "valueClass": "倍率",
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "攻撃力増加1% (高学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (高学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (高学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (高学年スキルの直接ダメージ命中時 / 自分)",
+                        "攻撃力増加1% (高学年スキルの直接ダメージ命中時 / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        },
+                        {
+                            "atkP": 1
+                        }
+                    ]
+                },
+                {
+                    "id": "artifact_sherum_parchment_scroll_e03",
+                    "type": "toggle",
+                    "label": "攻撃力増加が最大20スタックに到達時 / スキルダメージ 与ダメージ増加",
+                    "processGroupId": "artifact_sherum_parchment_scroll_max_stack",
+                    "processOrder": 1,
+                    "conditionType": "カードスタック最大",
+                    "conditionValue": "artifact_sherum_parchment_scroll",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "攻撃力増加が最大20スタックに到達時 / スキルダメージ",
+                    "shortLabel": "与ダメージ増加",
+                    "valueClass": "倍率",
+                    "nonStackingSameEffect": true,
+                    "nonStackingSameApostle": true,
+                    "description": "自分 / 倍率",
+                    "descriptionByStar": [
+                        "与ダメージ増加30% (攻撃力増加が最大20スタックに到達時 / スキルダメージ / 自分)",
+                        "与ダメージ増加30% (攻撃力増加が最大20スタックに到達時 / スキルダメージ / 自分)",
+                        "与ダメージ増加30% (攻撃力増加が最大20スタックに到達時 / スキルダメージ / 自分)",
+                        "与ダメージ増加30% (攻撃力増加が最大20スタックに到達時 / スキルダメージ / 自分)",
+                        "与ダメージ増加30% (攻撃力増加が最大20スタックに到達時 / スキルダメージ / 自分)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "addP": 30
+                        },
+                        {
+                            "addP": 30
+                        },
+                        {
+                            "addP": 30
+                        },
+                        {
+                            "addP": 30
+                        },
+                        {
+                            "addP": 30
+                        }
+                    ]
                 }
             ]
         },

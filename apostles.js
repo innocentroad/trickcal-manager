@@ -9203,10 +9203,15 @@ const APOSTLE_LIBRARY = [
       "race": "魔女",
       "role": "攻撃",
       "position": "前列",
-      "attackType": "魔法"
+      "attackType": "魔法",
+      "initialSp": 150.0,
+      "spRecoveryPerSecond": 40.0,
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 5.0,
+      "atkP": 0.0,
       "atkM": 4.0,
       "defP": 3.0,
       "defM": 3.0,
@@ -9217,34 +9222,343 @@ const APOSTLE_LIBRARY = [
     },
     "skills": [
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Sherum_low_e01",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 504.0,
+              "2": 560.0,
+              "3": 616.0,
+              "4": 672.0,
+              "5": 728.0,
+              "6": 784.0,
+              "7": 840.0,
+              "8": 896.0,
+              "9": 952.0,
+              "10": 1008.0,
+              "11": 1064.0,
+              "12": 1120.0,
+              "13": 1176.0,
+              "14": 1232.0,
+              "15": 1288.0
+            }
+          },
+          {
+            "effectId": "Sherum_low_e02",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "敵/範囲",
+            "fixedValue": 7.0
+          },
+          {
+            "effectId": "Sherum_low_e03",
+            "valueKind": "伝承のカーテン",
+            "valueClass": "持続時間",
+            "effectType": "設置効果",
+            "effectTarget": "自身周囲",
+            "fixedValue": 6.0
+          },
+          {
+            "effectId": "Sherum_low_e04",
+            "processGroupId": "Sherum_low_curtain_proc01",
+            "processOrder": 1.0,
+            "valueKind": "攻撃力増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "triggerType": "n秒ごと",
+            "triggerValue": 1.0,
+            "triggerSourceId": "Sherum_low_e03",
+            "conditionType": "領域内",
+            "conditionValue": "Sherum_low_e03",
+            "condition": "伝承のカーテン内、1秒ごと",
+            "effectTarget": "領域内の味方",
+            "levels": {
+              "1": 10.0,
+              "2": 11.0,
+              "3": 12.0,
+              "4": 13.0,
+              "5": 14.0,
+              "6": 15.0,
+              "7": 16.0,
+              "8": 17.0,
+              "9": 18.0,
+              "10": 19.0,
+              "11": 20.0,
+              "12": 21.0,
+              "13": 22.0,
+              "14": 23.0,
+              "15": 24.0
+            }
+          },
+          {
+            "effectId": "Sherum_low_e05",
+            "processGroupId": "Sherum_low_curtain_proc02",
+            "processOrder": 2.0,
+            "valueKind": "攻撃力増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "triggerType": "n秒ごと",
+            "triggerValue": 1.0,
+            "triggerSourceId": "Sherum_low_e04",
+            "conditionType": "領域内",
+            "conditionValue": "Sherum_low_e04",
+            "condition": "伝承のカーテン内、1秒ごと",
+            "effectTarget": "領域内の味方",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Sherum_low_e06",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "低学年スキル命中時",
+            "triggerSourceId": "Sherum_low",
+            "conditionType": "敵種別",
+            "conditionValue": "ワールドボスモンスター",
+            "condition": "ワールドボスモンスターに命中時",
+            "effectTarget": "対象の敵",
+            "levels": {
+              "1": 504.0,
+              "2": 560.0,
+              "3": 616.0,
+              "4": 672.0,
+              "5": 728.0,
+              "6": 784.0,
+              "7": 840.0,
+              "8": 896.0,
+              "9": 952.0,
+              "10": 1008.0,
+              "11": 1064.0,
+              "12": 1120.0,
+              "13": 1176.0,
+              "14": 1232.0,
+              "15": 1288.0
+            }
+          },
+          {
+            "effectId": "Sherum_low_e07",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "triggerType": "低学年スキル命中時",
+            "triggerSourceId": "Sherum_low",
+            "conditionType": "敵種別",
+            "conditionValue": "ワールドボスモンスター",
+            "condition": "ワールドボスモンスターに命中時",
+            "effectTarget": "対象の敵",
+            "fixedValue": 7.0
+          }
+        ],
         "skillId": "Sherum_low",
         "skillType": "低学年",
-        "skillName": "ウィッチアーカイブ"
+        "skillName": "ウィッチアーカイブ",
+        "description": "自身の周囲に一定時間、伝承のカーテンを生成する。\n伝承のカーテン内の味方の攻撃力を1秒ごとに増加させ、敵に7回範囲魔法ダメージを与える。\n命中した敵がワールドボスモンスターの場合、追加で魔法ダメージを与える。"
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Sherum_high_e01",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵/範囲",
+            "levels": {
+              "1": 648.0,
+              "2": 720.0,
+              "3": 792.0,
+              "4": 864.0,
+              "5": 936.0,
+              "6": 1008.0,
+              "7": 1080.0,
+              "8": 1152.0,
+              "9": 1224.0,
+              "10": 1296.0,
+              "11": 1368.0,
+              "12": 1440.0,
+              "13": 1512.0,
+              "14": 1584.0,
+              "15": 1656.0
+            }
+          },
+          {
+            "effectId": "Sherum_high_e02",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "敵/範囲",
+            "fixedValue": 9.0
+          },
+          {
+            "effectId": "Sherum_high_e03",
+            "valueKind": "悔恨の領域",
+            "valueClass": "持続時間",
+            "effectType": "設置効果",
+            "effectTarget": "指定範囲内で中央にいる敵の位置",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Sherum_high_e04",
+            "processGroupId": "Sherum_high_area_proc01",
+            "processOrder": 1.0,
+            "valueKind": "攻撃速度減少",
+            "valueClass": "倍率",
+            "effectType": "デバフ",
+            "conditionType": "領域内",
+            "conditionValue": "Sherum_high_e03",
+            "condition": "悔恨の領域内",
+            "effectTarget": "領域内の敵",
+            "levels": {
+              "1": 26.0,
+              "2": 27.0,
+              "3": 28.0,
+              "4": 29.0,
+              "5": 30.0,
+              "6": 31.0,
+              "7": 32.0,
+              "8": 33.0,
+              "9": 34.0,
+              "10": 35.0,
+              "11": 36.0,
+              "12": 37.0,
+              "13": 38.0,
+              "14": 39.0,
+              "15": 40.0
+            }
+          },
+          {
+            "effectId": "Sherum_high_e05",
+            "processGroupId": "Sherum_high_area_proc02",
+            "processOrder": 1.0,
+            "valueKind": "攻撃速度減少",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "conditionType": "領域内",
+            "conditionValue": "Sherum_high_e04",
+            "condition": "悔恨の領域内",
+            "effectTarget": "領域内の敵",
+            "fixedValue": 10.0
+          }
+        ],
         "skillId": "Sherum_high",
         "skillType": "高学年",
-        "skillName": "生々しい黒歴史"
+        "skillName": "生々しい黒歴史",
+        "description": "指定範囲内で真ん中にいる敵の位置に、一定時間悔恨の領域を生成する。悔恨の領域内の敵に範囲魔法ダメージを9回受け、攻撃速度を減少させる。",
+        "cooldownSeconds": 30.0
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Sherum_passive_e01",
+            "valueKind": "シールド",
+            "valueClass": "倍率",
+            "effectType": "シールド",
+            "triggerType": "自身HP以下到達時",
+            "triggerValue": 50.0,
+            "condition": "自分HP50%以下時",
+            "effectTarget": "自身",
+            "reference": "最大HP",
+            "levels": {
+              "1": 35.0,
+              "2": 38.0,
+              "3": 41.0,
+              "4": 44.0,
+              "5": 47.0,
+              "6": 50.0,
+              "7": 53.0,
+              "8": 56.0,
+              "9": 59.0,
+              "10": 62.0,
+              "11": 65.0,
+              "12": 68.0,
+              "13": 71.0,
+              "14": 74.0,
+              "15": 77.0
+            }
+          },
+          {
+            "effectId": "Sherum_passive_e02",
+            "valueKind": "シールド",
+            "valueClass": "持続時間",
+            "effectType": "シールド",
+            "triggerType": "自身HP以下到達時",
+            "triggerValue": 50.0,
+            "condition": "自分HP50%以下時",
+            "effectTarget": "自身",
+            "fixedValue": 6.0
+          },
+          {
+            "effectId": "Sherum_passive_e03",
+            "valueKind": "シールド",
+            "valueClass": "クールタイム",
+            "effectType": "クールタイム",
+            "effectTarget": "自身",
+            "fixedValue": 25.0
+          }
+        ],
         "skillId": "Sherum_passive",
         "skillType": "パッシブ",
-        "skillName": "パッシブスキル"
+        "skillName": "パッシブスキル",
+        "description": "HPが50%以下になると、自分にシールドを生成する。"
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Sherum_basic_e01",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 80.0
+          },
+          {
+            "effectId": "Sherum_basic_e02",
+            "valueKind": "ヒット数",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 2.0
+          }
+        ],
         "skillId": "Sherum_basic",
         "skillType": "普通攻撃_基本",
-        "skillName": "基本"
+        "skillName": "基本",
+        "description": "羽根ペンを振り回し、敵に魔法ダメージを2回与える。"
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Sherum_enhanced_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "前方の敵/範囲",
+            "fixedValue": 160.0
+          },
+          {
+            "effectId": "Sherum_enhanced_e02",
+            "processGroupId": "Sherum_enhanced_proc01",
+            "processOrder": 1.0,
+            "valueKind": "自分現在高学年クールタイム減少",
+            "valueClass": "クールタイム",
+            "effectType": "クールタイム",
+            "triggerType": "強化攻撃使用時",
+            "triggerSourceId": "Sherum_enhanced",
+            "condition": "強化攻撃使用時",
+            "effectTarget": "自身",
+            "targetSkill": "高学年スキル",
+            "fixedValue": 5.0
+          }
+        ],
         "skillId": "Sherum_enhanced",
         "skillType": "普通攻撃_強化",
-        "skillName": "強化"
+        "skillName": "強化",
+        "description": "一定確率で前方の敵に範囲魔法ダメージを与え、自身の現在の高学年スキルのクールタイムが即時減少する。",
+        "triggerType": "一定確率"
       }
     ],
     "favoriteCard": {
@@ -9253,18 +9567,189 @@ const APOSTLE_LIBRARY = [
       "levels": {
         "1": [
           {
-            "effects": [],
+            "effects": [
+              {
+                "effectId": "Sherum_favorite_1_e01",
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "伝承の帳",
+                "valueClass": "持続時間",
+                "effectType": "召喚",
+                "effectTarget": "伝承の帳",
+                "fixedValue": 12.0
+              },
+              {
+                "effectId": "Sherum_favorite_1_e02",
+                "processGroupId": "Sherum_favorite_1_curtain_proc01",
+                "processOrder": 1.0,
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "攻撃力増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "triggerType": "n秒ごと",
+                "triggerValue": 1.0,
+                "conditionType": "領域内",
+                "conditionValue": "Sherum_favorite_1_e01",
+                "condition": "伝承の帳内、1秒ごと",
+                "effectTarget": "範囲内の味方",
+                "levels": {
+                  "1": 10.0,
+                  "2": 11.0,
+                  "3": 12.0,
+                  "4": 13.0,
+                  "5": 14.0,
+                  "6": 15.0,
+                  "7": 16.0,
+                  "8": 17.0,
+                  "9": 18.0,
+                  "10": 19.0,
+                  "11": 20.0,
+                  "12": 21.0,
+                  "13": 22.0,
+                  "14": 23.0,
+                  "15": 24.0
+                }
+              },
+              {
+                "effectId": "Sherum_favorite_1_e03",
+                "processGroupId": "Sherum_favorite_1_curtain_proc01",
+                "processOrder": 2.0,
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "攻撃力増加",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "conditionType": "領域内",
+                "conditionValue": "Sherum_favorite_1_e01",
+                "condition": "伝承の帳内",
+                "effectTarget": "範囲内の味方",
+                "fixedValue": 8.0
+              },
+              {
+                "effectId": "Sherum_favorite_1_e04",
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "総魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "triggerType": "n秒ごと",
+                "triggerValue": 1.0,
+                "conditionType": "領域内",
+                "conditionValue": "Sherum_favorite_1_e01",
+                "condition": "伝承の帳内、1秒ごと",
+                "effectTarget": "敵/範囲",
+                "levels": {
+                  "1": 1950.0,
+                  "2": 2145.0,
+                  "3": 2340.0,
+                  "4": 2535.0,
+                  "5": 2730.0,
+                  "6": 2925.0,
+                  "7": 3120.0,
+                  "8": 3315.0,
+                  "9": 3510.0,
+                  "10": 3705.0,
+                  "11": 3900.0,
+                  "12": 4095.0,
+                  "13": 4290.0,
+                  "14": 4485.0,
+                  "15": 4680.0
+                }
+              },
+              {
+                "effectId": "Sherum_favorite_1_e05",
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "総魔法ダメージ",
+                "valueClass": "ヒット数",
+                "effectType": "攻撃",
+                "effectTarget": "敵/範囲",
+                "fixedValue": 13.0
+              },
+              {
+                "effectId": "Sherum_favorite_1_e06",
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "総魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "triggerType": "低学年スキル命中時",
+                "triggerSourceId": "低学年スキル",
+                "conditionType": "敵種別",
+                "conditionValue": "ワールドボスモンスター",
+                "condition": "ワールドボスモンスターに命中時",
+                "effectTarget": "対象の敵",
+                "levels": {
+                  "1": 1950.0,
+                  "2": 2145.0,
+                  "3": 2340.0,
+                  "4": 2535.0,
+                  "5": 2730.0,
+                  "6": 2925.0,
+                  "7": 3120.0,
+                  "8": 3315.0,
+                  "9": 3510.0,
+                  "10": 3705.0,
+                  "11": 3900.0,
+                  "12": 4095.0,
+                  "13": 4290.0,
+                  "14": 4485.0,
+                  "15": 4680.0
+                }
+              },
+              {
+                "effectId": "Sherum_favorite_1_e07",
+                "targetSkill": "低学年",
+                "targetSkillName": "ウィッチ・ヘリテージ",
+                "valueKind": "総魔法ダメージ",
+                "valueClass": "ヒット数",
+                "effectType": "攻撃",
+                "triggerType": "低学年スキル命中時",
+                "triggerSourceId": "低学年スキル",
+                "conditionType": "敵種別",
+                "conditionValue": "ワールドボスモンスター",
+                "condition": "ワールドボスモンスターに命中時",
+                "effectTarget": "対象の敵",
+                "fixedValue": 13.0
+              }
+            ],
             "skillId": "Sherum_favorite_1",
             "skillName": "愛用Lv1",
-            "description": "仮"
+            "description": "自身周囲に一定時間、伝承の帳を生成する。\n伝承の帳内の味方の攻撃力を1秒ごとに増加させ、敵に13回範囲魔法ダメージを与える。\n命中した敵がワールドボスモンスターの場合、追加で魔法ダメージを与える。"
           }
         ],
         "3": [
           {
-            "effects": [],
+            "effects": [
+              {
+                "effectId": "Sherum_favorite_3_e01",
+                "valueKind": "魔法攻撃力増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "effectId": "Sherum_favorite_3_e02",
+                "valueKind": "会心増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              },
+              {
+                "effectId": "Sherum_favorite_3_e03",
+                "valueKind": "会心ダメージ増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 9.0
+              }
+            ],
             "skillId": "Sherum_favorite_3",
             "skillName": "愛用Lv3",
-            "description": "仮"
+            "description": "シェルムの魔法攻撃力、会心、会心ダメージが9%増加する。"
           }
         ]
       }
@@ -9273,31 +9758,112 @@ const APOSTLE_LIBRARY = [
       "name": "エーリアスレコード",
       "levels": {
         "1": {
-          "name": "仮",
+          "name": "書記官の記録法",
           "stats": [],
           "effects": [
             {
               "skillId": "Sherum_aside_1",
               "effectId": "Sherum_aside_1_e01",
-              "valueKind": "仮"
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Sherum_aside_1",
+              "effectId": "Sherum_aside_1_e02",
+              "valueKind": "魔法攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Sherum_aside_1",
+              "effectId": "Sherum_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Sherum_aside_1",
+              "effectId": "Sherum_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
             }
           ],
           "description": "戦闘時ステータス増加"
         },
         "2": {
-          "name": "仮",
+          "name": "エーリアス実録",
           "stats": [],
           "effects": [
             {
               "skillId": "Sherum_aside_2",
               "effectId": "Sherum_aside_2_e01",
-              "valueKind": "仮"
+              "valueKind": "自分現在高学年クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Sherum_aside_2",
+              "effectId": "Sherum_aside_2_e02",
+              "processGroupId": "Sherum_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "SP回復",
+              "valueClass": "固定値",
+              "effectType": "回復",
+              "triggerType": "高学年スキル使用時",
+              "triggerSourceId": "高学年スキル",
+              "condition": "高学年スキル使用時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 60.0
+            },
+            {
+              "skillId": "Sherum_aside_2",
+              "effectId": "Sherum_aside_2_e03",
+              "processGroupId": "Sherum_aside_2_proc01",
+              "processOrder": 2.0,
+              "valueKind": "被ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "デバフ",
+              "triggerType": "高学年スキル命中時",
+              "triggerSourceId": "高学年スキル",
+              "condition": "高学年スキルの最初のダメージ命中時",
+              "effectTarget": "敵全員",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 25.0
+            },
+            {
+              "skillId": "Sherum_aside_2",
+              "effectId": "Sherum_aside_2_e04",
+              "processGroupId": "Sherum_aside_2_proc01",
+              "processOrder": 3.0,
+              "valueKind": "被ダメージ量増加",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "triggerType": "高学年スキル命中時",
+              "triggerSourceId": "高学年スキル",
+              "condition": "高学年スキルの最初のダメージ命中時",
+              "effectTarget": "敵全員",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 6.0
             }
           ],
-          "description": "仮"
+          "description": "高学年スキルのクールタイムが減少する。\n高学年スキル使用時、自身のSPを回復し、高学年スキルの最初のダメージを受けた敵全員の被ダメージ量を増加させる。"
         },
         "3": {
-          "name": "仮",
+          "name": "味方観察日誌",
           "stats": [
             {
               "skillId": "Sherum_aside_3_global",
@@ -9318,7 +9884,20 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Sherum_aside_3_battle",
               "effectId": "Sherum_aside_3_battle_e01",
-              "valueKind": "仮"
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Sherum_aside_3_battle",
+              "effectId": "Sherum_aside_3_battle_e02",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 6.0
             }
           ],
           "description": "味方全員の会心と会心ダメージを増加させる。"
@@ -11142,7 +11721,26 @@ const APOSTLE_LIBRARY = [
               "increaseP": 3.0
             }
           ],
-          "effects": [],
+          "effects": [
+            {
+              "skillId": "Silphir_aside_3_battle",
+              "effectId": "Silphir_aside_3_battle_e01",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 4.5
+            },
+            {
+              "skillId": "Silphir_aside_3_battle",
+              "effectId": "Silphir_aside_3_battle_e02",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全体",
+              "fixedValue": 3.5
+            }
+          ],
           "description": "味方全員の敵からの被ダメージ量を減少させる。\n味方全員の攻撃速度を増加させる。"
         }
       }
@@ -15491,7 +16089,11 @@ const APOSTLE_LIBRARY = [
       "race": "魔女",
       "role": "支援",
       "position": "後列",
-      "attackType": "魔法"
+      "attackType": "魔法",
+      "initialSp": 0.0,
+      "spRecoveryPerSecond": 30.0,
+      "combatPowerCorrectionA": 90.0,
+      "combatPowerCorrectionB": 0.25
     },
     "statTypes": {
       "hp": 5.0,
@@ -15505,29 +16107,205 @@ const APOSTLE_LIBRARY = [
     },
     "skills": [
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Barie_low_e01",
+            "processGroupId": "Barie_low_proc01",
+            "processOrder": 1.0,
+            "valueKind": "シールド",
+            "valueClass": "倍率",
+            "effectType": "シールド",
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "reference": "最大HP",
+            "levels": {
+              "1": 26.0,
+              "2": 28.0,
+              "3": 30.0,
+              "4": 32.0,
+              "5": 34.0,
+              "6": 36.0,
+              "7": 38.0,
+              "8": 40.0,
+              "9": 42.0,
+              "10": 44.0,
+              "11": 46.0,
+              "12": 48.0
+            }
+          },
+          {
+            "effectId": "Barie_low_e02",
+            "processGroupId": "Barie_low_proc01",
+            "processOrder": 2.0,
+            "valueKind": "シールド",
+            "valueClass": "持続時間",
+            "effectType": "シールド",
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "fixedValue": 3.0
+          },
+          {
+            "effectId": "Barie_low_e03",
+            "processGroupId": "Barie_low_proc01",
+            "processOrder": 3.0,
+            "valueKind": "SP回復",
+            "valueClass": "固定値",
+            "effectType": "回復",
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "低学年スキル",
+            "condition": "低学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "fixedValue": 60.0
+          }
+        ],
         "skillId": "Barie_low",
-        "skillType": "低学年"
+        "skillType": "低学年",
+        "skillName": "本を片付けてくださいぃ",
+        "description": "ブックカートを引いて攻撃力が最も高い味方にシールドを付与し、SPを回復させて戻ってくる。ブックカートを引いている間は、移動速度が減少する。"
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Barie_high_e01",
+            "processGroupId": "Barie_high_proc01",
+            "processOrder": 1.0,
+            "valueKind": "攻撃力増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 4.0,
+            "triggerType": "高学年スキル使用時",
+            "triggerSourceId": "高学年スキル",
+            "condition": "高学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "levels": {
+              "1": 4.0,
+              "2": 5.0,
+              "3": 6.0,
+              "4": 7.0,
+              "5": 8.0,
+              "6": 9.0,
+              "7": 10.0,
+              "8": 11.0,
+              "9": 12.0,
+              "10": 13.0,
+              "11": 14.0,
+              "12": 15.0
+            }
+          },
+          {
+            "effectId": "Barie_high_e02",
+            "processGroupId": "Barie_high_proc01",
+            "processOrder": 2.0,
+            "valueKind": "攻撃力増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 4.0,
+            "triggerType": "高学年スキル使用時",
+            "triggerSourceId": "高学年スキル",
+            "condition": "高学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "fixedValue": 15.0
+          },
+          {
+            "effectId": "Barie_high_e03",
+            "processGroupId": "Barie_high_proc01",
+            "processOrder": 3.0,
+            "valueKind": "攻撃速度増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 4.0,
+            "triggerType": "高学年スキル使用時",
+            "triggerSourceId": "高学年スキル",
+            "condition": "高学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "levels": {
+              "1": 6.0,
+              "2": 6.0,
+              "3": 6.0,
+              "4": 7.0,
+              "5": 7.0,
+              "6": 7.0,
+              "7": 8.0,
+              "8": 8.0,
+              "9": 8.0,
+              "10": 9.0,
+              "11": 9.0,
+              "12": 9.0
+            }
+          },
+          {
+            "effectId": "Barie_high_e04",
+            "processGroupId": "Barie_high_proc01",
+            "processOrder": 4.0,
+            "valueKind": "攻撃速度増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectStack": true,
+            "maxStack": 4.0,
+            "triggerType": "高学年スキル使用時",
+            "triggerSourceId": "高学年スキル",
+            "condition": "高学年使用時",
+            "effectTarget": "最も攻撃力が高い味方1体",
+            "fixedValue": 15.0
+          }
+        ],
         "skillId": "Barie_high",
-        "skillType": "高学年"
+        "skillType": "高学年",
+        "skillName": "当日返却ですぅ",
+        "description": "攻撃力が最も高い味方に本を貸し出し、味方の攻撃力と攻撃速度を増加させる。このバフは4回発動し、スタックできる。",
+        "cooldownSeconds": 30.0
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Barie_passive_e01",
+            "valueKind": "防御力増加",
+            "valueClass": "倍率",
+            "effectType": "パッシブ",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 20.0,
+              "2": 22.0,
+              "3": 24.0,
+              "4": 26.0,
+              "5": 28.0,
+              "6": 30.0,
+              "7": 32.0,
+              "8": 34.0,
+              "9": 36.0,
+              "10": 38.0,
+              "11": 40.0,
+              "12": 42.0
+            }
+          }
+        ],
         "skillId": "Barie_passive",
-        "skillType": "パッシブ"
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "全ての防御力が増加する。"
       },
       {
-        "effects": [],
+        "effects": [
+          {
+            "effectId": "Barie_basic_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 120.0
+          }
+        ],
         "skillId": "Barie_basic",
-        "skillType": "普通攻撃_基本"
-      },
-      {
-        "effects": [],
-        "skillId": "Barie_enhanced",
-        "skillType": "普通攻撃_強化"
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "インクを発射し、敵に魔法ダメージを与える。"
       }
     ],
     "favoriteCard": {},

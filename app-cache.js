@@ -15,7 +15,7 @@
       'sp-engine.js?v=20260720b',
       'synergy.js',
       'cards.js?v=20260813a',
-      'stat-prototype.js?v=20260907a',
+      'stat-prototype.js?v=20260911b',
       'stat-dashboard.js?v=20260903a',
       'image-preload.js?v=20260727a'
     ],
