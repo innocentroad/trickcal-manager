@@ -13,7 +13,6 @@
   ]);
   const powerById = new Map((DATA?.sheets?.masterPowers || []).map(power => [power.id, power]));
   const positionLabels = ['後列', '中列', '前列'];
-  const positionNotes = ['後衛グループ', '中衛グループ', '前衛グループ'];
   const MASTER_POWER_COST = 30;
   const GLOBAL_STATS = [
     { key: 'hp', label: 'HP', icon: 'HP.webp' },
@@ -24,8 +23,16 @@
     { key: 'crit', label: '会心', icon: '会心.webp' },
     { key: 'critDmg', label: '会心DMG', icon: '会心ダメージ.webp' },
     { key: 'critRes', label: '会心抵抗', icon: '会心抵抗.webp' },
-    { key: 'critDmgRes', label: 'DMG抵抗', icon: '会心DMG抵抗.webp' },
+    { key: 'critDmgRes', label: '会心DMG抵抗', icon: '会心DMG抵抗.webp' },
     { key: 'spRegen', label: 'SP回復', icon: 'SP回復.webp' }
+  ];
+  // 共有対象は全体%補正のみ。SP回復は%補正ではないため表示しない。
+  const GLOBAL_STAT_GROUPS = [
+    { label: 'HP', indices: [0] },
+    { label: '攻撃', indices: [1, 2] },
+    { label: '防御', indices: [3, 4] },
+    { label: '会心', indices: [5, 6] },
+    { label: '会心抵抗', indices: [7, 8] }
   ];
   const assetAliases = {
     ED: 'Ed',
@@ -250,7 +257,8 @@
       rows.push([
         '<section class="formation-column" aria-labelledby="position-', rowIndex, '">',
         '<div class="formation-column-head"><strong id="position-', rowIndex, '">',
-        positionLabels[rowIndex], '</strong><small>', positionNotes[rowIndex], '・', filled, '/3</small></div>',
+        positionLabels[rowIndex], '</strong><span class="formation-column-count" aria-label="編成人数 ',
+        filled, '/3">', filled, '/3</span></div>',
         '<div class="formation-column-body">',
         members.map((member, memberIndex) => renderMember(
           member,
@@ -359,26 +367,37 @@
       return;
     }
     panel.hidden = false;
-    const rows = GLOBAL_STATS.map((stat, index) => {
+    const renderValue = index => {
+      const stat = GLOBAL_STATS[index];
       const value = snapshot.globalPercent[index];
       if (value == null) {
         return [
-          '<tr><th scope="row"><span class="global-enhancement-stat-label"><img src="img/',
+          '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="img/',
           escapeHtml(stat.icon), '" alt="">', escapeHtml(stat.label),
-          '</span></th><td><strong>?</strong></td></tr>'
+          '</span><strong>?</strong></div>'
         ].join('');
       }
       if (value === 0) return '';
       return [
-        '<tr><th scope="row"><span class="global-enhancement-stat-label"><img src="img/',
+        '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="img/',
         escapeHtml(stat.icon), '" alt="">', escapeHtml(stat.label),
-        '</span></th><td><strong>+', escapeHtml(formatPercent(value)), '%</strong></td></tr>'
+        '</span><strong>+', escapeHtml(formatPercent(value)), '%</strong></div>'
+      ].join('');
+    };
+    const groups = GLOBAL_STAT_GROUPS.map(group => {
+      const values = group.indices.map(renderValue).filter(Boolean).join('');
+      if (!values) return '';
+      return [
+        '<div class="global-enhancement-group" role="listitem">',
+        '<strong class="global-enhancement-group-head">', escapeHtml(group.label), '</strong>',
+        '<div class="global-enhancement-group-values" role="list">', values, '</div>',
+        '</div>'
       ].join('');
     }).filter(Boolean).join('');
     target.innerHTML = [
       '<article class="global-enhancement-source"><div class="global-enhancement-source-head">',
       '<strong>全体補正</strong><small>共有値</small></div>',
-      rows ? '<table class="global-enhancement-table"><thead><tr><th scope="col">ステータス</th><th scope="col">補正値</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      groups ? '<div class="global-enhancement-values" role="list" aria-label="全体補正値">' + groups + '</div>'
         : '<p class="empty-support">補正なし</p>',
       '</article>'
     ].join('');

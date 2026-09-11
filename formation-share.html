@@ -12,7 +12,7 @@
       document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
     })();
   </script>
-  <link rel="stylesheet" href="formation-share-prototype.css?v=20260910s">
+  <link rel="stylesheet" href="formation-share-prototype.css?v=20260912e">
 </head>
 <body class="formation-share-page">
   <header class="share-topbar">
@@ -77,10 +77,22 @@
     </div>
   </main>
 
+  <aside id="share-action-bar" class="share-action-bar" aria-label="共有操作">
+    <span id="share-image-state" class="share-image-state" aria-live="polite">画像は未生成です。</span>
+    <div class="share-action-buttons">
+      <button type="button" id="share-image-generate" class="share-action-button share-action-generate">画像を生成</button>
+      <button type="button" id="share-image-copy" class="share-action-button share-action-copy" disabled>画像をコピー</button>
+      <button type="button" id="share-image-save" class="share-action-button share-action-save" disabled>画像を保存</button>
+      <button type="button" id="share-url-copy" class="share-action-button share-action-url">URLをコピー</button>
+    </div>
+  </aside>
+
   <script src="statData.js?v=20260907c"></script>
   <script src="cards.js?v=20260910b"></script>
   <script src="formation-share-catalog.js?v=20260910a"></script>
   <script src="formation-share-codec.js?v=20260910a"></script>
-  <script src="formation-share.js?v=20260910d"></script>
+  <script src="formation-share.js?v=20260912c"></script>
+  <script src="formation-share-image.js?v=20260912j"></script>
+  <script src="formation-share-page-actions.js?v=20260912a"></script>
 </body>
 </html>

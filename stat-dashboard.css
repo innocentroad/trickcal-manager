@@ -5976,7 +5976,8 @@ body.dashboard-page.is-booting::after {
 
 .formation-share-dialog-head button,
 .formation-share-dialog-actions button,
-.formation-share-dialog-tools button {
+.formation-share-dialog-tools button,
+.formation-share-image-actions button {
   min-height: 34px;
   border: 1px solid rgba(36, 83, 59, 0.2);
   border-radius: 10px;
@@ -5988,7 +5989,8 @@ body.dashboard-page.is-booting::after {
   cursor: pointer;
 }
 
-.formation-share-dialog-actions button.primary {
+.formation-share-dialog-actions button.primary,
+.formation-share-image-actions button.primary {
   color: #fff;
   border-color: #3976a8;
   background: #3976a8;
@@ -6019,9 +6021,10 @@ body.dashboard-page.is-booting::after {
 }
 
 .formation-share-preview-wrap {
+  position: relative;
   height: min(64dvh, 650px);
   margin: 0 16px;
-  overflow: hidden;
+  overflow: auto;
   border: 1px solid rgba(57, 104, 74, 0.16);
   border-radius: 14px;
   background: #11151e;
@@ -6033,6 +6036,35 @@ body.dashboard-page.is-booting::after {
   height: 100%;
   border: 0;
   background: #11151e;
+}
+
+.formation-share-preview-wrap iframe[hidden],
+#formation-share-image-preview[hidden] {
+  display: none;
+}
+
+#formation-share-image-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto;
+  background: #11151e;
+}
+
+.formation-share-image-state {
+  min-height: 1.2em;
+  margin: 6px 16px 0;
+  padding: 5px 8px;
+  color: #e5edf8;
+  background: rgba(14, 24, 38, 0.82);
+  border-radius: 7px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.formation-share-image-state.is-error {
+  color: #ffd9dc;
 }
 
 .formation-share-url-row {
@@ -6077,11 +6109,96 @@ body.dashboard-page.is-booting::after {
   color: #b33d43;
 }
 
-.formation-share-dialog-actions {
+.formation-share-image-actions {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.formation-share-link-actions {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 8px;
+  min-width: 0;
+}
+
+.formation-share-action-row .formation-share-button {
+  color: #fff;
+  font-weight: 950;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+}
+
+.formation-share-action-row .formation-share-button-image-copy {
+  border-color: #287d69;
+  background: #287d69;
+}
+
+.formation-share-action-row .formation-share-button-image-save {
+  border-color: #b96e2c;
+  background: #b96e2c;
+}
+
+.formation-share-action-row .formation-share-button-url {
+  border-color: #3976a8;
+  background: #3976a8;
+}
+
+.formation-share-action-row .formation-share-button-close {
+  border-color: #6d4d86;
+  background: #6d4d86;
+}
+
+.formation-share-action-row .formation-share-button:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.formation-share-image-actions button:disabled {
+  cursor: wait;
+  opacity: 0.52;
+}
+
+.formation-share-image-help {
+  margin: 2px 16px 0;
+  color: var(--muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.formation-share-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 7px 16px 14px;
+}
+
+.formation-share-action-row {
+  flex-wrap: wrap;
+}
+
+.formation-share-action-row > .formation-share-image-actions {
+  margin-right: auto;
+}
+
+.formation-share-action-row > .formation-share-link-actions {
+  margin-left: auto;
+}
+
+.formation-share-dialog-actions > .formation-share-image-actions,
+.formation-share-dialog-actions > .formation-share-link-actions {
+  padding: 0;
+}
+
+.formation-share-dialog-actions > .formation-share-image-actions {
+  justify-content: flex-start;
+}
+
+.formation-share-dialog-actions > .formation-share-link-actions {
+  justify-content: flex-end;
 }
 
 :root[data-theme="dark"] .formation-share-dialog {
@@ -6105,7 +6222,8 @@ body.dashboard-page.is-booting::after {
 
 :root[data-theme="dark"] .formation-share-dialog-head button,
 :root[data-theme="dark"] .formation-share-dialog-actions button,
-:root[data-theme="dark"] .formation-share-dialog-tools button {
+:root[data-theme="dark"] .formation-share-dialog-tools button,
+:root[data-theme="dark"] .formation-share-image-actions button {
   color: #dbeafe;
   border-color: rgba(166, 180, 197, 0.24);
   background: rgba(28, 43, 62, 0.9);
@@ -6117,11 +6235,32 @@ body.dashboard-page.is-booting::after {
   background: rgba(20, 34, 52, 0.9);
 }
 
+:root[data-theme="dark"] .formation-share-action-row .formation-share-button-image-copy {
+  border-color: #399b83;
+  background: #399b83;
+}
+
+:root[data-theme="dark"] .formation-share-action-row .formation-share-button-image-save {
+  border-color: #d18a38;
+  background: #d18a38;
+}
+
+:root[data-theme="dark"] .formation-share-action-row .formation-share-button-url {
+  border-color: #4e8ac0;
+  background: #4e8ac0;
+}
+
+:root[data-theme="dark"] .formation-share-action-row .formation-share-button-close {
+  border-color: #8762a3;
+  background: #8762a3;
+}
+
 @media (max-width: 700px) {
   .formation-share-dialog {
     width: calc(100vw - 12px);
     max-height: calc(100dvh - 12px);
     border-radius: 16px;
+    overflow-y: auto;
   }
 
   .formation-share-dialog-tools {
@@ -6158,7 +6297,35 @@ body.dashboard-page.is-booting::after {
     margin-left: 8px;
   }
 
-  .formation-share-dialog-actions {
+  .formation-share-image-help {
+    margin-right: 8px;
+    margin-left: 8px;
+    text-align: left;
+  }
+
+  .formation-share-image-actions {
+    justify-content: stretch;
+  }
+
+  .formation-share-action-row {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .formation-share-action-row > .formation-share-image-actions,
+  .formation-share-action-row > .formation-share-link-actions {
+    width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .formation-share-image-actions button,
+  .formation-share-link-actions button {
+    flex: 1 1 0;
+    min-width: 0;
     padding-right: 8px;
     padding-left: 8px;
   }

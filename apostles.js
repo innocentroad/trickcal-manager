@@ -10355,7 +10355,7 @@ const APOSTLE_LIBRARY = [
               "skillId": "Xion_aside_3_global",
               "effectId": "Xion_aside_3_global_e02",
               "statApplyTo": "全体",
-              "statName": "会心",
+              "statName": "会心ダメージ",
               "increaseP": 4.0
             }
           ],

@@ -44,7 +44,7 @@
     })();
   </script>
   <link rel="stylesheet" href="stat-prototype.css?v=20260907b">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260911a">
+  <link rel="stylesheet" href="stat-dashboard.css?v=20260912i">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -785,16 +785,26 @@
     </div>
     <div class="formation-share-preview-wrap">
       <iframe id="formation-share-preview" title="編成共有プレビュー" loading="lazy"></iframe>
+      <img id="formation-share-image-preview" title="共有画像プレビュー" alt="編成共有画像プレビュー" hidden>
     </div>
+    <p id="formation-share-image-state" class="formation-share-image-state" aria-live="polite">共有画像を準備しています。</p>
     <div class="formation-share-url-row">
       <label for="formation-share-url">共有URL</label>
       <input id="formation-share-url" type="text" readonly spellcheck="false" autocomplete="off">
       <span id="formation-share-url-length"></span>
     </div>
     <p id="formation-share-status" class="formation-share-status" aria-live="polite"></p>
-    <div class="formation-share-dialog-actions">
-      <button type="button" id="formation-share-copy" class="primary">URLをコピー</button>
-      <button type="button" id="formation-share-close-bottom">閉じる</button>
+    <p class="formation-share-image-help">画像をコピーまたは保存し、URLを同じ投稿へ貼り付けてください。</p>
+    <div class="formation-share-dialog-actions formation-share-action-row">
+      <div class="formation-share-image-actions">
+        <button type="button" id="formation-share-image-share" class="primary" disabled hidden>画像＋URLを共有</button>
+        <button type="button" id="formation-share-image-copy" class="formation-share-button formation-share-button-image-copy" disabled>画像をコピー</button>
+        <button type="button" id="formation-share-image-save" class="formation-share-button formation-share-button-image-save" disabled>画像を保存</button>
+      </div>
+      <div class="formation-share-link-actions">
+        <button type="button" id="formation-share-copy" class="formation-share-button formation-share-button-url">URLをコピー</button>
+        <button type="button" id="formation-share-close-bottom" class="formation-share-button formation-share-button-close">閉じる</button>
+      </div>
     </div>
   </dialog>
 
@@ -809,7 +819,8 @@
   <script src="stat-prototype.js?v=20260911b"></script>
   <script src="formation-share-catalog.js?v=20260910a"></script>
   <script src="formation-share-codec.js?v=20260910a"></script>
-  <script src="formation-share-create.js?v=20260910a"></script>
+  <script src="formation-share-image.js?v=20260912j"></script>
+  <script src="formation-share-create.js?v=20260912o"></script>
   <script src="stat-dashboard.js?v=20260903a"></script>
 </body>
 </html>
