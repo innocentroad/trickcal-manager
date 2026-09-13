@@ -22,6 +22,16 @@
 
 更新日: 2026-09-14
 
+### 最新：確定commit・最終clean checkout検証完了（2026-09-14）
+
+- 対象確認：[`docs/storage-migration-commit-plan.md`](docs/storage-migration-commit-plan.md)の133ファイルを機械照合し、target 133件・unique 133件・missing 0件。対象外は`.github/workflows/pages.yml`と`tools/git/push.bat`だけで、いずれもstageせず保留した。commit前のsecret／PIIパターン検査は該当なし、明示対象だけをstageし、staged diff checkも成功した。
+- commit：統合commitは`e736a23c5ce6de4385668574c26428824144327c`（`Prepare storage migration and public site delivery`、133 files）。clean checkoutで判明した`test-public-site.js`のdirty固定前提を、clean／dirty双方の実Git状態と照合する限定修正として`b55a4fcbcb9e66cb34a0c72d57545b71f34a3ce4`（`Allow public-site tests in clean checkouts`、`tools/test-public-site.js`のみ）へ追加commitした。いずれもpushしていない。
+- clean checkout：`tmp/commit-check-final`のHEADは`b55a4fcbcb9e66cb34a0c72d57545b71f34a3ce4`、`git status --short --untracked-files=all`はclean。`npm ci --prefix tools --ignore-scripts`は成功し、脆弱性0件。最終`node tools/generate-public-site.js --write`は2154 files、content digest `229bea51d6a9c5bc59b7977f8d085f500c3a7502dcef24ec8fdbf8873c0bb40e`を生成した。
+- release／profile：release ID `0b5472175046bb39`、`sourceCommit`は最終commit、`dirty:false`、`status: local-only-unpublished`、`previousRelease:null`。new／legacy output digestはそれぞれ`2768c19ce251e32a`／`893c0b1166bb0f24`、両profileの生成Service Worker content hashは`60a6ff9ed466a7d56f4347d41e0246ac45d4c122ccd156eb9fd98c7c72d34b16`。
+- 検証：`generate-public-site.js --check`、`validate-public-site.js`、`test-public-site.js`、`test-public-site-http.js`、`record-public-site-checks.js`は最終的に全て終了コード0。checksはgeneration／manifest／public-site／HTTPが全てtrue、bindingもtrue（HTTPは2164 registered paths/assets、2 local origins）。並列実行時の共有tmp競合による一時ENOENTは、validate単独再実行で解消した。
+- candidate／staging：candidate作成は`ok:true`、candidate ID `2627fe55a56167a9`。`prepare-public-site-staging.js --candidate`は`ok:true`／`candidateAccepted:true`、new／legacy各1076 files、source content digestとprofile output digestの一致、禁止file 0、legacy二重base falseを確認した。
+- 残件／停止：元worktreeは`.github/workflows/pages.yml`と`tools/git/push.bat`の既存保留変更だけを維持し、追加stage・追加生成物commitはない。成果物repo作成、workflow設置／起動、token／Pages／environment／DNS／CNAME／HTTPS設定、new初回実公開、Origin実環境確認、旧移行案内ON、実配信、push、自動実行Goal有効化は未実施。次の外部操作には各承認と安全な設定画面へのtoken登録が必要であり、ここで停止する。
+
 ## 現在の状態
 
 ### 最新：R1完了・外部承認待ちで停止（2026-09-14）
