@@ -13,6 +13,7 @@ const {
   readManifest,
   validateManifest
 } = require('./generate-public-site.js');
+const { readGitState } = require('./public-site-candidate.js');
 const { buildSyncPlan } = require('./sync-formation-share-assets.js');
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -240,7 +241,8 @@ function main() {
     assert(managerAlias.includes("location.search || ''") && managerAlias.includes("location.hash || ''"));
     const release = JSON.parse(readOutputText(testOutput, 'public-site-release.json'));
     assert(/^[0-9a-f]{40}$/.test(release.sourceCommit));
-    assert.strictEqual(release.dirty, true);
+    const releaseGitState = readGitState(repoRoot);
+    assert.strictEqual(release.dirty, releaseGitState.available ? releaseGitState.dirty : true);
     assert.deepStrictEqual(release.dependencyOrder, [
       'profile-layout', 'direct-assets', 'share-page', 'share-create', 'app-cache', 'final-html', 'release-record'
     ]);
