@@ -1,5 +1,8 @@
 /* DPS計算Worker。単一seedは表示用結果、複数seedは集計用として使い分ける。 */
-importScripts('dps-simulator.js?v=20260907c');
+const simulatorUrl = new URL('dps-simulator.js', self.location.href);
+const workerVersion = new URL(self.location.href).searchParams.get('v');
+if (workerVersion) simulatorUrl.searchParams.set('v', workerVersion);
+importScripts(simulatorUrl.href);
 
 self.addEventListener('message', event => {
   const requestId = event.data?.requestId;

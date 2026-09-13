@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "new": {
+      "origin": "https://trickcal.irlab.dev",
+      "basePath": "/",
+      "assetBasePath": "/",
+      "serviceWorker": {
+        "script": "service-worker.js",
+        "scope": "/"
+      }
+    },
+    "legacy": {
+      "origin": "https://innocentroad.github.io",
+      "basePath": "/trickcal-manager/",
+      "assetBasePath": "/trickcal-manager/",
+      "serviceWorker": {
+        "script": "service-worker.js",
+        "scope": "/trickcal-manager/"
+      }
+    }
+  },
+  "assetConfig": {
+    "policy": "manifest-only",
+    "versionQuery": "v",
+    "outputMode": "profile-base"
+  },
+  "serviceWorker": {
+    "source": "service-worker.js",
+    "cacheName": "trickcal-manager",
+    "navigationStrategy": "network-first",
+    "assetStrategy": "stale-while-revalidate",
+    "excludedPathPrefixes": [
+      "/transfer/",
+      "/recovery/",
+      "/storage-transfer.html",
+      "/storage-recovery.html",
+      "/trickcal-manager/transfer/",
+      "/trickcal-manager/recovery/",
+      "/trickcal-manager/storage-transfer.html",
+      "/trickcal-manager/storage-recovery.html"
+    ]
+  },
+  "reservedPaths": {
+    "new": [
+      "/404.html",
+      "/manifest.webmanifest"
+    ],
+    "legacy": [
+      "/trickcal-manager/404.html",
+      "/trickcal-manager/manifest.webmanifest"
+    ]
+  },
+  "routes": [
+    {
+      "id": "home",
+      "generator": "home-entry",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/",
+          "kind": "static-redirect",
+          "targetRouteId": "manager",
+          "aliases": ["/index.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/",
+          "kind": "compatibility",
+          "targetRouteId": "manager",
+          "aliases": ["/trickcal-manager/index.html"]
+        }
+      },
+      "fixtures": [
+        { "name": "new-home", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "legacy-home", "profile": "legacy", "query": "", "hash": "", "viewport": "desktop" }
+      ]
+    },
+    {
+      "id": "manager",
+      "source": "stat-dashboard.html",
+      "indexable": true,
+      "profiles": {
+        "new": {
+          "publicPath": "/manager/",
+          "kind": "static-page",
+          "aliases": ["/manager/index.html", "/stat-dashboard.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/stat-dashboard.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/manager/"]
+        }
+      },
+      "fixtures": [
+        { "name": "manager-desktop", "profile": "new", "query": "?view=settings&recover=20260912", "hash": "", "viewport": "desktop" },
+        { "name": "manager-mobile", "profile": "new", "query": "?view=formation&recover=20260912", "hash": "", "viewport": "mobile" },
+        { "name": "legacy-manager", "profile": "legacy", "query": "?recover=20260912", "hash": "", "viewport": "desktop" }
+      ]
+    },
+    {
+      "id": "calc",
+      "source": "formation-damage-calc.html",
+      "indexable": true,
+      "profiles": {
+        "new": {
+          "publicPath": "/calc/",
+          "kind": "static-page",
+          "aliases": ["/calc/index.html", "/formation-damage-calc.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/formation-damage-calc.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/calc/"]
+        }
+      },
+      "fixtures": [
+        { "name": "calc-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
+        { "name": "calc-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" },
+        { "name": "legacy-calc", "profile": "legacy", "query": "?recover=20260912", "hash": "", "viewport": "desktop" }
+      ]
+    },
+    {
+      "id": "dps",
+      "source": "formation-damage-dps-prototype.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/calc/dps/",
+          "kind": "static-page",
+          "aliases": ["/calc/dps/index.html", "/formation-damage-dps-prototype.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/formation-damage-dps-prototype.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/calc/dps/"]
+        }
+      },
+      "fixtures": [
+        { "name": "dps-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
+        { "name": "dps-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" }
+      ]
+    },
+    {
+      "id": "share",
+      "source": "formation-share.html",
+      "indexable": true,
+      "profiles": {
+        "new": {
+          "publicPath": "/share/",
+          "kind": "static-page",
+          "aliases": ["/share/index.html", "/formation-share.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/formation-share.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/share/"]
+        }
+      },
+      "fixtures": [
+        { "name": "share-light", "profile": "new", "query": "?payload=fixture", "hash": "", "viewport": "desktop", "themes": ["light"] },
+        { "name": "share-dark", "profile": "new", "query": "?payload=fixture", "hash": "", "viewport": "desktop", "themes": ["dark"] },
+        { "name": "share-mobile", "profile": "new", "query": "?payload=fixture", "hash": "", "viewport": "mobile", "themes": ["light", "dark"] }
+      ]
+    },
+    {
+      "id": "data",
+      "generator": "data-index",
+      "indexable": true,
+      "profiles": {
+        "new": {
+          "publicPath": "/data/",
+          "kind": "static-page",
+          "aliases": ["/data/index.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/data/",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/data/index.html"]
+        }
+      },
+      "fixtures": [
+        { "name": "data-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "data-mobile", "profile": "new", "query": "", "hash": "", "viewport": "mobile" }
+      ]
+    },
+    {
+      "id": "enemies",
+      "source": "enemy-status.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/data/enemies/",
+          "kind": "static-page",
+          "aliases": ["/data/enemies/index.html", "/enemy-status.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/enemy-status.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/data/enemies/"]
+        }
+      },
+      "fixtures": [
+        { "name": "enemies-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
+        { "name": "enemies-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" }
+      ]
+    },
+    {
+      "id": "board",
+      "source": "public/board-layout-preview.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/data/boards/",
+          "kind": "static-page",
+          "aliases": ["/data/boards/index.html", "/public/board-layout-preview.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/public/board-layout-preview.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/data/boards/"]
+        }
+      },
+      "fixtures": [
+        { "name": "boards-desktop", "profile": "new", "query": "?apostle=Amelia", "hash": "", "viewport": "desktop" },
+        { "name": "boards-mobile", "profile": "new", "query": "?apostle=Amelia", "hash": "", "viewport": "mobile" }
+      ]
+    },
+    {
+      "id": "transfer",
+      "source": "storage-transfer.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/transfer/",
+          "kind": "maintenance",
+          "aliases": ["/transfer/index.html", "/storage-transfer.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/storage-transfer.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/transfer/"]
+        }
+      },
+      "fixtures": [
+        { "name": "transfer-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "transfer-mobile", "profile": "new", "query": "", "hash": "", "viewport": "mobile" }
+      ]
+    },
+    {
+      "id": "recovery",
+      "source": "storage-recovery.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/recovery/",
+          "kind": "maintenance",
+          "aliases": ["/recovery/index.html", "/storage-recovery.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/storage-recovery.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/recovery/"]
+        }
+      },
+      "fixtures": [
+        { "name": "recovery-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" }
+      ]
+    }
+  ],
+  "assets": [
+    { "source": "img", "kind": "directory", "profiles": ["new", "legacy"] },
+    { "source": "ico.webp", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "robots.txt", "kind": "file", "profiles": ["new"] },
+    { "source": "sitemap.xml", "kind": "file", "profiles": ["new"] },
+    { "source": "app-cache.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "apostles.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "cards.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "combat-scenario.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "dps-simulator-worker.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "dps-simulator.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "dps-support-registry.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "dps-timing-data.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "dps-trigger-policy.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "enemy-presets.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "enemy-status.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "enemy-status.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-damage-calc.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-damage-calc.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-damage-dps-prototype.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-damage-dps-prototype.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-catalog.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-codec.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-create.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-display-data.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-image.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-page-actions.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "formation-share-prototype.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "image-preload.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public-release-config.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public-site-runtime.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "service-worker.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "shared-topbar.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "sp-engine.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "stat-dashboard.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "stat-dashboard.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "stat-engine.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "stat-prototype.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "stat-prototype.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "statData.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-backup.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-bootstrap.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-registry.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-runtime.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-transfer-page.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "storage-transfer.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "style.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "synergy.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public/board-layout-preview.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public/board-layout-preview.js", "kind": "file", "profiles": ["new", "legacy"] }
+  ]
+}

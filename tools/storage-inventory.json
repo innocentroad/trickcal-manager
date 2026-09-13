@@ -1,0 +1,730 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-12",
+  "purpose": "保存保守・新ドメイン移行S1の保存経路台帳。アプリ本体の保存動作を変更せず、キー・責任・現行挙動の基準を固定する。",
+  "productionSources": [
+    "storage-registry.js",
+    "storage-runtime.js",
+    "storage-bootstrap.js",
+    "stat-prototype.js",
+    "stat-dashboard.html",
+    "formation-damage-calc.js",
+    "formation-damage-calc.html",
+    "formation-damage-dps-prototype.js",
+    "formation-damage-dps-prototype.html",
+    "formation-dps-calc.js",
+    "formation-dps-calc.html",
+    "combat-scenario.js",
+    "enemy-status.js",
+    "public/board-layout-preview.js",
+    "public/board-layout-preview.html",
+    "formation-share.html",
+    "formation-share.js",
+    "formation-share-codec.js",
+    "formation-share-prototype.js",
+    "formation-share-prototype.html",
+    "image-preload.js",
+    "app-cache.js",
+    "service-worker.js"
+  ],
+  "verificationSources": [
+    "tools/apostle-stat-estimator.js",
+    "tools/max-growth-verification.html",
+    "tools/create-max-growth-state.js",
+    "tools/fixtures/max-growth-verification-state.json"
+  ],
+  "productionDiscovery": {
+    "extensions": [
+      ".js",
+      ".html"
+    ],
+    "excludeDirectories": [
+      ".git",
+      ".github",
+      "backups",
+      "tmp",
+      "tools",
+      "_site"
+    ],
+    "toolOnlyExcludedDirectories": [
+      "node_modules"
+    ],
+    "workflow": ".github/workflows/pages.yml",
+    "manualExclusions": []
+  },
+  "dynamicAccessExceptions": [
+    {
+      "file": "image-preload.js",
+      "helper": "readJson",
+      "base": "storageLocal",
+      "operation": "getItem",
+      "argument": "key",
+      "area": "localStorage",
+      "reason": "readJson(key)はFacadeから既知キーを受け取る読取専用helper。許可呼出元・キーはhelperContractsで照合する。"
+    },
+    {
+      "file": "formation-share-prototype.js",
+      "helper": "parseJson",
+      "base": "storage",
+      "operation": "getItem",
+      "argument": "key",
+      "area": "alias",
+      "reason": "parseJson(storage, key)はsession/localの既知キーを呼出元から受け取る読取専用helper。許可呼出元・領域・キーはhelperContractsで照合する。"
+    }
+  ],
+  "helperContracts": [
+    {
+      "file": "image-preload.js",
+      "helper": "readJson",
+      "keyParameter": "key",
+      "keyArgumentIndex": 0,
+      "implicitStorageArea": "localStorage",
+      "allowedCalls": [
+        { "caller": "collectSavedImages", "area": "localStorage", "key": "trickcal_stat_prototype_v1" },
+        { "caller": "collectSavedImages", "area": "localStorage", "key": "trickcal_formation_damage_settings_v1" }
+      ],
+      "reason": "画像先読みの保存キーはFacadeから同一ファイルの既知定数だけ渡す。"
+    },
+    {
+      "file": "formation-share-prototype.js",
+      "helper": "parseJson",
+      "storageParameter": "storage",
+      "keyParameter": "key",
+      "keyArgumentIndex": 1,
+      "allowedCalls": [
+        { "caller": "loadSavedSnapshot", "area": "sessionStorage", "key": "trickcal_stat_workspace_v2" },
+        { "caller": "loadSavedSnapshot", "area": "localStorage", "key": "trickcal_stat_live_v2" },
+        { "caller": "loadSavedSnapshot", "area": "localStorage", "key": "trickcal_stat_prototype_v1" }
+      ],
+      "reason": "共有表示の読込順をworkspace→live→legacyの3キーに限定する。"
+    }
+  ],
+  "storageParameterContracts": [
+    {
+      "file": "combat-scenario.js",
+      "function": "loadComparisonSession",
+      "parameter": "storage",
+      "operation": "getItem",
+      "key": "trickcal_combat_comparison_session_v1",
+      "area": "sessionStorage",
+      "reason": "比較session APIはテスト用storageを受け取れるが、既定の保存領域はsessionStorage。"
+    },
+    {
+      "file": "combat-scenario.js",
+      "function": "savePinnedComparison",
+      "parameter": "storage",
+      "operation": "setItem",
+      "key": "trickcal_combat_comparison_session_v1",
+      "area": "sessionStorage",
+      "reason": "比較session APIはテスト用storageを受け取れるが、既定の保存領域はsessionStorage。"
+    },
+    {
+      "file": "combat-scenario.js",
+      "function": "clearComparisonSession",
+      "parameter": "storage",
+      "operation": "removeItem",
+      "key": "trickcal_combat_comparison_session_v1",
+      "area": "sessionStorage",
+      "reason": "比較session APIはテスト用storageを受け取れるが、既定の保存領域はsessionStorage。"
+    }
+  ],
+  "failureMatrix": [
+    {
+      "entryId": "stat.slotStore",
+      "successBehavior": "v2 store全体を再読込・正規化し、対象slotだけ更新または削除して保存する。明示保存成功時はok、store、slotRevisionを返す。",
+      "readFailure": "JSON解析・正規化に失敗した場合は旧savedStatesから再生成し、生成したstoreの保存を試みる。保存に失敗してもメモリ上のstoreを返す。",
+      "writeFailure": "load時の移行書込は握りつぶす。明示slot保存・削除はwriteSharedStateSlot/removeSharedStateSlotの呼出元まで例外が伝播し得る。",
+      "deleteFailure": "store全体の書込失敗時は削除結果を確定せず、呼出元へ成功結果を返さない。",
+      "callerOutcome": "期待revision不一致はconflict結果。書込例外の利用者通知・再試行は呼出元依存。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadSharedStateSlotStore", "operations": ["getItem", "setItem"], "keyResolution": "STATE_SLOT_STORAGE_KEY定数", "evidence": "stat-prototype.js:11596-11617" },
+        { "file": "stat-prototype.js", "function": "readLatestSharedStateSlotStore", "operations": ["getItem"], "keyResolution": "STATE_SLOT_STORAGE_KEY定数", "evidence": "stat-prototype.js:11624" },
+        { "file": "stat-prototype.js", "function": "writeSharedStateSlot/removeSharedStateSlot", "operations": ["setItem"], "keyResolution": "STATE_SLOT_STORAGE_KEY定数", "evidence": "stat-prototype.js:11737-11754" },
+        { "file": "formation-damage-calc.js", "function": "loadComparisonStateSlots", "operations": ["getItem"], "keyResolution": "STAT_SLOT_STORAGE_KEY定数", "evidence": "formation-damage-calc.js:7929" }
+      ]
+    },
+    {
+      "entryId": "stat.legacyCurrent",
+      "successBehavior": "live publish時にworkspace相当snapshotへsyncRevisionとactiveStateSlotを付けて旧currentを書き戻す。計算画面のactiveId同期成功時はイベントを通知する。",
+      "readFailure": "旧currentのJSON解析失敗は各readerのfallbackへ進む。",
+      "writeFailure": "live publishのlegacy書込失敗は同じtryで握りつぶす。計算画面のactiveId同期失敗もwarnのみ。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "live publish通知はlegacy書込失敗後も発行され得る。計算画面は同期失敗後も画面内選択を維持する。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadState", "operations": ["getItem"], "keyResolution": "STORAGE_KEY定数", "evidence": "stat-prototype.js:11833" },
+        { "file": "stat-prototype.js", "function": "publishLiveState", "operations": ["setItem"], "keyResolution": "STORAGE_KEY定数", "evidence": "stat-prototype.js:11679-11698" },
+        { "file": "formation-damage-calc.js", "function": "loadStatState/syncSelectedApostleToStatManager", "operations": ["getItem", "setItem"], "keyResolution": "STAT_STORAGE_KEY定数", "evidence": "formation-damage-calc.js:2891-2917" },
+        { "file": "formation-share-prototype.js", "function": "parseJson/loadSavedSnapshot", "operations": ["getItem"], "keyResolution": "parseJson helper contract", "evidence": "formation-share-prototype.js:114-128" },
+        { "file": "image-preload.js", "function": "readJson/collectSavedImages", "operations": ["getItem"], "keyResolution": "readJson helper contract", "evidence": "image-preload.js:127-193" }
+      ]
+    },
+    {
+      "entryId": "stat.liveMirror",
+      "successBehavior": "現在のlive revisionを1進め、sourceTabInstanceId・sourceSlot・snapshotをlive mirrorへ保存する。",
+      "readFailure": "revisionの読込・解析失敗は0として扱う。",
+      "writeFailure": "liveまたはlegacyの片側書込失敗を握りつぶし、後続のlive-published通知を発行し得る。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "同一タブのメモリ状態は維持され、他画面は通知を受けても未更新値を読む可能性がある。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "publishLiveState", "operations": ["getItem", "setItem"], "keyResolution": "STATE_LIVE_STORAGE_KEY定数", "evidence": "stat-prototype.js:11679-11698" }
+      ]
+    },
+    {
+      "entryId": "stat.workspaceDraft",
+      "successBehavior": "現在のappStateからsavedStatesを除いたdraft、workspaceId、activeSlot、baseSlotRevisionをsessionStorageへ保存する。",
+      "readFailure": "sessionStorage例外・JSON解析失敗はworkspaceなしとしてlegacy/currentへfallbackする。",
+      "writeFailure": "persistStateWorkspaceは例外を握りつぶし、persistStateはlive publishへ継続する。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "同一タブのメモリ状態は維持されるが、再読込時に未保存draftを復元できない。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadStateWorkspace/persistStateWorkspace", "operations": ["getItem", "setItem"], "keyResolution": "STATE_WORKSPACE_STORAGE_KEY定数", "evidence": "stat-prototype.js:11648-11666" }
+      ]
+    },
+    {
+      "entryId": "stat.reloadContext",
+      "successBehavior": "再読込前の表示位置と開いていたパネルをsessionStorageへ保存し、復元後に一度削除する。",
+      "readFailure": "JSON解析・sessionStorage例外時は再読込前UI復元を行わず通常初期表示へ進む。",
+      "writeFailure": "保存例外は握りつぶし、通常の再読込へfallbackする。",
+      "deleteFailure": "restore中のremoveItem失敗は同じtryで握りつぶし、復元処理を中断する。",
+      "callerOutcome": "計算・保存データには影響せず、表示位置や開いていたパネルだけ失われる。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "saveDashboardReloadContext/restoreDashboardReloadContext", "operations": ["getItem", "setItem", "removeItem"], "keyResolution": "DASHBOARD_RELOAD_CONTEXT_KEY定数", "evidence": "stat-prototype.js:3876-3892" }
+      ]
+    },
+    {
+      "entryId": "preference.commonTheme",
+      "successBehavior": "テーマをDOMへ適用し、共通テーマキーへ保存する。実装によっては旧テーマキーも同時に更新する。",
+      "readFailure": "stat-prototype.jsのloadSavedThemeとformation-damage-calc.jsのinitThemeにはread catchがなく、storage例外が呼出元へ伝播し得る。enemy-status、board preview、shareのbootstrapは各実装のfallbackまたは現状維持へ進む。",
+      "writeFailure": "stat/calcは例外が呼出元へ伝播し得る。enemy-status、board preview、share prototypeはその場の表示を維持して握りつぶす。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "保存不能でも現在ページのテーマ切替は維持される実装と、例外で処理が中断し得る実装が混在する。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadSavedTheme/setTheme", "operations": ["getItem", "setItem"], "keyResolution": "COMMON_THEME_STORAGE_KEY定数", "evidence": "stat-prototype.js:507-517" },
+        { "file": "formation-damage-calc.js", "function": "initTheme/setTheme", "operations": ["getItem", "setItem"], "keyResolution": "THEME_KEY定数", "evidence": "formation-damage-calc.js:11718-11734" },
+        { "file": "enemy-status.js", "function": "initTheme/<anonymous>", "operations": ["getItem", "setItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "enemy-status.js:57,316" },
+        { "file": "public/board-layout-preview.js", "function": "applyTheme", "operations": ["setItem"], "keyResolution": "COMMON_THEME_KEY定数", "evidence": "public/board-layout-preview.js:156-157" },
+        { "file": "formation-share-prototype.js", "function": "<anonymous>", "operations": ["setItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "formation-share-prototype.js:610" },
+        { "file": "stat-dashboard.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "stat-dashboard.html:42" },
+        { "file": "formation-share-prototype.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "formation-share-prototype.html:11" },
+        { "file": "public/board-layout-preview.html", "function": "<top-level>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "public/board-layout-preview.html:10" }
+      ]
+    },
+    {
+      "entryId": "preference.statThemeLegacy",
+      "successBehavior": "stat画面のテーマ切替時に共通テーマと旧statテーマを同じ値へ保存する。",
+      "readFailure": "共通テーマがない場合に旧statテーマを参照する。stat-prototype.jsのreadにはcatchがなく、storage例外は呼出元へ伝播し得る。無効な保存値はdarkまたはlightの条件分岐で正規化される。",
+      "writeFailure": "stat prototypeのsetThemeは例外が呼出元へ伝播し得る。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "共通テーマとの二重書込の途中で失敗すると、2キーが不一致になる可能性がある。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadSavedTheme/setTheme", "operations": ["getItem", "setItem"], "keyResolution": "THEME_STORAGE_KEY定数", "evidence": "stat-prototype.js:507-517" },
+        { "file": "formation-damage-calc.js", "function": "initTheme", "operations": ["getItem"], "keyResolution": "LEGACY_THEME_KEY定数＋リテラルtrickcal_stat_theme", "evidence": "formation-damage-calc.js:11718-11720" },
+        { "file": "stat-dashboard.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_stat_theme", "evidence": "stat-dashboard.html:42" },
+        { "file": "formation-share-prototype.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_stat_theme", "evidence": "formation-share-prototype.html:11" },
+        { "file": "public/board-layout-preview.html", "function": "<top-level>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_stat_theme", "evidence": "public/board-layout-preview.html:10" }
+      ]
+    },
+    {
+      "entryId": "preference.calcThemeLegacy",
+      "successBehavior": "計算画面のテーマ切替時に共通テーマと旧calcテーマを同じ値へ保存する。",
+      "readFailure": "共通テーマがない場合に旧calcテーマを参照し、無効値はdarkへfallbackする。",
+      "writeFailure": "setThemeは例外を握りつぶさず、2キー書込の途中で止まり得る。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "現在ページのDOM更新後に永続化が失敗し、次回起動時だけ旧テーマへ戻る可能性がある。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "formation-damage-calc.js", "function": "initTheme/setTheme", "operations": ["getItem", "setItem"], "keyResolution": "THEME_KEY/LEGACY_THEME_KEY定数", "evidence": "formation-damage-calc.js:11718-11735" }
+      ]
+    },
+    {
+      "entryId": "preference.boardShortcutOffMode",
+      "successBehavior": "nodeまたはrouteへ正規化したOFF動作をメモリとlocalStorageへ保存し、表示を再描画する。",
+      "readFailure": "保存値がroute以外ならnodeへfallbackする。localStorage例外を握るcatchはなく、呼出元へ伝播し得る。",
+      "writeFailure": "setBoardShortcutOffModeのsetItem例外は呼出元へ伝播し得る。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "メモリ上の表示モード更新後に保存が失敗すると、次回起動時にnodeへ戻る可能性がある。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadBoardShortcutOffMode/setBoardShortcutOffMode", "operations": ["getItem", "setItem"], "keyResolution": "BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY定数", "evidence": "stat-prototype.js:522-543" }
+      ]
+    },
+    {
+      "entryId": "preference.boardOrientation",
+      "successBehavior": "horizontalまたはverticalへ正規化した方向をメモリとlocalStorageへ保存し、表示を再描画する。",
+      "readFailure": "例外時はhorizontalへfallbackする。",
+      "writeFailure": "setBoardOrientationは例外を握りつぶし、表示を継続する。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "保存不能でも現在の方向は維持され、再読込時にhorizontalへ戻る可能性がある。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadBoardOrientation/setBoardOrientation", "operations": ["getItem", "setItem"], "keyResolution": "BOARD_ORIENTATION_STORAGE_KEY定数", "evidence": "stat-prototype.js:527-536" }
+      ]
+    },
+    {
+      "entryId": "calc.settings",
+      "successBehavior": "現在の計算対象・編成・敵・補正・効果・表示・一時状態をschema付きJSONとして保存する。",
+      "readFailure": "JSON解析・個別フィールドの不正は既定値を維持し、全体例外はwarnして起動を継続する。",
+      "writeFailure": "例外をwarnにして握りつぶす。多数のUI操作はメモリを先に変更するため、再読込で失われる。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "保存成功・失敗の戻り値はなく、画面操作は通常継続する。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "formation-damage-calc.js", "function": "restoreCalcSettings/saveCalcSettings", "operations": ["getItem", "setItem"], "keyResolution": "CALC_SETTINGS_KEY定数", "evidence": "formation-damage-calc.js:2673-2738" },
+        { "file": "image-preload.js", "function": "readJson/collectSavedImages", "operations": ["getItem"], "keyResolution": "呼出元定数をkey引数で受ける", "evidence": "image-preload.js:127-193" }
+      ]
+    },
+    {
+      "entryId": "calc.resultSaves",
+      "successBehavior": "有効な計算snapshotを保存日時順の配列へ追加・更新し、最大50件へ切り詰めて保存する。",
+      "readFailure": "JSON解析例外はwarnして空配列へfallbackする。配列以外は警告なしで空配列、不正itemはfilterで除外する。",
+      "writeFailure": "例外をwarnにして握りつぶし、成功結果を返さない。",
+      "deleteFailure": "削除後の配列全体書込に失敗すると、メモリ上の一覧と永続値が不一致になり得る。",
+      "callerOutcome": "saveCurrentDamageCalculationはwrite後に保存メニューを閉じるため、書込失敗でもUI上は完了に見え得る。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "formation-damage-calc.js", "function": "loadDamageCalculationSaves/writeDamageCalculationSaves", "operations": ["getItem", "setItem"], "keyResolution": "CALC_RESULT_SAVES_KEY定数", "evidence": "formation-damage-calc.js:2176-2199" }
+      ]
+    },
+    {
+      "entryId": "calc.enemyPresets",
+      "successBehavior": "custom:<generated id>を持つ敵プリセットを現在のobjectへ追加・更新し、object全体を書き戻す。",
+      "readFailure": "JSON解析例外はwarnして空objectへfallbackする。object以外や不正presetは警告なしで空objectまたは除外へ進む。",
+      "writeFailure": "保存・削除の全object書込失敗をwarnにして握りつぶす。",
+      "deleteFailure": "対象を除いた全objectの書込に失敗すると、削除前の永続値が残る。",
+      "callerOutcome": "保存・削除操作は成功結果を返さず、画面側が完了表示する可能性がある。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "formation-damage-calc.js", "function": "getCustomEnemyPresets/saveCustomEnemyPreset/deleteCustomEnemyPreset", "operations": ["getItem", "setItem"], "keyResolution": "CUSTOM_ENEMY_PRESETS_KEY定数", "evidence": "formation-damage-calc.js:1805-1882" }
+      ]
+    },
+    {
+      "entryId": "dps.settings",
+      "successBehavior": "targetIdごとの正規化済みDPS設定をstoreへ反映し、localStorageへ保存する。",
+      "readFailure": "不正JSON・object以外は空storeへfallbackし、対象ごとの既定値を使う。",
+      "writeFailure": "メモリを先に更新してからsetItemを試み、例外を握りつぶす。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "保存失敗後も同一タブのDPS設定は維持されるが、再読込で消える。起動時target syncが暗黙に書込む。",
+      "startupWrites": true,
+      "accessSites": [
+        { "file": "formation-damage-dps-prototype.js", "function": "loadDpsSettingsStore/saveDpsSettingsStore", "operations": ["getItem", "setItem"], "keyResolution": "DPS_SETTINGS_STORAGE_KEY定数", "evidence": "formation-damage-dps-prototype.js:131-138" }
+      ]
+    },
+    {
+      "entryId": "dps.runtimeOverrides",
+      "successBehavior": "target/effect単位のauto・fixed・off等のoverrideをobject全体として保存する。",
+      "readFailure": "不正JSON・object以外は空objectへfallbackする。",
+      "writeFailure": "現行controller・旧DPS試験controllerともsetItem例外を握りつぶし、メモリ上のoverrideを維持する。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "controller間の同一キー書込順序・保存成功の共有契約はなく、片方の失敗をもう片方へ通知しない。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "formation-damage-dps-prototype.js", "function": "loadDpsRuntimeEffectOverrides/saveDpsRuntimeEffectOverrides", "operations": ["getItem", "setItem"], "keyResolution": "DPS_RUNTIME_OVERRIDE_STORAGE_KEY定数", "evidence": "formation-damage-dps-prototype.js:120-127" },
+        { "file": "formation-dps-calc.js", "function": "loadRuntimeEffectOverrides/saveRuntimeEffectOverrides", "operations": ["getItem", "setItem"], "keyResolution": "DPS_RUNTIME_OVERRIDE_STORAGE_KEY定数", "evidence": "formation-dps-calc.js:1696-1705" }
+      ]
+    },
+    {
+      "entryId": "comparison.session",
+      "successBehavior": "version 3のpinned comparison sessionを正規化し、sessionStorageへ保存する。解除時はキーを削除する。",
+      "readFailure": "不正JSONまたはmode/baseline等の構造不備はnullへfallbackする。version値自体は検査せず、version:999でも現行version 3へ正規化する。",
+      "writeFailure": "既存コードはsessionStorage例外をnullとして扱い、呼出元へ保存成功を通知しない。",
+      "deleteFailure": "removeItem例外は握りつぶす。",
+      "callerOutcome": "比較基準が保存できない場合も現在の比較操作は継続し得るが、再読込・別タブでは失われる。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "combat-scenario.js", "function": "loadComparisonSession/savePinnedComparison/clearComparisonSession", "operations": ["getItem", "setItem", "removeItem"], "keyResolution": "COMPARISON_SESSION_KEY定数", "evidence": "combat-scenario.js:202-245" }
+      ]
+    },
+    {
+      "entryId": "sharePrototype.globalEnhancements",
+      "successBehavior": "共有試作で選択した全体強化元のsources配列をversion付きでlocalStorageへ保存する。",
+      "readFailure": "不正JSON・sources以外は既定の全体強化元へfallbackする。",
+      "writeFailure": "params指定時を除きsetItem例外を握りつぶす。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "共有URL本体には影響せず、旧試作ページ内の表示設定だけが次回起動で既定値へ戻る。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "formation-share-prototype.js", "function": "loadGlobalEnhancementSelection/saveGlobalEnhancementSelection", "operations": ["getItem", "setItem"], "keyResolution": "GLOBAL_ENHANCEMENT_STORAGE_KEY定数", "evidence": "formation-share-prototype.js:210-219" }
+      ]
+    },
+    {
+      "entryId": "preference.boardPreviewThemeLegacy",
+      "successBehavior": "ボードプレビューのテーマをDOMへ適用し、共通テーマと旧previewテーマを保存する。",
+      "readFailure": "共通テーマがない場合に旧previewテーマを参照し、無効値はdarkへfallbackする。",
+      "writeFailure": "例外を握りつぶし、その場のテーマを維持する。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "共通テーマと旧previewテーマの片側だけが残る可能性がある。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "public/board-layout-preview.js", "function": "applyTheme", "operations": ["setItem"], "keyResolution": "LEGACY_PREVIEW_THEME_KEY定数", "evidence": "public/board-layout-preview.js:156-157" },
+        { "file": "public/board-layout-preview.html", "function": "<top-level>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal-board-preview-theme", "evidence": "public/board-layout-preview.html:11" }
+      ]
+    },
+    {
+      "entryId": "preference.boardPreviewScale",
+      "successBehavior": "表示倍率を0.6〜1.6へ丸め、メモリ・CSS・URLとlocalStorageへ反映する。",
+      "readFailure": "数値化失敗・例外時は1倍へfallbackする。",
+      "writeFailure": "例外を握りつぶし、その場の倍率を維持する。",
+      "deleteFailure": "storage key自体の削除経路は確認できない。",
+      "callerOutcome": "保存不能でも表示倍率は維持され、再読込時に1倍へ戻る可能性がある。",
+      "startupWrites": "conditional: URLのzoom指定時",
+      "accessSites": [
+        { "file": "public/board-layout-preview.js", "function": "readSavedViewScale/applyViewScale", "operations": ["getItem", "setItem"], "keyResolution": "PREVIEW_SCALE_KEY定数", "evidence": "public/board-layout-preview.js:198-215" }
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "id": "stat.slotStore",
+      "key": "trickcal_stat_slots_v2",
+      "area": "localStorage",
+      "category": "slot",
+      "role": "canonical-user-state",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-damage-calc.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write", "delete", "implicit-migrate"],
+      "payload": "schemaVersion=2。1〜6のslots各々にslotRevision、savedAt、savedBy、snapshotを持つ。storeRevisionも保持する。",
+      "writeTriggers": ["明示的なスロット保存", "明示的なスロット削除", "旧legacy savedStatesの起動時移行"],
+      "crossTab": "navigator.locksの排他、BroadcastChannelとstorage eventによる通知、slotRevisionによる競合検知",
+      "migrationDisposition": "gateBで完全バックアップ対象として確定",
+      "evidence": ["stat-prototype.js:13", "stat-prototype.js:11624", "stat-prototype.js:11714", "stat-prototype.js:11737"]
+    },
+    {
+      "id": "stat.legacyCurrent",
+      "key": "trickcal_stat_prototype_v1",
+      "area": "localStorage",
+      "category": "current-state",
+      "role": "compatibility-mirror",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "image-preload.js"],
+      "writers": ["stat-prototype.js", "formation-damage-calc.js"],
+      "operations": ["read", "write", "legacy-migrate"],
+      "payload": "workspace相当の現在状態、syncRevision、activeStateSlot。旧形式ではsavedStatesも移行入力になり得る。",
+      "writeTriggers": ["公開中かつ可視のタブによるlive publish", "計算画面からのactiveId同期"],
+      "crossTab": "独自の世代管理はsyncRevisionのみ。主な同期はlive mirrorとstat側の通知経路に依存する。",
+      "migrationDisposition": "主保存にはせず、旧形式互換または生データ救出をgateBで確定",
+      "evidence": ["stat-prototype.js:12", "stat-prototype.js:11697", "stat-prototype.js:11830", "formation-damage-calc.js:2911"]
+    },
+    {
+      "id": "stat.liveMirror",
+      "key": "trickcal_stat_live_v2",
+      "area": "localStorage",
+      "category": "current-state",
+      "role": "derived-live-mirror",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-share-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "schemaVersion=2、revision、sourceTabInstanceId、sourceSlot、publishedAt、snapshot。",
+      "writeTriggers": ["persistState後、現在タブがpublisherで可視のときのlive publish", "focus復帰時のpublisher claim"],
+      "crossTab": "revisionとsourceTabInstanceIdを使い、別タブのlive publisherを抑制する。",
+      "migrationDisposition": "slotまたは明示ドラフトから再構成する派生値か、現在状態バックアップへ含めるかをgateBで確定",
+      "evidence": ["stat-prototype.js:15", "stat-prototype.js:11679", "stat-prototype.js:11697"]
+    },
+    {
+      "id": "stat.workspaceDraft",
+      "key": "trickcal_stat_workspace_v2",
+      "area": "sessionStorage",
+      "category": "current-draft",
+      "role": "tab-scoped-draft",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-share-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "workspaceVersion=2、workspaceId、activeSlot、baseSlotRevision、draft。draftにはsavedStatesを含めない。",
+      "writeTriggers": ["debounce保存", "終了・非表示・blur時のflush", "外部スロット変更後の競合状態保存"],
+      "crossTab": "sessionStorageのためタブ単位。別タブの未保存編集は自動統合されない。",
+      "migrationDisposition": "同一タブから明示的に抽出する場合だけgateBで対象化。新Originへ自動共有できない。",
+      "evidence": ["stat-prototype.js:14", "stat-prototype.js:11648", "stat-prototype.js:11666", "stat-prototype.js:11837"]
+    },
+    {
+      "id": "stat.reloadContext",
+      "key": "trickcal_dashboard_reload_context_v1",
+      "area": "sessionStorage",
+      "category": "display",
+      "role": "one-shot-navigation-context",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write", "delete"],
+      "payload": "再読み込み後の表示位置やUI復帰用の一時コンテキスト。",
+      "writeTriggers": ["画面再読み込み導線"],
+      "crossTab": "タブ限定で、読み取り後にremoveする。",
+      "migrationDisposition": "バックアップ・Origin移行対象外。必要なら新タブで再生成する。",
+      "evidence": ["stat-prototype.js:21", "stat-prototype.js:3876", "stat-prototype.js:3891"]
+    },
+    {
+      "id": "preference.commonTheme",
+      "key": "trickcal_theme",
+      "area": "localStorage",
+      "category": "display",
+      "role": "shared-preference",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "enemy-status.js", "public/board-layout-preview.js", "stat-dashboard.html", "formation-share-prototype.html", "public/board-layout-preview.html", "image-preload.js"],
+      "writers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "enemy-status.js", "public/board-layout-preview.js"],
+      "operations": ["read", "write"],
+      "payload": "lightまたはdark。",
+      "writeTriggers": ["テーマ切替", "起動時のページ固有テーマ反映"],
+      "crossTab": "stat側とboard preview側の一部がstorage eventを購読する。",
+      "migrationDisposition": "ゲーム状態とは分離。ユーザー設定として含めるかはgateBで確定。",
+      "evidence": ["stat-prototype.js:17", "stat-prototype.js:516", "enemy-status.js:57", "public/board-layout-preview.js:156"]
+    },
+    {
+      "id": "preference.statThemeLegacy",
+      "key": "trickcal_stat_theme",
+      "area": "localStorage",
+      "category": "display",
+      "role": "legacy-preference",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js", "formation-damage-calc.js", "stat-dashboard.html", "formation-share-prototype.html", "public/board-layout-preview.html"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "lightまたはdark。共通テーマの旧名／フォールバック。",
+      "writeTriggers": ["ステータス管理のテーマ切替"],
+      "crossTab": "共通テーマの後方互換用途。",
+      "migrationDisposition": "主キーから再構成するレガシー設定。gateBで保持期間を確定。",
+      "evidence": ["stat-prototype.js:18", "stat-prototype.js:507", "stat-prototype.js:517"]
+    },
+    {
+      "id": "preference.calcThemeLegacy",
+      "key": "trickcal_damage_calc_theme",
+      "area": "localStorage",
+      "category": "display",
+      "role": "legacy-preference",
+      "owner": "formation-damage-calc.js",
+      "readers": ["formation-damage-calc.js"],
+      "writers": ["formation-damage-calc.js"],
+      "operations": ["read", "write"],
+      "payload": "lightまたはdark。",
+      "writeTriggers": ["ダメージ計算画面のテーマ切替"],
+      "crossTab": "共通テーマの後方互換用途。",
+      "migrationDisposition": "主キーから再構成するレガシー設定。gateBで保持期間を確定。",
+      "evidence": ["formation-damage-calc.js:9", "formation-damage-calc.js:11718", "formation-damage-calc.js:11734"]
+    },
+    {
+      "id": "preference.boardShortcutOffMode",
+      "key": "trickcal_board_shortcut_off_mode",
+      "area": "localStorage",
+      "category": "display",
+      "role": "user-preference",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "nodeまたはroute。",
+      "writeTriggers": ["全体ボードのOFF動作切替"],
+      "crossTab": "専用storage event処理は確認できない。",
+      "migrationDisposition": "表示設定。gateBで移行対象か再構成かを確定。",
+      "evidence": ["stat-prototype.js:19", "stat-prototype.js:522", "stat-prototype.js:543"]
+    },
+    {
+      "id": "preference.boardOrientation",
+      "key": "trickcal_board_orientation",
+      "area": "localStorage",
+      "category": "display",
+      "role": "user-preference",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "horizontalまたはvertical。",
+      "writeTriggers": ["ボード表示方向切替"],
+      "crossTab": "専用storage event処理は確認できない。",
+      "migrationDisposition": "表示設定。gateBで移行対象か再構成かを確定。",
+      "evidence": ["stat-prototype.js:20", "stat-prototype.js:527", "stat-prototype.js:536"]
+    },
+    {
+      "id": "calc.settings",
+      "key": "trickcal_formation_damage_settings_v1",
+      "area": "localStorage",
+      "category": "calculation",
+      "role": "user-working-settings",
+      "owner": "formation-damage-calc.js",
+      "readers": ["formation-damage-calc.js", "image-preload.js"],
+      "writers": ["formation-damage-calc.js"],
+      "operations": ["read", "write"],
+      "payload": "対象・編成・攻撃条件、敵プリセット選択と補正、表示・効果設定、skill override、temporary card state等。enemyCorrectionSchema=6を含む。",
+      "writeTriggers": ["各種計算UIのchange/click", "保存データの適用", "対象や一時カード状態の変更"],
+      "crossTab": "独自の排他・storage event同期は確認できない。",
+      "migrationDisposition": "ユーザー計算設定としてgateBで対象範囲と欠損時の既定値を確定。",
+      "evidence": ["formation-damage-calc.js:5", "formation-damage-calc.js:2673", "formation-damage-calc.js:2736"]
+    },
+    {
+      "id": "calc.resultSaves",
+      "key": "trickcal_formation_damage_result_saves_v1",
+      "area": "localStorage",
+      "category": "calculation",
+      "role": "named-user-snapshots",
+      "owner": "formation-damage-calc.js",
+      "readers": ["formation-damage-calc.js"],
+      "writers": ["formation-damage-calc.js"],
+      "operations": ["read", "write", "delete"],
+      "payload": "id、name、savedAt、snapshotの配列。snapshot version=4で計算結果、view、inputs、referenceState、DPS snapshotを含む。最大50件へ切り詰める。",
+      "writeTriggers": ["計算結果の明示保存／上書き", "計算結果の明示削除"],
+      "crossTab": "独自の排他・storage event同期は確認できない。",
+      "migrationDisposition": "名前付き計算保存としてgateBで完全バックアップ対象かを確定。結果の再計算可否も定義する。",
+      "evidence": ["formation-damage-calc.js:6", "formation-damage-calc.js:2176", "formation-damage-calc.js:2194", "formation-damage-calc.js:2433"]
+    },
+    {
+      "id": "calc.enemyPresets",
+      "key": "trickcal_formation_damage_enemy_presets_v1",
+      "area": "localStorage",
+      "category": "enemy",
+      "role": "user-authored-data",
+      "owner": "formation-damage-calc.js",
+      "readers": ["formation-damage-calc.js"],
+      "writers": ["formation-damage-calc.js"],
+      "operations": ["read", "write", "delete"],
+      "payload": "custom:<generated id>をキーにした敵プリセットオブジェクト。HP、攻撃／防御、会心、補正、size、content、modifiers、weakness、skills等を保持する。",
+      "writeTriggers": ["敵プリセットの明示保存", "敵プリセットの明示削除"],
+      "crossTab": "独自の排他・storage event同期は確認できない。削除・保存は全オブジェクトを書き戻す。",
+      "migrationDisposition": "利用者作成データとしてgateBで必須対象、ID不明・旧フィールド・破損時の扱いを確定。",
+      "evidence": ["formation-damage-calc.js:7", "formation-damage-calc.js:1805", "formation-damage-calc.js:1856", "formation-damage-calc.js:1882"]
+    },
+    {
+      "id": "dps.settings",
+      "key": "trickcal:dps-settings:v1",
+      "area": "localStorage",
+      "category": "dps",
+      "role": "per-target-user-settings",
+      "owner": "formation-damage-dps-prototype.js",
+      "readers": ["formation-damage-dps-prototype.js"],
+      "writers": ["formation-damage-dps-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "targetIdを小文字化したキーごとにdurationSeconds、highSkillMode、formationTimelineMode、formationHighSkillMode、seed、trials、autoRun、externalEvents、settingsVersion=2を保持する。",
+      "writeTriggers": ["対象切替時の保存", "設定change", "外部イベント変更", "pagehide"],
+      "crossTab": "独自の排他・storage event同期は確認できない。",
+      "migrationDisposition": "DPS設定としてgateBで必須／任意を確定。外部イベントの旧形式と推定イベントの再構成規則が必要。",
+      "evidence": ["formation-damage-dps-prototype.js:107", "formation-damage-dps-prototype.js:131", "formation-damage-dps-prototype.js:750", "formation-damage-dps-prototype.js:2013"]
+    },
+    {
+      "id": "dps.runtimeOverrides",
+      "key": "trickcal:dps-runtime-effect-overrides:v1",
+      "area": "localStorage",
+      "category": "dps",
+      "role": "runtime-effect-user-settings",
+      "owner": "formation-damage-dps-prototype.js",
+      "readers": ["formation-damage-dps-prototype.js", "formation-dps-calc.js"],
+      "writers": ["formation-damage-dps-prototype.js", "formation-dps-calc.js"],
+      "operations": ["read", "write"],
+      "payload": "targetId／effectIdまたはruntimeBaseEffectId単位のauto、fixed、off等の上書き。",
+      "writeTriggers": ["時系列効果設定の明示変更"],
+      "crossTab": "二つのDPS controllerが同じキーを使うが、共通ロック・世代比較は確認できない。",
+      "migrationDisposition": "DPS設定の一部としてgateBで形式版・旧binding互換・保持範囲を確定。",
+      "evidence": ["formation-damage-dps-prototype.js:106", "formation-damage-dps-prototype.js:120", "formation-dps-calc.js:110", "formation-dps-calc.js:1696"]
+    },
+    {
+      "id": "comparison.session",
+      "key": "trickcal_combat_comparison_session_v1",
+      "area": "sessionStorage",
+      "category": "calculation",
+      "role": "tab-scoped-comparison-session",
+      "owner": "combat-scenario.js",
+      "readers": ["combat-scenario.js", "formation-damage-calc.js", "formation-damage-dps-prototype.js", "formation-dps-calc.js"],
+      "writers": ["combat-scenario.js"],
+      "operations": ["read", "write", "delete"],
+      "payload": "version=3のpinned比較。scenario、comparison scopes、evaluationPolicy、singleAction／DPS cacheを含む。",
+      "writeTriggers": ["比較基準の明示保存", "比較基準の解除"],
+      "crossTab": "タブ限定。localStorageや別Originへは共有されない。",
+      "migrationDisposition": "通常バックアップ対象外。必要な場合は計算保存から明示的に再構成する方針をgateBで確定。",
+      "evidence": ["combat-scenario.js:6", "combat-scenario.js:153", "combat-scenario.js:192", "combat-scenario.js:233"]
+    },
+    {
+      "id": "sharePrototype.globalEnhancements",
+      "key": "trickcal_share_global_enhancement_sources_v2",
+      "area": "localStorage",
+      "category": "display",
+      "role": "legacy-share-preference",
+      "owner": "formation-share-prototype.js",
+      "readers": ["formation-share-prototype.js"],
+      "writers": ["formation-share-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "version=1、共有プレビューで表示する全体強化元のsources配列。",
+      "writeTriggers": ["共有試作ページの表示元選択"],
+      "crossTab": "独自の同期は確認できない。現在のformation-share.html受信ページのURLデータではない。",
+      "migrationDisposition": "旧試作の表示設定。通常バックアップ・Origin移行対象外候補。",
+      "evidence": ["formation-share-prototype.js:16", "formation-share-prototype.js:210", "formation-share-prototype.js:219"]
+    },
+    {
+      "id": "preference.boardPreviewThemeLegacy",
+      "key": "trickcal-board-preview-theme",
+      "area": "localStorage",
+      "category": "display",
+      "role": "legacy-preference",
+      "owner": "public/board-layout-preview.js",
+      "readers": ["public/board-layout-preview.js", "public/board-layout-preview.html"],
+      "writers": ["public/board-layout-preview.js"],
+      "operations": ["read", "write"],
+      "payload": "lightまたはdark。共通テーマのboard preview旧名。",
+      "writeTriggers": ["公開ボードプレビューのテーマ切替"],
+      "crossTab": "共通テーマのstorage eventを購読する。",
+      "migrationDisposition": "主キーから再構成する表示設定。gateBで保持期間を確定。",
+      "evidence": ["public/board-layout-preview.js:8", "public/board-layout-preview.js:157", "public/board-layout-preview.html:11"]
+    },
+    {
+      "id": "preference.boardPreviewScale",
+      "key": "trickcal-board-preview-scale",
+      "area": "localStorage",
+      "category": "display",
+      "role": "user-preference",
+      "owner": "public/board-layout-preview.js",
+      "readers": ["public/board-layout-preview.js"],
+      "writers": ["public/board-layout-preview.js"],
+      "operations": ["read", "write"],
+      "payload": "0.6〜1.6の表示倍率。",
+      "writeTriggers": ["公開ボードプレビューの拡大縮小"],
+      "crossTab": "専用storage event処理は確認できない。URLのzoomがある場合はURL値も使う。",
+      "migrationDisposition": "表示設定。通常バックアップ・Origin移行では再構成候補。",
+      "evidence": ["public/board-layout-preview.js:9", "public/board-layout-preview.js:198", "public/board-layout-preview.js:215"]
+    }
+  ],
+  "channels": [
+    {
+      "id": "stat.broadcast",
+      "type": "BroadcastChannel",
+      "name": "trickcal-stat-sync-v2",
+      "sourceFiles": ["stat-prototype.js"],
+      "purpose": "スロット変更・live publishの通知。保存データそのものの永続領域ではない。",
+      "migrationDisposition": "移行対象外。新Originでは新しいチャネルを生成する。"
+    },
+    {
+      "id": "stat.lock",
+      "type": "navigator.locks",
+      "name": "trickcal-stat-slots-v2",
+      "sourceFiles": ["stat-prototype.js"],
+      "purpose": "スロット保存・削除の排他。非対応環境ではPromise化するだけで実ロックはない。",
+      "migrationDisposition": "保存契約の一部としてGate Aで再定義する。"
+    },
+    {
+      "id": "stat.storageEvent",
+      "type": "Window storage event",
+      "name": "storage",
+      "sourceFiles": ["stat-prototype.js", "public/board-layout-preview.js"],
+      "purpose": "別タブのスロット、live、共通テーマの変更通知。",
+      "migrationDisposition": "移行対象外。新Origin内の同期設計で再利用する。"
+    },
+    {
+      "id": "serviceWorker.cache",
+      "type": "Cache Storage",
+      "name": "trickcal-manager-*",
+      "sourceFiles": ["app-cache.js", "service-worker.js"],
+      "purpose": "HTML/CSS/JS/画像等の表示キャッシュ。利用者保存データではない。",
+      "migrationDisposition": "バックアップ対象外。新Originで再構築し、復旧・撤去条件はGate Cで扱う。"
+    },
+    {
+      "id": "share.urlHash",
+      "type": "URL fragment",
+      "name": "formation-share.html#...",
+      "sourceFiles": ["formation-share.html", "formation-share.js", "formation-share-codec.js"],
+      "purpose": "読み取り専用の編成共有payload。localStorageの保存値ではなく、共有URL自身に含まれる。",
+      "migrationDisposition": "保存移行とは分離。旧hashの新URL解決と資材版はGate Cで扱う。"
+    }
+  ]
+}

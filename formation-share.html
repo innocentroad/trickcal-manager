@@ -12,7 +12,7 @@
       document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
     })();
   </script>
-  <link rel="stylesheet" href="formation-share-prototype.css?v=20260912e">
+  <link rel="stylesheet" href="formation-share-prototype.css?v=cb96b357ecd93417">
 </head>
 <body class="formation-share-page">
   <header class="share-topbar">
@@ -24,7 +24,7 @@
       <button type="button" class="theme-button" id="theme-toggle" aria-label="テーマ切替" aria-pressed="true">
         <span aria-hidden="true">☼</span><span class="theme-button-label">ライト</span>
       </button>
-      <a href="stat-dashboard.html" class="back-link">ステータス管理へ</a>
+      <a href="stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ</a>
     </div>
   </header>
 
@@ -32,7 +32,7 @@
     <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
       <h2>共有編成を表示できません</h2>
       <p id="share-error-message">URLの内容を確認してください。</p>
-      <a href="stat-dashboard.html" class="back-link">ステータス管理へ戻る</a>
+      <a href="stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ戻る</a>
     </section>
 
     <div id="share-content">
@@ -87,12 +87,11 @@
     </div>
   </aside>
 
-  <script src="statData.js?v=20260907c"></script>
-  <script src="cards.js?v=20260910b"></script>
-  <script src="formation-share-catalog.js?v=20260910a"></script>
-  <script src="formation-share-codec.js?v=20260910a"></script>
-  <script src="formation-share.js?v=20260912c"></script>
-  <script src="formation-share-image.js?v=20260912j"></script>
-  <script src="formation-share-page-actions.js?v=20260912a"></script>
+  <script src="formation-share-display-data.js?v=5c60cf538126f037"></script>
+  <script src="formation-share-catalog.js?v=f831ed029d771efa"></script>
+  <script src="formation-share-codec.js?v=53216a7afa317aab"></script>
+  <script src="formation-share.js?v=90109fe4b9f9aaaa"></script>
+  <script src="formation-share-image.js?v=9bac3ba76e150288"></script>
+  <script src="formation-share-page-actions.js?v=5c9b6dca93fe7614"></script>
 </body>
 </html>

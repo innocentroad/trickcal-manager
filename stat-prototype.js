@@ -1,6 +1,55 @@
 (function () {
   'use strict';
 
+  function isStorageRuntimeError(error) {
+    return error?.name === 'StorageRuntimeError';
+  }
+
+  function createStorageRuntimeError(code, operation = 'read', id = '') {
+    const error = new Error(`storage ${code}`);
+    error.name = 'StorageRuntimeError';
+    error.result = {
+      ok: false,
+      code,
+      operation,
+      ...(id ? { id } : {}),
+      retryable: ['busy', 'read-failed', 'write-failed', 'remove-failed'].includes(code)
+    };
+    return error;
+  }
+
+  function reportStorageFailure(error) {
+    if (!isStorageRuntimeError(error)) {
+      console.error(error);
+      return;
+    }
+    const result = error.result || {};
+    const code = result.code || 'failed';
+    document.documentElement?.setAttribute('data-storage-error', code);
+    const status = document.getElementById('state-status');
+    if (status) {
+      status.textContent = '保存データを確認できませんでした。再読み込みして再試行してください。';
+      status.classList.add('is-error');
+      return;
+    }
+    if (document.body) {
+      document.body.classList.remove('is-booting');
+      document.body.removeAttribute('aria-busy');
+      document.body.innerHTML = '<main class="storage-boot-error"><h1>保存データを確認できませんでした</h1><p>このページを再読み込みして、もう一度お試しください。</p></main>';
+    }
+  }
+
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+    const storageSession = window.TRICKCAL_STORAGE_FACADE.sessionStorage;
+    const storageRuntime = window.TRICKCAL_STORAGE_RUNTIME_INSTANCE;
+    const storageBackup = window.TRICKCAL_STORAGE_BACKUP;
+    const storageTransfer = window.TRICKCAL_STORAGE_TRANSFER;
+
   const DATA = window.TRICKCAL_STAT_DATA;
   if (!DATA) {
     document.body.classList.remove('is-booting');
@@ -53,6 +102,10 @@
   function isPublicAsideEnabled(id) {
     const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
     return typeof checker !== 'function' || checker(id);
+  }
+
+  function isStorageTransferEnabled() {
+    return storageTransfer?.isLocalTestTransferEnabled?.() === true;
   }
 
   function getEffectiveAsideRank(id, rank) {
@@ -208,6 +261,30 @@
     exportState: document.getElementById('export-state'),
     importState: document.getElementById('import-state'),
     importStateFile: document.getElementById('import-state-file'),
+    backupSourceMode: document.getElementById('backup-source-mode'),
+    backupExport: document.getElementById('backup-export'),
+    backupTransfer: document.getElementById('backup-transfer'),
+    backupTransferSave: document.getElementById('backup-transfer-save'),
+    backupImport: document.getElementById('backup-import'),
+    backupImportFile: document.getElementById('backup-import-file'),
+    backupRescue: document.getElementById('backup-rescue'),
+    backupPreview: document.getElementById('backup-preview'),
+    backupPreviewSummary: document.getElementById('backup-preview-summary'),
+    backupPreviewDatasets: document.getElementById('backup-preview-datasets'),
+    backupIncludeDisplay: document.getElementById('backup-include-display'),
+    backupAllowAuxiliaryExcludeWrap: document.getElementById('backup-allow-auxiliary-exclude-wrap'),
+    backupAllowAuxiliaryExclude: document.getElementById('backup-allow-auxiliary-exclude'),
+    backupAuxiliaryExcludeNote: document.getElementById('backup-auxiliary-exclude-note'),
+    backupRestorePlan: document.getElementById('backup-restore-plan'),
+    backupRestorePlanSummary: document.getElementById('backup-restore-plan-summary'),
+    backupRestorePlanDatasets: document.getElementById('backup-restore-plan-datasets'),
+    backupPrepareRestore: document.getElementById('backup-prepare-restore'),
+    backupApplyRestore: document.getElementById('backup-apply-restore'),
+    backupRetryRecovery: document.getElementById('backup-retry-recovery'),
+    backupReload: document.getElementById('backup-reload'),
+    backupRecoveryLink: document.getElementById('backup-recovery-link'),
+    backupCancel: document.getElementById('backup-cancel'),
+    backupStatus: document.getElementById('backup-status'),
     stateSlotIndicator: document.getElementById('state-slot-indicator'),
     stateCurrentSlot: document.getElementById('state-current-slot'),
     stateStatus: document.getElementById('state-status'),
@@ -435,6 +512,12 @@
   let stateManagerRenderTimer = 0;
   let renderTimer = 0;
   let pendingImportedState = null;
+  let pendingBackupPackage = null;
+  let pendingRestoreMaintenance = null;
+  let pendingRestorePlan = null;
+  let backupTransferSender = null;
+  let backupTransferPackage = null;
+  let backupTransferPackageJson = '';
   const formationCoinHistoryActions = new WeakMap();
   const apostleBulkLevelHistoryActions = new WeakMap();
   let formationPointerDragState = null;
@@ -461,22 +544,25 @@
     restoreSavedBoardPlan();
     syncControlsFromState();
     ensureHistoryControls();
+    syncBackupTransferAvailability();
+    window.addEventListener('trickcal-storage-transfer-test-enabled', syncBackupTransferAvailability);
     bindEvents();
     setupMultiTabStateSync();
     installStatEngineApi();
-    window.addEventListener('beforeunload', () => flushPendingStateSave());
-    window.addEventListener('pagehide', () => {
-      flushPendingStateSave();
-      isLiveStatePublisher = false;
-    });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        flushPendingStateSave();
+    const storageParticipant = storageRuntime?.registerParticipant?.({
+      flush() {
+        const flushed = flushPendingStateSave();
         isLiveStatePublisher = false;
-      } else {
+        return flushed
+          ? { ok: true }
+          : { ok: false, code: 'write-failed', retryable: true };
+      },
+      resume() {
         claimLiveStatePublisher();
+        return { ok: true };
       }
     });
+    if (storageParticipant && !storageParticipant.ok) reportStorageFailure(storageParticipant);
     renderStateManager();
     render();
     applyInitialDashboardRoute();
@@ -504,8 +590,8 @@
   }
 
   function loadSavedTheme() {
-    const saved = localStorage.getItem(COMMON_THEME_STORAGE_KEY)
-      || localStorage.getItem(THEME_STORAGE_KEY)
+    const saved = storageLocal.getItem(COMMON_THEME_STORAGE_KEY)
+      || storageLocal.getItem(THEME_STORAGE_KEY)
       || 'dark';
     return saved === 'dark' ? 'dark' : 'light';
   }
@@ -513,19 +599,20 @@
   function setTheme(theme) {
     const safeTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.dataset.theme = safeTheme;
-    localStorage.setItem(COMMON_THEME_STORAGE_KEY, safeTheme);
-    localStorage.setItem(THEME_STORAGE_KEY, safeTheme);
+    storageLocal.setItem(COMMON_THEME_STORAGE_KEY, safeTheme);
+    storageLocal.setItem(THEME_STORAGE_KEY, safeTheme);
     syncThemeToggle();
   }
 
   function loadBoardShortcutOffMode() {
-    return localStorage.getItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY) === 'route' ? 'route' : 'node';
+      return storageLocal.getItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY) === 'route' ? 'route' : 'node';
   }
 
   function loadBoardOrientation() {
     try {
-      return localStorage.getItem(BOARD_ORIENTATION_STORAGE_KEY) === 'vertical' ? 'vertical' : 'horizontal';
-    } catch {
+      return storageLocal.getItem(BOARD_ORIENTATION_STORAGE_KEY) === 'vertical' ? 'vertical' : 'horizontal';
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
       return 'horizontal';
     }
   }
@@ -533,14 +620,16 @@
   function setBoardOrientation(orientation) {
     view.boardOrientation = orientation === 'vertical' ? 'vertical' : 'horizontal';
     try {
-      localStorage.setItem(BOARD_ORIENTATION_STORAGE_KEY, view.boardOrientation);
-    } catch {}
+      storageLocal.setItem(BOARD_ORIENTATION_STORAGE_KEY, view.boardOrientation);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+    }
     render();
   }
 
   function setBoardShortcutOffMode(mode) {
     view.boardShortcutOffMode = mode === 'route' ? 'route' : 'node';
-    localStorage.setItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY, view.boardShortcutOffMode);
+    storageLocal.setItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY, view.boardShortcutOffMode);
     syncBoardShortcutOffToggle();
     renderBoardGlobalOverview();
   }
@@ -1200,6 +1289,48 @@
           Number(artifactButton.dataset.formationArtifactSlot) || 0
         );
       }
+    });
+
+    elements.backupExport?.addEventListener('click', () => {
+      void exportFullBackup();
+    });
+
+    elements.backupTransfer?.addEventListener('click', () => {
+      void startBackupTransfer();
+    });
+
+    elements.backupTransferSave?.addEventListener('click', () => {
+      saveBackupTransferPackage();
+    });
+
+    elements.backupRescue?.addEventListener('click', () => {
+      void exportRescueBackup();
+    });
+
+    elements.backupImport?.addEventListener('click', () => {
+      elements.backupImportFile?.click();
+    });
+
+    elements.backupImportFile?.addEventListener('change', () => {
+      void inspectBackupFile();
+    });
+
+    elements.backupPrepareRestore?.addEventListener('click', () => {
+      void prepareBackupRestore();
+    });
+
+    elements.backupApplyRestore?.addEventListener('click', () => {
+      void applyBackupRestore();
+    });
+
+    elements.backupRetryRecovery?.addEventListener('click', () => {
+      void retryBackupRecovery();
+    });
+
+    elements.backupReload?.addEventListener('click', () => window.location.reload());
+
+    elements.backupCancel?.addEventListener('click', () => {
+      void cancelBackupPreview();
     });
 
     elements.formationBoard?.addEventListener('pointerdown', beginFormationPointerDrag);
@@ -2583,7 +2714,7 @@
     persistCurrentControls();
     const mode = getStateSlotMode();
     if (mode === 'save') {
-      saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '');
+      void saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '').catch(reportStorageFailure);
       return;
     }
     if (mode === 'load') {
@@ -2598,7 +2729,7 @@
         showStateStatus(`スロット${targetSlot}は空です`, true);
         return;
       }
-      deleteStateSlot(targetSlot);
+      void deleteStateSlot(targetSlot).catch(reportStorageFailure);
       return;
     }
     if (mode === 'export') {
@@ -2606,7 +2737,7 @@
       return;
     }
     if (mode === 'import') {
-      importStateToSlot(targetSlot);
+      void importStateToSlot(targetSlot).catch(reportStorageFailure);
     }
   }
 
@@ -2668,7 +2799,7 @@
     appState.activeStateSlot = view.stateSlot;
     stateSlotBaseRevision = result.slotRevision;
     stateExternalConflict = null;
-    saveState({ flush: true });
+    if (!saveState({ flush: true })) return false;
     setStateSlotMode('');
     renderStateManager();
     const savedName = getStateSlotDisplayName(String(safeSlot), snapshot);
@@ -2686,7 +2817,7 @@
     stateSlotBaseRevision = getSharedSlotRevision(safeSlot, sharedStateSlotStore);
     stateExternalConflict = null;
     setStateSlotMode('');
-    applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), { activeStateSlot: safeSlot });
+    if (applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), { activeStateSlot: safeSlot }) === false) return;
     commitHistoryAction(history);
     showStateStatus(snapshot
       ? `スロット${safeSlot}を読み込みました`
@@ -2733,7 +2864,7 @@
       stateExternalConflict = null;
     }
     if (view.stateSlot === safeSlot) appState.activeStateSlot = view.stateSlot;
-    saveState({ flush: true });
+    if (!saveState({ flush: true })) return false;
     setStateSlotMode('');
     renderStateManager();
     showStateStatus(`スロット${safeSlot}を削除しました`);
@@ -2922,10 +3053,11 @@
     syncControlsFromState();
     renderResearchControls();
     appState.activeStateSlot = view.stateSlot;
-    saveState({ flush: true });
+    const persisted = saveState({ flush: true });
     renderStateManager();
     render({ deferFormationSpellCatalog: options.deferFormationSpellCatalog });
     document.dispatchEvent(new CustomEvent('stat-state-applied'));
+    return persisted;
   }
 
   function exportStateFile(slot) {
@@ -2960,6 +3092,598 @@
     link.remove();
     URL.revokeObjectURL(url);
     showStateStatus(`書き出しました（${formatStateFileSize(blob.size)}）`);
+  }
+
+  function showBackupStatus(message, isError = false) {
+    if (!elements.backupStatus) return;
+    elements.backupStatus.textContent = message;
+    elements.backupStatus.classList.toggle('is-error', isError);
+  }
+
+  function backupFailureMessage(result, fallback = 'バックアップを処理できませんでした。') {
+    const messages = {
+      busy: '別の保存操作が実行中です。少し待ってから再試行してください。',
+      notReady: '保存機能の準備が完了していません。再読み込みして再試行してください。',
+      'not-ready': '保存機能の準備が完了していません。再読み込みして再試行してください。',
+      quota: '保存領域の上限に達しました。',
+      'read-failed': '保存データを読み取れませんでした。',
+      'write-failed': '保存データを書き込めませんでした。',
+      'remove-failed': '保存データの削除確認に失敗しました。',
+      stale: '保存データが別の画面で更新されました。もう一度確認してください。',
+      'recovery-required': '保存データの確認が必要です。通常のバックアップを作成できません。',
+      'invalid-data': 'バックアップの形式または内容を確認できません。',
+      unsupported: 'この環境ではバックアップを利用できません。'
+    };
+    return messages[result?.code] || fallback;
+  }
+
+  async function exportFullBackup() {
+    const button = elements.backupExport;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    if (!button || !storageRuntime || !api) {
+      showBackupStatus('バックアップ機能を読み込めませんでした。', true);
+      return;
+    }
+    button.disabled = true;
+    showBackupStatus('保存データを確認しています…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        return;
+      }
+      maintenance = begun.value;
+      const result = await maintenance.export({
+        sourceMode: elements.backupSourceMode?.value || 'current-tab',
+        sourceRelease: api.getDefaultSourceRelease?.()
+      });
+      if (!result?.ok) {
+        showBackupStatus(backupFailureMessage(result), true);
+        return;
+      }
+      downloadBackupPackage(result.value);
+    } catch (error) {
+      console.error(error);
+      showBackupStatus('バックアップを作成できませんでした。', true);
+    } finally {
+      if (maintenance) {
+        const resumed = await maintenance.cancel();
+        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+      }
+      button.disabled = false;
+    }
+  }
+
+  async function startBackupTransfer() {
+    const button = elements.backupTransfer;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    const transferApi = storageTransfer || window.TRICKCAL_STORAGE_TRANSFER;
+    if (!isStorageTransferEnabled()) {
+      showBackupStatus('新サイトへの直接転送は現在利用できません。バックアップ保存とファイル移行を利用してください。', true);
+      return;
+    }
+    if (!button || !storageRuntime || !api?.createBackupPackageFromEntries || !transferApi?.createSender) {
+      showBackupStatus('転送機能を読み込めませんでした。', true);
+      return;
+    }
+    if (backupTransferSender && ![transferApi.phases.COMPLETE, transferApi.phases.FAILED, transferApi.phases.REJECTED]
+      .includes(backupTransferSender.getState().phase)) {
+      showBackupStatus('すでに転送を開始しています。新しいタブの確認を完了してください。', true);
+      return;
+    }
+
+    // window.open must run in the click task so popup-blocked environments can
+    // fall back to the existing file workflow without holding maintenance.
+    const targetOrigin = transferApi.getConfiguredPeerOrigin?.('target') || transferApi.defaultTargetOrigin;
+    const transferPath = window.TRICKCAL_PUBLIC_SITE?.peerPageUrl?.('transfer', targetOrigin)
+      || `${targetOrigin}/storage-transfer.html`;
+    const transferWindow = window.open(transferPath, '_blank');
+    if (!transferWindow) {
+      showBackupStatus('転送先タブを開けませんでした。バックアップ保存とファイル移行を利用してください。', true);
+      return;
+    }
+
+    let resolveReady;
+    const ready = new Promise(resolve => { resolveReady = resolve; });
+    let sender = null;
+    let transferApplyStarted = false;
+    let detachTransferMessage = () => {};
+    const releaseBeforeApply = ({ closeWindow = false } = {}) => {
+      if (!sender) return false;
+      const phase = sender.getState().phase;
+      if (transferApplyStarted || [transferApi.phases.APPLYING, transferApi.phases.COMPLETE].includes(phase)) return false;
+      sender.stopHandshake?.();
+      detachTransferMessage();
+      if (backupTransferSender === sender) backupTransferSender = null;
+      if (closeWindow) transferWindow.close?.();
+      return true;
+    };
+    sender = transferApi.createSender({
+      peerWindow: transferWindow,
+      peerOrigin: targetOrigin,
+      sourceMode: elements.backupSourceMode?.value || 'current-tab',
+      listeners: {
+        ready() { resolveReady(true); },
+        timeout() {
+          resolveReady(false);
+          releaseBeforeApply();
+        },
+        preview() { showBackupStatus('新サイトで内容を確認しました。復元確認を待っています…'); },
+        applying(_, state) {
+          transferApplyStarted = true;
+        },
+        result(result, state) {
+          sender.stopHandshake?.();
+          detachTransferMessage();
+          if (backupTransferSender === sender) backupTransferSender = null;
+          if (result?.ok) showBackupStatus('新サイトへの転送と復元が完了しました。');
+          else showBackupStatus('新サイトでの復元に失敗しました。送信元の保存データは変更していません。', true);
+        },
+        reject(_, state) {
+          resolveReady(false);
+          if (!transferApplyStarted && ![transferApi.phases.APPLYING, transferApi.phases.COMPLETE].includes(state?.phase)) {
+            releaseBeforeApply();
+          }
+          showBackupStatus('転送先との通信を確認できません。ファイル移行を利用してください。', true);
+        }
+      }
+    });
+    const handleTransferMessage = event => sender.handleMessage(event);
+    detachTransferMessage = () => {
+      window.removeEventListener('message', handleTransferMessage);
+      detachTransferMessage = () => {};
+    };
+    window.addEventListener('message', handleTransferMessage);
+    backupTransferSender = sender;
+    button.disabled = true;
+    showBackupStatus('転送先を準備しています…');
+    let maintenance = null;
+    try {
+      if (!sender.startHandshake({ timeoutMs: 10000 })) {
+        showBackupStatus('転送先との接続を開始できません。ファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      maintenance = begun.value;
+      const result = await maintenance.export({
+        sourceMode: elements.backupSourceMode?.value || 'current-tab',
+        sourceRelease: api.getDefaultSourceRelease?.()
+      });
+      if (!result?.ok) {
+        showBackupStatus(backupFailureMessage(result), true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      backupTransferPackage = result.value;
+      backupTransferPackageJson = JSON.stringify(result.value);
+      syncBackupTransferAvailability();
+      const isReady = sender.getState().phase === transferApi.phases.READY
+        || await ready;
+      if (!isReady) {
+        showBackupStatus('転送先との接続に失敗しました。バックアップ保存とファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      const sent = sender.sendPayload({
+        packageJson: backupTransferPackageJson,
+        packageDigest: result.value.sha256
+      });
+      if (!sent) {
+        showBackupStatus('バックアップを転送できません。ファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      showBackupStatus('新サイトへ送信しました。新しいタブで内容を確認して復元してください。');
+    } catch (error) {
+      console.error(error);
+      showBackupStatus('転送用バックアップを作成できませんでした。', true);
+      releaseBeforeApply({ closeWindow: true });
+    } finally {
+      if (maintenance) {
+        const resumed = await maintenance.cancel();
+        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+      }
+      button.disabled = false;
+    }
+  }
+
+  async function exportRescueBackup() {
+    const button = elements.backupRescue;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    if (!button || !storageRuntime || !api) {
+      showBackupStatus('救出機能を読み込めませんでした。', true);
+      return;
+    }
+    button.disabled = true;
+    showBackupStatus('読み取り可能な保存値を確認しています…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        return;
+      }
+      maintenance = begun.value;
+      const result = await maintenance.rescue({ sourceRelease: api.getDefaultSourceRelease?.() });
+      if (!result?.ok) {
+        showBackupStatus(backupFailureMessage(result, '救出ファイルを作成できませんでした。'), true);
+        return;
+      }
+      downloadRescuePackage(result.value);
+    } catch (error) {
+      console.error(error);
+      showBackupStatus('救出ファイルを作成できませんでした。', true);
+    } finally {
+      if (maintenance) {
+        const resumed = await maintenance.cancel();
+        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+      }
+      button.disabled = false;
+    }
+  }
+
+  function syncBackupTransferAvailability() {
+    if (elements.backupTransfer) elements.backupTransfer.hidden = !isStorageTransferEnabled();
+    if (elements.backupTransferSave) {
+      elements.backupTransferSave.hidden = !backupTransferPackageJson;
+      elements.backupTransferSave.disabled = !backupTransferPackageJson;
+    }
+  }
+
+  function downloadBackupText(packageJson, filenamePrefix, statusMessage) {
+    const blob = new Blob([packageJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${filenamePrefix}-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showBackupStatus(`${statusMessage}（${formatStateFileSize(blob.size)}）`);
+  }
+
+  function downloadBackupPackage(packageValue, options = {}) {
+    downloadBackupText(
+      JSON.stringify(packageValue),
+      options.filenamePrefix || 'trickcal-manager-backup',
+      options.statusMessage || 'バックアップを保存しました'
+    );
+  }
+
+  function saveBackupTransferPackage() {
+    if (!backupTransferPackage || !backupTransferPackageJson) {
+      showBackupStatus('送信時点のバックアップはまだありません。', true);
+      return;
+    }
+    downloadBackupText(
+      backupTransferPackageJson,
+      'trickcal-manager-transfer',
+      '送信時点のバックアップを保存しました'
+    );
+  }
+
+  function downloadRescuePackage(packageValue) {
+    const blob = new Blob([JSON.stringify(packageValue)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `trickcal-manager-rescue-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showBackupStatus(`救出ファイルを保存しました（${formatStateFileSize(blob.size)}）`);
+  }
+
+  async function inspectBackupFile() {
+    if (pendingRestoreMaintenance) {
+      showBackupStatus('復元処理中です。完了または取消してから別のファイルを確認してください。', true);
+      return;
+    }
+    const file = elements.backupImportFile?.files?.[0];
+    if (elements.backupImportFile) elements.backupImportFile.value = '';
+    if (!file) return;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    if (!api?.decodeBackupPackage) {
+      showBackupStatus('バックアップ機能を読み込めませんでした。', true);
+      return;
+    }
+    showBackupStatus('ファイルを確認しています…');
+    try {
+      const fileText = await file.text();
+      if (api.isRescuePackage?.(fileText)) {
+        const rescue = await api.decodeRescuePackage?.(fileText);
+        pendingBackupPackage = null;
+        if (elements.backupPreview) elements.backupPreview.hidden = true;
+        showBackupStatus(
+          rescue?.ok
+            ? 'これは救出形式のファイルです。通常の復元には使用できません。'
+            : '救出形式のファイルを確認できません。',
+          true
+        );
+        return;
+      }
+      const result = await api.decodeBackupPackage(fileText);
+      if (!result?.ok) {
+        pendingBackupPackage = null;
+        pendingRestorePlan = null;
+        if (elements.backupPreview) elements.backupPreview.hidden = true;
+        showBackupStatus(backupFailureMessage(result), true);
+        return;
+      }
+      pendingBackupPackage = result.value;
+      renderBackupPreview(result.value);
+      showBackupStatus('内容を確認しました。保存データはまだ変更していません。');
+    } catch (error) {
+      console.error(error);
+      pendingBackupPackage = null;
+      pendingRestorePlan = null;
+      if (elements.backupPreview) elements.backupPreview.hidden = true;
+      showBackupStatus('バックアップファイルを確認できません。', true);
+    }
+  }
+
+  function renderBackupPreview(decoded) {
+    const summary = decoded?.summary || {};
+    const excludedDatasets = (summary.datasets || []).filter(dataset => dataset.state === 'excluded');
+    if (elements.backupPreviewSummary) {
+      const excluded = excludedDatasets.length ? `（補助設定${excludedDatasets.length}件は除外候補）` : '';
+      elements.backupPreviewSummary.textContent = `${summary.presentDatasets || 0}/${summary.totalDatasets || 0}項目に保存データがあります${excluded}`;
+    }
+    if (elements.backupPreviewDatasets) {
+      elements.backupPreviewDatasets.replaceChildren();
+      (summary.datasets || []).forEach(dataset => {
+        const item = document.createElement('li');
+        const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
+        const state = dataset.state === 'present'
+          ? 'あり'
+          : dataset.state === 'excluded' ? '除外候補' : 'なし';
+        item.textContent = `${dataset.key}: ${state}${source}`;
+        elements.backupPreviewDatasets.appendChild(item);
+      });
+    }
+    resetBackupRestoreControls();
+    if (excludedDatasets.length) {
+      if (elements.backupAllowAuxiliaryExcludeWrap) elements.backupAllowAuxiliaryExcludeWrap.hidden = false;
+      if (elements.backupAuxiliaryExcludeNote) elements.backupAuxiliaryExcludeNote.hidden = false;
+    }
+    if (elements.backupPreview) elements.backupPreview.hidden = false;
+  }
+
+  function resetBackupRestoreControls() {
+    if (elements.backupRestorePlan) elements.backupRestorePlan.hidden = true;
+    if (elements.backupRestorePlanSummary) elements.backupRestorePlanSummary.textContent = '';
+    elements.backupRestorePlanDatasets?.replaceChildren();
+    if (elements.backupPrepareRestore) {
+      elements.backupPrepareRestore.hidden = false;
+      elements.backupPrepareRestore.disabled = false;
+    }
+    if (elements.backupApplyRestore) {
+      elements.backupApplyRestore.hidden = true;
+      elements.backupApplyRestore.disabled = false;
+    }
+    if (elements.backupRetryRecovery) {
+      elements.backupRetryRecovery.hidden = true;
+      elements.backupRetryRecovery.disabled = false;
+    }
+    if (elements.backupReload) elements.backupReload.hidden = true;
+    if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = true;
+    if (elements.backupCancel) elements.backupCancel.hidden = false;
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = false;
+    if (elements.backupAllowAuxiliaryExcludeWrap) elements.backupAllowAuxiliaryExcludeWrap.hidden = true;
+    if (elements.backupAllowAuxiliaryExclude) {
+      elements.backupAllowAuxiliaryExclude.checked = false;
+      elements.backupAllowAuxiliaryExclude.disabled = false;
+    }
+    if (elements.backupAuxiliaryExcludeNote) elements.backupAuxiliaryExcludeNote.hidden = true;
+  }
+
+  function restorePendingBackupPreview() {
+    if (pendingBackupPackage) {
+      renderBackupPreview(pendingBackupPackage);
+      return;
+    }
+    resetBackupRestoreControls();
+    if (elements.backupPreview) elements.backupPreview.hidden = true;
+  }
+
+  function renderRestorePlan(plan) {
+    const summary = plan?.summary || {};
+    if (elements.backupRestorePlanSummary) {
+      const display = plan?.includeDisplaySettings ? '表示設定も復元' : '表示設定は維持';
+      const excluded = plan?.excludedAuxiliaryKeys?.length
+        ? `・補助設定${plan.excludedAuxiliaryKeys.length}件は現在値を維持`
+        : '';
+      elements.backupRestorePlanSummary.textContent = `${plan?.affectedEntryCount || 0}項目を適用（${display}）${excluded}`;
+    }
+    if (elements.backupRestorePlanDatasets) {
+      elements.backupRestorePlanDatasets.replaceChildren();
+      (summary.datasets || [])
+        .filter(dataset => plan?.datasetKeys?.includes(dataset.key))
+        .forEach(dataset => {
+           const item = document.createElement('li');
+           const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
+           const state = dataset.state === 'present'
+             ? '上書き'
+             : dataset.state === 'excluded' ? '現在値を維持（除外）' : '削除';
+           item.textContent = `${dataset.key}: ${state}${source}`;
+           elements.backupRestorePlanDatasets.appendChild(item);
+         });
+      (summary.datasets || [])
+        .filter(dataset => dataset.state === 'excluded' && plan?.excludedAuxiliaryKeys?.includes(dataset.key))
+        .forEach(dataset => {
+          const item = document.createElement('li');
+          item.textContent = `${dataset.key}: 現在値を維持（明示確認済みの除外）`;
+          elements.backupRestorePlanDatasets.appendChild(item);
+        });
+    }
+    if (elements.backupRestorePlan) elements.backupRestorePlan.hidden = false;
+    if (elements.backupPrepareRestore) elements.backupPrepareRestore.hidden = true;
+    if (elements.backupApplyRestore) {
+      elements.backupApplyRestore.hidden = false;
+      elements.backupApplyRestore.disabled = false;
+    }
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = true;
+    if (elements.backupAllowAuxiliaryExclude) elements.backupAllowAuxiliaryExclude.disabled = true;
+  }
+
+  async function prepareBackupRestore() {
+    if (!pendingBackupPackage || pendingRestoreMaintenance) return;
+    if (!storageRuntime) {
+      showBackupStatus('保存機能の準備が完了していません。', true);
+      return;
+    }
+    const button = elements.backupPrepareRestore;
+    if (button) button.disabled = true;
+    showBackupStatus('復元対象を再確認しています。編集中の下書きを保護します…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('restore');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        return;
+      }
+      maintenance = begun.value;
+      const planned = await maintenance.planRestore(pendingBackupPackage, {
+        includeDisplaySettings: elements.backupIncludeDisplay?.checked !== false,
+        allowAuxiliaryExclusion: elements.backupAllowAuxiliaryExclude?.checked === true
+      });
+      if (!planned?.ok) {
+        const cancelled = await maintenance.cancel();
+        if (!cancelled?.ok) showBackupStatus(backupFailureMessage(cancelled), true);
+        showBackupStatus(backupFailureMessage(planned), true);
+        return;
+      }
+      pendingRestoreMaintenance = maintenance;
+      pendingRestorePlan = planned.value;
+      renderRestorePlan(planned.value);
+      showBackupStatus('復元対象を確認しました。最終ボタンを押すまで保存データは置き換えません。');
+    } catch (error) {
+      console.error(error);
+      if (maintenance) {
+        const cancelled = await maintenance.cancel();
+        if (!cancelled?.ok) showBackupStatus(backupFailureMessage(cancelled), true);
+      }
+      showBackupStatus('復元対象を確認できませんでした。', true);
+    } finally {
+      if (button && !pendingRestoreMaintenance) button.disabled = false;
+    }
+  }
+
+  function showRecoveryControls() {
+    if (elements.backupRetryRecovery) {
+      elements.backupRetryRecovery.hidden = false;
+      elements.backupRetryRecovery.disabled = false;
+    }
+    if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = false;
+  }
+
+  async function applyBackupRestore() {
+    if (!pendingRestoreMaintenance || !pendingRestorePlan) return;
+    const button = elements.backupApplyRestore;
+    if (button) button.disabled = true;
+    if (elements.backupPrepareRestore) elements.backupPrepareRestore.disabled = true;
+    showBackupStatus('復元を適用しています。完了確認までお待ちください…');
+    try {
+      const result = await pendingRestoreMaintenance.applyRestore(pendingRestorePlan);
+      if (result?.ok) {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        if (elements.backupPrepareRestore) elements.backupPrepareRestore.hidden = true;
+        if (elements.backupApplyRestore) elements.backupApplyRestore.hidden = true;
+        if (elements.backupCancel) elements.backupCancel.hidden = true;
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = true;
+    if (elements.backupAllowAuxiliaryExclude) elements.backupAllowAuxiliaryExclude.disabled = true;
+        if (elements.backupReload) elements.backupReload.hidden = false;
+        showBackupStatus('復元が完了しました。再読み込みして新しい保存状態を起動してください。');
+        return;
+      }
+
+      const cancelled = await pendingRestoreMaintenance.cancel();
+      if (cancelled?.ok) {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        restorePendingBackupPreview();
+        showBackupStatus(`${backupFailureMessage(result)} 元の状態へ戻しました。`, true);
+      } else {
+        showRecoveryControls();
+        showBackupStatus(`${backupFailureMessage(result)} 復旧処理が必要です。`, true);
+      }
+    } catch (error) {
+      console.error(error);
+      showRecoveryControls();
+      showBackupStatus('復元結果を確認できません。独立復旧入口を確認してください。', true);
+    } finally {
+      if (button && pendingRestoreMaintenance) button.disabled = false;
+    }
+  }
+
+  async function retryBackupRecovery() {
+    if (!pendingRestoreMaintenance?.recover) return;
+    if (elements.backupRetryRecovery) elements.backupRetryRecovery.disabled = true;
+    showBackupStatus('復旧状態を確認しています…');
+    try {
+      const result = await pendingRestoreMaintenance.recover();
+      if (result?.ok && result.value?.phase === 'complete') {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        if (elements.backupCancel) elements.backupCancel.hidden = true;
+        if (elements.backupRetryRecovery) elements.backupRetryRecovery.hidden = true;
+        if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = true;
+        if (elements.backupReload) elements.backupReload.hidden = false;
+        showBackupStatus('復元後の復旧処理が完了しました。再読み込みしてください。');
+        return;
+      }
+      if (result?.ok && result.value?.phase === 'rolled-back') {
+        const cancelled = await pendingRestoreMaintenance.cancel();
+        if (cancelled?.ok) {
+          pendingRestoreMaintenance = null;
+          pendingRestorePlan = null;
+          restorePendingBackupPreview();
+          showBackupStatus('復旧して元の状態へ戻しました。', true);
+          return;
+        }
+      }
+      showRecoveryControls();
+      showBackupStatus(backupFailureMessage(result), true);
+    } catch (error) {
+      console.error(error);
+      showRecoveryControls();
+      showBackupStatus('復旧結果を確認できません。', true);
+    } finally {
+      if (elements.backupRetryRecovery && pendingRestoreMaintenance) {
+        elements.backupRetryRecovery.disabled = false;
+      }
+    }
+  }
+
+  async function cancelBackupPreview() {
+    if (pendingRestoreMaintenance) {
+      const cancelled = await pendingRestoreMaintenance.cancel();
+      if (!cancelled?.ok) {
+        showRecoveryControls();
+        showBackupStatus('復元処理を閉じられません。独立復旧入口で確認してください。', true);
+        return;
+      }
+      pendingRestoreMaintenance = null;
+      pendingRestorePlan = null;
+    }
+    pendingBackupPackage = null;
+    pendingRestorePlan = null;
+    if (elements.backupPreview) elements.backupPreview.hidden = true;
+    if (elements.backupImportFile) elements.backupImportFile.value = '';
+    if (elements.backupCancel) elements.backupCancel.hidden = false;
+    showBackupStatus('ファイル確認を取り消しました。保存データは変更されていません。');
   }
 
   function formatStateFileSize(bytes) {
@@ -3161,7 +3885,7 @@
   function restoreHistorySnapshot(snapshot, message) {
     historyState.isRestoring = true;
     try {
-      applyStateSnapshot(snapshot, { deferFormationSpellCatalog: false });
+      if (applyStateSnapshot(snapshot, { deferFormationSpellCatalog: false }) === false) return;
       showStateStatus(message);
     } finally {
       historyState.isRestoring = false;
@@ -3873,7 +4597,7 @@
     const activeView = elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
     const activeGlobalPanel = elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
     try {
-      sessionStorage.setItem(DASHBOARD_RELOAD_CONTEXT_KEY, JSON.stringify({
+      storageSession.setItem(DASHBOARD_RELOAD_CONTEXT_KEY, JSON.stringify({
         path: window.location.pathname,
         activeView,
         activeGlobalPanel,
@@ -3888,8 +4612,8 @@
   function restoreDashboardReloadContext() {
     let context;
     try {
-      context = JSON.parse(sessionStorage.getItem(DASHBOARD_RELOAD_CONTEXT_KEY) || 'null');
-      sessionStorage.removeItem(DASHBOARD_RELOAD_CONTEXT_KEY);
+      context = JSON.parse(storageSession.getItem(DASHBOARD_RELOAD_CONTEXT_KEY) || 'null');
+      storageSession.removeItem(DASHBOARD_RELOAD_CONTEXT_KEY);
     } catch (_) {
       return;
     }
@@ -11571,6 +12295,32 @@
     return 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
   }
 
+  function parseStorageJson(raw, id) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw createStorageRuntimeError('recovery-required', 'read', id);
+    }
+  }
+
+  function validateSharedStateSlotStorePayload(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Number(value.schemaVersion) !== 2
+      || !value.slots || typeof value.slots !== 'object' || Array.isArray(value.slots)
+      || !Number.isInteger(Number(value.storeRevision)) || Number(value.storeRevision) < 0) {
+      throw createStorageRuntimeError('recovery-required', 'read', 'stat.slotStore');
+    }
+    Object.entries(value.slots).forEach(([slot, entry]) => {
+      if (!/^[1-6]$/.test(slot)
+        || !entry || typeof entry !== 'object' || Array.isArray(entry)
+        || !entry.snapshot || typeof entry.snapshot !== 'object' || Array.isArray(entry.snapshot)
+        || !Number.isInteger(Number(entry.slotRevision)) || Number(entry.slotRevision) < 1) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.slotStore');
+      }
+    });
+    return value;
+  }
+
   function normalizeSharedStateSlotStore(source) {
     const parsed = source && typeof source === 'object' ? source : {};
     const slots = {};
@@ -11592,10 +12342,18 @@
   }
 
   function loadSharedStateSlotStore(legacySavedStates = {}) {
+    let raw;
     try {
-      const raw = localStorage.getItem(STATE_SLOT_STORAGE_KEY);
-      if (raw) return normalizeSharedStateSlotStore(JSON.parse(raw));
-    } catch {}
+      raw = storageLocal.getItem(STATE_SLOT_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.slotStore');
+    }
+    if (raw != null) {
+      return normalizeSharedStateSlotStore(validateSharedStateSlotStorePayload(
+        parseStorageJson(raw, 'stat.slotStore')
+      ));
+    }
     const migratedSnapshots = migrateSavedStateSlots(
       legacySavedStates && typeof legacySavedStates === 'object' ? legacySavedStates : {}
     );
@@ -11614,16 +12372,27 @@
       slots
     };
     try {
-      localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(store));
-    } catch {}
+      storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(store));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.slotStore');
+    }
     return store;
   }
 
   function readLatestSharedStateSlotStore() {
+    let raw;
     try {
-      const raw = localStorage.getItem(STATE_SLOT_STORAGE_KEY);
-      if (raw) return normalizeSharedStateSlotStore(JSON.parse(raw));
-    } catch {}
+      raw = storageLocal.getItem(STATE_SLOT_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.slotStore');
+    }
+    if (raw != null) {
+      return normalizeSharedStateSlotStore(validateSharedStateSlotStorePayload(
+        parseStorageJson(raw, 'stat.slotStore')
+      ));
+    }
     return normalizeSharedStateSlotStore(sharedStateSlotStore);
   }
 
@@ -11644,13 +12413,21 @@
   }
 
   function loadStateWorkspace() {
+    let raw;
     try {
-      const parsed = JSON.parse(sessionStorage.getItem(STATE_WORKSPACE_STORAGE_KEY) || 'null');
-      if (!parsed || Number(parsed.workspaceVersion) !== 2 || !parsed.draft) return null;
-      return parsed;
-    } catch {
-      return null;
+      raw = storageSession.getItem(STATE_WORKSPACE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.workspaceDraft');
     }
+    if (raw == null) return null;
+    const parsed = parseStorageJson(raw, 'stat.workspaceDraft');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || Number(parsed.workspaceVersion) !== 2
+      || !parsed.draft || typeof parsed.draft !== 'object' || Array.isArray(parsed.draft)) {
+      throw createStorageRuntimeError('recovery-required', 'read', 'stat.workspaceDraft');
+    }
+    return parsed;
   }
 
   function createStateWorkspaceDraft() {
@@ -11663,21 +12440,36 @@
 
   function persistStateWorkspace() {
     try {
-      sessionStorage.setItem(STATE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+      storageSession.setItem(STATE_WORKSPACE_STORAGE_KEY, JSON.stringify({
         workspaceVersion: 2,
         workspaceId: initialWorkspaceState?.workspaceId || ('workspace-' + Date.now().toString(36)),
         activeSlot: view.stateSlot,
         baseSlotRevision: stateSlotBaseRevision,
         draft: createStateWorkspaceDraft()
       }));
-    } catch {}
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.workspaceDraft');
+    }
   }
 
   function publishLiveState() {
     let previousRevision = 0;
+    let raw;
     try {
-      previousRevision = Math.max(0, Number(JSON.parse(localStorage.getItem(STATE_LIVE_STORAGE_KEY) || '{}').revision) || 0);
-    } catch {}
+      raw = storageLocal.getItem(STATE_LIVE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.liveMirror');
+    }
+    if (raw != null) {
+      const previous = parseStorageJson(raw, 'stat.liveMirror');
+      if (!previous || typeof previous !== 'object' || Array.isArray(previous)
+        || !Number.isInteger(Number(previous.revision)) || Number(previous.revision) < 0) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.liveMirror');
+      }
+      previousRevision = Number(previous.revision);
+    }
     const revision = previousRevision + 1;
     const snapshot = createStateWorkspaceDraft();
     const liveState = {
@@ -11694,9 +12486,17 @@
       activeStateSlot: view.stateSlot
     };
     try {
-      localStorage.setItem(STATE_LIVE_STORAGE_KEY, JSON.stringify(liveState));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(legacyPayload));
-    } catch {}
+      storageLocal.setItem(STATE_LIVE_STORAGE_KEY, JSON.stringify(liveState));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.liveMirror');
+    }
+    try {
+      storageLocal.setItem(STORAGE_KEY, JSON.stringify(legacyPayload));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.legacyCurrent');
+    }
     postStateSyncMessage({ type: 'live-published', revision });
   }
 
@@ -11734,7 +12534,7 @@
       savedBy: TAB_INSTANCE_ID,
       snapshot: cloneJson(snapshot)
     };
-    localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
     syncSharedStateSlotStore(next);
     postStateSyncMessage({ type: 'slots-changed', action: 'save', slot: safeSlot, storeRevision: next.storeRevision });
     return { ok: true, store: next, slotRevision: nextRevision };
@@ -11751,7 +12551,7 @@
     const next = normalizeSharedStateSlotStore(latest);
     next.storeRevision = Math.max(0, Number(latest.storeRevision) || 0) + 1;
     delete next.slots[key];
-    localStorage.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
     syncSharedStateSlotStore(next);
     postStateSyncMessage({ type: 'slots-changed', action: 'delete', slot: safeSlot, storeRevision: next.storeRevision });
     return { ok: true, store: next, slotRevision: 0 };
@@ -11812,7 +12612,7 @@
       stateExternalConflict = null;
       historyState.undoStack = [];
       historyState.redoStack = [];
-      applyStateSnapshot(nextSnapshot, { activeStateSlot: slot });
+      if (applyStateSnapshot(nextSnapshot, { activeStateSlot: slot }) === false) return;
       showStateStatus(`別タブで更新されたスロット${slot}を反映しました`);
       return;
     }
@@ -11829,9 +12629,19 @@
 
   function loadState() {
     let legacy = {};
+    let raw;
     try {
-      legacy = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') || {};
-    } catch {}
+      raw = storageLocal.getItem(STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.legacyCurrent');
+    }
+    if (raw != null) {
+      legacy = parseStorageJson(raw, 'stat.legacyCurrent');
+      if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.legacyCurrent');
+      }
+    }
     sharedStateSlotStore = loadSharedStateSlotStore(legacy.savedStates);
     initialWorkspaceState = loadStateWorkspace();
     const parsed = initialWorkspaceState?.draft && typeof initialWorkspaceState.draft === 'object'
@@ -11864,10 +12674,11 @@
   function saveState(options = {}) {
     if (options.renderStateManager === false) scheduleStateManagerRender();
     else renderStateManager();
-    if (options.flush) flushPendingStateSave();
-    else scheduleStateSave();
-    if (options.refreshSnapshots === false) return;
+    const persisted = options.flush ? flushPendingStateSave() : true;
+    if (!options.flush) scheduleStateSave();
+    if (options.refreshSnapshots === false) return persisted;
     scheduleStatSnapshotRefresh(options.refreshSnapshotIds);
+    return persisted;
   }
 
   function scheduleStateManagerRender() {
@@ -11882,7 +12693,7 @@
     if (stateSaveTimer) window.clearTimeout(stateSaveTimer);
     stateSaveTimer = window.setTimeout(() => {
       stateSaveTimer = 0;
-      persistState();
+      safePersistState();
     }, 120);
   }
 
@@ -11891,13 +12702,36 @@
       window.clearTimeout(stateSaveTimer);
       stateSaveTimer = 0;
     }
-    persistState();
+    return safePersistState();
   }
 
   function persistState() {
     appState.syncRevision = Math.max(0, Number(appState.syncRevision) || 0) + 1;
-    persistStateWorkspace();
-    if (isLiveStatePublisher && document.visibilityState !== 'hidden') publishLiveState();
+    let persisted = true;
+    try {
+      persistStateWorkspace();
+    } catch (error) {
+      persisted = false;
+      reportStorageFailure(error);
+    }
+    if (isLiveStatePublisher && document.visibilityState !== 'hidden') {
+      try {
+        publishLiveState();
+      } catch (error) {
+        persisted = false;
+        reportStorageFailure(error);
+      }
+    }
+    return persisted;
+  }
+
+  function safePersistState() {
+    try {
+      return persistState();
+    } catch (error) {
+      reportStorageFailure(error);
+      return false;
+    }
   }
 
   function scheduleStatSnapshotRefresh(ids = null) {
@@ -11931,7 +12765,7 @@
     }
     const rows = getStatSnapshotRefreshRows(idsToRefresh);
     if (!rows.length) {
-      persistState();
+      safePersistState();
       return;
     }
     refreshStatSnapshotsForRowsChunked(rows);
@@ -11958,12 +12792,12 @@
       }
       updateFormationCoinSummary();
       isRefreshingStatSnapshots = false;
-      persistState();
+      safePersistState();
     };
     const failRefresh = error => {
       console.error(error);
       isRefreshingStatSnapshots = false;
-      persistState();
+      safePersistState();
     };
     const runChunk = () => {
       statSnapshotRefreshWorkTimer = 0;
@@ -12043,4 +12877,5 @@
   function escapeAttr(value) {
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
+  }).catch(reportStorageFailure);
 })();

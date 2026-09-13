@@ -1,6 +1,47 @@
 (() => {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
+  function isStorageRuntimeError(error) {
+    return error?.name === 'StorageRuntimeError';
+  }
+
+  function createDpsStorageRuntimeError(code, operation, id) {
+    const error = new Error(`storage ${code}`);
+    error.name = 'StorageRuntimeError';
+    error.result = {
+      ok: false,
+      code,
+      operation,
+      id,
+      retryable: ['busy', 'read-failed', 'write-failed', 'remove-failed'].includes(code)
+    };
+    return error;
+  }
+
+  function reportDpsStorageFailure(error) {
+    const code = error?.name === 'StorageRuntimeError'
+      ? error.result?.code || 'failed'
+      : 'write-failed';
+    if (error?.name !== 'StorageRuntimeError') console.error(error);
+    if (typeof document !== 'undefined') {
+      document.documentElement?.setAttribute('data-storage-error', code);
+      const status = document.getElementById('fdcp-dps-status');
+      if (status) {
+        status.textContent = 'DPS設定を保存できませんでした。再読み込みして再試行してください。';
+        status.dataset.storageError = code;
+        status.classList?.add('is-error');
+      }
+    }
+    return false;
+  }
+
   const ACTION_LABELS = Object.freeze({
     basicAttack: '基本攻撃', enhancedAttack: '強化攻撃', lowSkill: '低学年', highSkill: '高学年'
   });
@@ -116,26 +157,64 @@
   const DPS_FORMATION_HIGH_MODE_OPTIONS = Object.freeze(['disabled', 'auto']);
 
   function loadDpsRuntimeEffectOverrides() {
+    let raw;
     try {
-      const parsed = JSON.parse(window.localStorage?.getItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY) || '{}');
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) { return {}; }
+      raw = storageLocal.getItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createDpsStorageRuntimeError('read-failed', 'read', 'dps.runtimeOverrides');
+    }
+    if (raw == null) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.runtimeOverrides');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.runtimeOverrides');
+    }
+    return parsed;
   }
   let dpsRuntimeEffectOverrides = loadDpsRuntimeEffectOverrides();
   function saveDpsRuntimeEffectOverrides(overrides) {
     dpsRuntimeEffectOverrides = overrides && typeof overrides === 'object' ? overrides : {};
-    try { window.localStorage?.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(dpsRuntimeEffectOverrides)); } catch (_) { /* 保存不可でもこのタブ内の設定は維持する。 */ }
+    try {
+      storageLocal.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(dpsRuntimeEffectOverrides));
+      return true;
+    } catch (error) {
+      return reportDpsStorageFailure(error);
+    }
   }
   function loadDpsSettingsStore() {
+    let raw;
     try {
-      const parsed = JSON.parse(window.localStorage?.getItem(DPS_SETTINGS_STORAGE_KEY) || '{}');
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch (_) { return {}; }
+      raw = storageLocal.getItem(DPS_SETTINGS_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createDpsStorageRuntimeError('read-failed', 'read', 'dps.settings');
+    }
+    if (raw == null) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.settings');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.settings');
+    }
+    return parsed;
   }
   let dpsSettingsStore = loadDpsSettingsStore();
   function saveDpsSettingsStore(store) {
     dpsSettingsStore = store && typeof store === 'object' && !Array.isArray(store) ? store : {};
-    try { window.localStorage?.setItem(DPS_SETTINGS_STORAGE_KEY, JSON.stringify(dpsSettingsStore)); } catch (_) { /* 保存不可でもこのタブ内の設定は維持する。 */ }
+    try {
+      storageLocal.setItem(DPS_SETTINGS_STORAGE_KEY, JSON.stringify(dpsSettingsStore));
+      return true;
+    } catch (error) {
+      return reportDpsStorageFailure(error);
+    }
   }
   function chooseDpsSetting(value, fallback, choices) {
     const candidate = String(value ?? '');
@@ -750,8 +829,7 @@
     persistDpsSettingsForTarget(targetId = this.dpsSettingsTargetId || this.currentTargetId) {
       const key = String(targetId || '').trim().toLowerCase();
       if (!key) return false;
-      saveDpsSettingsStore({ ...dpsSettingsStore, [key]: this.getDpsSettings() });
-      return true;
+      return saveDpsSettingsStore({ ...dpsSettingsStore, [key]: this.getDpsSettings() });
     }
 
     syncDpsSettingsForTarget(targetId, snapshot = {}) {
@@ -3153,7 +3231,9 @@
     try {
       return new Promise((resolve, reject) => {
         let finished = false;
-        const worker = new Worker('dps-simulator-worker.js?v=20260907c');
+        const workerUrl = window.TRICKCAL_PUBLIC_SITE?.assetUrl?.('dps-simulator-worker.js')
+          || 'dps-simulator-worker.js?v=20260907c';
+        const worker = new Worker(workerUrl);
         const cleanup = () => { if (!finished) { finished = true; worker.terminate(); } };
         const cleanupCancellation = cancellation?.onCancel(() => {
           if (finished) return;
@@ -3187,4 +3267,7 @@
     PrototypeDpsController, applyDpsRuntimeEffectOverrides, axesMatch, createDpsBottomBreakdown, createDpsComparison, createDpsDetailComparisonRows, createDpsDamageGraphModel, createDpsDamageGraphSeries, createDpsDamageGraphTicks, createDpsFormationEstimatedEvents, createDpsFormationBindingModes: getDpsFormationBindingModes, createDpsInputFingerprint, createDpsInputProjection, createDpsSnapshotWithRuntimeOverrides, createDpsTimingDetailRows, filterDpsFormationManualEvents, getDpsFormationCandidateBindingModes, getDpsFormationCandidateMode, getDpsRuntimeEffectDefaultMode, createRunCancellation, formatCompactComparisonDelta, formatDpsEffectStateChange, formatDpsFrameValue, formatDpsTimelineEvent, formatSignedDamage, formatSignedPercent, getAutoRunCompletionFingerprint, getAutoRunDecision, getBaselineComparisonDecision, getDpsActionEffectState, getDpsApplicableActionEffects, getDpsDetailStatusLabel, getDpsExternalInputContent: renderDpsExternalInputContent, getDpsExternalEvent: normalizeDpsExternalEvent, getDpsFloatOutsideClickAction, getDpsFormationCandidateAutoEnabled: isDpsFormationCandidateAutoEnabled, getDpsFormationCandidateSchedulePolicy, getDpsFormationCandidateScheduleState, getDpsFormationHighModeLabel, getDpsFormationTimelineModeLabel, getDpsRuntimeEffectOverride, getDpsRuntimeEffectSchedulePolicy, getDpsTabAvailability, getDpsTargetChangeTransition, getExclusiveFloatState, getNativeFloatSyncState, isDpsHighSkillRuntimeEffect, getDpsTimelineForDisplay, getSnapshotFreshness, getTrialSummary, isRunCancelledError, normalizeDpsExternalEvents, normalizeDpsSettings, renderDpsActionEffectContent, renderDpsDamageGraphContent, renderDpsFormationStatusControls, renderDpsRuntimeEffectControls, renderDpsRuntimeScheduleContent, renderDpsRuntimeSettingsContent, renderDpsTimelineContent, shouldApplyRunResult, stableStringify, runSimulationWorker
   });
   if (typeof document !== 'undefined') init();
+  }).catch(error => {
+    reportDpsStorageFailure(error);
+  });
 })();

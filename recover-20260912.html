@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Trickcal Manager 復旧</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #17151d;
+      color: #f4f0fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: radial-gradient(circle at top, #38244a, #17151d 60%);
+    }
+    main {
+      width: min(100%, 520px);
+      padding: clamp(24px, 6vw, 42px);
+      border: 1px solid #665176;
+      border-radius: 18px;
+      background: #211c2a;
+      box-shadow: 0 18px 50px #0008;
+    }
+    h1 { margin: 0 0 10px; font-size: clamp(1.35rem, 5vw, 1.8rem); }
+    p { line-height: 1.7; }
+    .note { color: #d6cbe2; font-size: .95rem; }
+    #recovery-status {
+      min-height: 3.2em;
+      margin: 22px 0 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #30273b;
+      color: #eee6f6;
+      white-space: pre-line;
+    }
+    #recovery-status[data-kind="success"] { color: #a9f3c6; }
+    #recovery-status[data-kind="error"] { color: #ffb5c0; }
+    button, a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 9px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    button {
+      border: 1px solid #d8a8ff;
+      background: #9a5bc8;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled { cursor: wait; opacity: .65; }
+    a { border: 1px solid #786489; color: #f1dfff; background: #30263a; }
+    a:hover, a:focus-visible { border-color: #d8a8ff; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    #recovery-links { display: none; margin-top: 14px; }
+    #recovery-links.is-visible { display: flex; }
+    noscript { color: #ffb5c0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Trickcal Manager の表示を復旧</h1>
+    <p>一時的なドメイン設定変更の影響で、古いページが表示される場合に使用してください。</p>
+    <p class="note">復旧処理は表示用キャッシュだけを更新します。保存データ、保存スロット、編集中の状態は変更しません。</p>
+    <div id="recovery-status" role="status" aria-live="polite">「復旧する」を押すと、最新版の表示用キャッシュを確認します。</div>
+    <div class="actions">
+      <button type="button" id="recovery-run">復旧する</button>
+    </div>
+    <div id="recovery-links" class="actions" aria-label="復旧後のページ">
+      <a id="recovery-dashboard" href="stat-dashboard.html?recover=20260912">ステータス管理へ</a>
+      <a id="recovery-calculator" href="formation-damage-calc.html?recover=20260912">ダメージ計算へ</a>
+    </div>
+    <noscript>JavaScriptを有効にしてから、もう一度開いてください。</noscript>
+  </main>
+  <script>
+    (() => {
+      'use strict';
+
+      const RECOVERY_QUERY = '20260912';
+      const EXPECTED_CACHE_VERSION = '20260912-recovery-1';
+      const TIMEOUT_MS = 12000;
+      const runButton = document.getElementById('recovery-run');
+      const status = document.getElementById('recovery-status');
+      const links = document.getElementById('recovery-links');
+
+      function setStatus(message, kind = '') {
+        status.textContent = message;
+        status.dataset.kind = kind;
+      }
+
+      function waitForWorker(worker) {
+        return new Promise((resolve, reject) => {
+          let timer = 0;
+          const finish = (callback, value) => {
+            if (timer) window.clearTimeout(timer);
+            worker.removeEventListener('statechange', onStateChange);
+            callback(value);
+          };
+          const onStateChange = () => {
+            if (worker.state === 'activated') finish(resolve, worker);
+            else if (worker.state === 'redundant') finish(reject, new Error('最新版のService Workerが無効になりました。'));
+          };
+          if (worker.state === 'activated') {
+            resolve(worker);
+            return;
+          }
+          worker.addEventListener('statechange', onStateChange);
+          timer = window.setTimeout(() => finish(reject, new Error('最新版の取得がタイムアウトしました。')), TIMEOUT_MS);
+          onStateChange();
+        });
+      }
+
+      async function getUpdatedWorker(registration) {
+        await registration.update();
+        const installing = registration.installing;
+        if (installing) await waitForWorker(installing);
+        const waiting = registration.waiting;
+        if (waiting) {
+          waiting.postMessage({ type: 'trickcal-recovery-skip-waiting' });
+          await waitForWorker(waiting);
+        }
+        const active = registration.active;
+        if (!active || active.state !== 'activated') throw new Error('最新版のService Workerを有効化できませんでした。');
+        return active;
+      }
+
+      function sendMessage(worker, message) {
+        if (!window.MessageChannel) throw new Error('このブラウザは復旧処理に対応していません。');
+        return new Promise((resolve, reject) => {
+          const channel = new MessageChannel();
+          const timer = window.setTimeout(() => reject(new Error('復旧処理がタイムアウトしました。')), TIMEOUT_MS);
+          channel.port1.onmessage = event => {
+            window.clearTimeout(timer);
+            resolve(event.data || {});
+          };
+          try {
+            worker.postMessage(message, [channel.port2]);
+          } catch (error) {
+            window.clearTimeout(timer);
+            reject(error);
+          }
+        });
+      }
+
+      function makeAppLink(path) {
+        const url = new URL(path, window.location.href);
+        url.searchParams.set('recover', RECOVERY_QUERY);
+        return url.href;
+      }
+
+      async function recover() {
+        if (!window.isSecureContext || !navigator.serviceWorker) {
+          throw new Error('安全な接続上のService Workerが利用できません。時間を置いて再試行してください。');
+        }
+        const registration = await navigator.serviceWorker.register('service-worker.js', {
+          scope: './',
+          updateViaCache: 'none'
+        });
+        const worker = await getUpdatedWorker(registration);
+        const result = await sendMessage(worker, { type: 'trickcal-recovery-clear-cache' });
+        if (result.cacheVersion !== EXPECTED_CACHE_VERSION) {
+          throw new Error('最新版の表示用キャッシュを確認できませんでした。ページを再読み込みして再試行してください。');
+        }
+        return result;
+      }
+
+      runButton.addEventListener('click', async () => {
+        runButton.disabled = true;
+        links.classList.remove('is-visible');
+        setStatus('最新版を取得して表示用キャッシュを更新しています。', '');
+        try {
+          await recover();
+          document.getElementById('recovery-dashboard').href = makeAppLink('stat-dashboard.html');
+          document.getElementById('recovery-calculator').href = makeAppLink('formation-damage-calc.html');
+          links.classList.add('is-visible');
+          setStatus('復旧が完了しました。下のリンクからページを開いてください。', 'success');
+        } catch (error) {
+          console.error('[trickcal-manager] recovery failed', error);
+          setStatus(error?.message || '復旧に失敗しました。時間を置いて再試行してください。', 'error');
+        } finally {
+          runButton.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

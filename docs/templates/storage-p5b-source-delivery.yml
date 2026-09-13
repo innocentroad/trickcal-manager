@@ -1,0 +1,234 @@
+name: public-site-source-delivery-template
+
+# Template only. Do not install this file into .github/workflows without the
+# separate source-repository workflow and external-delivery approval.
+on:
+  workflow_dispatch:
+    inputs:
+      release_mode:
+        description: Initial release or update with an explicit previous successful release
+        required: true
+        type: choice
+        options:
+          - initial
+          - update
+      previous_release_id:
+        description: Expected previous successful release ID (update only)
+        required: false
+        type: string
+      previous_release_json:
+        description: Previous successful public-site release record JSON (update only)
+        required: false
+        type: string
+      source_commit:
+        description: Full source commit SHA to generate and deliver
+        required: true
+        type: string
+      candidate_id:
+        description: Expected checked candidate ID
+        required: true
+        type: string
+      content_digest:
+        description: Expected dual-profile content digest
+        required: true
+        type: string
+      new_output_digest:
+        description: Expected new profile output digest
+        required: true
+        type: string
+      legacy_output_digest:
+        description: Expected legacy profile output digest
+        required: true
+        type: string
+      site_repository:
+        description: Dedicated public-artifact repository owner/name
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-site-source-delivery
+  cancel-in-progress: false
+
+jobs:
+  validate-and-deliver:
+    runs-on: ubuntu-latest
+    environment: public-site-delivery-approval
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout approved source commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.source_commit }}
+          fetch-depth: 1
+          path: source
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install validation dependencies
+        run: npm ci --prefix source/tools --ignore-scripts
+
+      - name: Confirm checked-out commit
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$EXPECTED_SOURCE_COMMIT"
+
+      - name: Validate release input and materialize previous record
+        env:
+          RELEASE_MODE: ${{ inputs.release_mode }}
+          PREVIOUS_RELEASE_ID: ${{ inputs.previous_release_id }}
+          PREVIOUS_RELEASE_JSON: ${{ inputs.previous_release_json }}
+        run: |
+          set -euo pipefail
+          node source/tools/validate-public-site-release-input.js \
+            --mode "$RELEASE_MODE" \
+            --out source/tmp/previous-public-site-release.json
+
+      - name: Generate and inspect both profiles
+        env:
+          RELEASE_MODE: ${{ inputs.release_mode }}
+        run: |
+          set -euo pipefail
+          previous_args=()
+          if [ "$RELEASE_MODE" = "update" ]; then
+            previous_args=(--previous-release source/tmp/previous-public-site-release.json)
+          fi
+          node source/tools/generate-public-site.js --write \
+            "${previous_args[@]}" \
+            --manifest source/tools/public-route-manifest.json \
+            --out source/tmp/public-site
+          node source/tools/generate-public-site.js --check \
+            --manifest source/tools/public-route-manifest.json \
+            --out source/tmp/public-site
+          node source/tools/validate-public-site.js
+          node source/tools/test-public-site.js
+          node source/tools/test-public-site-http.js
+
+      - name: Record bound checks
+        run: |
+          set -euo pipefail
+          node source/tools/record-public-site-checks.js \
+            --repo-root source \
+            --source source/tmp/public-site \
+            --manifest source/tools/public-route-manifest.json \
+            --release source/tmp/public-site/public-site-release.json \
+            --build source/tmp/public-site/public-site-build.json \
+            --out source/tmp/public-site-checks.json
+
+      - name: Create candidate and candidate staging
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_CONTENT_DIGEST: ${{ inputs.content_digest }}
+          EXPECTED_NEW_OUTPUT_DIGEST: ${{ inputs.new_output_digest }}
+          EXPECTED_LEGACY_OUTPUT_DIGEST: ${{ inputs.legacy_output_digest }}
+        run: |
+          set -euo pipefail
+          node source/tools/create-public-site-candidate.js \
+            --repo-root source \
+            --source source/tmp/public-site \
+            --release source/tmp/public-site/public-site-release.json \
+            --build source/tmp/public-site/public-site-build.json \
+            --manifest source/tools/public-route-manifest.json \
+            --checks-file source/tmp/public-site-checks.json \
+            --expected-commit "$EXPECTED_SOURCE_COMMIT" \
+            --expected-content-digest "$EXPECTED_CONTENT_DIGEST" \
+            --expected-profile-digests "new=$EXPECTED_NEW_OUTPUT_DIGEST,legacy=$EXPECTED_LEGACY_OUTPUT_DIGEST" \
+            --out source/tmp/public-site-candidate.json
+          node source/tools/prepare-public-site-staging.js \
+            --repo-root source \
+            --source source/tmp/public-site \
+            --release source/tmp/public-site/public-site-release.json \
+            --build source/tmp/public-site/public-site-build.json \
+            --manifest source/tools/public-route-manifest.json \
+            --checks-file source/tmp/public-site-checks.json \
+            --candidate-record source/tmp/public-site-candidate.json \
+            --expected-commit "$EXPECTED_SOURCE_COMMIT" \
+            --expected-content-digest "$EXPECTED_CONTENT_DIGEST" \
+            --expected-profile-digests "new=$EXPECTED_NEW_OUTPUT_DIGEST,legacy=$EXPECTED_LEGACY_OUTPUT_DIGEST" \
+            --out source/tmp/public-site-staging \
+            --candidate
+
+      - name: Verify candidate input binding
+        env:
+          EXPECTED_CANDIDATE_ID: ${{ inputs.candidate_id }}
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_CONTENT_DIGEST: ${{ inputs.content_digest }}
+          EXPECTED_NEW_OUTPUT_DIGEST: ${{ inputs.new_output_digest }}
+          EXPECTED_LEGACY_OUTPUT_DIGEST: ${{ inputs.legacy_output_digest }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const candidate = JSON.parse(fs.readFileSync('source/tmp/public-site-candidate.json', 'utf8'));
+          const expected = {
+            candidateId: process.env.EXPECTED_CANDIDATE_ID,
+            sourceCommit: process.env.EXPECTED_SOURCE_COMMIT,
+            contentDigest: process.env.EXPECTED_CONTENT_DIGEST,
+            profiles: {
+              new: process.env.EXPECTED_NEW_OUTPUT_DIGEST,
+              legacy: process.env.EXPECTED_LEGACY_OUTPUT_DIGEST
+            }
+          };
+          if (candidate.candidateId !== expected.candidateId
+            || candidate.sourceCommit !== expected.sourceCommit
+            || candidate.contentDigest !== expected.contentDigest
+            || candidate.profiles?.new?.outputDigest !== expected.profiles.new
+            || candidate.profiles?.legacy?.outputDigest !== expected.profiles.legacy) {
+            console.error('candidate input binding mismatch');
+            process.exit(1);
+          }
+          NODE
+
+      - name: Checkout dedicated artifact repository
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ inputs.site_repository }}
+          ref: main
+          token: ${{ secrets.TRICKCAL_SITE_CONTENTS_TOKEN }}
+          path: site
+          persist-credentials: true
+
+      - name: Require a clean artifact repository
+        run: |
+          set -euo pipefail
+          test -z "$(git -C site status --porcelain --untracked-files=all)"
+
+      - name: Deliver the checked new profile
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_CONTENT_DIGEST: ${{ inputs.content_digest }}
+          EXPECTED_NEW_OUTPUT_DIGEST: ${{ inputs.new_output_digest }}
+          EXPECTED_LEGACY_OUTPUT_DIGEST: ${{ inputs.legacy_output_digest }}
+        run: |
+          set -euo pipefail
+          node source/tools/transfer-public-site-artifact.js \
+            --candidate-record source/tmp/public-site-candidate.json \
+            --staging source/tmp/public-site-staging \
+            --release source/tmp/public-site/public-site-release.json \
+            --build source/tmp/public-site/public-site-build.json \
+            --checks-file source/tmp/public-site-checks.json \
+            --destination site \
+            --profile new \
+            --apply \
+            --plan source/tmp/public-site-delivery-plan.json
+
+      - name: Commit and push only the delivered artifact
+        run: |
+          set -euo pipefail
+          git -C site add --all
+          if git -C site diff --cached --quiet; then
+            echo 'no delivery diff'
+            exit 0
+          fi
+          git -C site diff --cached --check
+          git -C site -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Deliver checked public site candidate"
+          git -C site push origin HEAD:main

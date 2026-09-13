@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "hashAlgorithm": "sha256",
+  "hashLength": 16,
+  "directAssets": [
+    {
+      "id": "stat-data",
+      "path": "statData.js",
+      "references": ["stat-dashboard.html"]
+    },
+    {
+      "id": "card-data",
+      "path": "cards.js",
+      "references": ["stat-dashboard.html"]
+    },
+    {
+      "id": "formation-share-display-data",
+      "path": "formation-share-display-data.js",
+      "references": ["formation-share.html"]
+    },
+    {
+      "id": "formation-share-catalog",
+      "path": "formation-share-catalog.js",
+      "references": ["formation-share.html", "stat-dashboard.html"]
+    },
+    {
+      "id": "formation-share-codec",
+      "path": "formation-share-codec.js",
+      "references": ["formation-share.html", "stat-dashboard.html"]
+    },
+    {
+      "id": "formation-share-css",
+      "path": "formation-share-prototype.css",
+      "references": ["formation-share.html"]
+    },
+    {
+      "id": "formation-share-renderer",
+      "path": "formation-share.js",
+      "references": ["formation-share.html"]
+    },
+    {
+      "id": "formation-share-image",
+      "path": "formation-share-image.js",
+      "references": ["formation-share.html", "stat-dashboard.html"]
+    },
+    {
+      "id": "formation-share-page-actions",
+      "path": "formation-share-page-actions.js",
+      "references": ["formation-share.html"]
+    }
+  ],
+  "pageVersion": {
+    "id": "formation-share-page",
+    "path": "formation-share.html",
+    "constantFile": "formation-share-create.js",
+    "constantName": "SHARE_PAGE_CACHE_VERSION",
+      "references": []
+  },
+  "derivedAssets": [
+    {
+      "id": "formation-share-create",
+      "path": "formation-share-create.js",
+      "references": ["stat-dashboard.html"]
+    },
+    {
+      "id": "app-cache",
+      "path": "app-cache.js",
+      "references": []
+    }
+  ]
+}

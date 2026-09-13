@@ -1,0 +1,286 @@
+'use strict';
+
+const assert = require('assert');
+const crypto = require('crypto');
+const fs = require('fs');
+const vm = require('vm');
+const path = require('path');
+const {
+  buildPlan,
+  checkPublicSite,
+  directoryDigest,
+  generatePublicSite,
+  readManifest,
+  validateManifest
+} = require('./generate-public-site.js');
+const { buildSyncPlan } = require('./sync-formation-share-assets.js');
+
+const repoRoot = path.resolve(__dirname, '..');
+const manifest = readManifest(path.join(__dirname, 'public-route-manifest.json'));
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function expectInvalid(mutator, pattern) {
+  const candidate = clone(manifest);
+  mutator(candidate);
+  const result = validateManifest(candidate, { repoRoot });
+  assert.strictEqual(result.ok, false);
+  assert(result.errors.some(error => pattern.test(error)), `${pattern} not found in ${result.errors.join(' | ')}`);
+}
+
+function outputFiles(directory) {
+  const result = [];
+  function visit(current, relative) {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      const next = relative ? path.join(relative, entry.name) : entry.name;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) visit(full, next);
+      else result.push(next.replaceAll('\\', '/'));
+    }
+  }
+  visit(directory, '');
+  return result;
+}
+
+function readOutputText(directory, relativePath) {
+  return fs.readFileSync(path.join(directory, relativePath), 'utf8');
+}
+
+function sha256File(directory, relativePath) {
+  return crypto.createHash('sha256').update(fs.readFileSync(path.join(directory, relativePath))).digest('hex');
+}
+
+function testReleaseVersioning() {
+  const fixtureRoot = path.join(repoRoot, 'tmp', `public-site-release-fixture-${process.pid}`);
+  const outputOne = path.join(fixtureRoot, 'tmp', 'release-one');
+  const outputTwo = path.join(fixtureRoot, 'tmp', 'release-two');
+  const fixtureManifest = {
+    schemaVersion: 1,
+    profiles: {
+      new: {
+        origin: 'https://new.example.test',
+        basePath: '/',
+        assetBasePath: '/',
+        serviceWorker: { script: 'service-worker.js', scope: '/' }
+      },
+      legacy: {
+        origin: 'https://legacy.example.test',
+        basePath: '/trickcal-manager/',
+        assetBasePath: '/trickcal-manager/',
+        serviceWorker: { script: 'service-worker.js', scope: '/trickcal-manager/' }
+      }
+    },
+    assetConfig: { policy: 'manifest-only', versionQuery: 'v', outputMode: 'profile-base' },
+    serviceWorker: {
+      source: 'service-worker.js',
+      cacheName: 'fixture-manager',
+      navigationStrategy: 'network-first',
+      assetStrategy: 'stale-while-revalidate',
+      excludedPathPrefixes: []
+    },
+    reservedPaths: { new: [], legacy: [] },
+    routes: [{
+      id: 'fixture',
+      source: 'index.html',
+      indexable: false,
+      profiles: {
+        new: { publicPath: '/manager/', kind: 'static-page', aliases: ['/manager/index.html'] },
+        legacy: { publicPath: '/trickcal-manager/', kind: 'static-page', aliases: ['/trickcal-manager/index.html'] }
+      },
+      fixtures: []
+    }],
+    assets: [
+      { source: 'service-worker.js', kind: 'file', profiles: ['new', 'legacy'] },
+      { source: 'app.js', kind: 'file', profiles: ['new', 'legacy'] },
+      { source: 'public-site-runtime.js', kind: 'file', profiles: ['new', 'legacy'] }
+    ]
+  };
+  fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  fs.mkdirSync(path.join(fixtureRoot, 'tmp'), { recursive: true });
+  fs.writeFileSync(path.join(fixtureRoot, 'index.html'), '<!doctype html><html><head></head><body><script src="app.js"></script></body></html>\n');
+  fs.writeFileSync(path.join(fixtureRoot, 'app.js'), 'window.fixtureAsset = "one";\n');
+  fs.writeFileSync(path.join(fixtureRoot, 'public-site-runtime.js'), 'window.fixtureRuntime = true;\n');
+  fs.writeFileSync(path.join(fixtureRoot, 'service-worker.js'), [
+    "const CACHE_VERSION = 'source-template';",
+    "const PREVIOUS_CACHE_VERSION = '';",
+    "self.addEventListener('install', event => event.waitUntil(Promise.resolve()));"
+  ].join('\n') + '\n');
+  try {
+    const first = generatePublicSite(fixtureManifest, { repoRoot: fixtureRoot, outputDir: outputOne, write: true });
+    const firstRecord = JSON.parse(readOutputText(outputOne, 'public-site-release.json'));
+    assert.match(first.releaseId, /^[0-9a-f]{16}$/);
+    assert.strictEqual(firstRecord.previousRelease, null, '初回releaseにpreviousが設定されています');
+    assert.strictEqual(firstRecord.releaseId, first.releaseId);
+    assert.match(firstRecord.releaseInputDigest, /^[0-9a-f]{64}$/);
+    assert(firstRecord.sourceVersions.some(version => version.path === 'app.js'));
+    assert.strictEqual(firstRecord.profiles[0].serviceWorker.cacheVersion, first.releaseId);
+    assert.strictEqual(firstRecord.profiles[0].serviceWorker.previousCacheVersion, null);
+    assert.strictEqual(
+      firstRecord.profiles[0].serviceWorker.contentHash,
+      sha256File(outputOne, firstRecord.profiles[0].serviceWorker.output)
+    );
+    const firstDigest = directoryDigest(outputOne, { exclude: ['public-site-build.json', 'public-site-release.json'] });
+
+    const repeated = generatePublicSite(fixtureManifest, { repoRoot: fixtureRoot, outputDir: outputOne, write: true });
+    assert.strictEqual(repeated.releaseId, first.releaseId, '同一入力のrelease IDが不安定です');
+    assert.strictEqual(
+      directoryDigest(outputOne, { exclude: ['public-site-build.json', 'public-site-release.json'] }),
+      firstDigest,
+      '同一入力の生成SW／成果物が不安定です'
+    );
+    assert.strictEqual(checkPublicSite(fixtureManifest, { repoRoot: fixtureRoot, outputDir: outputOne }).ok, true);
+
+    fs.appendFileSync(path.join(fixtureRoot, 'app.js'), 'window.fixtureAsset = "two";\n');
+    const second = generatePublicSite(fixtureManifest, {
+      repoRoot: fixtureRoot,
+      outputDir: outputTwo,
+      write: true,
+      previousRelease: firstRecord
+    });
+    const secondRecord = JSON.parse(readOutputText(outputTwo, 'public-site-release.json'));
+    assert.notStrictEqual(second.releaseId, first.releaseId, '資材変更でrelease IDが変わりません');
+    assert.strictEqual(secondRecord.previousRelease.releaseId, first.releaseId);
+    assert.strictEqual(secondRecord.profiles[0].serviceWorker.previousCacheVersion, first.releaseId);
+    assert.strictEqual(secondRecord.profiles[0].serviceWorker.cacheVersion, second.releaseId);
+    assert.notStrictEqual(
+      readOutputText(outputOne, 'service-worker.js'),
+      readOutputText(outputTwo, 'service-worker.js'),
+      '資材変更で生成SWが変わりません'
+    );
+    assert.strictEqual(
+      secondRecord.profiles[0].serviceWorker.contentHash,
+      sha256File(outputTwo, secondRecord.profiles[0].serviceWorker.output)
+    );
+    const repeatedSecond = generatePublicSite(fixtureManifest, { repoRoot: fixtureRoot, outputDir: outputTwo, write: true });
+    assert.strictEqual(repeatedSecond.releaseId, second.releaseId, '更新後の同一入力が不安定です');
+    assert.strictEqual(checkPublicSite(fixtureManifest, { repoRoot: fixtureRoot, outputDir: outputTwo }).ok, true);
+  } finally {
+    fs.rmSync(fixtureRoot, { recursive: true, force: true });
+  }
+}
+
+function testRuntimeApi() {
+  const sandbox = {
+    URL,
+    window: {
+      location: { pathname: '/manager/', origin: 'http://localhost:8765', href: 'http://localhost:8765/manager/' },
+      TRICKCAL_PUBLIC_SITE_CONFIG: {
+        profile: 'new',
+        basePath: '/',
+        assetBasePath: '/',
+        assetVersion: 'asset-test-1',
+        routes: { share: '/share/', manager: '/manager/' },
+        peerRoutes: { transfer: '/transfer/' },
+        serviceWorker: { script: 'service-worker.js', scope: '/' }
+      }
+    },
+    document: { documentElement: {} },
+    MutationObserver: undefined
+  };
+  vm.runInNewContext(readOutputText(repoRoot, 'public-site-runtime.js'), sandbox);
+  const publicSite = sandbox.window.TRICKCAL_PUBLIC_SITE;
+  assert.strictEqual(publicSite.pageUrl('share', '?payload=fixture', '#keep'), '/share/?payload=fixture#keep');
+  assert.strictEqual(publicSite.peerPageUrl('transfer', 'https://trickcal.irlab.dev'), 'https://trickcal.irlab.dev/transfer/');
+  assert.strictEqual(publicSite.assetUrl('img/Chara/test.webp'), '/img/Chara/test.webp?v=asset-test-1');
+  assert.strictEqual(publicSite.assetUrl('service-worker.js', { versioned: false }), '/service-worker.js');
+  assert.throws(() => publicSite.assetUrl('../img/test.webp'), /manifest-relative/);
+}
+
+function main() {
+  const syncPlan = buildSyncPlan();
+  assert.deepStrictEqual(syncPlan.changedFiles, [], '既存共有資材同期の依存版が古いままです');
+  const validation = validateManifest(manifest, { repoRoot });
+  assert.strictEqual(validation.ok, true, validation.errors.join('\n'));
+  const plan = buildPlan(manifest, { repoRoot, outputDir: path.join(repoRoot, 'tmp', 'public-site-test') });
+  const manager = plan.entries.find(entry => entry.profile === 'new' && entry.routeId === 'manager' && entry.role === 'canonical');
+  const managerIndex = plan.publicPaths.get('new:/manager/index.html');
+  assert(manager && manager.outputRel === 'manager/index.html');
+  assert.strictEqual(managerIndex, manager, 'canonical route and index alias must share one output');
+  assert(plan.entries.some(entry => entry.profile === 'legacy' && entry.outputRel === 'trickcal-manager/stat-dashboard.html'));
+  assert(plan.entries.some(entry => entry.profile === 'new' && entry.outputRel === 'data/index.html'));
+  assert(plan.entries.some(entry => entry.profile === 'new' && entry.outputRel === 'transfer/index.html'));
+
+  expectInvalid(candidate => { candidate.unexpected = true; }, /未知のフィールド/);
+  expectInvalid(candidate => { candidate.routes[0].source = 'index.html'; }, /sourceまたはgenerator/);
+  expectInvalid(candidate => { candidate.routes[0].profiles.new.targetRouteId = 'home'; }, /self redirect/);
+  expectInvalid(candidate => { candidate.routes[0].profiles.new.aliases.push('/manager/'); }, /route\/alias pathが衝突|reserved path/);
+  expectInvalid(candidate => { candidate.reservedPaths.new.push('/manager/'); }, /reserved path/);
+  expectInvalid(candidate => { candidate.routes[1].profiles.new.aliases.push('/formation-damage-calc.html'); }, /route\/alias pathが衝突|assetとroute/);
+
+  const testOutput = path.join(repoRoot, 'tmp', 'public-site-test');
+  fs.rmSync(testOutput, { recursive: true, force: true });
+  try {
+    const generated = generatePublicSite(manifest, { repoRoot, outputDir: testOutput, write: true });
+    assert(generated.outputDigest);
+    const files = outputFiles(testOutput);
+    for (const expected of [
+      'index.html',
+      'manager/index.html',
+      'calc/index.html',
+      'share/index.html',
+      'data/index.html',
+      'data/enemies/index.html',
+      'data/boards/index.html',
+      'transfer/index.html',
+      'recovery/index.html',
+      'trickcal-manager/index.html',
+      'trickcal-manager/stat-dashboard.html',
+      'trickcal-manager/public/board-layout-preview.html',
+      'public-site-build.json'
+    ]) assert(files.includes(expected), `missing generated file: ${expected}`);
+    assert(!files.some(file => /(?:^|\/)(?:docs|tools|backups|outputs|tests?)(?:\/|$)|(?:\.xlsx$|\.env(?:\.|$)|secret)/i.test(file)));
+    assert(files.includes('public-site-release.json'));
+    const homeRedirect = readOutputText(testOutput, 'index.html');
+    const managerAlias = readOutputText(testOutput, 'stat-dashboard.html');
+    assert(homeRedirect.includes("location.search || ''") && homeRedirect.includes("location.hash || ''"));
+    assert(!homeRedirect.includes('http-equiv="refresh"'));
+    assert(managerAlias.includes('const target = "/manager/"'));
+    assert(managerAlias.includes("location.search || ''") && managerAlias.includes("location.hash || ''"));
+    const release = JSON.parse(readOutputText(testOutput, 'public-site-release.json'));
+    assert(/^[0-9a-f]{40}$/.test(release.sourceCommit));
+    assert.strictEqual(release.dirty, true);
+    assert.deepStrictEqual(release.dependencyOrder, [
+      'profile-layout', 'direct-assets', 'share-page', 'share-create', 'app-cache', 'final-html', 'release-record'
+    ]);
+    assert(release.profiles.every(profile => profile.routeVersion && profile.assetVersion && profile.assetsDigest));
+
+    const assetVersion = generated.assetVersion;
+    const managerHtml = readOutputText(testOutput, 'manager/index.html');
+    const legacyHtml = readOutputText(testOutput, 'trickcal-manager/stat-dashboard.html');
+    assert(managerHtml.includes(`href="/calc/?recover=20260912"`));
+    assert(managerHtml.includes('href="/data/boards/"'));
+    assert(managerHtml.includes(`src="/public-site-runtime.js?v=${assetVersion}"`));
+    assert(managerHtml.includes(`src="/statData.js?v=${assetVersion}"`));
+    assert(!managerHtml.includes('href="formation-damage-calc.html'));
+    assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html?recover=20260912"'));
+    assert(!legacyHtml.includes('https://trickcal.irlab.dev'));
+    const appCache = readOutputText(testOutput, 'app-cache.js');
+    assert(appCache.includes("publicSite.assetUrl?.(publicSite.serviceWorker.script, { versioned: false })"));
+    const shareCreate = readOutputText(testOutput, 'formation-share-create.js');
+    assert(shareCreate.includes("pageUrl?.('share')"));
+    assert(!shareCreate.includes("searchParams.set('v'"));
+    assert(readOutputText(testOutput, 'formation-damage-dps-prototype.js').includes("assetUrl?.('dps-simulator-worker.js')"));
+    assert(readOutputText(testOutput, 'dps-simulator-worker.js').includes("new URL('dps-simulator.js'"));
+    assert(readOutputText(testOutput, 'public/board-layout-preview.js').includes("boardAssetPath('img/Board/Tile_gate.webp')"));
+    const serviceWorker = readOutputText(testOutput, 'service-worker.js');
+    assert(!serviceWorker.includes('clients.claim'));
+    const installPart = serviceWorker.slice(serviceWorker.indexOf("addEventListener('install'"), serviceWorker.indexOf("addEventListener('activate'"));
+    assert(!installPart.includes('skipWaiting'));
+    assert(serviceWorker.includes('EXCLUDED_PATH_PREFIXES'));
+    assert(!serviceWorker.includes('const CACHE_PREFIX'));
+    assert(managerHtml.includes('location.pathname'));
+    assert(readOutputText(testOutput, 'calc/index.html').includes('"/calc/index.html"'));
+    assert(readOutputText(testOutput, 'calc/index.html').includes('location.replace("/calc/"'));
+    testRuntimeApi();
+    const checked = checkPublicSite(manifest, { repoRoot, outputDir: testOutput });
+    assert.strictEqual(checked.ok, true);
+  } finally {
+    fs.rmSync(testOutput, { recursive: true, force: true });
+  }
+  testReleaseVersioning();
+  console.log('public site tests passed: schema, routes, aliases, targets, collision guards, explicit output, stable check');
+}
+
+main();

@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Trickcal Manager 保存復旧</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #17151d;
+      color: #f4f0fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: radial-gradient(circle at top, #38244a, #17151d 60%);
+    }
+    main {
+      width: min(100%, 560px);
+      padding: clamp(22px, 6vw, 40px);
+      border: 1px solid #665176;
+      border-radius: 18px;
+      background: #211c2a;
+      box-shadow: 0 18px 50px #0008;
+    }
+    h1 { margin: 0 0 10px; font-size: clamp(1.3rem, 5vw, 1.8rem); }
+    p { line-height: 1.7; }
+    .note { color: #d6cbe2; font-size: .92rem; }
+    #recovery-status {
+      min-height: 4.2em;
+      margin: 20px 0 14px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #30273b;
+      color: #eee6f6;
+      white-space: pre-line;
+    }
+    #recovery-status[data-kind="success"] { color: #a9f3c6; }
+    #recovery-status[data-kind="error"] { color: #ffb5c0; }
+    button, a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 9px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    button {
+      border: 1px solid #d8a8ff;
+      background: #9a5bc8;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:disabled { cursor: wait; opacity: .65; }
+    a { border: 1px solid #786489; color: #f1dfff; background: #30263a; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    #recovery-open { display: none; }
+    #recovery-open.is-visible { display: inline-flex; }
+    #recovery-details {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #30273b;
+      color: #d6cbe2;
+      font-size: .82rem;
+      line-height: 1.55;
+    }
+    #recovery-details.is-visible { display: block; }
+    noscript { color: #ffb5c0; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Trickcal Manager の保存復旧</h1>
+    <p>通常ページが保存データの確認で停止した場合に、保留中の復元処理だけを確認します。</p>
+    <p class="note">このページは通常のアプリ起動を行いません。認識できない、壊れたjournalは削除せず、復旧可能な状態のまま停止します。</p>
+    <div id="recovery-status" role="status" aria-live="polite">保留中の復元状態を確認しています。</div>
+    <div id="recovery-details"></div>
+    <div class="actions">
+      <button type="button" id="recovery-export-rescue">救出ファイルを保存</button>
+      <button type="button" id="recovery-run">復旧を実行</button>
+      <a id="recovery-open" href="stat-dashboard.html">ステータス管理を開く</a>
+    </div>
+    <noscript>JavaScriptを有効にしてから、もう一度開いてください。</noscript>
+  </main>
+  <script src="storage-registry.js?v=20260913a"></script>
+  <script src="storage-backup.js?v=20260913a"></script>
+  <script src="storage-runtime.js?v=20260913a"></script>
+  <script>
+    (() => {
+      'use strict';
+      const status = document.getElementById('recovery-status');
+      const details = document.getElementById('recovery-details');
+      const runButton = document.getElementById('recovery-run');
+      const rescueButton = document.getElementById('recovery-export-rescue');
+      const openLink = document.getElementById('recovery-open');
+      const runtime = window.TRICKCAL_STORAGE_RUNTIME?.createStorageRuntime?.();
+
+      function setStatus(message, kind = '') {
+        status.textContent = message;
+        status.dataset.kind = kind;
+      }
+
+      function showDetails(value) {
+        if (!value?.present) {
+          details.classList.remove('is-visible');
+          return;
+        }
+        details.textContent = `phase: ${value.phase}\ntransaction: ${value.transactionId}`;
+        details.classList.add('is-visible');
+      }
+
+      async function inspect() {
+        if (!runtime?.inspectPendingRecovery) {
+          setStatus('保存復旧機能を読み込めません。', 'error');
+          return false;
+        }
+        const result = await runtime.inspectPendingRecovery();
+        if (!result?.ok) {
+          setStatus('journalを安全に確認できません。内容は保持されています。\n' + (result.code || 'unknown'), 'error');
+          return false;
+        }
+        showDetails(result.value);
+        if (!result.value.present) {
+          setStatus('保留中の復元処理はありません。通常ページを開けます。', 'success');
+          runButton.disabled = true;
+          openLink.classList.add('is-visible');
+          return true;
+        }
+        setStatus('保留中の復元処理があります。復旧を実行できます。');
+        return true;
+      }
+
+      rescueButton.addEventListener('click', async () => {
+        rescueButton.disabled = true;
+        setStatus('読める保存値から救出ファイルを作成しています。');
+        try {
+          const result = await runtime?.exportRescueDirect?.({
+            sourceRelease: window.TRICKCAL_STORAGE_BACKUP?.getDefaultSourceRelease?.()
+          });
+          if (!result?.ok) {
+            setStatus('救出ファイルを作成できませんでした。\n' + (result?.code || 'unknown'), 'error');
+            return;
+          }
+          const blob = new Blob([JSON.stringify(result.value)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `trickcal-manager-rescue-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          URL.revokeObjectURL(url);
+          setStatus(`救出ファイルを保存しました（${blob.size} bytes）。`, 'success');
+        } catch (error) {
+          console.error(error);
+          setStatus('救出ファイルを作成できませんでした。', 'error');
+        } finally {
+          rescueButton.disabled = false;
+        }
+      });
+
+      runButton.addEventListener('click', async () => {
+        runButton.disabled = true;
+        setStatus('保留中の復元状態を処理しています。');
+        try {
+          const result = await runtime.recoverPendingJournal();
+          if (!result?.ok) {
+            setStatus('復旧できませんでした。journalは保持されています。\n' + (result.code || 'unknown'), 'error');
+            return;
+          }
+          const phase = result.value?.phase || 'none';
+          if (phase === 'complete') {
+            setStatus('復元後のsession再構成が完了しました。通常ページを開いてください。', 'success');
+          } else if (phase === 'rolled-back') {
+            setStatus('適用途中の変更を元に戻しました。通常ページを開いてください。', 'success');
+          } else {
+            setStatus('保留中の復元処理はありません。通常ページを開いてください。', 'success');
+          }
+          openLink.classList.add('is-visible');
+          details.classList.remove('is-visible');
+        } catch (error) {
+          console.error(error);
+          setStatus('復旧処理で予期しないエラーが発生しました。journalは保持されています。', 'error');
+        } finally {
+          runButton.disabled = false;
+        }
+      });
+
+      void inspect();
+    })();
+  </script>
+</body>
+</html>

@@ -44,43 +44,73 @@ if not defined PYTHON (
 
 set "BACKUP_DIR=%TOOLS_DIR%..\backups\generated\%STAMP%"
 
-echo [1/7] Validating effect schema...
+echo [1/11] Validating effect schema...
 call :run_python "validate-effect-schema.py" --input "trickcal_datasheet.xlsx"
 if errorlevel 1 goto :validation_error
 
-echo [2/7] Backing up current data...
+echo [2/11] Backing up current data...
 mkdir "%BACKUP_DIR%" >nul 2>&1
 if errorlevel 1 goto :backup_error
 
 call :backup "%TOOLS_DIR%..\apostles.js" || goto :backup_error
 call :backup "%TOOLS_DIR%..\cards.js" || goto :backup_error
 call :backup "%TOOLS_DIR%..\statData.js" || goto :backup_error
+call :backup "%TOOLS_DIR%..\formation-share-catalog.js" || goto :backup_error
+call :backup "%TOOLS_DIR%..\formation-share-display-data.js" || goto :backup_error
+call :backup "%TOOLS_DIR%..\formation-share.html" || goto :backup_error
+call :backup "%TOOLS_DIR%..\formation-share-create.js" || goto :backup_error
+call :backup "%TOOLS_DIR%..\stat-dashboard.html" || goto :backup_error
+call :backup "%TOOLS_DIR%..\app-cache.js" || goto :backup_error
 call :backup "%TOOLS_DIR%trickcal_datasheet.xlsx" || goto :backup_error
 
-echo [3/7] Generating apostles.js...
+echo [3/11] Generating apostles.js...
 call :run_python "generate-apostles.py" --input "trickcal_datasheet.xlsx" --output "%TOOLS_DIR%..\apostles.js"
 if errorlevel 1 goto :generate_error
 
-echo [4/7] Generating cards.js...
+echo [4/11] Generating cards.js...
 call :run_python "generate-card-data.py" --input "trickcal_datasheet.xlsx" --output "%TOOLS_DIR%..\cards.js" --key-map "card-effect-key-map.tsv"
 if errorlevel 1 goto :generate_error
 
-echo [5/7] Generating statData.js...
+echo [5/11] Generating statData.js...
 call :run_python "generate-stat-data.py" --input "trickcal_datasheet.xlsx" --output "%TOOLS_DIR%..\statData.js"
 if errorlevel 1 goto :generate_error
 
-echo [6/7] Validating generated data...
+echo [6/11] Synchronizing formation share catalog...
+call :run_node "sync-formation-share-catalog.js" --write
+if errorlevel 1 goto :generate_error
+
+echo [7/11] Generating formation share display data...
+call :run_node "generate-formation-share-display-data.js" --check-images
+if errorlevel 1 goto :generate_error
+
+echo [8/11] Synchronizing formation share asset hashes...
+call :run_node "sync-formation-share-assets.js" --write
+if errorlevel 1 goto :generate_error
+
+echo [9/11] Validating generated data...
 call :run_node "validate-generated-data.js"
 if errorlevel 1 goto :generate_error
 
-echo [7/8] Recording generated value changes...
+echo [10/11] Validating formation share maintenance...
+set "BASE_CATALOG_PATH=%TMP_DIR%\formation-share-base-%STAMP%.js"
+git show HEAD:formation-share-catalog.js > "%BASE_CATALOG_PATH%"
+if errorlevel 1 (
+    call :log_line [ERROR] Could not read the committed formation share catalog baseline.
+    goto :generate_error
+)
+call :run_node "validate-formation-share-maintenance.js" --base-catalog "%BASE_CATALOG_PATH%"
+set "VALIDATE_CODE=%ERRORLEVEL%"
+del /q "%BASE_CATALOG_PATH%" >nul 2>&1
+if not "%VALIDATE_CODE%"=="0" goto :generate_error
+
+echo [11/11] Recording generated value changes...
 call :run_python "generate-change-log.py" --previous-dir "%BACKUP_DIR%" --current-dir "%TOOLS_DIR%.." --output "%CHANGE_LOG%"
 if errorlevel 1 (
     call :log_line [WARN] Failed to create generated value change log.
     echo [WARN] Failed to create generated value change log.
 )
 echo Change log: %CHANGE_LOG%
-echo [8/8] Complete.
+echo [11/11] Complete.
 echo Backup: %BACKUP_DIR%
 del /q "%ERROR_LOG%" >nul 2>&1
 popd

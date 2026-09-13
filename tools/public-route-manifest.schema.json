@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trickcal.irlab.dev/schemas/public-route-manifest-v1.json",
+  "title": "Trickcal Manager public route manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profiles", "assetConfig", "serviceWorker", "reservedPaths", "routes", "assets"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "profiles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["new", "legacy"],
+      "properties": {
+        "new": { "$ref": "#/$defs/profile" },
+        "legacy": { "$ref": "#/$defs/profile" }
+      }
+    },
+    "assetConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "versionQuery", "outputMode"],
+      "properties": {
+        "policy": { "const": "manifest-only" },
+        "versionQuery": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" },
+        "outputMode": { "const": "profile-base" }
+      }
+    },
+    "serviceWorker": { "$ref": "#/$defs/serviceWorker" },
+    "reservedPaths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["new", "legacy"],
+      "properties": {
+        "new": { "$ref": "#/$defs/pathList" },
+        "legacy": { "$ref": "#/$defs/pathList" }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/route" }
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "basePath", "assetBasePath", "serviceWorker"],
+      "properties": {
+        "origin": { "type": "string", "format": "uri" },
+        "basePath": { "$ref": "#/$defs/publicPath" },
+        "assetBasePath": { "$ref": "#/$defs/publicPath" },
+        "serviceWorker": { "$ref": "#/$defs/profileServiceWorker" }
+      }
+    },
+    "profileServiceWorker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["script", "scope"],
+      "properties": {
+        "script": { "$ref": "#/$defs/relativePath" },
+        "scope": { "$ref": "#/$defs/publicPath" }
+      }
+    },
+    "serviceWorker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "cacheName", "navigationStrategy", "assetStrategy", "excludedPathPrefixes"],
+      "properties": {
+        "source": { "$ref": "#/$defs/relativePath" },
+        "cacheName": { "type": "string", "minLength": 1 },
+        "navigationStrategy": { "const": "network-first" },
+        "assetStrategy": { "const": "stale-while-revalidate" },
+        "excludedPathPrefixes": { "$ref": "#/$defs/pathList" }
+      }
+    },
+    "route": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "profiles", "fixtures"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "source": { "$ref": "#/$defs/relativePath" },
+        "generator": { "enum": ["home-entry", "data-index"] },
+        "indexable": { "type": "boolean" },
+        "profiles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["new", "legacy"],
+          "properties": {
+            "new": { "$ref": "#/$defs/routeProfile" },
+            "legacy": { "$ref": "#/$defs/routeProfile" }
+          }
+        },
+        "fixtures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fixture" }
+        }
+      },
+      "oneOf": [
+        { "required": ["source"], "not": { "required": ["generator"] } },
+        { "required": ["generator"], "not": { "required": ["source"] } }
+      ]
+    },
+    "routeProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publicPath", "kind", "aliases"],
+      "properties": {
+        "publicPath": { "$ref": "#/$defs/publicPath" },
+        "kind": { "enum": ["static-page", "static-redirect", "compatibility", "maintenance"] },
+        "targetRouteId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "aliases": { "$ref": "#/$defs/pathList" }
+      }
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "profile", "query", "hash", "viewport"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "profile": { "enum": ["new", "legacy"] },
+        "query": { "type": "string", "pattern": "^(|\\?.*)$" },
+        "hash": { "type": "string", "pattern": "^(|#.*)$" },
+        "viewport": { "enum": ["desktop", "mobile"] },
+        "themes": { "type": "array", "items": { "enum": ["light", "dark"] }, "uniqueItems": true }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "kind", "profiles"],
+      "properties": {
+        "source": { "$ref": "#/$defs/relativePath" },
+        "kind": { "enum": ["file", "directory"] },
+        "profiles": { "type": "array", "items": { "enum": ["new", "legacy"] }, "minItems": 1, "uniqueItems": true }
+      }
+    },
+    "relativePath": { "type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)[.]{1,2}(?:/|$))(?!.*\\\\)[^?#]+$" },
+    "publicPath": { "type": "string", "pattern": "^/(?:[^?#]*?)$" },
+    "pathList": { "type": "array", "items": { "$ref": "#/$defs/publicPath" }, "uniqueItems": true }
+  }
+}

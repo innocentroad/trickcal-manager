@@ -1,6 +1,13 @@
 (function () {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) return;
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
   const STAT_STORAGE_KEY = 'trickcal_stat_prototype_v1';
   const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1';
   const APOSTLE_ALIASES = {
@@ -101,6 +108,11 @@
 
   const preloadCache = [];
   const requestedUrls = new Set();
+  const publicSite = window.TRICKCAL_PUBLIC_SITE;
+
+  function resolveAssetUrl(src) {
+    return publicSite?.assetUrl?.(src) || src;
+  }
 
   function disableImageInteraction(root) {
     const images = root instanceof HTMLImageElement
@@ -126,7 +138,7 @@
 
   function readJson(key) {
     try {
-      return JSON.parse(localStorage.getItem(key) || '{}') || {};
+      return JSON.parse(storageLocal.getItem(key) || '{}') || {};
     } catch (_) {
       return {};
     }
@@ -223,15 +235,16 @@
 
   function preloadImages(urls, chunkSize = 8) {
     const queue = urls.filter(src => {
-      if (!src || requestedUrls.has(src)) return false;
-      requestedUrls.add(src);
+      const resolved = resolveAssetUrl(src);
+      if (!resolved || requestedUrls.has(resolved)) return false;
+      requestedUrls.add(resolved);
       return true;
     });
     const loaded = [];
     const run = deadline => {
       let count = 0;
       while (queue.length && count < chunkSize && (!deadline || deadline.timeRemaining() > 2)) {
-        const src = queue.shift();
+        const src = resolveAssetUrl(queue.shift());
         const image = new Image();
         image.decoding = 'async';
         image.fetchPriority = 'low';
@@ -268,4 +281,5 @@
 
   if (document.readyState === 'complete') startPreload();
   else window.addEventListener('load', startPreload, { once: true });
+  });
 })();

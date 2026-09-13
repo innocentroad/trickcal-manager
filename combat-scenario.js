@@ -127,6 +127,8 @@
   }
 
   function getSessionStorage() {
+    const facade = globalThis.TRICKCAL_STORAGE_FACADE;
+    if (facade?.sessionStorage) return facade.sessionStorage;
     try {
       return typeof sessionStorage === 'undefined' ? null : sessionStorage;
     } catch {

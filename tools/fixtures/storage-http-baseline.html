@@ -1,0 +1,119 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Storage browser event probe (fixture only)</title>
+<style>
+  body { font: 16px/1.5 sans-serif; margin: 1rem; }
+  button { margin: 0 .4rem .4rem 0; padding: .35rem .6rem; }
+  #state { font-weight: 700; }
+  pre { min-height: 12rem; padding: .7rem; background: #f3f3f3; white-space: pre-wrap; }
+</style>
+<main>
+  <h1>Storage browser event probe (fixture only)</h1>
+  <p>このページはブラウザイベントの疎通用です。本番アプリの保存実装は読み込みません。</p>
+  <p>tab: <code id="tab"></code></p>
+  <p>value: <code id="value"></code></p>
+  <p>state: <span id="state">clean</span></p>
+  <button id="write" type="button">write next value</button>
+  <button id="dirty" type="button">toggle dirty</button>
+  <button id="clear" type="button">clear shared value</button>
+  <p>
+    <label for="json-file">JSON file</label>
+    <input id="json-file" type="file" accept="application/json">
+    <span id="json-file-status">none</span>
+  </p>
+  <button id="download-json" type="button">download probe JSON</button>
+  <span id="download-status">none</span>
+  <pre id="log"></pre>
+</main>
+<script>
+  (() => {
+    const runId = new URL(location.href).searchParams.get('run') || 'default';
+    const STORAGE_KEY = `trickcal_storage_http_baseline_v1:${runId}`;
+    const tabId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    let dirty = false;
+    let currentValue = localStorage.getItem(STORAGE_KEY) || '0';
+    const logLines = [];
+    const tab = document.getElementById('tab');
+    const value = document.getElementById('value');
+    const state = document.getElementById('state');
+    const log = document.getElementById('log');
+    const jsonFile = document.getElementById('json-file');
+    const jsonFileStatus = document.getElementById('json-file-status');
+    const downloadStatus = document.getElementById('download-status');
+    tab.textContent = tabId;
+
+    function record(message) {
+      logLines.push(`${new Date().toISOString()} ${message}`);
+      log.textContent = logLines.slice(-30).join('\n');
+    }
+    function render() {
+      value.textContent = currentValue;
+      state.textContent = dirty ? 'dirty' : 'clean';
+    }
+    function writeNext() {
+      const next = String(Number(localStorage.getItem(STORAGE_KEY) || 0) + 1);
+      localStorage.setItem(STORAGE_KEY, next);
+      currentValue = next;
+      record(`write:${next}`);
+      render();
+    }
+    document.getElementById('write').addEventListener('click', writeNext);
+    document.getElementById('dirty').addEventListener('click', () => {
+      dirty = !dirty;
+      record(`dirty:${dirty}`);
+      render();
+    });
+    document.getElementById('clear').addEventListener('click', () => {
+      localStorage.removeItem(STORAGE_KEY);
+      currentValue = '0';
+      record('remove');
+      render();
+    });
+    jsonFile.addEventListener('change', async () => {
+      const file = jsonFile.files?.[0];
+      if (!file) return;
+      try {
+        const payload = JSON.parse(await file.text());
+        jsonFileStatus.textContent = `ok:${payload.schema || payload.kind || 'object'}`;
+        record(`file:ok:${file.name}`);
+      } catch (error) {
+        jsonFileStatus.textContent = `error:${error.message}`;
+        record(`file:error:${file.name}`);
+      }
+    });
+    document.getElementById('download-json').addEventListener('click', () => {
+      const payload = JSON.stringify({ probe: 'storage-http-baseline', value: currentValue });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
+      link.download = 'storage-http-baseline-probe.json';
+      link.click();
+      URL.revokeObjectURL(link.href);
+      downloadStatus.textContent = `ok:${payload}`;
+      record('download:ok');
+    });
+    window.addEventListener('storage', event => {
+      if (event.key === `${STORAGE_KEY}:pagehide`) {
+        record(`pagehide-observed:${event.newValue || '(null)'}`);
+        return;
+      }
+      if (event.key !== STORAGE_KEY) return;
+      record(`storage:${event.oldValue || '(null)'}->${event.newValue || '(null)'}`);
+      if (dirty) {
+        record('storage:conflict-preserved');
+        return;
+      }
+      currentValue = event.newValue || '0';
+      record(`storage:applied:${currentValue}`);
+      render();
+    });
+    window.addEventListener('focus', () => record('focus'));
+    window.addEventListener('blur', () => record('blur'));
+    document.addEventListener('visibilitychange', () => record(`visibility:${document.visibilityState}`));
+    window.addEventListener('pagehide', () => {
+      record('pagehide');
+      localStorage.setItem(`${STORAGE_KEY}:pagehide`, tabId);
+    });
+    record(`ready:${currentValue}`);
+    render();
+  })();
+</script>

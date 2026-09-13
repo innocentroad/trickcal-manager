@@ -11,6 +11,8 @@ desktop.ini
 tmp/
 __pycache__/
 tools/__pycache__/
+tools/node_modules/
+tools/.npm-cache/
 tools/*.backup-*.js
 tools/*.generated.js
 tools/statData.js

@@ -1,69 +1,52 @@
 (function () {
   'use strict';
 
-  if (!('serviceWorker' in navigator)) return;
-  if (!window.isSecureContext) return;
-
+  const FALLBACK_ROUTES = {
+    manager: 'stat-dashboard.html',
+    calc: 'formation-damage-calc.html',
+    dps: 'formation-damage-dps-prototype.html'
+  };
   const ROUTE_ASSETS = {
-    stat: [
-      'stat-dashboard.html',
-      'stat-prototype.css?v=20260907b',
-      'stat-dashboard.css?v=20260903a',
-      'shared-topbar.css?v=20260727e',
-      'statData.js?v=20260907c',
-      'public-release-config.js?v=20260903a',
-      'sp-engine.js?v=20260720b',
-      'synergy.js',
-      'cards.js?v=20260813a',
-      'stat-prototype.js?v=20260911b',
-      'stat-dashboard.js?v=20260903a',
-      'image-preload.js?v=20260727a'
+    manager: [
+      'storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js', 'storage-backup.js', 'storage-transfer.js',
+      'formation-share.html', 'formation-share-display-data.js', 'formation-share-catalog.js',
+      'formation-share-codec.js', 'formation-share-prototype.css', 'formation-share.js',
+      'formation-share-image.js', 'formation-share-page-actions.js', 'formation-share-create.js',
+      'stat-prototype.css', 'stat-dashboard.css', 'shared-topbar.css', 'statData.js',
+      'public-release-config.js', 'sp-engine.js', 'synergy.js', 'cards.js', 'stat-engine.js',
+      'stat-prototype.js', 'stat-dashboard.js', 'image-preload.js', 'public-site-runtime.js'
     ],
     calc: [
-      'formation-damage-calc.html',
-      'style.css',
-      'formation-damage-calc.css?v=20260826b',
-      'formation-damage-dps-prototype.css?v=20260904a',
-      'shared-topbar.css?v=20260727e',
-      'statData.js?v=20260907c',
-      'public-release-config.js?v=20260903a',
-      'sp-engine.js?v=20260720b',
-      'stat-engine.js?v=20260828a',
-      'apostles.js?v=20260907c',
-      'cards.js?v=20260813a',
-      'synergy.js',
-      'enemy-presets.js?v=20260821o',
-      'combat-scenario.js?v=20260824a',
-      'dps-trigger-policy.js?v=20260907c',
-      'dps-timing-data.js?v=20260907c',
-      'dps-simulator.js?v=20260907c',
-      'dps-simulator-worker.js?v=20260907c',
-      'dps-support-registry.js?v=20260827c',
-      'formation-damage-calc.js?v=20260907c',
-      'formation-damage-dps-prototype.js?v=20260907c',
-      'image-preload.js?v=20260727a'
+      'storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js', 'style.css',
+      'formation-damage-calc.css', 'formation-damage-dps-prototype.css', 'shared-topbar.css',
+      'statData.js', 'public-release-config.js', 'sp-engine.js', 'stat-engine.js', 'apostles.js',
+      'cards.js', 'synergy.js', 'enemy-presets.js', 'combat-scenario.js', 'dps-trigger-policy.js',
+      'dps-timing-data.js', 'dps-simulator.js', 'dps-simulator-worker.js', 'dps-support-registry.js',
+      'formation-damage-calc.js', 'formation-damage-dps-prototype.js', 'image-preload.js', 'public-site-runtime.js'
     ],
-    dpsPrototype: [
-      'formation-damage-dps-prototype.html',
-      'formation-damage-dps-prototype.css?v=20260904a',
-      'formation-damage-dps-prototype.js?v=20260907c',
-      'public-release-config.js?v=20260903a',
-      'stat-engine.js?v=20260828a',
-      'dps-support-registry.js?v=20260827c',
-      'dps-timing-data.js?v=20260907c',
-      'dps-simulator.js?v=20260907c',
-      'dps-simulator-worker.js?v=20260907c',
-      'formation-damage-calc.html',
-      'formation-damage-calc.css?v=20260826b',
-      'dps-trigger-policy.js?v=20260907c',
-      'formation-damage-calc.js?v=20260907c'
+    dps: [
+      'storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js', 'formation-damage-dps-prototype.css',
+      'formation-damage-dps-prototype.js', 'public-release-config.js', 'stat-engine.js', 'dps-support-registry.js',
+      'dps-timing-data.js', 'dps-simulator.js', 'dps-simulator-worker.js', 'formation-damage-calc.css',
+      'dps-trigger-policy.js', 'formation-damage-calc.js', 'public-site-runtime.js'
     ]
   };
 
+  if (!('serviceWorker' in navigator)) return;
+  if (!window.isSecureContext) return;
+
+  const publicSite = window.TRICKCAL_PUBLIC_SITE;
+  const pagePath = route => publicSite?.pageUrl?.(route) || FALLBACK_ROUTES[route] || route;
+  const assetPath = asset => publicSite?.assetUrl?.(asset) || asset;
+  const serviceWorkerPath = publicSite?.serviceWorker?.script
+    ? publicSite.assetUrl?.(publicSite.serviceWorker.script, { versioned: false }) || publicSite.serviceWorker.script
+    : 'service-worker.js';
+  const registrationOptions = { updateViaCache: 'none' };
+  if (publicSite?.serviceWorker?.scope) registrationOptions.scope = publicSite.serviceWorker.scope;
   const warmedUrls = new Set();
 
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(error => {
+    navigator.serviceWorker.register(serviceWorkerPath, registrationOptions).catch(error => {
       console.warn('[trickcal-manager] service worker registration failed', error);
     });
     warmLikelyRouteSoon();
@@ -72,13 +55,10 @@
 
   function warmLikelyRouteSoon() {
     const warm = () => warmRouteAssets(document.body?.classList.contains('fdcp-prototype-page')
-      ? 'dpsPrototype'
-      : document.body?.classList.contains('formation-damage-calc') ? 'calc' : 'stat');
-    if ('requestIdleCallback' in window) {
-      window.requestIdleCallback(warm, { timeout: 2200 });
-    } else {
-      window.setTimeout(warm, 1200);
-    }
+      ? 'dps'
+      : document.body?.classList.contains('formation-damage-calc') ? 'calc' : 'manager');
+    if ('requestIdleCallback' in window) window.requestIdleCallback(warm, { timeout: 2200 });
+    else window.setTimeout(warm, 1200);
   }
 
   function bindNavigationWarmup() {
@@ -91,24 +71,29 @@
     const link = target?.closest?.('a[href]');
     if (!link) return;
     const href = link.getAttribute('href') || '';
-    if (href.includes('formation-damage-calc.html')) warmRouteAssets('calc', true);
-    if (href.includes('stat-dashboard.html') || href.includes('index.html')) warmRouteAssets('stat', true);
+    const route = publicSite?.routeIdForUrl?.(href)
+      || (href.includes('formation-damage-calc.html') ? 'calc' : '')
+      || (href.includes('stat-dashboard.html') || href.includes('index.html') ? 'manager' : '');
+    if (route) warmRouteAssets(route, true);
   }
 
   function warmRouteAssets(route, highPriority = false) {
-    const assets = ROUTE_ASSETS[route] || [];
+    const page = pagePath(route);
+    const assets = [page, ...(ROUTE_ASSETS[route] || [])];
     assets.forEach((asset, index) => {
-      const url = new URL(asset, document.baseURI).href;
+      let url;
+      try {
+        const resolved = asset === page ? page : assetPath(asset);
+        url = new URL(resolved, document.baseURI).href;
+      } catch (_) {
+        return;
+      }
       if (warmedUrls.has(url)) return;
       warmedUrls.add(url);
-      const fetchAsset = () => fetch(url, { cache: 'force-cache', credentials: 'same-origin' }).catch(() => undefined);
-      if (highPriority || index < 3) {
-        fetchAsset();
-      } else if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(fetchAsset, { timeout: 2500 });
-      } else {
-        window.setTimeout(fetchAsset, 200 + index * 80);
-      }
+      const fetchAsset = () => fetch(url, { cache: 'reload', credentials: 'same-origin' }).catch(() => undefined);
+      if (highPriority || index < 3) fetchAsset();
+      else if ('requestIdleCallback' in window) window.requestIdleCallback(fetchAsset, { timeout: 2500 });
+      else window.setTimeout(fetchAsset, 200 + index * 80);
     });
   }
 })();

@@ -1,6 +1,47 @@
 (() => {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
+  function isStorageRuntimeError(error) {
+    return error?.name === 'StorageRuntimeError';
+  }
+
+  function createDpsStorageRuntimeError(code, operation, id) {
+    const error = new Error(`storage ${code}`);
+    error.name = 'StorageRuntimeError';
+    error.result = {
+      ok: false,
+      code,
+      operation,
+      id,
+      retryable: ['busy', 'read-failed', 'write-failed', 'remove-failed'].includes(code)
+    };
+    return error;
+  }
+
+  function reportDpsStorageFailure(error) {
+    const code = error?.name === 'StorageRuntimeError'
+      ? error.result?.code || 'failed'
+      : 'write-failed';
+    if (error?.name !== 'StorageRuntimeError') console.error(error);
+    if (typeof document !== 'undefined') {
+      document.documentElement?.setAttribute('data-storage-error', code);
+      const status = document.getElementById('fdc-dps-status');
+      if (status) {
+        status.textContent = 'DPS設定を保存できませんでした。再読み込みして再試行してください。';
+        status.dataset.storageError = code;
+        status.classList?.add('is-error');
+      }
+    }
+    return false;
+  }
+
   const el = {
     lab: document.getElementById('fdc-dps-lab'),
     duration: document.getElementById('fdc-dps-duration'),
@@ -1692,19 +1733,32 @@
   }
 
   function loadRuntimeEffectOverrides() {
+    let raw;
     try {
-      const parsed = JSON.parse(localStorage.getItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY) || '{}');
-      return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_) {
-      return {};
+      raw = storageLocal.getItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createDpsStorageRuntimeError('read-failed', 'read', 'dps.runtimeOverrides');
     }
+    if (raw == null) return {};
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.runtimeOverrides');
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw createDpsStorageRuntimeError('recovery-required', 'read', 'dps.runtimeOverrides');
+    }
+    return parsed;
   }
 
   function saveRuntimeEffectOverrides() {
     try {
-      localStorage.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(runtimeEffectOverrides));
-    } catch (_) {
-      // 保存できない環境でも、このタブ内では設定を維持する。
+      storageLocal.setItem(DPS_RUNTIME_OVERRIDE_STORAGE_KEY, JSON.stringify(runtimeEffectOverrides));
+      return true;
+    } catch (error) {
+      return reportDpsStorageFailure(error);
     }
   }
 
@@ -2662,4 +2716,7 @@
   function escapeAttr(value) {
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
+  }).catch(error => {
+    reportDpsStorageFailure(error);
+  });
 })();

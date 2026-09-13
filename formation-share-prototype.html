@@ -6,12 +6,10 @@
   <title>編成共有 試作 | Trickcal Manager</title>
   <meta name="description" content="Trickcal Manager 編成共有画面の表示試作">
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
-  <script>
-    (() => {
-      const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'dark';
-      document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
-    })();
-  </script>
+  <script src="storage-registry.js?v=20260913a"></script>
+  <script src="storage-runtime.js?v=20260913a"></script>
+  <script src="storage-bootstrap.js?v=20260913a"></script>
+  <script>document.documentElement.dataset.theme = 'dark';</script>
     <link rel="stylesheet" href="formation-share-prototype.css?v=20260910q">
 </head>
 <body class="formation-share-prototype-page">

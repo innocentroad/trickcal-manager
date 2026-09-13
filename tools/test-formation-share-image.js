@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const manifest = require(path.join(__dirname, 'formation-share-asset-manifest.json'));
+const { buildSyncPlan } = require(path.join(__dirname, 'sync-formation-share-assets.js'));
 
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'formation-share-image.js'), 'utf8');
@@ -11,6 +13,17 @@ const share = fs.readFileSync(path.join(root, 'formation-share.js'), 'utf8');
 const shareCss = fs.readFileSync(path.join(root, 'formation-share-prototype.css'), 'utf8');
 const sharePage = fs.readFileSync(path.join(root, 'formation-share.html'), 'utf8');
 const sharePageActions = fs.readFileSync(path.join(root, 'formation-share-page-actions.js'), 'utf8');
+const assetPlan = buildSyncPlan(manifest);
+
+assert.deepEqual(assetPlan.changedFiles, []);
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function assertVersionedReference(sourceText, relativePath, version) {
+  assert.match(sourceText, new RegExp(`${escapeRegExp(relativePath)}\\?v=${version}`));
+}
+const directVersion = id => assetPlan.directVersions[id];
+const derivedVersion = id => assetPlan.derivedVersions[id];
 
 assert.match(source, /TARGET_WIDTH = 1200/);
 assert.match(source, /share-content/);
@@ -35,8 +48,9 @@ assert.match(create, /themeObserver/);
 assert.match(create, /data-theme/);
 assert.match(create, /file:\/\//);
 assert.match(create, /ローカルファイル（file:\/\/）では共有画像を作成できません/);
-assert.match(dashboard, /formation-share-create\.js\?v=20260912o/);
-assert.match(dashboard, /formation-share-image\.js\?v=20260912j/);
+assertVersionedReference(dashboard, 'formation-share-create.js', derivedVersion('formation-share-create'));
+assertVersionedReference(dashboard, 'formation-share-image.js', directVersion('formation-share-image'));
+assert.match(dashboard, /app-cache\.js\?v=[^"']+/);
 assert.match(dashboard, /formation-share-image-preview/);
 assert.match(dashboard, /formation-share-image-share/);
 assert.match(dashboard, /formation-share-image-copy/);
@@ -65,10 +79,11 @@ assert.match(dashboardCss, /formation-share-button-image-save/);
 assert.match(dashboardCss, /formation-share-button-url/);
 assert.match(dashboardCss, /formation-share-button-close/);
 assert.match(dashboardCss, /@media \(max-width: 700px\)[\s\S]*?overflow-y: auto/);
-assert.match(create, /SHARE_PAGE_CACHE_VERSION = '20260912d'/);
+assert.match(create, new RegExp(`SHARE_PAGE_CACHE_VERSION = '${assetPlan.pageVersion}'`));
 assert.match(create, /syncSharePreviewTheme\(getDashboardTheme\(\)\)/);
 assert.match(create, /const shareUrl = new URL\(codec\.createUrl/);
-assert.match(create, /shareUrl\.searchParams\.set\('v', SHARE_PAGE_CACHE_VERSION\)/);
+assert.doesNotMatch(create, /shareUrl\.searchParams\.set\('v'/);
+assert.match(create, /TRICKCAL_PUBLIC_SITE\?\.pageUrl\?\.\('share'\)/);
 assert.match(create, /navigator\.share\(shareData\)/);
 assert.match(create, /files: \[file\]/);
 assert.match(create, /navigator\.canShare\(shareData\)/);
@@ -94,10 +109,11 @@ assert.match(sharePage, /id="share-action-bar"/);
 for (const id of ['share-image-generate', 'share-image-copy', 'share-image-save', 'share-url-copy']) {
   assert.match(sharePage, new RegExp(`id="${id}"`));
 }
-assert.match(sharePage, /formation-share-image\.js\?v=20260912j/);
-assert.match(sharePage, /formation-share-page-actions\.js\?v=20260912a/);
-assert.match(sharePage, /formation-share-prototype\.css\?v=20260912e/);
-assert.match(sharePage, /formation-share\.js\?v=20260912c/);
+for (const asset of manifest.directAssets.filter(asset => asset.references.includes('formation-share.html'))) {
+  assertVersionedReference(sharePage, asset.path, directVersion(asset.id));
+}
+assert.doesNotMatch(sharePage, /statData\.js\?/);
+assert.doesNotMatch(sharePage, /cards\.js\?/);
 assert.match(sharePageActions, /imageController\.render\(getPublicShareUrl\(\), \{ theme: getCurrentTheme\(\) \}\)/);
 assert.match(sharePageActions, /navigator\.clipboard\.writeText/);
 assert.match(sharePageActions, /navigator\.clipboard\.write/);

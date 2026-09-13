@@ -1,0 +1,13 @@
+{
+  "schema": "trickcal-stat-state",
+  "version": 2,
+  "kind": "slot",
+  "sourceSlot": 1,
+  "snapshot": {
+    "slotName": "S1インポート基準",
+    "activeId": "Tig",
+    "apostles": {},
+    "research": {},
+    "cards": {}
+  }
+}

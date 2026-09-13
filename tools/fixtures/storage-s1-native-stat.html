@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>Storage S1 native harness</title>
+</head>
+<body>
+  <script>
+    (async () => {
+      // This fixture only changes the isolated test page before the production
+      // document is parsed. It does not implement or replace app persistence.
+      delete window.BroadcastChannel;
+      const response = await fetch('/stat-dashboard.html');
+      if (!response.ok) throw new Error(`stat-dashboard.html: ${response.status}`);
+      let html = await response.text();
+      html = html.replace(/<head(\s[^>]*)?>/i, match => `${match}<base href="/">`);
+      document.open();
+      document.write(html);
+      document.close();
+    })().catch(error => {
+      document.body.textContent = `Storage S1 harness failed: ${error.message}`;
+    });
+  </script>
+</body>
+</html>

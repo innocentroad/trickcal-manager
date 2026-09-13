@@ -1,0 +1,120 @@
+name: public-site-pages-deploy-template
+
+# Template only. Install in the dedicated artifact repository only after its
+# Pages settings and the required-reviewer environment are approved.
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_id:
+        description: Expected checked candidate ID
+        required: true
+        type: string
+      source_commit:
+        description: Expected source commit SHA
+        required: true
+        type: string
+      content_digest:
+        description: Expected dual-profile content digest
+        required: true
+        type: string
+      profile:
+        description: Artifact profile in this repository
+        required: true
+        type: choice
+        options:
+          - new
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-site-pages-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the delivered artifact repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate identity, ownership and hashes
+        env:
+          EXPECTED_CANDIDATE_ID: ${{ inputs.candidate_id }}
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_CONTENT_DIGEST: ${{ inputs.content_digest }}
+          EXPECTED_PROFILE: ${{ inputs.profile }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = process.cwd();
+          const ledgerPath = path.join(root, '.trickcal-public-site-delivery.json');
+          const identityPath = path.join(root, 'public-site-deployment.json');
+          const fail = message => { console.error(message); process.exit(1); };
+          const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
+          const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+          const safe = value => typeof value === 'string'
+            && value
+            && !value.includes('\\')
+            && !path.posix.isAbsolute(value)
+            && value.split('/').every(part => part && part !== '.' && part !== '..');
+          if (!fs.existsSync(ledgerPath) || !fs.existsSync(identityPath)) fail('delivery identity or ownership ledger is missing');
+          const ledger = read(ledgerPath);
+          const identity = read(identityPath);
+          if (ledger.schemaVersion !== 1 || identity.profile !== process.env.EXPECTED_PROFILE) fail('delivery metadata is invalid');
+          if (ledger.candidateId !== process.env.EXPECTED_CANDIDATE_ID
+            || ledger.sourceCommit !== process.env.EXPECTED_SOURCE_COMMIT
+            || ledger.contentDigest !== process.env.EXPECTED_CONTENT_DIGEST
+            || identity.candidateId !== ledger.candidateId
+            || identity.sourceCommit !== ledger.sourceCommit
+            || identity.digest?.contentDigest !== ledger.contentDigest
+            || identity.digest?.outputDigest !== ledger.outputDigest) fail('delivery metadata binding mismatch');
+          if (!Array.isArray(ledger.ownedFiles) || !ledger.ownedFiles.some(file => file.path === 'public-site-deployment.json')) fail('owned file list is invalid');
+          const pagesRoot = path.join(root, '.pages-root');
+          fs.rmSync(pagesRoot, { recursive: true, force: true });
+          fs.mkdirSync(pagesRoot, { recursive: true });
+          for (const file of ledger.ownedFiles) {
+            if (!safe(file.path) || file.path.startsWith('.')) fail(`unsafe owned path: ${file.path}`);
+            const source = path.resolve(root, ...file.path.split('/'));
+            if (!source.startsWith(`${root}${path.sep}`) || !fs.existsSync(source) || !fs.statSync(source).isFile()) fail(`owned file is missing: ${file.path}`);
+            if (digest(source) !== file.sha256) fail(`owned file hash mismatch: ${file.path}`);
+            const target = path.resolve(pagesRoot, ...file.path.split('/'));
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(source, target);
+          }
+          NODE
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .pages-root
+
+  deploy:
+    needs: validate-and-package
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -8,6 +8,8 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 - [STATUS.md](STATUS.md): 現在の到達点、完了根拠、検証待ち、次の作業。
 - [GOAL.md](GOAL.md): 現在の作業目標と、完了済み計画への参照。
 - [DPS仕様書](docs/dps-specification.md): 現行の計算境界・発動方針・表示・検証。
+- [編成共有の保守・追加更新設計](docs/formation-share-maintenance-design.md): 辞書追記、表示データ生成、内容ハッシュ、公開前検査の実装契約。
+- [編成共有の追加更新Goal](docs/formation-share-maintenance-goal.md): 新規データを共有URL／PNGへ反映する完了条件と検証記録。
 - [2026-09-07までの作業履歴](docs/history/status-through-2026-09-07.md): 旧STATUSの全文。途中の達成度や残り見積もりは当時の記録。
 - [完了済みDPS発動経路統合Goal](docs/history/goal-dps-trigger-integration.md): 開始時の計画・完了条件の原文。
 
@@ -49,6 +51,8 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 - `synergy.js`: 性格・種族シナジー
 - `enemy-presets.js`: 敵プリセット
 
+編成共有の表示用データ `formation-share-display-data.js` と永続ID台帳 `formation-share-catalog.js` も、生成済みデータから同期する対象です。
+
 ## データの更新
 
 元データは `tools/trickcal_datasheet.xlsx` です。Python 3を用意し、`tools/generate-all.bat` を実行すると、次のデータが更新されます。
@@ -60,6 +64,21 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 生成前のファイルと元Excelは `backups/generated/<timestamp>/` にバックアップされます。
 生成後には、バックアップとの差分を `tmp/generate-change-<timestamp>.log` に出力します。`effectId`、使徒名、スキル名、発動元IDなどの変更は`[NOTICE]`、その他の値変更は`[CHANGE]`として記録されます。特殊な名前を許容するため生成は停止しませんが、参照先の変更はこのログで確認してください。
 生成スクリプトを個別に実行する場合は、`tools` ディレクトリから各Pythonスクリプトを実行してください。
+
+使徒・遺物・スペル・権能を追加したときは、共有URLの辞書漏れと画像表示データも同時に確認します。通常は `tools\generate-all.bat` が次の工程をまとめて実行します。
+
+```text
+tools\generate-all.bat
+```
+
+共有資材の版だけを更新する場合は、次を実行します。`--check` は書き込みません。
+
+```text
+node tools\sync-formation-share-assets.js --write
+node tools\validate-formation-share-maintenance.js
+```
+
+公開前の読み取り専用検査は、ローカルのpush補助とGitHub Pages workflowから同じ入口で実行されます。辞書不足、生成済み表示データの古さ、内容ハッシュ参照の不一致がある場合は公開を止めます。既存の共有辞書番号を変更する必要がある場合は自動修正せず、`docs/formation-share-maintenance-design.md` の廃止・改名方針を確認してください。
 
 シート内容を検索・検証する場合は、Excelを一度だけTSVへ展開できます。出力先の `tmp/` はGit管理外です。
 
@@ -141,6 +160,29 @@ python -m http.server 8000
 ```
 
 その後、`http://localhost:8000/` を開きます。`file://` 直開きではService Workerや一部のブラウザ機能が動作しません。
+
+## 公開サイトのローカル生成・検査
+
+公開用の新／旧profile、正規route、alias、明示assets、Service Worker設定は `tools/public-route-manifest.json` を唯一の入口として扱います。生成物は `tmp/public-site/` にだけ出力され、`public-site-release.json` が `local-only-unpublished` の間は未公開です。生成物を手編集せず、次の順で確認します。
+
+```text
+node tools/generate-public-site.js --write
+node tools/generate-public-site.js --check
+node tools/validate-public-site.js
+node tools/test-public-site.js
+node tools/test-public-site-http.js
+```
+
+同じ生成物を別Originの2ポートで配信すると、新profileの `/` と旧profileの `/trickcal-manager/` を分けて確認できます。
+
+```text
+python -m http.server 8765 --directory tmp/public-site
+python -m http.server 8766 --directory tmp/public-site
+```
+
+主な新profile入口は `/manager/`、`/calc/`、`/calc/dps/`、`/share/`、`/data/`、`/data/enemies/`、`/data/boards/`、`/transfer/`、`/recovery/` です。旧profileの互換入口と共有hash、query、hashを含むaliasの到達性はHTTP検査で確認します。`test-public-site-http.js` はmanifest登録の全route／asset、両profileの静的参照、alias、Service Workerの除外境界をローカルで検査します。
+
+公開Originへの配信、Pages／DNS等の外部設定、commit／pushは、このローカル検査の完了だけでは実施しません。
 
 ## GitHub Pages
 

@@ -1,6 +1,14 @@
 (() => {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+    const storageSession = window.TRICKCAL_STORAGE_FACADE.sessionStorage;
+
   const DATA = window.TRICKCAL_STAT_DATA;
   const cards = typeof CARD_LIBRARY === 'undefined'
     ? { artifacts: [], spells: [] }
@@ -121,11 +129,11 @@
   }
 
   function loadSavedSnapshot() {
-    const workspace = parseJson(window.sessionStorage, 'trickcal_stat_workspace_v2');
+    const workspace = parseJson(storageSession, 'trickcal_stat_workspace_v2');
     if (workspace?.workspaceVersion === 2 && workspace.draft) return hydrateSavedSnapshot(workspace.draft);
-    const live = parseJson(window.localStorage, 'trickcal_stat_live_v2');
+    const live = parseJson(storageLocal, 'trickcal_stat_live_v2');
     if (live?.snapshot) return hydrateSavedSnapshot(live.snapshot);
-    return hydrateSavedSnapshot(parseJson(window.localStorage, 'trickcal_stat_prototype_v1'));
+    return hydrateSavedSnapshot(parseJson(storageLocal, 'trickcal_stat_prototype_v1'));
   }
 
   function hydrateSavedSnapshot(snapshot) {
@@ -207,7 +215,7 @@
     const query = params.get('globalSources');
     if (query != null) return new Set(query.split(',').filter(key => allowed.has(key)));
     try {
-      const parsed = JSON.parse(window.localStorage.getItem(GLOBAL_ENHANCEMENT_STORAGE_KEY) || 'null');
+      const parsed = JSON.parse(storageLocal.getItem(GLOBAL_ENHANCEMENT_STORAGE_KEY) || 'null');
       if (Array.isArray(parsed?.sources)) return new Set(parsed.sources.filter(key => allowed.has(key)));
     } catch {}
     return new Set(GLOBAL_ENHANCEMENT_SOURCES.filter(source => source.default).map(source => source.key));
@@ -216,7 +224,7 @@
   function saveGlobalEnhancementSelection() {
     if (params.has('globalSources')) return;
     try {
-      window.localStorage.setItem(GLOBAL_ENHANCEMENT_STORAGE_KEY, JSON.stringify({
+      storageLocal.setItem(GLOBAL_ENHANCEMENT_STORAGE_KEY, JSON.stringify({
         version: 1,
         sources: Array.from(globalEnhancementSelection)
       }));
@@ -607,7 +615,9 @@
     button.addEventListener('click', () => {
       const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
       document.documentElement.dataset.theme = next;
-      try { localStorage.setItem('trickcal_theme', next); } catch {}
+      try { storageLocal.setItem('trickcal_theme', next); } catch (error) {
+        if (error?.name === 'StorageRuntimeError') document.documentElement.dataset.storageError = error.result?.code || 'failed';
+      }
       update();
     });
     update();
@@ -839,4 +849,11 @@
   setupDisplayOptions();
   setupGlobalEnhancementOptions();
   render();
+  }).catch(error => {
+    if (error?.name === 'StorageRuntimeError') {
+      document.documentElement?.setAttribute('data-storage-error', error.result?.code || 'failed');
+      return;
+    }
+    console.error(error);
+  });
 })();

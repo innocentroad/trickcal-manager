@@ -1,0 +1,10 @@
+{
+  "name": "trickcal-manager-tools",
+  "private": true,
+  "description": "Development-only validation tools for Trickcal Manager",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "devDependencies": {
+    "acorn": "^8.15.0"
+  }
+}

@@ -7,14 +7,17 @@
   <meta name="description" content="トリッカル・もちもちほっペ大作戦の使徒ステータス、編成、遺物カード、スペルカード、装備、アサイド、クレヨンボードをまとめて管理できる非公式ツールです。">
   <meta name="google-site-verification" content="7xUg6keiqew4FWrAuiGOz-OvkbNgduT7inGN2_5hNCU">
   <meta name="robots" content="index,follow">
-  <meta http-equiv="refresh" content="0; url=stat-dashboard.html">
+  <meta http-equiv="refresh" content="0; url=stat-dashboard.html?recover=20260912">
   <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/stat-dashboard.html">
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
   <script>
-    location.replace(`stat-dashboard.html${location.search || ''}${location.hash || ''}`);
+    const params = new URLSearchParams(location.search);
+    params.set('recover', '20260912');
+    const search = params.toString();
+    location.replace('stat-dashboard.html' + (search ? '?' + search : '') + (location.hash || ''));
   </script>
 </head>
 <body>
-  <p><a href="stat-dashboard.html">ステータス管理を開く</a></p>
+  <p><a href="stat-dashboard.html?recover=20260912">ステータス管理を開く</a></p>
 </body>
 </html>
