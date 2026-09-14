@@ -1,5 +1,5 @@
 const APP_ID = 'trickcal-manager';
-const CACHE_VERSION = "0b5472175046bb39";
+const CACHE_VERSION = "6daee62c748b441e";
 const PREVIOUS_CACHE_VERSION = "";
 const SW_PATHNAME = new URL(self.location.href).pathname;
 const BASE_PATH = SW_PATHNAME.startsWith('/trickcal-manager/') ? '/trickcal-manager/' : '/';

@@ -1,0 +1,291 @@
+/* 共通お知らせUI。既存ページのテーマ変数を優先し、下部固定操作の高さは変更しない。 */
+:root {
+  --ann-bg: var(--fdc-bg, var(--dashboard-bg, #101827));
+  --ann-panel: var(--fdc-panel, var(--dashboard-panel, #182337));
+  --ann-text: var(--fdc-text, var(--dashboard-text, #edf3ff));
+  --ann-muted: var(--fdc-muted, var(--dashboard-muted, #aab8cf));
+  --ann-border: var(--fdc-border, var(--dashboard-border, rgba(177, 198, 230, 0.28)));
+  --ann-accent: var(--fdc-accent, #73a7ff);
+  --ann-warning: #ffc96b;
+}
+
+:root[data-theme="light"],
+body[data-theme="light"] {
+  --ann-bg: var(--fdc-bg, var(--dashboard-bg, #f6f8fc));
+  --ann-panel: var(--fdc-panel, var(--dashboard-panel, #ffffff));
+  --ann-text: var(--fdc-text, var(--dashboard-text, #1b2638));
+  --ann-muted: var(--fdc-muted, var(--dashboard-muted, #53647f));
+  --ann-border: var(--fdc-border, var(--dashboard-border, rgba(55, 78, 111, 0.25)));
+  --ann-accent: var(--fdc-accent, #235fc4);
+  --ann-warning: #915e00;
+}
+
+.trickcal-announcements-trigger {
+  position: relative;
+}
+
+.trickcal-announcements-trigger[data-unread="true"]::after {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #f25d68;
+  box-shadow: 0 0 0 2px var(--ann-panel, #182337);
+}
+
+.trickcal-announcements-trigger:focus-visible,
+.trickcal-announcements-dialog button:focus-visible,
+.trickcal-announcements-dialog a:focus-visible,
+.trickcal-migration-banner button:focus-visible,
+.trickcal-migration-banner a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--ann-accent) 72%, white);
+  outline-offset: 2px;
+}
+
+.trickcal-migration-banner {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.3rem 1rem;
+  align-items: center;
+  margin: 0 auto 1rem;
+  width: min(calc(100% - 2rem), 1180px);
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--ann-border);
+  border-radius: 0.75rem;
+  background: var(--ann-panel);
+  color: var(--ann-text);
+}
+
+.trickcal-migration-banner h2,
+.trickcal-migration-banner p {
+  margin: 0;
+}
+
+.trickcal-migration-banner h2 {
+  font-size: 1rem;
+}
+
+.trickcal-migration-banner-note {
+  grid-column: 1;
+  color: var(--ann-muted);
+  font-size: 0.86rem;
+}
+
+.trickcal-migration-banner-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.trickcal-migration-banner button,
+.trickcal-migration-banner a,
+.trickcal-announcements-guide-link,
+.trickcal-announcement-guide-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--ann-border);
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--ann-accent);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.trickcal-migration-banner button:hover,
+.trickcal-migration-banner a:hover,
+.trickcal-announcements-guide-link:hover,
+.trickcal-announcement-guide-button:hover {
+  background: color-mix(in srgb, var(--ann-accent) 12%, transparent);
+}
+
+.trickcal-announcements-dialog {
+  width: min(640px, calc(100vw - 20px));
+  max-width: calc(100vw - 20px);
+  max-height: calc(100vh - 24px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--ann-border);
+  border-radius: 0.9rem;
+  background: var(--ann-bg);
+  color: var(--ann-text);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.35);
+}
+
+.trickcal-announcements-dialog::backdrop {
+  background: rgba(2, 7, 18, 0.62);
+}
+
+.trickcal-announcements-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--ann-border);
+  background: var(--ann-panel);
+}
+
+.trickcal-announcements-dialog-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.trickcal-announcements-close,
+.trickcal-announcements-back {
+  min-height: 2.25rem;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--ann-border);
+  border-radius: 0.45rem;
+  background: transparent;
+  color: var(--ann-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.trickcal-announcements-dialog-body {
+  max-height: calc(100vh - 112px);
+  padding: 1rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.trickcal-announcements-intro,
+.trickcal-announcement-paragraph,
+.trickcal-announcement-guide-lead,
+.trickcal-announcement-guide-warning,
+.trickcal-announcement-guide-details p {
+  color: var(--ann-muted);
+  line-height: 1.65;
+}
+
+.trickcal-announcements-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.trickcal-announcement-card {
+  border: 1px solid var(--ann-border);
+  border-radius: 0.65rem;
+  background: var(--ann-panel);
+}
+
+.trickcal-announcement-card-button {
+  display: grid;
+  width: 100%;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.trickcal-announcement-card-button:hover {
+  background: color-mix(in srgb, var(--ann-accent) 8%, transparent);
+}
+
+.trickcal-announcement-meta {
+  color: var(--ann-muted);
+  font-size: 0.78rem;
+}
+
+.trickcal-announcement-title,
+.trickcal-announcement-article-title,
+.trickcal-announcement-guide-title {
+  margin: 0;
+  color: var(--ann-text);
+}
+
+.trickcal-announcement-summary {
+  color: var(--ann-muted);
+  line-height: 1.5;
+}
+
+.trickcal-announcement-unread {
+  width: fit-content;
+  margin-top: 0.15rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f25d68 18%, transparent);
+  color: #e94b59;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.trickcal-announcement-guide-button {
+  margin-top: 0.75rem;
+  background: color-mix(in srgb, var(--ann-accent) 12%, transparent);
+}
+
+.trickcal-announcement-guide-steps {
+  display: grid;
+  gap: 0.65rem;
+  padding-left: 1.4rem;
+  line-height: 1.55;
+}
+
+.trickcal-announcement-guide-warning {
+  padding: 0.65rem 0.75rem;
+  border-left: 3px solid var(--ann-warning);
+  background: color-mix(in srgb, var(--ann-warning) 8%, transparent);
+}
+
+.trickcal-announcement-guide-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1rem 0;
+}
+
+.trickcal-announcement-guide-details {
+  color: var(--ann-muted);
+}
+
+.trickcal-announcement-guide-details summary {
+  cursor: pointer;
+  color: var(--ann-text);
+  font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .trickcal-migration-banner {
+    grid-template-columns: 1fr;
+    width: min(calc(100% - 1rem), 1180px);
+    margin-bottom: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .trickcal-migration-banner-note,
+  .trickcal-migration-banner-actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .trickcal-migration-banner-actions {
+    justify-content: flex-start;
+  }
+
+  .trickcal-announcements-dialog-body {
+    max-height: calc(100vh - 104px);
+    padding: 0.85rem;
+  }
+
+  .trickcal-announcement-guide-actions > * {
+    flex: 1 1 12rem;
+  }
+}

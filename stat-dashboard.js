@@ -94,6 +94,7 @@
     const card = params.get('card');
     const global = params.get('global');
     const routeView = params.get('view');
+    const focusBackup = params.get('backup') === '1';
     if (card) {
       openCardManager(card);
       scrollToDashboardMain('auto');
@@ -104,6 +105,12 @@
       showView(routeView);
       if (routeView === 'settings') scrollToProfile('auto');
       else scrollToDashboardMain('auto');
+    }
+    if (focusBackup && bottomSaveMenu) {
+      bottomSaveMenu.open = true;
+      window.requestAnimationFrame(() => {
+        document.querySelector('.bottom-backup-section')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+      });
     }
   }
 

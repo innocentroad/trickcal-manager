@@ -33,8 +33,10 @@
   function createElements(document) {
     return {
       status: document.getElementById('transfer-status'),
+      destinationNote: document.getElementById('transfer-destination-note'),
       preview: document.getElementById('transfer-preview'),
       previewSummary: document.getElementById('transfer-preview-summary'),
+      previewDetails: document.getElementById('transfer-preview-details'),
       previewDatasets: document.getElementById('transfer-preview-datasets'),
       includeDisplay: document.getElementById('transfer-include-display'),
       allowAuxiliaryExcludeWrap: document.getElementById('transfer-allow-auxiliary-exclude-wrap'),
@@ -42,6 +44,7 @@
       auxiliaryExcludeNote: document.getElementById('transfer-auxiliary-exclude-note'),
       plan: document.getElementById('transfer-plan'),
       planSummary: document.getElementById('transfer-plan-summary'),
+      planDetails: document.getElementById('transfer-plan-details'),
       planDatasets: document.getElementById('transfer-plan-datasets'),
       prepare: document.getElementById('transfer-prepare'),
       apply: document.getElementById('transfer-apply'),
@@ -51,6 +54,10 @@
       fileInput: document.getElementById('transfer-file-input'),
       backupCurrent: document.getElementById('transfer-backup-current'),
       savePackage: document.getElementById('transfer-save-package'),
+      completeActions: document.getElementById('transfer-complete-actions'),
+      openManager: document.getElementById('transfer-open-manager'),
+      recoveryActions: document.getElementById('transfer-recovery-actions'),
+      openRecovery: document.getElementById('transfer-open-recovery'),
       fileNote: document.getElementById('transfer-file-note')
     };
   }
@@ -69,6 +76,41 @@
       unsupported: 'この環境では転送を利用できません。ファイル移行を利用してください。'
     };
     return messages[result?.code] || fallback;
+  }
+
+  const DATASET_LABELS = Object.freeze({
+    'stat.slots': '編成・育成データ',
+    'stat.current': '現在の編成状態',
+    'calc.settings': '計算設定',
+    'calc.resultSaves': '保存した計算結果',
+    'calc.enemyPresets': '敵プリセット',
+    'dps.settings': 'DPS設定',
+    'dps.runtimeOverrides': 'DPS補正',
+    'preference.theme': '表示設定',
+    'preference.boardShortcutOffMode': 'ボード操作設定',
+    'preference.boardOrientation': 'ボード向き設定',
+    'preference.boardPreviewScale': 'ボード表示倍率',
+    'sharePrototype.globalEnhancements': '共有表示の全体強化設定'
+  });
+
+  function datasetDisplayLabel(dataset) {
+    const key = String(dataset?.key || '');
+    const label = DATASET_LABELS[key] || 'その他の保存データ';
+    if (key === 'stat.slots' && Array.isArray(dataset?.entries) && dataset.entries.length) {
+      return `${label}（${dataset.entries.length}件）`;
+    }
+    return label;
+  }
+
+  function previewSummaryText(summary) {
+    const present = (summary?.datasets || []).filter(dataset => dataset.state === 'present');
+    const excluded = (summary?.datasets || []).filter(dataset => dataset.state === 'excluded');
+    if (!present.length && !excluded.length) return '保存データを含まないバックアップです。';
+    const labels = present.map(datasetDisplayLabel);
+    const presentText = labels.length ? `${labels.join('、')}を含むバックアップです。` : '保存データはありません。';
+    return excluded.length
+      ? `${presentText}一部の補助設定は確認が必要です。`
+      : presentText;
   }
 
   function createController(options = {}) {
@@ -95,10 +137,10 @@
     let isReadingFile = false;
     let initialized = false;
 
-    function setStatus(message, isError = false) {
+    function setStatus(message, isError = false, kind = 'normal') {
       if (!elements.status) return;
       elements.status.textContent = message;
-      elements.status.dataset.kind = isError ? 'error' : 'normal';
+      elements.status.dataset.kind = isError ? 'error' : kind;
     }
 
     function isCurrentDirectTransfer(association) {
@@ -189,6 +231,8 @@
         elements.savePackage.hidden = !pendingDecoded;
         elements.savePackage.disabled = packageLocked || !pendingPackageText;
       }
+      if (elements.recoveryActions) elements.recoveryActions.hidden = !recoveryBlocked;
+      if (elements.openRecovery) elements.openRecovery.hidden = !recoveryBlocked;
     }
 
     function resetPlanControls() {
@@ -196,6 +240,8 @@
       recoveryBlocked = false;
       isBackupExporting = false;
       if (elements.plan) elements.plan.hidden = true;
+      if (elements.previewDetails) elements.previewDetails.open = false;
+      if (elements.planDetails) elements.planDetails.open = false;
       if (elements.planSummary) elements.planSummary.textContent = '';
       elements.planDatasets?.replaceChildren();
       if (elements.prepare) {
@@ -211,6 +257,11 @@
         elements.cancel.disabled = false;
       }
       if (elements.reload) elements.reload.hidden = true;
+      if (elements.completeActions) elements.completeActions.hidden = true;
+      if (elements.openManager) {
+        elements.openManager.hidden = true;
+        elements.openManager.href = '#';
+      }
       if (elements.includeDisplay) elements.includeDisplay.disabled = false;
       if (elements.allowAuxiliaryExclude) {
         elements.allowAuxiliaryExclude.checked = false;
@@ -235,15 +286,14 @@
       const summary = decoded?.summary || {};
       const excluded = (summary.datasets || []).filter(dataset => dataset.state === 'excluded');
       if (elements.previewSummary) {
-        const excludedText = excluded.length ? `（補助設定${excluded.length}件は除外候補）` : '';
-        elements.previewSummary.textContent = `${summary.presentDatasets || 0}/${summary.totalDatasets || 0}項目に保存データがあります${excludedText}`;
+        elements.previewSummary.textContent = previewSummaryText(summary);
       }
       elements.previewDatasets?.replaceChildren();
       (summary.datasets || []).forEach(dataset => {
         const item = document.createElement('li');
         const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
         const state = dataset.state === 'present' ? 'あり' : dataset.state === 'excluded' ? '除外候補' : 'なし';
-        item.textContent = `${dataset.key}: ${state}${source}`;
+        item.textContent = `${datasetDisplayLabel(dataset)}: ${state}${source}`;
         elements.previewDatasets?.appendChild(item);
       });
       resetPlanControls();
@@ -252,6 +302,7 @@
         if (elements.auxiliaryExcludeNote) elements.auxiliaryExcludeNote.hidden = false;
       }
       if (elements.preview) elements.preview.hidden = false;
+      if (elements.previewDetails) elements.previewDetails.open = false;
     }
 
     function renderPlan(plan) {
@@ -270,10 +321,13 @@
           const item = document.createElement('li');
           const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
           const state = dataset.state === 'present' ? '上書き' : dataset.state === 'excluded' ? '現在値を維持（除外）' : '削除';
-          item.textContent = `${dataset.key}: ${state}${source}`;
+          item.textContent = `${datasetDisplayLabel(dataset)}: ${state}${source}`;
           elements.planDatasets?.appendChild(item);
         });
       if (elements.plan) elements.plan.hidden = false;
+      if (elements.planDetails) elements.planDetails.open = false;
+      if (elements.completeActions) elements.completeActions.hidden = true;
+      if (elements.openManager) elements.openManager.hidden = true;
       if (elements.prepare) elements.prepare.hidden = true;
       if (elements.apply) {
         elements.apply.hidden = false;
@@ -318,7 +372,7 @@
       pendingDecoded = decoded.value;
       pendingPackageText = text;
       renderPreview(pendingDecoded);
-      setStatus('内容を確認しました。復元ボタンを押すまで保存データは変更していません。');
+      setStatus('内容を確認しました。移行内容を確認するまで保存データは変更していません。');
       return true;
     }
 
@@ -385,7 +439,7 @@
       syncOperationControls();
       if (elements.apply) elements.apply.disabled = true;
       if (elements.prepare) elements.prepare.disabled = true;
-      setStatus('復元を適用しています。完了確認までお待ちください…');
+      setStatus('移行しています…完了確認までお待ちください。');
       const maintenance = pendingMaintenance;
       const plan = pendingPlan;
       const packageDigest = pendingDecoded?.package?.sha256 || '';
@@ -406,7 +460,13 @@
           if (elements.prepare) elements.prepare.hidden = true;
           if (elements.apply) elements.apply.hidden = true;
           if (elements.cancel) elements.cancel.hidden = true;
-          if (elements.reload) elements.reload.hidden = false;
+          if (elements.plan) elements.plan.hidden = true;
+          if (elements.completeActions) elements.completeActions.hidden = false;
+          const copy = applyProfileCopy();
+          if (elements.openManager) {
+            elements.openManager.href = getCurrentManagerUrl();
+            elements.openManager.hidden = false;
+          }
           if (transferReceiver && getReceiverForPackage(packageDigest) === transferReceiver) {
             const epoch = result.value?.epoch || runtime?.getState?.()?.epoch || '';
             transferReceiver.sendResult({
@@ -417,7 +477,7 @@
             });
           }
           syncOperationControls();
-          setStatus('復元が完了しました。再読み込みして新しい保存状態を起動してください。');
+          setStatus(copy.success, false, 'success');
           return true;
         }
         if (transferReceiver && getReceiverForPackage(packageDigest) === transferReceiver) {
@@ -433,16 +493,18 @@
         } else {
           isApplyingRestore = false;
           recoveryBlocked = true;
+          applyProfileCopy();
           syncOperationControls();
-          setStatus(`${failureMessage(result)} 復旧処理が必要です。`, true);
+          setStatus(`${failureMessage(result)} 復旧処理が必要です。復旧ページを開いて確認してください。`, true);
         }
         return false;
       } catch (error) {
         console.error(error);
         isApplyingRestore = false;
         recoveryBlocked = true;
+        applyProfileCopy();
         syncOperationControls();
-        setStatus('復元結果を確認できません。独立復旧入口を確認してください。', true);
+        setStatus('復元結果を確認できません。復旧処理が必要です。復旧ページを開いて確認してください。', true);
         return false;
       } finally {
         isApplyingRestore = false;
@@ -469,8 +531,95 @@
       if (elements.preview) elements.preview.hidden = true;
       if (elements.fileInput) elements.fileInput.value = '';
       setStatus('転送確認を取り消しました。保存データは変更されていません。');
+      resetPlanControls();
       syncOperationControls();
       return true;
+    }
+
+    function getCurrentProfileKind() {
+      const location = windowObject.location || {};
+      const hostname = String(location.hostname || '').toLowerCase();
+      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]' || !hostname) {
+        return 'localhost';
+      }
+      const configuredProfile = String(windowObject.TRICKCAL_PUBLIC_SITE?.profile || '').toLowerCase();
+      if (configuredProfile === 'legacy' || String(location.pathname || '').startsWith('/trickcal-manager/')) {
+        return 'legacy';
+      }
+      if (configuredProfile === 'new' || configuredProfile === 'source') return 'new';
+      return 'current';
+    }
+
+    function getProfileUiCopy() {
+      switch (getCurrentProfileKind()) {
+        case 'new':
+          return {
+            destination: '旧サイトで保存したバックアップファイルを選び、新サイトへ移行します。',
+            success: '新サイトへの移行が完了しました。新サイトを開いて確認してください。',
+            managerLabel: '新サイトを開く'
+          };
+        case 'legacy':
+          return {
+            destination: '保存済みのバックアップファイルを選び、この旧サイトへ復元します。',
+            success: '旧サイトへの復元が完了しました。旧サイトを開いて確認してください。',
+            managerLabel: '旧サイトを開く'
+          };
+        case 'localhost':
+          return {
+            destination: '保存済みのバックアップファイルを選び、この現在のサイトへ復元します。',
+            success: '現在のサイトへの復元が完了しました。現在のサイトを開いて確認してください。',
+            managerLabel: '現在のサイトを開く'
+          };
+        default:
+          return {
+            destination: '保存済みのバックアップファイルを選び、この現在のサイトへ復元します。',
+            success: '現在のサイトへの復元が完了しました。現在のサイトを開いて確認してください。',
+            managerLabel: '現在のサイトを開く'
+          };
+      }
+    }
+
+    function getCurrentRouteUrl(routeId, fallbackPath) {
+      const location = windowObject.location || {};
+      const origin = String(location.origin || '');
+      let path = '';
+      try {
+        path = windowObject.TRICKCAL_PUBLIC_SITE?.pageUrl?.(routeId) || '';
+      } catch (error) {
+        console.warn(`profile-aware ${routeId} link unavailable`, error);
+      }
+      if (!path) path = fallbackPath;
+      try {
+        return new URL(path, origin || 'http://localhost/').href;
+      } catch {
+        return path || fallbackPath;
+      }
+    }
+
+    function getCurrentManagerUrl() {
+      return getCurrentRouteUrl(
+        'manager',
+        getCurrentProfileKind() === 'legacy'
+          ? '/trickcal-manager/stat-dashboard.html'
+          : '/manager/'
+      );
+    }
+
+    function getCurrentRecoveryUrl() {
+      return getCurrentRouteUrl(
+        'recovery',
+        getCurrentProfileKind() === 'legacy'
+          ? '/trickcal-manager/storage-recovery.html'
+          : '/recovery/'
+      );
+    }
+
+    function applyProfileCopy() {
+      const copy = getProfileUiCopy();
+      if (elements.destinationNote) elements.destinationNote.textContent = copy.destination;
+      if (elements.openManager) elements.openManager.textContent = copy.managerLabel;
+      if (elements.openRecovery) elements.openRecovery.href = getCurrentRecoveryUrl();
+      return copy;
     }
 
     function downloadPackageText(packageText, filenamePrefix, statusMessage) {
@@ -585,6 +734,7 @@
     function initialize() {
       if (initialized) return;
       initialized = true;
+      applyProfileCopy();
       resetPlanControls();
       if (elements.preview) elements.preview.hidden = true;
       if (!receiver && windowObject.opener && transferApi?.createReceiver) {
