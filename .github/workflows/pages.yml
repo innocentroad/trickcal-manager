@@ -1,46 +1,169 @@
-name: Deploy static HTML
+name: legacy-pages-delivery-template
 
+# Template only. Install as the replacement for the legacy repository's
+# existing Pages workflow only after a separate approval. This workflow reads
+# a verified artifact commit from the dedicated legacy-site-artifact branch;
+# it never regenerates the site on Ubuntu. Do not run it beside the existing
+# push-triggered workflow.
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
+    inputs:
+      artifact_branch:
+        description: Dedicated artifact branch
+        required: true
+        type: choice
+        options:
+          - legacy-site-artifact
+      artifact_commit:
+        description: Exact artifact commit on the dedicated branch
+        required: true
+        type: string
+      candidate_id:
+        description: Expected verified candidate ID
+        required: true
+        type: string
+      source_commit:
+        description: Candidate generator/source commit recorded in the ledger
+        required: true
+        type: string
+      content_digest:
+        description: Expected dual-profile content digest
+        required: true
+        type: string
+      legacy_output_digest:
+        description: Expected legacy profile output digest
+        required: true
+        type: string
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
+  validate-and-package:
+    runs-on: ubuntu-latest
+    environment: legacy-pages-delivery-approval
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the exact artifact commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.artifact_commit }}
+          fetch-depth: 0
+
+      - name: Validate artifact branch membership and identity
+        env:
+          EXPECTED_ARTIFACT_BRANCH: ${{ inputs.artifact_branch }}
+          EXPECTED_ARTIFACT_COMMIT: ${{ inputs.artifact_commit }}
+          EXPECTED_CANDIDATE_ID: ${{ inputs.candidate_id }}
+          EXPECTED_SOURCE_COMMIT: ${{ inputs.source_commit }}
+          EXPECTED_CONTENT_DIGEST: ${{ inputs.content_digest }}
+          EXPECTED_LEGACY_OUTPUT_DIGEST: ${{ inputs.legacy_output_digest }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "refs/heads/$EXPECTED_ARTIFACT_BRANCH:refs/remotes/origin/$EXPECTED_ARTIFACT_BRANCH"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_ARTIFACT_COMMIT"
+          git merge-base --is-ancestor "$EXPECTED_ARTIFACT_COMMIT" "refs/remotes/origin/$EXPECTED_ARTIFACT_BRANCH"
+          test "$(git config --get core.autocrlf || true)" != true
+          test "$(tr -d '\r' < .gitattributes)" = '* -text'
+
+          EXPECTED_CANDIDATE_ID="$EXPECTED_CANDIDATE_ID" \
+          EXPECTED_SOURCE_COMMIT="$EXPECTED_SOURCE_COMMIT" \
+          EXPECTED_CONTENT_DIGEST="$EXPECTED_CONTENT_DIGEST" \
+          EXPECTED_LEGACY_OUTPUT_DIGEST="$EXPECTED_LEGACY_OUTPUT_DIGEST" \
+          node - <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const fail = message => { console.error(message); process.exit(1); };
+          const root = process.cwd();
+          const readJson = file => JSON.parse(fs.readFileSync(path.join(root, file), 'utf8'));
+          const digest = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+          const safe = value => typeof value === 'string'
+            && value
+            && !value.includes('\\')
+            && !path.posix.isAbsolute(value)
+            && value.split('/').every(part => part && part !== '.' && part !== '..');
+          const ledger = readJson('.trickcal-public-site-delivery.json');
+          const identity = readJson('public-site-deployment.json');
+          const expected = process.env;
+          if (ledger.schemaVersion !== 1 || ledger.profile !== 'legacy') fail('legacy delivery ledger is invalid');
+          if (ledger.candidateId !== expected.EXPECTED_CANDIDATE_ID
+            || ledger.sourceCommit !== expected.EXPECTED_SOURCE_COMMIT
+            || ledger.contentDigest !== expected.EXPECTED_CONTENT_DIGEST
+            || ledger.outputDigest !== expected.EXPECTED_LEGACY_OUTPUT_DIGEST) fail('ledger identity mismatch');
+          if (identity.candidateId !== ledger.candidateId
+            || identity.sourceCommit !== ledger.sourceCommit
+            || identity.profile !== 'legacy'
+            || identity.digest?.contentDigest !== ledger.contentDigest
+            || identity.digest?.outputDigest !== ledger.outputDigest) fail('public identity mismatch');
+          if (!Array.isArray(ledger.ownedFiles) || ledger.ownedFiles.length === 0) fail('owned file list is empty');
+          if (ledger.identityPath !== 'public-site-deployment.json'
+            || !ledger.ownedFiles.some(file => file.path === 'public-site-deployment.json')) fail('public identity is not ledger-owned');
+          const seen = new Set();
+          for (const file of ledger.ownedFiles) {
+            if (!safe(file.path) || seen.has(file.path)) fail(`unsafe or duplicate owned path: ${file.path}`);
+            seen.add(file.path);
+            if (file.path === '.gitattributes'
+              || file.path === '.trickcal-public-site-delivery.json'
+              || file.path === 'CNAME'
+              || file.path.startsWith('.github/')
+              || file.path.startsWith('docs/')
+              || file.path.startsWith('tools/')
+              || file.path.startsWith('tmp/')
+              || file.path.startsWith('trickcal-manager/')) fail(`forbidden owned path: ${file.path}`);
+            const absolute = path.resolve(root, ...file.path.split('/'));
+            if (!absolute.startsWith(`${root}${path.sep}`) || !fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) fail(`owned file is missing: ${file.path}`);
+            if (digest(absolute) !== file.sha256) fail(`owned file hash mismatch: ${file.path}`);
+          }
+          NODE
+
+      - name: Extract only owned legacy files
+        run: |
+          set -euo pipefail
+          rm -rf .pages-root
+          mkdir -p .pages-root
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const root = path.resolve('.');
+          const pages = path.resolve('.pages-root');
+          const ledger = JSON.parse(fs.readFileSync(path.join(root, '.trickcal-public-site-delivery.json'), 'utf8'));
+          for (const file of ledger.ownedFiles) {
+            const source = path.resolve(root, ...file.path.split('/'));
+            const target = path.resolve(pages, ...file.path.split('/'));
+            if (!source.startsWith(`${root}${path.sep}`) || !target.startsWith(`${pages}${path.sep}`)) throw new Error(`path escaped root: ${file.path}`);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(source, target);
+          }
+          if (fs.existsSync(path.join(pages, '.trickcal-public-site-delivery.json'))
+            || fs.existsSync(path.join(pages, '.gitattributes'))
+            || fs.existsSync(path.join(pages, '.github'))) throw new Error('environment or ledger file leaked into Pages artifact');
+          NODE
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload legacy Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .pages-root
+
   deploy:
+    needs: validate-and-package
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
-      - name: Prepare public files
-        run: |
-          mkdir _site
-          rsync -a \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude 'backups/' \
-            --exclude 'tmp/' \
-            --exclude 'tools/' \
-            --exclude '_site/' \
-            ./ _site/
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-      - name: Deploy to GitHub Pages
+      - name: Deploy legacy Pages artifact
         id: deployment
         uses: actions/deploy-pages@v4
