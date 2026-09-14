@@ -13,7 +13,7 @@
       'Butter', 'Patula', 'Barong', 'Picora', 'BigWood', 'Pira', 'Hilde', 'Festa', 'Blanchet', 'Fricle',
       'Haley', 'Beni', 'Belita', 'Veroo', 'Velvet', 'Posher', 'Mago', 'MaestroMK2', 'Mayo', 'Marie',
       'Mynx', 'Maison', 'Meluna', 'Momo', 'Yumimi', 'Yomi', 'Risty', 'Leets', 'Renewa', 'Rim',
-      'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett'
+      'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum'
     ],
     artifacts: [
       'artifact_yomi_moonflower', 'artifact_erpin_ice_cream_cake', 'artifact_butter_yellow_card',
@@ -30,7 +30,8 @@
       'artifact_fanatic_mask', 'artifact_healing_pendant', 'artifact_obsidian_shuriken', 'artifact_ring_of_greed',
       'artifact_old_wooden_dagger', 'artifact_elven_wand', 'artifact_gemstone_ring', 'artifact_crown_of_thorns',
       'artifact_weathered_arrow', 'artifact_icy_charm', 'artifact_cotton_cloak', 'artifact_shining_tiara',
-      'artifact_cardboard_armor', 'artifact_head_wrap', 'artifact_rusty_awl'
+      'artifact_cardboard_armor', 'artifact_head_wrap',
+      'artifact_rusty_awl', 'artifact_sherum_parchment_scroll'
     ],
     spells: [
       'spell_alice_fake_magic', 'spell_epica_hero_exaltation', 'spell_luc_ed_dream',

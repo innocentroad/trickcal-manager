@@ -1,4 +1,13 @@
 (() => {
+  'use strict';
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+    const storageSession = window.TRICKCAL_STORAGE_FACADE.sessionStorage;
+
   document.documentElement?.classList?.add('fdc-root');
   const STAT_STORAGE_KEY = 'trickcal_stat_prototype_v1';
   const STAT_SLOT_STORAGE_KEY = 'trickcal_stat_slots_v2';
@@ -961,14 +970,18 @@
       });
     });
     el.enemyStatusLink?.addEventListener('click', () => {
-      const url = new URL('enemy-status.html', location.href);
+      const url = new URL(
+        window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('enemies') || 'enemy-status.html',
+        location.href
+      );
+      url.searchParams.set('recover', '20260912');
       const key = view.enemyPresetKey || el.enemyPreset?.value || '';
       const isBuiltInPreset = typeof ENEMY_PRESETS !== 'undefined' && !!ENEMY_PRESETS[key];
       if (isBuiltInPreset) {
         url.searchParams.set('preset', key);
         if (view.enemyPhaseIndex > 0) url.searchParams.set('phase', String(view.enemyPhaseIndex));
       }
-      el.enemyStatusLink.href = `${url.pathname.split('/').pop()}${url.search}`;
+      el.enemyStatusLink.href = `${url.pathname}${url.search}${url.hash}`;
     });
     el.enemyPreset?.addEventListener('change', () => {
       view.enemyPresetKey = el.enemyPreset.value || '';
@@ -1801,7 +1814,7 @@
 
   function getCustomEnemyPresets() {
     try {
-      const raw = localStorage.getItem(CUSTOM_ENEMY_PRESETS_KEY);
+      const raw = storageLocal.getItem(CUSTOM_ENEMY_PRESETS_KEY);
       const parsed = raw ? JSON.parse(raw) : {};
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
       return Object.fromEntries(Object.entries(parsed)
@@ -1852,7 +1865,7 @@
         return [key, { ...preset, name: String(preset.name || key).replace(/^\[保存\]\s*/, '') }];
       }));
       stored[id] = preset;
-      localStorage.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
+      storageLocal.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
       view.enemyPresetKey = id;
       if (el.enemyPresetName) el.enemyPresetName.value = '';
       populateEnemyPresets();
@@ -1878,7 +1891,7 @@
           const { isCustom, ...presetValue } = value;
           return [customKey, { ...presetValue, name: String(presetValue.name || customKey).replace(/^\[保存\]\s*/, '') }];
         }));
-      localStorage.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
+      storageLocal.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
       view.enemyPresetKey = '';
       view.enemyPhaseIndex = 0;
       view.enemySkillIndex = -1;
@@ -2172,7 +2185,7 @@
 
   function loadDamageCalculationSaves() {
     try {
-      const raw = localStorage.getItem(CALC_RESULT_SAVES_KEY);
+      const raw = storageLocal.getItem(CALC_RESULT_SAVES_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(parsed)) return [];
       return parsed
@@ -2195,7 +2208,7 @@
       const normalized = (Array.isArray(items) ? items : [])
         .filter(item => item && item.id && item.snapshot)
         .slice(0, 50);
-      localStorage.setItem(CALC_RESULT_SAVES_KEY, JSON.stringify(normalized));
+      storageLocal.setItem(CALC_RESULT_SAVES_KEY, JSON.stringify(normalized));
     } catch (error) {
       console.warn('Failed to save damage calculation saves', error);
     }
@@ -2669,7 +2682,7 @@
   }
   function restoreCalcSettings() {
     try {
-      const raw = localStorage.getItem(CALC_SETTINGS_KEY);
+      const raw = storageLocal.getItem(CALC_SETTINGS_KEY);
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
@@ -2734,7 +2747,7 @@
 
   function saveCalcSettings() {
     try {
-      localStorage.setItem(CALC_SETTINGS_KEY, JSON.stringify({
+      storageLocal.setItem(CALC_SETTINGS_KEY, JSON.stringify({
         targetId: view.targetId || '',
         formationPresetId: view.formationPresetId || '',
         damageType: view.damageType || 'auto',
@@ -2887,7 +2900,7 @@
   }
   function loadStatState() {
     try {
-      const raw = localStorage.getItem(STAT_STORAGE_KEY);
+      const raw = storageLocal.getItem(STAT_STORAGE_KEY);
       if (!raw) return { found: false };
       const state = JSON.parse(raw);
       state.cards = migrateCardStateMap(state.cards);
@@ -2907,13 +2920,13 @@
   function syncSelectedApostleToStatManager(id) {
     if (!id) return;
     try {
-      const raw = localStorage.getItem(STAT_STORAGE_KEY);
+      const raw = storageLocal.getItem(STAT_STORAGE_KEY);
       if (!raw) return;
       const state = JSON.parse(raw);
       if (!state || typeof state !== 'object') return;
       if (state.activeId === id) return;
       state.activeId = id;
-      localStorage.setItem(STAT_STORAGE_KEY, JSON.stringify(state));
+      storageLocal.setItem(STAT_STORAGE_KEY, JSON.stringify(state));
       window.dispatchEvent(new CustomEvent('trickcal-stat-active-apostle-sync', { detail: { id } }));
     } catch (error) {
       console.warn('Failed to sync selected apostle to stat manager', error);
@@ -7925,7 +7938,7 @@
 
   function loadComparisonStateSlots() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(STAT_SLOT_STORAGE_KEY) || '{}');
+      const parsed = JSON.parse(storageLocal.getItem(STAT_SLOT_STORAGE_KEY) || '{}');
       return Object.entries(parsed?.slots || {})
         .filter(([, entry]) => entry?.snapshot && typeof entry.snapshot === 'object')
         .map(([slot, entry]) => ({
@@ -11714,9 +11727,9 @@
   }
 
   function initTheme() {
-    const saved = localStorage.getItem(THEME_KEY)
-      || localStorage.getItem(LEGACY_THEME_KEY)
-      || localStorage.getItem('trickcal_stat_theme')
+    const saved = storageLocal.getItem(THEME_KEY)
+      || storageLocal.getItem(LEGACY_THEME_KEY)
+      || storageLocal.getItem('trickcal_stat_theme')
       || 'dark';
     setTheme(saved === 'light' ? 'light' : 'dark');
   }
@@ -11730,8 +11743,8 @@
     document.body.classList.toggle('theme-dark', theme !== 'light');
     if (el.themeToggle) el.themeToggle.setAttribute('aria-pressed', String(theme !== 'light'));
     if (!persist) return;
-    localStorage.setItem(THEME_KEY, theme);
-    localStorage.setItem(LEGACY_THEME_KEY, theme);
+    storageLocal.setItem(THEME_KEY, theme);
+    storageLocal.setItem(LEGACY_THEME_KEY, theme);
   }
 
   function captureCombatScenario(context = buildContext()) {
@@ -14848,4 +14861,11 @@
   document.addEventListener('error', event => {
     if (event.target?.matches?.('[data-fallback]')) event.target.src = FALLBACK_IMAGE;
   }, true);
+  }).catch(error => {
+    if (error?.name === 'StorageRuntimeError') {
+      document.documentElement?.setAttribute('data-storage-error', error.result?.code || 'failed');
+      return;
+    }
+    console.error(error);
+  });
 })();

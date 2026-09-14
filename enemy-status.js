@@ -1,6 +1,13 @@
 (() => {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
   const presets = typeof ENEMY_PRESETS === 'undefined' ? {} : ENEMY_PRESETS;
   const entries = Object.entries(presets).filter(([key, preset]) => !isHiddenPreset(key, preset));
   const entryKeys = new Set(entries.map(([key]) => key));
@@ -54,7 +61,9 @@
     el.theme?.addEventListener('click', () => {
       const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
       applyTheme(next);
-      try { localStorage.setItem('trickcal_theme', next); } catch {}
+      try { storageLocal.setItem('trickcal_theme', next); } catch (error) {
+        if (error?.name === 'StorageRuntimeError') document.documentElement.dataset.storageError = error.result?.code || 'failed';
+      }
     });
   }
 
@@ -313,7 +322,9 @@
 
   function initTheme() {
     let theme = 'dark';
-    try { theme = localStorage.getItem('trickcal_theme') || 'dark'; } catch {}
+    try { theme = storageLocal.getItem('trickcal_theme') || 'dark'; } catch (error) {
+      if (error?.name === 'StorageRuntimeError') throw error;
+    }
     applyTheme(theme === 'light' ? 'light' : 'dark');
   }
 
@@ -332,4 +343,11 @@
   function escapeAttr(value) {
     return escapeHtml(value);
   }
+  }).catch(error => {
+    if (error?.name === 'StorageRuntimeError') {
+      document.documentElement?.setAttribute('data-storage-error', error.result?.code || 'failed');
+      return;
+    }
+    console.error(error);
+  });
 })();

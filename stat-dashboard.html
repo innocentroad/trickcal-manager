@@ -30,22 +30,25 @@
       "featureList": ["使徒ステータス管理", "編成管理", "遺物カード管理", "スペルカード管理", "装備・クレヨンボード管理"]
     }
   </script>
-  <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
-  <link rel="preload" href="img/NetworkIcon_Elena.png" as="image">
-  <link rel="prefetch" href="formation-damage-calc.html" as="document">
-  <link rel="prefetch" href="formation-damage-calc.css?v=20260809i" as="style">
-  <link rel="prefetch" href="dps-trigger-policy.js?v=20260907c" as="script">
-  <link rel="prefetch" href="formation-damage-calc.js?v=20260907c" as="script">
-  <link rel="prefetch" href="enemy-presets.js?v=20260821o" as="script">
+  <link rel="icon" href="/trickcal-manager/ico.webp?v=f347347e68e894b7" type="image/webp">
+  <link rel="preload" href="/trickcal-manager/img/NetworkIcon_Elena.png?v=f347347e68e894b7" as="image">
+  <link rel="prefetch" href="/trickcal-manager/formation-damage-calc.html?recover=20260912" as="document">
+  <link rel="prefetch" href="/trickcal-manager/formation-damage-calc.css?v=f347347e68e894b7" as="style">
+  <link rel="prefetch" href="/trickcal-manager/dps-trigger-policy.js?v=f347347e68e894b7" as="script">
+  <link rel="prefetch" href="/trickcal-manager/formation-damage-calc.js?v=f347347e68e894b7" as="script">
+  <link rel="prefetch" href="/trickcal-manager/enemy-presets.js?v=f347347e68e894b7" as="script">
+  <script src="/trickcal-manager/storage-registry.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-runtime.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-backup.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-transfer.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-bootstrap.js?v=f347347e68e894b7"></script>
   <script>
-    (() => {
-      const theme = localStorage.getItem('trickcal_theme') || localStorage.getItem('trickcal_stat_theme') || 'dark';
-      document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-    })();
+    // 保存runtimeのboot完了後に保存済みテーマを適用するまでの初期表示。
+    document.documentElement.dataset.theme = 'dark';
   </script>
-  <link rel="stylesheet" href="stat-prototype.css?v=20260907b">
-  <link rel="stylesheet" href="stat-dashboard.css?v=20260912i">
-  <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
+  <link rel="stylesheet" href="/trickcal-manager/stat-prototype.css?v=f347347e68e894b7">
+  <link rel="stylesheet" href="/trickcal-manager/stat-dashboard.css?v=f347347e68e894b7">
+  <link rel="stylesheet" href="/trickcal-manager/shared-topbar.css?v=f347347e68e894b7">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
   <script>
@@ -55,6 +58,8 @@
 
     gtag('config', 'G-J8GXV74KQY');
   </script>
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"f347347e68e894b7","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=f347347e68e894b7"></script>
 </head>
 <body class="dashboard-page is-booting" aria-busy="true">
   <section class="dashboard-top-control-bar" aria-label="共通操作">
@@ -63,7 +68,7 @@
       <span>使徒・編成・カード・クレヨンボードを管理</span>
     </div>
     <div class="dashboard-top-tabs" aria-label="管理画面切替">
-      <a href="formation-damage-calc.html"><span class="topbar-label">ダメ<br>計算</span></a>
+      <a href="/trickcal-manager/formation-damage-calc.html?recover=20260912"><span class="topbar-label">ダメ<br>計算</span></a>
       <button type="button" class="is-active" data-dashboard-profile-top aria-current="page"><span class="topbar-label">ステ<br>管理</span></button>
       <button type="button" data-dashboard-view="formation">編成</button>
       <button type="button" data-open-card-manager="artifact">遺物</button>
@@ -82,7 +87,7 @@
     </div>
     <div class="dashboard-top-actions">
       <a class="topbar-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
-        <img src="img/icon/note.svg" alt="" width="16" height="16">
+        <img src="/trickcal-manager/img/icon/note.svg?v=f347347e68e894b7" alt="" width="16" height="16">
       </a>
       <button type="button" id="dashboard-top-reload" class="topbar-reload-button" aria-label="再読み込み" title="再読み込み"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 1 0-2.34 5.66"></path><path d="M20 4v7h-7"></path></svg></button>
       <button type="button" class="dashboard-top-theme-toggle" data-dashboard-theme-toggle aria-label="テーマ切替">
@@ -154,7 +159,7 @@
                 </label>
                 <label class="follow-toggle refined-follow-toggle">
                   <input type="checkbox" id="follow-toggle">
-                  <img src="img/フォロー.webp" alt="">
+                  <img src="/trickcal-manager/img/フォロー.webp?v=f347347e68e894b7" alt="">
                   <span><strong>フォロー</strong><small>本人への補正を適用</small></span>
                 </label>
               </div>
@@ -441,7 +446,7 @@
           <div class="setting-panel" data-setting-panel="board-global">
             <div class="board-global-intro">
               <p class="panel-note">特殊マスを選ぶと対象使徒のボード経路まで更新します。複数使徒の変更をまとめて確定・予定保存できます。</p>
-              <a class="board-preview-link" href="public/board-layout-preview.html" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▦</span>ボードプレビュー</a>
+              <a class="board-preview-link" href="/trickcal-manager/public/board-layout-preview.html" target="_blank" rel="noopener noreferrer"><span aria-hidden="true">▦</span>ボードプレビュー</a>
             </div>
             <div class="board-global-toolbar" hidden>
               <span class="board-mode-switch board-global-mode" aria-label="全体ボード編集モード">
@@ -594,7 +599,7 @@
       </section>
       <footer class="site-rights-footer">
         <a class="site-footer-note-link" href="https://note.com/innocentroad" target="_blank" rel="noopener noreferrer" aria-label="note: innocentroad" title="note: innocentroad">
-          <img src="img/icon/note.svg" alt="" width="14" height="14">
+          <img src="/trickcal-manager/img/icon/note.svg?v=f347347e68e894b7" alt="" width="14" height="14">
         </a>
         <div class="site-rights-summary">非公式ファンサイト｜© EPIDGames Inc.｜日本版提供：BILIBILI HK LIMITED｜ゲーム内コンテンツの権利は各権利者に帰属します。</div>
         <details class="site-rights-details">
@@ -615,23 +620,23 @@
       <span><small>使徒選択</small><strong id="bottom-apostle-name">-</strong></span>
     </button>
     <button type="button" class="bottom-section-button" data-dashboard-view="settings">
-      <span class="bottom-section-icon"><img src="img/Tab_Chara.webp" alt=""></span><strong><span>基本</span></strong>
+      <span class="bottom-section-icon"><img src="/trickcal-manager/img/Tab_Chara.webp?v=f347347e68e894b7" alt=""></span><strong><span>基本</span></strong>
     </button>
     <button type="button" class="bottom-section-button" data-dashboard-view="equipment">
-      <span class="bottom-section-icon"><img src="img/Tab_Equip.webp" alt=""></span><strong><span>装備</span></strong>
+      <span class="bottom-section-icon"><img src="/trickcal-manager/img/Tab_Equip.webp?v=f347347e68e894b7" alt=""></span><strong><span>装備</span></strong>
     </button>
     <button type="button" class="bottom-section-button" data-dashboard-view="board">
-      <span class="bottom-section-icon"><img src="img/Tab_Board.webp" alt=""></span><strong><span>ボード</span></strong>
+      <span class="bottom-section-icon"><img src="/trickcal-manager/img/Tab_Board.webp?v=f347347e68e894b7" alt=""></span><strong><span>ボード</span></strong>
     </button>
     <button type="button" class="bottom-section-button" data-dashboard-view="skill">
-      <span class="bottom-section-icon"><img src="img/Tab_Skill.webp" alt=""></span><strong><span>スキル</span></strong>
+      <span class="bottom-section-icon"><img src="/trickcal-manager/img/Tab_Skill.webp?v=f347347e68e894b7" alt=""></span><strong><span>スキル</span></strong>
     </button>
     <button type="button" class="bottom-section-button" data-dashboard-view="aside">
-      <span class="bottom-section-icon"><img src="img/Tab_Aside.webp" alt=""></span><strong><span>アサイド</span></strong>
+      <span class="bottom-section-icon"><img src="/trickcal-manager/img/Tab_Aside.webp?v=f347347e68e894b7" alt=""></span><strong><span>アサイド</span></strong>
     </button>
     <details class="bottom-save-menu">
       <summary class="bottom-section-button bottom-save-trigger">
-        <span class="bottom-section-icon bottom-save-icon"><img src="img/Tab_Save.png" alt=""></span><strong><span data-compact-label="保存">セーブ/ロード</span></strong>
+        <span class="bottom-section-icon bottom-save-icon"><img src="/trickcal-manager/img/Tab_Save.png?v=f347347e68e894b7" alt=""></span><strong><span data-compact-label="保存">セーブ/ロード</span></strong>
       </summary>
       <div class="bottom-save-popover" aria-label="状態の保存と読み込み">
         <div class="bottom-save-head">
@@ -644,6 +649,59 @@
           <button type="button" id="import-state">インポート</button>
           <input type="file" id="import-state-file" accept="application/json,.json" hidden>
         </div>
+        <section class="bottom-backup-section" aria-labelledby="backup-section-title">
+          <div class="bottom-backup-head">
+            <strong id="backup-section-title">全体バックアップ</strong>
+            <small>保存項目をまとめてファイル化</small>
+          </div>
+          <label class="bottom-backup-source">
+            <span>採取範囲</span>
+            <select id="backup-source-mode">
+              <option value="current-tab">現在タブ（下書きを含む）</option>
+              <option value="stored-only">保存済みのみ</option>
+            </select>
+          </label>
+          <div class="bottom-transfer-actions bottom-backup-actions">
+            <button type="button" id="backup-export">バックアップ保存</button>
+            <button type="button" id="backup-transfer" hidden>新サイトへ移す</button>
+            <button type="button" id="backup-transfer-save" class="secondary" hidden>送信データを保存</button>
+            <button type="button" id="backup-import">ファイル確認</button>
+            <input type="file" id="backup-import-file" accept="application/json,.json" hidden>
+          </div>
+          <button type="button" id="backup-rescue" class="secondary">読み取り可能なデータを救出</button>
+          <div id="backup-preview" class="bottom-backup-preview" hidden>
+            <strong>確認内容</strong>
+            <span id="backup-preview-summary"></span>
+            <ul id="backup-preview-datasets"></ul>
+            <label class="bottom-backup-display-option">
+              <input type="checkbox" id="backup-include-display" checked>
+              <span>表示設定も復元</span>
+            </label>
+            <label id="backup-allow-auxiliary-exclude-wrap" class="bottom-backup-display-option" hidden>
+              <input type="checkbox" id="backup-allow-auxiliary-exclude">
+              <span>不正な計算/DPS設定を除外して続行</span>
+            </label>
+            <small id="backup-auxiliary-exclude-note" hidden>
+              除外した設定は現在値を維持します。保存計算結果などの必須データは復元します。
+            </small>
+            <small>ファイル確認だけでは保存データを変更しません。</small>
+            <div id="backup-restore-plan" class="bottom-backup-restore-plan" hidden>
+              <strong>復元対象</strong>
+              <span id="backup-restore-plan-summary"></span>
+              <ul id="backup-restore-plan-datasets"></ul>
+              <small>現在の下書き・保存値を選択内容で置き換えます。空の項目は削除します。</small>
+            </div>
+            <div class="bottom-backup-preview-actions">
+              <button type="button" id="backup-prepare-restore">復元対象を確認</button>
+              <button type="button" id="backup-apply-restore" class="primary" hidden>この内容を復元</button>
+              <button type="button" id="backup-retry-recovery" class="secondary" hidden>復旧を再試行</button>
+              <button type="button" id="backup-reload" class="primary" hidden>再読み込み</button>
+              <button type="button" id="backup-cancel" class="secondary">確認を取消</button>
+            </div>
+            <a id="backup-recovery-link" class="bottom-backup-recovery-link" href="/trickcal-manager/storage-recovery.html" target="_blank" rel="noopener noreferrer" hidden>独立復旧入口を開く</a>
+          </div>
+          <small id="backup-status" class="bottom-backup-status" aria-live="polite"></small>
+        </section>
         <div class="bottom-save-actions" aria-label="スロット操作">
           <button type="button" id="save-state-slot" data-state-slot-mode="save">セーブ</button>
           <button type="button" id="load-state-slot" data-state-slot-mode="load">ロード</button>
@@ -808,19 +866,19 @@
     </div>
   </dialog>
 
-  <script src="statData.js?v=20260907c"></script>
-  <script src="public-release-config.js?v=20260903a"></script>
-  <script src="sp-engine.js?v=20260720b"></script>
-  <script src="synergy.js"></script>
-  <script src="cards.js?v=20260910b"></script>
-  <script src="stat-engine.js?v=20260828a"></script>
-  <script src="app-cache.js?v=20260911b"></script>
-  <script src="image-preload.js?v=20260727a"></script>
-  <script src="stat-prototype.js?v=20260911b"></script>
-  <script src="formation-share-catalog.js?v=20260910a"></script>
-  <script src="formation-share-codec.js?v=20260910a"></script>
-  <script src="formation-share-image.js?v=20260912j"></script>
-  <script src="formation-share-create.js?v=20260912o"></script>
-  <script src="stat-dashboard.js?v=20260903a"></script>
+  <script src="/trickcal-manager/statData.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/public-release-config.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/sp-engine.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/synergy.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/cards.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/stat-engine.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/app-cache.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/image-preload.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/stat-prototype.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-catalog.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-codec.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-image.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-create.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/stat-dashboard.js?v=f347347e68e894b7"></script>
 </body>
 </html>

@@ -5,14 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>編成共有 | Trickcal Manager</title>
   <meta name="description" content="Trickcal Managerの編成共有">
-  <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
+  <link rel="icon" href="/trickcal-manager/ico.webp?v=f347347e68e894b7" type="image/webp">
   <script>
     (() => {
       const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
       document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
     })();
   </script>
-  <link rel="stylesheet" href="formation-share-prototype.css?v=20260912e">
+  <link rel="stylesheet" href="/trickcal-manager/formation-share-prototype.css?v=f347347e68e894b7">
+  <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/formation-share.html">
+  <meta property="og:url" content="https://innocentroad.github.io/trickcal-manager/formation-share.html">
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"f347347e68e894b7","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=f347347e68e894b7"></script>
 </head>
 <body class="formation-share-page">
   <header class="share-topbar">
@@ -24,7 +28,7 @@
       <button type="button" class="theme-button" id="theme-toggle" aria-label="テーマ切替" aria-pressed="true">
         <span aria-hidden="true">☼</span><span class="theme-button-label">ライト</span>
       </button>
-      <a href="stat-dashboard.html" class="back-link">ステータス管理へ</a>
+      <a href="/trickcal-manager/stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ</a>
     </div>
   </header>
 
@@ -32,7 +36,7 @@
     <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
       <h2>共有編成を表示できません</h2>
       <p id="share-error-message">URLの内容を確認してください。</p>
-      <a href="stat-dashboard.html" class="back-link">ステータス管理へ戻る</a>
+      <a href="/trickcal-manager/stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ戻る</a>
     </section>
 
     <div id="share-content">
@@ -87,12 +91,11 @@
     </div>
   </aside>
 
-  <script src="statData.js?v=20260907c"></script>
-  <script src="cards.js?v=20260910b"></script>
-  <script src="formation-share-catalog.js?v=20260910a"></script>
-  <script src="formation-share-codec.js?v=20260910a"></script>
-  <script src="formation-share.js?v=20260912c"></script>
-  <script src="formation-share-image.js?v=20260912j"></script>
-  <script src="formation-share-page-actions.js?v=20260912a"></script>
+  <script src="/trickcal-manager/formation-share-display-data.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-catalog.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-codec.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-image.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/formation-share-page-actions.js?v=f347347e68e894b7"></script>
 </body>
 </html>

@@ -1,19 +1,18 @@
 (() => {
   'use strict';
 
-  const DATA = window.TRICKCAL_STAT_DATA;
+  const DISPLAY_DATA = window.TRICKCAL_FORMATION_SHARE_DISPLAY_DATA;
   const CODEC = window.TRICKCAL_FORMATION_SHARE_CODEC;
-  const CARD_DATA = window.TRICKCAL_CARD_LIBRARY || (typeof CARD_LIBRARY === 'undefined'
-    ? { artifacts: [], spells: [] }
-    : CARD_LIBRARY);
-  const basicById = new Map((DATA?.sheets?.basicInfo || []).map(row => [row.id, row]));
+  const basicById = new Map(Object.entries(DISPLAY_DATA?.apostles || {}));
   const cardById = new Map([
-    ...(CARD_DATA.artifacts || []).map(card => [card.id, { ...card, kind: 'artifact' }]),
-    ...(CARD_DATA.spells || []).map(card => [card.id, { ...card, kind: 'spell' }])
+    ...Object.entries(DISPLAY_DATA?.artifacts || {}).map(([id, card]) => [id, { ...card, id, kind: 'artifact' }]),
+    ...Object.entries(DISPLAY_DATA?.spells || {}).map(([id, card]) => [id, { ...card, id, kind: 'spell' }])
   ]);
-  const powerById = new Map((DATA?.sheets?.masterPowers || []).map(power => [power.id, power]));
+  const powerById = new Map(Object.entries(DISPLAY_DATA?.masterPowers || {})
+    .map(([id, power]) => [id, { ...power, id }]));
+  const assetByPath = new Map(Object.entries(DISPLAY_DATA?.assets || {}));
+  const publicSite = window.TRICKCAL_PUBLIC_SITE;
   const positionLabels = ['後列', '中列', '前列'];
-  const MASTER_POWER_COST = 30;
   const GLOBAL_STATS = [
     { key: 'hp', label: 'HP', icon: 'HP.webp' },
     { key: 'patk', label: '物攻', icon: '物理攻撃力.webp' },
@@ -34,18 +33,13 @@
     { label: '会心', indices: [5, 6] },
     { label: '会心抵抗', indices: [7, 8] }
   ];
-  const assetAliases = {
-    ED: 'Ed',
-    Rudd: 'Rude',
-    Sion: 'Xion',
-    sion: 'Xion',
-    xion: 'Xion',
-    Shady: 'Shaydi',
-    Lazy: 'Layze',
-    Razy: 'Layze',
-    Reizy: 'Layze'
-  };
   const personalityNames = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+
+  function shareAssetPath(relativePath) {
+    const mapped = assetByPath.get(relativePath) || relativePath;
+    if (!mapped) return '';
+    return publicSite?.assetUrl?.(mapped) || mapped;
+  }
 
   function escapeHtml(value) {
     return String(value ?? '')
@@ -57,13 +51,14 @@
   }
 
   function apostleImagePath(id) {
-    return 'img/Chara/' + (assetAliases[id] || id) + '.webp';
+    return shareAssetPath(basicById.get(id)?.imagePath || 'img/Chara/' + id + '.webp');
   }
 
   function cardImagePath(card) {
     if (!card) return '';
+    if (card.imagePath) return shareAssetPath(card.imagePath);
     const folder = card.kind === 'spell' ? 'Spell' : 'Artifact';
-    return 'img/Card/' + folder + '/' + (card.imageFile || (card.name + '.webp'));
+    return shareAssetPath('img/Card/' + folder + '/' + (card.imageFile || (card.name + '.webp')));
   }
 
   function getRarityClass(card, ownerName = '') {
@@ -80,14 +75,14 @@
   function getRarityBackgroundPath(card, ownerName = '') {
     if (!card || card.kind !== 'artifact') return '';
     if (card.signature && String(card.favoriteCharacter || '') === String(ownerName || '')) {
-      return 'img/Card/Card_Signature.webp';
+      return shareAssetPath('img/Card/Card_Signature.webp');
     }
     const backgrounds = {
       '伝説': 'img/Card/Card_Legendary.webp',
       '希少': 'img/Card/Card_Unique.webp',
       '高級': 'img/Card/Card_Rare.webp'
     };
-    return backgrounds[card.rarity] || 'img/Card/Card_Rare.webp';
+    return shareAssetPath(backgrounds[card.rarity] || 'img/Card/Card_Rare.webp');
   }
 
   function getCardCost(card, star) {
@@ -110,7 +105,7 @@
       return '<span class="share-star-unknown" aria-label="' + escapeHtml(label || '★不明') + '">?</span>';
     }
     return Array.from({ length: 5 }, (_, index) => (
-      '<img src="img/' + (index < count ? 'Grade_on.webp' : 'Grade_off.webp')
+      '<img src="' + shareAssetPath('img/' + (index < count ? 'Grade_on.webp' : 'Grade_off.webp'))
       + '" alt="" loading="lazy">'
     )).join('');
   }
@@ -119,7 +114,7 @@
     const text = cost == null ? '?' : String(cost);
     return [
       '<span class="card-cost-badge" aria-label="', escapeHtml(label + text), '">',
-      '<img src="img/Card/cost.webp" alt=""><b>', escapeHtml(text), '</b></span>'
+      '<img src="', escapeHtml(shareAssetPath('img/Card/cost.webp')), '" alt=""><b>', escapeHtml(text), '</b></span>'
     ].join('');
   }
 
@@ -206,8 +201,8 @@
   function renderMember(member, relicEntries) {
     const id = member?.id || '';
     const basic = basicById.get(id);
-    const name = basic?.使徒名 || id || '空き枠';
-    const personality = basic?.性格 || '';
+    const name = basic?.name || id || '空き枠';
+    const personality = basic?.personality || '';
     const personalityClass = personalityNames.includes(personality)
       ? 'personality-' + personality
       : '';
@@ -217,8 +212,8 @@
       id ? '' : 'is-empty'
     ].filter(Boolean).join(' ');
     const personalityBadge = basic && personality
-      ? '<img class="personality-badge" src="img/性格_' + escapeHtml(personality)
-        + '.webp" alt="' + escapeHtml(personality) + '" title="' + escapeHtml(personality) + '">'
+      ? '<img class="personality-badge" src="' + escapeHtml(shareAssetPath('img/性格_' + personality + '.webp'))
+        + '" alt="' + escapeHtml(personality) + '" title="' + escapeHtml(personality) + '">'
       : '';
     const portrait = id
       ? '<img class="apostle-art" src="' + escapeHtml(apostleImagePath(id)) + '" alt="' + escapeHtml(name) + '">'
@@ -234,7 +229,7 @@
       name
     )).join('');
     return [
-      '<article class="', memberClass, '" title="', escapeHtml(basic ? [basic.配置列, basic.役割, personality].filter(Boolean).join('・') : '使徒未選択'), '">',
+      '<article class="', memberClass, '" title="', escapeHtml(basic ? [basic.position, basic.role, personality].filter(Boolean).join('・') : '使徒未選択'), '">',
       '<div class="member-row">',
       '<div class="member-apostle"><div class="member-portrait">',
       portrait,
@@ -276,7 +271,7 @@
     snapshot.members.forEach(member => {
       const basic = basicById.get(member?.id || '');
       if (member?.id) names.add(member.id);
-      if (basic?.使徒名) names.add(basic.使徒名);
+      if (basic?.name) names.add(basic.name);
     });
     return names;
   }
@@ -339,14 +334,14 @@
           return '<div class="master-power-name-card unknown-card"><strong>'
             + escapeHtml(id) + '</strong></div>';
         }
-        const name = power['権能名'] || power.id;
-        const imagePath = 'img/Card/権能_' + name + '.webp';
+        const name = power.name || power.id;
+        const imagePath = shareAssetPath(power.imagePath || '');
         return [
           '<div class="master-power-name-card" title="', escapeHtml(name), '" aria-label="教主の権能 ',
           escapeHtml(name), '"><div class="master-power-media">',
           '<img class="master-power-art" src="', escapeHtml(imagePath), '" alt="', escapeHtml(name), '">',
           '<span class="power-fallback" hidden>画像なし</span>',
-          renderCostBadge(MASTER_POWER_COST),
+          renderCostBadge(power.cost),
           '</div><strong>', escapeHtml(name), '</strong></div>'
         ].join('');
       }).join('') + '</div>'
@@ -372,15 +367,15 @@
       const value = snapshot.globalPercent[index];
       if (value == null) {
         return [
-          '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="img/',
-          escapeHtml(stat.icon), '" alt="">', escapeHtml(stat.label),
+          '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="',
+          escapeHtml(shareAssetPath('img/' + stat.icon)), '" alt="">', escapeHtml(stat.label),
           '</span><strong>?</strong></div>'
         ].join('');
       }
       if (value === 0) return '';
       return [
-        '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="img/',
-        escapeHtml(stat.icon), '" alt="">', escapeHtml(stat.label),
+        '<div class="global-enhancement-value" role="listitem"><span class="global-enhancement-stat-label"><img src="',
+        escapeHtml(shareAssetPath('img/' + stat.icon)), '" alt="">', escapeHtml(stat.label),
         '</span><strong>+', escapeHtml(formatPercent(value)), '%</strong></div>'
       ].join('');
     };
@@ -419,11 +414,18 @@
     };
     snapshot.relicSlots.forEach(addCardCost);
     snapshot.spells.forEach(addCardCost);
-    total += snapshot.powers.length * MASTER_POWER_COST;
+    snapshot.powers.forEach(id => {
+      const power = powerById.get(id);
+      if (!power || !Number.isFinite(Number(power.cost))) {
+        unknown = true;
+        return;
+      }
+      total += Number(power.cost);
+    });
     const target = document.getElementById('formation-total-cost');
     const text = unknown ? '?' : String(total);
     target.innerHTML = '<span>総合コスト</span><span class="formation-total-cost-value">'
-      + '<img src="img/Card/cost.webp" alt=""><strong>' + escapeHtml(text) + '</strong></span>';
+      + '<img src="' + escapeHtml(shareAssetPath('img/Card/cost.webp')) + '" alt=""><strong>' + escapeHtml(text) + '</strong></span>';
     target.title = unknown
       ? '★不明のカードがあるため総合コストは未確定です'
       : '遺物・スペル・権能の総合コスト ' + total;
@@ -492,7 +494,7 @@
     }
   }
 
-  if (!DATA || !CODEC) {
+  if (!DISPLAY_DATA || !CODEC) {
     renderError(new Error('共有画面のデータを読み込めませんでした'));
   } else {
     setupTheme();

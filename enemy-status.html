@@ -5,7 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>敵ステータス確認 | Trickcal Manager</title>
-  <link rel="stylesheet" href="enemy-status.css?v=20260830l">
+  <script src="/trickcal-manager/storage-registry.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-runtime.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/storage-bootstrap.js?v=f347347e68e894b7"></script>
+  <link rel="stylesheet" href="/trickcal-manager/enemy-status.css?v=f347347e68e894b7">
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"f347347e68e894b7","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=f347347e68e894b7"></script>
 </head>
 <body>
   <header class="enemy-status-header">
@@ -14,7 +19,7 @@
       <h1>敵ステータス確認</h1>
     </div>
     <div class="header-actions">
-      <a href="formation-damage-calc.html">ダメージ計算へ</a>
+      <a href="/trickcal-manager/formation-damage-calc.html?recover=20260912">ダメージ計算へ</a>
       <button type="button" id="enemy-status-theme" aria-label="テーマ切替">
         <svg class="enemy-ui-icon enemy-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
         <svg class="enemy-ui-icon enemy-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
@@ -57,7 +62,7 @@
     </details>
   </footer>
 
-  <script src="enemy-presets.js?v=20260821o"></script>
-  <script src="enemy-status.js?v=20260830h"></script>
+  <script src="/trickcal-manager/enemy-presets.js?v=f347347e68e894b7"></script>
+  <script src="/trickcal-manager/enemy-status.js?v=f347347e68e894b7"></script>
 </body>
 </html>

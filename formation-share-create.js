@@ -20,7 +20,8 @@
   const codec = window.TRICKCAL_FORMATION_SHARE_CODEC;
   const imageApi = window.TRICKCAL_FORMATION_SHARE_IMAGE;
   const imageController = imageApi?.createController?.();
-  const SHARE_PAGE_CACHE_VERSION = '20260912d';
+  // 生成工程の依存版入力として保持する。公開共有URLへv queryは付けない。
+  const SHARE_PAGE_CACHE_VERSION = '66f50909d0e64a5e';
   const SHARE_PREVIEW_CACHE_VERSION = '20260912b';
 
   if (!dialog || !openButton || !codec) return;
@@ -139,9 +140,11 @@
     const snapshot = engine.getFormationShareSnapshot({
       includeGlobalPercent: !!globalToggle.checked
     });
-    const baseUrl = new URL('formation-share.html', window.location.href);
+    const baseUrl = new URL(
+      window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('share') || 'formation-share.html',
+      window.location.href
+    );
     const shareUrl = new URL(codec.createUrl(snapshot, { baseUrl: baseUrl.toString() }));
-    shareUrl.searchParams.set('v', SHARE_PAGE_CACHE_VERSION);
     return shareUrl.toString();
   }
 

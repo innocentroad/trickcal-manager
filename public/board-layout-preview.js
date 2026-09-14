@@ -1,7 +1,19 @@
 (function () {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
   const DATA = window.TRICKCAL_STAT_DATA;
+  const publicSite = window.TRICKCAL_PUBLIC_SITE;
+
+  function boardAssetPath(relativePath) {
+    return publicSite?.assetUrl?.(relativePath) || relativePath;
+  }
   if (!DATA) return;
 
   const COMMON_THEME_KEY = 'trickcal_theme';
@@ -153,8 +165,8 @@
     syncThemeToggle();
     if (!persist) return;
     try {
-      localStorage.setItem(COMMON_THEME_KEY, nextTheme);
-      localStorage.setItem(LEGACY_PREVIEW_THEME_KEY, nextTheme);
+      storageLocal.setItem(COMMON_THEME_KEY, nextTheme);
+      storageLocal.setItem(LEGACY_PREVIEW_THEME_KEY, nextTheme);
     } catch (error) {
       // file://など保存できない環境でも、その場の切り替えは維持する。
     }
@@ -195,7 +207,7 @@
 
   function readSavedViewScale() {
     try {
-      return Number(localStorage.getItem(PREVIEW_SCALE_KEY)) || 1;
+      return Number(storageLocal.getItem(PREVIEW_SCALE_KEY)) || 1;
     } catch (error) {
       return 1;
     }
@@ -212,7 +224,7 @@
     centerBoardViewport();
     if (persist) {
       try {
-        localStorage.setItem(PREVIEW_SCALE_KEY, String(nextScale));
+        storageLocal.setItem(PREVIEW_SCALE_KEY, String(nextScale));
       } catch (error) {
         // 保存できない環境でも、その場の表示倍率は変更する。
       }
@@ -634,13 +646,13 @@
 
   function renderDetail(row) {
     const costs = [
-      ['ゴールド', row.ゴールド, '../img/ゴールド.webp'],
-      ['下級くれよん', row.下級, '../img/下級くれよん.webp'],
-      ['中級くれよん', row.中級, '../img/中級くれよん.webp'],
-      ['上級くれよん', row.上級, '../img/上級くれよん.webp'],
-      ['特級くれよん', row.特級, '../img/特級くれよん.webp'],
-      ['★1共同教団証', row['★1共同教団証'], '../img/★1共同教団証.webp'],
-      ['使徒証', row.使徒証, '../img/使徒証.webp']
+      ['ゴールド', row.ゴールド, boardAssetPath('img/ゴールド.webp')],
+      ['下級くれよん', row.下級, boardAssetPath('img/下級くれよん.webp')],
+      ['中級くれよん', row.中級, boardAssetPath('img/中級くれよん.webp')],
+      ['上級くれよん', row.上級, boardAssetPath('img/上級くれよん.webp')],
+      ['特級くれよん', row.特級, boardAssetPath('img/特級くれよん.webp')],
+      ['★1共同教団証', row['★1共同教団証'], boardAssetPath('img/★1共同教団証.webp')],
+      ['使徒証', row.使徒証, boardAssetPath('img/使徒証.webp')]
     ].filter(([, value]) => Number(value) > 0);
     const costsHtml = costs.length
       ? costs.map(([label, value, src]) => `
@@ -709,10 +721,10 @@
   }
 
   function getBoardTileBasePath(row) {
-    if (row.マス_type === 'ゲート') return '../img/Board/Tile_gate.webp';
-    if (row.マス_type === '上級') return '../img/Board/Tile_2_On.webp';
-    if (row.マス_type === '特殊') return '../img/Board/Tile_3_On.webp';
-    return '../img/Board/Tile_1_On.webp';
+    if (row.マス_type === 'ゲート') return boardAssetPath('img/Board/Tile_gate.webp');
+    if (row.マス_type === '上級') return boardAssetPath('img/Board/Tile_2_On.webp');
+    if (row.マス_type === '特殊') return boardAssetPath('img/Board/Tile_3_On.webp');
+    return boardAssetPath('img/Board/Tile_1_On.webp');
   }
 
   function getBoardIconPath(row) {
@@ -720,22 +732,22 @@
       .filter(Boolean)
       .map(type => String(type).replace(/^全体/, '').replace(/力$/, ''));
     if (row.マス_type === 'スタート') return viewOrientation === 'vertical'
-      ? '../img/Board/Tile_Start_Up.webp'
-      : '../img/Board/Tile_Start_Right.webp';
+      ? boardAssetPath('img/Board/Tile_Start_Up.webp')
+      : boardAssetPath('img/Board/Tile_Start_Right.webp');
     if (row.マス_type === 'ゲート') return '';
-    if (types.includes('HP')) return '../img/Board/Tile_Hp_On.webp';
-    if (types.includes('物理攻撃') && types.includes('魔法攻撃')) return '../img/Board/Tile_AtkBoth_On.webp';
-    if (types.includes('物理攻撃')) return '../img/Board/Tile_AtkP_On.webp';
-    if (types.includes('魔法攻撃')) return '../img/Board/Tile_AtkM_On.webp';
-    if (types.includes('物理防御') && types.includes('魔法防御')) return '../img/Board/Tile_DefBoth_On.webp';
-    if (types.includes('物理防御')) return '../img/Board/Tile_DefP_On.webp';
-    if (types.includes('魔法防御')) return '../img/Board/Tile_DefM_On.webp';
-    if ((types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) && types.includes('会心抵抗')) return '../img/Board/Tile_CritResBoth_On.webp';
-    if (types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) return '../img/Board/Tile_CritiDMGRes_On.webp';
-    if (types.includes('会心抵抗')) return '../img/Board/Tile_CritiRes_On.webp';
-    if ((types.includes('会心DMG') || types.includes('会心ダメージ')) && types.includes('会心')) return '../img/Board/Tile_CritBoth_On.webp';
-    if (types.includes('会心DMG') || types.includes('会心ダメージ')) return '../img/Board/Tile_CritDMG_On.webp';
-    if (types.includes('会心')) return '../img/Board/Tile_Crit_On.webp';
+    if (types.includes('HP')) return boardAssetPath('img/Board/Tile_Hp_On.webp');
+    if (types.includes('物理攻撃') && types.includes('魔法攻撃')) return boardAssetPath('img/Board/Tile_AtkBoth_On.webp');
+    if (types.includes('物理攻撃')) return boardAssetPath('img/Board/Tile_AtkP_On.webp');
+    if (types.includes('魔法攻撃')) return boardAssetPath('img/Board/Tile_AtkM_On.webp');
+    if (types.includes('物理防御') && types.includes('魔法防御')) return boardAssetPath('img/Board/Tile_DefBoth_On.webp');
+    if (types.includes('物理防御')) return boardAssetPath('img/Board/Tile_DefP_On.webp');
+    if (types.includes('魔法防御')) return boardAssetPath('img/Board/Tile_DefM_On.webp');
+    if ((types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) && types.includes('会心抵抗')) return boardAssetPath('img/Board/Tile_CritResBoth_On.webp');
+    if (types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) return boardAssetPath('img/Board/Tile_CritiDMGRes_On.webp');
+    if (types.includes('会心抵抗')) return boardAssetPath('img/Board/Tile_CritiRes_On.webp');
+    if ((types.includes('会心DMG') || types.includes('会心ダメージ')) && types.includes('会心')) return boardAssetPath('img/Board/Tile_CritBoth_On.webp');
+    if (types.includes('会心DMG') || types.includes('会心ダメージ')) return boardAssetPath('img/Board/Tile_CritDMG_On.webp');
+    if (types.includes('会心')) return boardAssetPath('img/Board/Tile_Crit_On.webp');
     return '';
   }
 
@@ -768,4 +780,11 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+  }).catch(error => {
+    if (error?.name === 'StorageRuntimeError') {
+      document.documentElement?.setAttribute('data-storage-error', error.result?.code || 'failed');
+      return;
+    }
+    console.error(error);
+  });
 })();

@@ -1,6 +1,10 @@
 (() => {
   'use strict';
 
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+
   const viewButtons = Array.from(document.querySelectorAll('[data-dashboard-view]'));
   const panels = Array.from(document.querySelectorAll('[data-dashboard-panel]'));
   const railButtons = Array.from(document.querySelectorAll('.dashboard-rail [data-dashboard-view]'));
@@ -209,4 +213,5 @@
 
   syncBottomApostle();
   applyInitialRoute();
+  });
 })();
