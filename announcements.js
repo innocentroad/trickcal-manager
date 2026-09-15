@@ -343,6 +343,14 @@
       return { oldManager, newTransfer };
     }
 
+    function requestLegacyManagerBackupMenu() {
+      if (typeof documentObject?.dispatchEvent !== 'function') return false;
+      const event = typeof windowObject?.CustomEvent === 'function'
+        ? new windowObject.CustomEvent('trickcal-open-backup-menu')
+        : { type: 'trickcal-open-backup-menu' };
+      return documentObject.dispatchEvent(event);
+    }
+
     function openDialog() {
       if (!dialog) return false;
       try {
@@ -471,17 +479,27 @@
       appendElement(dialogBody, 'p', '新サイトで読み込んだバックアップの内容を確認してから、適用を確定できます。', 'trickcal-announcement-guide-confirm');
       const links = getGuideLinks();
       const actions = appendElement(dialogBody, 'div', undefined, 'trickcal-announcement-guide-actions');
-      const oldLink = appendElement(actions, 'a', '旧サイトでバックアップ', 'trickcal-announcement-guide-link');
-      oldLink.href = links.oldManager;
-      oldLink.target = '_blank';
-      oldLink.rel = 'noopener';
+      const sameScreenLegacyManager = profile === PROFILE_LEGACY && page === PAGE_MANAGER;
+      const oldLink = appendElement(actions, sameScreenLegacyManager ? 'button' : 'a', '旧サイトでバックアップ', 'trickcal-announcement-guide-link');
+      if (sameScreenLegacyManager) {
+        oldLink.type = 'button';
+        oldLink.dataset.announcementAction = 'open-backup-menu';
+        oldLink.addEventListener('click', () => {
+          close();
+          requestLegacyManagerBackupMenu();
+        });
+      } else {
+        oldLink.href = links.oldManager;
+        oldLink.target = profile === PROFILE_LEGACY && page === PAGE_CALC ? '_self' : '_blank';
+        if (oldLink.target === '_blank') oldLink.rel = 'noopener';
+      }
       const newLink = appendElement(actions, 'a', '新サイトで読み込む', 'trickcal-announcement-guide-link');
       newLink.href = links.newTransfer;
       newLink.target = '_blank';
       newLink.rel = 'noopener';
       const details = appendElement(dialogBody, 'details', undefined, 'trickcal-announcement-guide-details');
       appendElement(details, 'summary', '困った時');
-      appendElement(details, 'p', '適用前のプレビューと明示確認を使い、保存先と件数を確認してください。自動転送は実行されません。');
+      appendElement(details, 'p', '適用前のプレビューと明示確認を使い、保存先と件数を確認してください。自動転送は実行されません。複数タブで同じサイトを開いている場合は、未保存の編集がないことを確認してから他のタブを閉じて、もう一度試してください。');
       return true;
     }
 

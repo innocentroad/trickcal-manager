@@ -76,6 +76,17 @@
     });
   }
 
+  function openBackupMenu({ behavior = 'auto', focus = false } = {}) {
+    const saveMenu = bottomSaveMenu || document.querySelector('.bottom-save-menu');
+    if (!saveMenu) return false;
+    saveMenu.open = true;
+    window.requestAnimationFrame(() => {
+      document.querySelector('.bottom-backup-section')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior });
+      if (focus) document.getElementById('backup-export')?.focus();
+    });
+    return true;
+  }
+
   function openGlobal(tabName) {
     showView('global');
     const tab = globalTabs.find(button => button.dataset.settingTab === tabName);
@@ -106,12 +117,7 @@
       if (routeView === 'settings') scrollToProfile('auto');
       else scrollToDashboardMain('auto');
     }
-    if (focusBackup && bottomSaveMenu) {
-      bottomSaveMenu.open = true;
-      window.requestAnimationFrame(() => {
-        document.querySelector('.bottom-backup-section')?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
-      });
-    }
+    if (focusBackup) openBackupMenu();
   }
 
   function applyInitialRouteWhenTopLayoutReady() {
@@ -121,6 +127,10 @@
     }
     document.addEventListener?.('trickcal-announcements-layout-ready', applyInitialRoute, { once: true });
   }
+
+  document.addEventListener?.('trickcal-open-backup-menu', () => {
+    window.setTimeout(() => openBackupMenu({ focus: true }), 0);
+  });
 
   function syncBottomApostle() {
     const sourceName = document.getElementById('apostle-name');
