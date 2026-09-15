@@ -21,6 +21,30 @@
         '旧サイトでバックアップを保存し、新サイトで読み込んでください。',
         '旧サイトのデータは残りますが、読み込み先の対象データは上書きされます。'
       ]),
+      profileCopy: Object.freeze({
+        legacy: Object.freeze({
+          title: '新サイトへの移行のお知らせ',
+          barTitle: '新サイトへの移行について',
+          summary: '保存データは自動では引き継がれません。旧サイトでバックアップを保存し、新サイトで読み込んでください。',
+          body: Object.freeze([
+            '新しいサイトは trickcal.irlab.dev です。',
+            '保存データは自動では引き継がれません。',
+            '旧サイトでバックアップを保存し、新サイトで読み込んでください。',
+            '旧サイトのデータは残りますが、読み込み先の対象データは上書きされます。'
+          ])
+        }),
+        new: Object.freeze({
+          title: '旧サイトの保存データを引き継ぐ',
+          barTitle: '旧サイトの保存データを引き継ぐ',
+          summary: '旧サイトの保存データは自動では引き継がれません。バックアップをこのサイトで読み込んでください。',
+          body: Object.freeze([
+            '旧サイトで使っていた保存データを、このサイトへ引き継げます。',
+            '保存データは自動では引き継がれません。',
+            '旧サイトでバックアップを保存し、新サイトで読み込んでください。',
+            '旧サイトのデータは残りますが、読み込み先の対象データは上書きされます。'
+          ])
+        })
+      }),
       category: '移行案内',
       profiles: Object.freeze(['new', 'legacy']),
       autoRevision: '1',
@@ -53,6 +77,22 @@
       && (typeof article.autoRevision !== 'string' || !article.autoRevision.trim())) {
       return `${label}.autoRevision is invalid`;
     }
+    if (article.profileCopy !== undefined) {
+      if (!article.profileCopy || typeof article.profileCopy !== 'object' || Array.isArray(article.profileCopy)) {
+        return `${label}.profileCopy is invalid`;
+      }
+      for (const profile of ['new', 'legacy']) {
+        const copy = article.profileCopy[profile];
+        if (!copy || typeof copy !== 'object'
+          || typeof copy.title !== 'string' || !copy.title.trim()
+          || typeof copy.barTitle !== 'string' || !copy.barTitle.trim()
+          || typeof copy.summary !== 'string' || !copy.summary.trim()
+          || !Array.isArray(copy.body) || !copy.body.length
+          || copy.body.some(paragraph => typeof paragraph !== 'string' || !paragraph.trim())) {
+          return `${label}.profileCopy.${profile} is invalid`;
+        }
+      }
+    }
     if (!ALLOWED_CTA.has(article.cta === undefined ? null : article.cta)) return `${label}.cta is invalid`;
     return null;
   }
@@ -76,16 +116,34 @@
     return profile === 'legacy' ? 'legacy' : 'new';
   }
 
+  function resolveArticle(article, profile = 'new') {
+    const copy = article?.profileCopy?.[normalizeProfile(profile)];
+    if (!copy) return article;
+    return Object.freeze({
+      ...article,
+      title: copy.title,
+      barTitle: copy.barTitle,
+      summary: copy.summary,
+      body: Object.freeze(copy.body.slice())
+    });
+  }
+
   function getArticles(profile = 'new', input = ARTICLES) {
     const normalizedProfile = normalizeProfile(profile);
     return input
       .filter(article => Array.isArray(article.profiles) && article.profiles.includes(normalizedProfile))
+      .map(article => resolveArticle(article, normalizedProfile))
       .slice()
       .sort((left, right) => right.date.localeCompare(left.date) || right.id.localeCompare(left.id));
   }
 
-  function getArticle(id, input = ARTICLES) {
-    return input.find(article => article.id === id) || null;
+  function getArticle(id, input = ARTICLES, profile = 'new') {
+    const article = input.find(item => item.id === id) || null;
+    return article ? resolveArticle(article, profile) : null;
+  }
+
+  function getArticleForProfile(id, profile = 'new', input = ARTICLES) {
+    return getArticle(id, input, profile);
   }
 
   const validation = validateArticles(ARTICLES);
@@ -96,6 +154,8 @@
     articles: ARTICLES,
     validateArticles,
     getArticles,
-    getArticle
+    getArticle,
+    getArticleForProfile,
+    resolveArticle
   });
 });

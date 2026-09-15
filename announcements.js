@@ -46,12 +46,13 @@
     return {
       version: STATE_VERSION,
       readIds: state.readIds.slice(),
-      autoAcknowledged: state.autoAcknowledged.map(item => ({ id: item.id, revision: item.revision }))
+      autoAcknowledged: state.autoAcknowledged.map(item => ({ id: item.id, revision: item.revision })),
+      dismissedIds: state.dismissedIds.slice()
     };
   }
 
   function emptyState() {
-    return { version: STATE_VERSION, readIds: [], autoAcknowledged: [] };
+    return { version: STATE_VERSION, readIds: [], autoAcknowledged: [], dismissedIds: [] };
   }
 
   function sanitizeState(value) {
@@ -67,11 +68,15 @@
         .map(item => ({ id: item.id, revision: item.revision }))
         .slice(0, MAX_STATE_ITEMS)
       : [];
+    const dismissedIds = Array.isArray(value.dismissedIds)
+      ? value.dismissedIds.filter(item => typeof item === 'string' && item.trim()).slice(0, MAX_STATE_ITEMS)
+      : [];
     if (!Array.isArray(value.readIds) || !Array.isArray(value.autoAcknowledged)) return null;
     return {
       version: STATE_VERSION,
       readIds: Array.from(new Set(readIds)),
-      autoAcknowledged: Array.from(new Map(autoAcknowledged.map(item => [`${item.id}\u0000${item.revision}`, item])).values())
+      autoAcknowledged: Array.from(new Map(autoAcknowledged.map(item => [`${item.id}\u0000${item.revision}`, item])).values()),
+      dismissedIds: Array.from(new Set(dismissedIds))
     };
   }
 
@@ -119,6 +124,15 @@
     let autoDecisionMade = false;
     let layoutUpdateScheduled = false;
     let followBarResizeObserver = null;
+    let followBarResizeHandler = null;
+    let displaySettings = null;
+    let displaySettingsStatus = null;
+    let displaySettingsButton = null;
+    let displaySettingsError = null;
+    let pendingCloseFocus = null;
+    let backupController = null;
+    let backupControllerUnsubscribe = null;
+    let backupControllerReadyBound = false;
 
     function readNoticeRaw() {
       if (injectedStorage && typeof injectedStorage.getItem === 'function') return injectedStorage.getItem(NOTICE_STORAGE_KEY);
@@ -225,7 +239,10 @@
 
     function articleById(id) {
       try {
-        return data?.getArticle?.(id) || articles().find(article => article.id === id) || null;
+        return data?.getArticleForProfile?.(id, contentProfile)
+          || data?.getArticle?.(id, undefined, contentProfile)
+          || articles().find(article => article.id === id)
+          || null;
       } catch (_) {
         return null;
       }
@@ -237,6 +254,14 @@
 
     function isAutoAcknowledged(article) {
       return state.autoAcknowledged.some(item => item.id === article.id && item.revision === article.autoRevision);
+    }
+
+    function isDismissed(article) {
+      return !!article?.id && state.dismissedIds.includes(article.id);
+    }
+
+    function notificationArticles() {
+      return articles().filter(article => !isDismissed(article));
     }
 
     function markRead(id) {
@@ -351,6 +376,70 @@
       return documentObject.dispatchEvent(event);
     }
 
+    function openLegacyManagerBackupMenu() {
+      const opened = requestLegacyManagerBackupMenu();
+      close();
+      return opened;
+    }
+
+    function backupRecoveryUrl() {
+      return routeUrl('recovery', profile === PROFILE_LEGACY
+        ? '/trickcal-manager/storage-recovery.html'
+        : '/recovery/');
+    }
+
+    function syncGuideBackupState() {
+      const requestButton = dialogBody?.querySelector?.('[data-announcement-backup-request]');
+      const status = dialogBody?.querySelector?.('[data-announcement-backup-status]');
+      const recovery = dialogBody?.querySelector?.('[data-announcement-backup-recovery]');
+      if (!requestButton && !status && !recovery) return;
+      const state = backupController?.getState?.() || { phase: 'idle' };
+      if (requestButton) {
+        const retryLocked = state.phase === 'finished' && state.retryable === false;
+        requestButton.disabled = state.phase === 'running' || retryLocked || !backupController;
+        requestButton.textContent = state.phase === 'running'
+          ? 'バックアップを作成しています…'
+          : state.recoveryRequired
+            ? '復旧後に再試行'
+            : 'バックアップを保存';
+      }
+      if (status) {
+        let message = '';
+        if (!backupController) message = '保存機能を準備しています…';
+        else if (state.phase === 'running') message = `バックアップを作成しています…（対象：${state.targetDescription || '現在の設定'}）`;
+        else if (state.phase === 'finished') message = state.message || 'バックアップ結果を確認してください。';
+        status.textContent = message;
+        status.hidden = !message;
+        status.classList.toggle('is-error', !!state.recoveryRequired || (state.phase === 'finished' && state.resultCode !== 'download-requested'));
+      }
+      if (recovery) {
+        recovery.hidden = !state.recoveryRequired;
+        recovery.href = backupRecoveryUrl();
+      }
+    }
+
+    function bindBackupController() {
+      const next = windowObject?.TRICKCAL_BACKUP_CONTROLLER;
+      if (next === backupController) {
+        syncGuideBackupState();
+        return;
+      }
+      backupControllerUnsubscribe?.();
+      backupController = next?.request && next?.getState ? next : null;
+      backupControllerUnsubscribe = backupController?.subscribe?.(() => syncGuideBackupState()) || null;
+      syncGuideBackupState();
+    }
+
+    function requestGuideBackup() {
+      bindBackupController();
+      if (!backupController?.request) {
+        syncGuideBackupState();
+        return false;
+      }
+      void backupController.request();
+      return true;
+    }
+
     function openDialog() {
       if (!dialog) return false;
       try {
@@ -373,17 +462,106 @@
       } catch (_) { /* no-op */ }
     }
 
+    function focusWithoutScroll(element) {
+      try { element?.focus?.({ preventScroll: true }); } catch (_) {
+        try { element?.focus?.(); } catch (_) { /* no-op */ }
+      }
+    }
+
+    function ensureDisplaySettings() {
+      if (!documentObject?.body) return false;
+      displaySettings = documentObject.querySelector?.('[data-announcement-display-settings]') || null;
+      if (!displaySettings) {
+        const anchor = documentObject.querySelector?.('.site-rights-footer');
+        const parent = anchor?.parentNode || documentObject.querySelector?.('main') || documentObject.body;
+        if (!parent) return false;
+        displaySettings = documentObject.createElement('details');
+        displaySettings.className = 'trickcal-announcement-display-settings';
+        displaySettings.dataset.announcementDisplaySettings = 'true';
+        displaySettings.setAttribute('data-announcement-display-settings', 'true');
+        const summary = appendElement(displaySettings, 'summary', '表示設定');
+        summary.className = 'trickcal-announcement-display-settings-summary';
+        const content = appendElement(displaySettings, 'div', undefined, 'trickcal-announcement-display-settings-content');
+        appendElement(content, 'p', '', 'trickcal-announcement-display-status');
+        const button = appendElement(content, 'button', '移行案内を再表示', 'trickcal-announcement-restore');
+        button.type = 'button';
+        button.dataset.announcementRestore = 'true';
+        button.setAttribute('data-announcement-restore', 'true');
+        button.hidden = true;
+        appendElement(content, 'p', '', 'trickcal-announcement-display-error');
+        if (anchor?.nextSibling) parent.insertBefore(displaySettings, anchor.nextSibling);
+        else parent.appendChild(displaySettings);
+      }
+      displaySettingsStatus = displaySettings.querySelector?.('[data-announcement-display-status]')
+        || displaySettings.querySelector?.('.trickcal-announcement-display-status');
+      displaySettingsButton = displaySettings.querySelector?.('[data-announcement-restore]')
+        || displaySettings.querySelector?.('.trickcal-announcement-restore');
+      displaySettingsError = displaySettings.querySelector?.('[data-announcement-display-error]')
+        || displaySettings.querySelector?.('.trickcal-announcement-display-error');
+      if (displaySettings.dataset.announcementsBound !== 'true') {
+        displaySettingsButton?.addEventListener?.('click', restoreDismissed);
+        displaySettings.dataset.announcementsBound = 'true';
+      }
+      return true;
+    }
+
+    function updateDisplaySettings(errorMessage = '') {
+      if (!ensureDisplaySettings()) return;
+      const article = articleById('migration-file-first-20260914');
+      const enabled = !!article && (featureEnabled('bannerEnabled') || featureEnabled('autoEnabled'));
+      displaySettings.hidden = !enabled;
+      const dismissed = isDismissed(article);
+      if (displaySettingsStatus) {
+        displaySettingsStatus.textContent = dismissed
+          ? '移行案内は非表示です。必要な場合はここから再表示できます。'
+          : '移行案内は表示中です。';
+      }
+      if (displaySettingsButton) {
+        displaySettingsButton.hidden = !dismissed;
+        displaySettingsButton.disabled = !dismissed;
+      }
+      if (displaySettingsError) {
+        displaySettingsError.textContent = errorMessage;
+        displaySettingsError.hidden = !errorMessage;
+      }
+    }
+
+    function restoreDismissed() {
+      const article = articleById('migration-file-first-20260914');
+      if (!article || !isDismissed(article)) return false;
+      state.dismissedIds = state.dismissedIds.filter(id => id !== article.id);
+      const saved = persistState();
+      updateDisplaySettings(saved ? '' : 'この画面では再表示しましたが、設定を保存できませんでした。再読み込みすると非表示のままの場合があります。');
+      refreshFollowBar();
+      const stableTarget = displaySettings?.querySelector?.('summary') || displaySettings;
+      focusWithoutScroll(stableTarget);
+      const schedule = windowObject.requestAnimationFrame || windowObject.setTimeout;
+      if (typeof schedule === 'function') schedule(() => focusWithoutScroll(stableTarget), 0);
+      return true;
+    }
+
+    function dismissArticle(article) {
+      if (!article?.id || isDismissed(article)) return false;
+      state.dismissedIds = [article.id].concat(state.dismissedIds.filter(id => id !== article.id)).slice(0, MAX_STATE_ITEMS);
+      const saved = persistState();
+      updateDisplaySettings(saved ? '' : 'この画面では非表示にしましたが、設定を保存できませんでした。再読み込みすると表示される場合があります。');
+      refreshFollowBar();
+      const stableTarget = displaySettings?.querySelector?.('summary') || displaySettingsButton || documentObject.body;
+      close({ focusTarget: stableTarget });
+      return true;
+    }
+
     function setDialogTitle(text) {
       if (dialogTitle) dialogTitle.textContent = safeText(text);
     }
 
     function measureFollowBar() {
       const root = documentObject?.documentElement;
-      if (!root?.style || !topBar || !trigger) return;
-      const topHeight = Number(topBar.getBoundingClientRect?.().height || topBar.offsetHeight || 0);
-      const followHeight = Number(trigger.getBoundingClientRect?.().height || trigger.offsetHeight || 0);
+      if (!root?.style) return;
+      const topHeight = Number(topBar?.getBoundingClientRect?.().height || topBar?.offsetHeight || 0);
+      const followHeight = Number(trigger?.getBoundingClientRect?.().height || trigger?.offsetHeight || 0);
       if (topHeight > 0) root.style.setProperty('--trickcal-topbar-height', `${topHeight}px`);
-      if (followHeight > 0) root.style.setProperty('--trickcal-follow-bar-height', `${followHeight}px`);
+      root.style.setProperty('--trickcal-follow-bar-height', `${Math.max(0, followHeight)}px`);
     }
 
     function scheduleFollowBarMetrics() {
@@ -455,8 +633,21 @@
           focusDialogStart();
         });
       }
+      appendDismissControl(dialogBody, article);
       if (!auto) markRead(article.id);
       return true;
+    }
+
+    function appendDismissControl(parent, article) {
+      if (isDismissed(article)) {
+        appendElement(parent, 'p', 'この移行案内は表示設定から再表示できます。', 'trickcal-announcement-dismissed-note');
+        return;
+      }
+      const actions = appendElement(parent, 'div', undefined, 'trickcal-announcement-dismiss-actions');
+      const button = appendElement(actions, 'button', 'この移行案内を今後表示しない', 'trickcal-announcement-dismiss');
+      button.type = 'button';
+      button.addEventListener('click', () => dismissArticle(article));
+      appendElement(actions, 'p', '移行済み・移行不要の場合に非表示にできます。表示設定から戻せます。', 'trickcal-announcement-dismiss-help');
     }
 
     function renderGuide() {
@@ -480,18 +671,23 @@
       const links = getGuideLinks();
       const actions = appendElement(dialogBody, 'div', undefined, 'trickcal-announcement-guide-actions');
       const sameScreenLegacyManager = profile === PROFILE_LEGACY && page === PAGE_MANAGER;
-      const oldLink = appendElement(actions, sameScreenLegacyManager ? 'button' : 'a', '旧サイトでバックアップ', 'trickcal-announcement-guide-link');
+      const oldLink = appendElement(actions, sameScreenLegacyManager ? 'button' : 'a', sameScreenLegacyManager ? 'バックアップを保存' : '旧サイトのバックアップ画面を開く', 'trickcal-announcement-guide-link');
       if (sameScreenLegacyManager) {
         oldLink.type = 'button';
         oldLink.dataset.announcementAction = 'open-backup-menu';
-        oldLink.addEventListener('click', () => {
-          close();
-          requestLegacyManagerBackupMenu();
-        });
+        oldLink.dataset.announcementBackupRequest = 'true';
+        oldLink.setAttribute('data-announcement-backup-request', 'true');
+        oldLink.addEventListener('click', requestGuideBackup);
       } else {
         oldLink.href = links.oldManager;
         oldLink.target = profile === PROFILE_LEGACY && page === PAGE_CALC ? '_self' : '_blank';
         if (oldLink.target === '_blank') oldLink.rel = 'noopener';
+      }
+      if (sameScreenLegacyManager) {
+        const menuLink = appendElement(actions, 'button', '保存メニューを開く', 'trickcal-announcement-guide-link trickcal-announcement-guide-menu-link');
+        menuLink.type = 'button';
+        menuLink.dataset.announcementAction = 'open-backup-menu';
+        menuLink.addEventListener('click', openLegacyManagerBackupMenu);
       }
       const newLink = appendElement(actions, 'a', '新サイトで読み込む', 'trickcal-announcement-guide-link');
       newLink.href = links.newTransfer;
@@ -500,11 +696,29 @@
       const details = appendElement(dialogBody, 'details', undefined, 'trickcal-announcement-guide-details');
       appendElement(details, 'summary', '困った時');
       appendElement(details, 'p', '適用前のプレビューと明示確認を使い、保存先と件数を確認してください。自動転送は実行されません。複数タブで同じサイトを開いている場合は、未保存の編集がないことを確認してから他のタブを閉じて、もう一度試してください。');
+      if (sameScreenLegacyManager) {
+        const backupStatus = appendElement(dialogBody, 'p', '', 'trickcal-announcement-backup-status');
+        backupStatus.setAttribute('role', 'status');
+        backupStatus.dataset.announcementBackupStatus = 'true';
+        backupStatus.setAttribute('data-announcement-backup-status', 'true');
+        backupStatus.hidden = true;
+        const recovery = appendElement(dialogBody, 'a', '復旧ページを開く', 'trickcal-announcement-backup-recovery');
+        recovery.dataset.announcementBackupRecovery = 'true';
+        recovery.setAttribute('data-announcement-backup-recovery', 'true');
+        recovery.href = backupRecoveryUrl();
+        recovery.target = '_blank';
+        recovery.rel = 'noopener';
+        recovery.hidden = true;
+        bindBackupController();
+      }
+      appendDismissControl(dialogBody, articleById('migration-file-first-20260914'));
       return true;
     }
 
-    function close() {
+    function close(options = {}) {
       if (!dialog) return false;
+      const focusTarget = options.focusTarget || null;
+      pendingCloseFocus = focusTarget;
       try {
         acknowledgeCurrentAuto();
         if (typeof dialog.close === 'function') dialog.close();
@@ -518,15 +732,22 @@
         dialog.removeAttribute('open');
         handleDialogClosed();
       }
+      if (focusTarget && typeof windowObject.setTimeout === 'function') {
+        windowObject.setTimeout(() => focusWithoutScroll(focusTarget), 50);
+      }
       return true;
     }
 
     function handleDialogClosed() {
       currentView = 'list';
       setDialogTitle('お知らせ');
-      if (lastTrigger) {
-        try { lastTrigger.focus?.(); } catch (_) { /* no-op */ }
-      }
+      const focusTarget = pendingCloseFocus;
+      pendingCloseFocus = null;
+      if (focusTarget) {
+        focusWithoutScroll(focusTarget);
+        const schedule = windowObject.requestAnimationFrame || windowObject.setTimeout;
+        if (typeof schedule === 'function') schedule(() => focusWithoutScroll(focusTarget), 0);
+      } else if (lastTrigger) focusWithoutScroll(lastTrigger);
       lastTrigger = null;
       refreshUnread();
     }
@@ -565,18 +786,36 @@
 
     function refreshUnread() {
       if (!trigger) return;
-      const unreadCount = articles().filter(article => !isRead(article.id)).length;
+      const visibleArticles = notificationArticles();
+      const unreadCount = visibleArticles.filter(article => !isRead(article.id)).length;
+      const currentArticle = visibleArticles[0] || articles()[0];
       trigger.dataset.unread = unreadCount > 0 ? 'true' : 'false';
-      trigger.setAttribute('aria-label', `${unreadCount > 0 ? `未読${unreadCount}件。` : ''}お知らせ。新サイトへの移行について`);
+      trigger.setAttribute('aria-label', `${unreadCount > 0 ? `未読${unreadCount}件。` : ''}お知らせ。${currentArticle?.barTitle || '最新のお知らせ'}`);
       trigger.setAttribute('title', unreadCount > 0 ? `お知らせ（未読${unreadCount}件）` : 'お知らせ');
       const unreadIndicator = trigger.querySelector?.('.trickcal-announcements-follow-unread');
       if (unreadIndicator) unreadIndicator.hidden = unreadCount <= 0;
     }
 
-    function createFollowBar() {
+    function removeFollowBar() {
+      if (followBarResizeObserver?.disconnect) followBarResizeObserver.disconnect();
+      followBarResizeObserver = null;
+      if (followBarResizeHandler && typeof windowObject.removeEventListener === 'function') {
+        windowObject.removeEventListener('resize', followBarResizeHandler);
+      }
+      followBarResizeHandler = null;
+      if (trigger?.parentNode?.removeChild) trigger.parentNode.removeChild(trigger);
+      trigger = null;
+      banner = null;
+      measureFollowBar();
+    }
+
+    function createFollowBar(articleOverride = null) {
       if (!featureEnabled('bannerEnabled') || !documentObject?.body) return false;
-      const article = articles()[0];
-      if (!article) return false;
+      const article = articleOverride || notificationArticles()[0];
+      if (!article) {
+        removeFollowBar();
+        return false;
+      }
       topBar = documentObject.querySelector?.('.dashboard-top-control-bar, .fdc-top-control-bar');
       if (!topBar?.parentNode) return false;
       trigger = documentObject.querySelector?.('.trickcal-announcements-follow-bar') || null;
@@ -594,19 +833,38 @@
         topBar.parentNode.insertBefore(trigger, topBar.nextSibling);
       }
       banner = trigger;
+      const title = trigger.querySelector?.('.trickcal-announcements-follow-title');
+      if (title) title.textContent = article.barTitle || article.title;
+      trigger.dataset.articleId = article.id;
       if (trigger.dataset.announcementsBound !== 'true') {
-        trigger.addEventListener('click', () => openArticleById(article.id, { source: trigger }));
+        trigger.addEventListener('click', () => {
+          const currentArticleId = trigger?.dataset?.articleId;
+          if (currentArticleId) openArticleById(currentArticleId, { source: trigger });
+        });
         trigger.dataset.announcementsBound = 'true';
       }
+      refreshUnread();
       measureFollowBar();
       scheduleFollowBarMetrics();
-      if (typeof windowObject.addEventListener === 'function') windowObject.addEventListener('resize', scheduleFollowBarMetrics);
+      if (!followBarResizeHandler && typeof windowObject.addEventListener === 'function') {
+        followBarResizeHandler = scheduleFollowBarMetrics;
+        windowObject.addEventListener('resize', followBarResizeHandler);
+      }
       if (typeof windowObject.ResizeObserver === 'function') {
+        followBarResizeObserver?.disconnect?.();
         followBarResizeObserver = new windowObject.ResizeObserver(scheduleFollowBarMetrics);
         followBarResizeObserver.observe(topBar);
         followBarResizeObserver.observe(trigger);
       }
       return true;
+    }
+
+    function refreshFollowBar() {
+      if (!featureEnabled('bannerEnabled')) {
+        removeFollowBar();
+        return false;
+      }
+      return createFollowBar(notificationArticles()[0]);
     }
 
     function createDialog() {
@@ -715,8 +973,15 @@
       state = readPersistedState();
       createDialog();
       createFollowBar();
+      ensureDisplaySettings();
+      if (!backupControllerReadyBound && typeof windowObject.addEventListener === 'function') {
+        windowObject.addEventListener('trickcal-backup-controller-ready', bindBackupController);
+        backupControllerReadyBound = true;
+      }
+      bindBackupController();
       initialized = true;
       refreshUnread();
+      updateDisplaySettings();
       notifyLayoutReady();
       if (featureEnabled('autoEnabled') && config.scheduleAuto !== false) {
         const schedule = windowObject.setTimeout || setTimeout;
@@ -740,8 +1005,9 @@
           releaseGateOpen: releaseFeatureEnabled('autoEnabled') || releaseFeatureEnabled('bannerEnabled'),
           readIds: state.readIds.slice(),
           autoAcknowledged: state.autoAcknowledged.map(item => ({ ...item })),
+          dismissedIds: state.dismissedIds.slice(),
           autoDecisionMade,
-          unreadCount: articles().filter(article => !isRead(article.id)).length,
+          unreadCount: notificationArticles().filter(article => !isRead(article.id)).length,
           autoArticleId: currentAuto?.id || null,
           dialogOpen: !!dialog?.open,
           view: currentView,

@@ -2906,12 +2906,17 @@ body.dashboard-page.is-booting::after {
 
 .bottom-backup-head small,
 .bottom-backup-source span,
+.bottom-backup-source-description,
 .bottom-backup-status,
 .bottom-backup-preview small {
   color: var(--muted);
   font-size: 0.6rem;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.bottom-backup-source-description {
+  margin: -2px 0 0;
 }
 
 .bottom-backup-source {
