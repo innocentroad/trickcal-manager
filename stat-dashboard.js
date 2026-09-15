@@ -114,6 +114,14 @@
     }
   }
 
+  function applyInitialRouteWhenTopLayoutReady() {
+    if (document.documentElement?.dataset?.trickcalAnnouncementsLayoutReady === 'true') {
+      applyInitialRoute();
+      return;
+    }
+    document.addEventListener?.('trickcal-announcements-layout-ready', applyInitialRoute, { once: true });
+  }
+
   function syncBottomApostle() {
     const sourceName = document.getElementById('apostle-name');
     const apostleId = apostleSelect.value;
@@ -219,6 +227,6 @@
   });
 
   syncBottomApostle();
-  applyInitialRoute();
+  applyInitialRouteWhenTopLayoutReady();
   });
 })();

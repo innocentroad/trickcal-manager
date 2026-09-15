@@ -13,6 +13,7 @@
       id: 'migration-file-first-20260914',
       date: '2026-09-14',
       title: '新サイトへの移行のお知らせ',
+      barTitle: '新サイトへの移行について',
       summary: '保存データは自動では引き継がれません。旧サイトでバックアップを保存し、新サイトで読み込んでください。',
       body: Object.freeze([
         '新しいサイトは trickcal.irlab.dev です。',
@@ -37,6 +38,8 @@
     if (typeof article.id !== 'string' || !article.id.trim()) return `${label}.id is required`;
     if (!isValidDate(article.date)) return `${label}.date is invalid`;
     if (typeof article.title !== 'string' || !article.title.trim()) return `${label}.title is required`;
+    if (article.barTitle !== undefined
+      && (typeof article.barTitle !== 'string' || !article.barTitle.trim())) return `${label}.barTitle is invalid`;
     if (typeof article.summary !== 'string' || !article.summary.trim()) return `${label}.summary is required`;
     if (!Array.isArray(article.body) || !article.body.length
       || article.body.some(paragraph => typeof paragraph !== 'string' || !paragraph.trim())) {

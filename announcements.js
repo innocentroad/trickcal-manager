@@ -112,9 +112,13 @@
     let trigger = null;
     let dialog = null;
     let dialogBody = null;
+    let dialogTitle = null;
     let banner = null;
+    let topBar = null;
     let closeHandlerInstalled = false;
     let autoDecisionMade = false;
+    let layoutUpdateScheduled = false;
+    let followBarResizeObserver = null;
 
     function readNoticeRaw() {
       if (injectedStorage && typeof injectedStorage.getItem === 'function') return injectedStorage.getItem(NOTICE_STORAGE_KEY);
@@ -280,7 +284,10 @@
         return paragraph;
       }
       appendElement(paragraph, 'span', value.slice(0, markerIndex));
-      appendElement(paragraph, 'strong', marker);
+      const siteLink = appendElement(paragraph, 'a', marker, 'trickcal-announcement-site-link');
+      siteLink.href = NEW_ORIGIN;
+      siteLink.target = '_blank';
+      siteLink.rel = 'noopener noreferrer';
       appendElement(paragraph, 'span', value.slice(markerIndex + marker.length));
       return paragraph;
     }
@@ -358,9 +365,46 @@
       } catch (_) { /* no-op */ }
     }
 
+    function setDialogTitle(text) {
+      if (dialogTitle) dialogTitle.textContent = safeText(text);
+    }
+
+    function measureFollowBar() {
+      const root = documentObject?.documentElement;
+      if (!root?.style || !topBar || !trigger) return;
+      const topHeight = Number(topBar.getBoundingClientRect?.().height || topBar.offsetHeight || 0);
+      const followHeight = Number(trigger.getBoundingClientRect?.().height || trigger.offsetHeight || 0);
+      if (topHeight > 0) root.style.setProperty('--trickcal-topbar-height', `${topHeight}px`);
+      if (followHeight > 0) root.style.setProperty('--trickcal-follow-bar-height', `${followHeight}px`);
+    }
+
+    function scheduleFollowBarMetrics() {
+      if (layoutUpdateScheduled) return;
+      layoutUpdateScheduled = true;
+      const update = () => {
+        layoutUpdateScheduled = false;
+        measureFollowBar();
+      };
+      if (typeof windowObject.requestAnimationFrame === 'function') windowObject.requestAnimationFrame(update);
+      else update();
+    }
+
+    function notifyLayoutReady() {
+      const root = documentObject?.documentElement;
+      if (root?.dataset) root.dataset.trickcalAnnouncementsLayoutReady = 'true';
+      if (typeof documentObject?.dispatchEvent !== 'function') return;
+      try {
+        const EventCtor = windowObject.Event;
+        documentObject.dispatchEvent(typeof EventCtor === 'function'
+          ? new EventCtor('trickcal-announcements-layout-ready')
+          : { type: 'trickcal-announcements-layout-ready' });
+      } catch (_) { /* no-op */ }
+    }
+
     function renderList() {
       if (!dialogBody) return;
       currentView = 'list';
+      setDialogTitle('お知らせ');
       dialogBody.replaceChildren?.();
       appendElement(dialogBody, 'p', '最新のお知らせと移行案内です。', 'trickcal-announcements-intro');
       const list = appendElement(dialogBody, 'div', undefined, 'trickcal-announcements-list');
@@ -383,6 +427,7 @@
       if (!dialogBody || !article) return false;
       currentView = 'article';
       currentAuto = auto ? article : null;
+      setDialogTitle(article.title);
       dialogBody.replaceChildren?.();
       const back = appendElement(dialogBody, 'button', '一覧へ戻る', 'trickcal-announcements-back');
       back.type = 'button';
@@ -392,7 +437,6 @@
         focusDialogStart();
       });
       appendElement(dialogBody, 'p', `${article.date} · ${article.category}`, 'trickcal-announcement-meta');
-      appendElement(dialogBody, 'h3', article.title, 'trickcal-announcement-article-title');
       article.body.forEach(paragraph => appendArticleParagraph(dialogBody, paragraph));
       if (article.cta === 'migration-guide') {
         const guideButton = appendElement(dialogBody, 'button', '移行方法を見る', 'trickcal-announcement-guide-button');
@@ -411,11 +455,11 @@
       if (!dialogBody) return false;
       currentView = 'guide';
       currentAuto = null;
+      setDialogTitle('保存データの移行方法');
       dialogBody.replaceChildren?.();
       const back = appendElement(dialogBody, 'button', '一覧へ戻る', 'trickcal-announcements-back');
       back.type = 'button';
       back.addEventListener('click', () => { renderList(); focusDialogStart(); });
-      appendElement(dialogBody, 'h3', '保存データの移行方法', 'trickcal-announcement-guide-title');
       appendElement(dialogBody, 'p', '移行はファイルを使って手動で行います。自動では移りません。', 'trickcal-announcement-guide-lead');
       const steps = appendElement(dialogBody, 'ol', undefined, 'trickcal-announcement-guide-steps');
       [
@@ -461,6 +505,7 @@
 
     function handleDialogClosed() {
       currentView = 'list';
+      setDialogTitle('お知らせ');
       if (lastTrigger) {
         try { lastTrigger.focus?.(); } catch (_) { /* no-op */ }
       }
@@ -504,24 +549,46 @@
       if (!trigger) return;
       const unreadCount = articles().filter(article => !isRead(article.id)).length;
       trigger.dataset.unread = unreadCount > 0 ? 'true' : 'false';
-      trigger.setAttribute('aria-label', unreadCount > 0 ? 'お知らせ（未読あり）' : 'お知らせ');
+      trigger.setAttribute('aria-label', `${unreadCount > 0 ? `未読${unreadCount}件。` : ''}お知らせ。新サイトへの移行について`);
       trigger.setAttribute('title', unreadCount > 0 ? `お知らせ（未読${unreadCount}件）` : 'お知らせ');
+      const unreadIndicator = trigger.querySelector?.('.trickcal-announcements-follow-unread');
+      if (unreadIndicator) unreadIndicator.hidden = unreadCount <= 0;
     }
 
-    function createTrigger() {
-      const host = documentObject?.querySelector?.('.dashboard-top-actions, .fdc-top-actions, .header-actions');
-      if (!host) return;
-      trigger = host.querySelector?.('.trickcal-announcements-trigger') || null;
+    function createFollowBar() {
+      if (!featureEnabled('bannerEnabled') || !documentObject?.body) return false;
+      const article = articles()[0];
+      if (!article) return false;
+      topBar = documentObject.querySelector?.('.dashboard-top-control-bar, .fdc-top-control-bar');
+      if (!topBar?.parentNode) return false;
+      trigger = documentObject.querySelector?.('.trickcal-announcements-follow-bar') || null;
       if (!trigger) {
         trigger = documentObject.createElement('button');
         trigger.type = 'button';
-        trigger.className = 'trickcal-announcements-trigger';
-        trigger.textContent = 'お知らせ';
+        trigger.className = 'trickcal-announcements-follow-bar';
         trigger.setAttribute('aria-haspopup', 'dialog');
         trigger.setAttribute('aria-controls', 'trickcal-announcements-dialog');
-        host.appendChild(trigger);
+        appendElement(trigger, 'span', 'お知らせ', 'trickcal-announcements-follow-label');
+        appendElement(trigger, 'span', article.barTitle || article.title, 'trickcal-announcements-follow-title');
+        appendElement(trigger, 'span', '未読', 'trickcal-announcements-follow-unread');
+        const arrow = appendElement(trigger, 'span', '›', 'trickcal-announcements-follow-arrow');
+        arrow.setAttribute('aria-hidden', 'true');
+        topBar.parentNode.insertBefore(trigger, topBar.nextSibling);
       }
-      trigger.addEventListener('click', () => openList(trigger));
+      banner = trigger;
+      if (trigger.dataset.announcementsBound !== 'true') {
+        trigger.addEventListener('click', () => openArticleById(article.id, { source: trigger }));
+        trigger.dataset.announcementsBound = 'true';
+      }
+      measureFollowBar();
+      scheduleFollowBarMetrics();
+      if (typeof windowObject.addEventListener === 'function') windowObject.addEventListener('resize', scheduleFollowBarMetrics);
+      if (typeof windowObject.ResizeObserver === 'function') {
+        followBarResizeObserver = new windowObject.ResizeObserver(scheduleFollowBarMetrics);
+        followBarResizeObserver.observe(topBar);
+        followBarResizeObserver.observe(trigger);
+      }
+      return true;
     }
 
     function createDialog() {
@@ -533,13 +600,15 @@
         dialog.className = 'trickcal-announcements-dialog';
         dialog.setAttribute('aria-labelledby', 'trickcal-announcements-title');
         const header = appendElement(dialog, 'header', undefined, 'trickcal-announcements-dialog-header');
-        appendElement(header, 'h2', 'お知らせ', undefined).id = 'trickcal-announcements-title';
+        dialogTitle = appendElement(header, 'h2', 'お知らせ', undefined);
+        dialogTitle.id = 'trickcal-announcements-title';
         const closeButton = appendElement(header, 'button', '閉じる', 'trickcal-announcements-close');
         closeButton.type = 'button';
         closeButton.addEventListener('click', close);
         dialogBody = appendElement(dialog, 'div', undefined, 'trickcal-announcements-dialog-body');
         documentObject.body.appendChild(dialog);
       } else {
+        dialogTitle = dialog.querySelector?.('#trickcal-announcements-title') || null;
         dialogBody = dialog.querySelector?.('.trickcal-announcements-dialog-body') || dialog;
       }
       if (!closeHandlerInstalled) {
@@ -564,32 +633,6 @@
         });
         closeHandlerInstalled = true;
       }
-    }
-
-    function createLegacyBanner() {
-      if (!featureEnabled('bannerEnabled') || profile !== PROFILE_LEGACY || !documentObject?.body) return;
-      if (documentObject.querySelector?.('.trickcal-migration-banner')) {
-        banner = documentObject.querySelector('.trickcal-migration-banner');
-        return;
-      }
-      banner = documentObject.createElement('section');
-      banner.className = 'trickcal-migration-banner';
-      banner.setAttribute('aria-labelledby', 'trickcal-migration-banner-title');
-      appendElement(banner, 'h2', '新サイトへ移行できます', undefined).id = 'trickcal-migration-banner-title';
-      const actions = appendElement(banner, 'div', undefined, 'trickcal-migration-banner-actions');
-      const guideButton = appendElement(actions, 'button', '移行方法', 'trickcal-migration-banner-guide');
-      guideButton.type = 'button';
-      guideButton.addEventListener('click', () => openGuide(guideButton));
-      const newLink = appendElement(actions, 'a', '新サイトを開く', 'trickcal-migration-banner-link');
-      newLink.href = peerRouteUrl('manager', peerOrigin('target', NEW_ORIGIN), '/manager/');
-      newLink.target = '_blank';
-      newLink.rel = 'noopener';
-      appendElement(banner, 'p', 'データはバックアップから移行できます。自動では引き継がれません。', 'trickcal-migration-banner-note');
-      const topBar = documentObject.querySelector?.('.fdc-top-control-bar, .dashboard-top-control-bar');
-      const main = documentObject.querySelector?.('main');
-      if (topBar?.parentNode?.insertBefore) topBar.parentNode.insertBefore(banner, topBar.nextSibling);
-      else if (main?.parentNode?.insertBefore) main.parentNode.insertBefore(banner, main);
-      else documentObject.body.prepend?.(banner);
     }
 
     function isInputFocused() {
@@ -652,11 +695,11 @@
     function initialize() {
       if (initialized || !documentObject?.body) return false;
       state = readPersistedState();
-      createTrigger();
       createDialog();
-      createLegacyBanner();
+      createFollowBar();
       initialized = true;
       refreshUnread();
+      notifyLayoutReady();
       if (featureEnabled('autoEnabled') && config.scheduleAuto !== false) {
         const schedule = windowObject.setTimeout || setTimeout;
         schedule(() => maybeAutoOpen(), 0);
@@ -685,6 +728,7 @@
           dialogOpen: !!dialog?.open,
           view: currentView,
           bannerVisible: !!banner,
+          followBarVisible: !!trigger,
           storageFallback
         });
       },

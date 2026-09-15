@@ -28,6 +28,9 @@ body.dashboard-page.is-booting::after {
 
 :root {
   --dashboard-top-control-height: 3.25rem;
+  --trickcal-topbar-height: var(--dashboard-top-control-height);
+  --trickcal-follow-bar-height: 0px;
+  --trickcal-top-occupied-height: calc(var(--trickcal-topbar-height) + var(--trickcal-follow-bar-height));
   --dashboard-bar-height: 50px;
   --dashboard-bottom-control-height: 44px;
   --dashboard-rail-width: 112px;
@@ -72,7 +75,7 @@ body.dashboard-page.is-booting::after {
 }
 
 .dashboard-page {
-  padding-top: var(--dashboard-top-control-height);
+  padding-top: var(--trickcal-top-occupied-height);
   padding-bottom: calc(var(--dashboard-bar-height) + 24px);
 }
 
@@ -227,7 +230,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-layout {
   width: min(1440px, 100%);
-  min-height: calc(100vh - var(--dashboard-top-control-height) - var(--dashboard-bar-height));
+  min-height: calc(100vh - var(--trickcal-top-occupied-height) - var(--dashboard-bar-height));
   display: grid;
   grid-template-columns: var(--dashboard-rail-width) minmax(0, 1fr);
   gap: 16px;
@@ -237,7 +240,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-rail {
   position: sticky;
-  top: calc(var(--dashboard-top-control-height) + 16px);
+  top: calc(var(--trickcal-top-occupied-height) + 16px);
   align-self: start;
   display: grid;
   gap: 7px;
@@ -339,7 +342,7 @@ body.dashboard-page.is-booting::after {
 }
 
 .dashboard-main {
-  scroll-margin-top: calc(var(--dashboard-top-control-height) + 12px);
+  scroll-margin-top: calc(var(--trickcal-top-occupied-height) + 12px);
 }
 
 .apostle-open-settings {
@@ -3883,7 +3886,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-persistent-profile {
   align-items: center;
-  scroll-margin-top: calc(var(--dashboard-top-control-height) + 12px);
+  scroll-margin-top: calc(var(--trickcal-top-occupied-height) + 12px);
 }
 
 .dashboard-persistent-profile,

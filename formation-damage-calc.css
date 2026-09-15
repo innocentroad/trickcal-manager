@@ -1,4 +1,7 @@
 :root {
+  --trickcal-topbar-height: 3.25rem;
+  --trickcal-follow-bar-height: 0px;
+  --trickcal-top-occupied-height: calc(var(--trickcal-topbar-height) + var(--trickcal-follow-bar-height));
   --fdc-bg: #0b1020;
   --fdc-bg-soft: #111a2f;
   --fdc-panel: rgba(19, 29, 52, 0.92);
@@ -40,7 +43,7 @@ body.theme-light {
 
 body.formation-damage-calc {
   min-height: 100vh;
-  padding: 3.85rem 0 168px;
+  padding: var(--trickcal-top-occupied-height) 0 168px;
   color: var(--fdc-text);
   background:
     radial-gradient(circle at 14% 10%, color-mix(in srgb, var(--fdc-primary) 22%, transparent), transparent 24rem),
@@ -468,7 +471,7 @@ body.theme-light .fdc-theme-toggle {
 .fdc-perspective-toggle {
   position: fixed;
   left: 50%;
-  top: calc(3.25rem + 0.48rem);
+  top: calc(var(--trickcal-top-occupied-height) + 0.48rem);
   z-index: 1115;
   transform: translateX(-50%);
   display: grid;
@@ -496,7 +499,7 @@ body.theme-light .fdc-theme-toggle {
 .fdc-floating-target {
   --fdc-personality-color: var(--fdc-primary);
   position: fixed;
-  top: calc(3.25rem + 0.48rem);
+  top: calc(var(--trickcal-top-occupied-height) + 0.48rem);
   left: clamp(0.55rem, 1.4vw, 1rem);
   z-index: 1122;
   display: grid;
@@ -6270,12 +6273,12 @@ body.theme-light .fdc-result-diff.is-negative {
   .fdc-perspective-toggle {
     left: auto;
     right: 0.52rem;
-    top: calc(3.25rem + 0.48rem);
+    top: calc(var(--trickcal-top-occupied-height) + 0.48rem);
     transform: none;
   }
 
   .fdc-floating-target {
-    top: calc(3.25rem + 0.48rem);
+    top: calc(var(--trickcal-top-occupied-height) + 0.48rem);
     left: 0.45rem;
     min-width: 0;
     max-width: 3.55rem;
@@ -6316,7 +6319,7 @@ body.theme-light .fdc-result-diff.is-negative {
 
   .fdc-mobile-side-switch {
     position: fixed;
-    top: calc(3.25rem + 4.28rem);
+    top: calc(var(--trickcal-top-occupied-height) + 4.28rem);
     right: 0.52rem;
     z-index: 1115;
     display: grid;
@@ -6361,7 +6364,7 @@ body.theme-light .fdc-result-diff.is-negative {
 
 @media (max-width: 640px) {
   body.formation-damage-calc {
-    padding-top: 3.45rem;
+    padding-top: var(--trickcal-top-occupied-height);
     padding-bottom: 146px;
   }
 

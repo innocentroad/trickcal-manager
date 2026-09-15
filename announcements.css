@@ -10,7 +10,8 @@
 }
 
 :root[data-theme="light"],
-body[data-theme="light"] {
+body[data-theme="light"],
+body.theme-light {
   --ann-bg: var(--fdc-bg, var(--dashboard-bg, #f6f8fc));
   --ann-panel: var(--fdc-panel, var(--dashboard-panel, #ffffff));
   --ann-text: var(--fdc-text, var(--dashboard-text, #1b2638));
@@ -20,73 +21,91 @@ body[data-theme="light"] {
   --ann-warning: #915e00;
 }
 
-.trickcal-announcements-trigger {
-  position: relative;
+:root[data-theme="dark"],
+body[data-theme="dark"],
+body.theme-dark {
+  --ann-bg: var(--fdc-bg, var(--dashboard-bg, #101827));
+  --ann-panel: var(--fdc-panel, var(--dashboard-panel, #182337));
+  --ann-text: var(--fdc-text, var(--dashboard-text, #edf3ff));
+  --ann-muted: var(--fdc-muted, var(--dashboard-muted, #aab8cf));
+  --ann-border: var(--fdc-border, var(--dashboard-border, rgba(177, 198, 230, 0.28)));
+  --ann-accent: var(--fdc-accent, #73a7ff);
+  --ann-warning: #ffc96b;
 }
 
-.trickcal-announcements-trigger[data-unread="true"]::after {
-  content: "";
-  position: absolute;
-  top: 0.3rem;
-  right: 0.3rem;
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 50%;
-  background: #f25d68;
-  box-shadow: 0 0 0 2px var(--ann-panel, #182337);
-}
-
-.trickcal-announcements-trigger:focus-visible,
+.trickcal-announcements-follow-bar:focus-visible,
 .trickcal-announcements-dialog button:focus-visible,
-.trickcal-announcements-dialog a:focus-visible,
-.trickcal-migration-banner button:focus-visible,
-.trickcal-migration-banner a:focus-visible {
+.trickcal-announcements-dialog a:focus-visible {
   outline: 3px solid color-mix(in srgb, var(--ann-accent) 72%, white);
   outline-offset: 2px;
 }
 
-.trickcal-migration-banner {
+.trickcal-announcements-follow-bar {
   box-sizing: border-box;
+  position: fixed;
+  top: var(--trickcal-topbar-height, 3.25rem);
+  left: 0;
+  right: 0;
+  z-index: 1109;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.3rem 1rem;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 0.48rem;
   align-items: center;
-  margin: 0 auto 1rem;
-  width: min(calc(100% - 2rem), 1180px);
-  padding: 0.8rem 1rem;
-  border: 1px solid var(--ann-border);
-  border-radius: 0.75rem;
+  width: 100%;
+  min-height: 2.35rem;
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--ann-border);
+  border-bottom: 1px solid var(--ann-border);
+  border-inline-start: 0.28rem solid var(--ann-accent);
+  padding: 0.34rem clamp(0.72rem, 3vw, 1.4rem);
   background: var(--ann-panel);
   color: var(--ann-text);
+  font: inherit;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: left;
+  cursor: pointer;
 }
 
-.trickcal-migration-banner h2,
-.trickcal-migration-banner p {
-  margin: 0;
+.trickcal-announcements-follow-bar:hover {
+  background: color-mix(in srgb, var(--ann-accent) 10%, var(--ann-panel));
 }
 
-.trickcal-migration-banner h2 {
-  font-size: 1rem;
+.trickcal-announcements-follow-label {
+  color: var(--ann-accent);
+  font-weight: 950;
+  white-space: nowrap;
 }
 
-.trickcal-migration-banner-note {
-  grid-column: 1;
-  color: var(--ann-muted);
-  font-size: 0.86rem;
+.trickcal-announcements-follow-title {
+  min-width: 0;
+  color: var(--ann-text);
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
-.trickcal-migration-banner-actions {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  justify-content: flex-end;
+.trickcal-announcements-follow-unread {
+  width: 0.46rem;
+  height: 0.46rem;
+  border-radius: 50%;
+  background: #f25d68;
+  box-shadow: 0 0 0 2px var(--ann-panel, #182337);
+  font-size: 0;
 }
 
-.trickcal-migration-banner button,
-.trickcal-migration-banner a,
-.trickcal-announcements-guide-link,
+.trickcal-announcements-follow-unread[hidden] {
+  display: none;
+}
+
+.trickcal-announcements-follow-arrow {
+  color: var(--ann-accent);
+  font-size: 1.3rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.trickcal-announcement-guide-link,
 .trickcal-announcement-guide-button {
   display: inline-flex;
   align-items: center;
@@ -103,17 +122,20 @@ body[data-theme="light"] {
   cursor: pointer;
 }
 
-.trickcal-migration-banner button:hover,
-.trickcal-migration-banner a:hover,
-.trickcal-announcements-guide-link:hover,
+.trickcal-announcement-guide-link:hover,
 .trickcal-announcement-guide-button:hover {
   background: color-mix(in srgb, var(--ann-accent) 12%, transparent);
 }
 
 .trickcal-announcements-dialog {
+  box-sizing: border-box;
+  position: fixed;
+  inset: 0;
+  margin: auto;
   width: min(640px, calc(100vw - 20px));
   max-width: calc(100vw - 20px);
   max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   padding: 0;
   overflow: hidden;
   border: 1px solid var(--ann-border);
@@ -156,6 +178,7 @@ body[data-theme="light"] {
 
 .trickcal-announcements-dialog-body {
   max-height: calc(100vh - 112px);
+  max-height: calc(100dvh - 112px);
   padding: 1rem;
   overflow: auto;
   overscroll-behavior: contain;
@@ -202,6 +225,15 @@ body[data-theme="light"] {
 .trickcal-announcement-meta {
   color: var(--ann-muted);
   font-size: 0.78rem;
+}
+
+.trickcal-announcement-site-link,
+.trickcal-announcement-site-link:visited {
+  color: var(--ann-accent);
+  font-weight: 850;
+  text-decoration: underline;
+  text-decoration-thickness: 0.1em;
+  text-underline-offset: 0.14em;
 }
 
 .trickcal-announcement-title,
@@ -263,25 +295,15 @@ body[data-theme="light"] {
 }
 
 @media (max-width: 600px) {
-  .trickcal-migration-banner {
-    grid-template-columns: 1fr;
-    width: min(calc(100% - 1rem), 1180px);
-    margin-bottom: 0.75rem;
-    padding: 0.75rem;
-  }
-
-  .trickcal-migration-banner-note,
-  .trickcal-migration-banner-actions {
-    grid-column: 1;
-    grid-row: auto;
-  }
-
-  .trickcal-migration-banner-actions {
-    justify-content: flex-start;
+  .trickcal-announcements-follow-bar {
+    gap: 0.32rem;
+    padding-inline: 0.55rem;
+    font-size: 0.84rem;
   }
 
   .trickcal-announcements-dialog-body {
     max-height: calc(100vh - 104px);
+    max-height: calc(100dvh - 104px);
     padding: 0.85rem;
   }
 
