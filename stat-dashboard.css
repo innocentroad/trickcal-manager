@@ -1,6 +1,9 @@
 body.dashboard-page.is-booting > * {
   visibility: hidden;
 }
+body.dashboard-page.is-booting > .storage-boot-wait-guidance {
+  visibility: visible;
+}
 
 body.dashboard-page.is-booting::before {
   content: '';
@@ -1488,6 +1491,57 @@ body.dashboard-page.is-booting::after {
   border-radius: 11px;
   background: rgba(98, 63, 20, 0.12);
   box-shadow: 0 7px 18px rgba(180, 83, 9, 0.14);
+}
+
+.storage-boot-wait-guidance {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 3002;
+  display: grid;
+  width: min(32rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  gap: .65rem;
+  padding: 1.15rem 1.25rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in srgb, var(--fdc-primary, #4e9d4f) 32%, var(--fdc-border, rgba(75, 125, 67, .18)));
+  border-radius: 14px;
+  color: var(--fdc-text, #223321);
+  background: color-mix(in srgb, var(--fdc-panel, rgba(255, 255, 255, .9)) 94%, var(--fdc-bg, #eef7e2));
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--fdc-shadow, rgba(75, 125, 67, .16)) 80%, transparent);
+  text-align: left;
+}
+
+.storage-boot-wait-guidance[hidden] {
+  display: none;
+}
+
+.storage-boot-wait-guidance h1,
+.storage-boot-wait-guidance p {
+  margin: 0;
+}
+
+.storage-boot-wait-guidance h1 {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.storage-boot-wait-guidance p {
+  color: var(--fdc-muted, #63725f);
+  font-size: .84rem;
+  line-height: 1.65;
+}
+
+:root[data-theme="dark"] .storage-boot-wait-guidance {
+  border-color: color-mix(in srgb, var(--fdc-primary) 44%, var(--fdc-border));
+  background: color-mix(in srgb, var(--fdc-panel) 94%, var(--fdc-bg));
+}
+
+@media (max-width: 420px) {
+  .storage-boot-wait-guidance {
+    width: calc(100vw - 1.5rem);
+    padding: 1rem;
+  }
 }
 
 .apostle-favorite-frame {
