@@ -1,6 +1,6 @@
 const APP_ID = 'trickcal-manager';
-const CACHE_VERSION = "f35d645926764ac0";
-const PREVIOUS_CACHE_VERSION = "1a5c2ae9d47a8fd2";
+const CACHE_VERSION = "d3772bad26b84845";
+const PREVIOUS_CACHE_VERSION = "f35d645926764ac0";
 const SW_PATHNAME = new URL(self.location.href).pathname;
 const BASE_PATH = SW_PATHNAME.startsWith('/trickcal-manager/') ? '/trickcal-manager/' : '/';
 const PROFILE_KEY = BASE_PATH === '/' ? 'new-root' : 'legacy-trickcal-manager';
