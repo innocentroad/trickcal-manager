@@ -359,7 +359,11 @@
         : profile === PROFILE_LOCALHOST
           ? routeUrl('manager', '/manager/')
           : absoluteUrl('/trickcal-manager/stat-dashboard.html', peerOrigin('source', LEGACY_ORIGIN));
-      const oldManager = withQuery(oldManagerRoute, { view: 'settings', backup: '1' });
+      const oldManager = withQuery(oldManagerRoute, {
+        view: 'settings',
+        backup: '1',
+        notice: 'migration-guide'
+      });
       const newTransfer = profile === PROFILE_NEW
         ? routeUrl('transfer', '/transfer/')
         : profile === PROFILE_LOCALHOST
@@ -587,6 +591,48 @@
       } catch (_) { /* no-op */ }
     }
 
+    function entryUrl() {
+      try {
+        const location = windowObject?.location;
+        if (!location) return null;
+        return new URL(location.href || `${location.origin || ''}${location.pathname || ''}${location.search || ''}${location.hash || ''}`);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    function hasMigrationGuideEntry() {
+      const url = entryUrl();
+      return profile === PROFILE_LEGACY
+        && page === PAGE_MANAGER
+        && url?.searchParams?.get('notice') === 'migration-guide';
+    }
+
+    function consumeMigrationGuideEntry() {
+      const url = entryUrl();
+      if (!url || url.searchParams.get('notice') !== 'migration-guide') return false;
+      url.searchParams.delete('notice');
+      url.searchParams.delete('backup');
+      const history = windowObject?.history;
+      if (typeof history?.replaceState !== 'function') return false;
+      const next = `${url.pathname}${url.search}${url.hash}`;
+      history.replaceState(history.state || null, '', next);
+      return true;
+    }
+
+    function openMigrationGuideEntry() {
+      if (!hasMigrationGuideEntry()) return false;
+      autoDecisionMade = true;
+      const opened = openGuide(null, { preserveNoticeState: true });
+      if (opened) {
+        consumeMigrationGuideEntry();
+        return true;
+      }
+      const fallback = requestLegacyManagerBackupMenu();
+      if (fallback) consumeMigrationGuideEntry();
+      return fallback;
+    }
+
     function renderList() {
       if (!dialogBody) return;
       currentView = 'list';
@@ -774,10 +820,10 @@
       return true;
     }
 
-    function openGuide(source = null) {
+    function openGuide(source = null, options = {}) {
       if (!dialog) return false;
       if (!dialog.open) lastTrigger = source || trigger;
-      acknowledgeCurrentAuto();
+      if (!options.preserveNoticeState) acknowledgeCurrentAuto();
       renderGuide();
       openDialog();
       focusDialogStart();
@@ -960,6 +1006,10 @@
 
     function maybeAutoOpen() {
       if (!featureEnabled('autoEnabled') || !initialized || autoDecisionMade) return false;
+      if (hasMigrationGuideEntry()) {
+        autoDecisionMade = true;
+        return false;
+      }
       const safeToOpen = canAutoOpen();
       autoDecisionMade = true;
       if (!safeToOpen) return false;
@@ -982,6 +1032,7 @@
       initialized = true;
       refreshUnread();
       updateDisplaySettings();
+      openMigrationGuideEntry();
       notifyLayoutReady();
       if (featureEnabled('autoEnabled') && config.scheduleAuto !== false) {
         const schedule = windowObject.setTimeout || setTimeout;

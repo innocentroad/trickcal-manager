@@ -106,6 +106,7 @@
     const global = params.get('global');
     const routeView = params.get('view');
     const focusBackup = params.get('backup') === '1';
+    const focusMigrationGuide = params.get('notice') === 'migration-guide';
     if (card) {
       openCardManager(card);
       scrollToDashboardMain('auto');
@@ -117,7 +118,7 @@
       if (routeView === 'settings') scrollToProfile('auto');
       else scrollToDashboardMain('auto');
     }
-    if (focusBackup) openBackupMenu();
+    if (focusBackup && !focusMigrationGuide) openBackupMenu();
   }
 
   function applyInitialRouteWhenTopLayoutReady() {

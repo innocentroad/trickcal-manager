@@ -208,6 +208,25 @@
       return isOperationLocked() || !!pendingMaintenance;
     }
 
+    function setSecondaryButton(button, secondary) {
+      if (!button) return;
+      const classes = String(button.className || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .filter(name => name !== 'primary' && name !== 'secondary');
+      classes.push(secondary ? 'secondary' : 'primary');
+      button.className = classes.join(' ');
+    }
+
+    function syncFileSelectionControl() {
+      if (!elements.fileButton) return;
+      const hasPackage = !!pendingDecoded;
+      elements.fileButton.textContent = hasPackage
+        ? '別のバックアップファイルを選ぶ'
+        : 'バックアップファイルを選ぶ';
+      setSecondaryButton(elements.fileButton, hasPackage);
+    }
+
     function lockedStatusMessage() {
       if (recoveryBlocked) return '復旧処理が必要です。画面を閉じず、独立復旧入口を確認してください。';
       if (isApplyingRestore) return '復元を適用中です。完了確認まで操作できません。';
@@ -269,6 +288,7 @@
       }
       if (elements.allowAuxiliaryExcludeWrap) elements.allowAuxiliaryExcludeWrap.hidden = true;
       if (elements.auxiliaryExcludeNote) elements.auxiliaryExcludeNote.hidden = true;
+      syncFileSelectionControl();
       syncOperationControls();
     }
 
@@ -488,11 +508,21 @@
           pendingMaintenance = null;
           pendingPlan = null;
           isApplyingRestore = false;
+          if (elements.completeActions) elements.completeActions.hidden = true;
+          if (elements.openManager) {
+            elements.openManager.hidden = true;
+            elements.openManager.href = '#';
+          }
           renderPreview(pendingDecoded);
           setStatus(`${failureMessage(result)} 元の状態へ戻しました。`, true);
         } else {
           isApplyingRestore = false;
           recoveryBlocked = true;
+          if (elements.completeActions) elements.completeActions.hidden = true;
+          if (elements.openManager) {
+            elements.openManager.hidden = true;
+            elements.openManager.href = '#';
+          }
           applyProfileCopy();
           syncOperationControls();
           setStatus(`${failureMessage(result)} 復旧処理が必要です。復旧ページを開いて確認してください。`, true);
@@ -502,6 +532,11 @@
         console.error(error);
         isApplyingRestore = false;
         recoveryBlocked = true;
+        if (elements.completeActions) elements.completeActions.hidden = true;
+        if (elements.openManager) {
+          elements.openManager.hidden = true;
+          elements.openManager.href = '#';
+        }
         applyProfileCopy();
         syncOperationControls();
         setStatus('復元結果を確認できません。復旧処理が必要です。復旧ページを開いて確認してください。', true);
