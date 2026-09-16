@@ -55,10 +55,14 @@
     serviceWorker: { ...fallbackConfig.serviceWorker, ...(configured.serviceWorker || {}) }
   };
 
-  function splitSuffix(value) {
-    const match = String(value).match(/[?#]/);
-    if (!match) return { path: String(value), suffix: '' };
-    return { path: String(value).slice(0, match.index), suffix: String(value).slice(match.index) };
+  function encodeAssetPath(value) {
+    return String(value).split('/').map(segment => encodeURIComponent(segment)).join('/');
+  }
+
+  function assetSuffix(options) {
+    const query = options?.query ? (String(options.query).startsWith('?') ? String(options.query) : `?${options.query}`) : '';
+    const hash = options?.hash ? (String(options.hash).startsWith('#') ? String(options.hash) : `#${options.hash}`) : '';
+    return `${query}${hash}`;
   }
 
   function versionedSuffix(suffix) {
@@ -100,12 +104,12 @@
   function assetUrl(assetPath, options = {}) {
     const value = String(assetPath || '');
     if (/^(?:data|blob|https?):/i.test(value) || value.startsWith('//') || value.startsWith('#')) return value;
-    const { path, suffix } = splitSuffix(value);
-    if (!path || path.startsWith('/') || path.includes('\\') || path.split('/').some(part => !part || part === '.' || part === '..')) {
+    if (!value || value.startsWith('/') || value.includes('\\') || value.split('/').some(part => !part || part === '.' || part === '..')) {
       throw new TypeError(`assetUrl requires a manifest-relative path: ${value}`);
     }
     const base = String(config.assetBasePath || '/').replace(/\/+$/, '');
-    return `${base}/${path}${options?.versioned === false ? suffix : versionedSuffix(suffix)}`;
+    const suffix = assetSuffix(options);
+    return `${base}/${encodeAssetPath(value)}${options?.versioned === false ? suffix : versionedSuffix(suffix)}`;
   }
 
   function routeIdForUrl(value) {
