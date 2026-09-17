@@ -1,5 +1,12 @@
 # Trickcal Manager 現在地
 
+## 最新：公開準備toolingのlocal commit完了（2026-09-18）
+
+- 開始時のrelease-source dirty 19件を、`D:/Games/etc/trickcal/backups/commit-organization-20260918-01/release_source`へ退避し、19件すべてSHA-256一致を確認した。
+- 公開準備の統合入口・receipt再開・Git検証・対象設定・模擬テスト・手順を`92043d5`（`Add local publication preparation tooling`）へlocal commitした。sourceは`release-source`のまま、mainのdirtyなアプリ実装は混在させていない。
+- commit後のpublic-site本体、HTTP、delivery、release-input、publication fixture、GitHub mockは成功した。`test-public-site-staging.js`はcommit前から同じ`normal.report.checks.ok`不一致（106行目）で失敗しており、固定fixtureの現行入力不一致として未修正・未達のまま記録する。
+- push、公開、workflow実行、通常承認、GitHub／Pages／DNS／保護設定変更は行っていない。次工程は外部承認後の実運用確認であり、このlocal commitを公開承認とは扱わない。
+
 ## 最新：receipt必須化・再開・GitHub公開入口（2026-09-17）
 
 - receipt v2を公開用index/commit検証で必須化。指定省略時も候補・profile・受信先から自動解決し、記録なしで範囲検査を省略しない。候補外write、前回所有外delete、危険なpath、無関係なdirty/stage/commitを拒否する。

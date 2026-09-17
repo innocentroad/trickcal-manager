@@ -1,5 +1,7 @@
 # Trickcal Manager 作業目標
 
+> 最新整理（2026-09-18）：公開準備の完了済み19ファイルを対象限定し、`92043d5`（`Add local publication preparation tooling`）へlocal commitした。push、公開、workflow実行、外部設定は未実施。`test-public-site-staging.js:106`の固定fixture不一致はcommit前から継続する既存阻害として残す。
+
 > 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
 
 > 最新実施結果（2026-09-14）：R1 1/1。未設置source workflowへ初回／更新のprevious release inputを接続し、専用tmpの実Git fixtureでfresh更新候補の再生成、欠落／別previous／local-only record拒否を確認した。local準備は完了したが、実commit/push・実workflow・外部設定・公開・Goal有効化は未実施で、承認待ちで停止する。
