@@ -262,6 +262,7 @@
     importState: document.getElementById('import-state'),
     importStateFile: document.getElementById('import-state-file'),
     backupSourceMode: document.getElementById('backup-source-mode'),
+    backupSourceDescription: document.getElementById('backup-source-description'),
     backupExport: document.getElementById('backup-export'),
     backupTransfer: document.getElementById('backup-transfer'),
     backupTransferSave: document.getElementById('backup-transfer-save'),
@@ -515,6 +516,18 @@
   let pendingBackupPackage = null;
   let pendingRestoreMaintenance = null;
   let pendingRestorePlan = null;
+  let backupControllerState = {
+    phase: 'idle',
+    resultCode: null,
+    message: '',
+    downloadRequested: false,
+    sourceMode: '',
+    targetDescription: '',
+    recoveryRequired: false,
+    retryable: true
+  };
+  let backupControllerPromise = null;
+  const backupControllerListeners = new Set();
   let backupTransferSender = null;
   let backupTransferPackage = null;
   let backupTransferPackageJson = '';
@@ -545,7 +558,9 @@
     syncControlsFromState();
     ensureHistoryControls();
     syncBackupTransferAvailability();
+    syncBackupTargetDescription();
     window.addEventListener('trickcal-storage-transfer-test-enabled', syncBackupTransferAvailability);
+    installBackupController();
     bindEvents();
     setupMultiTabStateSync();
     installStatEngineApi();
@@ -1292,7 +1307,11 @@
     });
 
     elements.backupExport?.addEventListener('click', () => {
-      void exportFullBackup();
+      void requestFullBackup();
+    });
+
+    elements.backupSourceMode?.addEventListener('change', () => {
+      syncBackupTargetDescription();
     });
 
     elements.backupTransfer?.addEventListener('click', () => {
@@ -3100,9 +3119,62 @@
     elements.backupStatus.classList.toggle('is-error', isError);
   }
 
+  function getBackupTargetDescription(sourceMode) {
+    return sourceMode === 'stored-only' ? '保存済みデータのみ' : '現在タブ（下書きを含む）';
+  }
+
+  function syncBackupTargetDescription(sourceMode = '') {
+    if (!elements.backupSourceDescription) return;
+    const effectiveSourceMode = sourceMode
+      || (backupControllerState.phase === 'running' ? backupControllerState.sourceMode : '')
+      || elements.backupSourceMode?.value
+      || 'current-tab';
+    elements.backupSourceDescription.textContent = `対象：${getBackupTargetDescription(effectiveSourceMode)}`;
+  }
+
+  function getBackupControllerState() {
+    return { ...backupControllerState };
+  }
+
+  function syncBackupControllerUi() {
+    const retryLocked = backupControllerState.phase === 'finished' && backupControllerState.retryable === false;
+    const operationLocked = backupControllerState.phase === 'running' || retryLocked;
+    if (elements.backupExport) elements.backupExport.disabled = operationLocked;
+    if (elements.backupSourceMode) elements.backupSourceMode.disabled = operationLocked;
+    syncBackupTargetDescription(
+      backupControllerState.phase === 'running'
+        ? backupControllerState.sourceMode
+        : elements.backupSourceMode?.value || 'current-tab'
+    );
+  }
+
+  function setBackupControllerState(next) {
+    backupControllerState = { ...backupControllerState, ...next };
+    syncBackupControllerUi();
+    const snapshot = getBackupControllerState();
+    backupControllerListeners.forEach(listener => {
+      try { listener(snapshot); } catch (error) { console.error(error); }
+    });
+  }
+
+  function backupOutcome(result = {}) {
+    const recoveryRequired = result.recoveryRequired === true
+      || ['recovery-required', 'cancel-failed'].includes(result.code);
+    return {
+      ok: result.ok === true,
+      code: result.code || (result.ok === true ? 'download-requested' : 'failed'),
+      message: result.message || backupFailureMessage(result),
+      downloadRequested: result.downloadRequested === true,
+      sourceMode: result.sourceMode || backupControllerState.sourceMode,
+      targetDescription: result.targetDescription || backupControllerState.targetDescription,
+      recoveryRequired,
+      retryable: result.retryable !== false && !recoveryRequired
+    };
+  }
+
   function backupFailureMessage(result, fallback = 'バックアップを処理できませんでした。') {
     const messages = {
-      busy: '別の保存操作が実行中です。少し待ってから再試行してください。',
+      busy: '保存処理が競合しています。同じサイトを別のタブで開いている場合は、未保存の編集がないことを確認してから、そのタブを閉じて再試行してください。',
       notReady: '保存機能の準備が完了していません。再読み込みして再試行してください。',
       'not-ready': '保存機能の準備が完了していません。再読み込みして再試行してください。',
       quota: '保存領域の上限に達しました。',
@@ -3117,42 +3189,186 @@
     return messages[result?.code] || fallback;
   }
 
-  async function exportFullBackup() {
+  async function exportFullBackup(sourceMode = '') {
     const button = elements.backupExport;
     const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    const selectedSourceMode = sourceMode || elements.backupSourceMode?.value || 'current-tab';
+    const targetDescription = getBackupTargetDescription(selectedSourceMode);
+    let outcome = backupOutcome({
+      ok: false,
+      code: 'not-ready',
+      message: 'バックアップ機能を読み込めませんでした。',
+      sourceMode: selectedSourceMode,
+      targetDescription
+    });
     if (!button || !storageRuntime || !api) {
       showBackupStatus('バックアップ機能を読み込めませんでした。', true);
-      return;
+      return outcome;
     }
-    button.disabled = true;
     showBackupStatus('保存データを確認しています…');
     let maintenance = null;
     try {
       const begun = await storageRuntime.beginMaintenance('backup');
       if (!begun?.ok) {
-        showBackupStatus(backupFailureMessage(begun), true);
-        return;
+        outcome = backupOutcome({
+          ...begun,
+          message: backupFailureMessage(begun),
+          sourceMode: selectedSourceMode,
+          targetDescription
+        });
+      } else {
+        maintenance = begun.value;
+        const result = await maintenance.export({
+          sourceMode: selectedSourceMode,
+          sourceRelease: api.getDefaultSourceRelease?.()
+        });
+        if (!result?.ok) {
+          outcome = backupOutcome({
+            ...result,
+            message: backupFailureMessage(result),
+            sourceMode: selectedSourceMode,
+            targetDescription
+          });
+        } else {
+          const downloaded = downloadBackupPackage(result.value, {
+            statusMessage: 'ダウンロードを開始しました。ブラウザのダウンロード一覧を確認してください。'
+          });
+          outcome = backupOutcome({
+            ok: downloaded?.ok === true,
+            code: downloaded?.ok === true ? 'download-requested' : 'download-failed',
+            message: downloaded?.ok === true
+              ? 'ダウンロードを開始しました。ブラウザのダウンロード一覧を確認してください。'
+              : 'ダウンロードを開始できませんでした。',
+            downloadRequested: downloaded?.ok === true,
+            sourceMode: selectedSourceMode,
+            targetDescription,
+            retryable: true
+          });
+        }
       }
-      maintenance = begun.value;
-      const result = await maintenance.export({
-        sourceMode: elements.backupSourceMode?.value || 'current-tab',
-        sourceRelease: api.getDefaultSourceRelease?.()
-      });
-      if (!result?.ok) {
-        showBackupStatus(backupFailureMessage(result), true);
-        return;
-      }
-      downloadBackupPackage(result.value);
     } catch (error) {
       console.error(error);
-      showBackupStatus('バックアップを作成できませんでした。', true);
+      outcome = backupOutcome({
+        ok: false,
+        code: error?.result?.code || 'failed',
+        message: backupFailureMessage(error?.result, 'バックアップを作成できませんでした。'),
+        sourceMode: selectedSourceMode,
+        targetDescription,
+        retryable: true
+      });
     } finally {
       if (maintenance) {
-        const resumed = await maintenance.cancel();
-        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+        let resumed;
+        try {
+          resumed = await maintenance.cancel();
+        } catch (error) {
+          resumed = { ok: false, code: 'cancel-failed', message: error?.message || 'cancel failed' };
+        }
+        if (!resumed?.ok) {
+          outcome = backupOutcome({
+            ok: false,
+            code: resumed?.code || 'cancel-failed',
+            message: `${backupFailureMessage(resumed, 'バックアップ後の後始末に失敗しました。')} 復旧処理が必要です。`,
+            downloadRequested: outcome.downloadRequested,
+            sourceMode: selectedSourceMode,
+            targetDescription,
+            recoveryRequired: true,
+            retryable: false
+          });
+        }
       }
-      button.disabled = false;
     }
+    showBackupStatus(outcome.message, !outcome.ok);
+    return outcome;
+  }
+
+  function createBackupController() {
+    return Object.freeze({
+      getState() {
+        return Object.freeze(getBackupControllerState());
+      },
+      subscribe(listener) {
+        if (typeof listener !== 'function') return () => {};
+        backupControllerListeners.add(listener);
+        try { listener(getBackupControllerState()); } catch (error) { console.error(error); }
+        return () => backupControllerListeners.delete(listener);
+      },
+      request() {
+        if (backupControllerPromise) return backupControllerPromise;
+        if (backupControllerState.phase === 'finished' && backupControllerState.retryable === false) {
+          return Promise.resolve(backupOutcome(backupControllerState));
+        }
+        const sourceMode = elements.backupSourceMode?.value || 'current-tab';
+        const targetDescription = getBackupTargetDescription(sourceMode);
+        setBackupControllerState({
+          phase: 'running',
+          resultCode: null,
+          message: 'バックアップを作成しています…',
+          downloadRequested: false,
+          sourceMode,
+          targetDescription,
+          recoveryRequired: false,
+          retryable: true
+        });
+        backupControllerPromise = exportFullBackup(sourceMode)
+          .then(result => {
+            setBackupControllerState({
+              phase: 'finished',
+              resultCode: result.code,
+              message: result.message,
+              downloadRequested: result.downloadRequested,
+              sourceMode: result.sourceMode || sourceMode,
+              targetDescription: result.targetDescription || targetDescription,
+              recoveryRequired: result.recoveryRequired,
+              retryable: result.retryable
+            });
+            return result;
+          })
+          .catch(error => {
+            const result = backupOutcome({
+              ok: false,
+              code: error?.result?.code || 'failed',
+              message: backupFailureMessage(error?.result, 'バックアップを作成できませんでした。'),
+              sourceMode,
+              targetDescription,
+              downloadRequested: error?.result?.downloadRequested === true
+            });
+            setBackupControllerState({
+              phase: 'finished',
+              resultCode: result.code,
+              message: result.message,
+              downloadRequested: result.downloadRequested,
+              sourceMode: result.sourceMode || sourceMode,
+              targetDescription: result.targetDescription || targetDescription,
+              recoveryRequired: result.recoveryRequired,
+              retryable: result.retryable
+            });
+            return result;
+          })
+          .finally(() => {
+            backupControllerPromise = null;
+            syncBackupControllerUi();
+          });
+        return backupControllerPromise;
+      }
+    });
+  }
+
+  function installBackupController() {
+    if (window.TRICKCAL_BACKUP_CONTROLLER?.request) return window.TRICKCAL_BACKUP_CONTROLLER;
+    const controller = createBackupController();
+    window.TRICKCAL_BACKUP_CONTROLLER = controller;
+    window.dispatchEvent(new CustomEvent('trickcal-backup-controller-ready'));
+    return controller;
+  }
+
+  function requestFullBackup() {
+    const controller = window.TRICKCAL_BACKUP_CONTROLLER;
+    if (!controller?.request) {
+      showBackupStatus('保存機能を準備しています。少し待ってから再試行してください。', true);
+      return Promise.resolve(backupOutcome({ ok: false, code: 'not-ready', message: '保存機能を準備しています。少し待ってから再試行してください。' }));
+    }
+    return controller.request();
   }
 
   async function startBackupTransfer() {
@@ -3349,10 +3565,11 @@
     link.remove();
     URL.revokeObjectURL(url);
     showBackupStatus(`${statusMessage}（${formatStateFileSize(blob.size)}）`);
+    return { ok: true, bytes: blob.size };
   }
 
   function downloadBackupPackage(packageValue, options = {}) {
-    downloadBackupText(
+    return downloadBackupText(
       JSON.stringify(packageValue),
       options.filenamePrefix || 'trickcal-manager-backup',
       options.statusMessage || 'バックアップを保存しました'

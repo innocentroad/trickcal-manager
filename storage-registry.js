@@ -29,6 +29,7 @@
     ['stat.workspaceDraft', 'sessionStorage', 'trickcal_stat_workspace_v2', 'current-draft', 'tab-scoped-draft', 'stat-prototype.js'],
     ['stat.reloadContext', 'sessionStorage', 'trickcal_dashboard_reload_context_v1', 'display', 'one-shot-navigation-context', 'stat-prototype.js'],
     ['preference.commonTheme', 'localStorage', 'trickcal_theme', 'display', 'shared-preference', 'stat-prototype.js'],
+    ['preference.noticeState', 'localStorage', 'trickcal_notice_state_v1', 'display', 'ui-notice-state', 'announcements.js'],
     ['preference.statThemeLegacy', 'localStorage', 'trickcal_stat_theme', 'display', 'legacy-preference', 'stat-prototype.js'],
     ['preference.calcThemeLegacy', 'localStorage', 'trickcal_damage_calc_theme', 'display', 'legacy-preference', 'formation-damage-calc.js'],
     ['preference.boardShortcutOffMode', 'localStorage', 'trickcal_board_shortcut_off_mode', 'display', 'user-preference', 'stat-prototype.js'],

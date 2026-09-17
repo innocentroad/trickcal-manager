@@ -109,6 +109,7 @@
   const preloadCache = [];
   const requestedUrls = new Set();
   const publicSite = window.TRICKCAL_PUBLIC_SITE;
+  let canonicalApostleIdsByLower = null;
 
   function resolveAssetUrl(src) {
     return publicSite?.assetUrl?.(src) || src;
@@ -144,8 +145,32 @@
     }
   }
 
+  function getCanonicalApostleId(id) {
+    const sourceId = String(id || '').trim();
+    if (!sourceId) return '';
+    if (!canonicalApostleIdsByLower) {
+      const basicInfo = typeof TRICKCAL_STAT_DATA === 'undefined'
+        ? []
+        : (TRICKCAL_STAT_DATA?.sheets?.basicInfo || []);
+      if (!basicInfo.length) return '';
+      canonicalApostleIdsByLower = new Map(
+        basicInfo
+        .map(row => String(row?.id || '').trim())
+        .filter(Boolean)
+        .map(canonicalId => [canonicalId.toLowerCase(), canonicalId])
+      );
+    }
+    const direct = canonicalApostleIdsByLower.get(sourceId.toLowerCase());
+    if (direct) return direct;
+    const aliasKey = Object.keys(APOSTLE_ALIASES)
+      .find(key => key.toLowerCase() === sourceId.toLowerCase());
+    const aliasId = aliasKey ? APOSTLE_ALIASES[aliasKey] : '';
+    return canonicalApostleIdsByLower.get(String(aliasId).toLowerCase()) || '';
+  }
+
   function getApostleAssetId(id) {
-    return APOSTLE_ALIASES[id] || id;
+    const canonicalId = getCanonicalApostleId(id);
+    return canonicalId ? (APOSTLE_ALIASES[canonicalId] || canonicalId) : '';
   }
 
   function isDamageCalcPage() {
@@ -161,6 +186,7 @@
   function addApostleImages(urls, id) {
     if (!id) return;
     const assetId = getApostleAssetId(String(id));
+    if (!assetId) return;
     urls.add(`img/Chara/${assetId}.webp`);
     if (isDamageCalcPage()) return;
     urls.add(`img/Chara/Skill/Skill_P_${assetId}.webp`);
@@ -223,7 +249,8 @@
       ? APOSTLE_LIBRARY
       : [];
     apostles.forEach(apostle => {
-      if (apostle?.id) urls.add(`img/Chara/${getApostleAssetId(apostle.id)}.webp`);
+      const assetId = getApostleAssetId(apostle?.id);
+      if (assetId) urls.add(`img/Chara/${assetId}.webp`);
     });
     const collections = getCardCollections();
     collections.artifact.concat(collections.spell).forEach(card => {

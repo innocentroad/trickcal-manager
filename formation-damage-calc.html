@@ -32,6 +32,7 @@
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
   <script src="storage-registry.js?v=20260913a"></script>
   <script src="storage-runtime.js?v=20260913a"></script>
+  <script src="storage-transfer.js?v=20260913a"></script>
   <script src="storage-bootstrap.js?v=20260913a"></script>
   <script>document.documentElement.dataset.theme = 'dark';</script>
   <link rel="prefetch" href="stat-dashboard.html?recover=20260912" as="document">
@@ -44,6 +45,7 @@
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
   <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260904a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
+  <link rel="stylesheet" href="announcements.css?v=20260915b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
   <script>
@@ -747,6 +749,14 @@
           </div>
         </details>
       </footer>
+      <details class="trickcal-announcement-display-settings" data-announcement-display-settings>
+        <summary class="trickcal-announcement-display-settings-summary">表示設定</summary>
+        <div class="trickcal-announcement-display-settings-content">
+          <p class="trickcal-announcement-display-status" data-announcement-display-status>移行案内は表示中です。</p>
+          <button type="button" class="trickcal-announcement-restore" data-announcement-restore hidden disabled>移行案内を再表示</button>
+          <p class="trickcal-announcement-display-error" data-announcement-display-error hidden></p>
+        </div>
+      </details>
   </main>
 
   <div id="fdc-card-cost-controller" class="fdc-card-cost-controller">
@@ -992,5 +1002,8 @@
   <script src="dps-support-registry.js?v=20260827c"></script>
   <script src="formation-damage-calc.js?v=20260912a"></script>
   <script src="formation-damage-dps-prototype.js?v=20260907c"></script>
+  <script src="announcements-release-config.js?v=20260915a"></script>
+  <script src="announcements-data.js?v=20260915b"></script>
+  <script src="announcements.js?v=20260915b"></script>
 </body>
 </html>

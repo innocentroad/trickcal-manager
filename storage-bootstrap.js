@@ -10,6 +10,59 @@
   root.TRICKCAL_STORAGE_RUNTIME_INSTANCE = runtime;
   const lifecycleRuntimes = new WeakSet();
 
+  // managerだけに、bootの長い待機が排他中の可能性を説明する受動的な案内を出す。
+  // これは表示用タイマーであり、boot・保存runtime・lockの状態や順序は変更しない。
+  function createManagerBootWaitGuidance() {
+    const document = root.document;
+    if (document?.documentElement?.dataset?.storageBootGuidance !== 'manager') return null;
+
+    const state = {
+      due: false,
+      settled: false,
+      domReady: document.readyState !== 'loading',
+      timer: null
+    };
+    const getElement = () => document.querySelector?.('[data-storage-boot-wait-guidance]') || null;
+    const hide = () => {
+      const element = getElement();
+      if (!element) return;
+      element.hidden = true;
+      element.setAttribute?.('aria-hidden', 'true');
+    };
+    const render = () => {
+      const element = getElement();
+      if (!element) return;
+      if (state.due && !state.settled && state.domReady) {
+        element.hidden = false;
+        element.removeAttribute?.('aria-hidden');
+      } else {
+        hide();
+      }
+    };
+    const onDomReady = () => {
+      state.domReady = true;
+      render();
+    };
+    if (state.domReady) render();
+    else document.addEventListener?.('DOMContentLoaded', onDomReady, { once: true });
+
+    state.timer = root.setTimeout?.(() => {
+      state.due = true;
+      render();
+    }, 3000) ?? null;
+
+    return {
+      settle() {
+        state.settled = true;
+        if (state.timer !== null) root.clearTimeout?.(state.timer);
+        state.timer = null;
+        hide();
+      }
+    };
+  }
+
+  const managerBootWaitGuidance = createManagerBootWaitGuidance();
+
   function showBootFailure(result) {
     const render = () => {
       if (!root.document?.body) return;
@@ -100,4 +153,8 @@
     root.document?.documentElement?.setAttribute('data-storage-boot', 'ready');
     return result;
   })();
+  root.TRICKCAL_STORAGE_BOOT?.then(
+    () => managerBootWaitGuidance?.settle(),
+    () => managerBootWaitGuidance?.settle()
+  );
 })(typeof globalThis !== 'undefined' ? globalThis : this);

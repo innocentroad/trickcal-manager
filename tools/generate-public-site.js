@@ -17,8 +17,10 @@ const ROUTE_KINDS = new Set(['static-page', 'static-redirect', 'compatibility', 
 const TOP_KEYS = ['schemaVersion', 'profiles', 'assetConfig', 'serviceWorker', 'reservedPaths', 'routes', 'assets'];
 const PROFILE_KEYS = ['origin', 'basePath', 'assetBasePath', 'serviceWorker'];
 const PROFILE_SW_KEYS = ['script', 'scope'];
-const SERVICE_WORKER_KEYS = ['source', 'cacheName', 'navigationStrategy', 'assetStrategy', 'excludedPathPrefixes'];
-const ROUTE_KEYS = ['id', 'source', 'generator', 'indexable', 'profiles', 'fixtures'];
+const SERVICE_WORKER_KEYS = ['source', 'cacheName', 'navigationStrategy', 'assetStrategy', 'imageStrategy', 'excludedPathPrefixes'];
+const VERSIONED_IMAGE_EXTENSION = /\.(?:webp|png|jpe?g|gif|svg|ico)$/i;
+const ROUTE_KEYS = ['id', 'source', 'generator', 'indexable', 'seo', 'profiles', 'fixtures'];
+const ROUTE_SEO_KEYS = ['canonicalProfile'];
 const ROUTE_PROFILE_KEYS = ['publicPath', 'kind', 'targetRouteId', 'aliases'];
 const FIXTURE_KEYS = ['name', 'profile', 'query', 'hash', 'viewport', 'themes'];
 const ASSET_KEYS = ['source', 'kind', 'profiles'];
@@ -94,6 +96,13 @@ function outputRelativePath(publicPath) {
 function joinPublicPath(basePath, relativePath) {
   const base = basePath === '/' ? '/' : `${basePath.replace(/\/+$/, '')}/`;
   return `${base}${relativePath}`;
+}
+
+function encodePublicAssetPath(publicPath) {
+  return String(publicPath).split('/').map((segment, index) => {
+    if (index === 0 && segment === '') return '';
+    return encodeURIComponent(segment);
+  }).join('/');
 }
 
 function isIndexAlias(canonicalPath, aliasPath) {
@@ -188,6 +197,7 @@ function validateManifest(manifest, { repoRoot = ROOT } = {}) {
     if (typeof manifest.serviceWorker.cacheName !== 'string' || !manifest.serviceWorker.cacheName) errors.push('serviceWorker.cacheNameが不正です');
     if (manifest.serviceWorker.navigationStrategy !== 'network-first') errors.push('serviceWorker.navigationStrategyが不正です');
     if (manifest.serviceWorker.assetStrategy !== 'stale-while-revalidate') errors.push('serviceWorker.assetStrategyが不正です');
+    if (manifest.serviceWorker.imageStrategy != null && manifest.serviceWorker.imageStrategy !== 'cache-first-versioned') errors.push('serviceWorker.imageStrategyが不正です');
     validatePublicPathList(manifest.serviceWorker.excludedPathPrefixes, 'serviceWorker.excludedPathPrefixes', errors);
   }
 
@@ -225,6 +235,8 @@ function validateManifest(manifest, { repoRoot = ROOT } = {}) {
       else if (!pathExists(repoRoot, route.source, 'file')) errors.push(`${label}.sourceが存在しません: ${route.source}`);
     }
     if (hasGenerator && (!GENERATORS.has(route.generator) || typeof route.generator !== 'string')) errors.push(`${label}.generatorが不正です: ${route.generator}`);
+    if (route.indexable === true && hasOwn(route, 'seo')) validateRouteSeo(route.seo, `${label}.seo`, errors);
+    else if (hasOwn(route, 'seo')) errors.push(`${label}.seoはindexable routeだけに指定できます`);
     if (!isRecord(route.profiles)) {
       errors.push(`${label}.profilesはobjectである必要があります`);
     } else {
@@ -289,6 +301,17 @@ function validateProfileServiceWorker(value, label, errors) {
   addUnknownKeyErrors(value, PROFILE_SW_KEYS, label, errors);
   if (!isSafeRelativePath(value.script)) errors.push(`${label}.scriptが不正です`);
   if (!isSafePublicPath(value.scope)) errors.push(`${label}.scopeが不正です`);
+}
+
+function validateRouteSeo(value, label, errors) {
+  if (!isRecord(value)) {
+    errors.push(`${label}はindexable routeに必要なobjectです`);
+    return;
+  }
+  addUnknownKeyErrors(value, ROUTE_SEO_KEYS, label, errors);
+  if (!PROFILE_NAMES.includes(value.canonicalProfile)) {
+    errors.push(`${label}.canonicalProfileは既知のprofileである必要があります`);
+  }
 }
 
 function validateRouteProfile(value, label, errors) {
@@ -361,6 +384,9 @@ function validateCrossReferences(manifest, routeIds, errors) {
         else if (!routeById.get(targetRouteId)?.profiles?.[profileName]) errors.push(`target routeにprofileがありません: ${route.id}.${profileName} -> ${targetRouteId}`);
       }
       if (routeProfile.kind === 'static-redirect' && !targetRouteId) errors.push(`static-redirectにtargetRouteIdがありません: ${route.id}.${profileName}`);
+    }
+    if (route.indexable === true && route.seo?.canonicalProfile && !route.profiles?.[route.seo.canonicalProfile]) {
+      errors.push(`canonicalProfileのroute profileがありません: ${route.id}.${route.seo.canonicalProfile}`);
     }
     for (const fixture of route.fixtures || []) {
       if (fixtureNames.has(fixture.name)) errors.push(`fixture nameが重複しています: ${fixture.name}`);
@@ -569,9 +595,14 @@ function isExternalReference(value) {
 
 function resolveHtmlReference(value, entry, context) {
   if (!value || isExternalReference(value) || value.startsWith('/')) return value;
+  const sourceDir = entry.source ? path.posix.dirname(entry.source) : '';
+  const rawCandidate = path.posix.normalize(path.posix.join(sourceDir, value));
+  if (rawCandidate !== '..' && !rawCandidate.startsWith('../') && context.assetSources.has(rawCandidate)) {
+    const profile = context.manifest.profiles[entry.profile];
+    return appendAssetVersion(encodePublicAssetPath(joinPublicPath(profile.assetBasePath, rawCandidate)), '', context.assetVersion);
+  }
   const { path: referencePath, suffix } = splitReference(value);
   if (!referencePath) return value;
-  const sourceDir = entry.source ? path.posix.dirname(entry.source) : '';
   const candidate = path.posix.normalize(path.posix.join(sourceDir, referencePath));
   if (candidate === '..' || candidate.startsWith('../')) return value;
   const routeId = context.sourceToRoute.get(candidate);
@@ -579,7 +610,7 @@ function resolveHtmlReference(value, entry, context) {
   if (profileRoute) return `${profileRoute.publicPath}${suffix}`;
   if (!context.assetSources.has(candidate)) return value;
   const profile = context.manifest.profiles[entry.profile];
-  return appendAssetVersion(joinPublicPath(profile.assetBasePath, candidate), suffix, context.assetVersion);
+  return appendAssetVersion(encodePublicAssetPath(joinPublicPath(profile.assetBasePath, candidate)), suffix, context.assetVersion);
 }
 
 function createRuntimeConfig(context, profileName) {
@@ -613,22 +644,30 @@ function injectRuntimeConfig(html, context, profileName) {
   return `${injection}${html}`;
 }
 
+function canonicalUrlForRoute(route, context, profileName) {
+  const canonicalProfileName = route?.seo?.canonicalProfile || profileName;
+  const profile = context.manifest.profiles[canonicalProfileName];
+  const profileRoute = route?.profiles?.[canonicalProfileName];
+  if (!profile || !profileRoute) {
+    throw new PublicSiteError(`canonicalProfileの解決に失敗しました: ${route?.id || 'unknown'}`);
+  }
+  return `${profile.origin.replace(/\/$/, '')}${profileRoute.publicPath}`;
+}
+
 function updateCanonicalMetadata(html, entry, context) {
   const route = context.routeById.get(entry.routeId);
   if (!route?.indexable) return html;
-  const profile = context.manifest.profiles[entry.profile];
-  const canonicalUrl = `${profile.origin.replace(/\/$/, '')}${entry.publicPath}`;
+  const canonicalUrl = canonicalUrlForRoute(route, context, entry.profile);
   let result = html;
-  let canonicalFound = false;
-  result = result.replace(/(<link\b[^>]*\brel=["']canonical["'][^>]*\bhref=["'])[^"']*/i, (_match, prefix) => {
-    canonicalFound = true;
-    return `${prefix}${canonicalUrl}`;
+  let canonicalCount = 0;
+  result = result.replace(/<link\b[^>]*>/gi, tag => {
+    if (!/\brel=["'][^"']*\bcanonical\b[^"']*["']/i.test(tag)) return tag;
+    canonicalCount += 1;
+    if (/\bhref=["']/i.test(tag)) return tag.replace(/(\bhref=["'])[^"']*/i, `$1${canonicalUrl}`);
+    return tag.replace(/>$/, ` href="${canonicalUrl}">`);
   });
-  if (!canonicalFound) {
-    result = result.replace(/(<link\b[^>]*\bhref=["'])[^"']*(["'][^>]*\brel=["']canonical["'])/i, (_match, prefix, suffix) => {
-      canonicalFound = true;
-      return `${prefix}${canonicalUrl}${suffix}`;
-    });
+  if (canonicalCount > 1) {
+    throw new PublicSiteError(`canonicalが重複しています: ${route.id}:${entry.profile}`);
   }
   let ogFound = false;
   result = result.replace(/(<meta\b[^>]*\bproperty=["']og:url["'][^>]*\bcontent=["'])[^"']*/i, (_match, prefix) => {
@@ -640,10 +679,34 @@ function updateCanonicalMetadata(html, entry, context) {
     : '';
   if (sourceUrl) result = result.replaceAll(sourceUrl, canonicalUrl);
   const additions = [];
-  if (!canonicalFound) additions.push(`<link rel="canonical" href="${canonicalUrl}">`);
+  if (canonicalCount === 0) additions.push(`<link rel="canonical" href="${canonicalUrl}">`);
   if (!ogFound) additions.push(`<meta property="og:url" content="${canonicalUrl}">`);
-  if (additions.length) result = result.replace(/<\/head>/i, `  ${additions.join('\n  ')}\n</head>`);
+  if (additions.length) result = result.replace(/<\/head>/i, `  ${additions.join('\\n  ')}\n</head>`);
   return result;
+}
+
+function escapeXml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&apos;');
+}
+
+function renderSitemap(context, profileName) {
+  const urls = context.manifest.routes
+    .filter(route => route.indexable === true)
+    .map(route => canonicalUrlForRoute(route, context, profileName));
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls
+    .map(url => `  <url><loc>${escapeXml(url)}</loc></url>`)
+    .join('\n')}\n</urlset>\n`;
+}
+
+function renderRobots(context, profileName) {
+  const profile = context.manifest.profiles[profileName];
+  const sitemapPath = joinPublicPath(profile.assetBasePath, 'sitemap.xml');
+  return `User-agent: *\nAllow: /\n\nSitemap: ${profile.origin.replace(/\/$/, '')}${sitemapPath}\n`;
 }
 
 function injectIndexAliasNormalization(html, entry, context) {
@@ -681,16 +744,34 @@ function replaceServiceWorkerConstant(source, constantName, value) {
   return source.replace(pattern, `$1${JSON.stringify(value)};`);
 }
 
+function replaceServiceWorkerConstantIfPresent(source, constantName, value) {
+  const pattern = new RegExp(`(^\\s*const ${constantName} = )[^;]+;`, 'm');
+  return pattern.test(source) ? source.replace(pattern, `$1${JSON.stringify(value)};`) : source;
+}
+
+function versionedImagePathsForProfile(context, profileName) {
+  return context.plan.entries
+    .filter(entry => entry.type === 'asset'
+      && entry.profile === profileName
+      && VERSIONED_IMAGE_EXTENSION.test(entry.source))
+    .map(entry => encodePublicAssetPath(`/${entry.outputRel}`.replace(/\/+/g, '/')))
+    .sort();
+}
+
 function renderServiceWorker(entry, context) {
   let source = fs.readFileSync(path.resolve(context.repoRoot, entry.source), 'utf8');
   source = replaceServiceWorkerConstant(source, 'CACHE_VERSION', context.releaseId);
   source = replaceServiceWorkerConstant(source, 'PREVIOUS_CACHE_VERSION', profileReleaseId(context.previousRelease, entry.profile));
+  source = replaceServiceWorkerConstantIfPresent(source, 'EXPECTED_ASSET_VERSION', context.assetVersion);
+  source = replaceServiceWorkerConstantIfPresent(source, 'VERSIONED_IMAGE_PATHS', versionedImagePathsForProfile(context, entry.profile));
   return Buffer.from(source);
 }
 
 function renderEntry(entry, context) {
   if (entry.type === 'asset') {
     if (entry.source === context.manifest.serviceWorker.source) return renderServiceWorker(entry, context);
+    if (entry.source === 'sitemap.xml') return Buffer.from(renderSitemap(context, entry.profile));
+    if (entry.source === 'robots.txt') return Buffer.from(renderRobots(context, entry.profile));
     return fs.readFileSync(path.resolve(context.repoRoot, entry.source));
   }
   if (entry.type === 'alias') return Buffer.from(createRedirectHtml(entry.targetPath, `${entry.routeId} compatibility`));

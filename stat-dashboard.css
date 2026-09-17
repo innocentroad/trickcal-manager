@@ -1,6 +1,9 @@
 body.dashboard-page.is-booting > * {
   visibility: hidden;
 }
+body.dashboard-page.is-booting > .storage-boot-wait-guidance {
+  visibility: visible;
+}
 
 body.dashboard-page.is-booting::before {
   content: '';
@@ -28,6 +31,9 @@ body.dashboard-page.is-booting::after {
 
 :root {
   --dashboard-top-control-height: 3.25rem;
+  --trickcal-topbar-height: var(--dashboard-top-control-height);
+  --trickcal-follow-bar-height: 0px;
+  --trickcal-top-occupied-height: calc(var(--trickcal-topbar-height) + var(--trickcal-follow-bar-height));
   --dashboard-bar-height: 50px;
   --dashboard-bottom-control-height: 44px;
   --dashboard-rail-width: 112px;
@@ -72,7 +78,7 @@ body.dashboard-page.is-booting::after {
 }
 
 .dashboard-page {
-  padding-top: var(--dashboard-top-control-height);
+  padding-top: var(--trickcal-top-occupied-height);
   padding-bottom: calc(var(--dashboard-bar-height) + 24px);
 }
 
@@ -227,7 +233,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-layout {
   width: min(1440px, 100%);
-  min-height: calc(100vh - var(--dashboard-top-control-height) - var(--dashboard-bar-height));
+  min-height: calc(100vh - var(--trickcal-top-occupied-height) - var(--dashboard-bar-height));
   display: grid;
   grid-template-columns: var(--dashboard-rail-width) minmax(0, 1fr);
   gap: 16px;
@@ -237,7 +243,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-rail {
   position: sticky;
-  top: calc(var(--dashboard-top-control-height) + 16px);
+  top: calc(var(--trickcal-top-occupied-height) + 16px);
   align-self: start;
   display: grid;
   gap: 7px;
@@ -339,7 +345,7 @@ body.dashboard-page.is-booting::after {
 }
 
 .dashboard-main {
-  scroll-margin-top: calc(var(--dashboard-top-control-height) + 12px);
+  scroll-margin-top: calc(var(--trickcal-top-occupied-height) + 12px);
 }
 
 .apostle-open-settings {
@@ -1485,6 +1491,57 @@ body.dashboard-page.is-booting::after {
   border-radius: 11px;
   background: rgba(98, 63, 20, 0.12);
   box-shadow: 0 7px 18px rgba(180, 83, 9, 0.14);
+}
+
+.storage-boot-wait-guidance {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 3002;
+  display: grid;
+  width: min(32rem, calc(100vw - 2rem));
+  box-sizing: border-box;
+  gap: .65rem;
+  padding: 1.15rem 1.25rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid color-mix(in srgb, var(--fdc-primary, #4e9d4f) 32%, var(--fdc-border, rgba(75, 125, 67, .18)));
+  border-radius: 14px;
+  color: var(--fdc-text, #223321);
+  background: color-mix(in srgb, var(--fdc-panel, rgba(255, 255, 255, .9)) 94%, var(--fdc-bg, #eef7e2));
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--fdc-shadow, rgba(75, 125, 67, .16)) 80%, transparent);
+  text-align: left;
+}
+
+.storage-boot-wait-guidance[hidden] {
+  display: none;
+}
+
+.storage-boot-wait-guidance h1,
+.storage-boot-wait-guidance p {
+  margin: 0;
+}
+
+.storage-boot-wait-guidance h1 {
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.storage-boot-wait-guidance p {
+  color: var(--fdc-muted, #63725f);
+  font-size: .84rem;
+  line-height: 1.65;
+}
+
+:root[data-theme="dark"] .storage-boot-wait-guidance {
+  border-color: color-mix(in srgb, var(--fdc-primary) 44%, var(--fdc-border));
+  background: color-mix(in srgb, var(--fdc-panel) 94%, var(--fdc-bg));
+}
+
+@media (max-width: 420px) {
+  .storage-boot-wait-guidance {
+    width: calc(100vw - 1.5rem);
+    padding: 1rem;
+  }
 }
 
 .apostle-favorite-frame {
@@ -2903,12 +2960,17 @@ body.dashboard-page.is-booting::after {
 
 .bottom-backup-head small,
 .bottom-backup-source span,
+.bottom-backup-source-description,
 .bottom-backup-status,
 .bottom-backup-preview small {
   color: var(--muted);
   font-size: 0.6rem;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.bottom-backup-source-description {
+  margin: -2px 0 0;
 }
 
 .bottom-backup-source {
@@ -3883,7 +3945,7 @@ body.dashboard-page.is-booting::after {
 
 .dashboard-persistent-profile {
   align-items: center;
-  scroll-margin-top: calc(var(--dashboard-top-control-height) + 12px);
+  scroll-margin-top: calc(var(--trickcal-top-occupied-height) + 12px);
 }
 
 .dashboard-persistent-profile,

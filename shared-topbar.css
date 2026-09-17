@@ -344,6 +344,10 @@ body.theme-dark .fdc-top-control-bar .fdc-theme-toggle {
 }
 
 @media (max-width: 640px) {
+  :root {
+    --trickcal-topbar-height: 3rem;
+  }
+
   :is(.dashboard-top-control-bar, .fdc-top-control-bar) {
     grid-template-columns: minmax(0, 1fr) max-content;
     gap: 0.28rem;

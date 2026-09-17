@@ -30,6 +30,7 @@
     "cacheName": "trickcal-manager",
     "navigationStrategy": "network-first",
     "assetStrategy": "stale-while-revalidate",
+    "imageStrategy": "cache-first-versioned",
     "excludedPathPrefixes": [
       "/transfer/",
       "/recovery/",
@@ -273,6 +274,10 @@
     { "source": "robots.txt", "kind": "file", "profiles": ["new"] },
     { "source": "sitemap.xml", "kind": "file", "profiles": ["new"] },
     { "source": "app-cache.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "announcements-release-config.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "announcements-data.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "announcements.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "announcements.css", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "apostles.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "cards.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "combat-scenario.js", "kind": "file", "profiles": ["new", "legacy"] },
