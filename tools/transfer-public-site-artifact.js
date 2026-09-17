@@ -557,6 +557,10 @@ function applyDelivery(result, options) {
       fs.mkdirSync(path.dirname(target), { recursive: true });
       created.push(operation.path);
       fs.copyFileSync(source, target);
+      // Windows copies can retain source timestamps. Mark this delivery as a
+      // fresh write so Git does not reuse stale stat data for same-size assets.
+      const writtenAt = new Date();
+      fs.utimesSync(target, writtenAt, writtenAt);
       if (digestFile(target) !== operation.sha256) throw new Error(`destination hashが不一致です: ${operation.path}`);
     }
     for (const operation of result.plan.operations.delete) {
@@ -690,5 +694,7 @@ module.exports = {
   identityFor,
   main,
   makeLedger,
-  planDelivery
+  planDelivery,
+  readAndValidateInputs,
+  stageProfileFiles
 };

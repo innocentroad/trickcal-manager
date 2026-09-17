@@ -1,5 +1,28 @@
 # Trickcal Manager 現在地
 
+## 最新：receipt必須化・再開・GitHub公開入口（2026-09-17）
+
+- receipt v2を公開用index/commit検証で必須化。指定省略時も候補・profile・受信先から自動解決し、記録なしで範囲検査を省略しない。候補外write、前回所有外delete、危険なpath、無関係なdirty/stage/commitを拒否する。
+- 転送前に計画を保存し、失敗時にreceipt/phase/再開コマンドを表示。`public-site-publication.js stage --receipt FILE` は再生成・再コピーせず検証してstageする。コピー後・記録保存前の中断も、全内容が一致する場合だけ再開する。
+- `tools/publish-public-site.js` を追加。既定はローカル計画表示のみ。明示的な `--execute` で検証済みartifactの通常push、既設workflow起動・run追跡・公開identity確認。通常承認代行は当該runへの依頼がある場合だけ `--approve-deployments`。応答不明時は再起動せずrun入力確認へ停止する。
+- `tools/publication-targets.json` は現在dual/active。ドメイン移行完了を利用者が明示判断した後にnew-only/frozenへ切り替える。new-onlyは旧repo/API/公開URLの確認を条件にしない。閉鎖・repo削除・DNS/Pages/workflow/保護設定変更を行う機能はない。
+- 公開成功記録とrelease JSONは `backups/publication-history/` に配信先別で保存する。prepareは前回new成功記録を利用可能。初回のみ既存のprevious-releaseを指定する。
+- 今回の変更前バックアップ: `D:/Games/etc/trickcal/backups/publication-followup-20260917-142054`。既存7ファイルをコピーしSHA-256一致確認済み。新規追加はreceipt helper / GitHub公開helper / 配信対象設定 / GitHub模擬テスト。
+- GitHub側は模擬APIで、二重dispatch防止・通常承認・自己承認不可時停止・new→legacy・new-only・identity一致後だけ成功記録を検証。実GitHubへのpush/dispatch/承認、旧サイト停止、認証設定変更は実行していない。実装は未commit。
+- 最終検証成功: `test-public-site-publication.js`（receipt自動解決/必須化、転送後中断からの再開、前回成功releaseの利用、実CLIの計画限定/誤remote拒否/legacy無効化）、`test-public-site-delivery.js`（既存転送回帰）、`test-publish-public-site.js`（GitHub模擬API）。構文検査とgit diff --checkも成功。実際の新旧受信repoは元HEADかつclean、今回のsource indexも変更なし。
+
+## 最新：通常公開の短時間化（2026-09-17）
+
+- 継続sourceはこのworktree / branch `release-source`。既存の公開source復元・アヤのアサイド名2件の公開は完了済み。以下の古い公開未着手記録から再開しない。
+- ローカル公開入口 `tools/public-site-publication.js` を追加。check / prepare / transfer / verify。既存の全assertとchecks記録を統合し、candidateとGit格納内容の照合、対象限定stage、完全SHA入力を接続。具体的な通常手順は [publication-runbook](docs/publication-runbook.md)。
+- Git情報は通常のGit経路へ統一。linked worktree対応、EPERM時は公開生成前に停止。転送はバイトを変えず、Windowsで同サイズ資材の更新がindexへ反映されるよう書込み時刻を更新する。
+- 改修前source HEADは `eff6ec8067d5385fc68404643c64b950592cf6ba`。この改修は未commit。commit/push/本番公開/workflow・保護設定変更は今回行わない。通常mainのアプリ実装も変更しない。
+- 前回公開candidateは `dac6a8d648d664a0`。release recordは `../release-source-publish-final7/tmp/public-site/public-site-release.json`。new commit `ff752621afebd5c379484916285d28997594f59c` / [run 35181102622](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35181102622)、legacy commit `921b1cfd39baa79b3c0d1f5ed2353a4aa4597974` / [run 35181425542](https://github.com/innocentroad/trickcal-manager/actions/runs/35181425542)。本改修でこれらの公開状態は変更していない。
+- 一度だけの整合比較では新旧各1,088ファイル中、差は各2ファイルの改行のみ。再生成contentDigestは前回candidateと一致。次回は生成後の手加工なしで投入する。
+- 変更前バックアップは `D:/Games/etc/trickcal/backups/publish-streamlining-20260917-133114`（既存14ファイル、SHA-256照合済み）。新規ファイルはpublication helper / Git verifier / 統合テスト / runbook。復元時はバックアップのrelease-sourceとmain-docsの区分を守り、その後の利用者変更を上書きしない。
+- ローカル生成＋Manager全検査は約8.6秒の実測。これは転送・CI・承認待ちを含む公開全体の時間ではない。旧来の個別検査列を統合入口の後に重ねない。
+- 最終検証成功: `test-public-site-publication.js`（実CLI・一時clean source・linked worktree・新旧転送・対象限定stage・完全SHA・dirty/HTTP不整合拒否）、`test-public-site-delivery.js`（改行＋台帳改変拒否・無関係なstage/commit拒否・転送回帰）、`test-public-site-release-input.js`（前回release引継ぎ・別環境再現）。Manager全検査の最終記録は `tmp/publication-streamlining-final-checks.json`。source差分と今回追加したmain文書差分の空白検査も成功。mainに元からある無関係な空白警告は修正していない。
+
 > 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
 
 > 最新実施結果（2026-09-14）：R1 1/1。未設置source workflowへ初回／更新のprevious release inputを接続し、専用tmpの実Git fixtureでfresh更新候補の再生成、欠落／別previous／local-only record拒否を確認した。local準備は完了したが、実commit/push・実workflow・外部設定・公開・Goal有効化は未実施で、承認待ちで停止する。

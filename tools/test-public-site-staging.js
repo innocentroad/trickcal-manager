@@ -221,6 +221,7 @@ async function testCandidateCreationAndRejection() {
     const profileDigests = Object.fromEntries(release.profiles.map(profile => [profile.profile, profile.outputDigest]));
 
     const checksRun = await recordPublicSiteChecks({
+      suite: 'artifact',
       repoRoot: fixtureRoot,
       sourceDir: fixtureSource,
       manifestPath: fixtureManifest,

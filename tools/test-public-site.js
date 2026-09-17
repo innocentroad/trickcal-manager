@@ -14,16 +14,13 @@ const {
   validateManifest
 } = require('./generate-public-site.js');
 const { readGitState } = require('./public-site-candidate.js');
-const { buildSyncPlan } = require('./sync-formation-share-assets.js');
 
-const repoRoot = path.resolve(__dirname, '..');
-const manifest = readManifest(path.join(__dirname, 'public-route-manifest.json'));
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function expectInvalid(mutator, pattern) {
+function expectInvalid(manifest, repoRoot, mutator, pattern) {
   const candidate = clone(manifest);
   mutator(candidate);
   const result = validateManifest(candidate, { repoRoot });
@@ -53,7 +50,7 @@ function sha256File(directory, relativePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(path.join(directory, relativePath))).digest('hex');
 }
 
-function testReleaseVersioning() {
+function testReleaseVersioning(repoRoot) {
   const fixtureRoot = path.join(repoRoot, 'tmp', `public-site-release-fixture-${process.pid}`);
   const outputOne = path.join(fixtureRoot, 'tmp', 'release-one');
   const outputTwo = path.join(fixtureRoot, 'tmp', 'release-two');
@@ -162,7 +159,7 @@ function testReleaseVersioning() {
   }
 }
 
-function testRuntimeApi() {
+function testRuntimeApi(repoRoot) {
   const sandbox = {
     URL,
     window: {
@@ -189,8 +186,10 @@ function testRuntimeApi() {
   assert.throws(() => publicSite.assetUrl('../img/test.webp'), /manifest-relative/);
 }
 
-function main() {
-  const syncPlan = buildSyncPlan();
+function run(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
+  const manifest = options.manifest || readManifest(path.join(repoRoot, 'tools', 'public-route-manifest.json'));
+  const syncPlan = require(path.join(repoRoot, 'tools', 'sync-formation-share-assets.js')).buildSyncPlan();
   assert.deepStrictEqual(syncPlan.changedFiles, [], '既存共有資材同期の依存版が古いままです');
   const validation = validateManifest(manifest, { repoRoot });
   assert.strictEqual(validation.ok, true, validation.errors.join('\n'));
@@ -203,17 +202,20 @@ function main() {
   assert(plan.entries.some(entry => entry.profile === 'new' && entry.outputRel === 'data/index.html'));
   assert(plan.entries.some(entry => entry.profile === 'new' && entry.outputRel === 'transfer/index.html'));
 
-  expectInvalid(candidate => { candidate.unexpected = true; }, /未知のフィールド/);
-  expectInvalid(candidate => { candidate.routes[0].source = 'index.html'; }, /sourceまたはgenerator/);
-  expectInvalid(candidate => { candidate.routes[0].profiles.new.targetRouteId = 'home'; }, /self redirect/);
-  expectInvalid(candidate => { candidate.routes[0].profiles.new.aliases.push('/manager/'); }, /route\/alias pathが衝突|reserved path/);
-  expectInvalid(candidate => { candidate.reservedPaths.new.push('/manager/'); }, /reserved path/);
-  expectInvalid(candidate => { candidate.routes[1].profiles.new.aliases.push('/formation-damage-calc.html'); }, /route\/alias pathが衝突|assetとroute/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.unexpected = true; }, /未知のフィールド/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.routes[0].source = 'index.html'; }, /sourceまたはgenerator/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.routes[0].profiles.new.targetRouteId = 'home'; }, /self redirect/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.routes[0].profiles.new.aliases.push('/manager/'); }, /route\/alias pathが衝突|reserved path/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.reservedPaths.new.push('/manager/'); }, /reserved path/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.routes[1].profiles.new.aliases.push('/formation-damage-calc.html'); }, /route\/alias pathが衝突|assetとroute/);
 
-  const testOutput = path.join(repoRoot, 'tmp', 'public-site-test');
-  fs.rmSync(testOutput, { recursive: true, force: true });
+  const reuseGenerated = !!options.sourceDir;
+  const testOutput = options.sourceDir || path.join(repoRoot, 'tmp', 'public-site-test');
+  if (!reuseGenerated) fs.rmSync(testOutput, { recursive: true, force: true });
   try {
-    const generated = generatePublicSite(manifest, { repoRoot, outputDir: testOutput, write: true });
+    const generated = reuseGenerated
+      ? { outputDigest: directoryDigest(testOutput), assetVersion: JSON.parse(readOutputText(testOutput, 'public-site-build.json')).assetVersion }
+      : generatePublicSite(manifest, { repoRoot, outputDir: testOutput, write: true });
     assert(generated.outputDigest);
     const files = outputFiles(testOutput);
     for (const expected of [
@@ -275,14 +277,18 @@ function main() {
     assert(managerHtml.includes('location.pathname'));
     assert(readOutputText(testOutput, 'calc/index.html').includes('"/calc/index.html"'));
     assert(readOutputText(testOutput, 'calc/index.html').includes('location.replace("/calc/"'));
-    testRuntimeApi();
-    const checked = checkPublicSite(manifest, { repoRoot, outputDir: testOutput });
-    assert.strictEqual(checked.ok, true);
+    testRuntimeApi(repoRoot);
+    if (!reuseGenerated) {
+      const checked = checkPublicSite(manifest, { repoRoot, outputDir: testOutput });
+      assert.strictEqual(checked.ok, true);
+    }
   } finally {
-    fs.rmSync(testOutput, { recursive: true, force: true });
+    if (!reuseGenerated) fs.rmSync(testOutput, { recursive: true, force: true });
   }
-  testReleaseVersioning();
-  console.log('public site tests passed: schema, routes, aliases, targets, collision guards, explicit output, stable check');
+  testReleaseVersioning(repoRoot);
+  return { schema: true, routes: true, aliases: true, targets: true, collisionGuards: true, explicitOutput: true, releaseVersioning: true };
 }
 
-main();
+if (require.main === module) console.log('public site tests passed: ' + JSON.stringify(run()));
+
+module.exports = { run };

@@ -1,7 +1,6 @@
 'use strict';
 
 const crypto = require('crypto');
-const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { hashText } = require('./sync-formation-share-assets.js');
@@ -799,48 +798,6 @@ function profileDigest(plan, renderedEntries, profileName) {
   return hashText(JSON.stringify(records));
 }
 
-function getSourceCommit(repoRoot) {
-  const gitDirectory = path.join(repoRoot, '.git');
-  try {
-    const head = fs.readFileSync(path.join(gitDirectory, 'HEAD'), 'utf8').trim();
-    if (/^[0-9a-f]{40}$/i.test(head)) return head;
-    const match = head.match(/^ref:\s+(.+)$/);
-    if (match) {
-      const refPath = path.join(gitDirectory, ...match[1].split('/'));
-      if (fs.existsSync(refPath)) {
-        const commit = fs.readFileSync(refPath, 'utf8').trim();
-        if (/^[0-9a-f]{40}$/i.test(commit)) return commit;
-      }
-      const packedRefsPath = path.join(gitDirectory, 'packed-refs');
-      if (fs.existsSync(packedRefsPath)) {
-        const packed = fs.readFileSync(packedRefsPath, 'utf8').split(/\r?\n/);
-        const packedLine = packed.find(line => line.endsWith(` ${match[1]}`));
-        const commit = packedLine?.split(' ')[0] || '';
-        if (/^[0-9a-f]{40}$/i.test(commit)) return commit;
-      }
-    }
-  } catch (_) {
-    // The fallback below is useful for non-git source copies.
-  }
-  try {
-    return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() || 'unknown';
-  } catch (_) {
-    return 'unknown';
-  }
-}
-
-function isWorkingTreeDirty(repoRoot) {
-  try {
-    return !!execFileSync('git', ['-C', repoRoot, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' }).trim();
-  } catch (_) {
-    // This environment may deny child_process. Use the read-only index
-    // fallback from the candidate gate; if it cannot prove cleanliness,
-    // remain conservative and mark the release dirty.
-    const gitState = readGitState(repoRoot);
-    return gitState.available ? gitState.dirty : fs.existsSync(path.join(repoRoot, '.git'));
-  }
-}
-
 function isUsableReleaseRecord(record) {
   if (!isRecord(record)
     || record.schemaVersion !== 1
@@ -930,6 +887,8 @@ function generatePublicSite(manifest, options = {}) {
   } = options;
   const plan = buildPlan(manifest, { repoRoot, outputDir });
   if (!write) return summarizePlan(plan);
+  // Git supports .git directories and linked-worktree .git files alike.
+  const gitState = readGitState(repoRoot);
   const inputContext = createBuildContext(manifest, plan, repoRoot);
   const previousRelease = resolvePreviousRelease(outputDir, inputContext.releaseId, options);
   const context = createBuildContext(manifest, plan, repoRoot, { previousRelease });
@@ -947,8 +906,8 @@ function generatePublicSite(manifest, options = {}) {
   }
 
   const contentDigest = directoryDigest(targetDir);
-  const sourceCommit = getSourceCommit(repoRoot);
-  const dirty = isWorkingTreeDirty(repoRoot);
+  const sourceCommit = gitState.head || 'unknown';
+  const dirty = !gitState.available || gitState.dirty;
   const dependencyOrder = [
     'profile-layout',
     'direct-assets',

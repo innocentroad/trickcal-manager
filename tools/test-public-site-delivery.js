@@ -14,6 +14,7 @@ const {
 } = require('./transfer-public-site-artifact.js');
 const { run: recordPublicSiteChecks } = require('./record-public-site-checks.js');
 const { stageRelease } = require('./prepare-public-site-staging.js');
+const { verify } = require('./verify-public-site-git.js');
 
 function runGit(repository, args) {
   return execFileSync('git', ['-C', repository, ...args], {
@@ -122,6 +123,7 @@ async function buildCandidate({ fixtureRoot, manifestPath, label }) {
   const build = JSON.parse(fs.readFileSync(buildPath, 'utf8'));
   const profileDigests = profileDigestArgs(release);
   const checksRun = await recordPublicSiteChecks({
+    suite: 'artifact',
     repoRoot: fixtureRoot,
     sourceDir,
     manifestPath,
@@ -174,6 +176,7 @@ async function buildCandidate({ fixtureRoot, manifestPath, label }) {
 function createDestination(fixtureRoot, label) {
   const destination = path.join(fixtureRoot, 'tmp', `delivery-${label}`);
   fs.mkdirSync(path.join(destination, '.github', 'workflows'), { recursive: true });
+  fs.writeFileSync(path.join(destination, '.gitattributes'), '* -text\n');
   fs.writeFileSync(path.join(destination, '.github', 'workflows', 'pages.yml'), 'name: preinstalled-pages-workflow\n', 'utf8');
   fs.writeFileSync(path.join(destination, 'CNAME'), 'trickcal.irlab.dev\n', 'utf8');
   fs.writeFileSync(path.join(destination, 'keep.txt'), `unknown-${label}\n`, 'utf8');
@@ -307,7 +310,33 @@ async function main() {
     assert.equal(ledgerA.profile, 'new');
     assert.equal(ledgerA.ownedFiles.some(file => file.path === 'old/index.html'), true);
     runGit(newDestination, ['add', '--all']);
+    assert.equal(verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: 'index' }).ok, true);
     runGit(newDestination, ['commit', '--quiet', '-m', 'deliver candidate A']);
+    const commitA = runGit(newDestination, ['rev-parse', 'HEAD']).trim();
+    assert.equal(verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: commitA }).ok, true);
+    assert.throws(() => verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: commitA.slice(0, 7) }), /full 40-character/);
+
+    // Reproduce the former failure: EOL editing + a correspondingly edited
+    // ledger must NOT pass verification against the original candidate.
+    const originalApp = fs.readFileSync(path.join(newDestination, 'app.js'));
+    const originalLedger = fs.readFileSync(path.join(newDestination, LEDGER_FILE));
+    fs.writeFileSync(path.join(newDestination, 'app.js'), originalApp.toString().replace(/\r?\n/g, '\r\n'));
+    const editedLedger = JSON.parse(originalLedger);
+    editedLedger.ownedFiles.find(file => file.path === 'app.js').sha256 = digestFile(path.join(newDestination, 'app.js'));
+    fs.writeFileSync(path.join(newDestination, LEDGER_FILE), JSON.stringify(editedLedger, null, 2) + '\n');
+    runGit(newDestination, ['-c', 'core.autocrlf=false', 'add', 'app.js', LEDGER_FILE]);
+    assert.throws(() => verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: 'index' }), /candidate\/Git bytes mismatch: app.js/);
+    fs.writeFileSync(path.join(newDestination, 'app.js'), originalApp);
+    fs.writeFileSync(path.join(newDestination, LEDGER_FILE), originalLedger);
+    runGit(newDestination, ['-c', 'core.autocrlf=false', 'add', 'app.js', LEDGER_FILE]);
+    fs.writeFileSync(path.join(newDestination, 'unrelated.txt'), 'do not stage\n');
+    runGit(newDestination, ['add', 'unrelated.txt']);
+    assert.throws(() => verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: 'index' }), /unrelated staged\/committed path/);
+    runGit(newDestination, ['commit', '--quiet', '-m', 'fixture unrelated commit']);
+    const unrelatedCommit = runGit(newDestination, ['rev-parse', 'HEAD']).trim();
+    assert.throws(() => verify({ ...deliveryOptions(candidateA, newDestination, 'new'), ref: unrelatedCommit, baseCommit: commitA }), /unrelated staged\/committed path/);
+    runGit(newDestination, ['rm', 'unrelated.txt']);
+    runGit(newDestination, ['commit', '--quiet', '-m', 'remove fixture unrelated file']);
 
     const planB = deliver(deliveryOptions(candidateB, newDestination, 'new'));
     assert.equal(planB.ok, true, planB.errors?.join(' | '));
@@ -323,7 +352,14 @@ async function main() {
     assert.equal(fs.existsSync(path.join(newArtifact.output, 'CNAME')), false, 'CNAME entered artifact root');
     assert.equal(fs.existsSync(path.join(newArtifact.output, '.trickcal-public-site-delivery.json')), false, 'ownership ledger entered artifact root');
     runGit(newDestination, ['add', '--all']);
+    assert.equal(verify({ ...deliveryOptions(candidateB, newDestination, 'new'), ref: 'index',
+      stagePaths: [...appliedB.desiredFiles.map(file => file.path), ...appliedB.plan.operations.delete.map(file => file.path), LEDGER_FILE],
+      deletedPaths: appliedB.plan.operations.delete.map(file => file.path) }).ok, true);
     runGit(newDestination, ['commit', '--quiet', '-m', 'deliver candidate B']);
+    assert.equal(verify({ ...deliveryOptions(candidateB, newDestination, 'new'),
+      ref: runGit(newDestination, ['rev-parse', 'HEAD']).trim(), baseCommit: commitA,
+      stagePaths: [...appliedB.desiredFiles.map(file => file.path), ...appliedB.plan.operations.delete.map(file => file.path), LEDGER_FILE],
+      deletedPaths: appliedB.plan.operations.delete.map(file => file.path) }).ok, true);
 
     const beforeRerun = snapshotTree(newDestination);
     const rerunPlan = deliver(deliveryOptions(candidateB, newDestination, 'new'));
@@ -357,6 +393,8 @@ async function main() {
     assert.equal(fs.existsSync(path.join(legacyDestination, 'trickcal-manager')), false);
     const legacyIdentity = JSON.parse(fs.readFileSync(path.join(legacyDestination, IDENTITY_FILE), 'utf8'));
     assert.equal(legacyIdentity.profile, 'legacy');
+    runGit(legacyDestination, ['add', '--all']);
+    assert.equal(verify({ ...deliveryOptions(candidateA, legacyDestination, 'legacy'), ref: 'index' }).ok, true);
     assertProtectedFiles(legacyDestination, 'legacy');
     const legacyArtifact = materializeArtifactRoot(legacyDestination, 'legacy');
     assert.equal(fs.existsSync(path.join(legacyArtifact.output, 'trickcal-manager')), false);

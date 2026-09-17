@@ -221,10 +221,10 @@ function validateCandidateRecord(record, { release, checks, gitState } = {}) {
   return { ok: errors.length === 0, errors };
 }
 
-function readGitState(repoRoot) {
+function readGitState(repoRoot, execute = execFileSync) {
   let head = '';
   try {
-    head = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    head = execute('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   } catch (error) {
     return {
       available: false,
@@ -242,12 +242,12 @@ function readGitState(repoRoot) {
     };
   }
   try {
-    const status = execFileSync('git', [
+    const status = execute('git', [
       '-C', repoRoot,
       'status',
       '--porcelain',
       '--untracked-files=all'
-    ], { encoding: 'utf8' });
+    ], { encoding: 'utf8', timeout: 30000, stdio: ['ignore', 'pipe', 'pipe'] });
     return {
       available: true,
       head,

@@ -7,11 +7,6 @@ const http = require('node:http');
 const path = require('node:path');
 const { buildPlan, readManifest } = require('./generate-public-site.js');
 
-const repoRoot = path.resolve(__dirname, '..');
-const outputDir = path.join(repoRoot, 'tmp', 'public-site');
-const manifest = readManifest(path.join(__dirname, 'public-route-manifest.json'));
-const plan = buildPlan(manifest, { repoRoot, outputDir });
-
 function contentType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
   return {
@@ -81,10 +76,11 @@ function listen(server) {
 }
 
 function close(server) {
+  server.closeAllConnections?.();
   return new Promise(resolve => server.close(() => resolve()));
 }
 
-function registeredRequests() {
+function registeredRequests(plan) {
   const requests = new Map();
   for (const [key] of plan.publicPaths) {
     const separator = key.indexOf(':');
@@ -111,7 +107,7 @@ async function checkHeadRequests(baseUrls, requests) {
       const item = requests[cursor++];
       const url = new URL(item.publicPath, baseUrls[item.profile]).href;
       try {
-        const response = await fetch(url, { method: 'HEAD' });
+        const response = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(15000) });
         if (response.status !== 200) failures.push(`${item.label}: HTTP ${response.status} ${url}`);
       } catch (error) {
         failures.push(`${item.label}: ${error.message}`);
@@ -123,7 +119,7 @@ async function checkHeadRequests(baseUrls, requests) {
 }
 
 async function getText(base, publicPath) {
-  const response = await fetch(new URL(publicPath, base));
+  const response = await fetch(new URL(publicPath, base), { signal: AbortSignal.timeout(15000) });
   assert.equal(response.status, 200, `${publicPath}: HTTP ${response.status}`);
   return response.text();
 }
@@ -166,16 +162,21 @@ async function checkStaticReferences(baseUrls) {
   await checkHeadRequests(baseUrls, [...refs.values()]);
 }
 
-async function main() {
+async function run(options = {}) {
+  const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
+  const outputDir = path.resolve(options.sourceDir || path.join(repoRoot, 'tmp', 'public-site'));
+  const manifest = options.manifest || readManifest(path.join(repoRoot, 'tools', 'public-route-manifest.json'));
+  const plan = buildPlan(manifest, { repoRoot, outputDir });
   assert(fs.existsSync(outputDir), `生成物がありません: ${outputDir}`);
   const servers = [createStaticServer(outputDir), createStaticServer(outputDir)];
-  const ports = await Promise.all(servers.map(listen));
-  const baseUrls = {
-    new: `http://127.0.0.1:${ports[0]}/`,
-    legacy: `http://127.0.0.1:${ports[1]}/`
-  };
   try {
-    const requests = registeredRequests();
+    const ports = [];
+    for (const server of servers) ports.push(await listen(server));
+    const baseUrls = {
+      new: 'http://127.0.0.1:' + ports[0] + '/',
+      legacy: 'http://127.0.0.1:' + ports[1] + '/'
+    };
+    const requests = registeredRequests(plan);
     await checkHeadRequests(baseUrls, requests);
     await checkStaticReferences(baseUrls);
 
@@ -215,13 +216,17 @@ async function main() {
     ), /skipWaiting/);
     assert.match(serviceWorker, /EXCLUDED_PATH_PREFIXES/);
     assert.match(serviceWorker, /BASE_PATH === '\/' && url\.pathname\.startsWith\('\/trickcal-manager\/'\)/);
-    console.log(`public site HTTP checks passed: ${requests.length} registered paths/assets, 2 local origins, static references, route wiring, aliases, SW gates`);
+    return { requestCount: requests.length, origins: 2, staticReferences: true, routeWiring: true, aliases: true, serviceWorkerGates: true };
   } finally {
     await Promise.all(servers.map(close));
   }
 }
 
-main().catch(error => {
-  console.error(error.stack || error.message || error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  run().then(result => console.log('public site HTTP checks passed: ' + JSON.stringify(result))).catch(error => {
+    console.error(error.stack || error.message || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { run };

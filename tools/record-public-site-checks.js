@@ -226,14 +226,20 @@ function resolveOptions(options) {
 }
 
 function runCheck(name, callback) {
+  const started = performance.now();
   try {
-    return { ok: true, detail: callback() };
+    const detail = callback();
+    return { ok: true, detail, elapsedMs: Math.round(performance.now() - started) };
   } catch (error) {
-    return { ok: false, error: error.message || String(error) };
+    return { ok: false, error: error.message || String(error), elapsedMs: Math.round(performance.now() - started) };
   }
 }
 
-async function run(options) {
+async function run(options = {}) {
+  if (options.suite && !['manager', 'artifact'].includes(options.suite)) throw new Error('unknown check suite');
+  // Artifact-only mode is explicitly selected by minimal delivery fixtures.
+  // The CLI and publication command always use the complete Manager suite.
+  const managerSuite = options.suite !== 'artifact';
   const paths = resolveOptions(options);
   let manifest = null;
   let release = null;
@@ -266,10 +272,19 @@ async function run(options) {
       })
       : { ok: false, error: 'manifestがありません' },
     publicSiteTest: release && build && fs.existsSync(paths.sourceDir)
-      ? runCheck('publicSiteTest', () => checkGeneratedOutput(paths.sourceDir, release, build))
+      ? runCheck('publicSiteTest', () => {
+        const integrity = checkGeneratedOutput(paths.sourceDir, release, build);
+        const assertions = managerSuite
+          ? require('./test-public-site.js').run({ repoRoot: paths.repoRoot, sourceDir: paths.sourceDir, manifest })
+          : null;
+        return { ...integrity, assertions };
+      })
       : { ok: false, error: 'release/build/generated sourceがありません' },
     httpCheck: manifest && fs.existsSync(paths.sourceDir)
-      ? await checkHttp(manifest, paths.repoRoot, paths.sourceDir).then(detail => ({ ok: true, detail })).catch(error => ({ ok: false, error: error.message || String(error) }))
+      ? await (managerSuite
+          ? require('./test-public-site-http.js').run({ repoRoot: paths.repoRoot, sourceDir: paths.sourceDir, manifest })
+          : checkHttp(manifest, paths.repoRoot, paths.sourceDir))
+        .then(detail => ({ ok: true, detail })).catch(error => ({ ok: false, error: error.message || String(error) }))
       : { ok: false, error: 'manifestまたはgenerated sourceがありません' }
   };
   const binding = release ? {
@@ -281,6 +296,7 @@ async function run(options) {
   const record = {
     schemaVersion: 1,
     purpose: 'P5b generated public-site check evidence',
+    suite: managerSuite ? 'manager' : 'artifact',
     producedBy: 'tools/record-public-site-checks.js',
     releaseId: binding.releaseId,
     generationCheck: results.generationCheck.ok,
@@ -317,7 +333,7 @@ async function main(argv = process.argv.slice(2)) {
     console.log(usage());
     return 0;
   }
-  const result = await run(options);
+  const result = await run({ ...options, suite: 'manager' });
   console.log(JSON.stringify({
     ok: result.ok,
     outputPath: result.paths.outputPath,
