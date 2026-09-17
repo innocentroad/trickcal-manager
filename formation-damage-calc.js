@@ -10541,6 +10541,17 @@
         const guaranteedCrit = hasFdcGuaranteedCritEffect(skill, effect);
         const skillRewrite = isFdcSkillRewriteOption({
           sourceKey,
+          effectId: effect.effectId || '',
+          targetSkill: effect.targetSkill || '',
+          effectType: effect.effectType || '',
+          kind,
+          valueKind: kind,
+          triggerType: effect.triggerType || '',
+          conditionType: effect.conditionType || '',
+          conditionValue: effect.conditionValue ?? ''
+        }) || isSnorkyFavoriteEnhancedReplacementOption({
+          sourceKey,
+          effectId: effect.effectId || '',
           targetSkill: effect.targetSkill || '',
           effectType: effect.effectType || '',
           kind,
@@ -12198,6 +12209,17 @@
           .filter(effect => !selectedEffectIds.size || selectedEffectIds.has(effect?.effectId))
           .filter(effect => isFdcSkillRewriteOption({
             sourceKey: `favorite:${level}`,
+            effectId: effect?.effectId || '',
+            targetSkill: effect?.targetSkill || '',
+            effectType: effect?.effectType || '',
+            kind: effect?.valueKind || '',
+            valueKind: effect?.valueKind || '',
+            triggerType: effect?.triggerType || '',
+            conditionType: effect?.conditionType || '',
+            conditionValue: effect?.conditionValue ?? ''
+          }) || isSnorkyFavoriteEnhancedReplacementOption({
+            sourceKey: `favorite:${level}`,
+            effectId: effect?.effectId || '',
             targetSkill: effect?.targetSkill || '',
             effectType: effect?.effectType || '',
             kind: effect?.valueKind || '',
@@ -12240,6 +12262,17 @@
       normalizeFdcArray(skill?.effects).forEach(effect => {
         if (!isFdcSkillRewriteOption({
           sourceKey,
+          effectId: effect?.effectId || '',
+          targetSkill: effect?.targetSkill || '',
+          effectType: effect?.effectType || '',
+          kind: effect?.valueKind || '',
+          valueKind: effect?.valueKind || '',
+          triggerType: effect?.triggerType || '',
+          conditionType: effect?.conditionType || '',
+          conditionValue: effect?.conditionValue ?? ''
+        }) && !isSnorkyFavoriteEnhancedReplacementOption({
+          sourceKey,
+          effectId: effect?.effectId || '',
           targetSkill: effect?.targetSkill || '',
           effectType: effect?.effectType || '',
           kind: effect?.valueKind || '',
@@ -12378,6 +12411,7 @@
       }));
     const damageEffects = normalizeFdcArray(selectedSkillOptions)
       .filter(option => !isFdcSkillRewriteOption(option))
+      .filter(option => !isSnorkyFavoriteEnhancedReplacementOption(option))
       // skillmotionの発生タイミングへ直接ひも付いたダメージは、行動プロファイルを
       // 参照してその場で評価する。時系列追加効果へも移すと、元プロファイルから
       // 除外されてイベントだけが残り、期待ダメージ0になる。
@@ -14757,7 +14791,7 @@
 
   function isFdcSupplementalDamageOption(option = {}) {
     if (!/^aside:|^favorite:/.test(String(option.sourceKey || ''))) return false;
-    if (isFdcSkillRewriteOption(option)) return false;
+    if (isFdcSkillRewriteOption(option) || isSnorkyFavoriteEnhancedReplacementOption(option)) return false;
     if (!/攻撃/.test(String(option.effectType || ''))) return false;
     if (!/ダメージ/.test(String(option.kind || option.valueKind || ''))) return false;
     return /追加/.test(String(option.kind || option.valueKind || ''))
@@ -14785,6 +14819,19 @@
     if (/状態の敵が存在$/.test(String(option.triggerType || ''))) return true;
     // 発動条件・周期・確率があるものは、書き換えではなく追加攻撃として扱う。
     return !option.triggerType && !option.conditionType && !option.conditionValue;
+  }
+
+  // スノキー愛用Lv1のe01は「n回ごと」タグを持つが、これは愛用で
+  // 強化攻撃本体を置き換えた後、その有効行動へ連鎖を接続するための
+  // 発動条件である。追加攻撃としてruntimeへ逃がすと、基礎350%が残り、
+  // 愛用timing branchも選択されないため、この実データ行だけを置換宣言
+  // として扱う。e02以降（気絶等）はこの判定に含めず状態処理へ残す。
+  function isSnorkyFavoriteEnhancedReplacementOption(option = {}) {
+    return /^favorite:1(?:$|:)/.test(String(option.sourceKey || ''))
+      && String(option.effectId || '') === 'Snorky_favorite_1_e01'
+      && String(option.targetSkill || '') === '普通攻撃_強化'
+      && String(option.effectType || '') === '攻撃'
+      && /物理ダメージ/.test(String(option.kind || option.valueKind || ''));
   }
 
   function isFdcExclusiveProbabilityRewriteEffect(effect = {}, siblingEffects = []) {

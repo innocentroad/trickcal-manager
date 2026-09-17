@@ -4724,7 +4724,10 @@ const APOSTLE_LIBRARY = [
               "9": 955.35,
               "10": 1009.8,
               "11": 1064.25,
-              "12": 1118.7
+              "12": 1118.7,
+              "13": 1173.15,
+              "14": 1227.6,
+              "15": 1282.05
             }
           },
           {
@@ -4761,7 +4764,10 @@ const APOSTLE_LIBRARY = [
               "9": 900.0,
               "10": 950.0,
               "11": 1000.0,
-              "12": 1050.0
+              "12": 1050.0,
+              "13": 1100.0,
+              "14": 1150.0,
+              "15": 1200.0
             }
           }
         ],
@@ -4791,7 +4797,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 21.0,
               "11": 22.0,
-              "12": 23.0
+              "12": 23.0,
+              "13": 24.0,
+              "14": 25.0,
+              "15": 26.0
             }
           },
           {
@@ -4814,7 +4823,10 @@ const APOSTLE_LIBRARY = [
               "9": 20.0,
               "10": 21.0,
               "11": 22.0,
-              "12": 23.0
+              "12": 23.0,
+              "13": 24.0,
+              "14": 25.0,
+              "15": 26.0
             }
           }
         ],
@@ -4935,7 +4947,152 @@ const APOSTLE_LIBRARY = [
       }
     },
     "aside": {
-      "levels": {}
+      "name": "無限ケーキ",
+      "levels": {
+        "1": {
+          "name": "甘いもの最高！",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Erpin_aside_1",
+              "effectId": "Erpin_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Erpin_aside_1",
+              "effectId": "Erpin_aside_1_e02",
+              "valueKind": "魔法攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Erpin_aside_1",
+              "effectId": "Erpin_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Erpin_aside_1",
+              "effectId": "Erpin_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "パクパク発射！！",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Erpin_aside_2",
+              "effectId": "Erpin_aside_2_e01",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 25.0
+            },
+            {
+              "skillId": "Erpin_aside_2",
+              "effectId": "Erpin_aside_2_e02",
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "triggerType": "強化攻撃後",
+              "triggerSourceId": "強化攻撃",
+              "condition": "強化攻撃後",
+              "effectTarget": "自身",
+              "targetSkill": "普通攻撃_強化",
+              "reference": "最大HP",
+              "fixedValue": 25.0
+            },
+            {
+              "skillId": "Erpin_aside_2",
+              "effectId": "Erpin_aside_2_e03",
+              "processGroupId": "Erpin_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "無敵",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "高学年スキル使用後",
+              "triggerSourceId": "高学年スキル",
+              "condition": "高学年スキル使用後～スキル終了時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル"
+            },
+            {
+              "skillId": "Erpin_aside_2",
+              "effectId": "Erpin_aside_2_e04",
+              "valueKind": "高学年スキルダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
+              "triggerType": "高学年スキル命中時",
+              "triggerSourceId": "高学年スキル",
+              "conditionType": "命中対象数",
+              "conditionValue": 1.0,
+              "condition": "単体の敵に命中した場合",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 50.0
+            }
+          ],
+          "description": "攻撃速度が増加する。\n強化攻撃後、自身のHPを回復する。\n高学年スキル使用後、無敵になり、スキル終了時に無敵を解除する。高学年スキルが単体の敵に命中した場合、ダメージが増加する。"
+        },
+        "3": {
+          "name": "純粋なケーキ攻撃！！！",
+          "stats": [
+            {
+              "skillId": "Erpin_aside_3_global",
+              "effectId": "Erpin_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Erpin_aside_3_global",
+              "effectId": "Erpin_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "魔法防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Erpin_aside_3_battle",
+              "effectId": "Erpin_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/後列",
+              "fixedValue": 13.6
+            },
+            {
+              "skillId": "Erpin_aside_3_battle",
+              "effectId": "Erpin_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/後列",
+              "fixedValue": 5.9
+            }
+          ],
+          "description": "後列の味方の敵への与ダメージ量を増加させ、後列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -7400,7 +7557,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillId": "Chloe_low",
         "skillType": "低学年",
-        "skillName": "メリごラウンド！",
+        "skillName": "メリーゴーランド！",
         "description": "セバスチャンにまたがって一定時間ぬいぐるみの意志を発動し、自身にシールドを生成する。基本攻撃を行うごとに一定時間自身の普通攻撃のダメージ量が増加する。"
       },
       {
@@ -7447,7 +7604,7 @@ const APOSTLE_LIBRARY = [
         ],
         "skillId": "Chloe_high",
         "skillType": "高学年",
-        "skillName": "プリチーセバスチャン",
+        "skillName": "プチセバスチャン",
         "description": "プリチーセバスチャンを7体召喚する。プリチーセバスチャンは敵にぶつかると爆発して範囲魔法ダメージを与え、ノックバックさせる。",
         "cooldownSeconds": 50.0
       },
@@ -8992,7 +9149,10 @@ const APOSTLE_LIBRARY = [
               "9": 400.0,
               "10": 425.0,
               "11": 450.0,
-              "12": 475.0
+              "12": 475.0,
+              "13": 500.0,
+              "14": 525.0,
+              "15": 550.0
             }
           },
           {
@@ -9043,7 +9203,10 @@ const APOSTLE_LIBRARY = [
               "9": 1080.0,
               "10": 1140.0,
               "11": 1200.0,
-              "12": 1260.0
+              "12": 1260.0,
+              "13": 1320.0,
+              "14": 1380.0,
+              "15": 1440.0
             }
           },
           {
@@ -9105,7 +9268,10 @@ const APOSTLE_LIBRARY = [
               "9": 27.0,
               "10": 28.0,
               "11": 29.0,
-              "12": 30.0
+              "12": 30.0,
+              "13": 31.0,
+              "14": 32.0,
+              "15": 33.0
             }
           }
         ],
@@ -9190,7 +9356,157 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "完璧",
+      "levels": {
+        "1": {
+          "name": "完璧な翡翠",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Jade_aside_1",
+              "effectId": "Jade_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Jade_aside_1",
+              "effectId": "Jade_aside_1_e02",
+              "valueKind": "魔法攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Jade_aside_1",
+              "effectId": "Jade_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Jade_aside_1",
+              "effectId": "Jade_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "着用者の最大HP、魔法攻撃力、会心、会心ダメージが増加する。"
+        },
+        "2": {
+          "name": "私のお金を持ってけ",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Jade_aside_2",
+              "effectId": "Jade_aside_2_e01",
+              "valueKind": "強化攻撃発動確率増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "targetSkill": "普通攻撃_強化",
+              "fixedValue": 9.0
+            },
+            {
+              "skillId": "Jade_aside_2",
+              "effectId": "Jade_aside_2_e02",
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectStack": true,
+              "maxStack": 3.0,
+              "conditionType": "状態スタック",
+              "conditionValue": "翡翠玉",
+              "condition": "翡翠玉1スタックごと",
+              "effectTarget": "自身",
+              "targetSkill": "スキル",
+              "fixedValue": 9.0
+            },
+            {
+              "skillId": "Jade_aside_2",
+              "effectId": "Jade_aside_2_e03",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectStack": true,
+              "maxStack": 3.0,
+              "conditionType": "状態スタック",
+              "conditionValue": "翡翠玉",
+              "condition": "翡翠玉1スタックごと",
+              "effectTarget": "自身",
+              "fixedValue": 5.0
+            },
+            {
+              "skillId": "Jade_aside_2",
+              "effectId": "Jade_aside_2_e04",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectStack": true,
+              "maxStack": 3.0,
+              "conditionType": "状態スタック",
+              "conditionValue": "翡翠玉",
+              "condition": "翡翠玉1スタックごと",
+              "effectTarget": "自身",
+              "fixedValue": 5.0
+            },
+            {
+              "skillId": "Jade_aside_2",
+              "effectId": "Jade_aside_2_e05",
+              "valueKind": "範囲魔法ダメージ",
+              "valueClass": "倍率",
+              "effectType": "攻撃",
+              "triggerType": "翡翠玉3スタック獲得時",
+              "triggerSourceId": "翡翠玉",
+              "conditionType": "状態スタック",
+              "conditionValue": 3.0,
+              "condition": "翡翠玉3スタック時、指定範囲内で真ん中にいる敵に範囲魔法ダメージ",
+              "effectTarget": "指定範囲内で真ん中にいる敵/範囲",
+              "fixedValue": 250.0
+            }
+          ],
+          "description": "強化攻撃の発動確率が増加する。\n翡翠玉にスキルダメージ量増加、攻撃速度増加、被ダメージ量減少の効果が追加される。\n翡翠玉を獲得時に所持している翡翠玉が3スタックの場合、魔法書の形象を召喚し、指定範囲内で真ん中にいる敵に範囲魔法ダメージを与える。"
+        },
+        "3": {
+          "name": "心の糧",
+          "stats": [
+            {
+              "skillId": "Jade_aside_3_global",
+              "effectId": "Jade_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "魔法攻撃力",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Jade_aside_3_global",
+              "effectId": "Jade_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "魔法防御力",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Jade_aside_3_battle",
+              "effectId": "Jade_aside_3_battle_e01",
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全員",
+              "fixedValue": 7.0
+            }
+          ],
+          "description": "味方全員の攻撃速度を増加させる。"
+        }
+      }
     },
     "board": null
   },
@@ -12074,10 +12390,31 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Snorky_enhanced_e02",
-            "valueKind": "連続発動",
-            "valueClass": "条件",
+            "processGroupId": "Snorky_enhanced_repeat01",
+            "processOrder": 1.0,
+            "valueKind": "連続発動確率",
+            "valueClass": "倍率",
             "effectType": "攻撃",
-            "effectTarget": "自身"
+            "triggerType": "強化攻撃終了時",
+            "triggerSourceId": "強化攻撃",
+            "condition": "推定値。連続攻撃の開始ごとに初期化する再発動確率。愛用による強化攻撃置換後も共通。",
+            "effectTarget": "自身",
+            "targetSkill": "普通攻撃_強化",
+            "fixedValue": 70.0
+          },
+          {
+            "effectId": "Snorky_enhanced_e03",
+            "processGroupId": "Snorky_enhanced_repeat01",
+            "processOrder": 2.0,
+            "valueKind": "連続発動確率減少",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "triggerType": "強化攻撃終了時",
+            "triggerSourceId": "強化攻撃",
+            "condition": "推定値。再発動成功ごとに次回確率から引く百分率ポイント。下限0%、失敗時終了。",
+            "effectTarget": "自身",
+            "targetSkill": "普通攻撃_強化",
+            "fixedValue": 20.0
           }
         ],
         "skillId": "Snorky_enhanced",
@@ -15475,7 +15812,7 @@ const APOSTLE_LIBRARY = [
           "description": "戦闘時ステータス増加"
         },
         "2": {
-          "name": "司祭長の無敵権",
+          "name": "司祭長の無敵チケット",
           "stats": [],
           "effects": [
             {

@@ -638,6 +638,79 @@
     return Number.isFinite(number) ? number : null;
   }
 
+  const SNORKY_REPEAT_EFFECT_IDS = Object.freeze({
+    initialProbability: 'Snorky_enhanced_e02',
+    decrementPoints: 'Snorky_enhanced_e03'
+  });
+
+  function resolveSnorkyRepeatPolicy(apostle, effectiveSkill, baseSkill, skillLevel = 1, warnings = []) {
+    if (String(apostle?.id || '').trim().toLowerCase() !== 'snorky') return null;
+    // 愛用品が強化攻撃を置き換えても、連続発動の根拠は基礎スキルから
+    // 一度だけ引き継ぐ。説明文ではなく構造化effectIdと数値だけを読む。
+    const effectSources = effectiveSkill === baseSkill
+      ? [effectiveSkill]
+      : [effectiveSkill, baseSkill];
+    const invalid = reason => {
+      warnings.push(`スノキー強化攻撃の連続発動を無効化しました: ${reason}`);
+      return null;
+    };
+    const byId = new Map();
+    effectSources.flatMap(skill => normalizeArray(skill?.effects))
+      .forEach(effect => {
+        const effectId = String(effect?.effectId || '').trim();
+        if (effectId && !byId.has(effectId)) byId.set(effectId, effect);
+      });
+    for (const effectId of Object.values(SNORKY_REPEAT_EFFECT_IDS)) {
+      const matches = effectSources.flatMap(skill => normalizeArray(skill?.effects))
+        .filter(effect => String(effect?.effectId || '').trim() === effectId);
+      if (matches.length > 1) return invalid(`効果ID ${effectId} が重複しています`);
+    }
+    const initial = byId.get(SNORKY_REPEAT_EFFECT_IDS.initialProbability);
+    const decrement = byId.get(SNORKY_REPEAT_EFFECT_IDS.decrementPoints);
+    if (!initial && !decrement) return null;
+    if (!initial || !decrement) return invalid('確率と減少値の2行セットが揃っていません');
+    const rows = [initial, decrement];
+    if (rows.some(effect => String(effect?.valueClass || '').trim() !== '倍率')) {
+      return invalid('値分類が倍率ではありません');
+    }
+    if (String(initial.valueKind || '').trim() !== '連続発動確率'
+      || String(decrement.valueKind || '').trim() !== '連続発動確率減少') {
+      return invalid('専用の値種類が一致しません');
+    }
+    if (rows.some(effect => String(effect?.effectType || '').trim() !== '攻撃'
+      || String(effect?.effectTarget || '').trim() !== '自身'
+      || String(effect?.triggerType || '').trim() !== '強化攻撃終了時'
+      || String(effect?.triggerSourceId || '').trim() !== '強化攻撃'
+      || String(effect?.targetSkill || '').trim() !== '普通攻撃_強化'
+      || effect?.effectStack === true)) {
+      return invalid('発動条件・対象・対象スキルが設計契約と一致しません');
+    }
+    const groupId = String(initial.processGroupId || '').trim();
+    if (!groupId || groupId !== String(decrement.processGroupId || '').trim()
+      || Number(initial.processOrder) !== 1 || Number(decrement.processOrder) !== 2) {
+      return invalid('処理グループまたは処理順が不正です');
+    }
+    const initialProbabilityP = resolveEffectValue(initial, skillLevel);
+    const decrementPoints = resolveEffectValue(decrement, skillLevel);
+    if (!Number.isFinite(initialProbabilityP) || initialProbabilityP < 0 || initialProbabilityP > 100) {
+      return invalid('初回確率が0〜100の有限値ではありません');
+    }
+    if (!Number.isFinite(decrementPoints) || decrementPoints <= 0) {
+      return invalid('減少ポイントが正の有限値ではありません');
+    }
+    const maxActions = 1 + Math.ceil(initialProbabilityP / decrementPoints);
+    if (!Number.isFinite(maxActions) || maxActions > 100) {
+      return invalid('連続回数の安全上限100回を超えます');
+    }
+    return {
+      initialProbabilityP,
+      decrementPoints,
+      sourceEffectIds: [initial.effectId, decrement.effectId],
+      estimated: true,
+      maxActions
+    };
+  }
+
   function getActionSkillLevel(skillLevels, actionKey) {
     if (actionKey === 'lowSkill') return Math.max(1, Math.floor(toFiniteNumber(skillLevels?.low, 1)));
     if (actionKey === 'highSkill') return Math.max(1, Math.floor(toFiniteNumber(skillLevels?.high, 1)));
@@ -1412,6 +1485,9 @@
     );
     const runtimeResources = normalizeArray(buildOptions.runtimeResources);
     const skillLevel = getActionSkillLevel(buildOptions.skillLevels, actionKey);
+    const repeatPolicy = actionKey === 'enhancedAttack'
+      ? resolveSnorkyRepeatPolicy(apostle, skill, baseSkill, skillLevel, warnings)
+      : null;
     const generatedEvents = buildGeneratedEvents(
       apostle,
       skill,
@@ -1421,16 +1497,25 @@
       skillLevel
     );
     const hasGeneratedDamage = generatedEvents.some(event => event.type === 'damage');
-    const motionBranches = motionVariants.map(item => item.branch || '').filter(Boolean);
+    const favoriteBranchName = String(apostle?.favoriteCard?.name || '').trim();
+    const favoriteOverrideActive = !!buildOptions.skillOverrides?.[actionKey];
+    const isInactiveFavoriteBranch = branch => (
+      !favoriteOverrideActive
+      && favoriteBranchName
+      && String(branch || '').trim() === favoriteBranchName
+    );
+    const motionBranches = motionVariants
+      .map(item => item.branch || '')
+      .filter(branch => branch && !isInactiveFavoriteBranch(branch));
     const timingBranches = normalizeArray(actionTiming.timingEvents)
       .map(row => row.branch || '')
-      .filter(branch => branch && branch !== '共通');
+      .filter(branch => branch && branch !== '共通' && !isInactiveFavoriteBranch(branch));
     const timingPatternBranches = normalizeArray(actionTiming.timingPatterns)
       .map(pattern => pattern.branch || '')
-      .filter(branch => branch && branch !== '共通');
+      .filter(branch => branch && branch !== '共通' && !isInactiveFavoriteBranch(branch));
     const generatedBranches = generatedEvents
       .map(event => event.branch || '')
-      .filter(branch => branch && branch !== '共通');
+      .filter(branch => branch && branch !== '共通' && !isInactiveFavoriteBranch(branch));
     const branchSource = motionBranches.length
       ? motionBranches
       : (timingBranches.length ? timingBranches : (timingPatternBranches.length ? timingPatternBranches : generatedBranches));
@@ -1667,6 +1752,7 @@
       blockedBySelfStateIds,
       triggerProbability: /^一定確率/.test(triggerType) ? Math.min(100, triggerValue) : 0,
       triggerEveryCount: triggerType === 'n回ごと' ? Math.max(1, Math.floor(triggerValue || 1)) : 0,
+      repeatPolicy,
       transitionFrames: actionKey === 'lowSkill' || actionKey === 'highSkill' ? 2 : 0,
       requiredSp: actionKey === 'lowSkill' ? Math.max(1, toFiniteNumber(skill.requiredSp, 300)) : 0,
       cooldownSeconds: actionKey === 'highSkill' ? Math.max(0, toFiniteNumber(skill.cooldownSeconds)) : 0
@@ -2588,6 +2674,7 @@
       runtimePeriodicEventQueueSequence: 0,
       generatedAttackSpeedSnapshots: new Set(),
       actionSerial: 0,
+      enhancedRepeatChain: null,
       normalAttackSequence: 0,
       lastCompletedAction: null,
       lastNormalAttackStartTick: null,
@@ -5087,13 +5174,39 @@
       state.pendingGeneratedEvents = state.pendingGeneratedEvents.filter(pending => !pending.emitted && !pending.cancelled);
     };
 
-    const startAction = (actionKey, selectedVariant = '') => {
+    const startAction = (actionKey, selectedVariant = '', startOptions = {}) => {
       const action = config.actions[actionKey];
       if (!action) return false;
       if (actionKey === 'lowSkill' || actionKey === 'highSkill') pauseBaseSpRecovery();
       if (actionKey === 'lowSkill') resetRuntimeEffectsForAction(actionKey);
       const normalAttack = actionKey === 'basicAttack' || actionKey === 'enhancedAttack';
-      if (normalAttack) {
+      const isEnhancedRepeat = actionKey === 'enhancedAttack' && startOptions.repeat === true;
+      let repeatIndex = 0;
+      let repeatProbabilityP = null;
+      if (actionKey === 'enhancedAttack') {
+        if (isEnhancedRepeat) {
+          if (!state.enhancedRepeatChain || !state.enhancedRepeatChain.pending) return false;
+          repeatIndex = state.enhancedRepeatChain.actionCount + 1;
+          repeatProbabilityP = state.enhancedRepeatChain.actionProbabilityP;
+        } else if (action.repeatPolicy) {
+          state.enhancedRepeatChain = {
+            actionCount: 1,
+            actionProbabilityP: action.repeatPolicy.initialProbabilityP,
+            maxActions: action.repeatPolicy.maxActions,
+            decrementPoints: action.repeatPolicy.decrementPoints,
+            estimated: action.repeatPolicy.estimated === true,
+            sourceEffectIds: normalizeArray(action.repeatPolicy.sourceEffectIds).slice(),
+            variant: '',
+            pending: false,
+            pendingRepeatIndex: null
+          };
+          repeatIndex = 1;
+          repeatProbabilityP = state.enhancedRepeatChain.actionProbabilityP;
+        } else {
+          state.enhancedRepeatChain = null;
+        }
+      }
+      if (normalAttack && !isEnhancedRepeat) {
         state.normalAttackSequence += 1;
         triggerAttackSpeedEffectsForNormalAttackCount();
       }
@@ -5120,6 +5233,8 @@
         progressLastTick: state.tick,
         motionFrames,
         endTick: state.tick + Math.max(1, toTicks(motionFrames, ticksPerFrame)),
+        repeatIndex,
+        repeatProbabilityP,
         events: sourceEvents.map(event => ({
           ...event,
           relativeFrames: event.frame * motionScale,
@@ -5127,6 +5242,18 @@
           emitted: false
         }))
       };
+      if (actionKey === 'enhancedAttack') {
+        const chain = state.enhancedRepeatChain;
+        if (isEnhancedRepeat && chain) {
+          // 連鎖回数は予約時ではなく、実際にこのactionを開始した時だけ進める。
+          chain.actionCount = repeatIndex;
+          chain.pending = false;
+          chain.pendingRepeatIndex = null;
+          chain.variant = state.currentAction.variant;
+        } else if (chain) {
+          chain.variant = state.currentAction.variant;
+        }
+      }
       triggerDamageBuffEffectsForAction(state.currentAction, 'start');
       const generatedSourceEvents = normalizeArray(action.generatedEvents).filter(event => (
         !event.branch || event.branch === '共通' || event.branch === state.currentAction.variant
@@ -5183,7 +5310,10 @@
         attackSpeedP: getRuntimeAttackSpeedP(),
         normalAttackIntervalFrames: getEffectiveNormalAttackIntervalFrames(),
         motionScale,
-        motionFrames
+        motionFrames,
+        repeatIndex,
+        repeatProbabilityP,
+        repeatEstimated: state.enhancedRepeatChain?.estimated === true
       });
       triggerSpRecoveryEffectsForAction(state.currentAction, 'start');
       triggerRuntimeEventEffectsForAction(state.currentAction);
@@ -5192,15 +5322,16 @@
       return true;
     };
 
-    const beginSkillTransition = (actionKey, selectedVariant = '') => {
+    const beginSkillTransition = (actionKey, selectedVariant = '', startOptions = {}) => {
       const action = config.actions[actionKey];
       if (!action) return false;
       if (actionKey === 'lowSkill' || actionKey === 'highSkill') pauseBaseSpRecovery();
       const transitionFrames = Math.max(0, toFiniteNumber(action.transitionFrames, 2));
-      if (transitionFrames <= 0) return startAction(actionKey, selectedVariant);
+      if (transitionFrames <= 0) return startAction(actionKey, selectedVariant, startOptions);
       state.skillTransition = {
         actionKey,
         variant: selectedVariant,
+        startOptions: { ...startOptions },
         readyTick: state.tick + toTicks(transitionFrames, ticksPerFrame)
       };
       log('skillTransition', {
@@ -5230,23 +5361,106 @@
         ))[0] || null;
     };
 
-    const beginPreparedAction = (actionKey, selectedVariant = '') => (
+    const beginPreparedAction = (actionKey, selectedVariant = '', startOptions = {}) => (
       actionKey === 'lowSkill' || actionKey === 'highSkill'
-        ? beginSkillTransition(actionKey, selectedVariant)
-        : startAction(actionKey, selectedVariant)
+        ? beginSkillTransition(actionKey, selectedVariant, startOptions)
+        : startAction(actionKey, selectedVariant, startOptions)
     );
 
-    const beginActionPreparation = actionKey => {
+    const continueEnhancedRepeat = finished => {
+      const chain = state.enhancedRepeatChain;
+      if (!chain || finished?.key !== 'enhancedAttack') return false;
+      // 同じ終了境界からの二重呼び出しで再抽選しない。
+      if (chain.pending) return false;
+      const baseDetail = {
+        actionKey: 'enhancedAttack',
+        actionLabel: config.actions.enhancedAttack?.label || '強化攻撃',
+        chainIndex: chain.actionCount,
+        probability: chain.actionProbabilityP,
+        decrementPoints: chain.decrementPoints,
+        estimated: chain.estimated,
+        maxActions: chain.maxActions
+      };
+      if (state.tick >= durationTicks) {
+        state.enhancedRepeatChain = null;
+        log('enhancedRepeatProbability', {
+          ...baseDetail,
+          success: false,
+          nextProbability: 0,
+          reason: '計測時間終了'
+        });
+        return false;
+      }
+      if (chain.actionCount >= chain.maxActions) {
+        state.enhancedRepeatChain = null;
+        log('enhancedRepeatProbability', {
+          ...baseDetail,
+          success: false,
+          nextProbability: 0,
+          reason: `連続${chain.maxActions}回上限`
+        });
+        return false;
+      }
+      const probability = Math.max(0, Math.min(100, toFiniteNumber(chain.actionProbabilityP)));
+      if (!(probability > 0)) {
+        state.enhancedRepeatChain = null;
+        log('enhancedRepeatProbability', {
+          ...baseDetail,
+          probability,
+          success: false,
+          nextProbability: 0,
+          reason: '再発動確率0%（乱数消費なし）'
+        });
+        return false;
+      }
+      const roll = random() * 100;
+      const success = roll < probability;
+      const nextProbability = Math.max(0, probability - chain.decrementPoints);
+      if (!success) {
+        state.enhancedRepeatChain = null;
+        log('enhancedRepeatProbability', {
+          ...baseDetail,
+          probability,
+          roll,
+          success: false,
+          nextProbability,
+          reason: '連続終了'
+        });
+        return false;
+      }
+      // ここでは次回を予約するだけ。低学年の優先判定と実開始は
+      // tryStartActionの同じ境界へ委ね、予約中のdamage/countを発生させない。
+      chain.actionProbabilityP = nextProbability;
+      chain.pending = true;
+      chain.pendingRepeatIndex = chain.actionCount + 1;
+      chain.variant = finished.variant || '';
+      const lowSkillReady = state.lowSkillQueued
+        && Number(state.lowSkillReadyTick) <= state.tick;
+      log('enhancedRepeatProbability', {
+        ...baseDetail,
+        success: true,
+        probability,
+        roll,
+        nextProbability,
+        reason: lowSkillReady ? '低学年を優先して保留' : '次の強化攻撃へ直結'
+      });
+      return true;
+    };
+
+    const beginActionPreparation = (actionKey, requestedVariant = null, startOptions = {}) => {
       const action = config.actions[actionKey];
       if (!action) return false;
-      const selectedVariant = pickVariant(action, state, random);
+      const selectedVariant = requestedVariant == null
+        ? pickVariant(action, state, random)
+        : requestedVariant;
       const movement = findMovementTransition(actionKey, selectedVariant);
-      if (!movement) return beginPreparedAction(actionKey, selectedVariant);
+      if (!movement) return beginPreparedAction(actionKey, selectedVariant, startOptions);
       state.movementTransition = {
         ...movement,
         actionKey,
         actionLabel: action.label,
         variant: selectedVariant,
+        startOptions: { ...startOptions },
         startTick: state.tick,
         endTick: state.tick + toTicks(movement.frames, ticksPerFrame)
       };
@@ -5289,6 +5503,19 @@
     const tryStartAction = () => {
       if (state.currentAction || state.movementTransition || state.skillTransition) return;
       if (state.tick < state.actionStartAllowedTick) return;
+      const pendingRepeat = state.enhancedRepeatChain?.pending === true
+        ? state.enhancedRepeatChain
+        : null;
+      if (pendingRepeat) {
+        const lowSkillReady = state.lowSkillQueued
+          && Number(state.lowSkillReadyTick) <= state.tick;
+        if (lowSkillReady && beginActionPreparation('lowSkill')) return;
+        const repeatVariant = pendingRepeat.variant || 'default';
+        if (beginActionPreparation('enhancedAttack', repeatVariant, { repeat: true })) return;
+        // actionが存在しない等で再開できない場合だけ、予約を明示破棄する。
+        state.enhancedRepeatChain = null;
+        return;
+      }
       if (state.lowSkillQueued && state.lowSkillReadyTick < state.tick && beginActionPreparation('lowSkill')) return;
       if (state.lowSkillQueued && state.lowSkillReadyTick === state.tick) {
         if (tryStartNormalAttack()) return;
@@ -5469,6 +5696,9 @@
         if (finished.key === 'lowSkill' || finished.key === 'highSkill') {
           resumeBaseSpRecovery();
         }
+        // 通常の次回攻撃判定より先に、強化攻撃の終了時だけ連続発動を
+        // 抽選する。成功時は移動・待機なしで次の独立actionを開始する。
+        continueEnhancedRepeat(finished);
       }
       if (state.movementTransition && state.movementTransition.endTick === state.tick) {
         const movement = state.movementTransition;
@@ -5481,13 +5711,14 @@
           toVariant: movement.variant === 'default' ? '' : movement.variant,
           movementFrames: movement.frames
         });
-        beginPreparedAction(movement.actionKey, movement.variant);
+        beginPreparedAction(movement.actionKey, movement.variant, movement.startOptions || {});
       }
       if (state.skillTransition && state.skillTransition.readyTick === state.tick) {
         const actionKey = state.skillTransition.actionKey;
         const selectedVariant = state.skillTransition.variant;
+        const startOptions = state.skillTransition.startOptions || {};
         state.skillTransition = null;
-        startAction(actionKey, selectedVariant);
+        startAction(actionKey, selectedVariant, startOptions);
       }
       tryStartAction();
     }
@@ -5631,6 +5862,16 @@
         movementTransition: state.movementTransition ? { ...state.movementTransition } : null,
         skillTransition: state.skillTransition ? { ...state.skillTransition } : null,
         lastCompletedAction: state.lastCompletedAction ? { ...state.lastCompletedAction } : null,
+        enhancedRepeatChain: state.enhancedRepeatChain ? {
+          actionCount: state.enhancedRepeatChain.actionCount,
+          actionProbabilityP: state.enhancedRepeatChain.actionProbabilityP,
+          maxActions: state.enhancedRepeatChain.maxActions,
+          decrementPoints: state.enhancedRepeatChain.decrementPoints,
+          estimated: state.enhancedRepeatChain.estimated,
+          variant: state.enhancedRepeatChain.variant || '',
+          pending: state.enhancedRepeatChain.pending === true,
+          pendingRepeatIndex: state.enhancedRepeatChain.pendingRepeatIndex ?? null
+        } : null,
         cooldowns: Object.fromEntries(Object.entries(state.cooldowns).map(([actionKey, cooldown]) => [
           actionKey,
           {
@@ -5860,6 +6101,7 @@
     const actions = Object.values(config.actions || {});
     if (actions.some(action => (
       Number(action?.triggerProbability) > 0
+      || Number(action?.repeatPolicy?.initialProbabilityP) > 0
       || (['random', 'weighted'].includes(action?.variantSelection?.type)
         && normalizeArray(action.variantNames).length > 1)
     ))) return true;

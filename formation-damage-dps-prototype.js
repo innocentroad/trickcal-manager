@@ -2437,6 +2437,10 @@
         return `${branchLabel ? `${branchLabel}: ` : ''}${formatDpsFrameValue(frames)}`;
       });
       rows.push([`${action.label || defaultLabel}のモーション硬直`, values.join(' / ')]);
+      if (action.repeatPolicy) {
+        const policy = action.repeatPolicy;
+        rows.push([`${action.label || defaultLabel}の連続発動`, `推定 / 初回再発動確率 ${formatNumber(policy.initialProbabilityP)}% / 成功ごとに${formatNumber(policy.decrementPoints)}ポイント減少 / 最大${formatNumber(policy.maxActions)}回`]);
+      }
     });
     return rows;
   }
@@ -2931,6 +2935,7 @@
   }
   function formatDpsTimelineEvent(event = {}) {
     const action = event.actionLabel || '';
+    const repeatLabel = Number(event.repeatIndex) > 1 ? `（連続${formatNumber(event.repeatIndex)}回目）` : '';
     const variantLabel = formatDpsVariantLabel(event.variant, event.variantLabel);
     const variant = variantLabel ? ` / ${variantLabel}` : '';
     const generated = event.generatedObjectId ? ` / ${event.generatedObjectName || '生成物'}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}` : '';
@@ -2950,9 +2955,10 @@
       skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
       movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
       movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
-      actionStart: `${action}${variant} 開始`,
-      actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      actionStart: `${action}${repeatLabel}${variant} 開始`,
+      actionEnd: `${action}${repeatLabel}${variant} 終了`,
+      hit: `${action}${repeatLabel}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      enhancedRepeatProbability: `強化攻撃連続発動（推定） / 再発動確率 ${formatNumber(event.probability)}% / ${event.success ? `成功・次回${formatNumber(event.nextProbability)}%` : '終了'} / 減少${formatNumber(event.decrementPoints)}ポイント${event.reason ? ` / ${event.reason}` : ''}`,
       effect: `${action}${variant} 効果発生${effectLabel ? ` / ${effectLabel}` : ''}`,
       spRecovery: event.capped ? `SP回復周期 / 上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
       spRecoveryEvent: `${event.label || 'SP回復'} / ${event.reason || '効果発生'} / ${event.capped ? `上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`}`,
