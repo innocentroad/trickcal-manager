@@ -795,7 +795,7 @@ const APOSTLE_LIBRARY = [
           "description": "戦闘時ステータス増加"
         },
         "2": {
-          "name": "雪の花の翼",
+          "name": "雪の花が舞い散り",
           "stats": [],
           "effects": [
             {
@@ -936,7 +936,7 @@ const APOSTLE_LIBRARY = [
           "description": "4秒ごとに雪の花満開の効果がチャージされる。チャージ完了時、次の普通攻撃に追加で範囲魔法ダメージを与え、気絶を付与する。\n低学年スキルの蝶が敵に衝突すると凍傷を付与する。蝶が戻ってくると、自身のHPを回復する。"
         },
         "3": {
-          "name": "万年雪の賢者！",
+          "name": "万年雪の賢者様！",
           "stats": [
             {
               "skillId": "Aya_aside_3_global",
