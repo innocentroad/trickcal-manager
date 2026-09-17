@@ -26,7 +26,7 @@ const DPS_TIMING_DATA = {
   },
   "summary": {
     "apostles": 76,
-    "usableApostles": 26,
+    "usableApostles": 27,
     "generatedObjects": 7,
     "endConditions": 9,
     "movementTransitions": 4,
@@ -34,20 +34,20 @@ const DPS_TIMING_DATA = {
     "implementationStatuses": {
       "normal": {
         "暫定": 15,
-        "未": 48,
-        "済": 12,
+        "未": 47,
+        "済": 13,
         "途中": 0
       },
       "aside": {
         "暫定": 8,
-        "未": 60,
-        "済": 7,
+        "未": 59,
+        "済": 8,
         "途中": 0
       },
       "favorite": {
         "暫定": 5,
-        "未": 65,
-        "済": 5,
+        "未": 64,
+        "済": 6,
         "途中": 0
       }
     }
@@ -10254,6 +10254,332 @@ const DPS_TIMING_DATA = {
       },
       "implementationNote": ""
     },
+    "snorky": {
+      "id": "snorky",
+      "sourceId": "Snorky",
+      "name": "スノキー",
+      "initialActionDelayFrames": 60,
+      "initialActionDelaySource": "default",
+      "measuredNormalAttackIntervalFrames": 103,
+      "normalAttackIntervalFrames": 134,
+      "normalAttackIntervalSource": {
+        "value": 103,
+        "unit": "録画F@▶",
+        "gameFrames": 134
+      },
+      "normalAttackIntervalVariants": [
+        {
+          "actionKey": "basicAttack",
+          "branch": "",
+          "value": 103,
+          "unit": "録画F@▶",
+          "gameFrames": 134
+        },
+        {
+          "actionKey": "enhancedAttack",
+          "branch": "",
+          "value": 103,
+          "unit": "録画F@▶",
+          "gameFrames": 134
+        }
+      ],
+      "actions": {
+        "lowSkill": {
+          "label": "低学年",
+          "branch": "",
+          "motionFrames": 176,
+          "motionSource": {
+            "value": 176,
+            "unit": "ゲームF",
+            "gameFrames": 176
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 176,
+              "unit": "ゲームF",
+              "gameFrames": 176,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 126
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "シールド",
+              "effectId": "Snorky_low_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 42,
+              "sourceTime": {
+                "value": 32,
+                "unit": "録画F@▶",
+                "gameFrames": 42
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 327
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "highSkill": {
+          "label": "高学年",
+          "branch": "",
+          "motionFrames": 195,
+          "motionSource": {
+            "value": 150,
+            "unit": "録画F@▶",
+            "gameFrames": 195
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 150,
+              "unit": "録画F@▶",
+              "gameFrames": 195,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 127
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_high_e01",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 85,
+              "sourceTime": {
+                "value": 65,
+                "unit": "録画F@▶",
+                "gameFrames": 85
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 328
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "ノックバック",
+              "effectId": "Snorky_high_e03",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 85,
+              "sourceTime": {
+                "value": 65,
+                "unit": "録画F@▶",
+                "gameFrames": 85
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 329
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "basicAttack": {
+          "label": "普通攻撃_基本",
+          "branch": "",
+          "motionFrames": 134,
+          "motionSource": {
+            "value": 103,
+            "unit": "録画F@▶",
+            "gameFrames": 134
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 103,
+              "unit": "録画F@▶",
+              "gameFrames": 134,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 128
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_basic_e01",
+              "lv1PerHitMultiplier": 75,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 16,
+              "sourceTime": {
+                "value": 12,
+                "unit": "録画F@▶",
+                "gameFrames": 16
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 330
+            },
+            {
+              "branch": "",
+              "order": 2,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_basic_e01",
+              "lv1PerHitMultiplier": 75,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 29,
+              "sourceTime": {
+                "value": 22,
+                "unit": "録画F@▶",
+                "gameFrames": 29
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 331
+            },
+            {
+              "branch": "",
+              "order": 3,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_basic_e01",
+              "lv1PerHitMultiplier": 75,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 87,
+              "sourceTime": {
+                "value": 67,
+                "unit": "録画F@▶",
+                "gameFrames": 87
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 332
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        },
+        "enhancedAttack": {
+          "label": "普通攻撃_強化",
+          "branch": "",
+          "motionFrames": 134,
+          "motionSource": {
+            "value": 103,
+            "unit": "録画F@▶",
+            "gameFrames": 134
+          },
+          "motionVariants": [
+            {
+              "branch": "",
+              "value": 103,
+              "unit": "録画F@▶",
+              "gameFrames": 134,
+              "researchStatus": "済",
+              "note": "",
+              "sourceLine": 129
+            }
+          ],
+          "researchStatus": "済",
+          "note": "",
+          "timingEvents": [
+            {
+              "branch": "",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_enhanced_e01",
+              "lv1PerHitMultiplier": 350,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 51,
+              "sourceTime": {
+                "value": 39,
+                "unit": "録画F@▶",
+                "gameFrames": 51
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 333
+            },
+            {
+              "branch": "スノキーのフェドーラ",
+              "order": 1,
+              "effectKind": "ダメージ",
+              "effectId": "Snorky_favorite_1_e01",
+              "lv1PerHitMultiplier": 700,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 51,
+              "sourceTime": {
+                "value": 39,
+                "unit": "録画F@▶",
+                "gameFrames": 51
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 334
+            },
+            {
+              "branch": "スノキーのフェドーラ",
+              "order": 1,
+              "effectKind": "気絶",
+              "effectId": "Snorky_favorite_1_e02",
+              "lv1PerHitMultiplier": null,
+              "guaranteeFrames": null,
+              "guaranteeSource": null,
+              "frame": 51,
+              "sourceTime": {
+                "value": 39,
+                "unit": "録画F@▶",
+                "gameFrames": 51
+              },
+              "researchStatus": "済",
+              "timingMode": "個別",
+              "adoption": "",
+              "note": "",
+              "sourceLine": 335
+            }
+          ],
+          "timingPatterns": [],
+          "generatedObjects": []
+        }
+      },
+      "implementationStatuses": {
+        "normal": "済",
+        "aside": "済",
+        "favorite": "済"
+      },
+      "implementationNote": ""
+    },
     "tig": {
       "id": "tig",
       "sourceId": "Tig",
@@ -10325,7 +10651,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 351
+              "sourceLine": 356
             }
           ],
           "timingPatterns": [],
@@ -10372,7 +10698,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 352
+              "sourceLine": 357
             },
             {
               "branch": "",
@@ -10392,7 +10718,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 353
+              "sourceLine": 358
             },
             {
               "branch": "",
@@ -10412,7 +10738,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 354
+              "sourceLine": 359
             },
             {
               "branch": "",
@@ -10432,7 +10758,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 355
+              "sourceLine": 360
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -10452,7 +10778,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 356
+              "sourceLine": 361
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -10472,7 +10798,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 357
+              "sourceLine": 362
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -10492,7 +10818,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 358
+              "sourceLine": 363
             },
             {
               "branch": "ティグの燃え盛る剣",
@@ -10512,7 +10838,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 359
+              "sourceLine": 364
             }
           ],
           "timingPatterns": [],
@@ -10559,7 +10885,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 360
+              "sourceLine": 365
             },
             {
               "branch": "",
@@ -10579,7 +10905,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 361
+              "sourceLine": 366
             }
           ],
           "timingPatterns": [],
@@ -10626,7 +10952,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 362
+              "sourceLine": 367
             },
             {
               "branch": "",
@@ -10646,7 +10972,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 363
+              "sourceLine": 368
             },
             {
               "branch": "",
@@ -10666,7 +10992,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 364
+              "sourceLine": 369
             }
           ],
           "timingPatterns": [],
@@ -10751,7 +11077,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 381
+              "sourceLine": 386
             },
             {
               "branch": "",
@@ -10771,7 +11097,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 382
+              "sourceLine": 387
             },
             {
               "branch": "",
@@ -10791,7 +11117,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 383
+              "sourceLine": 388
             },
             {
               "branch": "アサイド2",
@@ -10811,7 +11137,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 380
+              "sourceLine": 385
             },
             {
               "branch": "アサイド2",
@@ -10831,7 +11157,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 384
+              "sourceLine": 389
             },
             {
               "branch": "アサイド2",
@@ -10851,7 +11177,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 385
+              "sourceLine": 390
             }
           ],
           "timingPatterns": [],
@@ -10977,7 +11303,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 386
+              "sourceLine": 391
             },
             {
               "branch": "",
@@ -10997,7 +11323,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 387
+              "sourceLine": 392
             },
             {
               "branch": "",
@@ -11017,7 +11343,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 388
+              "sourceLine": 393
             }
           ],
           "timingPatterns": [],
@@ -11064,7 +11390,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 389
+              "sourceLine": 394
             }
           ],
           "timingPatterns": [],
@@ -11111,7 +11437,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 390
+              "sourceLine": 395
             },
             {
               "branch": "",
@@ -11131,7 +11457,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 391
+              "sourceLine": 396
             },
             {
               "branch": "",
@@ -11151,7 +11477,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 392
+              "sourceLine": 397
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -11171,7 +11497,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 393
+              "sourceLine": 398
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -11191,7 +11517,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 394
+              "sourceLine": 399
             },
             {
               "branch": "バロンの呪いのぬいぐるみ",
@@ -11211,7 +11537,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 395
+              "sourceLine": 400
             }
           ],
           "timingPatterns": [],
@@ -11578,7 +11904,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 472
+              "sourceLine": 477
             },
             {
               "branch": "",
@@ -11598,7 +11924,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 473
+              "sourceLine": 478
             },
             {
               "branch": "",
@@ -11618,7 +11944,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 474
+              "sourceLine": 479
             },
             {
               "branch": "",
@@ -11638,7 +11964,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 475
+              "sourceLine": 480
             }
           ],
           "timingPatterns": [],
@@ -11836,7 +12162,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 476
+              "sourceLine": 481
             },
             {
               "branch": "",
@@ -11860,7 +12186,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 477
+              "sourceLine": 482
             }
           ],
           "timingPatterns": [],
@@ -11949,7 +12275,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 490
+              "sourceLine": 495
             },
             {
               "branch": "",
@@ -11973,7 +12299,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 491
+              "sourceLine": 496
             },
             {
               "branch": "",
@@ -11997,7 +12323,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 492
+              "sourceLine": 497
             },
             {
               "branch": "",
@@ -12021,7 +12347,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 493
+              "sourceLine": 498
             },
             {
               "branch": "",
@@ -12045,7 +12371,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 494
+              "sourceLine": 499
             },
             {
               "branch": "",
@@ -12069,7 +12395,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 495
+              "sourceLine": 500
             },
             {
               "branch": "",
@@ -12093,7 +12419,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 496
+              "sourceLine": 501
             },
             {
               "branch": "",
@@ -12117,7 +12443,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 497
+              "sourceLine": 502
             },
             {
               "branch": "",
@@ -12141,7 +12467,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 498
+              "sourceLine": 503
             },
             {
               "branch": "",
@@ -12165,7 +12491,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 499
+              "sourceLine": 504
             },
             {
               "branch": "",
@@ -12189,7 +12515,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 500
+              "sourceLine": 505
             },
             {
               "branch": "",
@@ -12213,7 +12539,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 501
+              "sourceLine": 506
             }
           ],
           "timingPatterns": [],
@@ -12260,7 +12586,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 502
+              "sourceLine": 507
             }
           ],
           "timingPatterns": [],
@@ -12311,7 +12637,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 503
+              "sourceLine": 508
             }
           ],
           "timingPatterns": [],
@@ -12358,7 +12684,7 @@ const DPS_TIMING_DATA = {
               "timingMode": "個別",
               "adoption": "",
               "note": "",
-              "sourceLine": 504
+              "sourceLine": 509
             }
           ],
           "timingPatterns": [],
@@ -12739,9 +13065,9 @@ const DPS_TIMING_DATA = {
       "sourceId": "Snorky",
       "name": "スノキー",
       "statuses": {
-        "normal": "未",
-        "aside": "未",
-        "favorite": "未"
+        "normal": "済",
+        "aside": "済",
+        "favorite": "済"
       },
       "note": "",
       "sourceLine": 32
@@ -13328,13 +13654,6 @@ const DPS_TIMING_DATA = {
     {
       "id": "jubee",
       "name": "ジュビー",
-      "missing": [
-        "普通攻撃間隔"
-      ]
-    },
-    {
-      "id": "snorky",
-      "name": "スノキー",
       "missing": [
         "普通攻撃間隔"
       ]

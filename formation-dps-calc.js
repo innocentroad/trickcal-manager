@@ -2500,6 +2500,7 @@
 
   function renderTimelineRow(event) {
     const action = event.actionLabel || '';
+    const repeatLabel = Number(event.repeatIndex) > 1 ? `（連続${formatNumber(event.repeatIndex)}回目）` : '';
     const variant = event.variant ? ` / ${event.variant}` : '';
     const generatedHitLabel = event.generatedObjectId
       ? ` / ${event.generatedObjectName || event.generatedObjectId}${event.generatedEventType ? ` ${event.generatedEventType}` : ''}`
@@ -2536,9 +2537,10 @@
       skillTransition: `${action}${variant}へ移行（${formatNumber(event.transitionFrames)}F）`,
       movementStart: `${event.fromActionLabel || ACTION_LABELS[event.fromActionKey] || event.fromActionKey} → ${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey} 移動開始（${formatNumber(event.movementFrames)}F）${event.note ? ` / ${event.note}` : ''}`,
       movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
-      actionStart: `${action}${variant} 開始`,
-      actionEnd: `${action}${variant} 終了`,
-      hit: `${action}${variant}${generatedHitLabel} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      actionStart: `${action}${repeatLabel}${variant} 開始`,
+      actionEnd: `${action}${repeatLabel}${variant} 終了`,
+      hit: `${action}${repeatLabel}${variant}${generatedHitLabel} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.timingQuality === 'fallbackEnd' ? '（終了時補完）' : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      enhancedRepeatProbability: `強化攻撃連続発動（推定） / 再発動確率 ${formatNumber(event.probability)}% / ${event.success ? `成功・次回${formatNumber(event.nextProbability)}%` : '終了'} / 減少${formatNumber(event.decrementPoints)}ポイント${event.reason ? ` / ${event.reason}` : ''}`,
       effect: `${action}${variant} 効果発生${event.effectId ? ` / ${event.effectId}` : ''}`,
       spRecovery: event.capped
         ? `SP回復周期 / 上限 ${formatNumber(event.sp)}`
