@@ -1,6 +1,16 @@
 # Trickcal Manager 現在地
 
-## 最新：公開サイト共通上バーの下部余白修正を新旧公開完了（2026-09-19）
+## 現在：編成共有ページの共通上バー統一を新旧公開完了（2026-09-19）
+
+- 原因は2点。公開生成器のcanonical/OG URL挿入で `additions.join('\\n  ')` が文字列の `\\n` を生成していたこと、共有ページだけ旧 `share-topbar` と旧テーマ処理を残していたこと。生成器は実改行へ修正し、共有ページは既存の `shared-topbar.js`／`shared-topbar.css` へ接続した。共通バーには `data-shared-topbar-page="share"` を付け、管理ページの現在位置を誤点灯させていない。
+- `formation-share.html` は旧ヘッダーを除去し、本文冒頭にコンパクトな「編成共有」を残した。`formation-share.js` の旧テーマ登録を除去し、保存テーマ・共通テーマボタンを一本化した。`formation-share-prototype.css` は共有ページの本文余白を実高追従へ整理した。payload、codec、画像内容、共有操作、移行告知の既存条件は変更していない。
+- 焦点検査は `test-formation-share-image.js`、`test-public-site.js`、`test-topbar-navigation-native.js` を更新した。共有codec/image/asset、公開生成・HTTP、announcements、nativeブラウザ検査は成功。`test-formation-share-maintenance.js` は今回変更前からの `tools/git/push.bat` 固定前提不一致で失敗しており、今回の成功へ加算していない。
+- source対象限定commitは `c7668d48730074dd8278412d8901e9d537428f3b`、`release-source` へpush済み。candidateは `9fa9315c737e7713`、contentDigestは `2cd343ccb62e6609f2485468a39e8b3004b6138a8a53e6e8c6c53822e6556e2b`、bundleは `tmp/publication-20260918185638537.json`。
+- new artifactは `a42c654d7c414dbd0ad3d97224b979976a99d0ee`、outputDigestは `12f9bd010a976083`、runは [35383358780](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35383358780)。legacy artifactは `5ea2173946788df3bcf6ba46918ad4ed4521e9d6`、outputDigestは `d22e4030f1cef544`、runは [35383951521](https://github.com/innocentroad/trickcal-manager/actions/runs/35383951521)。new成功後、両方とも通常のdeployment承認を経てpublished、identityのcandidate/source/profile/digest一致を確認した。
+- 指定payloadを新旧の公開URLで確認した。本文画像は379件（上バーのnote画像を含むページ全体は380件）、`complete=true`・`naturalWidth>0` が全件、失敗0件。PC 1280pxは上バー51.875px／同期値52px、スマホ375pxは2段・実高97.281px、横はみ出しなし。旧share-topbar 0件、body直下の文字列 `\\n` 0件、テーマは1クリックで切替・復帰、データメニュー・ベル・不正／payloadなし時の案内を確認した。共有画像生成は旧サイトで `1200×850px` 成功を確認し、生成対象は本文領域で上バー・告知バーを含めない実装を維持している。
+- 現在の通知条件では共有ページに移行告知バーは表示されないが、既存のrelease configのページ条件を変更していない。ベルは同じ既存controllerへ接続し、未読点・一覧・閉じる／フォーカス復帰を確認した。変更前バックアップは `D:/Games/etc/trickcal/backups/public-share-topbar-20260919-01/release-source-before`、STATUSの今回編集前バックアップは `D:/Games/etc/trickcal/backups/public-share-topbar-publication-20260919-01/release-source-before`。詳細は [`docs/history/share-topbar-publication-2026-09-19.md`](docs/history/share-topbar-publication-2026-09-19.md)。mainの未公開変更は取り込んでいない。
+
+## 履歴：公開サイト共通上バーの下部余白修正を新旧公開完了（2026-09-19）
 
 - 原因は、共有上バー初期化後に削除される旧操作用 `template` が、初期化前に `display:inline-flex` のレイアウト要素として扱われ、空行ボックスを作っていたこと。`stat-dashboard.html`、`formation-damage-calc.html`、`enemy-status.html`、`public/board-layout-preview.html` から旧templateを除去し、旧DPS専用ページの実DOMは対象外として保持した。
 - 回帰検査を実DOM寸法ベースへ更新し、旧template 0件、上バー実高と `--trickcal-topbar-height` の一致を確認するようにした。`test-topbar-navigation-native.js`、`test-apostle-data-native.js` の実ブラウザ検査は成功。`test-public-site.js`、`test-public-site-http.js`、`test-announcements.js` も成功。
@@ -9,7 +19,7 @@
 - 公開URLの隔離ブラウザ実測はnew/legacyとも上バー51.875px、同期値52px、旧template 0件。new/legacyのmanagerとnewのcalcで本文の水平overflow 0、旧actions 0件を確認した。公開ページの現通知状態では移行バーは非表示だったが、隔離通知fixtureで表示／非表示双方の配置検査に成功した。
 - 変更前バックアップは `D:/Games/etc/trickcal/backups/topbar-template-whitespace-20260919-01/release-source-before`。対象HTML・焦点テスト・STATUSをSHA-256一致確認済み。詳細は [`docs/history/topbar-template-whitespace-fix-2026-09-19.md`](docs/history/topbar-template-whitespace-fix-2026-09-19.md)。mainの未公開変更は取り込んでいない。
 
-## 最新：共通上バー＋使徒データの新旧公開完了（2026-09-19）
+## 履歴：共通上バー＋使徒データの新旧公開完了（2026-09-19）
 
 - 対象は `release-source` の現行ベースへ、共通上バー、manager/calc/data/enemy/board の接続、お知らせ連携、使徒データ5ビュー、公開route・生成接続・焦点テストを機能単位で取り込んだもの。mainの共鳴・共有v2・ボード本体改修・datasheet変更は含めていない。
 - ボードプレビューは上バー接続とテーマ初期同期だけを取り込み、下バー化、左端スクロール、背景・B1〜B3・凡例・件数表示などの本体改修は分離して残した。公開済み共有画像URL修正は保持している。
