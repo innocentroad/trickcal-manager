@@ -1,17 +1,17 @@
 # Trickcal Manager 現在地
 
-## 最新：公開共有画像URLのローカル修正・公開待ち（2026-09-18）
+## 最新：共有画像URL修正の新旧公開完了（2026-09-18）
 
-- 対象は`release-source` branchのみ。mainの上バー・共鳴・全列変更は取り込んでいない。
-- 原因は`formation-share.js`が、共有表示データに含まれる画像ごとの`?v=...`付きパスを`publicSite.assetUrl`へそのまま渡していたこと。runtimeのパスエンコードで`?v=`が`%3Fv%3D`になり、さらに共通`assetVersion`が付与されていた。公開URLの読み取り確認では379画像中、該当URLが`naturalWidth=0`になった。
-- 修正は共有側でpathname/query/hashを分離し、既存の`assetUrl(path, {query, hash})`契約へ渡す局所変更。外部URL・data・blobは既存runtimeへそのまま渡し、共通の画像版番号を1つだけ使う設計と、new/legacyのbase pathを維持した。runtime、共有payload、保存schema、Service Workerは変更していない。
-- 既存同期ツール`node tools/sync-formation-share-assets.js --write`を実行し、派生参照として`stat-dashboard.html`、`formation-share.html`、`formation-share-create.js`だけを同期した。生成済み表示データは手編集していない。
-- 焦点テストは`test-formation-share-asset-urls.js`（新規、実URLのHTTP到達を含む）、`test-formation-share-image.js`、`test-formation-share-display-data.js`、`test-formation-share-assets.js`、構文検査に成功。`public-site-publication.js check`も`localOnly=true / publishable=false`で成功した。
-- レビュー指摘に合わせ、エンコード済みpathnameと正規化の重複適用は成功扱いから除外した。runtimeの`%41`は`%2541`になる制約をテストで固定し、実共有表示データの画像参照193件には該当するpathnameが0件であることを読み取り確認した。共通runtimeの再設計は後続課題とする。
-- ローカル生成物をnew/legacy別base pathでブラウザ確認し、共有ページの379画像がすべて`complete`かつ`naturalWidth>0`、`%3F`なし。管理画面の共有プレビューを開き、PNGプレビューは`1200x745`で表示できた。CSS背景画像の壊れたURLは確認されなかった。
-- 公開サイトは読み取りのみで、修正前の壊れたURLを再現した。本番公開は未実施のため、利用者向けサイトは未修正のまま。mainへの後続反映時は、main側で改めてバックアップ・差分確認・派生同期を行う。
-- 既存阻害として、単独の`test-public-site.js`はdirty sourceで`release.sourceCommit`が40桁でないため停止し、`test-formation-share-maintenance.js`は既存`tools/git/push.bat`と期待する生成ステップの不一致で停止した。今回の画像修正による失敗とは切り分け済み。
-- 今回のバックアップは`D:/Games/etc/trickcal/backups/public-share-image-url-fix-20260918-01`。commit、push、公開、workflow起動、設定変更、datasheet編集は行っていない。PNG保存・クリップボードコピーの実操作は未確認で、公開指示待ちで停止する。
+- `release-source`の対象限定source commitは`48518aed9eb08f026060c8f61375fd9ff3854051`。mainの上バー・共鳴・全列・その他のdirtyは取り込んでいない。
+- 修正は`formation-share.js`のpathname/query/hash分離と、既存同期ツールによる3派生ファイルの版同期。runtime、payload、schema、Service Worker、workflow、保護設定は変更していない。
+- レビュー指摘の訂正として、runtimeの`%41`→`%2541`制約と正規化重複の未対応・未検証を成功扱いにしていない。実共有表示データの画像参照193件にはエンコード済みpathnameが0件だった。
+- candidateは`e96bb03a2721a1d1`、contentDigestは`90705d0735ad665a16a516971e20d54c544702f9c14f812f2e26e909ce6b30d0`。new outputDigestは`ce47cbf6c9f8e8bb`、legacy outputDigestは`694161ad238d1e2c`。
+- new配信先commitは`50e169a9eb439cae37f13ac88f2f661f6a6c449f`、runは`https://github.com/innocentroad/trickcal-manager-site/actions/runs/35307707779`。通常deployment承認を経てpublished。
+- legacy配信先commitは`05ba0bc820e14797548f038cf353c6cac4263f45`、runは`https://github.com/innocentroad/trickcal-manager/actions/runs/35307921820`。new成功確認後、通常deployment承認を経てpublished。
+- 両identity URLでcandidate/source/contentDigest/profileが一致。新旧共有ページは各379画像、ロード失敗0、`\.webp%3Fv%3D` 0。使徒・遺物・スペル・性格・Grade・権能の代表URLを実ブラウザで確認した。
+- 隔離recover管理画面の共有プレビューはPNG生成成功、`1200x850`、内容を目視確認。保存・クリップボードコピーの実操作は未確認で、成功扱いにしていない。
+- source bundle、checks、receipt、公開記録は履歴文書に記録。現ターンのバックアップは`D:/Games/etc/trickcal/backups/public-share-image-publish-20260918-01`、前段修正のバックアップは`D:/Games/etc/trickcal/backups/public-share-image-url-fix-20260918-01`。
+- 残件はエンコード済みpathname保持と正規化重複の設計検討、およびmainへの後続反映。旧サイト停止・閉鎖は行っていない。
 
 ## 過去：公開準備toolingのlocal commit完了（2026-09-18）
 
