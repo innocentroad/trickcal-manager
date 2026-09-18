@@ -105,8 +105,13 @@ async function readDataDetail(cdp, page) {
     title: document.querySelector('.enemy-status-header h1, .tool-head h1')?.innerText || '',
     enemySearch: !!document.querySelector('#enemy-status-search'),
     boardZoom: !!document.querySelector('#board-preview-zoom-in'),
+    legacyTemplates: [...document.querySelectorAll('template.dashboard-top-actions, template.fdc-legacy-topbar, template.enemy-legacy-header-actions, template.board-legacy-theme-control')].map(element => {
+      const rect = element.getBoundingClientRect();
+      return { className: element.className, display: getComputedStyle(element).display, height: rect.height };
+    }),
     geometry: {
       barHeight: document.querySelector('.data-detail-topbar')?.getBoundingClientRect().height || 0,
+      syncedHeight: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trickcal-topbar-height')) || 0,
       operationWidths: [...document.querySelectorAll('.topbar-operation-nav > *')].map(element => element.getBoundingClientRect().width),
       operationHeights: [...document.querySelectorAll('.topbar-operation-nav > *')].map(element => element.getBoundingClientRect().height),
       overflow: document.documentElement.scrollWidth - innerWidth
@@ -133,6 +138,18 @@ async function readTopbar(cdp, page) {
       label: element.textContent.trim(),
       href: element.getAttribute('href')
     })),
+    legacyTemplates: [...document.querySelectorAll('template.dashboard-top-actions, template.fdc-legacy-topbar, template.enemy-legacy-header-actions, template.board-legacy-theme-control')].map(element => {
+      const rect = element.getBoundingClientRect();
+      return { className: element.className, display: getComputedStyle(element).display, height: rect.height };
+    }),
+    topbarGeometry: (() => {
+      const element = document.querySelector('[data-shared-topbar-page]');
+      if (!element) return null;
+      return {
+        height: element.getBoundingClientRect().height,
+        syncedHeight: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trickcal-topbar-height')) || 0
+      };
+    })(),
     geometry: {
       operations: [...document.querySelectorAll('[data-topbar-operation]')].map(element => {
         const rect = element.getBoundingClientRect();
@@ -183,6 +200,9 @@ async function run() {
     assert.equal(initialByKey.bulk.menu, 'bulk');
     assert.equal(initialByKey.data.tag, 'DETAILS');
     assert.equal(initialByKey.data.menu, 'data');
+    assert.deepEqual(initial.legacyTemplates, [], '旧操作templateがレイアウトDOMに残っています');
+    assert.ok(initial.topbarGeometry?.height > 0, '共通上バーの実測高さが取得できません');
+    assert.equal(initial.topbarGeometry.syncedHeight, Math.ceil(initial.topbarGeometry.height), '高さ同期用変数が実測値と一致しません');
     assert.deepEqual(initial.dataItems.map(item => item.target), ['apostles', 'enemies', 'board']);
     assert.deepEqual(initial.dataItems.map(item => item.label), ['使徒データ', '敵データ', 'ボードプレビュー']);
     assert.ok(initial.dataItems.every(item => item.tag === 'A' && item.role === 'menuitem' && item.href));
@@ -259,6 +279,9 @@ async function run() {
       assert.deepEqual(detail.pageCurrent, ['データ'], `${label} detail has duplicate page current markers`);
       assert.deepEqual(detail.dataCurrent, [{ target, current: 'location' }], `${label} data destination is not active`);
       assert.equal(detail.oldThemeIds, 0, `${label} detail retains a duplicate theme control`);
+      assert.deepEqual(detail.legacyTemplates, [], `${label} detail retains a legacy template`);
+      assert.ok(detail.geometry.barHeight > 0, `${label} detail topbar has no measurable height`);
+      assert.equal(detail.geometry.syncedHeight, Math.ceil(detail.geometry.barHeight), `${label} detail topbar height is not synchronized`);
       assert.ok(detail.title, `${label} detail title was removed`);
       assert.ok(detail.dataItems.every(item => item.tag === 'A' && item.role === 'menuitem' && item.href), `${label} data menu item is not a route link`);
       assert.ok(detail.geometry.operationWidths.every(width => Math.abs(width - detail.geometry.operationWidths[0]) < 0.2), `${label} operation widths differ`);
@@ -337,7 +360,7 @@ async function run() {
         'undefined internal operation keys do not fall back to links',
         'formation/card/global active state follows displayed panel',
         'opening data/bulk menus does not change active state',
-        'data menu has exactly two role=menuitem links',
+        'data menu has three role=menuitem links',
         'Escape closes the menu and restores trigger focus',
         'PC operation controls share the reference geometry and note remains an independent link',
         'data detail pages use one common topbar, preserve native controls, and mark only their data destination',

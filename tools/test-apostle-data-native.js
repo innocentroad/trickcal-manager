@@ -86,6 +86,18 @@ async function facts(cdp, page) {
       currentTabs: [...document.querySelectorAll('[data-apostle-view][aria-current="page"]')].map(button => button.dataset.apostleView),
       dataMenuItems: dataItems.map(item => ({ text: item.textContent.trim(), target: item.dataset.topbarDataTarget, active: item.classList.contains('is-active') })),
       dataMenuTarget: document.querySelector('.data-detail-topbar')?.dataset.sharedTopbarDataTarget || '',
+      legacyTemplates: [...document.querySelectorAll('template.dashboard-top-actions, template.fdc-legacy-topbar, template.enemy-legacy-header-actions, template.board-legacy-theme-control')].map(element => {
+        const rect = element.getBoundingClientRect();
+        return { className: element.className, display: getComputedStyle(element).display, height: rect.height };
+      }),
+      topbarGeometry: (() => {
+        const element = document.querySelector('[data-shared-topbar-page]');
+        if (!element) return null;
+        return {
+          height: element.getBoundingClientRect().height,
+          syncedHeight: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trickcal-topbar-height')) || 0
+        };
+      })(),
       tableScroll: wrap ? { scrollWidth: wrap.scrollWidth, clientWidth: wrap.clientWidth } : null,
       tableRect: wrap ? (() => { const rect = wrap.getBoundingClientRect(); return { top: rect.top, bottom: rect.bottom, height: rect.height, clientHeight: wrap.clientHeight, scrollHeight: wrap.scrollHeight }; })() : null,
       tableStyles: (() => {
@@ -161,6 +173,9 @@ async function run() {
       const current = await facts(cdp, page);
       assert.equal(current.width, variant.width, `${variant.label}: viewport`);
       assert.ok(current.overflow <= 0, `${variant.label}: body横overflow ${current.overflow}`);
+      assert.deepEqual(current.legacyTemplates, [], `${variant.label}: 旧操作templateがレイアウトDOMに残っています`);
+      assert.ok(current.topbarGeometry?.height > 0, `${variant.label}: 共通上バーの実測高さ`);
+      assert.equal(current.topbarGeometry.syncedHeight, Math.ceil(current.topbarGeometry.height), `${variant.label}: 高さ同期用変数`);
       assert.equal(current.rows, 78, `${variant.label}: 基礎行数`);
       assert.equal(current.images.every(image => image.complete && image.naturalWidth > 0), true, `${variant.label}: 画像読込`);
       assert.deepEqual(current.dataMenuItems.map(item => item.target), ['apostles', 'enemies', 'board'], `${variant.label}: dataメニュー`);
