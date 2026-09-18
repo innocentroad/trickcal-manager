@@ -185,6 +185,27 @@
       ]
     },
     {
+      "id": "apostles",
+      "source": "public/apostle-data.html",
+      "indexable": false,
+      "profiles": {
+        "new": {
+          "publicPath": "/data/apostles/",
+          "kind": "static-page",
+          "aliases": ["/data/apostles/index.html", "/apostle-data.html"]
+        },
+        "legacy": {
+          "publicPath": "/trickcal-manager/public/apostle-data.html",
+          "kind": "compatibility",
+          "aliases": ["/trickcal-manager/data/apostles/"]
+        }
+      },
+      "fixtures": [
+        { "name": "apostles-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "apostles-mobile", "profile": "new", "query": "?view=equipment", "hash": "", "viewport": "mobile", "themes": ["light", "dark"] }
+      ]
+    },
+    {
       "id": "enemies",
       "source": "enemy-status.html",
       "indexable": false,
@@ -278,6 +299,7 @@
     { "source": "announcements-data.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "shared-topbar.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "apostles.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "cards.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "combat-scenario.js", "kind": "file", "profiles": ["new", "legacy"] },
@@ -322,6 +344,8 @@
     { "source": "style.css", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "synergy.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "public/board-layout-preview.css", "kind": "file", "profiles": ["new", "legacy"] },
-    { "source": "public/board-layout-preview.js", "kind": "file", "profiles": ["new", "legacy"] }
+    { "source": "public/board-layout-preview.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public/apostle-data.css", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "public/apostle-data.js", "kind": "file", "profiles": ["new", "legacy"] }
   ]
 }

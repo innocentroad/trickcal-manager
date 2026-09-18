@@ -446,6 +446,220 @@ body.theme-dark .fdc-top-control-bar .fdc-theme-toggle {
   }
 }
 
+/* 共通行を追加した上バー。PCは1段、狭い幅では共通行＋ページ操作行へ切り替える。 */
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) {
+  display: flex;
+  align-items: center;
+  gap: 0.62rem;
+  min-height: 3.25rem;
+  padding: 0.34rem clamp(0.55rem, 2.4vw, 1.2rem);
+}
+
+.topbar-common-row,
+.topbar-page-row,
+.topbar-common-nav,
+.topbar-common-actions {
+  display: flex;
+  align-items: center;
+}
+
+.topbar-common-row {
+  flex: 0 0 auto;
+  gap: 0.34rem;
+  min-width: max-content;
+}
+
+.topbar-common-nav {
+  gap: 0.2rem;
+}
+
+.topbar-common-actions {
+  gap: 0.26rem;
+}
+
+.topbar-page-row {
+  flex: 1 1 auto;
+  gap: 0.56rem;
+  min-width: 0;
+}
+
+.topbar-page-row :is(.dashboard-top-status, .fdc-top-status) {
+  flex: 1 1 12rem;
+}
+
+.topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) {
+  flex: 0 1 auto;
+  grid-column: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.topbar-page-row :is(.dashboard-top-actions, .fdc-top-actions) {
+  flex: 0 0 auto;
+  grid-column: auto;
+  margin-left: auto;
+}
+
+.topbar-page-row .topbar-common-link,
+.topbar-page-row .topbar-announcement-trigger {
+  box-sizing: border-box;
+  min-width: 3.1rem !important;
+  min-height: 2.65rem !important;
+  border-radius: 0.7rem !important;
+  padding: 0.32rem 0.54rem !important;
+  font-size: 0.76rem !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+}
+
+.topbar-page-row .topbar-common-link {
+  display: inline-grid !important;
+  place-items: center;
+}
+
+.topbar-page-row .topbar-common-link.is-active {
+  border-color: color-mix(in srgb, var(--fdc-primary) 58%, var(--fdc-border)) !important;
+  background: var(--fdc-primary-soft) !important;
+}
+
+.topbar-page-row .topbar-announcement-trigger {
+  position: relative;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.24rem;
+  width: auto;
+  color: var(--fdc-text) !important;
+}
+
+.topbar-announcement-icon {
+  width: 1.18rem;
+  height: 1.18rem;
+  stroke-width: 2;
+}
+
+.topbar-page-row .topbar-announcement-trigger .trickcal-announcements-follow-unread {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.28rem;
+  width: 0.44rem;
+  height: 0.44rem;
+  margin: 0;
+  border: 2px solid var(--fdc-panel);
+  box-shadow: none;
+}
+
+.topbar-common-actions :is(.dashboard-top-theme-toggle, .fdc-theme-toggle) {
+  margin: 0;
+}
+
+@media (max-width: 980px) {
+  :is(.dashboard-top-control-bar, .fdc-top-control-bar) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 0.28rem;
+    min-height: 0;
+    padding: 0.34rem 0.4rem 0.38rem;
+  }
+
+  .topbar-common-row,
+  .topbar-page-row {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .topbar-common-row { grid-row: 1; }
+  .topbar-page-row { grid-row: 2; }
+
+  .topbar-common-row {
+    justify-content: space-between;
+    width: 100%;
+    min-height: 2.75rem;
+    flex-wrap: nowrap;
+  }
+
+  .topbar-common-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .topbar-common-nav .topbar-common-link {
+    flex: 1 1 0;
+  }
+
+  .topbar-page-row {
+    width: 100%;
+    gap: 0.32rem;
+  }
+
+  .topbar-page-row :is(.dashboard-top-status, .fdc-top-status) {
+    display: none;
+  }
+
+  .topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(3.3rem, 1fr));
+    flex: 1 1 auto;
+    gap: 0.2rem;
+    width: auto;
+    overflow: visible;
+  }
+
+  .topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) > :is(button, a, .topbar-global-menu) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) :is(button, a, .topbar-global-menu > summary) {
+    min-height: 2.75rem;
+    border-radius: 0.58rem;
+    padding: 0.28rem 0.32rem;
+    font-size: 0.72rem;
+  }
+
+  .topbar-page-row :is(.dashboard-top-actions, .fdc-top-actions) {
+    flex: 0 0 auto;
+    gap: 0.16rem;
+  }
+
+  .topbar-page-row :is(.dashboard-top-actions, .fdc-top-actions) .topbar-note-link {
+    display: none;
+  }
+
+  .topbar-page-row :is(.dashboard-top-actions, .fdc-top-actions) .topbar-reload-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-width: 2.75rem !important;
+  }
+
+}
+
+@media (max-width: 360px) {
+  :is(.dashboard-top-control-bar, .fdc-top-control-bar) {
+    padding-inline: 0.28rem;
+  }
+
+  .topbar-common-nav {
+    gap: 0.12rem;
+  }
+
+  .topbar-page-row .topbar-common-link {
+    min-width: 2.8rem !important;
+    padding-inline: 0.3rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) {
+    gap: 0.14rem;
+  }
+
+  .topbar-page-row :is(.dashboard-top-tabs, .fdc-top-tabs) :is(button, a, .topbar-global-menu > summary) {
+    padding-inline: 0.18rem;
+    font-size: 0.68rem;
+  }
+}
+
 @media (max-width: 360px) {
   :is(.dashboard-top-tabs, .fdc-top-tabs) > button,
   :is(.dashboard-top-tabs, .fdc-top-tabs) > a,
@@ -498,6 +712,276 @@ body.theme-dark .fdc-top-control-bar .fdc-theme-toggle {
 
 .site-rights-details p {
   margin: 0;
+}
+
+/* 確定レイアウト：PCは左8操作＋右3補助操作、720px以下は5列×2段。 */
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) {
+  display: block;
+  min-height: 0;
+  padding: 0.34rem clamp(0.55rem, 2.4vw, 1.2rem);
+}
+
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) [hidden] {
+  display: none !important;
+}
+
+.topbar-common-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 0.8rem;
+}
+
+.topbar-operation-nav {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: max-content;
+  gap: 0.22rem;
+  overflow: visible;
+}
+
+.topbar-mobile-grid {
+  display: none;
+}
+
+.topbar-common-actions {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 0.28rem;
+  margin-left: auto;
+}
+
+.topbar-operation-link,
+.topbar-global-menu > summary,
+.topbar-common-actions > :is(a, button):not(.topbar-note-link) {
+  box-sizing: border-box;
+  width: 3.85rem;
+  min-width: 3.85rem;
+  height: 2.35rem;
+  min-height: 2.35rem;
+  border-radius: 0.72rem;
+  padding: 0.32rem 0.54rem;
+  font-size: 0.76rem;
+  line-height: 1.15;
+  white-space: normal;
+}
+
+.topbar-operation-link {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+}
+
+.topbar-operation-link.is-active {
+  border-color: color-mix(in srgb, var(--fdc-primary) 58%, var(--fdc-border)) !important;
+  background: var(--fdc-primary-soft) !important;
+}
+
+.topbar-label {
+  display: block;
+  min-width: 0;
+  text-align: center;
+}
+
+.topbar-label-desktop {
+  display: inline;
+  white-space: pre-line;
+}
+
+.topbar-label-mobile {
+  display: none;
+  white-space: pre-line;
+}
+
+.topbar-global-menu {
+  position: relative;
+  display: inline-grid;
+}
+
+.topbar-operation-menu {
+  flex: 0 0 auto;
+  width: 3.85rem;
+  min-width: 3.85rem;
+}
+
+.topbar-global-menu > summary {
+  display: inline-grid;
+  place-items: center;
+  list-style: none;
+  cursor: pointer;
+}
+
+.topbar-global-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.topbar-global-popover {
+  z-index: 1125;
+}
+
+.topbar-data-menu > .topbar-data-popover {
+  right: 0;
+  left: auto;
+  transform: none;
+}
+
+.topbar-global-popover :is(button, a).is-active {
+  border-color: color-mix(in srgb, var(--fdc-primary) 58%, var(--fdc-border)) !important;
+  background: var(--fdc-primary-soft) !important;
+}
+
+.topbar-icon-action {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+}
+
+.topbar-common-actions > :is(button, a).topbar-icon-action {
+  width: 2.5rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  min-height: 2.5rem;
+}
+
+.topbar-note-link {
+  display: block !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  min-height: 16px !important;
+  margin: 0;
+  transform: none;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0.72;
+}
+
+.topbar-note-link img {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.topbar-announcement-trigger {
+  position: relative;
+}
+
+.topbar-announcement-icon {
+  width: 1.18rem;
+  height: 1.18rem;
+}
+
+.topbar-announcement-trigger .trickcal-announcements-follow-unread {
+  position: absolute;
+  top: 0.22rem;
+  right: 0.22rem;
+  width: 0.44rem;
+  height: 0.44rem;
+  margin: 0;
+  border: 2px solid var(--fdc-panel);
+  box-shadow: none;
+}
+
+.topbar-common-actions :is(.dashboard-top-theme-toggle, .fdc-theme-toggle) {
+  margin: 0;
+}
+
+.topbar-common-actions .ui-theme-icon-sun,
+.topbar-common-actions .ui-theme-icon-moon {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+:is(.dashboard-top-control-bar, .fdc-top-control-bar) :is(button, a, summary):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--fdc-primary) 72%, white);
+  outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+  :is(.dashboard-top-control-bar, .fdc-top-control-bar) {
+    padding: 0.16rem 0.34rem 0.2rem;
+  }
+
+  .topbar-common-row {
+    display: block;
+  }
+
+  .topbar-operation-nav {
+    display: none;
+  }
+
+  .topbar-mobile-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.16rem;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .topbar-common-actions {
+    display: none;
+  }
+
+  .topbar-mobile-grid > :is(.topbar-operation-link, .topbar-global-menu) {
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .topbar-mobile-grid > .topbar-global-menu > summary,
+  .topbar-mobile-grid > .topbar-operation-link,
+  .topbar-mobile-grid > :is(button, a).topbar-icon-action {
+    width: 100%;
+    min-width: 0;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 0.58rem;
+    padding: 0.22rem 0.16rem;
+    font-size: 0.72rem;
+    white-space: normal;
+  }
+
+  .topbar-label-desktop {
+    display: none;
+  }
+
+  .topbar-label-mobile {
+    display: inline;
+  }
+
+  .topbar-mobile-grid .topbar-global-popover {
+    top: calc(100% + 0.35rem);
+    right: 0;
+    left: auto;
+    transform: none;
+  }
+
+  .topbar-mobile-grid > .topbar-data-menu > .topbar-data-popover {
+    right: auto;
+    left: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .topbar-mobile-grid {
+    gap: 0.14rem;
+  }
+
+  .topbar-mobile-grid > .topbar-global-menu > summary,
+  .topbar-mobile-grid > .topbar-operation-link,
+  .topbar-mobile-grid > :is(button, a).topbar-icon-action {
+    padding-inline: 0.08rem;
+  }
 }
 
 .site-rights-details p + p {

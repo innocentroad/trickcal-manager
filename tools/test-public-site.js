@@ -224,6 +224,7 @@ function run(options = {}) {
       'calc/index.html',
       'share/index.html',
       'data/index.html',
+      'data/apostles/index.html',
       'data/enemies/index.html',
       'data/boards/index.html',
       'transfer/index.html',
@@ -253,10 +254,20 @@ function run(options = {}) {
     const assetVersion = generated.assetVersion;
     const managerHtml = readOutputText(testOutput, 'manager/index.html');
     const legacyHtml = readOutputText(testOutput, 'trickcal-manager/stat-dashboard.html');
+    const dataHtml = readOutputText(testOutput, 'data/index.html');
     assert(managerHtml.includes(`href="/calc/?recover=20260912"`));
     assert(managerHtml.includes('href="/data/boards/"'));
     assert(managerHtml.includes(`src="/public-site-runtime.js?v=${assetVersion}"`));
     assert(managerHtml.includes(`src="/statData.js?v=${assetVersion}"`));
+    assert(managerHtml.includes(`src="/shared-topbar.js?v=${assetVersion}"`));
+    assert(managerHtml.includes('data-shared-topbar-page="manager"'));
+    assert(dataHtml.includes(`src="/shared-topbar.js?v=${assetVersion}"`));
+    assert(dataHtml.includes(`src="/announcements.js?v=${assetVersion}"`));
+    assert(dataHtml.includes('data-shared-topbar-page="data"'));
+    assert(dataHtml.includes('data-shared-topbar-data-href="./"'));
+    assert(!dataHtml.includes('class="topbar-page-row"'), 'data生成物へ旧ページ固有上バー行を残しません');
+    assert(dataHtml.includes('href="/data/enemies/"'), 'data本文の敵導線を生成元から維持します');
+    assert(dataHtml.includes('href="/data/boards/"'), 'data本文のボード導線を生成元から維持します');
     assert(!managerHtml.includes('href="formation-damage-calc.html'));
     assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html?recover=20260912"'));
     assert(!legacyHtml.includes('https://trickcal.irlab.dev'));

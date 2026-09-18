@@ -9,9 +9,11 @@
   const panels = Array.from(document.querySelectorAll('[data-dashboard-panel]'));
   const railButtons = Array.from(document.querySelectorAll('.dashboard-rail [data-dashboard-view]'));
   const globalButtons = Array.from(document.querySelectorAll('[data-open-global]'));
+  const cardManagerButtons = Array.from(document.querySelectorAll('[data-open-card-manager]'));
   const globalTabs = Array.from(document.querySelectorAll('#global-setting-tabs [data-setting-tab]'));
   const profileTopButton = document.querySelector('[data-dashboard-profile-top]');
-  const topGlobalMenu = document.querySelector('.dashboard-top-tabs .topbar-global-menu');
+  const topGlobalMenu = document.querySelector('[data-topbar-menu="bulk"]');
+  const dashboardNavigation = window.TRICKCAL_DASHBOARD_NAV;
   const bulkGlobalTabs = new Set(['apostles', 'rank', 'bond', 'aside', 'research']);
   const apostleSelect = document.getElementById('apostle-select');
   const bottomApostleButton = document.querySelector('.bottom-apostle-button');
@@ -74,6 +76,10 @@
     window.requestAnimationFrame(() => {
       document.querySelector('.dashboard-persistent-profile')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior });
     });
+  }
+
+  function isTopbarControl(element) {
+    return !!element?.closest('[data-shared-topbar-common]');
   }
 
   function openBackupMenu({ behavior = 'auto', focus = false } = {}) {
@@ -195,6 +201,10 @@
 
   viewButtons.forEach(button => {
     button.addEventListener('click', () => {
+      if (isTopbarControl(button) && dashboardNavigation?.activateView) {
+        dashboardNavigation.activateView(button.dataset.dashboardView);
+        return;
+      }
       showView(button.dataset.dashboardView);
       scrollToDashboardMain();
     });
@@ -202,21 +212,29 @@
 
   globalButtons.forEach(button => {
     button.addEventListener('click', () => {
+      if (isTopbarControl(button) && dashboardNavigation?.openGlobal) {
+        dashboardNavigation.openGlobal(button.dataset.openGlobal);
+        return;
+      }
       openGlobal(button.dataset.openGlobal);
       button.closest('.topbar-global-menu')?.removeAttribute('open');
       scrollToDashboardMain();
     });
   });
 
-  document.addEventListener('click', event => {
-    document.querySelectorAll('.topbar-global-menu[open]').forEach(menu => {
-      if (!menu.contains(event.target)) {
-        menu.removeAttribute('open');
+  cardManagerButtons.forEach(button => {
+    button.addEventListener('click', () => {
+      if (isTopbarControl(button) && dashboardNavigation?.openCardManager) {
+        dashboardNavigation.openCardManager(button.dataset.openCardManager);
       }
     });
   });
 
   profileTopButton?.addEventListener('click', () => {
+    if (isTopbarControl(profileTopButton) && dashboardNavigation?.activateView) {
+      dashboardNavigation.activateView('settings');
+      return;
+    }
     showView('settings');
     setTopGlobalActive('');
     topGlobalMenu?.removeAttribute('open');

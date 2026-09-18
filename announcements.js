@@ -36,8 +36,10 @@
   const PROFILE_LOCALHOST = 'localhost';
   const PAGE_MANAGER = 'manager';
   const PAGE_CALC = 'calc';
+  const PAGE_DATA = 'data';
   const PAGE_OTHER = 'other';
   const RELEASE_GATE = 'announcements-migration-20260915';
+  const MIGRATION_ARTICLE_ID = 'migration-file-first-20260914';
   const LEGACY_ORIGIN = 'https://innocentroad.github.io';
   const NEW_ORIGIN = 'https://trickcal.irlab.dev';
   const FOCUSABLE_SELECTOR = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -115,6 +117,7 @@
     let currentAuto = null;
     let lastTrigger = null;
     let trigger = null;
+    let followBarTrigger = null;
     let dialog = null;
     let dialogBody = null;
     let dialogTitle = null;
@@ -203,12 +206,13 @@
     const contentProfile = profile === PROFILE_LEGACY ? PROFILE_LEGACY : PROFILE_NEW;
 
     function rawPage() {
-      if (config.fixture === true && [PAGE_MANAGER, PAGE_CALC, PAGE_OTHER].includes(config.page)) {
+      if (config.fixture === true && [PAGE_MANAGER, PAGE_CALC, PAGE_DATA, PAGE_OTHER].includes(config.page)) {
         return config.page;
       }
       const pathname = safeText(windowObject?.location?.pathname);
       if (/\/manager(?:\/|$)|stat-dashboard\.html$/.test(pathname)) return PAGE_MANAGER;
       if (/\/calc(?:\/|$)|formation-damage-calc\.html$/.test(pathname)) return PAGE_CALC;
+      if (/\/data(?:\/|$)/.test(pathname)) return PAGE_DATA;
       return PAGE_OTHER;
     }
 
@@ -511,7 +515,7 @@
 
     function updateDisplaySettings(errorMessage = '') {
       if (!ensureDisplaySettings()) return;
-      const article = articleById('migration-file-first-20260914');
+      const article = articleById(MIGRATION_ARTICLE_ID);
       const enabled = !!article && (featureEnabled('bannerEnabled') || featureEnabled('autoEnabled'));
       displaySettings.hidden = !enabled;
       const dismissed = isDismissed(article);
@@ -531,7 +535,7 @@
     }
 
     function restoreDismissed() {
-      const article = articleById('migration-file-first-20260914');
+      const article = articleById(MIGRATION_ARTICLE_ID);
       if (!article || !isDismissed(article)) return false;
       state.dismissedIds = state.dismissedIds.filter(id => id !== article.id);
       const saved = persistState();
@@ -563,7 +567,7 @@
       const root = documentObject?.documentElement;
       if (!root?.style) return;
       const topHeight = Number(topBar?.getBoundingClientRect?.().height || topBar?.offsetHeight || 0);
-      const followHeight = Number(trigger?.getBoundingClientRect?.().height || trigger?.offsetHeight || 0);
+      const followHeight = Number(followBarTrigger?.getBoundingClientRect?.().height || followBarTrigger?.offsetHeight || 0);
       if (topHeight > 0) root.style.setProperty('--trickcal-topbar-height', `${topHeight}px`);
       root.style.setProperty('--trickcal-follow-bar-height', `${Math.max(0, followHeight)}px`);
     }
@@ -757,7 +761,7 @@
         recovery.hidden = true;
         bindBackupController();
       }
-      appendDismissControl(dialogBody, articleById('migration-file-first-20260914'));
+      appendDismissControl(dialogBody, articleById(MIGRATION_ARTICLE_ID));
       return true;
     }
 
@@ -831,15 +835,17 @@
     }
 
     function refreshUnread() {
-      if (!trigger) return;
       const visibleArticles = notificationArticles();
       const unreadCount = visibleArticles.filter(article => !isRead(article.id)).length;
       const currentArticle = visibleArticles[0] || articles()[0];
-      trigger.dataset.unread = unreadCount > 0 ? 'true' : 'false';
-      trigger.setAttribute('aria-label', `${unreadCount > 0 ? `未読${unreadCount}件。` : ''}お知らせ。${currentArticle?.barTitle || '最新のお知らせ'}`);
-      trigger.setAttribute('title', unreadCount > 0 ? `お知らせ（未読${unreadCount}件）` : 'お知らせ');
-      const unreadIndicator = trigger.querySelector?.('.trickcal-announcements-follow-unread');
-      if (unreadIndicator) unreadIndicator.hidden = unreadCount <= 0;
+      const targets = [trigger, followBarTrigger].filter((item, index, list) => item && list.indexOf(item) === index);
+      targets.forEach(target => {
+        target.dataset.unread = unreadCount > 0 ? 'true' : 'false';
+        target.setAttribute('aria-label', `${unreadCount > 0 ? `未読${unreadCount}件。` : ''}お知らせ。${currentArticle?.barTitle || '最新のお知らせ'}`);
+        target.setAttribute('title', unreadCount > 0 ? `お知らせ（未読${unreadCount}件）` : 'お知らせ');
+        const unreadIndicator = target.querySelector?.('.trickcal-announcements-follow-unread');
+        if (unreadIndicator) unreadIndicator.hidden = unreadCount <= 0;
+      });
     }
 
     function removeFollowBar() {
@@ -849,45 +855,48 @@
         windowObject.removeEventListener('resize', followBarResizeHandler);
       }
       followBarResizeHandler = null;
-      if (trigger?.parentNode?.removeChild) trigger.parentNode.removeChild(trigger);
-      trigger = null;
+      if (followBarTrigger?.parentNode?.removeChild) followBarTrigger.parentNode.removeChild(followBarTrigger);
+      if (trigger === followBarTrigger) trigger = null;
+      followBarTrigger = null;
       banner = null;
       measureFollowBar();
     }
 
     function createFollowBar(articleOverride = null) {
       if (!featureEnabled('bannerEnabled') || !documentObject?.body) return false;
-      const article = articleOverride || notificationArticles()[0];
-      if (!article) {
+      const migrationArticle = articleById(MIGRATION_ARTICLE_ID);
+      const article = articleOverride?.id === MIGRATION_ARTICLE_ID ? articleOverride : migrationArticle;
+      if (!article || isDismissed(article)) {
         removeFollowBar();
         return false;
       }
       topBar = documentObject.querySelector?.('.dashboard-top-control-bar, .fdc-top-control-bar');
       if (!topBar?.parentNode) return false;
-      trigger = documentObject.querySelector?.('.trickcal-announcements-follow-bar') || null;
-      if (!trigger) {
-        trigger = documentObject.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'trickcal-announcements-follow-bar';
-        trigger.setAttribute('aria-haspopup', 'dialog');
-        trigger.setAttribute('aria-controls', 'trickcal-announcements-dialog');
-        appendElement(trigger, 'span', 'お知らせ', 'trickcal-announcements-follow-label');
-        appendElement(trigger, 'span', article.barTitle || article.title, 'trickcal-announcements-follow-title');
-        appendElement(trigger, 'span', '未読', 'trickcal-announcements-follow-unread');
-        const arrow = appendElement(trigger, 'span', '›', 'trickcal-announcements-follow-arrow');
+      followBarTrigger = documentObject.querySelector?.('.trickcal-announcements-follow-bar') || null;
+      if (!followBarTrigger) {
+        followBarTrigger = documentObject.createElement('button');
+        followBarTrigger.type = 'button';
+        followBarTrigger.className = 'trickcal-announcements-follow-bar';
+        followBarTrigger.setAttribute('aria-haspopup', 'dialog');
+        followBarTrigger.setAttribute('aria-controls', 'trickcal-announcements-dialog');
+        appendElement(followBarTrigger, 'span', 'お知らせ', 'trickcal-announcements-follow-label');
+        appendElement(followBarTrigger, 'span', article.barTitle || article.title, 'trickcal-announcements-follow-title');
+        appendElement(followBarTrigger, 'span', '未読', 'trickcal-announcements-follow-unread');
+        const arrow = appendElement(followBarTrigger, 'span', '›', 'trickcal-announcements-follow-arrow');
         arrow.setAttribute('aria-hidden', 'true');
-        topBar.parentNode.insertBefore(trigger, topBar.nextSibling);
+        topBar.parentNode.insertBefore(followBarTrigger, topBar.nextSibling);
       }
-      banner = trigger;
-      const title = trigger.querySelector?.('.trickcal-announcements-follow-title');
+      if (!trigger) trigger = followBarTrigger;
+      banner = followBarTrigger;
+      const title = followBarTrigger.querySelector?.('.trickcal-announcements-follow-title');
       if (title) title.textContent = article.barTitle || article.title;
-      trigger.dataset.articleId = article.id;
-      if (trigger.dataset.announcementsBound !== 'true') {
-        trigger.addEventListener('click', () => {
-          const currentArticleId = trigger?.dataset?.articleId;
-          if (currentArticleId) openArticleById(currentArticleId, { source: trigger });
+      followBarTrigger.dataset.articleId = article.id;
+      if (followBarTrigger.dataset.announcementsBound !== 'true') {
+        followBarTrigger.addEventListener('click', () => {
+          const currentArticleId = followBarTrigger?.dataset?.articleId;
+          if (currentArticleId) openArticleById(currentArticleId, { source: followBarTrigger });
         });
-        trigger.dataset.announcementsBound = 'true';
+        followBarTrigger.dataset.announcementsBound = 'true';
       }
       refreshUnread();
       measureFollowBar();
@@ -900,7 +909,7 @@
         followBarResizeObserver?.disconnect?.();
         followBarResizeObserver = new windowObject.ResizeObserver(scheduleFollowBarMetrics);
         followBarResizeObserver.observe(topBar);
-        followBarResizeObserver.observe(trigger);
+        followBarResizeObserver.observe(followBarTrigger);
       }
       return true;
     }
@@ -910,7 +919,7 @@
         removeFollowBar();
         return false;
       }
-      return createFollowBar(notificationArticles()[0]);
+      return createFollowBar();
     }
 
     function createDialog() {
@@ -955,6 +964,19 @@
         });
         closeHandlerInstalled = true;
       }
+    }
+
+    function bindTopbarTrigger() {
+      const candidate = documentObject?.querySelector?.('[data-announcement-trigger]');
+      if (!candidate) return false;
+      trigger = candidate;
+      candidate.setAttribute('aria-haspopup', 'dialog');
+      candidate.setAttribute('aria-controls', 'trickcal-announcements-dialog');
+      if (candidate.dataset.announcementsBound !== 'true') {
+        candidate.addEventListener('click', () => openList(candidate));
+        candidate.dataset.announcementsBound = 'true';
+      }
+      return true;
     }
 
     function isInputFocused() {
@@ -1022,6 +1044,7 @@
       if (initialized || !documentObject?.body) return false;
       state = readPersistedState();
       createDialog();
+      bindTopbarTrigger();
       createFollowBar();
       ensureDisplaySettings();
       if (!backupControllerReadyBound && typeof windowObject.addEventListener === 'function') {
@@ -1063,7 +1086,7 @@
           dialogOpen: !!dialog?.open,
           view: currentView,
           bannerVisible: !!banner,
-          followBarVisible: !!trigger,
+          followBarVisible: !!followBarTrigger,
           storageFallback
         });
       },

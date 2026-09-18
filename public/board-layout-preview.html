@@ -9,9 +9,14 @@
   <script src="../storage-runtime.js?v=20260913a"></script>
   <script src="../storage-bootstrap.js?v=20260913a"></script>
   <script>document.documentElement.dataset.theme = 'light';</script>
+  <link rel="stylesheet" href="../shared-topbar.css?v=20260918h">
+  <link rel="stylesheet" href="../announcements.css?v=20260918notice">
   <link rel="stylesheet" href="board-layout-preview.css?v=20260830c">
 </head>
-<body>
+<body class="data-detail-page">
+  <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="board" data-shared-topbar-manager-route="../stat-dashboard.html?view=settings&recover=20260912" data-shared-topbar-calc-route="../formation-damage-calc.html?recover=20260912" data-shared-topbar-data-route="../data/" data-shared-topbar-enemies-route="../enemy-status.html?recover=20260912" data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
   <main class="tool-shell">
     <header class="tool-head">
       <div>
@@ -19,10 +24,12 @@
         <h1>ボードプレビュー</h1>
         <p>種族・特殊マスタイプ・ボードTierから、3階層の配置をまとめて確認します。</p>
       </div>
+      <template class="board-legacy-theme-control">
       <button type="button" id="board-preview-theme-toggle" class="tool-theme-toggle" aria-label="テーマ切替">
         <svg class="tool-ui-icon tool-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
         <svg class="tool-ui-icon tool-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
       </button>
+      </template>
     </header>
 
     <section class="panel controls-panel">
@@ -95,5 +102,9 @@
 
   <script src="../statData.js"></script>
   <script src="board-layout-preview.js?v=20260830c"></script>
+  <script src="../shared-topbar.js?v=20260918i"></script>
+  <script src="../announcements-release-config.js?v=20260918notice"></script>
+  <script src="../announcements-data.js?v=20260918notice"></script>
+  <script src="../announcements.js?v=20260918notice"></script>
 </body>
 </html>

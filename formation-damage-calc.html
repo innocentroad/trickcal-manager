@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
   <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260904a">
-  <link rel="stylesheet" href="shared-topbar.css?v=20260727e">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260918h">
   <link rel="stylesheet" href="announcements.css?v=20260915b">
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-J8GXV74KQY"></script>
@@ -58,7 +58,9 @@
 </head>
 <body class="formation-damage-calc fdcp-page theme-dark" data-fdc-mobile-side="self">
   <main class="fdc-shell">
-    <section class="fdc-top-control-bar" aria-label="計算操作">
+    <section class="fdc-top-control-bar" data-shared-topbar-page="calc" aria-label="計算操作">
+      <div class="topbar-common-row" data-shared-topbar-common></div>
+      <template class="fdc-legacy-topbar">
       <div class="fdc-top-status">
         <h1>ダメージ計算</h1>
         <span>カード・クレヨンボード・シナジー込みで計算</span>
@@ -91,6 +93,7 @@
           <svg class="ui-icon ui-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
         </button>
       </div>
+      </template>
     </section>
     <button type="button" id="fdc-perspective-toggle" class="fdc-perspective-toggle" title="攻守切替" aria-label="攻守切替">
       <svg class="fdc-perspective-arrow fdc-arrow-right" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M5 12h14M14 7l5 5-5 5"></path></svg>
@@ -1000,6 +1003,7 @@
   <script src="dps-timing-data.js?v=20260907c"></script>
   <script src="dps-simulator.js?v=20260907c"></script>
   <script src="dps-support-registry.js?v=20260827c"></script>
+  <script src="shared-topbar.js?v=20260918i"></script>
   <script src="formation-damage-calc.js?v=20260912a"></script>
   <script src="formation-damage-dps-prototype.js?v=20260907c"></script>
   <script src="announcements-release-config.js?v=20260915a"></script>

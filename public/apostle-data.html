@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>使徒データ</title>
+  <link rel="stylesheet" href="../shared-topbar.css">
+  <link rel="stylesheet" href="../announcements.css">
+  <link rel="stylesheet" href="apostle-data.css">
+</head>
+<body class="data-detail-page apostle-data-page">
+  <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="apostles"
+    data-shared-topbar-manager-route="../stat-dashboard.html?view=settings&recover=20260912"
+    data-shared-topbar-calc-route="../formation-damage-calc.html?recover=20260912"
+    data-shared-topbar-data-route="../data/"
+    data-shared-topbar-apostles-route="apostle-data.html"
+    data-shared-topbar-enemies-route="../enemy-status.html?recover=20260912"
+    data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
+
+  <main class="apostle-data-main">
+    <div class="apostle-data-toolbar" aria-label="使徒データ操作">
+      <h1 id="apostle-data-view-title" class="apostle-data-page-title">
+        <span>使徒データ</span><span aria-hidden="true"> / </span><span data-apostle-view-title>基礎設定</span>
+      </h1>
+      <div class="apostle-data-toolbar-controls">
+        <p id="apostle-data-count" class="apostle-data-count" aria-live="polite"></p>
+        <button type="button" id="apostle-data-filter-clear" class="apostle-data-secondary" hidden>解除</button>
+      </div>
+      <details class="apostle-data-filter-details" data-apostle-filter-details>
+        <summary id="apostle-data-filter-toggle" aria-controls="apostle-data-filter-grid" aria-expanded="false">
+          <span>絞り込み</span><span class="apostle-data-filter-summary" data-apostle-filter-summary aria-live="polite" hidden></span>
+        </summary>
+        <div id="apostle-data-filter-grid" class="apostle-data-filter-grid">
+          <label class="apostle-data-search-field">
+            <span>名前／ID</span>
+            <input id="apostle-data-search" type="search" placeholder="例：アメリア / Amelia" autocomplete="off">
+          </label>
+          <label><span>性格</span><select data-apostle-filter="personality"><option value="">すべて</option></select></label>
+          <label><span>種族</span><select data-apostle-filter="species"><option value="">すべて</option></select></label>
+          <label><span>役割</span><select data-apostle-filter="role"><option value="">すべて</option></select></label>
+          <label><span>攻撃タイプ</span><select data-apostle-filter="attackType"><option value="">すべて</option></select></label>
+          <label><span>配置列</span><select data-apostle-filter="column"><option value="">すべて</option></select></label>
+        </div>
+      </details>
+    </div>
+
+    <section class="apostle-data-view-panel" aria-labelledby="apostle-data-view-title">
+      <div class="apostle-data-view-heading" data-apostle-view-heading>
+        <div id="apostle-data-view-options" class="apostle-data-view-options"></div>
+      </div>
+      <p id="apostle-data-view-note" class="apostle-data-view-note" hidden></p>
+      <div id="apostle-data-status-summary" class="apostle-data-status-summary" aria-live="polite" hidden></div>
+      <div class="apostle-data-table-scroll" data-apostle-table-wrap tabindex="0">
+        <table class="apostle-data-table" data-apostle-table>
+          <caption data-apostle-caption>使徒の基礎設定一覧</caption>
+          <thead data-apostle-thead></thead>
+          <tbody data-apostle-tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <nav class="apostle-data-bottom-bar" data-apostle-bottom-bar aria-label="使徒データの表示切替">
+    <button type="button" data-apostle-view="basic" aria-current="page"><span>基礎</span><span>設定</span></button>
+    <button type="button" data-apostle-view="equipment"><span>装備</span><span>等級</span></button>
+    <button type="button" data-apostle-view="board"><span>ボード</span><span>等級</span></button>
+    <button type="button" data-apostle-view="aside"><span>アサイド</span><span>等級</span></button>
+    <button type="button" data-apostle-view="rank"><span>Rank</span><span>全体効果</span></button>
+  </nav>
+
+  <dialog id="apostle-data-equipment-dialog" class="apostle-data-equipment-dialog" aria-labelledby="apostle-data-equipment-dialog-title">
+    <div class="apostle-data-equipment-dialog-shell">
+      <header class="apostle-data-equipment-dialog-header">
+        <h2 id="apostle-data-equipment-dialog-title">装備詳細</h2>
+        <button type="button" class="apostle-data-secondary" data-apostle-equipment-dialog-close>閉じる</button>
+      </header>
+      <div class="apostle-data-equipment-dialog-body" data-apostle-equipment-dialog-body></div>
+    </div>
+  </dialog>
+
+  <script src="../statData.js"></script>
+  <script src="../public-release-config.js"></script>
+  <script src="apostle-data.js"></script>
+  <script src="../shared-topbar.js"></script>
+  <script src="../announcements-release-config.js"></script>
+  <script src="../announcements-data.js"></script>
+  <script src="../announcements.js"></script>
+</body>
+</html>

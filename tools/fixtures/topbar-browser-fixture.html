@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>上バー通知fixture</title>
+  <link rel="stylesheet" href="../../shared-topbar.css?v=20260918e">
+  <link rel="stylesheet" href="../../announcements.css">
+  <style>
+    body { margin: 0; min-width: 320px; padding-top: var(--trickcal-top-occupied-height, 3.25rem); background: var(--fdc-bg, #eef7e2); color: var(--fdc-text, #223321); font-family: system-ui, sans-serif; }
+    main { max-width: 42rem; margin: 1rem auto; padding: 1rem; }
+    .fixture-card { border: 1px solid var(--fdc-border); border-radius: 1rem; padding: 1rem; background: var(--fdc-panel); }
+  </style>
+</head>
+<body class="public-data-page theme-light">
+  <section class="dashboard-top-control-bar" data-shared-topbar-page="data" data-shared-topbar-manager-href="../../stat-dashboard.html" data-shared-topbar-calc-href="../../formation-damage-calc.html" data-shared-topbar-data-href="../../data/" data-shared-topbar-enemies-href="../../enemy-status.html?recover=20260912" data-shared-topbar-board-href="../../public/board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
+  <main>
+    <article class="fixture-card">
+      <h1>お知らせベル確認</h1>
+      <p>隔離fixture。ベル押下・未読表示・記事表示・閉じる後のfocusを確認します。</p>
+    </article>
+  </main>
+  <script src="../../shared-topbar.js?v=20260918e"></script>
+  <script>
+    window.TRICKCAL_ANNOUNCEMENTS_CONFIG = {
+      fixture: true,
+      profileOverride: 'new',
+      page: 'data',
+      bannerEnabled: true,
+      autoEnabled: false,
+      scheduleAuto: false
+    };
+  </script>
+  <script src="../../announcements-data.js"></script>
+  <script src="../../announcements.js"></script>
+</body>
+</html>

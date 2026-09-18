@@ -1,5 +1,14 @@
 # Trickcal Manager 現在地
 
+## 最新：共通上バー＋使徒データの公開候補準備（2026-09-18）
+
+- 対象は `release-source` の現行ベースへ、共通上バー、manager/calc/data/enemy/board の接続、お知らせ連携、使徒データ5ビュー、公開route・生成接続・焦点テストを機能単位で取り込んだもの。mainの共鳴・共有v2・ボード本体改修・datasheet変更は含めていない。
+- ボードプレビューは上バー接続とテーマ初期同期だけを取り込み、下バー化、左端スクロール、背景・B1〜B3・凡例・件数表示などの本体改修は分離して残した。公開済み共有画像URL修正は保持している。
+- 使徒データは基礎設定、装備等級、ボード等級、アサイド等級、Rank全体効果、固定見出し・使徒列、装備詳細、初期閉の絞り込みと低い画面での展開を含む。生成物は既存generatorで作成し、生成HTML・hashの手編集はしていない。
+- 実施した焦点検査：`test-public-site.js`、`test-public-site-http.js`、`test-public-site-release-input.js`、`test-public-site-publication.js`、`test-publish-public-site.js`、`test-announcements.js`、`test-topbar-navigation-native.js`、`test-apostle-data-native.js`、共有codec/image/asset検査。共有maintenance検査は既存の `tools/git/push.bat` の固定前提不一致、staging検査は旧固定identity/digest前提により、今回変更前から失敗する阻害として成功へ加算していない。
+- 変更前のsource対象ファイルは `D:/Games/etc/trickcal/backups/topbar-apostle-publication-20260918-04/release-source-before` に退避し、全対象でSHA-256一致を確認した。詳細は [`docs/history/topbar-apostle-publication-2026-09-18.md`](docs/history/topbar-apostle-publication-2026-09-18.md) に記録する。
+- 現在は対象限定commit前の公開候補。commit/push・new公開・通常deployment承認・legacy公開はこの記録作成時点で未実施。公開はcleanな対象限定commit、candidate/check、new成功確認、legacyの順でのみ進める。別案件は公開完了扱いにしない。
+
 ## 最新：共有画像URL修正の新旧公開完了（2026-09-18）
 
 - `release-source`の対象限定source commitは`48518aed9eb08f026060c8f61375fd9ff3854051`。mainの上バー・共鳴・全列・その他のdirtyは取り込んでいない。

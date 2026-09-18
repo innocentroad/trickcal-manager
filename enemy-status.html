@@ -7,22 +7,28 @@
   <title>敵ステータス確認 | Trickcal Manager</title>
   <script src="storage-registry.js?v=20260913a"></script>
   <script src="storage-runtime.js?v=20260913a"></script>
+  <script src="storage-transfer.js?v=20260913a"></script>
   <script src="storage-bootstrap.js?v=20260913a"></script>
+  <link rel="stylesheet" href="shared-topbar.css?v=20260918h">
+  <link rel="stylesheet" href="announcements.css?v=20260918notice">
   <link rel="stylesheet" href="enemy-status.css?v=20260830l">
 </head>
-<body>
+<body class="data-detail-page">
+  <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="enemies" data-shared-topbar-manager-route="stat-dashboard.html?view=settings&recover=20260912" data-shared-topbar-calc-route="formation-damage-calc.html?recover=20260912" data-shared-topbar-data-route="data/" data-shared-topbar-enemies-route="enemy-status.html?recover=20260912" data-shared-topbar-board-route="public/board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
   <header class="enemy-status-header">
     <div>
       <p class="eyebrow">Trickcal Manager</p>
       <h1>敵ステータス確認</h1>
     </div>
-    <div class="header-actions">
+    <template class="enemy-legacy-header-actions">
       <a href="formation-damage-calc.html?recover=20260912">ダメージ計算へ</a>
       <button type="button" id="enemy-status-theme" aria-label="テーマ切替">
         <svg class="enemy-ui-icon enemy-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>
         <svg class="enemy-ui-icon enemy-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20.5 14.1A8.5 8.5 0 0 1 9.9 3.5 8.5 8.5 0 1 0 20.5 14.1Z"></path></svg>
       </button>
-    </div>
+    </template>
   </header>
 
   <main class="enemy-status-shell">
@@ -62,5 +68,9 @@
 
   <script src="enemy-presets.js?v=20260821o"></script>
   <script src="enemy-status.js?v=20260830h"></script>
+  <script src="shared-topbar.js?v=20260918i"></script>
+  <script src="announcements-release-config.js?v=20260918notice"></script>
+  <script src="announcements-data.js?v=20260918notice"></script>
+  <script src="announcements.js?v=20260918notice"></script>
 </body>
 </html>

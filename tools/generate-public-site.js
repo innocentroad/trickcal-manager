@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { hashText } = require('./sync-formation-share-assets.js');
@@ -775,7 +776,7 @@ function renderEntry(entry, context) {
   }
   if (entry.type === 'alias') return Buffer.from(createRedirectHtml(entry.targetPath, `${entry.routeId} compatibility`));
   if (entry.generator === 'home-entry') return Buffer.from(createRedirectHtml(entry.targetPath, 'Trickcal Manager'));
-  if (entry.generator === 'data-index') return Buffer.from(transformHtml(createDataIndexHtml(context.plan, entry.profile, context), entry, context));
+  if (entry.generator === 'data-index') return Buffer.from(transformHtml(stripDataIndexPageRow(createDataIndexHtml(context.plan, entry.profile, context)), entry, context));
   const source = fs.readFileSync(path.resolve(context.repoRoot, entry.source), 'utf8');
   return Buffer.from(entry.outputRel.endsWith('.html') ? transformHtml(source, entry, context) : source);
 }
@@ -796,6 +797,58 @@ function profileDigest(plan, renderedEntries, profileName) {
     .filter(({ entry }) => entry.profile === profileName)
     .map(({ entry, content }) => ({ path: entry.outputRel, sha256: digestBuffer(content) }));
   return hashText(JSON.stringify(records));
+}
+
+function getSourceCommit(repoRoot) {
+  let gitDirectory = path.join(repoRoot, '.git');
+  try {
+    if (fs.statSync(gitDirectory).isFile()) {
+      const pointer = fs.readFileSync(gitDirectory, 'utf8').trim().match(/^gitdir:\s*(.+)$/i);
+      if (pointer) gitDirectory = path.resolve(repoRoot, pointer[1]);
+    }
+    const head = fs.readFileSync(path.join(gitDirectory, 'HEAD'), 'utf8').trim();
+    if (/^[0-9a-f]{40}$/i.test(head)) return head;
+    const match = head.match(/^ref:\s+(.+)$/);
+    if (match) {
+      const refPath = path.join(gitDirectory, ...match[1].split('/'));
+      if (fs.existsSync(refPath)) {
+        const commit = fs.readFileSync(refPath, 'utf8').trim();
+        if (/^[0-9a-f]{40}$/i.test(commit)) return commit;
+      }
+      const commonDirPath = path.join(gitDirectory, 'commondir');
+      if (fs.existsSync(commonDirPath)) {
+        const commonDirectory = path.resolve(gitDirectory, fs.readFileSync(commonDirPath, 'utf8').trim());
+        const commonRefPath = path.join(commonDirectory, ...match[1].split('/'));
+        if (fs.existsSync(commonRefPath)) {
+          const commit = fs.readFileSync(commonRefPath, 'utf8').trim();
+          if (/^[0-9a-f]{40}$/i.test(commit)) return commit;
+        }
+      }
+      const packedRefsPath = path.join(gitDirectory, 'packed-refs');
+      if (fs.existsSync(packedRefsPath)) {
+        const packed = fs.readFileSync(packedRefsPath, 'utf8').split(/\r?\n/);
+        const packedLine = packed.find(line => line.endsWith(` ${match[1]}`));
+        const commit = packedLine?.split(' ')[0] || '';
+        if (/^[0-9a-f]{40}$/i.test(commit)) return commit;
+      }
+    }
+  } catch (_) {
+    // The fallback below is useful for non-git source copies.
+  }
+  try {
+    return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() || 'unknown';
+  } catch (_) {
+    return 'unknown';
+  }
+}
+
+function isWorkingTreeDirty(repoRoot) {
+  try {
+    return !!execFileSync('git', ['-C', repoRoot, 'status', '--porcelain', '--untracked-files=all'], { encoding: 'utf8' }).trim();
+  } catch (_) {
+    const gitState = readGitState(repoRoot);
+    return gitState.available ? gitState.dirty : fs.existsSync(path.join(repoRoot, '.git'));
+  }
 }
 
 function isUsableReleaseRecord(record) {
@@ -887,8 +940,6 @@ function generatePublicSite(manifest, options = {}) {
   } = options;
   const plan = buildPlan(manifest, { repoRoot, outputDir });
   if (!write) return summarizePlan(plan);
-  // Git supports .git directories and linked-worktree .git files alike.
-  const gitState = readGitState(repoRoot);
   const inputContext = createBuildContext(manifest, plan, repoRoot);
   const previousRelease = resolvePreviousRelease(outputDir, inputContext.releaseId, options);
   const context = createBuildContext(manifest, plan, repoRoot, { previousRelease });
@@ -906,8 +957,8 @@ function generatePublicSite(manifest, options = {}) {
   }
 
   const contentDigest = directoryDigest(targetDir);
-  const sourceCommit = gitState.head || 'unknown';
-  const dirty = !gitState.available || gitState.dirty;
+  const sourceCommit = getSourceCommit(repoRoot);
+  const dirty = isWorkingTreeDirty(repoRoot);
   const dependencyOrder = [
     'profile-layout',
     'direct-assets',
@@ -1035,13 +1086,24 @@ function createDataIndexHtml(plan, profileName, context = null) {
     '',
     context?.assetVersion || ''
   );
-  const nav = [
-    ['manager', 'ステ管理'],
-    ['calc', 'ダメ計算'],
-    ['data', 'データ'],
-    ['share', '共有']
-  ].filter(([id]) => routeMap.has(id)).map(([id, label]) => `<a href="${escapeHtml(routeMap.get(id))}"${id === 'data' ? ' aria-current="page"' : ''}>${escapeHtml(label)}</a>`).join('\n        ');
-  return `<!doctype html>\n<html lang="ja">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <meta name="robots" content="index,follow">\n  <title>Trickcal Manager データ</title>\n  <link rel="stylesheet" href="${escapeHtml(cssPath)}">\n  <style>body{margin:0;min-width:320px;background:#f3f8ed;color:#233629;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.data-index-shell{max-width:48rem;margin:5.5rem auto 3rem;padding:1rem}.data-index-shell a{color:#287348;font-weight:700}.data-index-shell li{margin:.75rem 0}</style>\n</head>\n<body class="dashboard-page public-data-page">\n  <section class="dashboard-top-control-bar" aria-label="共通操作">\n    <div class="dashboard-top-status"><h1>データ</h1><span>敵・ボードの閲覧入口</span></div>\n    <nav class="dashboard-top-tabs" aria-label="主要画面">\n        ${nav}\n    </nav>\n    <div class="dashboard-top-actions"><a href="${escapeHtml(routeMap.get('manager') || '/')}">管理画面へ</a></div>\n  </section>\n  <main class="data-index-shell">\n    <p>TRICKCAL MANAGER</p>\n    <h2>データ・補助画面</h2>\n    <p>保存状態を変更しない閲覧用の入口です。</p>\n    <ul>\n    ${links}\n    </ul>\n  </main>\n</body>\n</html>\n`;
+  const scriptPath = asset => appendAssetVersion(
+    joinPublicPath(profile.assetBasePath, asset),
+    '',
+    context?.assetVersion || ''
+  );
+  const managerHref = routeMap.get('manager') || '/';
+  const calcHref = routeMap.get('calc') || '/';
+  const enemyHref = routeMap.get('enemies') || '#';
+  const boardHref = routeMap.get('board') || '#';
+  return `<!doctype html>\n<html lang="ja">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1">\n  <meta name="robots" content="index,follow">\n  <title>Trickcal Manager データ</title>\n  <link rel="stylesheet" href="${escapeHtml(cssPath)}">\n  <link rel="stylesheet" href="${escapeHtml(scriptPath('announcements.css'))}">\n  <style>body{margin:0;min-width:320px;--fdc-bg:#f3f8ed;--fdc-panel:rgba(255,255,255,.9);--fdc-text:#233629;--fdc-muted:#63725f;--fdc-border:rgba(75,125,67,.18);--fdc-primary:#4e9d4f;--fdc-primary-soft:rgba(112,189,91,.18);--fdc-shadow:rgba(75,125,67,.16);background:var(--fdc-bg);color:var(--fdc-text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.public-data-page.theme-dark{--fdc-bg:#0b1020;--fdc-panel:rgba(19,29,52,.92);--fdc-text:#f6f8ff;--fdc-muted:#aeb9d1;--fdc-border:rgba(180,207,255,.16);--fdc-primary:#7aa2ff;--fdc-primary-soft:rgba(122,162,255,.18);--fdc-shadow:rgba(0,0,0,.36)}.public-data-page{padding-top:var(--trickcal-top-occupied-height,3.25rem)}.data-index-shell{max-width:48rem;margin:1rem auto 3rem;padding:1rem}.data-index-shell a{color:var(--fdc-primary);font-weight:700}.data-index-shell li{margin:.75rem 0}</style>\n</head>\n<body class="dashboard-page public-data-page" data-theme="light">\n  <section class="dashboard-top-control-bar" data-shared-topbar-page="data" data-shared-topbar-manager-href="${escapeHtml(managerHref)}" data-shared-topbar-calc-href="${escapeHtml(calcHref)}" data-shared-topbar-data-href="./" aria-label="共通操作">\n    <div class="topbar-common-row" data-shared-topbar-common></div>\n    <div class="topbar-page-row">\n      <div class="dashboard-top-status"><h1>データ</h1><span>敵・ボードの閲覧入口</span></div>\n      <nav class="dashboard-top-tabs" aria-label="データ操作">\n        <a href="${escapeHtml(enemyHref)}">敵</a>\n        <a href="${escapeHtml(boardHref)}">ボード</a>\n      </nav>\n      <div class="dashboard-top-actions"></div>\n    </div>\n  </section>\n  <main class="data-index-shell">\n    <p>TRICKCAL MANAGER</p>\n    <h2>データ・補助画面</h2>\n    <p>保存状態を変更しない閲覧用の入口です。</p>\n    <ul>\n    ${links}\n    </ul>\n  </main>\n  <script src="${escapeHtml(scriptPath('shared-topbar.js'))}"></script>\n  <script src="${escapeHtml(scriptPath('announcements-release-config.js'))}"></script>\n  <script src="${escapeHtml(scriptPath('announcements-data.js'))}"></script>\n  <script src="${escapeHtml(scriptPath('announcements.js'))}"></script>\n</body>\n</html>\n`;
+}
+
+function stripDataIndexPageRow(html) {
+  const start = html.indexOf('\n    <div class="topbar-page-row">');
+  const closing = '\n    </div>';
+  const end = start >= 0 ? html.indexOf(`${closing}\n  </section>`, start) : -1;
+  if (start < 0 || end < 0) return html;
+  return `${html.slice(0, start)}${html.slice(end + closing.length)}`;
 }
 
 function escapeHtml(value) {
