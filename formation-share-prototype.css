@@ -46,7 +46,20 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
-body {
+.formation-share-page {
+  --fdc-bg: var(--share-bg);
+  --fdc-panel: var(--share-panel);
+  --fdc-text: var(--share-text);
+  --fdc-muted: var(--share-muted);
+  --fdc-border: var(--share-line-strong);
+  --fdc-primary: var(--share-primary);
+  --fdc-primary-soft: var(--share-primary-soft);
+  --fdc-shadow: var(--share-shadow);
+  --trickcal-follow-bar-height: 0px;
+  --trickcal-top-occupied-height: calc(var(--trickcal-topbar-height, 3.25rem) + var(--trickcal-follow-bar-height));
+}
+
+body.formation-share-page {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
@@ -65,23 +78,6 @@ button:focus-visible, a:focus-visible {
   outline-offset: 3px;
 }
 
-.share-topbar {
-  position: sticky;
-  z-index: 5;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  min-height: 68px;
-  padding: 11px max(18px, calc((100vw - 1440px) / 2));
-  border-bottom: 1px solid var(--share-line);
-  background: color-mix(in srgb, var(--share-bg) 90%, transparent);
-  backdrop-filter: blur(18px);
-}
-
-.share-topbar-brand,
-.share-topbar-actions,
 .share-hero,
 .panel-heading,
 .member-growth,
@@ -92,34 +88,13 @@ button:focus-visible, a:focus-visible {
   align-items: center;
 }
 
-.share-topbar-brand { gap: 10px; }
-.share-kicker, .share-eyebrow, .panel-kicker {
+.share-eyebrow, .panel-kicker {
   margin: 0;
   color: var(--share-primary);
   font-size: 0.65rem;
   font-weight: 900;
   letter-spacing: 0.16em;
 }
-
-.share-topbar h1 {
-  margin: 0;
-  font-size: 1.15rem;
-  letter-spacing: 0.05em;
-}
-
-.share-topbar h1 span {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 2px 6px;
-  border: 1px solid var(--share-primary);
-  border-radius: 999px;
-  color: var(--share-primary);
-  font-size: 0.63rem;
-  letter-spacing: 0.08em;
-  vertical-align: middle;
-}
-
-.share-topbar-actions { gap: 9px; }
 .share-output-options {
   display: inline-flex;
   flex-wrap: wrap;
@@ -145,7 +120,7 @@ button:focus-visible, a:focus-visible {
   white-space: nowrap;
 }
 
-.theme-button, .back-link {
+.back-link {
   min-height: 32px;
   padding: 5px 10px;
   border: 1px solid var(--share-line-strong);
@@ -156,14 +131,24 @@ button:focus-visible, a:focus-visible {
   cursor: pointer;
 }
 
-.theme-button { display: inline-flex; align-items: center; gap: 5px; }
-.theme-button:hover, .back-link:hover { border-color: var(--share-primary); }
-.theme-button-label { font-size: 0.72rem; }
+.back-link:hover { border-color: var(--share-primary); }
+
+.share-page-heading {
+  margin: 0 0 12px;
+}
+
+.share-page-heading h1 {
+  margin: 0;
+  color: var(--share-text);
+  font-size: 0.96rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
 
 .share-shell {
   width: min(1460px, calc(100% - 32px));
   margin: 0 auto;
-  padding: 26px 0 84px;
+  padding: calc(var(--trickcal-top-occupied-height) + 18px) 0 84px;
 }
 
 .share-action-bar {
@@ -888,8 +873,6 @@ button:focus-visible, a:focus-visible {
 }
 
 @media (max-width: 800px) {
-  .share-topbar { align-items: flex-start; flex-direction: column; gap: 8px; }
-  .share-topbar-actions { width: 100%; justify-content: flex-end; flex-wrap: wrap; }
   .share-hero { align-items: flex-start; flex-direction: column; }
   .share-source-card { width: 100%; }
   .formation-grid { grid-template-columns: 1fr; }
@@ -927,9 +910,7 @@ button:focus-visible, a:focus-visible {
   .share-image-state { text-align: center; }
   .share-action-buttons { width: 100%; justify-content: stretch; }
   .share-action-button { flex: 1 1 0; min-width: 0; padding-right: 6px; padding-left: 6px; }
-  .share-shell { width: min(100% - 18px, 1460px); padding-top: 17px; }
-  .share-topbar { padding-right: 9px; padding-left: 9px; }
-  .share-topbar-actions { justify-content: space-between; gap: 5px; }
+  .share-shell { width: min(100% - 18px, 1460px); }
   .prototype-badge { font-size: 0.61rem; }
   .back-link { padding-right: 7px; padding-left: 7px; font-size: 0.68rem; }
   .formation-preview-panel { padding: 10px; }

@@ -5,33 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>編成共有 | Trickcal Manager</title>
   <meta name="description" content="Trickcal Managerの編成共有">
-  <link rel="icon" href="/trickcal-manager/ico.webp?v=d60bbf10c69b0f08" type="image/webp">
+  <link rel="icon" href="/trickcal-manager/ico.webp?v=f12652a0ebc1c5ff" type="image/webp">
   <script>
     (() => {
+      let savedTheme = '';
+      try { savedTheme = window.localStorage?.getItem('trickcal_theme') || ''; } catch (_) { /* no-op */ }
       const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
-      document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
+      document.documentElement.dataset.theme = savedTheme === 'light' || savedTheme === 'dark'
+        ? savedTheme
+        : (prefersLight ? 'light' : 'dark');
     })();
   </script>
-  <link rel="stylesheet" href="/trickcal-manager/formation-share-prototype.css?v=d60bbf10c69b0f08">
-  <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/formation-share.html">\n  <meta property="og:url" content="https://innocentroad.github.io/trickcal-manager/formation-share.html">
-  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"d60bbf10c69b0f08","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","apostles":"/trickcal-manager/public/apostle-data.html","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","apostles":"/data/apostles/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","imageStrategy":"cache-first-versioned","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
-  <script src="/trickcal-manager/public-site-runtime.js?v=d60bbf10c69b0f08"></script>
+  <link rel="stylesheet" href="/trickcal-manager/shared-topbar.css?v=f12652a0ebc1c5ff">
+  <link rel="stylesheet" href="/trickcal-manager/announcements.css?v=f12652a0ebc1c5ff">
+  <link rel="stylesheet" href="/trickcal-manager/formation-share-prototype.css?v=f12652a0ebc1c5ff">
+  <link rel="canonical" href="https://innocentroad.github.io/trickcal-manager/formation-share.html">
+  <meta property="og:url" content="https://innocentroad.github.io/trickcal-manager/formation-share.html">
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"f12652a0ebc1c5ff","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","apostles":"/trickcal-manager/public/apostle-data.html","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","apostles":"/data/apostles/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","imageStrategy":"cache-first-versioned","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=f12652a0ebc1c5ff"></script>
 </head>
 <body class="formation-share-page">
-  <header class="share-topbar">
-    <div class="share-topbar-brand">
-      <span class="share-kicker">TRICKCAL MANAGER</span>
-      <h1>編成共有</h1>
-    </div>
-    <div class="share-topbar-actions">
-      <button type="button" class="theme-button" id="theme-toggle" aria-label="テーマ切替" aria-pressed="true">
-        <span aria-hidden="true">☼</span><span class="theme-button-label">ライト</span>
-      </button>
-      <a href="/trickcal-manager/stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ</a>
-    </div>
-  </header>
+  <div
+    class="dashboard-top-control-bar"
+    data-shared-topbar-page="share"
+    data-shared-topbar-manager-href="/trickcal-manager/stat-dashboard.html?view=settings&recover=20260912"
+    data-shared-topbar-calc-href="/trickcal-manager/formation-damage-calc.html?recover=20260912"
+  >
+    <div data-shared-topbar-common></div>
+  </div>
 
   <main class="share-shell">
+    <header class="share-page-heading">
+      <h1>編成共有</h1>
+    </header>
     <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
       <h2>共有編成を表示できません</h2>
       <p id="share-error-message">URLの内容を確認してください。</p>
@@ -90,11 +96,15 @@
     </div>
   </aside>
 
-  <script src="/trickcal-manager/formation-share-display-data.js?v=d60bbf10c69b0f08"></script>
-  <script src="/trickcal-manager/formation-share-catalog.js?v=d60bbf10c69b0f08"></script>
-  <script src="/trickcal-manager/formation-share-codec.js?v=d60bbf10c69b0f08"></script>
-  <script src="/trickcal-manager/formation-share.js?v=d60bbf10c69b0f08"></script>
-  <script src="/trickcal-manager/formation-share-image.js?v=d60bbf10c69b0f08"></script>
-  <script src="/trickcal-manager/formation-share-page-actions.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/shared-topbar.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/announcements-release-config.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/announcements-data.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/announcements.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share-display-data.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share-catalog.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share-codec.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share-image.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/formation-share-page-actions.js?v=f12652a0ebc1c5ff"></script>
 </body>
 </html>
