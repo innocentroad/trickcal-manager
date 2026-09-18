@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>使徒データ</title>
+  <link rel="stylesheet" href="/trickcal-manager/shared-topbar.css?v=d60bbf10c69b0f08">
+  <link rel="stylesheet" href="/trickcal-manager/announcements.css?v=d60bbf10c69b0f08">
+  <link rel="stylesheet" href="/trickcal-manager/public/apostle-data.css?v=d60bbf10c69b0f08">
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"d60bbf10c69b0f08","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","apostles":"/trickcal-manager/public/apostle-data.html","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","apostles":"/data/apostles/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","imageStrategy":"cache-first-versioned","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=d60bbf10c69b0f08"></script>
+</head>
+<body class="data-detail-page apostle-data-page">
+  <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="apostles"
+    data-shared-topbar-manager-route="../stat-dashboard.html?view=settings&recover=20260912"
+    data-shared-topbar-calc-route="../formation-damage-calc.html?recover=20260912"
+    data-shared-topbar-data-route="../data/"
+    data-shared-topbar-apostles-route="apostle-data.html"
+    data-shared-topbar-enemies-route="../enemy-status.html?recover=20260912"
+    data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
+
+  <main class="apostle-data-main">
+    <div class="apostle-data-toolbar" aria-label="使徒データ操作">
+      <h1 id="apostle-data-view-title" class="apostle-data-page-title">
+        <span>使徒データ</span><span aria-hidden="true"> / </span><span data-apostle-view-title>基礎設定</span>
+      </h1>
+      <div class="apostle-data-toolbar-controls">
+        <p id="apostle-data-count" class="apostle-data-count" aria-live="polite"></p>
+        <button type="button" id="apostle-data-filter-clear" class="apostle-data-secondary" hidden>解除</button>
+      </div>
+      <details class="apostle-data-filter-details" data-apostle-filter-details>
+        <summary id="apostle-data-filter-toggle" aria-controls="apostle-data-filter-grid" aria-expanded="false">
+          <span>絞り込み</span><span class="apostle-data-filter-summary" data-apostle-filter-summary aria-live="polite" hidden></span>
+        </summary>
+        <div id="apostle-data-filter-grid" class="apostle-data-filter-grid">
+          <label class="apostle-data-search-field">
+            <span>名前／ID</span>
+            <input id="apostle-data-search" type="search" placeholder="例：アメリア / Amelia" autocomplete="off">
+          </label>
+          <label><span>性格</span><select data-apostle-filter="personality"><option value="">すべて</option></select></label>
+          <label><span>種族</span><select data-apostle-filter="species"><option value="">すべて</option></select></label>
+          <label><span>役割</span><select data-apostle-filter="role"><option value="">すべて</option></select></label>
+          <label><span>攻撃タイプ</span><select data-apostle-filter="attackType"><option value="">すべて</option></select></label>
+          <label><span>配置列</span><select data-apostle-filter="column"><option value="">すべて</option></select></label>
+        </div>
+      </details>
+    </div>
+
+    <section class="apostle-data-view-panel" aria-labelledby="apostle-data-view-title">
+      <div class="apostle-data-view-heading" data-apostle-view-heading>
+        <div id="apostle-data-view-options" class="apostle-data-view-options"></div>
+      </div>
+      <p id="apostle-data-view-note" class="apostle-data-view-note" hidden></p>
+      <div id="apostle-data-status-summary" class="apostle-data-status-summary" aria-live="polite" hidden></div>
+      <div class="apostle-data-table-scroll" data-apostle-table-wrap tabindex="0">
+        <table class="apostle-data-table" data-apostle-table>
+          <caption data-apostle-caption>使徒の基礎設定一覧</caption>
+          <thead data-apostle-thead></thead>
+          <tbody data-apostle-tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <nav class="apostle-data-bottom-bar" data-apostle-bottom-bar aria-label="使徒データの表示切替">
+    <button type="button" data-apostle-view="basic" aria-current="page"><span>基礎</span><span>設定</span></button>
+    <button type="button" data-apostle-view="equipment"><span>装備</span><span>等級</span></button>
+    <button type="button" data-apostle-view="board"><span>ボード</span><span>等級</span></button>
+    <button type="button" data-apostle-view="aside"><span>アサイド</span><span>等級</span></button>
+    <button type="button" data-apostle-view="rank"><span>Rank</span><span>全体効果</span></button>
+  </nav>
+
+  <dialog id="apostle-data-equipment-dialog" class="apostle-data-equipment-dialog" aria-labelledby="apostle-data-equipment-dialog-title">
+    <div class="apostle-data-equipment-dialog-shell">
+      <header class="apostle-data-equipment-dialog-header">
+        <h2 id="apostle-data-equipment-dialog-title">装備詳細</h2>
+        <button type="button" class="apostle-data-secondary" data-apostle-equipment-dialog-close>閉じる</button>
+      </header>
+      <div class="apostle-data-equipment-dialog-body" data-apostle-equipment-dialog-body></div>
+    </div>
+  </dialog>
+
+  <script src="/trickcal-manager/statData.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/public-release-config.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/public/apostle-data.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/shared-topbar.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/announcements-release-config.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/announcements-data.js?v=d60bbf10c69b0f08"></script>
+  <script src="/trickcal-manager/announcements.js?v=d60bbf10c69b0f08"></script>
+</body>
+</html>

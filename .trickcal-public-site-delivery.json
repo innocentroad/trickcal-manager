@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "e96bb03a2721a1d1",
-  "sourceCommit": "48518aed9eb08f026060c8f61375fd9ff3854051",
+  "candidateId": "857395a26ad71669",
+  "sourceCommit": "e23ee0024c9872a48d43b2c91c7281748ce24042",
   "profile": "legacy",
-  "contentDigest": "90705d0735ad665a16a516971e20d54c544702f9c14f812f2e26e909ce6b30d0",
-  "outputDigest": "694161ad238d1e2c",
+  "contentDigest": "0127658afed59e1614fed8ec1536e5ab11944ce55eff908ab58c3a3c9fdbb7d6",
+  "outputDigest": "d7d75afc5d24f9cb",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "path": "announcements.js",
-      "sha256": "82cf468bdc6ebb77dd006c6004e8f73dea5eb1287392ca5688749129d2c129f5"
+      "sha256": "b6b57381fb9ecd339ae730186ad0925cd4059a19a69db2dc979d776aafcc9d41"
     },
     {
       "path": "apostles.js",
@@ -49,6 +49,10 @@
       "sha256": "5d0009d2c7d1e80701fb3c2be083c036b6025ea46a1788aeff3992ed021a4179"
     },
     {
+      "path": "data/apostles/index.html",
+      "sha256": "eb62d8e050e294f40f350e75ba20ba87c597adf12bd2d8508495d0d7b5a62951"
+    },
+    {
       "path": "data/boards/index.html",
       "sha256": "6da9bfa5330b98be580557dd4c3ff89b217ae30c93d7ff6e8bfb2a0e3ff3aa91"
     },
@@ -58,7 +62,7 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "b0a2994344d36e69f4a458da1fc8561005041f742951c6faa250348118d80976"
+      "sha256": "c455c15bc04957b3f74af6fbffbcaa8a13e6da4a18932a1f985c855baff50bbb"
     },
     {
       "path": "dps-simulator-worker.js",
@@ -86,11 +90,11 @@
     },
     {
       "path": "enemy-status.css",
-      "sha256": "e9880b5595691c9bcc383fde19db0e43d0f0f9f9625dad6e7060b5d2839eea7d"
+      "sha256": "d056c71f1ad48bfd616f8bb20fe9e98e24534901da8dc73e95801381ec32d053"
     },
     {
       "path": "enemy-status.html",
-      "sha256": "5d41fbcbbacf988f59009d46e460210e431f281353eb7cc8869cc9dd32aacac2"
+      "sha256": "bf7a1b57498a5b031317e03ba90df970dd93c5c542821fe6705f8b8df0159bfa"
     },
     {
       "path": "enemy-status.js",
@@ -102,7 +106,7 @@
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "d98fdc9a4b3914db29bdb40777e64b309cb14a096d980b83de72158126df766c"
+      "sha256": "34332b6af0626c4df7c9ca1e7487bfbda7cb6ba6c36effc5e9bb68cf70f9e6fa"
     },
     {
       "path": "formation-damage-calc.js",
@@ -114,7 +118,7 @@
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "340c0f99dc4b1fe688c43f5552c68d348302209fb8f95e0faa46f4dc79fe162e"
+      "sha256": "dcb464481f46945b29c74ed51c2d0e0ea21e025d237d5aa4f0bac7dec2ff6c49"
     },
     {
       "path": "formation-damage-dps-prototype.js",
@@ -150,7 +154,7 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "c250919fc4d3e5b48f0d5c1abd30a38f8d5654fbb0652da160ed93e0e747446c"
+      "sha256": "c1227c1fccfa31d87350ef88034c355623b7d7390dd338c6e71629406c2943c2"
     },
     {
       "path": "formation-share.js",
@@ -4246,23 +4250,35 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "f15036800a3ff487d1c0d451113272cd94c84bafab3f85c5b2fad8f818d69e1c"
+      "sha256": "cebb4ce64040fda86e0cbe040f5f7913bb45ccc05c9d1fd0e2f628cbcc90bd74"
     },
     {
       "path": "public-site-runtime.js",
       "sha256": "74c3e8ecf00fd3281ca3bd17888bc209ea08629bc48ace724ca845a2d0cb89f9"
     },
     {
+      "path": "public/apostle-data.css",
+      "sha256": "7700b40840f80f9aeb9cc14d09e9462ac274f9aeef45c2a4e672e17d89978a2b"
+    },
+    {
+      "path": "public/apostle-data.html",
+      "sha256": "340e60daa7ffedc0cb0ef65e3c8d39d3508bcf00d9045a249f8348ab14142436"
+    },
+    {
+      "path": "public/apostle-data.js",
+      "sha256": "052d13c98aa556646871bd400f8e5fe576e0c13d71bd80bb407b03bdbecdb3de"
+    },
+    {
       "path": "public/board-layout-preview.css",
-      "sha256": "0db0cf4954a910d51b88530dca747fa742059e18ef306638db06cbf80719fa26"
+      "sha256": "197923754626567ffe46d895c8688d4c2ee0758fd339590fe984ec6432e7ec61"
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "d596a152c9d26e07daeb76d6fc75e6b7696f861a2c9f69aae26a5ad4614207e5"
+      "sha256": "d852e565df19adf69768a7079d3b251d0241e7bff5148d148394e7b00c28eac3"
     },
     {
       "path": "public/board-layout-preview.js",
-      "sha256": "a906c297e75d07d29969e5630ad46af5c0a6ade2175aefe3b8711551ad056c07"
+      "sha256": "c27923a86855d30fdc46cdfa204411db9e3fdae6781eece0a45567e268ff340b"
     },
     {
       "path": "recovery/index.html",
@@ -4274,7 +4290,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "f83dc94b0d762493c4939c834955e0a28d11aaebc8b4b3e59ca4270b796f05d6"
+      "sha256": "b598862070545509860e0c1232208367f6f5b9923d3ee50594b9f6d42ec14fac"
     },
     {
       "path": "share/index.html",
@@ -4282,7 +4298,11 @@
     },
     {
       "path": "shared-topbar.css",
-      "sha256": "357206518c2cf127e7c0ea28675e7cebdb66abafb9379fd1a469756157d87e56"
+      "sha256": "42aa1891b72cf779c4471eb39deb350819458c4305d640028d81edd0ecb866f4"
+    },
+    {
+      "path": "shared-topbar.js",
+      "sha256": "db0023fcbc1f9fb666cb60afaf17e5f742cb4b3096f701b272ffac44851f2079"
     },
     {
       "path": "sitemap.xml",
@@ -4298,11 +4318,11 @@
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "f4a4716f923a3395676be79cbec574cd7bf6292e7481f782664d5c64d5eeaa2e"
+      "sha256": "ac01df2f82a3eedde510a88f884a5c073604bd567e8226ef51253fd4862d5206"
     },
     {
       "path": "stat-dashboard.js",
-      "sha256": "e29b5ccda749dacb14faae3b4a5e40d8e8668aac7bd596d3ba34f6badf8e1726"
+      "sha256": "1ece05a22c4282ca1ab25bb6dabe7471a4bbde61ffc9fb45a2abbe079e066d00"
     },
     {
       "path": "stat-engine.js",
@@ -4314,7 +4334,7 @@
     },
     {
       "path": "stat-prototype.js",
-      "sha256": "dfb56362065c28057d07ed94daa6dafd88ea93b3ad400438cd4719a0958bd6a3"
+      "sha256": "f30a3988c5e9c605a1248357f5077bc73ad3da2c0067a036b5c6a2a556e4689a"
     },
     {
       "path": "statData.js",
@@ -4330,7 +4350,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "eec79cfcf85e8c204d0180694078cf51a64f6fd51f5ff5fa9cb96e0431898817"
+      "sha256": "89114302b6ea869456ae9cbb649eda6b17310e5af4fb4e4fd5c8ca27166a408b"
     },
     {
       "path": "storage-registry.js",
@@ -4346,7 +4366,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "c19c178ecea87a9c86beba30f2e30fa9385bfa9d33d58c97e4c069819b3ce181"
+      "sha256": "53bceb170120678b60743bab76786218aabef49ac04bcaac058a84c7c1543a59"
     },
     {
       "path": "storage-transfer.js",

@@ -562,6 +562,7 @@
     window.addEventListener('trickcal-storage-transfer-test-enabled', syncBackupTransferAvailability);
     installBackupController();
     bindEvents();
+    installDashboardNavigationApi();
     setupMultiTabStateSync();
     installStatEngineApi();
     const storageParticipant = storageRuntime?.registerParticipant?.({
@@ -4686,6 +4687,20 @@
     return elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
   }
 
+  function installDashboardNavigationApi() {
+    window.TRICKCAL_DASHBOARD_NAV = Object.freeze({
+      version: 1,
+      activateView: (name, options = {}) => activateDashboardView(name, options),
+      openGlobal: (tab = 'research', options = {}) => openGlobalSettingPanel(tab, options),
+      openCardManager: (kind = 'artifact', options = {}) => openCardManagerPanel(kind, options),
+      getState: () => ({
+        view: getActiveDashboardViewName(),
+        global: getActiveGlobalSettingPanelName(),
+        card: view.cardManager.kind
+      })
+    });
+  }
+
   function getActiveGlobalSettingPanelName() {
     return elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
   }
@@ -4871,7 +4886,7 @@
     document.querySelectorAll('[data-open-global]').forEach(button => {
       button.classList.toggle('is-active', !!tab && button.dataset.openGlobal === tab);
     });
-    document.querySelectorAll('.dashboard-top-tabs .topbar-global-menu').forEach(menu => {
+    document.querySelectorAll('[data-topbar-menu="bulk"]').forEach(menu => {
       menu.classList.toggle('is-active', ['apostles', 'rank', 'bond', 'aside', 'research'].includes(tab));
       if (!menu.classList.contains('is-active')) menu.removeAttribute('open');
     });

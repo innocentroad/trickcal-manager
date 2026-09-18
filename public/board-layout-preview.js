@@ -12,7 +12,10 @@
   const publicSite = window.TRICKCAL_PUBLIC_SITE;
 
   function boardAssetPath(relativePath) {
-    return publicSite?.assetUrl?.(relativePath) || relativePath;
+    if (typeof relativePath !== 'string') return relativePath;
+    if (typeof publicSite?.assetUrl === 'function') return publicSite.assetUrl(relativePath);
+    if (/^(?:[a-z]+:|\/|data:|blob:)/i.test(relativePath)) return relativePath;
+    return `../${relativePath.replace(/^\.\//, '')}`;
   }
   if (!DATA) return;
 
@@ -125,7 +128,7 @@
     elements.zoomOut.addEventListener('click', () => applyViewScale(viewScale - VIEW_SCALE_STEP));
     elements.zoomReset.addEventListener('click', () => applyViewScale(1));
     elements.zoomIn.addEventListener('click', () => applyViewScale(viewScale + VIEW_SCALE_STEP));
-    elements.themeToggle.addEventListener('click', () => {
+    elements.themeToggle?.addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
     });
     window.addEventListener('storage', event => {
@@ -154,6 +157,7 @@
   }
 
   function syncThemeToggle() {
+    if (!elements.themeToggle) return;
     const isDark = document.documentElement.dataset.theme === 'dark';
     elements.themeToggle.setAttribute('aria-pressed', String(isDark));
     elements.themeToggle.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
