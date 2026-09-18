@@ -1,5 +1,14 @@
 # Trickcal Manager 現在地
 
+## 最新：公開サイト共通上バーの下部余白修正を新旧公開完了（2026-09-19）
+
+- 原因は、共有上バー初期化後に削除される旧操作用 `template` が、初期化前に `display:inline-flex` のレイアウト要素として扱われ、空行ボックスを作っていたこと。`stat-dashboard.html`、`formation-damage-calc.html`、`enemy-status.html`、`public/board-layout-preview.html` から旧templateを除去し、旧DPS専用ページの実DOMは対象外として保持した。
+- 回帰検査を実DOM寸法ベースへ更新し、旧template 0件、上バー実高と `--trickcal-topbar-height` の一致を確認するようにした。`test-topbar-navigation-native.js`、`test-apostle-data-native.js` の実ブラウザ検査は成功。`test-public-site.js`、`test-public-site-http.js`、`test-announcements.js` も成功。
+- source対象限定commitは `d5e9ad5b138a0464bbb9933f1b85d4154263f526`。candidateは `95de929a1e205768`、contentDigestは `acd5fb5d7ac26bbaad3491747b5b3a2cd58c8fcc505b42248669407699f5e6b2`。
+- new artifactは `ed50eaea4e1a2b11f0ab51c39b2ca70835d0ed7a`、runは [35368580717](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35368580717)。通常deployment承認後にpublished、identity一致を確認した。legacy artifactは `e95d13656aa9ca1711f2a1879a4a7a573ae81952`、runは [35368835253](https://github.com/innocentroad/trickcal-manager/actions/runs/35368835253)。new成功後、通常deployment承認を経てpublished、identity一致を確認した。
+- 公開URLの隔離ブラウザ実測はnew/legacyとも上バー51.875px、同期値52px、旧template 0件。new/legacyのmanagerとnewのcalcで本文の水平overflow 0、旧actions 0件を確認した。公開ページの現通知状態では移行バーは非表示だったが、隔離通知fixtureで表示／非表示双方の配置検査に成功した。
+- 変更前バックアップは `D:/Games/etc/trickcal/backups/topbar-template-whitespace-20260919-01/release-source-before`。対象HTML・焦点テスト・STATUSをSHA-256一致確認済み。詳細は [`docs/history/topbar-template-whitespace-fix-2026-09-19.md`](docs/history/topbar-template-whitespace-fix-2026-09-19.md)。mainの未公開変更は取り込んでいない。
+
 ## 最新：共通上バー＋使徒データの新旧公開完了（2026-09-19）
 
 - 対象は `release-source` の現行ベースへ、共通上バー、manager/calc/data/enemy/board の接続、お知らせ連携、使徒データ5ビュー、公開route・生成接続・焦点テストを機能単位で取り込んだもの。mainの共鳴・共有v2・ボード本体改修・datasheet変更は含めていない。
