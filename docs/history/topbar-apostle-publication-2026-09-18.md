@@ -41,9 +41,27 @@ native browser検査では、manager/calc/dataの共通上バー、manager内部
 
 いずれも今回の上バー・使徒データの取り込みを成功扱いにするために隠していない。
 
-## 公開状態
+## 公開結果
 
-この記録作成時点では、対象限定commit、source push、candidate、配信先へのartifact transfer、workflow実行、通常deployment承認、新旧サイト公開は未実施。対象限定stageと最終差分を確認した後、既存runがあれば重複起動せず、runbookのreceipt再開手順に従う。
+- source対象限定commit: `e23ee0024c9872a48d43b2c91c7281748ce24042`
+- candidate: `857395a26ad71669`
+- bundle: `tmp/publication-20260918150244174.json`
+- new artifact commit: `665c69787c4477436fbbd8b4173dcb62a5f57305`
+- new receipt: `tmp/delivery-857395a26ad71669-new-f8e9364888cb.json`
+- new run: `https://github.com/innocentroad/trickcal-manager-site/actions/runs/35360331718`
+- new identity: `https://trickcal.irlab.dev/public-site-deployment.json`。candidate/source/profile/digest一致、outputDigest `e137f2acf5ac30b1`。
+- legacy artifact commit: `c7ce42f847b77fe473888276d06e690d6d0d1856`
+- legacy receipt: `tmp/delivery-857395a26ad71669-legacy-d10d9eaf205f.json`
+- legacy run: `https://github.com/innocentroad/trickcal-manager/actions/runs/35360718102`
+- legacy identity: `https://innocentroad.github.io/trickcal-manager/public-site-deployment.json`。new成功後に通常承認を実施し、candidate/source/contentDigest一致、profile=legacy、outputDigest `d7d75afc5d24f9cb` を確認した。
+
+両サイトの実ブラウザでmanager/calc/data/enemy/board入口、共通上バーと現在位置、使徒データ78行・画像79件（broken 0）、共有payloadの画像379件（broken 0、`.webp%3Fv%3D` 0）を確認した。隔離native検査で720px以下の2段、使徒データ5ビュー、低い画面の絞り込み展開、装備詳細、通知連携を確認した。
+
+共有ページ先頭の既存文字列 `\\n` は今回の範囲外であるshared page newline fixを含めていないため残っている。ベルは公開ブラウザで確認し、移行バーの実表示は利用者の既存通知状態を変更せず、隔離fixtureで表示条件・連携を確認した。
+
+## 残件・既存阻害
+
+`test-formation-share-maintenance.js` は現行 `tools/git/push.bat` の固定前提不一致、`test-public-site-staging.js` は旧固定identity/digest前提で失敗する。いずれも今回の公開範囲外で、修正せず記録のみとした。mainの共鳴性格・share-v2・board本体の未公開変更は取り込んでいない。
 
 ## 未公開で残す変更
 
