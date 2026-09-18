@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "857395a26ad71669",
-  "sourceCommit": "e23ee0024c9872a48d43b2c91c7281748ce24042",
+  "candidateId": "95de929a1e205768",
+  "sourceCommit": "d5e9ad5b138a0464bbb9933f1b85d4154263f526",
   "profile": "legacy",
-  "contentDigest": "0127658afed59e1614fed8ec1536e5ab11944ce55eff908ab58c3a3c9fdbb7d6",
-  "outputDigest": "d7d75afc5d24f9cb",
+  "contentDigest": "acd5fb5d7ac26bbaad3491747b5b3a2cd58c8fcc505b42248669407699f5e6b2",
+  "outputDigest": "92210adce90cc0e3",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
@@ -94,7 +94,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "bf7a1b57498a5b031317e03ba90df970dd93c5c542821fe6705f8b8df0159bfa"
+      "sha256": "ed0385136c0922c14f2d0ee4c5dbd6d4dae4c2ccfc5b60edcaf2c57ead4d55a5"
     },
     {
       "path": "enemy-status.js",
@@ -106,7 +106,7 @@
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "34332b6af0626c4df7c9ca1e7487bfbda7cb6ba6c36effc5e9bb68cf70f9e6fa"
+      "sha256": "391dfa4657e1023a3fe558e8bf27884f32b7ba8f62dc329f0a17254a73f44e41"
     },
     {
       "path": "formation-damage-calc.js",
@@ -4250,7 +4250,7 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "cebb4ce64040fda86e0cbe040f5f7913bb45ccc05c9d1fd0e2f628cbcc90bd74"
+      "sha256": "3e52772316db4267706d4f37e4a774b80898a015e4f297aa38603053873355a6"
     },
     {
       "path": "public-site-runtime.js",
@@ -4274,7 +4274,7 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "d852e565df19adf69768a7079d3b251d0241e7bff5148d148394e7b00c28eac3"
+      "sha256": "65d7cd1031a61f98f2417692048d3375a14fea282cb49f991306134fd6c3661b"
     },
     {
       "path": "public/board-layout-preview.js",
@@ -4290,7 +4290,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "b598862070545509860e0c1232208367f6f5b9923d3ee50594b9f6d42ec14fac"
+      "sha256": "0ab3f3fddf750b7bff4d0cd5182e9dcad75e4162f5b0522b3cc92a714bcdd0cf"
     },
     {
       "path": "share/index.html",
@@ -4318,7 +4318,7 @@
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "ac01df2f82a3eedde510a88f884a5c073604bd567e8226ef51253fd4862d5206"
+      "sha256": "b38d93295a42fc359eec6cc131280dfcdfdd9ec786c90abb245a160b18cc57a6"
     },
     {
       "path": "stat-dashboard.js",
