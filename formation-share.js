@@ -35,10 +35,29 @@
   ];
   const personalityNames = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
 
+  function splitAssetReference(value) {
+    const text = String(value || '');
+    const separatorIndex = text.search(/[?#]/);
+    if (separatorIndex < 0) return { path: text, query: '', hash: '' };
+    const path = text.slice(0, separatorIndex);
+    const suffix = text.slice(separatorIndex);
+    const hashIndex = suffix.indexOf('#');
+    return {
+      path,
+      query: hashIndex >= 0 ? suffix.slice(0, hashIndex) : suffix,
+      hash: hashIndex >= 0 ? suffix.slice(hashIndex) : ''
+    };
+  }
+
   function shareAssetPath(relativePath) {
     const mapped = assetByPath.get(relativePath) || relativePath;
     if (!mapped) return '';
-    return publicSite?.assetUrl?.(mapped) || mapped;
+    if (!publicSite?.assetUrl) return mapped;
+    if (/^(?:data|blob|https?):/i.test(mapped) || mapped.startsWith('//') || mapped.startsWith('#')) {
+      return publicSite.assetUrl(mapped);
+    }
+    const { path, query, hash } = splitAssetReference(mapped);
+    return publicSite.assetUrl(path, { query, hash });
   }
 
   function escapeHtml(value) {
