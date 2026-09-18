@@ -1,6 +1,19 @@
 # Trickcal Manager 現在地
 
-## 最新：公開準備toolingのlocal commit完了（2026-09-18）
+## 最新：公開共有画像URLのローカル修正・公開待ち（2026-09-18）
+
+- 対象は`release-source` branchのみ。mainの上バー・共鳴・全列変更は取り込んでいない。
+- 原因は`formation-share.js`が、共有表示データに含まれる画像ごとの`?v=...`付きパスを`publicSite.assetUrl`へそのまま渡していたこと。runtimeのパスエンコードで`?v=`が`%3Fv%3D`になり、さらに共通`assetVersion`が付与されていた。公開URLの読み取り確認では379画像中、該当URLが`naturalWidth=0`になった。
+- 修正は共有側でpathname/query/hashを分離し、既存の`assetUrl(path, {query, hash})`契約へ渡す局所変更。外部URL・data・blobは既存runtimeへそのまま渡し、共通の画像版番号を1つだけ使う設計と、new/legacyのbase pathを維持した。runtime、共有payload、保存schema、Service Workerは変更していない。
+- 既存同期ツール`node tools/sync-formation-share-assets.js --write`を実行し、派生参照として`stat-dashboard.html`、`formation-share.html`、`formation-share-create.js`だけを同期した。生成済み表示データは手編集していない。
+- 焦点テストは`test-formation-share-asset-urls.js`（新規、実URLのHTTP到達を含む）、`test-formation-share-image.js`、`test-formation-share-display-data.js`、`test-formation-share-assets.js`、構文検査に成功。`public-site-publication.js check`も`localOnly=true / publishable=false`で成功した。
+- レビュー指摘に合わせ、エンコード済みpathnameと正規化の重複適用は成功扱いから除外した。runtimeの`%41`は`%2541`になる制約をテストで固定し、実共有表示データの画像参照193件には該当するpathnameが0件であることを読み取り確認した。共通runtimeの再設計は後続課題とする。
+- ローカル生成物をnew/legacy別base pathでブラウザ確認し、共有ページの379画像がすべて`complete`かつ`naturalWidth>0`、`%3F`なし。管理画面の共有プレビューを開き、PNGプレビューは`1200x745`で表示できた。CSS背景画像の壊れたURLは確認されなかった。
+- 公開サイトは読み取りのみで、修正前の壊れたURLを再現した。本番公開は未実施のため、利用者向けサイトは未修正のまま。mainへの後続反映時は、main側で改めてバックアップ・差分確認・派生同期を行う。
+- 既存阻害として、単独の`test-public-site.js`はdirty sourceで`release.sourceCommit`が40桁でないため停止し、`test-formation-share-maintenance.js`は既存`tools/git/push.bat`と期待する生成ステップの不一致で停止した。今回の画像修正による失敗とは切り分け済み。
+- 今回のバックアップは`D:/Games/etc/trickcal/backups/public-share-image-url-fix-20260918-01`。commit、push、公開、workflow起動、設定変更、datasheet編集は行っていない。PNG保存・クリップボードコピーの実操作は未確認で、公開指示待ちで停止する。
+
+## 過去：公開準備toolingのlocal commit完了（2026-09-18）
 
 - 開始時のrelease-source dirty 19件を、`D:/Games/etc/trickcal/backups/commit-organization-20260918-01/release_source`へ退避し、19件すべてSHA-256一致を確認した。
 - 公開準備の統合入口・receipt再開・Git検証・対象設定・模擬テスト・手順を`92043d5`（`Add local publication preparation tooling`）へlocal commitした。sourceは`release-source`のまま、mainのdirtyなアプリ実装は混在させていない。
