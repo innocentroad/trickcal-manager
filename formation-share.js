@@ -463,24 +463,6 @@
     });
   }
 
-  function setupTheme() {
-    const button = document.getElementById('theme-toggle');
-    if (!button) return;
-    const update = () => {
-      const light = document.documentElement.dataset.theme === 'light';
-      button.setAttribute('aria-pressed', String(!light));
-      const label = button.querySelector('.theme-button-label');
-      if (label) label.textContent = light ? 'ダーク' : 'ライト';
-    };
-    button.addEventListener('click', () => {
-      document.documentElement.dataset.theme = document.documentElement.dataset.theme === 'light'
-        ? 'dark'
-        : 'light';
-      update();
-    });
-    update();
-  }
-
   function renderError(error) {
     const content = document.getElementById('share-content');
     const panel = document.getElementById('share-error');
@@ -516,7 +498,6 @@
   if (!DISPLAY_DATA || !CODEC) {
     renderError(new Error('共有画面のデータを読み込めませんでした'));
   } else {
-    setupTheme();
     renderFromHash();
     window.addEventListener('hashchange', renderFromHash);
   }

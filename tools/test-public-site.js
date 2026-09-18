@@ -255,6 +255,7 @@ function run(options = {}) {
     const managerHtml = readOutputText(testOutput, 'manager/index.html');
     const legacyHtml = readOutputText(testOutput, 'trickcal-manager/stat-dashboard.html');
     const dataHtml = readOutputText(testOutput, 'data/index.html');
+    const shareHtml = readOutputText(testOutput, 'share/index.html');
     assert(managerHtml.includes(`href="/calc/?recover=20260912"`));
     assert(managerHtml.includes('href="/data/boards/"'));
     assert(managerHtml.includes(`src="/public-site-runtime.js?v=${assetVersion}"`));
@@ -269,6 +270,14 @@ function run(options = {}) {
     assert(dataHtml.includes('href="/data/enemies/"'), 'data本文の敵導線を生成元から維持します');
     assert(dataHtml.includes('href="/data/boards/"'), 'data本文のボード導線を生成元から維持します');
     assert(!managerHtml.includes('href="formation-damage-calc.html'));
+    assert(shareHtml.includes(`href="/shared-topbar.css?v=${assetVersion}"`));
+    assert(shareHtml.includes(`href="/announcements.css?v=${assetVersion}"`));
+    assert(shareHtml.includes(`src="/shared-topbar.js?v=${assetVersion}"`));
+    assert(shareHtml.includes(`src="/announcements.js?v=${assetVersion}"`));
+    assert(shareHtml.includes('data-shared-topbar-page="share"'));
+    assert(!shareHtml.includes('class="share-topbar"'), '共有ページへ旧共有専用上バーを残しません');
+    assert.match(shareHtml, /<link rel="canonical" href="https:\/\/trickcal\.irlab\.dev\/share\/">\n\s*<meta property="og:url" content="https:\/\/trickcal\.irlab\.dev\/share\/">/);
+    assert.doesNotMatch(shareHtml, /\\n\s*<meta property="og:url"/, 'canonical metadataの改行がliteral\\nになっています');
     assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html?recover=20260912"'));
     assert(!legacyHtml.includes('https://trickcal.irlab.dev'));
     const appCache = readOutputText(testOutput, 'app-cache.js');

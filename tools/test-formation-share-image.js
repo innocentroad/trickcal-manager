@@ -106,6 +106,14 @@ assert.match(shareCss, /\.support-card\.rarity-rare \.support-card-media::after/
 assert.match(shareCss, /flex: 0 0 62px/);
 assert.match(shareCss, /\.support-card-media \{[^\n]*width: 60px/);
 assert.match(sharePage, /id="share-action-bar"/);
+assert.match(sharePage, /data-shared-topbar-page="share"/);
+assert.match(sharePage, /shared-topbar\.css\?v=20260918h/);
+assert.match(sharePage, /announcements\.css\?v=20260915b/);
+assert.match(sharePage, /shared-topbar\.js\?v=20260918i/);
+assert.match(sharePage, /announcements\.js\?v=20260915b/);
+assert.match(sharePage, /class="share-page-heading"[\s\S]*>編成共有</);
+assert.doesNotMatch(sharePage, /class="share-topbar"|id="theme-toggle"/);
+assert.doesNotMatch(share, /getElementById\('theme-toggle'\)|function setupTheme/);
 for (const id of ['share-image-generate', 'share-image-copy', 'share-image-save', 'share-url-copy']) {
   assert.match(sharePage, new RegExp(`id="${id}"`));
 }

@@ -681,7 +681,7 @@ function updateCanonicalMetadata(html, entry, context) {
   const additions = [];
   if (canonicalCount === 0) additions.push(`<link rel="canonical" href="${canonicalUrl}">`);
   if (!ogFound) additions.push(`<meta property="og:url" content="${canonicalUrl}">`);
-  if (additions.length) result = result.replace(/<\/head>/i, `  ${additions.join('\\n  ')}\n</head>`);
+  if (additions.length) result = result.replace(/<\/head>/i, `  ${additions.join('\n  ')}\n</head>`);
   return result;
 }
 

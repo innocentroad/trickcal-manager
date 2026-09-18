@@ -10,6 +10,7 @@ const path = require('node:path');
 const browser = require('./storage-native-browser-check.js');
 
 const ROOT = path.resolve(__dirname, '..');
+const SHARE_HASH = '#1.z.C3EODmBkZBSS1WN2kHWVZZLlZtaWVZPVkOXlYxVlZWTlZBVjZWKVZJVlVWBVZxViFmRiZmVkYgYiFlY2dnYONk4WLi5uHl5eblZOBgYGARZWRkZWJg5WJj5eJl5WJn5WRjlWJh5WJhFeJllWJhleJiagcaxMUrxMXKxMikDFbAwMyfeZnzJn5ji4MbMxSHFpWgMA';
 const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -352,6 +353,62 @@ async function run() {
     })()`);
     assert.deepEqual(defaultTheme, { theme: 'dark', pressed: 'true', label: 'ライトモードに切替' });
 
+    const sharePage = await browser.createPage(cdp, `${origin}/formation-share.html${SHARE_HASH}`);
+    pages.push(sharePage);
+    await browser.waitFor(async () => browser.evaluate(cdp, sharePage, `(() => {
+      const content = document.querySelector('#share-content');
+      return !!document.querySelector('[data-shared-topbar-page="share"] [data-shared-topbar-common]')
+        && !!content
+        && !content.hidden;
+    })()`), { timeoutMs: 30000 });
+    await browser.evaluate(cdp, sharePage, `localStorage.setItem('trickcal_theme', 'dark')`);
+    await cdp.send('Page.reload', { ignoreCache: true }, sharePage.sessionId);
+    await browser.waitFor(async () => browser.evaluate(cdp, sharePage, `(() => {
+      const button = document.querySelector('[data-shared-theme-button]');
+      return !!document.querySelector('[data-shared-topbar-page="share"] [data-shared-topbar-common]')
+        && document.documentElement.dataset.theme === 'dark'
+        && document.body.classList.contains('theme-dark')
+        && button?.getAttribute('aria-pressed') === 'true';
+    })()`), { timeoutMs: 30000 });
+    await browser.waitFor(async () => browser.evaluate(cdp, sharePage, `(() => {
+      const images = [...document.images];
+      return images.length > 0 && images.every(image => image.complete);
+    })()`), { timeoutMs: 30000 });
+    const shareInitial = await browser.evaluate(cdp, sharePage, `(() => ({
+      operationCount: document.querySelectorAll('[data-topbar-operation]').length,
+      pageCurrent: [...document.querySelectorAll('[data-topbar-operation][aria-current="page"]')].map(element => element.dataset.topbarOperation),
+      oldHeaderCount: document.querySelectorAll('.share-topbar, #theme-toggle').length,
+      heading: document.querySelector('.share-page-heading h1')?.innerText || '',
+      literalNewline: [...document.body.childNodes].some(node => node.nodeType === Node.TEXT_NODE && node.nodeValue.includes('\\\\n')),
+      topbarHeight: document.querySelector('[data-shared-topbar-page]')?.getBoundingClientRect().height || 0,
+      syncedHeight: parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--trickcal-topbar-height')) || 0,
+      brokenImages: [...document.images].filter(image => !image.naturalWidth).length,
+      imageCount: document.images.length,
+      theme: document.documentElement.dataset.theme,
+      pressed: document.querySelector('[data-shared-theme-button]')?.getAttribute('aria-pressed'),
+      announcementTrigger: !!document.querySelector('[data-announcement-trigger]')
+    }))()`);
+    assert.equal(shareInitial.operationCount, 8);
+    assert.deepEqual(shareInitial.pageCurrent, [], '共有ページで管理操作を現在ページとして点灯させています');
+    assert.equal(shareInitial.oldHeaderCount, 0, '共有専用旧ヘッダーまたは旧テーマボタンが残っています');
+    assert.equal(shareInitial.heading, '編成共有');
+    assert.equal(shareInitial.literalNewline, false, '共有ページの本文にliteral\\nが混入しています');
+    assert.ok(shareInitial.topbarHeight > 0);
+    assert.equal(shareInitial.syncedHeight, Math.ceil(shareInitial.topbarHeight));
+    assert.equal(shareInitial.brokenImages, 0, `共有画像の読み込みに失敗しています: ${shareInitial.brokenImages}/${shareInitial.imageCount}`);
+    assert.equal(shareInitial.theme, 'dark');
+    assert.equal(shareInitial.pressed, 'true');
+    assert.equal(shareInitial.announcementTrigger, true);
+    await browser.clickSelector(cdp, sharePage, '[data-shared-theme-button]');
+    const shareLight = await browser.evaluate(cdp, sharePage, `(() => ({
+      theme: document.documentElement.dataset.theme,
+      bodyLight: document.body.classList.contains('theme-light'),
+      pressed: document.querySelector('[data-shared-theme-button]')?.getAttribute('aria-pressed'),
+      label: document.querySelector('[data-shared-theme-button]')?.getAttribute('aria-label')
+    }))()`);
+    assert.deepEqual(shareLight, { theme: 'light', bodyLight: true, pressed: 'false', label: 'ダークモードに切替' });
+    await browser.evaluate(cdp, sharePage, `localStorage.removeItem('trickcal_theme')`);
+
     console.log(JSON.stringify({
       ok: true,
       browser: 'Chrome CDP',
@@ -364,7 +421,8 @@ async function run() {
         'Escape closes the menu and restores trigger focus',
         'PC operation controls share the reference geometry and note remains an independent link',
         'data detail pages use one common topbar, preserve native controls, and mark only their data destination',
-        'saved dark/light and no-theme board states stay synchronized across reloads'
+        'saved dark/light and no-theme board states stay synchronized across reloads',
+        'share page uses one common topbar, has no manager active state, keeps share images loaded, and avoids literal newline text'
       ]
     }));
   } finally {

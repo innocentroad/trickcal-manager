@@ -8,27 +8,32 @@
   <link rel="icon" href="ico.webp?v=20260625" type="image/webp">
   <script>
     (() => {
+      let savedTheme = '';
+      try { savedTheme = window.localStorage?.getItem('trickcal_theme') || ''; } catch (_) { /* no-op */ }
       const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches;
-      document.documentElement.dataset.theme = prefersLight ? 'light' : 'dark';
+      document.documentElement.dataset.theme = savedTheme === 'light' || savedTheme === 'dark'
+        ? savedTheme
+        : (prefersLight ? 'light' : 'dark');
     })();
   </script>
-  <link rel="stylesheet" href="formation-share-prototype.css?v=cb96b357ecd93417">
+  <link rel="stylesheet" href="shared-topbar.css?v=20260918h">
+  <link rel="stylesheet" href="announcements.css?v=20260915b">
+  <link rel="stylesheet" href="formation-share-prototype.css?v=2a59d4d656c33b66">
 </head>
 <body class="formation-share-page">
-  <header class="share-topbar">
-    <div class="share-topbar-brand">
-      <span class="share-kicker">TRICKCAL MANAGER</span>
-      <h1>編成共有</h1>
-    </div>
-    <div class="share-topbar-actions">
-      <button type="button" class="theme-button" id="theme-toggle" aria-label="テーマ切替" aria-pressed="true">
-        <span aria-hidden="true">☼</span><span class="theme-button-label">ライト</span>
-      </button>
-      <a href="stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ</a>
-    </div>
-  </header>
+  <div
+    class="dashboard-top-control-bar"
+    data-shared-topbar-page="share"
+    data-shared-topbar-manager-href="stat-dashboard.html?view=settings&recover=20260912"
+    data-shared-topbar-calc-href="formation-damage-calc.html?recover=20260912"
+  >
+    <div data-shared-topbar-common></div>
+  </div>
 
   <main class="share-shell">
+    <header class="share-page-heading">
+      <h1>編成共有</h1>
+    </header>
     <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
       <h2>共有編成を表示できません</h2>
       <p id="share-error-message">URLの内容を確認してください。</p>
@@ -87,10 +92,14 @@
     </div>
   </aside>
 
+  <script src="shared-topbar.js?v=20260918i"></script>
+  <script src="announcements-release-config.js?v=20260915a"></script>
+  <script src="announcements-data.js?v=20260915b"></script>
+  <script src="announcements.js?v=20260915b"></script>
   <script src="formation-share-display-data.js?v=5c60cf538126f037"></script>
   <script src="formation-share-catalog.js?v=f831ed029d771efa"></script>
   <script src="formation-share-codec.js?v=53216a7afa317aab"></script>
-  <script src="formation-share.js?v=f3e9420c94e12493"></script>
+  <script src="formation-share.js?v=4362bd97027b5d7d"></script>
   <script src="formation-share-image.js?v=9bac3ba76e150288"></script>
   <script src="formation-share-page-actions.js?v=5c9b6dca93fe7614"></script>
 </body>
