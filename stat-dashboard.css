@@ -7382,11 +7382,11 @@ body.dashboard-page.is-booting::after {
   background: rgba(38, 28, 59, 0.82);
 }
 
-.formation-master-power-media video {
+.formation-master-power-media > img {
   width: 100%;
   height: 100%;
   display: block;
-  object-fit: cover;
+  object-fit: contain;
   pointer-events: none;
   user-select: none;
 }

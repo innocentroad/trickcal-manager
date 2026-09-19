@@ -5,58 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <title>ボードプレビュー</title>
-  <script src="/trickcal-manager/storage-registry.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/storage-runtime.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/storage-bootstrap.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/storage-registry.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/storage-runtime.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/storage-bootstrap.js?v=1132df9a42d35355"></script>
   <script>document.documentElement.dataset.theme = 'light';</script>
-  <link rel="stylesheet" href="/trickcal-manager/shared-topbar.css?v=f12652a0ebc1c5ff">
-  <link rel="stylesheet" href="/trickcal-manager/announcements.css?v=f12652a0ebc1c5ff">
-  <link rel="stylesheet" href="/trickcal-manager/public/board-layout-preview.css?v=f12652a0ebc1c5ff">
-  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"f12652a0ebc1c5ff","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","apostles":"/trickcal-manager/public/apostle-data.html","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","apostles":"/data/apostles/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","imageStrategy":"cache-first-versioned","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
-  <script src="/trickcal-manager/public-site-runtime.js?v=f12652a0ebc1c5ff"></script>
+  <link rel="stylesheet" href="/trickcal-manager/shared-topbar.css?v=1132df9a42d35355">
+  <link rel="stylesheet" href="/trickcal-manager/announcements.css?v=1132df9a42d35355">
+  <link rel="stylesheet" href="/trickcal-manager/public/board-layout-preview.css?v=1132df9a42d35355">
+  <script>window.TRICKCAL_PUBLIC_SITE_CONFIG={"schemaVersion":1,"profile":"legacy","origin":"https://innocentroad.github.io","basePath":"/trickcal-manager/","assetBasePath":"/trickcal-manager/","assetVersion":"1132df9a42d35355","routes":{"home":"/trickcal-manager/","manager":"/trickcal-manager/stat-dashboard.html","calc":"/trickcal-manager/formation-damage-calc.html","dps":"/trickcal-manager/formation-damage-dps-prototype.html","share":"/trickcal-manager/formation-share.html","data":"/trickcal-manager/data/","apostles":"/trickcal-manager/public/apostle-data.html","enemies":"/trickcal-manager/enemy-status.html","board":"/trickcal-manager/public/board-layout-preview.html","transfer":"/trickcal-manager/storage-transfer.html","recovery":"/trickcal-manager/storage-recovery.html"},"peerRoutes":{"home":"/","manager":"/manager/","calc":"/calc/","dps":"/calc/dps/","share":"/share/","data":"/data/","apostles":"/data/apostles/","enemies":"/data/enemies/","board":"/data/boards/","transfer":"/transfer/","recovery":"/recovery/"},"serviceWorker":{"script":"service-worker.js","scope":"/trickcal-manager/"},"serviceWorkerPolicy":{"source":"service-worker.js","cacheName":"trickcal-manager","navigationStrategy":"network-first","assetStrategy":"stale-while-revalidate","imageStrategy":"cache-first-versioned","excludedPathPrefixes":["/transfer/","/recovery/","/storage-transfer.html","/storage-recovery.html","/trickcal-manager/transfer/","/trickcal-manager/recovery/","/trickcal-manager/storage-transfer.html","/trickcal-manager/storage-recovery.html"]}};</script>
+  <script src="/trickcal-manager/public-site-runtime.js?v=1132df9a42d35355"></script>
 </head>
 <body class="data-detail-page">
   <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="board" data-shared-topbar-manager-route="../stat-dashboard.html?view=settings&recover=20260912" data-shared-topbar-calc-route="../formation-damage-calc.html?recover=20260912" data-shared-topbar-data-route="../data/" data-shared-topbar-enemies-route="../enemy-status.html?recover=20260912" data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
     <div class="topbar-common-row" data-shared-topbar-common></div>
   </section>
   <main class="tool-shell">
-    <header class="tool-head">
-      <div>
-        <p class="eyebrow">LOCAL TOOL</p>
-        <h1>ボードプレビュー</h1>
-        <p>種族・特殊マスタイプ・ボードTierから、3階層の配置をまとめて確認します。</p>
-      </div>
+    <header class="tool-head data-detail-heading">
+      <h1><span class="data-heading-prefix">Trickcal Manager</span><span class="data-heading-separator" aria-hidden="true"> &gt; </span><span>ボードプレビュー</span></h1>
     </header>
-
-    <section class="panel controls-panel">
-      <div class="section-head">
-        <h2>テンプレート設定</h2>
-        <span id="board-preview-status" class="status" aria-live="polite"></span>
-      </div>
-      <div class="control-grid">
-        <label class="field"><span>使徒から表示</span><select id="board-preview-apostle"></select></label>
-        <label class="field"><span>種族</span><select id="board-preview-species"></select></label>
-        <label class="field"><span>特殊マスタイプ</span><select id="board-preview-special-type"></select></label>
-        <label class="field"><span>攻撃タイプ</span><select id="board-preview-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
-      </div>
-      <div class="reference-row">
-        <span>使用データ</span>
-        <strong id="board-preview-reference">-</strong>
-      </div>
-      <details class="tier-details">
-        <summary>ステータス別Tierを調整</summary>
-        <div class="tier-grid">
-          <label class="field"><span>HP</span><select data-board-preview-tier="hp"></select></label>
-          <label class="field"><span>攻撃力</span><select data-board-preview-tier="attack"></select></label>
-          <label class="field"><span>物理防御力</span><select data-board-preview-tier="physicalDefense"></select></label>
-          <label class="field"><span>魔法防御力</span><select data-board-preview-tier="magicDefense"></select></label>
-          <label class="field"><span>会心</span><select data-board-preview-tier="crit"></select></label>
-          <label class="field"><span>会心DMG</span><select data-board-preview-tier="critDmg"></select></label>
-          <label class="field"><span>会心抵抗</span><select data-board-preview-tier="critRes"></select></label>
-          <label class="field"><span>会心DMG抵抗</span><select data-board-preview-tier="critDmgRes"></select></label>
-        </div>
-      </details>
-    </section>
 
     <section class="panel preview-panel">
       <div class="preview-head">
@@ -76,13 +42,6 @@
               <button type="button" id="board-preview-zoom-in" aria-label="表示を拡大" title="表示を拡大">＋</button>
             </div>
           </div>
-          <div class="legend" aria-label="マス種別">
-            <span><i class="legend-start"></i>開始</span>
-            <span><i class="legend-normal"></i>通常</span>
-            <span><i class="legend-advanced"></i>上級</span>
-            <span><i class="legend-special"></i>特殊</span>
-            <span><i class="legend-gate"></i>ゲート</span>
-          </div>
         </div>
       </div>
       <div id="board-preview-viewport" class="board-viewport">
@@ -94,13 +53,59 @@
         <div id="board-preview-detail" class="tile-popover-content"></div>
       </div>
     </section>
+
+    <section class="panel template-config-bar" aria-labelledby="board-preview-template-title">
+      <div class="template-bar-main">
+        <div class="template-apostle-summary">
+          <div class="template-apostle-identity">
+            <span class="template-apostle-image-wrap">
+              <img id="board-preview-apostle-image" class="template-apostle-image" alt="" hidden>
+              <span class="template-apostle-image-fallback" aria-hidden="true">?</span>
+            </span>
+            <span class="template-apostle-name-wrap">
+              <span id="board-preview-template-title" class="template-bar-title">テンプレート設定</span>
+              <strong id="board-preview-apostle-name">カスタム指定</strong>
+            </span>
+          </div>
+          <label class="field template-apostle-field"><span>使徒から表示</span><select id="board-preview-apostle"></select></label>
+        </div>
+        <div class="template-bar-actions">
+          <span id="board-preview-status" class="status" aria-live="polite"></span>
+          <button type="button" id="board-preview-detail-toggle" class="template-detail-toggle" aria-controls="board-preview-detail-settings" aria-expanded="false">詳細設定</button>
+        </div>
+      </div>
+      <div id="board-preview-detail-settings" class="template-detail-settings">
+        <div class="control-grid">
+          <label class="field"><span>種族</span><select id="board-preview-species"></select></label>
+          <label class="field"><span>特殊マスタイプ</span><select id="board-preview-special-type"></select></label>
+          <label class="field"><span>攻撃タイプ</span><select id="board-preview-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
+        </div>
+        <div class="reference-row">
+          <span>使用データ</span>
+          <strong id="board-preview-reference">-</strong>
+        </div>
+        <details class="tier-details">
+          <summary>ステータス別Tierを調整</summary>
+          <div class="tier-grid">
+            <label class="field"><span>HP</span><select data-board-preview-tier="hp"></select></label>
+            <label class="field"><span>攻撃力</span><select data-board-preview-tier="attack"></select></label>
+            <label class="field"><span>物理防御力</span><select data-board-preview-tier="physicalDefense"></select></label>
+            <label class="field"><span>魔法防御力</span><select data-board-preview-tier="magicDefense"></select></label>
+            <label class="field"><span>会心</span><select data-board-preview-tier="crit"></select></label>
+            <label class="field"><span>会心DMG</span><select data-board-preview-tier="critDmg"></select></label>
+            <label class="field"><span>会心抵抗</span><select data-board-preview-tier="critRes"></select></label>
+            <label class="field"><span>会心DMG抵抗</span><select data-board-preview-tier="critDmgRes"></select></label>
+          </div>
+        </details>
+      </div>
+    </section>
   </main>
 
-  <script src="/trickcal-manager/statData.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/public/board-layout-preview.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/shared-topbar.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/announcements-release-config.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/announcements-data.js?v=f12652a0ebc1c5ff"></script>
-  <script src="/trickcal-manager/announcements.js?v=f12652a0ebc1c5ff"></script>
+  <script src="/trickcal-manager/statData.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/public/board-layout-preview.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/shared-topbar.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/announcements-release-config.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/announcements-data.js?v=1132df9a42d35355"></script>
+  <script src="/trickcal-manager/announcements.js?v=1132df9a42d35355"></script>
 </body>
 </html>
