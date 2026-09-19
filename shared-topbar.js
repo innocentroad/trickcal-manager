@@ -17,7 +17,7 @@
   });
   const DATA_MENU_ITEMS = Object.freeze([
     Object.freeze({ key: 'apostles', label: '使徒データ', fallback: 'public/apostle-data.html' }),
-    Object.freeze({ key: 'enemies', label: '敵データ', fallback: 'enemy-status.html?recover=20260912' }),
+    Object.freeze({ key: 'enemies', label: '敵データ', fallback: 'enemy-status.html' }),
     Object.freeze({ key: 'board', label: 'ボードプレビュー', fallback: 'public/board-layout-preview.html' })
   ]);
   const BULK_MENU_ITEMS = Object.freeze([
@@ -96,27 +96,43 @@
     return '';
   }
 
+  function stripLegacyRecoveryQuery(href) {
+    const value = String(href || '');
+    const hashIndex = value.indexOf('#');
+    const beforeHash = hashIndex < 0 ? value : value.slice(0, hashIndex);
+    const hash = hashIndex < 0 ? '' : value.slice(hashIndex);
+    const queryIndex = beforeHash.indexOf('?');
+    if (queryIndex < 0) return value;
+
+    const route = beforeHash.slice(0, queryIndex);
+    const entries = [...new URLSearchParams(beforeHash.slice(queryIndex + 1))];
+    if (!entries.some(([key, entryValue]) => key === 'recover' && entryValue === '20260912')) return value;
+    const retained = entries.filter(([key, entryValue]) => key !== 'recover' || entryValue !== '20260912');
+    const query = new URLSearchParams(retained).toString();
+    return `${route}${query ? `?${query}` : ''}${hash}`;
+  }
+
   function routeHref(bar, pageKey, currentPage) {
     const dataKey = `sharedTopbar${pageKey[0].toUpperCase()}${pageKey.slice(1)}Href`;
     const configured = publicRoute(pageKey);
-    if (configured) return configured;
-    if (bar.dataset[dataKey]) return bar.dataset[dataKey];
+    if (configured) return stripLegacyRecoveryQuery(configured);
+    if (bar.dataset[dataKey]) return stripLegacyRecoveryQuery(bar.dataset[dataKey]);
     const routeKey = `sharedTopbar${pageKey[0].toUpperCase()}${pageKey.slice(1)}Route`;
-    if (bar.dataset[routeKey]) return bar.dataset[routeKey];
+    if (bar.dataset[routeKey]) return stripLegacyRecoveryQuery(bar.dataset[routeKey]);
     if (currentPage === PAGE_KEYS.data) {
       return pageKey === PAGE_KEYS.data ? './' : `../${pageKey}/`;
     }
-    if (pageKey === PAGE_KEYS.manager) return 'stat-dashboard.html?view=settings&recover=20260912';
-    if (pageKey === PAGE_KEYS.calc) return 'formation-damage-calc.html?recover=20260912';
+    if (pageKey === PAGE_KEYS.manager) return 'stat-dashboard.html?view=settings';
+    if (pageKey === PAGE_KEYS.calc) return 'formation-damage-calc.html';
     return 'data/';
   }
 
   function managerActionHref(bar, page, query) {
     const href = routeHref(bar, PAGE_KEYS.manager, page);
     try {
-      const url = new URL(href, window.location.href);
+      const url = new URL(stripLegacyRecoveryQuery(href), window.location.href);
       Object.entries(query).forEach(([key, value]) => url.searchParams.set(key, value));
-      return `${url.pathname}${url.search}${url.hash}`;
+      return stripLegacyRecoveryQuery(`${url.pathname}${url.search}${url.hash}`);
     } catch (_) {
       return href;
     }
@@ -125,14 +141,14 @@
   function dataMenuHref(bar, page, item) {
     const dataKey = `sharedTopbar${item.key[0].toUpperCase()}${item.key.slice(1)}Href`;
     const configured = publicRoute(item.key);
-    if (configured) return configured;
-    if (bar.dataset[dataKey]) return bar.dataset[dataKey];
+    if (configured) return stripLegacyRecoveryQuery(configured);
+    if (bar.dataset[dataKey]) return stripLegacyRecoveryQuery(bar.dataset[dataKey]);
     const routeKey = `sharedTopbar${item.key[0].toUpperCase()}${item.key.slice(1)}Route`;
-    if (bar.dataset[routeKey]) return bar.dataset[routeKey];
+    if (bar.dataset[routeKey]) return stripLegacyRecoveryQuery(bar.dataset[routeKey]);
     if (page === PAGE_KEYS.data) {
-      return item.key === 'data' ? './' : `../${item.fallback}`;
+      return stripLegacyRecoveryQuery(item.key === 'data' ? './' : `../${item.fallback}`);
     }
-    return item.fallback;
+    return stripLegacyRecoveryQuery(item.fallback);
   }
 
   function createBulkControl(operation, bar, page) {
@@ -155,7 +171,7 @@
         item.type = 'button';
         item.dataset.openGlobal = itemConfig.key;
       } else {
-        item.href = managerActionHref(bar, page, { global: itemConfig.key, recover: '20260912' });
+        item.href = managerActionHref(bar, page, { global: itemConfig.key });
       }
       item.dataset.topbarMenuItem = 'bulk';
       item.dataset.topbarBulkTarget = itemConfig.key;
@@ -282,14 +298,14 @@
           : operation.key === PAGE_KEYS.data
             ? routeHref(bar, PAGE_KEYS.data, page)
             : managerActionHref(bar, page, operation.key === 'formation'
-              ? { view: 'formation', recover: '20260912' }
+              ? { view: 'formation' }
               : operation.key === 'artifact'
-                ? { card: 'artifact', recover: '20260912' }
+                ? { card: 'artifact' }
                 : operation.key === 'spell'
-                  ? { card: 'spell', recover: '20260912' }
+                  ? { card: 'spell' }
                   : operation.key === 'board'
-                    ? { global: 'board-global', recover: '20260912' }
-                    : { global: 'apostles', recover: '20260912' });
+                    ? { global: 'board-global' }
+                    : { global: 'apostles' });
       if (isCurrentPage) control.setAttribute('aria-current', 'page');
     }
     appendLabel(control, operation);

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>上バー通知fixture</title>
+  <script src="../../storage-registry.js?v=20260913a"></script>
+  <script src="../../storage-runtime.js?v=20260913a"></script>
+  <script src="../../storage-bootstrap.js?v=20260913a"></script>
   <link rel="stylesheet" href="../../shared-topbar.css?v=20260918e">
   <link rel="stylesheet" href="../../announcements.css">
   <style>
@@ -13,7 +16,8 @@
   </style>
 </head>
 <body class="public-data-page theme-light">
-  <section class="dashboard-top-control-bar" data-shared-topbar-page="data" data-shared-topbar-manager-href="../../stat-dashboard.html" data-shared-topbar-calc-href="../../formation-damage-calc.html" data-shared-topbar-data-href="../../data/" data-shared-topbar-enemies-href="../../enemy-status.html?recover=20260912" data-shared-topbar-board-href="../../public/board-layout-preview.html" aria-label="共通操作">
+  <!-- Intentional stale-query input exercises removal from inherited ordinary routes. -->
+  <section class="dashboard-top-control-bar" data-shared-topbar-page="data" data-shared-topbar-manager-href="../../stat-dashboard.html?view=settings&recover=20260912&recover=custom&preset=fixture&phase=2#manager-safe" data-shared-topbar-calc-href="../../formation-damage-calc.html" data-shared-topbar-data-href="../../data/" data-shared-topbar-enemies-href="../../enemy-status.html?recover=20260912&recover=custom&preset=fixture&phase=2#enemy-safe" data-shared-topbar-board-href="../../public/board-layout-preview.html" aria-label="共通操作">
     <div class="topbar-common-row" data-shared-topbar-common></div>
   </section>
   <main>
@@ -34,6 +38,7 @@
     };
   </script>
   <script src="../../announcements-data.js"></script>
+  <script src="../../announcement-history-data.js"></script>
   <script src="../../announcements.js"></script>
 </body>
 </html>

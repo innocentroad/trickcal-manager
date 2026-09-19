@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-storage-boot-mode="optional">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,15 +17,15 @@
     })();
   </script>
   <link rel="stylesheet" href="shared-topbar.css?v=20260918h">
-  <link rel="stylesheet" href="announcements.css?v=20260915b">
+  <link rel="stylesheet" href="announcements.css?v=20260919history">
   <link rel="stylesheet" href="formation-share-prototype.css?v=2a59d4d656c33b66">
 </head>
 <body class="formation-share-page">
   <div
     class="dashboard-top-control-bar"
     data-shared-topbar-page="share"
-    data-shared-topbar-manager-href="stat-dashboard.html?view=settings&recover=20260912"
-    data-shared-topbar-calc-href="formation-damage-calc.html?recover=20260912"
+    data-shared-topbar-manager-href="stat-dashboard.html?view=settings"
+    data-shared-topbar-calc-href="formation-damage-calc.html"
   >
     <div data-shared-topbar-common></div>
   </div>
@@ -37,7 +37,7 @@
     <section id="share-error" class="share-panel share-error" hidden role="alert" aria-live="assertive">
       <h2>共有編成を表示できません</h2>
       <p id="share-error-message">URLの内容を確認してください。</p>
-      <a href="stat-dashboard.html?recover=20260912" class="back-link">ステータス管理へ戻る</a>
+      <a href="stat-dashboard.html" class="back-link">ステータス管理へ戻る</a>
     </section>
 
     <div id="share-content">
@@ -92,10 +92,14 @@
     </div>
   </aside>
 
+  <script src="storage-registry.js?v=20260913a"></script>
+  <script src="storage-runtime.js?v=20260913a"></script>
+  <script src="storage-bootstrap.js?v=20260913a"></script>
   <script src="shared-topbar.js?v=20260918i"></script>
   <script src="announcements-release-config.js?v=20260915a"></script>
   <script src="announcements-data.js?v=20260915b"></script>
-  <script src="announcements.js?v=20260915b"></script>
+  <script src="announcement-history-data.js?v=20260919history"></script>
+  <script src="announcements.js?v=20260919history"></script>
   <script src="formation-share-display-data.js?v=5c60cf538126f037"></script>
   <script src="formation-share-catalog.js?v=f831ed029d771efa"></script>
   <script src="formation-share-codec.js?v=53216a7afa317aab"></script>

@@ -93,9 +93,9 @@
         }
       },
       "fixtures": [
-        { "name": "manager-desktop", "profile": "new", "query": "?view=settings&recover=20260912", "hash": "", "viewport": "desktop" },
-        { "name": "manager-mobile", "profile": "new", "query": "?view=formation&recover=20260912", "hash": "", "viewport": "mobile" },
-        { "name": "legacy-manager", "profile": "legacy", "query": "?recover=20260912", "hash": "", "viewport": "desktop" }
+        { "name": "manager-desktop", "profile": "new", "query": "?view=settings", "hash": "", "viewport": "desktop" },
+        { "name": "manager-mobile", "profile": "new", "query": "?view=formation", "hash": "", "viewport": "mobile" },
+        { "name": "legacy-manager", "profile": "legacy", "query": "", "hash": "", "viewport": "desktop" }
       ]
     },
     {
@@ -115,9 +115,9 @@
         }
       },
       "fixtures": [
-        { "name": "calc-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
-        { "name": "calc-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" },
-        { "name": "legacy-calc", "profile": "legacy", "query": "?recover=20260912", "hash": "", "viewport": "desktop" }
+        { "name": "calc-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "calc-mobile", "profile": "new", "query": "", "hash": "", "viewport": "mobile" },
+        { "name": "legacy-calc", "profile": "legacy", "query": "", "hash": "", "viewport": "desktop" }
       ]
     },
     {
@@ -137,8 +137,8 @@
         }
       },
       "fixtures": [
-        { "name": "dps-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
-        { "name": "dps-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" }
+        { "name": "dps-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "dps-mobile", "profile": "new", "query": "", "hash": "", "viewport": "mobile" }
       ]
     },
     {
@@ -222,8 +222,8 @@
         }
       },
       "fixtures": [
-        { "name": "enemies-desktop", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "desktop" },
-        { "name": "enemies-mobile", "profile": "new", "query": "?recover=20260912", "hash": "", "viewport": "mobile" }
+        { "name": "enemies-desktop", "profile": "new", "query": "", "hash": "", "viewport": "desktop" },
+        { "name": "enemies-mobile", "profile": "new", "query": "", "hash": "", "viewport": "mobile" }
       ]
     },
     {
@@ -297,6 +297,7 @@
     { "source": "app-cache.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements-release-config.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements-data.js", "kind": "file", "profiles": ["new", "legacy"] },
+    { "source": "announcement-history-data.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements.css", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "shared-topbar.js", "kind": "file", "profiles": ["new", "legacy"] },

@@ -974,7 +974,6 @@
         window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('enemies') || 'enemy-status.html',
         location.href
       );
-      url.searchParams.set('recover', '20260912');
       const key = view.enemyPresetKey || el.enemyPreset?.value || '';
       const isBuiltInPreset = typeof ENEMY_PRESETS !== 'undefined' && !!ENEMY_PRESETS[key];
       if (isBuiltInPreset) {

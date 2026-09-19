@@ -9140,6 +9140,8 @@
     const isSpecial = tileType === 'special';
     const label = isSpecial ? '特殊マス' : '上級マス';
     const icon = isSpecial ? 'Tileicon_3.webp' : 'Tileicon_2.webp';
+    const materialLabel = isSpecial ? '金くれよん' : '紫くれよん';
+    const materialIcon = isSpecial ? '特級くれよん.webp' : '上級くれよん.webp';
     const suffix = isSpecial ? '%' : '';
     const aggregateTotals = createEmptyTotals();
     const aggregateMaxTotals = createEmptyTotals();
@@ -9155,8 +9157,11 @@
       <table class="board-global-stat-matrix board-global-effect-type-matrix is-${escapeAttr(tileType)}">
         <thead>
           <tr>
-            <th title="${escapeAttr(label)}">
-              <span class="board-global-effect-type-label"><img src="img/Board/${escapeAttr(icon)}" alt="${escapeAttr(label)}"></span>
+            <th scope="col">
+              <span class="board-global-effect-type-label board-global-tile-material-icon" role="img" aria-label="${escapeAttr(`${label}（${materialLabel}）`)}">
+                <img class="board-global-tile-type-icon" src="${escapeAttr(getBoardGlobalAssetUrl(`img/Board/${icon}`))}" alt="" aria-hidden="true">
+                <img class="board-global-material-icon" src="${escapeAttr(getBoardGlobalAssetUrl(`img/${materialIcon}`))}" alt="" aria-hidden="true">
+              </span>
             </th>
             ${[1, 2, 3].map(layer => `<th class="board-global-matrix-layer-${layer}">B${layer}</th>`).join('')}
           </tr>
@@ -9192,6 +9197,10 @@
         </tbody>
       </table>
     `;
+  }
+
+  function getBoardGlobalAssetUrl(path) {
+    return window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
   }
 
   function renderBoardGlobalGroupedValue(totals, group, suffix) {

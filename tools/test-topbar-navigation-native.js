@@ -79,6 +79,21 @@ async function waitReady(cdp, page) {
   `), { timeoutMs: 30000 });
 }
 
+async function pressBrowserKey(cdp, page, key, { shiftKey = false } = {}) {
+  const keyInfo = {
+    Tab: { code: 'Tab', windowsVirtualKeyCode: 9 },
+    Escape: { code: 'Escape', windowsVirtualKeyCode: 27 }
+  }[key];
+  if (!keyInfo) throw new Error(`Unsupported browser key: ${key}`);
+  const params = {
+    key,
+    ...keyInfo,
+    modifiers: shiftKey ? 8 : 0
+  };
+  await cdp.send('Input.dispatchKeyEvent', { ...params, type: 'keyDown' }, page.sessionId);
+  await cdp.send('Input.dispatchKeyEvent', { ...params, type: 'keyUp' }, page.sessionId);
+}
+
 async function waitCommonTopbarReady(cdp, page) {
   await browser.waitFor(async () => browser.evaluate(cdp, page, `
     !!document.querySelector('[data-shared-topbar-common]')
@@ -137,7 +152,8 @@ async function readTopbar(cdp, page) {
       card: element.dataset.openCardManager || '',
       global: element.dataset.openGlobal || '',
       active: element.classList.contains('is-active'),
-      current: element.getAttribute('aria-current') || ''
+      current: element.getAttribute('aria-current') || '',
+      href: element.getAttribute('href') || ''
     })),
     dataItems: [...document.querySelectorAll('[data-topbar-menu="data"] [data-topbar-menu-item="data"]')].map(element => ({
       tag: element.tagName,
@@ -204,6 +220,146 @@ async function run() {
     pages.push(page);
     await waitReady(cdp, page);
     await browser.evaluate(cdp, page, `document.querySelector('#trickcal-announcements-dialog')?.close()`);
+
+    const noticePage = await browser.createPage(cdp, `${origin}/tools/fixtures/topbar-browser-fixture.html?nativeAnnouncementFocus=1`);
+    pages.push(noticePage);
+    await browser.waitFor(async () => browser.evaluate(cdp, noticePage, `(() =>
+      document.documentElement.dataset.storageBoot === 'ready'
+        && !!document.querySelector('[data-shared-topbar-common]')
+        && !!window.TRICKCAL_ANNOUNCEMENTS_CONTROLLER
+        && !!document.querySelector('#trickcal-announcements-dialog')
+    )()`), { timeoutMs: 30000 });
+    await browser.evaluate(cdp, noticePage, `document.querySelector('#trickcal-announcements-dialog')?.close()`);
+    const noticeButton = '.topbar-announcement-trigger';
+    await browser.clickSelector(cdp, noticePage, noticeButton);
+    await browser.waitFor(async () => browser.evaluate(cdp, noticePage, `(() => {
+      const dialog = document.querySelector('#trickcal-announcements-dialog');
+      return dialog?.open === true && document.activeElement?.classList.contains('trickcal-announcements-close');
+    })()`), { timeoutMs: 5000 });
+    const initialNoticeFocus = await browser.evaluate(cdp, noticePage, `(() => ({
+      dialogOpen: document.querySelector('#trickcal-announcements-dialog')?.open,
+      activeTag: document.activeElement?.tagName,
+      activeClass: document.activeElement?.className,
+      activeIsClose: document.activeElement === document.querySelector('.trickcal-announcements-close')
+    }))()`);
+    assert.deepEqual(initialNoticeFocus, {
+      dialogOpen: true,
+      activeTag: 'BUTTON',
+      activeClass: 'trickcal-announcements-close',
+      activeIsClose: true
+    }, '実DOMの初期フォーカスがdialog自身ではなく閉じるbuttonにあります');
+
+    await pressBrowserKey(cdp, noticePage, 'Tab');
+    assert.equal(await browser.evaluate(cdp, noticePage, `document.activeElement === document.querySelector('.trickcal-announcement-open-migration')`), true, '実Tabで閉じるbuttonの次に移行案内操作へ進みます');
+    await pressBrowserKey(cdp, noticePage, 'Tab', { shiftKey: true });
+    assert.equal(await browser.evaluate(cdp, noticePage, `document.activeElement === document.querySelector('.trickcal-announcements-close')`), true, '実Shift+Tabで先頭へ戻ります');
+
+    const reverseTrap = await browser.evaluate(cdp, noticePage, `(() => {
+      const dialog = document.querySelector('#trickcal-announcements-dialog');
+      const first = dialog.querySelector('.trickcal-announcements-close');
+      const selector = 'button:not([disabled]), a[href], summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const candidates = [...dialog.querySelectorAll(selector)].filter(element => {
+        if (element.disabled || element.hidden || element.inert || element.getAttribute('aria-hidden') === 'true') return false;
+        for (let ancestor = element; ancestor?.nodeType === 1; ancestor = ancestor.parentElement) {
+          if (ancestor.hidden || ancestor.inert || getComputedStyle(ancestor).display === 'none' || getComputedStyle(ancestor).visibility === 'hidden') return false;
+          if (ancestor.tagName === 'DETAILS' && !ancestor.open && ancestor.querySelector('summary') !== element) return false;
+        }
+        return true;
+      });
+      const last = candidates.at(-1);
+      first.focus();
+      const event = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true });
+      dialog.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, candidateCount: candidates.length, lastExists: !!last, activeIsLast: document.activeElement === last };
+    })()`);
+    assert.equal(reverseTrap.prevented, true, `通知controllerがShift+Tabを捕捉しませんでした: ${JSON.stringify(reverseTrap)}`);
+    assert.ok(reverseTrap.candidateCount > 1 && reverseTrap.lastExists && reverseTrap.activeIsLast, `通知controllerが実DOMの末尾候補へ移動しませんでした: ${JSON.stringify(reverseTrap)}`);
+    const forwardTrap = await browser.evaluate(cdp, noticePage, `(() => {
+      const dialog = document.querySelector('#trickcal-announcements-dialog');
+      const first = dialog.querySelector('.trickcal-announcements-close');
+      const selector = 'button:not([disabled]), a[href], summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const candidates = [...dialog.querySelectorAll(selector)].filter(element => {
+        if (element.disabled || element.hidden || element.inert || element.getAttribute('aria-hidden') === 'true') return false;
+        for (let ancestor = element; ancestor?.nodeType === 1; ancestor = ancestor.parentElement) {
+          if (ancestor.hidden || ancestor.inert || getComputedStyle(ancestor).display === 'none' || getComputedStyle(ancestor).visibility === 'hidden') return false;
+          if (ancestor.tagName === 'DETAILS' && !ancestor.open && ancestor.querySelector('summary') !== element) return false;
+        }
+        return true;
+      });
+      const last = candidates.at(-1);
+      last.focus();
+      const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+      dialog.dispatchEvent(event);
+      return { prevented: event.defaultPrevented, lastExists: !!last, activeIsFirst: document.activeElement === first };
+    })()`);
+    assert.deepEqual(forwardTrap, { prevented: true, lastExists: true, activeIsFirst: true }, '合成Tabで通知controller自身が末尾から先頭へ循環します');
+
+    const gameMoreSelector = '.trickcal-announcement-history-section.is-game-data .trickcal-announcement-history-more';
+    await browser.waitFor(async () => browser.evaluate(cdp, noticePage, `!!document.querySelector(${JSON.stringify(gameMoreSelector)})`), { timeoutMs: 5000 });
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const moreVisible = await browser.evaluate(cdp, noticePage, `(() => {
+        const more = document.querySelector(${JSON.stringify(gameMoreSelector)});
+        return !!more && !more.hidden;
+      })()`);
+      if (!moreVisible) break;
+      await browser.clickSelector(cdp, noticePage, gameMoreSelector);
+    }
+    const finalMoreFocus = await browser.evaluate(cdp, noticePage, `(() => {
+      const more = document.querySelector(${JSON.stringify(gameMoreSelector)});
+      const active = document.activeElement;
+      return {
+        moreHidden: !more || more.hidden,
+        activeTag: active?.tagName,
+        activeIsHistorySummary: active?.matches?.('.trickcal-announcement-history-entry > summary') === true,
+        activeInsideDialog: document.querySelector('#trickcal-announcements-dialog')?.contains(active) === true
+      };
+    })()`);
+    assert.deepEqual(finalMoreFocus, {
+      moreHidden: true,
+      activeTag: 'SUMMARY',
+      activeIsHistorySummary: true,
+      activeInsideDialog: true
+    }, '最後の「もっと見る」が消えた後、実activeElementを追加された記事summaryへ移します');
+    await pressBrowserKey(cdp, noticePage, 'Escape');
+    await browser.waitFor(async () => browser.evaluate(cdp, noticePage, `(() => {
+      const dialog = document.querySelector('#trickcal-announcements-dialog');
+      return dialog?.open === false && document.activeElement === document.querySelector(${JSON.stringify(noticeButton)});
+    })()`), { timeoutMs: 5000 });
+    const afterNoticeEscape = await browser.evaluate(cdp, noticePage, `({
+      dialogOpen: document.querySelector('#trickcal-announcements-dialog')?.open,
+      bellRestored: document.activeElement === document.querySelector(${JSON.stringify(noticeButton)}),
+      activeClass: document.activeElement?.className
+    })`);
+    assert.deepEqual(afterNoticeEscape, { dialogOpen: false, bellRestored: true, activeClass: 'topbar-announcement-trigger topbar-icon-action' }, 'Escapeで閉じた後に元の共通ベルへ実focusを復帰します');
+
+    const indexPage = await browser.createPage(cdp, `${origin}/index.html?view=formation&phase=2#home-preserved`);
+    pages.push(indexPage);
+    await browser.waitFor(async () => browser.evaluate(cdp, indexPage, `location.pathname.endsWith('/stat-dashboard.html')`));
+    const indexForwarded = await browser.evaluate(cdp, indexPage, `(() => {
+      const url = new URL(location.href);
+      return { view: url.searchParams.get('view'), phase: url.searchParams.get('phase'), recover: url.searchParams.get('recover'), hash: url.hash };
+    })()`);
+    assert.deepEqual(indexForwarded, { view: 'formation', phase: '2', recover: null, hash: '#home-preserved' }, 'indexがquery/hashを保持して通常遷移しています');
+
+    const oldRecoverPage = await browser.createPage(cdp, `${origin}/stat-dashboard.html?recover=20260912&view=formation#legacy-preserved`);
+    pages.push(oldRecoverPage);
+    await waitReady(cdp, oldRecoverPage);
+    const oldRecoverInitial = await browser.evaluate(cdp, oldRecoverPage, `(() => {
+      const url = new URL(location.href);
+      return {
+        path: url.pathname,
+        recover: url.searchParams.get('recover'),
+        view: url.searchParams.get('view'),
+        hash: url.hash,
+        panel: document.querySelector('[data-dashboard-panel].is-active')?.dataset.dashboardPanel
+      };
+    })()`);
+    assert.deepEqual(oldRecoverInitial, {
+      path: '/stat-dashboard.html', recover: '20260912', view: 'formation', hash: '#legacy-preserved', panel: 'formation'
+    }, '古いrecover付きURLが通常ページとして開けません');
+    await cdp.send('Page.reload', { ignoreCache: true }, oldRecoverPage.sessionId);
+    await waitReady(cdp, oldRecoverPage);
+    assert.equal(await browser.evaluate(cdp, oldRecoverPage, `new URL(location.href).searchParams.get('recover')`), '20260912', '古いrecover付きURLの再読み込みに失敗しました');
 
     const initial = await readTopbar(cdp, page);
     const initialByKey = Object.fromEntries(initial.operations.map(item => [item.key, item]));
@@ -322,6 +478,19 @@ async function run() {
       assert.deepEqual(external.bulkItems.map(item => item.tag), ['A', 'A', 'A', 'A', 'A']);
       assert.ok(external.bulkItems.every(item => item.role === 'menuitem' && item.href && !item.openGlobal));
       assert.ok(external.bulkItems.every(item => new URL(item.href, before).searchParams.get('global') === item.target));
+      const routeLinks = [
+        ...external.operations.filter(item => item.href).map(item => item.href),
+        ...external.dataItems.map(item => item.href),
+        ...external.bulkItems.map(item => item.href)
+      ];
+      assert.ok(routeLinks.every(href => !new URL(href, before).searchParams.getAll('recover').includes('20260912')), `${pageName}の通常メニューが固定recoverを含みます`);
+      if (pageName === 'data') {
+        const enemyMenuUrl = new URL(external.dataItems.find(item => item.target === 'enemies').href, before);
+        assert.deepEqual(enemyMenuUrl.searchParams.getAll('recover'), ['custom'], '固定recoverだけが除去され、別のrecover値は保持されませんでした');
+        assert.equal(enemyMenuUrl.searchParams.get('preset'), 'fixture', '通常routeのpreset queryを落としました');
+        assert.equal(enemyMenuUrl.searchParams.get('phase'), '2', '通常routeのphase queryを落としました');
+        assert.equal(enemyMenuUrl.hash, '#enemy-safe', '通常routeのhashを落としました');
+      }
       if (expectedPage) {
         assert.equal(external.active.includes(expectedPage), true, `${pageName}の現在ページが点灯していません`);
       } else {
@@ -340,7 +509,46 @@ async function run() {
       const navigated = await browser.evaluate(cdp, externalPage, `({ href: location.href, global: new URL(location.href).searchParams.get('global'), active: [...document.querySelectorAll('[data-setting-panel].is-active')].map(element => element.dataset.settingPanel) })`);
       assert.equal(navigated.global, target, `${pageName}から${target}への遷移先が不正です`);
       assert.deepEqual(navigated.active, [target], `${pageName}から${target}の設定が開いていません`);
+      assert.equal(new URL(navigated.href).searchParams.getAll('recover').includes('20260912'), false, `${pageName}からの通常遷移へ固定recoverが残っています`);
+      if (pageName === 'data') {
+        const targetUrl = new URL(navigated.href);
+        assert.equal(targetUrl.searchParams.get('recover'), 'custom');
+        assert.equal(targetUrl.searchParams.get('preset'), 'fixture');
+        assert.equal(targetUrl.searchParams.get('phase'), '2');
+        assert.equal(targetUrl.hash, '#manager-safe');
+      }
     }
+
+    const calcHandoffPage = await browser.createPage(cdp, `${origin}/formation-damage-calc.html?nativeEnemyHandoff=1`);
+    pages.push(calcHandoffPage);
+    await waitCommonTopbarReady(cdp, calcHandoffPage);
+    await browser.waitFor(async () => browser.evaluate(cdp, calcHandoffPage, `document.querySelector('#fdc-enemy-preset')?.options.length > 1`), { timeoutMs: 30000 });
+    await browser.evaluate(cdp, calcHandoffPage, `(() => {
+      const preset = document.querySelector('#fdc-enemy-preset');
+      const phase = document.querySelector('#fdc-enemy-phase');
+      for (const option of [...preset.options].filter(item => item.value)) {
+        preset.value = option.value;
+        preset.dispatchEvent(new Event('change', { bubbles: true }));
+        if (phase.options.length > 1) {
+          phase.value = '1';
+          phase.dispatchEvent(new Event('change', { bubbles: true }));
+          return { preset: preset.value, phaseCount: phase.options.length, phase: phase.value };
+        }
+      }
+      return { preset: preset.value, phaseCount: phase.options.length, phase: phase.value };
+    })()`);
+    const handoffSelection = await browser.evaluate(cdp, calcHandoffPage, `({ preset: document.querySelector('#fdc-enemy-preset')?.value || '', phaseCount: document.querySelector('#fdc-enemy-phase')?.options.length || 0, phase: document.querySelector('#fdc-enemy-phase')?.value || '' })`);
+    assert.ok(handoffSelection.preset && handoffSelection.phaseCount > 1, `phase付き敵プリセットが見つかりません: ${JSON.stringify(handoffSelection)}`);
+    assert.equal(handoffSelection.phase, '1');
+    await browser.clickSelector(cdp, calcHandoffPage, '#fdc-enemy-status-link');
+    await browser.waitFor(async () => browser.evaluate(cdp, calcHandoffPage, `location.pathname.endsWith('/enemy-status.html') || location.pathname.endsWith('/data/enemies/')`));
+    const enemyHandoff = await browser.evaluate(cdp, calcHandoffPage, `(() => {
+      const url = new URL(location.href);
+      return { path: url.pathname, preset: url.searchParams.get('preset'), phase: url.searchParams.get('phase'), recover: url.searchParams.get('recover') };
+    })()`);
+    assert.equal(enemyHandoff.preset, handoffSelection.preset, '敵プリセットが敵データへ引き継がれていません');
+    assert.equal(enemyHandoff.phase, '1', '敵phaseが敵データへ引き継がれていません');
+    assert.notEqual(enemyHandoff.recover, '20260912', '敵データへの通常遷移に固定recoverが付与されています');
 
     const enemyPage = await browser.createPage(cdp, `${origin}/enemy-status.html?topbarDataDetailNative=1`);
     const boardPage = await browser.createPage(cdp, `${origin}/public/board-layout-preview.html?apostle=Amelia&topbarDataDetailNative=1`);
@@ -493,6 +701,9 @@ async function run() {
         'formation/card/global active state follows displayed panel',
         'bulk menu has the same five item definitions on manager and external pages',
         'external bulk selections navigate to the matching manager setting without button-only navigation',
+        'normal routes omit the legacy recovery marker while preserving required query/hash values',
+        'index forwarding and direct legacy-recover URLs remain usable after reload',
+        'calc enemy preset and phase survive the ordinary enemy-data link',
         'opening data/bulk menus does not change active state',
         'data menu has three role=menuitem links',
         'Escape closes the menu and restores trigger focus',

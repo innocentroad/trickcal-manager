@@ -21,7 +21,7 @@
   const imageApi = window.TRICKCAL_FORMATION_SHARE_IMAGE;
   const imageController = imageApi?.createController?.();
   // 生成工程の依存版入力として保持する。公開共有URLへv queryは付けない。
-  const SHARE_PAGE_CACHE_VERSION = '04aa43ae3c38397f';
+  const SHARE_PAGE_CACHE_VERSION = '612ba8cc17721308';
   const SHARE_PREVIEW_CACHE_VERSION = '20260912b';
 
   if (!dialog || !openButton || !codec) return;

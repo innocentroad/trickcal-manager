@@ -767,6 +767,48 @@ function renderServiceWorker(entry, context) {
   return Buffer.from(source);
 }
 
+function injectAnnouncementHistoryData(html, profileName, context) {
+  const profile = context.manifest.profiles[profileName];
+  const controllerPath = appendAssetVersion(
+    joinPublicPath(profile.assetBasePath, 'announcements.js'),
+    '',
+    context.assetVersion
+  );
+  const historyPath = appendAssetVersion(
+    joinPublicPath(profile.assetBasePath, 'announcement-history-data.js'),
+    '',
+    context.assetVersion
+  );
+  const controllerTag = `<script src="${escapeHtml(controllerPath)}"></script>`;
+  if (html.indexOf(controllerTag) < 0 || html.indexOf(controllerTag) !== html.lastIndexOf(controllerTag)) {
+    throw new PublicSiteError('data indexのお知らせcontroller接続を一意に確認できません');
+  }
+  const historyTag = `<script src="${escapeHtml(historyPath)}"></script>`;
+  return html.replace(controllerTag, `${historyTag}\n  ${controllerTag}`);
+}
+
+function injectDataIndexStorageBootstrap(html, profileName, context) {
+  const profile = context.manifest.profiles[profileName];
+  const scriptPath = asset => appendAssetVersion(
+    joinPublicPath(profile.assetBasePath, asset),
+    '',
+    context.assetVersion
+  );
+  const sharedTopbarTag = `<script src="${escapeHtml(scriptPath('shared-topbar.js'))}"></script>`;
+  if (html.indexOf(sharedTopbarTag) < 0 || html.indexOf(sharedTopbarTag) !== html.lastIndexOf(sharedTopbarTag)) {
+    throw new PublicSiteError('data indexの共通上バー接続を一意に確認できません');
+  }
+  const storageScripts = ['storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js']
+    .map(asset => `<script src="${escapeHtml(scriptPath(asset))}"></script>`)
+    .join('\n  ');
+  const optionalRoot = '<html lang="ja" data-storage-boot-mode="optional">';
+  const rootCount = html.split('<html lang="ja">').length - 1;
+  if (rootCount !== 1) throw new PublicSiteError('data indexのoptional storage rootを一意に確認できません');
+  return html
+    .replace('<html lang="ja">', optionalRoot)
+    .replace(sharedTopbarTag, `${storageScripts}\n  ${sharedTopbarTag}`);
+}
+
 function renderEntry(entry, context) {
   if (entry.type === 'asset') {
     if (entry.source === context.manifest.serviceWorker.source) return renderServiceWorker(entry, context);
@@ -776,7 +818,15 @@ function renderEntry(entry, context) {
   }
   if (entry.type === 'alias') return Buffer.from(createRedirectHtml(entry.targetPath, `${entry.routeId} compatibility`));
   if (entry.generator === 'home-entry') return Buffer.from(createRedirectHtml(entry.targetPath, 'Trickcal Manager'));
-  if (entry.generator === 'data-index') return Buffer.from(transformHtml(stripDataIndexPageRow(createDataIndexHtml(context.plan, entry.profile, context)), entry, context));
+  if (entry.generator === 'data-index') {
+    const sourceHtml = injectDataIndexStorageBootstrap(
+      stripDataIndexPageRow(createDataIndexHtml(context.plan, entry.profile, context)),
+      entry.profile,
+      context
+    );
+    const html = transformHtml(sourceHtml, entry, context);
+    return Buffer.from(injectAnnouncementHistoryData(html, entry.profile, context));
+  }
   const source = fs.readFileSync(path.resolve(context.repoRoot, entry.source), 'utf8');
   return Buffer.from(entry.outputRel.endsWith('.html') ? transformHtml(source, entry, context) : source);
 }

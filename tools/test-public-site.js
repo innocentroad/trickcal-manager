@@ -255,8 +255,33 @@ function run(options = {}) {
     const managerHtml = readOutputText(testOutput, 'manager/index.html');
     const legacyHtml = readOutputText(testOutput, 'trickcal-manager/stat-dashboard.html');
     const dataHtml = readOutputText(testOutput, 'data/index.html');
+    const legacyDataHtml = readOutputText(testOutput, 'trickcal-manager/data/index.html');
+    const apostleDataHtml = readOutputText(testOutput, 'data/apostles/index.html');
+    const legacyApostleDataHtml = readOutputText(testOutput, 'trickcal-manager/public/apostle-data.html');
     const shareHtml = readOutputText(testOutput, 'share/index.html');
-    assert(managerHtml.includes(`href="/calc/?recover=20260912"`));
+    const generatedOrdinaryPages = [
+      'manager/index.html',
+      'calc/index.html',
+      'calc/dps/index.html',
+      'data/index.html',
+      'data/apostles/index.html',
+      'data/enemies/index.html',
+      'data/boards/index.html',
+      'share/index.html',
+      'trickcal-manager/manager/index.html',
+      'trickcal-manager/stat-dashboard.html',
+      'trickcal-manager/formation-damage-calc.html',
+      'trickcal-manager/formation-damage-dps-prototype.html',
+      'trickcal-manager/formation-share.html',
+      'trickcal-manager/data/index.html',
+      'trickcal-manager/enemy-status.html',
+      'trickcal-manager/public/apostle-data.html',
+      'trickcal-manager/public/board-layout-preview.html'
+    ];
+    generatedOrdinaryPages.forEach(file => {
+      assert(!readOutputText(testOutput, file).includes('recover=20260912'), `${file}の通常routeに復旧queryが残っています`);
+    });
+    assert(managerHtml.includes('href="/calc/"'));
     assert(managerHtml.includes('href="/data/boards/"'));
     assert(managerHtml.includes(`src="/public-site-runtime.js?v=${assetVersion}"`));
     assert(managerHtml.includes(`src="/statData.js?v=${assetVersion}"`));
@@ -264,11 +289,30 @@ function run(options = {}) {
     assert(managerHtml.includes('data-shared-topbar-page="manager"'));
     assert(dataHtml.includes(`src="/shared-topbar.js?v=${assetVersion}"`));
     assert(dataHtml.includes(`src="/announcements.js?v=${assetVersion}"`));
+    assert(dataHtml.includes(`src="/announcement-history-data.js?v=${assetVersion}"`), 'new data入口がprofile版付き履歴dataを読む');
+    assert(legacyDataHtml.includes(`src="/trickcal-manager/announcement-history-data.js?v=${assetVersion}"`), 'legacy data入口がbase付き履歴dataを読む');
+    const assertStorageScripts = (html, prefix, name) => {
+      const tags = ['storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js']
+        .map(asset => `<script src="${prefix}${asset}?v=${assetVersion}"></script>`);
+      assert(tags.every(tag => html.includes(tag)), `${name}がprofile-awareなstorage script一式を含みます`);
+      assert(tags.map(tag => html.indexOf(tag)).every((position, index, positions) => index === 0 || positions[index - 1] < position), `${name}のregistry/runtime/bootstrap順が正しい`);
+      assert(html.includes('data-storage-boot-mode="optional"'), `${name}のstorage boot失敗時も読取専用画面を維持します`);
+    };
+    assertStorageScripts(dataHtml, '/', 'new data入口');
+    assertStorageScripts(legacyDataHtml, '/trickcal-manager/', 'legacy data入口');
+    assertStorageScripts(shareHtml, '/', 'new共有ページ');
+    assertStorageScripts(readOutputText(testOutput, 'trickcal-manager/formation-share.html'), '/trickcal-manager/', 'legacy共有ページ');
+    assertStorageScripts(apostleDataHtml, '/', 'new使徒データ');
+    assertStorageScripts(legacyApostleDataHtml, '/trickcal-manager/', 'legacy使徒データ');
+    assert(files.includes('announcement-history-data.js'));
+    assert(files.includes('trickcal-manager/announcement-history-data.js'));
     assert(dataHtml.includes('data-shared-topbar-page="data"'));
     assert(dataHtml.includes('data-shared-topbar-data-href="./"'));
     assert(!dataHtml.includes('class="topbar-page-row"'), 'data生成物へ旧ページ固有上バー行を残しません');
     assert(dataHtml.includes('href="/data/enemies/"'), 'data本文の敵導線を生成元から維持します');
     assert(dataHtml.includes('href="/data/boards/"'), 'data本文のボード導線を生成元から維持します');
+    assert(readOutputText(testOutput, 'calc/index.html').includes('href="/data/enemies/"'));
+    assert(readOutputText(testOutput, 'trickcal-manager/formation-damage-calc.html').includes('href="/trickcal-manager/enemy-status.html"'));
     assert(!managerHtml.includes('href="formation-damage-calc.html'));
     assert(shareHtml.includes(`href="/shared-topbar.css?v=${assetVersion}"`));
     assert(shareHtml.includes(`href="/announcements.css?v=${assetVersion}"`));
@@ -278,7 +322,7 @@ function run(options = {}) {
     assert(!shareHtml.includes('class="share-topbar"'), '共有ページへ旧共有専用上バーを残しません');
     assert.match(shareHtml, /<link rel="canonical" href="https:\/\/trickcal\.irlab\.dev\/share\/">\n\s*<meta property="og:url" content="https:\/\/trickcal\.irlab\.dev\/share\/">/);
     assert.doesNotMatch(shareHtml, /\\n\s*<meta property="og:url"/, 'canonical metadataの改行がliteral\\nになっています');
-    assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html?recover=20260912"'));
+    assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html"'));
     assert(!legacyHtml.includes('https://trickcal.irlab.dev'));
     const appCache = readOutputText(testOutput, 'app-cache.js');
     assert(appCache.includes("publicSite.assetUrl?.(publicSite.serviceWorker.script, { versioned: false })"));

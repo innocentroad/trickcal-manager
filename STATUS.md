@@ -1,15 +1,52 @@
 # Trickcal Manager 現在地
 
-## 現在：教主の権能をWebP表示へ変更（未公開、2026-09-19）
+## 現在：レビュー済み3系統の対象限定公開（2026-09-19、公開前検証済み）
 
-- `stat-prototype.js` の権能画像解決を既存 `img/Card/権能_<権能名>.webp` へ切り替え、カード内の `video` を `img` に置換した。URLは既存の `TRICKCAL_PUBLIC_SITE.assetUrl()` を使い、通常表示で動画フォールバックは行わない。選択状態・コスト・名称・CT・説明・押下領域は維持。
-- `stat-dashboard.css` の権能アートだけを `object-fit:contain` の画像表示へ変更。他用途のvideo CSS、通常画像・スキル先読み、共有ページ・共有画像処理は変更していない。
-- 公開sourceの `img/` はmanifestのdirectory assetとしてnew／legacyへ生成されるため、先読み・manifest・generator・Service Workerに個別のMP4参照や専用キャッシュ規則がないことを確認。対象6 MP4のみを削除した。ファイル別SHA-256は [`docs/history/formation-master-power-webp-2026-09-19.md`](docs/history/formation-master-power-webp-2026-09-19.md)。編集前バックアップは `D:/Games/etc/trickcal/backups/master-power-webp-20260919-01/release-source-before`。編集対象・6動画すべてコピーとSHA-256一致を確認し、動画も復元可能。
-- `tools/test-formation-master-power-webp-native.js` が隔離Chromeでsource/new/legacyを検査。1280×900・375×844、ライト／ダーク表示で6 WebPすべてcompleteかつnaturalWidth=148、権能カード内にvideo/sourceなし、選択・解除・再選択・再読込後の状態一致、初期表示・画面切替・変更・再読込を通じ対象MP4通信0件を確認。newのasset base `/`、legacy `/trickcal-manager/` とversion query `v=1132df9a42d35355` も確認した。
-- 共有回帰として `test-formation-share-image.js`、`test-formation-share-display-data.js`、`test-formation-share-assets.js`、`test-topbar-navigation-native.js` 成功。共有ページ実画像の読み込み失敗は0。共有PNG exportのライブ操作は今回再実行していない（共有生成実装は未変更）。
-- ローカル生成 `tmp/public-master-power-webp-20260919` は2,176ファイル、output digest `d50dae89a67951b7f254033ac8a3f114f9f933f6e9300fb4d67b637f89337566`。new／legacyに対象WebPが含まれMP4は不在。source/new/legacyのスクリーンショットは各 `tmp/master-power-webp-screenshots-*` に保存。`node --check` と `git diff --check` 成功。テスト・生成物は手編集していない。
-- mainは変更しておらず旧MP4実装が残るため、後続でURL／DOM、CSS、6動画削除、焦点テストを局所反映する必要がある。隔離テーマ表示でlight/darkのアートは確認した。別途managerテーマ同期の不整合を検出したが対象外のため変更していない。release-sourceに `tools/test-versioned-image-cache.js` はなく、生成profileのversion付きURLと実画像読込で代替確認した。
-- 実サイト公開、commit、pushは未実施。共有画像生成のライブPNG出力は未確認。今回と先行dirtyはいずれも未公開で、既存dirtyを保持している。
+### 対象と最終ローカル検証
+
+- お知らせ更新履歴の承認済み39件・重要な移行案内・ゲームデータ最新1件・サイト更新最新3件、詳細展開／追加表示／内部スクロール、および既存storage facadeを介する同一Origin内の通知状態共有を今回まとめる。未承認記事・原稿内容は追加しない。
+- 最新のfocus候補修正を隔離Chromeで再確認。Documentまで親がつながるDOM相当で表示中button／閉じたdetailsのsummaryを候補として扱い、初期focus、実Tab／Shift+Tabの循環、最後の追加後の実activeElement、Escape後の元ベル復帰を確認。native dialogの見かけ上のfocusだけには依存しない。
+- 全体ボードの全体効果値は、金／紫くれよんの合成アイコンと控えめなライト／ダーク背景、通常文字／補助文字色を維持。実テーマボタンのライト→ダーク→ライト、root/body/button/表の配色、再読み込み後の最終テーマ保持を1280×900／390×844で確認済み。
+- 通常遷移の固定`recover=20260912`除去は既存の焦点検査・隔離ブラウザで確認済み。必要query/hash、旧recover付きURL、専用復旧入口を維持する。
+- `node tools/sync-formation-share-assets.js --check`成功（`612ba8cc17721308`）。生成器はprofile assetVersionを付け、必要HTML/CSS/JSは既存manifestに登録済み。hashや生成物の手編集、目的外の再生成なし。
+- 公開前の焦点検査、storage bootstrap、共有資材整合性、ボード実テーマ検査、recover検査、関連構文／差分検査は成功。同一入力への成功検査は重ねず、公開prepareが最終source commitに対する統合生成・必須検査を行う。
+
+### 公開状態と残条件
+
+- 開始source HEAD `004d6c9a52b7690666f7ceaf4d6ae553bde1bd63`は`origin/release-source`と一致。開始時indexは未stage。対象はお知らせ履歴、全体ボード全体効果値、通常recover整理、およびそれらの接続・検査・記録。main／xlsx／使徒データ更新は含めない。
+- `tools/publication-targets.json`は`mode=dual`／`legacyState=active`。新サイトのdeploy成功・identity一致後、同じbundleを旧サイトへ進める。
+- この記録時点では今回のsource commit、bundle／receipt、artifact commit、run、deployは未作成。外部公開成功扱いにしない。次は対象限定commit／push、prepare・受信先境界検査、new→legacy公開、identityと代表画面確認。
+- 旧STATUSの「Shift+Tabを実画面で確定できず」は、今回の隔離ChromeでactiveElementを確認して解消。旧「全体ボード配色未変更」は過去スナップショットの記述で、今回の実テーマ検査を最新根拠とする。すべての利用者の過去HTTP転送cacheが解消したことは保証しない。通知状態はOrigin別でありnew／legacy間同期しない。
+
+## 履歴：お知らせ更新履歴レビュー修正（2026-09-19、当時のローカル検証記録）
+
+- 通知状態は既存の`trickcal_notice_state_v1`とstorage facadeへ統一。同一originのmanager・data等で読み書きを共有し、保存直前の再読込とID単位の遷移で別タブの既読／非表示を巻き戻さない。storage eventとruntime復帰通知でベル・移行バー・表示設定を更新する。new／legacyはorigin別に独立。
+- 通知controller未接続だったshare、使徒データ、生成data入口へ既存registry/runtime/bootstrapを接続。閲覧専用ページでbootが失敗しても本文を残し、通知操作を無効化して状況を表示する。必須保存ページの既存失敗動作は維持。
+- 履歴テストはseed39件を固定fixtureとして検証し、運用データの完全一致／件数／最新記事固定を解除。通常の未来日追加・文面訂正は通し、不正schema・重複IDは拒否。追加件数を使い切ったときは追加された先頭記事へフォーカスし、Tab候補から非表示・無効・inert・閉じたdetails内を除外。
+- 一覧ダイアログを「閉じるヘッダー／重要な移行案内／履歴2区分を含む単一スクロール領域」の構造に整理。通常高では重要案内を固定し、低高では案内を含む本文全体をスクロール可能にする。記事から一覧へ戻る間の表示件数を維持し、閉じ直すと初期化する。
+- `node tools/test-announcements.js`、`node tools/test-announcement-storage-bootstrap.js`、`node tools/test-public-site.js`、`node tools/sync-formation-share-assets.js --check`、関連`node --check`、`git diff --check`は成功。新旧profileを含む2178ファイルの生成物を別portでブラウザ確認。履歴の追加・展開、移行案内の固定表示、Escape／ベルへのフォーカス復帰、Tab順、記事から一覧へ戻る表示数、managerでの記事既読後に同一originの別dataタブの未読点が消えることを確認した。
+- ブラウザ実画面はローカル隔離originでCSS viewportを1280×800、390×844、844×390に設定し、ライト／ダークを目視確認。390×844と844×390は等倍、1280×800は画面取得可能幅へiframe表示を縮尺して確認（内部viewport寸法は1280×800）。低高では重要枠を含む本文をスクロールして履歴と追加操作へ到達できる。新／legacyを別portで開き、profile別移行文面と履歴読込も確認。
+- 未確認：実公開先、実ブラウザでの保存禁止・不正保存状態によるboot失敗、BFCache復帰そのもの、全件を390×844と844×390それぞれで個別に展開した目視。Shift+Tabは隔離ブラウザで試行したが、入れ子viewport上でフォーカス先をAX表示から確定できず、回帰テストの検査結果のみを根拠とする。物理画面幅1280pxでのスクリーンショットではなく、CSS viewportを縮尺表示した確認である。全体ボード配色は変更していない。
+- 今回・先行変更ともrelease-sourceの未公開dirtyを保持。commit・push・公開なし。履歴への未読通知は別決定のまま。`docs/BACKLOG.md`はrepoにないため新設していない。既存recover query整理は別の未公開・main反映待ちとして次節に維持。
+- 編集前バックアップ（14既存ファイル、コピーSHA-256を編集前と照合）：`D:/Games/etc/trickcal/backups/announcement-history-review-fixes-20260919-01/release-source-before`。ファイル別hashと詳細は [`docs/history/announcement-history-review-fixes-2026-09-19.md`](docs/history/announcement-history-review-fixes-2026-09-19.md)。
+
+## 履歴：通常遷移のrecover query整理（2026-09-19、当時のローカル検証記録）
+
+- 対象は通常公開routeだけ。`shared-topbar.js`のページ／データ／一括設定リンク、manager/calc/data詳細/shareのroute属性、計算画面の敵データ動的遷移、通常prefetch、index入口、manifestの通常route fixtureから固定`recover=20260912`を除去した。必要な`view`、`card`、`global`、`preset`、`phase`、hash、profile別pathは保持する。共有資材の版は既存`tools/sync-formation-share-assets.js --write`で同期した。
+- `recover-20260912.html`の明示復旧リンクと回避queryは維持し、manifestへ追加していない。現行`storage-recovery.html`のnew/legacy routeも維持した。manifest外の旧`formation-dps-calc.html`は公開対象でないため変更していない。受信URLのqueryを書き換えず、Service Worker・cache policy・復旧処理も変更していない。
+- 検証成功：`node tools/test-domain-rollback-recovery.js`、`node tools/test-public-site.js`、`node tools/test-public-site-http.js`（2 profile／2,187 HEAD到達性）、`node tools/sync-formation-share-assets.js --check`、`git diff --check`、関連JSの`node --check`。`test-topbar-navigation-native.js`は隔離Chromeで成功し、indexのquery/hash転送、旧recover付きmanager URLの表示・再読込、共通メニューで固定値だけ除去し別query/hashを維持、calcからの実クリックによる敵preset/phase引き継ぎを確認した。
+- 旧`test-domain-rollback-recovery.js`には、現行sourceと一致しない固定Service Worker版・app-cache内スクリプト版の期待値があったため、実装を変更せず、専用復旧入口の維持・現行Service Worker方針・現行HTMLの資材版参照を検査するよう更新した。
+- 変更前バックアップは `D:/Games/etc/trickcal/backups/recovery-query-normal-navigation-20260919-01/release-source-before`。対象19ファイルをSHA-256照合済み。詳細は [`docs/history/recovery-query-normal-navigation-2026-09-19.md`](docs/history/recovery-query-normal-navigation-2026-09-19.md)。
+- commit・push・公開は行っていない。公開sourceでレビュー待ち、mainへの局所反映待ち。旧URLの互換性は隔離ローカルChromeで確認したが、外部公開先の確認・すべての利用者に残る転送cacheの解消は未確認／保証対象外。
+
+## 直前の公開記録：上バー・ボード・権能WebP等の対象修正を新旧公開完了（2026-09-19）
+
+- 今回の対象限定source commitは `004d6c9a52b7690666f7ceaf4d6ae553bde1bd63`。candidate `ef470ed47b5b1890`、content digest `cc55a01e9c5930eff359a02845d36470acaa686e21eb81ededeef282919fc7c3`、bundle `tmp/publication-topbar-board-webp-20260919-01.json`。統合公開検査（generationCheck、manifestValidate、publicSiteTest、httpCheck）成功。
+- new artifact commit `39e64ed2bddc704944fa5259163d33269af952b9`、output digest `d8a75ebf9893ff51`、[run 35422353544](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35422353544)。legacy artifact commit `cb8f269fa002284823858703ff5d3aec1b04fad7`、output digest `2f1b977a3e508c24`、[run 35422560398](https://github.com/innocentroad/trickcal-manager/actions/runs/35422560398)。両方とも通常のReview deployments承認後に成功し、new完了後にlegacyへ進んだ。各receiptは `tmp/delivery-ef470ed47b5b1890-new-f8e9364888cb.json` と `tmp/delivery-ef470ed47b5b1890-legacy-d10d9eaf205f.json`。公開記録は `backups/publication-history/ef470ed47b5b1890-{new,legacy}.json`。
+- 両identity endpointでcandidate/source/content digest一致、profile別output digest一致を確認。最終生成profileは1,088ファイルで、対象6 WebPを含み対象6 MP4を含まない。所有ファイル台帳に従い6 MP4をnew／legacy双方の転送削除対象に含めた。検査・バックアップ・文書は配信artifact外。
+- 公開前に成功済みの焦点検査：`test-image-preload-aside.js`、`test-topbar-navigation-native.js`、`test-topbar-overlap-native.js`、`test-board-layout-preview-native.js`、`test-formation-master-power-webp-native.js`。実ブラウザではcalcから一括設定メニューを開いて項目選択後managerへ遷移、ボードプレビューの見出し・下バー・画像、共有ページの共通バー・画像を確認。manager編成では6権能カードが画像で表示され、選択済みカードを含むレイアウトを確認した。通信0件と全6画像のnaturalWidthは公開前の隔離ブラウザ検査で確認済み。
+- 変更前バックアップと6 MP4の復元元は `D:/Games/etc/trickcal/backups/master-power-webp-20260919-01/release-source-before`。STATUS更新前バックアップは `D:/Games/etc/trickcal/backups/topbar-board-webp-publication-status-20260919-01/STATUS.md`。
+- mainには今回の未公開修正が未反映であり、取り込み待ちとして残す。main側の既知managerテーマ同期不整合は今回変更差分による退行ではないと確認し、修正範囲外として維持。今回公開対象に含まれない変更を完了扱いにしない。
 
 ## 履歴：編成共有ページの共通上バー統一を新旧公開完了（2026-09-19）
 

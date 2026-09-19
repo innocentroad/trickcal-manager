@@ -1,6 +1,6 @@
 # Trickcal Manager 作業目標
 
-> 現在のローカル作業（2026-09-19、release-source・未公開）：編成画面の「教主の権能」をWebP画像へ切り替え、対象6動画の参照・配布を停止した。sourceおよびnew／legacyローカル生成物で画像表示・選択保持・対象MP4通信0件を確認。commit・push・公開は行わず、main側の旧実装は反映待ち。先行するdirty変更も保持する。詳細は[`STATUS.md`](STATUS.md)と[`docs/history/formation-master-power-webp-2026-09-19.md`](docs/history/formation-master-power-webp-2026-09-19.md)。
+> 現在の作業（2026-09-19、release-source）：お知らせ更新履歴、全体ボード全体効果値の表示、通常遷移のrecover query整理を、対象限定でcommit・pushしnew→legacyの順に公開する。明示許可あり。公開前のfocus実ブラウザ検査、テーマ実操作、共有資材整合、recover焦点検査は成功。公開と外部identity確認はこれから。詳しい検証・残件は[`STATUS.md`](STATUS.md)を参照。
 
 > 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
 
