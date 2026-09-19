@@ -1,6 +1,6 @@
 # Trickcal Manager 作業目標
 
-> 現在の作業（2026-09-19、release-source）：お知らせ更新履歴、全体ボード全体効果値の表示、通常遷移のrecover query整理を、対象限定でcommit・pushしnew→legacyの順に公開する。明示許可あり。公開前のfocus実ブラウザ検査、テーマ実操作、共有資材整合、recover焦点検査は成功。公開と外部identity確認はこれから。詳しい検証・残件は[`STATUS.md`](STATUS.md)を参照。
+> 現在の作業（2026-09-19、release-source）：お知らせ更新履歴・全体ボード全体効果値表示・通常遷移のrecover query整理を対象限定で公開完了。source `0e9a3bf1655cb9bc02613ca66df80d9f9d39f885`、candidate `1911a1521fe85b27`。dual配信先はnew→legacy順にdeploy成功し、両identityが一致。公開画面で39件の履歴、同一Origin内の通知状態、両profileのボード素材アイコン・テーマ切替、recoverなしの通常遷移を確認した。詳細と残条件は[`STATUS.md`](STATUS.md)と[公開履歴](docs/history/reviewed-scope-publication-2026-09-19.md)を参照。
 
 > 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
 

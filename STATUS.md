@@ -1,22 +1,25 @@
 # Trickcal Manager 現在地
 
-## 現在：レビュー済み3系統の対象限定公開（2026-09-19、公開前検証済み）
+## 現在：レビュー済み3系統の対象限定公開完了（2026-09-19）
 
-### 対象と最終ローカル検証
+### 公開対象・検証
 
-- お知らせ更新履歴の承認済み39件・重要な移行案内・ゲームデータ最新1件・サイト更新最新3件、詳細展開／追加表示／内部スクロール、および既存storage facadeを介する同一Origin内の通知状態共有を今回まとめる。未承認記事・原稿内容は追加しない。
-- 最新のfocus候補修正を隔離Chromeで再確認。Documentまで親がつながるDOM相当で表示中button／閉じたdetailsのsummaryを候補として扱い、初期focus、実Tab／Shift+Tabの循環、最後の追加後の実activeElement、Escape後の元ベル復帰を確認。native dialogの見かけ上のfocusだけには依存しない。
-- 全体ボードの全体効果値は、金／紫くれよんの合成アイコンと控えめなライト／ダーク背景、通常文字／補助文字色を維持。実テーマボタンのライト→ダーク→ライト、root/body/button/表の配色、再読み込み後の最終テーマ保持を1280×900／390×844で確認済み。
-- 通常遷移の固定`recover=20260912`除去は既存の焦点検査・隔離ブラウザで確認済み。必要query/hash、旧recover付きURL、専用復旧入口を維持する。
-- `node tools/sync-formation-share-assets.js --check`成功（`612ba8cc17721308`）。生成器はprofile assetVersionを付け、必要HTML/CSS/JSは既存manifestに登録済み。hashや生成物の手編集、目的外の再生成なし。
-- 公開前の焦点検査、storage bootstrap、共有資材整合性、ボード実テーマ検査、recover検査、関連構文／差分検査は成功。同一入力への成功検査は重ねず、公開prepareが最終source commitに対する統合生成・必須検査を行う。
+- 承認済みのお知らせ更新履歴39件（重要な移行案内、ゲームデータ最新1件、サイト更新最新3件、詳細展開・追加表示・内部スクロール）、同一Origin内の通知状態共有・保存接続とfocus候補修正を公開。未承認記事・原稿は追加していない。
+- 全体ボードの全体効果値へ金／紫くれよん合成アイコン、控えめなライト／ダーク背景、通常文字／補助文字色を公開。通常遷移の固定`recover=20260912`を除去し、必要query/hash、旧URL互換、専用復旧入口・復旧処理を保持。
+- 公開準備の統合生成・検査は全項目成功。プロフィールごとに1,089ファイル。receipt v2、candidate、source commit、生成物・受信artifactを照合し、配信artifactへテスト・作業文書は含めていない。既存の共有画像修正を保持。
+- お知らせfocusは隔離Chromeで初期focus、Tab／Shift+Tab循環、最後の追加後の実activeElement、Escape後の元ベル復帰を確認。公開画面では39件の一覧（ゲーム17件、サイト22件）と最新1／最新3、重要な移行案内、追加表示を確認。managerで開いた記事状態は、同一Originのdataへ移動後も通知状態として反映された。new／legacy Origin間の状態同期は対象外。
+- newのmanager→boardで実テーマ操作と再読み込み後の選択保持、legacy boardで実操作による切替を確認。両サイトで合成アイコンと数値表を確認し、calc／dataへの通常遷移に固定recover queryがないことを確認。全利用者の古い転送cache解消は保証しない。
 
-### 公開状態と残条件
+### 公開identity・残条件
 
-- 開始source HEAD `004d6c9a52b7690666f7ceaf4d6ae553bde1bd63`は`origin/release-source`と一致。開始時indexは未stage。対象はお知らせ履歴、全体ボード全体効果値、通常recover整理、およびそれらの接続・検査・記録。main／xlsx／使徒データ更新は含めない。
-- `tools/publication-targets.json`は`mode=dual`／`legacyState=active`。新サイトのdeploy成功・identity一致後、同じbundleを旧サイトへ進める。
-- この記録時点では今回のsource commit、bundle／receipt、artifact commit、run、deployは未作成。外部公開成功扱いにしない。次は対象限定commit／push、prepare・受信先境界検査、new→legacy公開、identityと代表画面確認。
-- 旧STATUSの「Shift+Tabを実画面で確定できず」は、今回の隔離ChromeでactiveElementを確認して解消。旧「全体ボード配色未変更」は過去スナップショットの記述で、今回の実テーマ検査を最新根拠とする。すべての利用者の過去HTTP転送cacheが解消したことは保証しない。通知状態はOrigin別でありnew／legacy間同期しない。
+- source公開対象commit `0e9a3bf1655cb9bc02613ca66df80d9f9d39f885`（`Publish announcement history and board display fixes`）。candidate `1911a1521fe85b27`、release ID `1ecf8d1027c1a3d3`、content digest `895119ad05b0c45355bcfdeaa282273e0e15cfbd9a0fd8c3f49ae76bd9c2d0f6`。
+- bundle: `tmp/publication-announcement-board-recover-20260919-01.json`。receipt v2: `tmp/delivery-1911a1521fe85b27-new-f8e9364888cb.json`／`tmp/delivery-1911a1521fe85b27-legacy-d10d9eaf205f.json`。
+- new artifact `b56826effca590cc21efae6d57e66ffd02d29aaa`、output digest `405d2e1d6c225baf`、[run 35446212223](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35446212223)。legacy artifact `fb99535062cc2c40f7b63c83f82824d3788adeae`、output digest `cd73ef4cf3557a4a`、[run 35446591655](https://github.com/innocentroad/trickcal-manager/actions/runs/35446591655)。通常のReview deployments承認を行い、new成功・identity一致の後に同一candidateをlegacyへ公開。配信記録は`backups/publication-history/1911a1521fe85b27-{new,legacy}.json`。
+- 本件の対象に関する公開失敗・既知の残条件なし。新旧の通知保存はOriginごとに独立。別案件のmain未反映変更はmain側へ残り、本公開はmain反映を意味しない。公開詳細・確認範囲は[公開履歴](docs/history/reviewed-scope-publication-2026-09-19.md)。
+
+## 履歴：公開前の検証記録（2026-09-19）
+
+以下はsource公開前の作業時点を記録した履歴であり、「未公開」「確認待ち」等の判定は当時の状態を表す。公開後の現在判定は上記と[公開履歴](docs/history/reviewed-scope-publication-2026-09-19.md)を参照する。
 
 ## 履歴：お知らせ更新履歴レビュー修正（2026-09-19、当時のローカル検証記録）
 
