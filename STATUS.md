@@ -1,6 +1,17 @@
 # Trickcal Manager 現在地
 
-## 現在：編成共有ページの共通上バー統一を新旧公開完了（2026-09-19）
+## 現在：教主の権能をWebP表示へ変更（未公開、2026-09-19）
+
+- `stat-prototype.js` の権能画像解決を既存 `img/Card/権能_<権能名>.webp` へ切り替え、カード内の `video` を `img` に置換した。URLは既存の `TRICKCAL_PUBLIC_SITE.assetUrl()` を使い、通常表示で動画フォールバックは行わない。選択状態・コスト・名称・CT・説明・押下領域は維持。
+- `stat-dashboard.css` の権能アートだけを `object-fit:contain` の画像表示へ変更。他用途のvideo CSS、通常画像・スキル先読み、共有ページ・共有画像処理は変更していない。
+- 公開sourceの `img/` はmanifestのdirectory assetとしてnew／legacyへ生成されるため、先読み・manifest・generator・Service Workerに個別のMP4参照や専用キャッシュ規則がないことを確認。対象6 MP4のみを削除した。ファイル別SHA-256は [`docs/history/formation-master-power-webp-2026-09-19.md`](docs/history/formation-master-power-webp-2026-09-19.md)。編集前バックアップは `D:/Games/etc/trickcal/backups/master-power-webp-20260919-01/release-source-before`。編集対象・6動画すべてコピーとSHA-256一致を確認し、動画も復元可能。
+- `tools/test-formation-master-power-webp-native.js` が隔離Chromeでsource/new/legacyを検査。1280×900・375×844、ライト／ダーク表示で6 WebPすべてcompleteかつnaturalWidth=148、権能カード内にvideo/sourceなし、選択・解除・再選択・再読込後の状態一致、初期表示・画面切替・変更・再読込を通じ対象MP4通信0件を確認。newのasset base `/`、legacy `/trickcal-manager/` とversion query `v=1132df9a42d35355` も確認した。
+- 共有回帰として `test-formation-share-image.js`、`test-formation-share-display-data.js`、`test-formation-share-assets.js`、`test-topbar-navigation-native.js` 成功。共有ページ実画像の読み込み失敗は0。共有PNG exportのライブ操作は今回再実行していない（共有生成実装は未変更）。
+- ローカル生成 `tmp/public-master-power-webp-20260919` は2,176ファイル、output digest `d50dae89a67951b7f254033ac8a3f114f9f933f6e9300fb4d67b637f89337566`。new／legacyに対象WebPが含まれMP4は不在。source/new/legacyのスクリーンショットは各 `tmp/master-power-webp-screenshots-*` に保存。`node --check` と `git diff --check` 成功。テスト・生成物は手編集していない。
+- mainは変更しておらず旧MP4実装が残るため、後続でURL／DOM、CSS、6動画削除、焦点テストを局所反映する必要がある。隔離テーマ表示でlight/darkのアートは確認した。別途managerテーマ同期の不整合を検出したが対象外のため変更していない。release-sourceに `tools/test-versioned-image-cache.js` はなく、生成profileのversion付きURLと実画像読込で代替確認した。
+- 実サイト公開、commit、pushは未実施。共有画像生成のライブPNG出力は未確認。今回と先行dirtyはいずれも未公開で、既存dirtyを保持している。
+
+## 履歴：編成共有ページの共通上バー統一を新旧公開完了（2026-09-19）
 
 - 原因は2点。公開生成器のcanonical/OG URL挿入で `additions.join('\\n  ')` が文字列の `\\n` を生成していたこと、共有ページだけ旧 `share-topbar` と旧テーマ処理を残していたこと。生成器は実改行へ修正し、共有ページは既存の `shared-topbar.js`／`shared-topbar.css` へ接続した。共通バーには `data-shared-topbar-page="share"` を付け、管理ページの現在位置を誤点灯させていない。
 - `formation-share.html` は旧ヘッダーを除去し、本文冒頭にコンパクトな「編成共有」を残した。`formation-share.js` の旧テーマ登録を除去し、保存テーマ・共通テーマボタンを一本化した。`formation-share-prototype.css` は共有ページの本文余白を実高追従へ整理した。payload、codec、画像内容、共有操作、移行告知の既存条件は変更していない。

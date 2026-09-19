@@ -173,6 +173,21 @@
     return canonicalId ? (APOSTLE_ALIASES[canonicalId] || canonicalId) : '';
   }
 
+  function hasPublicAsideData(id) {
+    const canonicalId = getCanonicalApostleId(id);
+    if (!canonicalId) return false;
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    if (typeof checker === 'function' && !checker(canonicalId)) return false;
+    const sheets = typeof TRICKCAL_STAT_DATA === 'undefined'
+      ? null
+      : TRICKCAL_STAT_DATA?.sheets;
+    if (!sheets) return false;
+    return ['asideStatEffects', 'asideSpecialEffects'].some(sheetName =>
+      Array.isArray(sheets[sheetName])
+      && sheets[sheetName].some(row => getCanonicalApostleId(row?.id) === canonicalId)
+    );
+  }
+
   function isDamageCalcPage() {
     return document.body?.classList.contains('formation-damage-calc');
   }
@@ -192,6 +207,7 @@
     urls.add(`img/Chara/Skill/Skill_P_${assetId}.webp`);
     urls.add(`img/Chara/Skill/Skill_F_${assetId}.webp`);
     urls.add(`img/Chara/Skill/Skill_S_${assetId}.webp`);
+    if (!hasPublicAsideData(id)) return;
     urls.add(`img/Chara/Aside/AsideIcon_${assetId}.webp`);
     urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_1.webp`);
     urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_2.webp`);

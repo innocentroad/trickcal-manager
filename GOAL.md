@@ -1,6 +1,6 @@
 # Trickcal Manager 作業目標
 
-> 最新整理（2026-09-18）：公開準備の完了済み19ファイルを対象限定し、`92043d5`（`Add local publication preparation tooling`）へlocal commitした。push、公開、workflow実行、外部設定は未実施。`test-public-site-staging.js:106`の固定fixture不一致はcommit前から継続する既存阻害として残す。
+> 現在のローカル作業（2026-09-19、release-source・未公開）：編成画面の「教主の権能」をWebP画像へ切り替え、対象6動画の参照・配布を停止した。sourceおよびnew／legacyローカル生成物で画像表示・選択保持・対象MP4通信0件を確認。commit・push・公開は行わず、main側の旧実装は反映待ち。先行するdirty変更も保持する。詳細は[`STATUS.md`](STATUS.md)と[`docs/history/formation-master-power-webp-2026-09-19.md`](docs/history/formation-master-power-webp-2026-09-19.md)。
 
 > 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
 
@@ -22,7 +22,7 @@
 
 > F1着手前レビュー（2026-09-13・履歴）：P4 6/6の無条件継承を保留。転送導線の既定OFF、失敗後再試行、適用中操作の抑止、既存backup代替要件、診断初期化を除いたnative証拠に不足がある。次回は[限定補修指示](docs/storage-p4-review-handoff.md)のH1→H2で再判定する。F1着手前はH1a〜d/H2を0/5、目安2作業単位としていた。P5実装・Goal有効化は開始しない。home/dataの決定は維持する。下記の完了記録は履歴として扱う。
 
-更新日: 2026-09-13
+更新日: 2026-09-19
 
 ## 現在の作業
 

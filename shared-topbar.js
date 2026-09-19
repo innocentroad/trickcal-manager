@@ -20,6 +20,13 @@
     Object.freeze({ key: 'enemies', label: '敵データ', fallback: 'enemy-status.html?recover=20260912' }),
     Object.freeze({ key: 'board', label: 'ボードプレビュー', fallback: 'public/board-layout-preview.html' })
   ]);
+  const BULK_MENU_ITEMS = Object.freeze([
+    Object.freeze({ key: 'apostles', label: '使徒設定' }),
+    Object.freeze({ key: 'rank', label: 'Rank' }),
+    Object.freeze({ key: 'bond', label: '好感度' }),
+    Object.freeze({ key: 'aside', label: 'アサイド' }),
+    Object.freeze({ key: 'research', label: '研究' })
+  ]);
   const OPERATIONS = Object.freeze([
     Object.freeze({ key: 'calc', label: 'ダメ計算', desktop: ['ダメ', '計算'], mobile: ['ダメ', '計算'] }),
     Object.freeze({ key: 'manager', label: 'ステ管理', desktop: ['ステ', '管理'], mobile: ['ステ', '管理'] }),
@@ -128,6 +135,38 @@
     return item.fallback;
   }
 
+  function createBulkControl(operation, bar, page) {
+    const isManager = page === PAGE_KEYS.manager;
+    const control = createElement('details', 'topbar-global-menu topbar-operation-menu topbar-bulk-menu');
+    control.dataset.topbarOperation = operation.key;
+    control.dataset.topbarMenu = 'bulk';
+
+    const summary = createElement('summary');
+    summary.dataset.topbarMenuTrigger = 'bulk';
+    summary.setAttribute('aria-haspopup', 'menu');
+    appendLabel(summary, operation);
+
+    const popover = createElement('div', 'topbar-global-popover');
+    popover.setAttribute('aria-label', '一括設定メニュー');
+    popover.setAttribute('role', 'menu');
+    BULK_MENU_ITEMS.forEach(itemConfig => {
+      const item = createElement(isManager ? 'button' : 'a');
+      if (isManager) {
+        item.type = 'button';
+        item.dataset.openGlobal = itemConfig.key;
+      } else {
+        item.href = managerActionHref(bar, page, { global: itemConfig.key, recover: '20260912' });
+      }
+      item.dataset.topbarMenuItem = 'bulk';
+      item.dataset.topbarBulkTarget = itemConfig.key;
+      item.setAttribute('role', 'menuitem');
+      item.textContent = itemConfig.label;
+      popover.appendChild(item);
+    });
+    control.append(summary, popover);
+    return control;
+  }
+
   function currentTheme() {
     if (document.documentElement?.dataset?.theme === 'light') return 'light';
     if (document.body?.classList?.contains('theme-light')) return 'light';
@@ -208,6 +247,10 @@
       return control;
     }
 
+    if (operation.key === PAGE_KEYS.bulk) {
+      return createBulkControl(operation, bar, page);
+    }
+
     if (operation.key === PAGE_KEYS.manager && isManager) {
       control = setOperation(createElement('button', controlClass));
       control.type = 'button';
@@ -229,31 +272,6 @@
       control = setOperation(createElement('button', controlClass));
       control.type = 'button';
       control.dataset.openGlobal = 'board-global';
-    } else if (operation.key === PAGE_KEYS.bulk && isManager) {
-      control = setOperation(createElement('details', 'topbar-global-menu topbar-operation-menu'));
-      control.dataset.topbarMenu = 'bulk';
-      const summary = createElement('summary');
-      summary.dataset.topbarMenuTrigger = 'bulk';
-      summary.setAttribute('aria-haspopup', 'menu');
-      appendLabel(summary, operation);
-      const popover = createElement('div', 'topbar-global-popover');
-      popover.setAttribute('aria-label', '一括設定メニュー');
-      popover.setAttribute('role', 'menu');
-      [
-        ['apostles', '使徒設定'], ['rank', 'Rank'], ['bond', '好感度'],
-        ['aside', 'アサイド'], ['research', '研究']
-      ].forEach(([key, label]) => {
-        const item = createElement('button');
-        item.type = 'button';
-        item.dataset.openGlobal = key;
-        item.dataset.topbarMenuItem = 'bulk';
-        item.dataset.topbarBulkTarget = key;
-        item.setAttribute('role', 'menuitem');
-        item.textContent = label;
-        popover.appendChild(item);
-      });
-      control.append(summary, popover);
-      return control;
     } else {
       control = createElement('a', `topbar-common-link topbar-operation-link${isCurrentPage ? ' is-active' : ''}`);
       setOperation(control);

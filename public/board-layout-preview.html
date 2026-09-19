@@ -11,50 +11,16 @@
   <script>document.documentElement.dataset.theme = 'light';</script>
   <link rel="stylesheet" href="../shared-topbar.css?v=20260918h">
   <link rel="stylesheet" href="../announcements.css?v=20260918notice">
-  <link rel="stylesheet" href="board-layout-preview.css?v=20260830c">
+  <link rel="stylesheet" href="board-layout-preview.css?v=20260918j">
 </head>
 <body class="data-detail-page">
   <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="board" data-shared-topbar-manager-route="../stat-dashboard.html?view=settings&recover=20260912" data-shared-topbar-calc-route="../formation-damage-calc.html?recover=20260912" data-shared-topbar-data-route="../data/" data-shared-topbar-enemies-route="../enemy-status.html?recover=20260912" data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
     <div class="topbar-common-row" data-shared-topbar-common></div>
   </section>
   <main class="tool-shell">
-    <header class="tool-head">
-      <div>
-        <p class="eyebrow">LOCAL TOOL</p>
-        <h1>ボードプレビュー</h1>
-        <p>種族・特殊マスタイプ・ボードTierから、3階層の配置をまとめて確認します。</p>
-      </div>
+    <header class="tool-head data-detail-heading">
+      <h1><span class="data-heading-prefix">Trickcal Manager</span><span class="data-heading-separator" aria-hidden="true"> &gt; </span><span>ボードプレビュー</span></h1>
     </header>
-
-    <section class="panel controls-panel">
-      <div class="section-head">
-        <h2>テンプレート設定</h2>
-        <span id="board-preview-status" class="status" aria-live="polite"></span>
-      </div>
-      <div class="control-grid">
-        <label class="field"><span>使徒から表示</span><select id="board-preview-apostle"></select></label>
-        <label class="field"><span>種族</span><select id="board-preview-species"></select></label>
-        <label class="field"><span>特殊マスタイプ</span><select id="board-preview-special-type"></select></label>
-        <label class="field"><span>攻撃タイプ</span><select id="board-preview-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
-      </div>
-      <div class="reference-row">
-        <span>使用データ</span>
-        <strong id="board-preview-reference">-</strong>
-      </div>
-      <details class="tier-details">
-        <summary>ステータス別Tierを調整</summary>
-        <div class="tier-grid">
-          <label class="field"><span>HP</span><select data-board-preview-tier="hp"></select></label>
-          <label class="field"><span>攻撃力</span><select data-board-preview-tier="attack"></select></label>
-          <label class="field"><span>物理防御力</span><select data-board-preview-tier="physicalDefense"></select></label>
-          <label class="field"><span>魔法防御力</span><select data-board-preview-tier="magicDefense"></select></label>
-          <label class="field"><span>会心</span><select data-board-preview-tier="crit"></select></label>
-          <label class="field"><span>会心DMG</span><select data-board-preview-tier="critDmg"></select></label>
-          <label class="field"><span>会心抵抗</span><select data-board-preview-tier="critRes"></select></label>
-          <label class="field"><span>会心DMG抵抗</span><select data-board-preview-tier="critDmgRes"></select></label>
-        </div>
-      </details>
-    </section>
 
     <section class="panel preview-panel">
       <div class="preview-head">
@@ -74,13 +40,6 @@
               <button type="button" id="board-preview-zoom-in" aria-label="表示を拡大" title="表示を拡大">＋</button>
             </div>
           </div>
-          <div class="legend" aria-label="マス種別">
-            <span><i class="legend-start"></i>開始</span>
-            <span><i class="legend-normal"></i>通常</span>
-            <span><i class="legend-advanced"></i>上級</span>
-            <span><i class="legend-special"></i>特殊</span>
-            <span><i class="legend-gate"></i>ゲート</span>
-          </div>
         </div>
       </div>
       <div id="board-preview-viewport" class="board-viewport">
@@ -92,10 +51,56 @@
         <div id="board-preview-detail" class="tile-popover-content"></div>
       </div>
     </section>
+
+    <section class="panel template-config-bar" aria-labelledby="board-preview-template-title">
+      <div class="template-bar-main">
+        <div class="template-apostle-summary">
+          <div class="template-apostle-identity">
+            <span class="template-apostle-image-wrap">
+              <img id="board-preview-apostle-image" class="template-apostle-image" alt="" hidden>
+              <span class="template-apostle-image-fallback" aria-hidden="true">?</span>
+            </span>
+            <span class="template-apostle-name-wrap">
+              <span id="board-preview-template-title" class="template-bar-title">テンプレート設定</span>
+              <strong id="board-preview-apostle-name">カスタム指定</strong>
+            </span>
+          </div>
+          <label class="field template-apostle-field"><span>使徒から表示</span><select id="board-preview-apostle"></select></label>
+        </div>
+        <div class="template-bar-actions">
+          <span id="board-preview-status" class="status" aria-live="polite"></span>
+          <button type="button" id="board-preview-detail-toggle" class="template-detail-toggle" aria-controls="board-preview-detail-settings" aria-expanded="false">詳細設定</button>
+        </div>
+      </div>
+      <div id="board-preview-detail-settings" class="template-detail-settings">
+        <div class="control-grid">
+          <label class="field"><span>種族</span><select id="board-preview-species"></select></label>
+          <label class="field"><span>特殊マスタイプ</span><select id="board-preview-special-type"></select></label>
+          <label class="field"><span>攻撃タイプ</span><select id="board-preview-attack-type"><option value="物理">物理</option><option value="魔法">魔法</option></select></label>
+        </div>
+        <div class="reference-row">
+          <span>使用データ</span>
+          <strong id="board-preview-reference">-</strong>
+        </div>
+        <details class="tier-details">
+          <summary>ステータス別Tierを調整</summary>
+          <div class="tier-grid">
+            <label class="field"><span>HP</span><select data-board-preview-tier="hp"></select></label>
+            <label class="field"><span>攻撃力</span><select data-board-preview-tier="attack"></select></label>
+            <label class="field"><span>物理防御力</span><select data-board-preview-tier="physicalDefense"></select></label>
+            <label class="field"><span>魔法防御力</span><select data-board-preview-tier="magicDefense"></select></label>
+            <label class="field"><span>会心</span><select data-board-preview-tier="crit"></select></label>
+            <label class="field"><span>会心DMG</span><select data-board-preview-tier="critDmg"></select></label>
+            <label class="field"><span>会心抵抗</span><select data-board-preview-tier="critRes"></select></label>
+            <label class="field"><span>会心DMG抵抗</span><select data-board-preview-tier="critDmgRes"></select></label>
+          </div>
+        </details>
+      </div>
+    </section>
   </main>
 
   <script src="../statData.js"></script>
-  <script src="board-layout-preview.js?v=20260830c"></script>
+  <script src="board-layout-preview.js?v=20260918j"></script>
   <script src="../shared-topbar.js?v=20260918i"></script>
   <script src="../announcements-release-config.js?v=20260918notice"></script>
   <script src="../announcements-data.js?v=20260918notice"></script>

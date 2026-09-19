@@ -79,6 +79,13 @@ async function waitReady(cdp, page) {
   `), { timeoutMs: 30000 });
 }
 
+async function waitCommonTopbarReady(cdp, page) {
+  await browser.waitFor(async () => browser.evaluate(cdp, page, `
+    !!document.querySelector('[data-shared-topbar-common]')
+      && document.querySelectorAll('[data-topbar-operation]').length === 8
+  `), { timeoutMs: 30000 });
+}
+
 async function waitDataDetailReady(cdp, page, target) {
   await browser.waitFor(async () => browser.evaluate(cdp, page, `(() => {
     const bar = document.querySelector('.data-detail-topbar[data-shared-topbar-data-target="${target}"]');
@@ -138,6 +145,14 @@ async function readTopbar(cdp, page) {
       target: element.dataset.topbarDataTarget,
       label: element.textContent.trim(),
       href: element.getAttribute('href')
+    })),
+    bulkItems: [...document.querySelectorAll('[data-topbar-menu="bulk"] [data-topbar-menu-item="bulk"]')].map(element => ({
+      tag: element.tagName,
+      role: element.getAttribute('role'),
+      target: element.dataset.topbarBulkTarget,
+      label: element.textContent.trim(),
+      href: element.getAttribute('href'),
+      openGlobal: element.dataset.openGlobal || ''
     })),
     legacyTemplates: [...document.querySelectorAll('template.dashboard-top-actions, template.fdc-legacy-topbar, template.enemy-legacy-header-actions, template.board-legacy-theme-control')].map(element => {
       const rect = element.getBoundingClientRect();
@@ -207,6 +222,9 @@ async function run() {
     assert.deepEqual(initial.dataItems.map(item => item.target), ['apostles', 'enemies', 'board']);
     assert.deepEqual(initial.dataItems.map(item => item.label), ['使徒データ', '敵データ', 'ボードプレビュー']);
     assert.ok(initial.dataItems.every(item => item.tag === 'A' && item.role === 'menuitem' && item.href));
+    assert.deepEqual(initial.bulkItems.map(item => item.target), ['apostles', 'rank', 'bond', 'aside', 'research']);
+    assert.deepEqual(initial.bulkItems.map(item => item.tag), ['BUTTON', 'BUTTON', 'BUTTON', 'BUTTON', 'BUTTON']);
+    assert.ok(initial.bulkItems.every(item => item.role === 'menuitem' && item.openGlobal === item.target && !item.href));
     const operationWidths = initial.geometry.operations.map(item => item.width);
     const operationHeights = initial.geometry.operations.map(item => item.height);
     assert.ok(operationWidths.every(width => Math.abs(width - operationWidths[0]) < 0.2), `operation widths differ: ${operationWidths}`);
@@ -247,11 +265,17 @@ async function run() {
     let opened = await readTopbar(cdp, page);
     assert.equal(opened.menu.find(item => item.key === 'bulk').open, true);
     assert.deepEqual(opened.active, ['manager', 'board'], 'メニューを開いただけで現在位置が変わりました');
-    await browser.clickSelector(cdp, page, '[data-topbar-bulk-target="rank"]');
-    await browser.waitFor(async () => (await browser.evaluate(cdp, page, `document.querySelector('[data-setting-panel="rank"].is-active')?.dataset.settingPanel || ''`)) === 'rank');
-    const rank = await readTopbar(cdp, page);
-    assert.deepEqual(rank.active, ['manager', 'bulk'], `unexpected active operations: ${JSON.stringify(rank.operations)}`);
-    assert.equal(await browser.evaluate(cdp, page, `document.querySelector('[data-topbar-bulk-target="rank"]')?.getAttribute('aria-current')`), 'location');
+    for (const target of ['apostles', 'rank', 'bond', 'aside', 'research']) {
+      if (target !== 'apostles') await browser.clickSelector(cdp, page, '[data-topbar-menu-trigger="bulk"]');
+      await browser.waitFor(async () => (await browser.evaluate(cdp, page, `document.querySelector('[data-topbar-menu="bulk"]')?.open || false`)) === true);
+      await browser.clickSelector(cdp, page, `[data-topbar-bulk-target="${target}"]`);
+      await browser.waitFor(async () => (await browser.evaluate(cdp, page, `document.querySelector('[data-setting-panel="${target}"].is-active')?.dataset.settingPanel || ''`)) === target);
+      const selected = await readTopbar(cdp, page);
+      assert.deepEqual(selected.active, ['manager', 'bulk'], `unexpected active operations for ${target}: ${JSON.stringify(selected.operations)}`);
+      assert.equal(selected.menu.find(item => item.key === 'bulk').open, false);
+      assert.deepEqual(await browser.evaluate(cdp, page, `([...document.querySelectorAll('[data-setting-panel].is-active')].map(element => element.dataset.settingPanel))`), [target]);
+      assert.equal(await browser.evaluate(cdp, page, `document.querySelector('[data-topbar-bulk-target="${target}"]')?.getAttribute('aria-current')`), 'location');
+    }
 
     await browser.clickSelector(cdp, page, '[data-topbar-menu-trigger="data"]');
     opened = await readTopbar(cdp, page);
@@ -266,6 +290,57 @@ async function run() {
     })`);
     assert.equal(escaped.open, false);
     assert.equal(escaped.focused, 'data');
+
+    const externalBulkTargets = ['apostles', 'rank', 'bond', 'aside', 'research'];
+    const externalPages = [
+      ['calc', `${origin}/formation-damage-calc.html?topbarBulkNative=1`, 'calc'],
+      ['data', `${origin}/tools/fixtures/topbar-browser-fixture.html?topbarBulkNative=1`, 'data'],
+      ['share', `${origin}/formation-share.html${SHARE_HASH}`, '']
+    ];
+    for (const [pageName, url, expectedPage] of externalPages) {
+      const externalPage = await browser.createPage(cdp, url);
+      pages.push(externalPage);
+      await waitCommonTopbarReady(cdp, externalPage);
+      const before = await browser.evaluate(cdp, externalPage, `location.href`);
+      const external = await readTopbar(cdp, externalPage);
+      if (pageName === 'calc') {
+        const layering = await browser.evaluate(cdp, externalPage, `(() => {
+          const topbar = document.querySelector('.fdc-top-control-bar, .dashboard-top-control-bar');
+          const popover = document.querySelector('.topbar-global-popover');
+          const floatSelectors = ['.fdc-floating-target', '.fdc-apply-float-controller'];
+          const zIndex = element => Number.parseInt(getComputedStyle(element).zIndex, 10) || 0;
+          return {
+            topbar: topbar ? zIndex(topbar) : 0,
+            popover: popover ? zIndex(popover) : 0,
+            floats: floatSelectors.map(selector => zIndex(document.querySelector(selector)))
+          };
+        })()`);
+        assert.ok(layering.topbar > Math.max(...layering.floats), `計算画面の攻撃／防御フロートが上バーより前面です: ${JSON.stringify(layering)}`);
+      }
+      assert.equal(external.operations.find(item => item.key === 'bulk')?.tag, 'DETAILS', `${pageName}の一括設定がリンクになっています`);
+      assert.deepEqual(external.bulkItems.map(item => item.target), externalBulkTargets);
+      assert.deepEqual(external.bulkItems.map(item => item.tag), ['A', 'A', 'A', 'A', 'A']);
+      assert.ok(external.bulkItems.every(item => item.role === 'menuitem' && item.href && !item.openGlobal));
+      assert.ok(external.bulkItems.every(item => new URL(item.href, before).searchParams.get('global') === item.target));
+      if (expectedPage) {
+        assert.equal(external.active.includes(expectedPage), true, `${pageName}の現在ページが点灯していません`);
+      } else {
+        assert.deepEqual(external.active, [], `${pageName}で管理操作を現在ページとして点灯させています`);
+      }
+
+      await browser.clickSelector(cdp, externalPage, '[data-topbar-menu-trigger="bulk"]');
+      const externalOpened = await readTopbar(cdp, externalPage);
+      assert.equal(externalOpened.menu.find(item => item.key === 'bulk').open, true);
+      assert.equal(await browser.evaluate(cdp, externalPage, `location.href`), before, `${pageName}の一括設定ボタン押下だけで遷移しました`);
+      const target = pageName === 'calc' ? 'rank' : pageName === 'data' ? 'aside' : 'research';
+      await browser.clickSelector(cdp, externalPage, `[data-topbar-bulk-target="${target}"]`);
+      await browser.waitFor(async () => browser.evaluate(cdp, externalPage, `location.pathname.includes('stat-dashboard.html')
+        && new URL(location.href).searchParams.get('global') === '${target}'
+        && !!document.querySelector('[data-setting-panel="${target}"].is-active')`), { timeoutMs: 30000 });
+      const navigated = await browser.evaluate(cdp, externalPage, `({ href: location.href, global: new URL(location.href).searchParams.get('global'), active: [...document.querySelectorAll('[data-setting-panel].is-active')].map(element => element.dataset.settingPanel) })`);
+      assert.equal(navigated.global, target, `${pageName}から${target}への遷移先が不正です`);
+      assert.deepEqual(navigated.active, [target], `${pageName}から${target}の設定が開いていません`);
+    }
 
     const enemyPage = await browser.createPage(cdp, `${origin}/enemy-status.html?topbarDataDetailNative=1`);
     const boardPage = await browser.createPage(cdp, `${origin}/public/board-layout-preview.html?apostle=Amelia&topbarDataDetailNative=1`);
@@ -416,6 +491,8 @@ async function run() {
       checks: [
         'undefined internal operation keys do not fall back to links',
         'formation/card/global active state follows displayed panel',
+        'bulk menu has the same five item definitions on manager and external pages',
+        'external bulk selections navigate to the matching manager setting without button-only navigation',
         'opening data/bulk menus does not change active state',
         'data menu has three role=menuitem links',
         'Escape closes the menu and restores trigger focus',

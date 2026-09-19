@@ -7986,8 +7986,13 @@
       .slice(0, getFormationMasterPowerSelectionLimit());
   }
 
-  function getFormationMasterPowerMediaPath(power) {
-    return `img/Card/権能_${power?.['権能名'] || ''}.mp4`;
+  function getFormationMasterPowerImagePath(power) {
+    return `img/Card/権能_${power?.['権能名'] || ''}.webp`;
+  }
+
+  function getFormationMasterPowerImageUrl(power) {
+    const path = getFormationMasterPowerImagePath(power);
+    return window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
   }
 
   function formatFormationMasterPowerEffect(effect = {}) {
@@ -8020,7 +8025,7 @@
           return `
             <button type="button" class="formation-master-power-card ${isSelected ? 'is-selected' : ''}" data-formation-master-power="${escapeAttr(power.id)}" aria-pressed="${isSelected}" title="${escapeAttr(power['説明'] || name)}">
               <span class="formation-master-power-media">
-                <video src="${escapeAttr(getFormationMasterPowerMediaPath(power))}#t=0.1" muted loop playsinline preload="metadata" draggable="false" ${isSelected ? 'autoplay' : ''}></video>
+                <img src="${escapeAttr(getFormationMasterPowerImageUrl(power))}" alt="" draggable="false">
                 ${renderFormationCostBadge(power['コスト'])}
                 <span class="formation-master-power-check" aria-hidden="true">✓</span>
               </span>

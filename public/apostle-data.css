@@ -77,6 +77,7 @@ body.apostle-data-page.theme-dark {
   font-weight: 800;
   line-height: 1.3;
 }
+.apostle-data-page-title .data-heading-prefix { color: var(--fdc-muted); font-weight: 700; }
 
 .apostle-data-count {
   flex: 0 0 auto;
@@ -673,6 +674,8 @@ body.apostle-data-page.theme-dark {
   .apostle-data-main { width: min(100% - .6rem, 100rem); padding-top: .25rem; }
   .apostle-data-toolbar { align-items: start; gap: .45rem .4rem; }
   .apostle-data-page-title { padding-top: .25rem; font-size: .8rem; }
+  .apostle-data-page-title .data-heading-prefix,
+  .apostle-data-page-title .data-heading-separator { display: none; }
   .apostle-data-toolbar-controls { flex-wrap: wrap; align-content: flex-start; }
   .apostle-data-count { font-size: .74rem; }
   .apostle-data-filter-details[open] {

@@ -28,6 +28,24 @@
   const BOARD_CROSS_SIZE = 7;
   const BOARD_LAYER_PROGRESS_CELLS = [13, 13, 12];
   const BOARD_TOTAL_PROGRESS_CELLS = BOARD_LAYER_PROGRESS_CELLS.reduce((sum, size) => sum + size, 0);
+  const APOSTLE_ASSET_ALIASES = {
+    ED: 'Ed',
+    Cuee: 'Kyuri',
+    Kyui: 'Kyuri',
+    Kyuui: 'Kyuri',
+    Kiwi: 'Kyuri',
+    Lazy: 'Layze',
+    Razy: 'Layze',
+    Reizy: 'Layze',
+    Rudd: 'Rude',
+    Selline: 'Selene',
+    Shady: 'Shaydi',
+    RenewaAwaken: 'Renewa',
+    Sion: 'Xion',
+    sion: 'Xion',
+    xion: 'Xion',
+    xXionx: 'Xion'
+  };
 
   const BOARD_TIER_VALUES = {
     hp: { 1: [50, 99], 2: [71, 141], 3: [92, 183], 4: [113, 225], 5: [134, 267] },
@@ -56,6 +74,12 @@
     zoomIn: document.getElementById('board-preview-zoom-in'),
     themeToggle: document.getElementById('board-preview-theme-toggle'),
     tierSelects: Array.from(document.querySelectorAll('[data-board-preview-tier]')),
+    templateBar: document.querySelector('.template-config-bar'),
+    detailToggle: document.getElementById('board-preview-detail-toggle'),
+    detailSettings: document.getElementById('board-preview-detail-settings'),
+    apostleImage: document.getElementById('board-preview-apostle-image'),
+    apostleImageFallback: document.querySelector('.template-apostle-image-fallback'),
+    apostleName: document.getElementById('board-preview-apostle-name'),
     reference: document.getElementById('board-preview-reference'),
     status: document.getElementById('board-preview-status'),
     viewport: document.getElementById('board-preview-viewport'),
@@ -77,7 +101,7 @@
   initialize();
   applyUrlState();
   bindEvents();
-  renderPreview();
+  renderPreview({ resetHorizontalScroll: true });
 
   function initialize() {
     elements.apostle.innerHTML = [
@@ -92,7 +116,15 @@
       select.value = '3';
     });
     updateSpecialTypeOptions();
+    syncApostleSummary();
+    syncTemplateBarHeight();
+    if (elements.templateBar && 'ResizeObserver' in window) {
+      new ResizeObserver(syncTemplateBarHeight).observe(elements.templateBar);
+    } else {
+      window.addEventListener('resize', syncTemplateBarHeight);
+    }
     syncThemeToggle();
+    syncSharedThemeState();
     applyViewScale(readSavedViewScale(), { persist: false, updateUrl: false });
   }
 
@@ -101,20 +133,20 @@
     elements.species.addEventListener('change', () => {
       markCustomSelection();
       updateSpecialTypeOptions();
-      renderPreview();
+      renderPreview({ resetHorizontalScroll: true });
     });
     elements.specialType.addEventListener('change', () => {
       markCustomSelection();
-      renderPreview();
+      renderPreview({ resetHorizontalScroll: true });
     });
     elements.attackType.addEventListener('change', () => {
       markCustomSelection();
-      renderPreview();
+      renderPreview({ resetHorizontalScroll: true });
     });
     elements.tierSelects.forEach(select => {
       select.addEventListener('change', () => {
         markCustomSelection();
-        renderPreview();
+        renderPreview({ resetHorizontalScroll: true });
       });
     });
     elements.orientationButtons.forEach(button => {
@@ -122,7 +154,7 @@
         viewOrientation = button.dataset.boardOrientation === 'vertical' ? 'vertical' : 'horizontal';
         elements.orientationButtons.forEach(item => item.classList.toggle('is-active', item === button));
         updatePreviewUrl();
-        renderPreview();
+        renderPreview({ resetHorizontalScroll: viewOrientation === 'horizontal' });
       });
     });
     elements.zoomOut.addEventListener('click', () => applyViewScale(viewScale - VIEW_SCALE_STEP));
@@ -130,6 +162,17 @@
     elements.zoomIn.addEventListener('click', () => applyViewScale(viewScale + VIEW_SCALE_STEP));
     elements.themeToggle?.addEventListener('click', () => {
       applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    });
+    elements.detailToggle?.addEventListener('click', () => {
+      setDetailSettingsOpen(elements.detailSettings?.dataset.templateDetailsOpen !== 'true');
+    });
+    elements.apostleImage?.addEventListener('error', () => {
+      elements.apostleImage.hidden = true;
+      elements.apostleImageFallback?.removeAttribute('hidden');
+    });
+    elements.apostleImage?.addEventListener('load', () => {
+      elements.apostleImage.hidden = false;
+      elements.apostleImageFallback?.setAttribute('hidden', '');
     });
     window.addEventListener('storage', event => {
       if (event.key !== COMMON_THEME_KEY || !['light', 'dark'].includes(event.newValue)) return;
@@ -152,8 +195,47 @@
       closeTilePopover();
     });
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') closeTilePopover();
+      if (event.key !== 'Escape') return;
+      if (elements.detailSettings?.dataset.templateDetailsOpen === 'true') {
+        setDetailSettingsOpen(false, { restoreFocus: true });
+        event.preventDefault();
+        return;
+      }
+      closeTilePopover();
     });
+  }
+
+  function setDetailSettingsOpen(open, { restoreFocus = false } = {}) {
+    if (!elements.detailSettings || !elements.detailToggle) return;
+    const isOpen = !!open;
+    elements.detailSettings.dataset.templateDetailsOpen = String(isOpen);
+    elements.detailToggle.setAttribute('aria-expanded', String(isOpen));
+    if (restoreFocus || !isOpen) elements.detailToggle.focus({ preventScroll: true });
+    syncTemplateBarHeight();
+  }
+
+  function syncTemplateBarHeight() {
+    if (!elements.templateBar) return;
+    const height = Math.ceil(elements.templateBar.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--board-preview-bottom-bar-height', `${height}px`);
+  }
+
+  function syncApostleSummary() {
+    const basic = basicById.get(String(elements.apostle?.value || ''));
+    const name = String(basic?.使徒名 || 'カスタム指定');
+    if (elements.apostleName) elements.apostleName.textContent = name;
+    if (!elements.apostleImage) return;
+    if (!basic) {
+      elements.apostleImage.hidden = true;
+      elements.apostleImage.removeAttribute('src');
+      elements.apostleImage.alt = '';
+      elements.apostleImageFallback?.removeAttribute('hidden');
+      return;
+    }
+    elements.apostleImage.alt = name;
+    elements.apostleImageFallback?.setAttribute('hidden', '');
+    elements.apostleImage.src = boardAssetPath(getApostleImagePath(basic.id));
+    elements.apostleImage.hidden = false;
   }
 
   function syncThemeToggle() {
@@ -163,9 +245,20 @@
     elements.themeToggle.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
     elements.themeToggle.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
   }
+  function syncSharedThemeState() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    document.body.classList.toggle('theme-light', !isDark);
+    document.body.classList.toggle('theme-dark', isDark);
+    document.querySelectorAll('[data-shared-theme-button], [data-dashboard-theme-toggle], #fdc-theme-toggle').forEach(button => {
+      button.setAttribute('aria-pressed', String(isDark));
+      button.setAttribute('aria-label', isDark ? 'ライトモードに切替' : 'ダークモードに切替');
+      button.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
+    });
+  }
   function applyTheme(theme, persist = true) {
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.dataset.theme = nextTheme;
+    syncSharedThemeState();
     syncThemeToggle();
     if (!persist) return;
     try {
@@ -177,6 +270,7 @@
   }
   function markCustomSelection() {
     elements.apostle.value = '';
+    syncApostleSummary();
     updatePreviewUrl();
   }
 
@@ -225,7 +319,6 @@
     elements.zoomOut.disabled = nextScale <= MIN_VIEW_SCALE;
     elements.zoomIn.disabled = nextScale >= MAX_VIEW_SCALE;
     closeTilePopover();
-    centerBoardViewport();
     if (persist) {
       try {
         storageLocal.setItem(PREVIEW_SCALE_KEY, String(nextScale));
@@ -236,18 +329,19 @@
     if (updateUrl) updatePreviewUrl();
   }
 
-  function centerBoardViewport() {
+  function resetBoardViewportToStart() {
     requestAnimationFrame(() => {
       if (!elements.viewport) return;
-      elements.viewport.scrollLeft = Math.max(0, (elements.viewport.scrollWidth - elements.viewport.clientWidth) / 2);
+      elements.viewport.scrollLeft = 0;
     });
   }
 
   function syncFromApostle({ updateUrl = true, render = true } = {}) {
     const basic = basicById.get(String(elements.apostle.value || ''));
+    syncApostleSummary();
     if (!basic) {
       if (updateUrl) updatePreviewUrl();
-      if (render) renderPreview();
+      if (render) renderPreview({ resetHorizontalScroll: true });
       return;
     }
     const rows = DATA.getById('board', basic.id) || [];
@@ -260,8 +354,9 @@
     elements.tierSelects.forEach(select => {
       select.value = String(tiers[select.dataset.boardPreviewTier] || 3);
     });
+    syncApostleSummary();
     if (updateUrl) updatePreviewUrl();
-    if (render) renderPreview();
+    if (render) renderPreview({ resetHorizontalScroll: true });
   }
   function buildReferenceCatalog() {
     const exact = new Map();
@@ -386,7 +481,7 @@
         return {
           rows: rows.map(row => ({ ...row })),
           label: `${selectedBasic.使徒名} / 使徒データ`,
-          status: `${rows.length}マス / 選択使徒`
+          status: '選択使徒のデータ'
         };
       }
     }
@@ -397,7 +492,7 @@
       label: reference.synthetic
         ? `盤面: ${reference.geometryBasic.使徒名} / 特殊: ${reference.specialBasic.使徒名} / 予測`
         : `${reference.basic.使徒名} / 実例`,
-      status: `91マス / ${reference.synthetic ? '予測テンプレート' : '実在テンプレート'}`
+      status: reference.synthetic ? '予測テンプレート' : '実在テンプレート'
     };
   }
 
@@ -470,7 +565,7 @@
       return [key, matched ? Number(matched[0]) : 3];
     }));
   }
-  function renderPreview() {
+  function renderPreview({ resetHorizontalScroll = false } = {}) {
     const preview = getPreviewState();
     closeTilePopover();
     elements.reference.textContent = preview.label;
@@ -480,11 +575,12 @@
     if (!preview.rows.length) {
       elements.canvas.innerHTML = '';
       elements.specialSummary.innerHTML = '';
+      if (resetHorizontalScroll) resetBoardViewportToStart();
       return;
     }
     elements.canvas.innerHTML = renderUnifiedBoard(preview.rows, viewOrientation);
     elements.specialSummary.innerHTML = renderSpecialSummary(preview.rows);
-    centerBoardViewport();
+    if (resetHorizontalScroll) resetBoardViewportToStart();
   }
 
   function renderUnifiedBoard(allRows, orientation) {
@@ -533,8 +629,8 @@
     const rowCount = orientation === 'vertical' ? maxY : maxX - minX + 1;
     const layerBackgrounds = renderLayerBackgrounds(positioned, orientation, minX, maxX, maxY);
     const heading = orientation === 'vertical'
-      ? '<span>上から ボード3（25）・ボード2（25）・ボード1（41）</span>'
-      : '<span>ボード1 <small>41マス</small></span><span>ボード2 <small>25マス</small></span><span>ボード3 <small>25マス</small></span>';
+      ? '<span class="unified-board-order">上から <b class="board-heading-label board-heading-b3">B3</b>・<b class="board-heading-label board-heading-b2">B2</b>・<b class="board-heading-label board-heading-b1">B1</b></span>'
+      : '<span class="board-heading-label board-heading-b1">B1</span><span class="board-heading-label board-heading-b2">B2</span><span class="board-heading-label board-heading-b3">B3</span>';
     return `
       <section class="unified-board is-${orientation}">
         <div class="unified-board-head">${heading}</div>
@@ -572,15 +668,16 @@
         { start: firstGateCenter, end: secondGateCenter },
         { start: secondGateCenter, end: maxY }
       ];
-    const crossPadding = 0.5;
-    const crossStart = -crossPadding;
-    const crossExtent = crossSize + crossPadding * 2;
+    const crossStart = 0;
+    const crossExtent = crossSize;
     return bounds.map(({ start, end }, index) => {
       const layer = index + 1;
-      const left = orientation === 'vertical' ? crossStart : start;
-      const top = orientation === 'vertical' ? start : crossStart;
-      const width = orientation === 'vertical' ? crossExtent : end - start;
-      const height = orientation === 'vertical' ? end - start : crossExtent;
+      const boundedStart = Math.max(0, Math.min(maxY, start));
+      const boundedEnd = Math.max(boundedStart, Math.min(maxY, end));
+      const left = orientation === 'vertical' ? crossStart : boundedStart;
+      const top = orientation === 'vertical' ? boundedStart : crossStart;
+      const width = orientation === 'vertical' ? crossExtent : boundedEnd - boundedStart;
+      const height = orientation === 'vertical' ? boundedEnd - boundedStart : crossExtent;
       const label = orientation === 'vertical'
         ? `<span class="board-layer-label board-layer-label-b${layer}" aria-hidden="true" style="--layer-left:${left};--layer-top:${top}">B${layer}</span>`
         : '';
@@ -729,6 +826,11 @@
     if (row.マス_type === '上級') return boardAssetPath('img/Board/Tile_2_On.webp');
     if (row.マス_type === '特殊') return boardAssetPath('img/Board/Tile_3_On.webp');
     return boardAssetPath('img/Board/Tile_1_On.webp');
+  }
+
+  function getApostleImagePath(id) {
+    const assetId = APOSTLE_ASSET_ALIASES[id] || id;
+    return `img/Chara/${assetId}.webp`;
   }
 
   function getBoardIconPath(row) {
