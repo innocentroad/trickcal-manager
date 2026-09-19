@@ -1,30 +1,22 @@
 # Trickcal Manager 作業目標
 
-> 現在の作業（2026-09-19、release-source）：お知らせ更新履歴・全体ボード全体効果値表示・通常遷移のrecover query整理を対象限定で公開完了。source `0e9a3bf1655cb9bc02613ca66df80d9f9d39f885`、candidate `1911a1521fe85b27`。dual配信先はnew→legacy順にdeploy成功し、両identityが一致。公開画面で39件の履歴、同一Origin内の通知状態、両profileのボード素材アイコン・テーマ切替、recoverなしの通常遷移を確認した。詳細と残条件は[`STATUS.md`](STATUS.md)と[公開履歴](docs/history/reviewed-scope-publication-2026-09-19.md)を参照。
+更新日: 2026-09-20
 
-> 最終接続レビュー・対象整理（2026-09-14）：R1実Git fixture、共有保守検査、生成check、差分検査は成功。焦点範囲でローカルcommitを妨げる新規問題なし。成果物repo名trickcal-manager-siteは利用者確定（作成未承認）。[133ファイルの統合commit候補](docs/storage-migration-commit-plan.md)を列挙し、実workflowとpush補助の2ファイルは保留・維持する。別clean checkoutで確定commitを検証する方針。今回は文書のみ、git add/commit/push・外部設定・公開は未実施。公開環境検証は残件。
+## 現在の目標：正式rootへの一本化と必要なローカル画面確認完了（2026-09-20）
 
-> 最新実施結果（2026-09-14）：R1 1/1。未設置source workflowへ初回／更新のprevious release inputを接続し、専用tmpの実Git fixtureでfresh更新候補の再生成、欠落／別previous／local-only record拒否を確認した。local準備は完了したが、実commit/push・実workflow・外部設定・公開・Goal有効化は未実施で、承認待ちで停止する。
+- 正式な編集場所は `D:/Games/etc/trickcal/trickcal-manager`、branch `release-source`。通常のExcel更新・`tools\generate-all.bat`・日常編集はこのrootだけで行う。
+- 旧 `tmp/release-source` worktreeは `safety/unification/unification-20260920-010559/release-source-park` 上の編集禁止の退避元。撤去・登録解除は別判断まで行わない。
+- バックアップ、main側変更の保全、branch切替、公開path参照の修正、ローカル生成・統合checkは完了。main-only変更、SEO実装、資料は取り込んでいない。所在と再開条件は [`docs/BACKLOG.md`](docs/BACKLOG.md) に記録する。
+- 生成済みnew／legacy profile双方で管理・計算・使徒データ・既存payloadの編成共有を実画面確認した。代表ページは正常に描画され、表示範囲内の使徒・編成画像に明らかな欠落は見られなかった。
+- 両profileで上バーの代表遷移、データメニュー、一括設定から「研究」への遷移、お知らせ一覧の開閉、ライト／ダーク切替を確認した。研究値はOFFのまま。移行告知の詳細ダイアログだけを閉じ、明示的な非表示設定は変更していない。
+- 実利用の編成・育成データの編集、インポート、リセットは行っていない。画像全件の通信・naturalWidth検査や全画面幅の網羅確認は今回の範囲外。確認URL・画面ごとの結果・制約は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)に記録する。
+- **正式rootへの一本化と必要なローカル確認は完了。本変更は移行記録として対象限定commitに含める（push・公開は別途扱う）。** 旧worktree撤去、stash削除、Search Console、SEO実装は未実施であり、画面確認の未完了理由とはしない。
 
-> 最新指示設定（2026-09-14）：P5a/C1の成功を維持。[G1→G4](docs/storage-p5b-git-gate-handoff.md)を4/4完了。Git判定簡素化→配信tools／未設置workflowテンプレート→専用tmpダミー配信代表確認→実repo確定・公開準備の承認資料まで記録した。実repoのcommit/push・実workflow・外部設定・公開・Goal有効化は行わず、承認待ちで停止する。
+移行の詳細な設計・切り戻し手順は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)、実行証拠は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
 
-> 最新完了（2026-09-14）：U1/U2/U3、P5aローカル完了、C1/C2候補準備を維持。C1 1/1、C2 1/1。実repoはdirty/local-onlyで、candidate作成・実配信・外部設定・commit/push・Goal有効化は行わない。
+## 履歴：移行前のGoal詳細（現在の作業指示ではない）
 
-> 最新レビュー（2026-09-14）：U1/U2とP5aローカル完了は維持。U3の通常stagingで見つかった出力削除境界、検査証拠束縛、candidate入口をC1→C2で補修した。[指示](docs/storage-p5b-candidate-instructions.md)のC1/C2は各1/1。外部操作・実配信・commit/push・Goal有効化は行わない。
-
-> 最新実施結果（2026-09-14）：U1・U2・U3を完了。P5a残件をローカル証拠で閉じ、P5bはlocal stagingと手順案まで。実配信・外部設定・commit/push・自動実行Goal有効化は禁止のまま。
-
-> 最新レビュー（2026-09-13）：F0と主要機能の成功を維持。P5A-2/3は生成SWのrelease接続・最終版記録・生成transfer往復の残件があり、下記4/4は無条件の公開可判定に使わない。[次回指示](docs/storage-p5-review-next.md)のU1→U2→U3（未着手0/3、約3単位）で限定補修からP5bローカル準備へ進む。今回はレビュー・文書のみ。実配信・外部設定・commit/push・Goal有効化は禁止。
-
-> 最新の実施指示・結果（2026-09-13）：[最小補修→P5a](docs/storage-p5-luna-instructions.md)を正とする。F0 1/1、P5a-1 1/1、P5a-2 1/1、P5a-3 1/1を確認し、P5a 4/4で完了した。未確認は合格へ加算せず、P5b実配信・外部設定・commit/push・自動実行Goal有効化は対象外。保存契約・codec・永続IDの変更は許可しない。
-
-> 旧判定履歴（2026-09-13 F1再レビュー）：Aへの誤成功通知の修正とH1/H2の成功証拠は維持。不正ファイル選択後も旧packageをplan/applyできる反例を本番controller/codec＋代替runtimeで再現したため、F1は部分達成（完了0/1）、P4最終完了を保留する。残りは入力切替の限定補修1作業単位。[レビューと次回指示](docs/storage-p4-file-input-review.md)を最新とし、下記F1完了記録は履歴として扱う。transfer/pageテスト2本は成功したが反例を網羅していない。native追加確認・P5実装・公開・commit/push・Goal有効化は未実施。
-
-> F1着手前レビュー（2026-09-13・履歴）：P4 6/6の無条件継承を保留。転送導線の既定OFF、失敗後再試行、適用中操作の抑止、既存backup代替要件、診断初期化を除いたnative証拠に不足がある。次回は[限定補修指示](docs/storage-p4-review-handoff.md)のH1→H2で再判定する。F1着手前はH1a〜d/H2を0/5、目安2作業単位としていた。P5実装・Goal有効化は開始しない。home/dataの決定は維持する。下記の完了記録は履歴として扱う。
-
-更新日: 2026-09-19
-
-## 現在の作業
+以下はrelease-sourceへ移る前のGoal記録である。内部の「最新」「現在」は各記録当時の表現であり、2026-09-20時点の作業状態や承認を表さない。未達・保留項目の現行所在は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照する。
 
 ### 最新：R1完了・外部承認待ちで停止（2026-09-14）
 

@@ -7,7 +7,7 @@
     "branch": "main",
     "workflow": "pages-deploy.yml",
     "workflowBranch": "main",
-    "destination": "../minor-data-publish-new-final5",
+    "destination": "tmp/minor-data-publish-new-final5",
     "identityUrl": "https://trickcal.irlab.dev/public-site-deployment.json",
     "environments": ["github-pages"]
   },
@@ -16,7 +16,7 @@
     "branch": "legacy-site-artifact",
     "workflow": "pages.yml",
     "workflowBranch": "main",
-    "destination": "../minor-data-publish-legacy-final4",
+    "destination": "tmp/minor-data-publish-legacy-final4",
     "identityUrl": "https://innocentroad.github.io/trickcal-manager/public-site-deployment.json",
     "environments": ["legacy-pages-delivery-approval", "github-pages"]
   }

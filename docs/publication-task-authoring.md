@@ -6,7 +6,7 @@
 ## 書く内容
 
 - 目的と対象：今回の変更・レビュー範囲と対象外を短く指定する。モデル・effortは利用者指定と適用されるAGENTS.mdに従い、作成者の判断で承認範囲を広げない。
-- 作業場所：最新の[公開手順](publication-runbook.md)で固定sourceを確認し、指令には実際の絶対パスとbranchを書く。別cloneを作らせない。未コミットのツール・文書は別環境に存在する前提にしない。
+- 作業場所：最新の[公開手順](publication-runbook.md)で固定sourceを確認する。現行は `D:/Games/etc/trickcal/trickcal-manager`、branch `release-source`。指令にも実際の絶対パスとbranchを書く。別cloneを作らせない。未コミットのツール・文書は別環境に存在する前提にしない。
 - 許可範囲：利用者の実際の依頼に基づき、実装／レビュー／対象限定commit・push・公開／通常deployment承認代行のどこまでかを明記する。共通の承認解釈は適用されるAGENTS.mdを参照し、未承認の操作を足さない。意味が変わる曖昧さだけ確認する。
 - 参照先：適用されるAGENTS.mdと公開手順を指定する。コマンド列・配信先・承認条件を全文複製せず、配信先と移行状態は `tools/publication-targets.json` に従わせる。「毎回必ず新旧両方」と固定せず、指令作成を理由に設定を変更しない。
 - 再開情報：途中作業なら、確認済みのsource/artifact commit、bundle・receipt・公開履歴の場所、run ID/URL、完了工程と残作業を必要な分だけ渡す。未確認は未確認、未作成は未作成と書き、値を推測しない。既存runがある場合はその追跡・取り込みを指定する。

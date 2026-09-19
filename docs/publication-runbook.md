@@ -1,16 +1,16 @@
 # 通常更新の公開手順と設計
 
-2026-09-17。公開用sourceの初回復元は完了済み。毎回復元・clone・受信baseline合成を行わない。
+2026-09-20。継続する公開sourceはrepo直下の `release-source`。毎回復元・clone・受信baseline合成を行わない。
 この文書は手順であり、commit・push・公開・承認代行を開始する指示ではない。
 実行・レビュー担当向けの共通手順とする。指令・引き継ぎ文を作る担当だけ、[指令作成要綱](publication-task-authoring.md)も参照する。
 
 ## 固定する作業場所
 
-- source: `D:/Games/etc/trickcal/trickcal-manager/tmp/release-source`、branch `release-source`。
+- source: `D:/Games/etc/trickcal/trickcal-manager`、branch `release-source`。
 - new受信repo: `D:/Games/etc/trickcal/trickcal-manager/tmp/minor-data-publish-new-final5`、`innocentroad/trickcal-manager-site` / `main`。
 - legacy受信repo: `D:/Games/etc/trickcal/trickcal-manager/tmp/minor-data-publish-legacy-final4`、`innocentroad/trickcal-manager` / `legacy-site-artifact`。
-- 初回に指定する前回release: sourceから相対で `../release-source-publish-final7/tmp/public-site/public-site-release.json`。
-- 自動公開成功後は `backups/publication-history/latest-new.json` 内のrelease記録をprepareが自動利用する。初回だけ上記previous-releaseを明示する。配信先別に成功を保持し、準備しただけの候補を公開済み扱いしない。
+- `prepare`は `backups/publication-history/latest-new.json` の成功済みnew releaseを自動利用する。現在この記録がある。見つからない・成功状態でない場合は停止し、古いlocal-only生成物をprevious releaseとして流用しない。fresh setupで初回releaseを明示する必要がある場合だけ、別途identity確認済みの公開release JSONを `--previous-release FILE` で指定する。
+- 配信先別に成功を保持し、準備しただけの候補を公開済み扱いしない。CLIの明示 `--previous-release` は実行時のcwd基準で解決する。
 
 作業開始時にbranch・remote・HEAD・dirtyを一度確認する。古いパス名にfinalが含まれていても、番号を増やしたcloneを毎回作らない。
 sourceのcommitは専用branchへ残す。dirtyな元mainを取り込まず、mainへのpushは行わない。
@@ -39,7 +39,7 @@ clone増殖、.git直読みでcleanを偽装、検査成功記録の手作成、
 2. `prepare`を一度実行し、結果JSONのbundlePathを保持する。手でdigestを転記しない。
 
 ```powershell
-$prepared = node tools/public-site-publication.js prepare --previous-release ../release-source-publish-final7/tmp/public-site/public-site-release.json | ConvertFrom-Json
+$prepared = node tools/public-site-publication.js prepare | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'prepare failed' }
 $bundle = $prepared.bundlePath
 ```
@@ -47,7 +47,7 @@ $bundle = $prepared.bundlePath
 3. new受信repoのremote・branch・HEADを確認し、必要なfetchは通常どおり行う。競合や想定外更新を無視して上書きしない。dry-runの差分を確認してから転送する。
 
 ```powershell
-$receiver = '../minor-data-publish-new-final5'
+$receiver = 'tmp/minor-data-publish-new-final5'
 node tools/public-site-publication.js transfer --bundle $bundle --destination $receiver --profile new
 if ($LASTEXITCODE -ne 0) { throw 'dry-run failed' }
 $delivery = node tools/public-site-publication.js transfer --bundle $bundle --destination $receiver --profile new --apply --stage | ConvertFrom-Json

@@ -55,7 +55,7 @@ GitHub Pagesで配信することを前提に、ステータス管理画面と�
 
 ## データの更新
 
-元データは `tools/trickcal_datasheet.xlsx` です。Python 3を用意し、`tools/generate-all.bat` を実行すると、次のデータが更新されます。
+通常の編集場所はrepo直下、branch `release-source` です。利用者が `tools/trickcal_datasheet.xlsx` をExcelで編集・保存し、保存完了後に利用者自身または依頼を受けたエージェントが同じ作業場所で `tools/generate-all.bat` を実行します。Excelが編集中・保存中、または別の生成が実行中の間は並行生成しません。Python 3が必要です。生成すると次のデータが更新されます。
 
 - `apostles.js`
 - `cards.js`
