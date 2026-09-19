@@ -10100,17 +10100,23 @@ body.dashboard-page.is-booting::after {
 }
 
 :root[data-theme="dark"] .board-global-effect-type-matrix.is-special {
-  --board-global-layer-border: rgba(196, 181, 253, 0.36);
-  --board-global-layer-bg: #321d4c;
-  --board-global-layer-label-bg: rgba(126, 34, 206, 0.86);
-  --board-global-layer-text: #e9d5ff;
+  --board-global-layer-border: rgba(177, 143, 74, 0.28);
+  --board-global-layer-bg: #2b261b;
+  --board-global-layer-head: rgba(139, 111, 52, 0.22);
+  --board-global-layer-label-bg: rgba(126, 101, 48, 0.58);
+  --board-global-layer-text: var(--ink);
+  --board-global-total-current: var(--ink);
+  --board-global-total-max: var(--muted);
 }
 
 :root[data-theme="dark"] .board-global-effect-type-matrix.is-advanced {
-  --board-global-layer-border: rgba(96, 165, 250, 0.34);
-  --board-global-layer-bg: #17294f;
-  --board-global-layer-label-bg: rgba(37, 99, 235, 0.84);
-  --board-global-layer-text: #bfdbfe;
+  --board-global-layer-border: rgba(153, 122, 188, 0.3);
+  --board-global-layer-bg: #282131;
+  --board-global-layer-head: rgba(112, 82, 145, 0.24);
+  --board-global-layer-label-bg: rgba(105, 78, 136, 0.6);
+  --board-global-layer-text: var(--ink);
+  --board-global-total-current: var(--ink);
+  --board-global-total-max: var(--muted);
 }
 
 :root[data-theme="dark"] button.board-floating-cancel-button {

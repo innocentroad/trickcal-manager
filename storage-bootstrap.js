@@ -65,6 +65,9 @@
 
   function showBootFailure(result) {
     const render = () => {
+      const document = root.document;
+      document?.documentElement?.setAttribute('data-storage-boot', result?.code || 'failed');
+      if (document?.documentElement?.dataset?.storageBootMode === 'optional') return;
       if (!root.document?.body) return;
       root.document.body.classList.remove('is-booting');
       root.document.body.removeAttribute('aria-busy');
@@ -75,12 +78,20 @@
     } else {
       render();
     }
-    root.document?.documentElement?.setAttribute('data-storage-boot', result?.code || 'failed');
+    root.TRICKCAL_STORAGE_BOOT_FAILED = true;
   }
 
   function showLifecycleFailure(result) {
     if (!result?.ok) {
       root.document?.documentElement?.setAttribute('data-storage-error', result.code || 'failed');
+    }
+  }
+
+  function notifyStorageResumed(windowObject) {
+    if (typeof windowObject?.dispatchEvent !== 'function') return;
+    const EventConstructor = windowObject.CustomEvent;
+    if (typeof EventConstructor === 'function') {
+      windowObject.dispatchEvent(new EventConstructor('trickcal-storage-resumed'));
     }
   }
 
@@ -94,7 +105,10 @@
         showLifecycleFailure(runtime.flushParticipants?.());
         return;
       }
-      Promise.resolve(runtime.resumeParticipants?.()).catch(error => {
+      Promise.resolve(runtime.resumeParticipants?.()).then(result => {
+        showLifecycleFailure(result);
+        if (result?.ok) notifyStorageResumed(windowObject);
+      }).catch(error => {
         console.error(error);
         showLifecycleFailure({ ok: false, code: 'write-failed' });
       });
@@ -109,7 +123,10 @@
       });
     });
     windowObject.addEventListener('pageshow', () => {
-      Promise.resolve(runtime.resumeAfterPageshow?.()).then(showLifecycleFailure).catch(error => {
+      Promise.resolve(runtime.resumeAfterPageshow?.()).then(result => {
+        showLifecycleFailure(result);
+        if (result?.ok) notifyStorageResumed(windowObject);
+      }).catch(error => {
         console.error(error);
         showLifecycleFailure({ ok: false, code: 'stale' });
       });
@@ -139,6 +156,7 @@
       return failure;
     }
     root.TRICKCAL_STORAGE_FACADE = facade;
+    root.TRICKCAL_STORAGE_BOOT_FAILED = false;
     installLifecycle(runtime);
     try {
       const theme = facade.localStorage.getItem('trickcal_theme')

@@ -2,6 +2,7 @@
 // 通知状態は専用のregistry entryへ保存するが、backup/restoreの対象には含めない。
 (function initAnnouncements(root, factory) {
   let data = root?.TRICKCAL_ANNOUNCEMENT_DATA;
+  let historyData = root?.TRICKCAL_ANNOUNCEMENT_HISTORY_DATA;
   if (!data && typeof module === 'object' && module.exports && typeof require === 'function') {
     try {
       data = require('./announcements-data');
@@ -9,13 +10,50 @@
       data = null;
     }
   }
-  const api = factory(root, data);
+  if (!historyData && typeof module === 'object' && module.exports && typeof require === 'function') {
+    try {
+      historyData = require('./announcement-history-data');
+    } catch (_) {
+      historyData = null;
+    }
+  }
+  const api = factory(root, data, historyData);
   if (typeof module === 'object' && module.exports) module.exports = api;
   if (!root) return;
   root.TRICKCAL_ANNOUNCEMENTS = api;
   if (!root.document) return;
-  const boot = root.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
-  Promise.resolve(boot).then(() => {
+  function showStorageUnavailable() {
+    const documentObject = root.document;
+    const render = () => {
+      const trigger = documentObject.querySelector?.('[data-announcement-trigger]');
+      if (trigger) {
+        trigger.disabled = true;
+        trigger.setAttribute('aria-disabled', 'true');
+        trigger.setAttribute('aria-label', '保存状態へ接続できないため、お知らせは利用できません');
+      }
+      if (documentObject.querySelector?.('.trickcal-announcement-storage-unavailable')) return;
+      const notice = documentObject.createElement('p');
+      notice.className = 'trickcal-announcement-storage-unavailable';
+      notice.setAttribute('role', 'status');
+      notice.textContent = '保存状態を確認できないため、お知らせ機能は利用できません。このページの閲覧は続けられます。';
+      const target = documentObject.querySelector?.('main') || documentObject.body;
+      if (target?.firstChild) target.insertBefore(notice, target.firstChild);
+      else target?.appendChild?.(notice);
+    };
+    if (documentObject.readyState === 'loading') {
+      documentObject.addEventListener?.('DOMContentLoaded', render, { once: true });
+    } else render();
+  }
+  const boot = root.TRICKCAL_STORAGE_BOOT;
+  if (!boot) {
+    showStorageUnavailable();
+    return;
+  }
+  Promise.resolve(boot).then(result => {
+    if (result?.ok !== true || !root.TRICKCAL_STORAGE_FACADE) {
+      showStorageUnavailable();
+      return;
+    }
     const controller = api.createController({
       window: root,
       document: root.document
@@ -25,7 +63,7 @@
   }).catch(error => {
     try { root.console?.warn?.('お知らせUIを初期化できませんでした。', error); } catch (_) { /* no-op */ }
   });
-})(typeof globalThis !== 'undefined' ? globalThis : this, function createAnnouncementsApi(windowRoot, defaultData) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function createAnnouncementsApi(windowRoot, defaultData, defaultHistoryData) {
   'use strict';
 
   const NOTICE_STORAGE_KEY = 'trickcal_notice_state_v1';
@@ -42,7 +80,7 @@
   const MIGRATION_ARTICLE_ID = 'migration-file-first-20260914';
   const LEGACY_ORIGIN = 'https://innocentroad.github.io';
   const NEW_ORIGIN = 'https://trickcal.irlab.dev';
-  const FOCUSABLE_SELECTOR = 'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  const FOCUSABLE_SELECTOR = 'button:not([disabled]), a[href], summary, input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
   function cloneState(state) {
     return {
@@ -102,6 +140,9 @@
     const windowObject = options.window || windowRoot || {};
     const documentObject = options.document || windowObject.document || null;
     const data = options.data || defaultData;
+    const historyData = Object.prototype.hasOwnProperty.call(options, 'historyData')
+      ? options.historyData
+      : defaultHistoryData;
     const fixtureConfig = options.config || windowObject.TRICKCAL_ANNOUNCEMENTS_CONFIG || {};
     const releaseConfig = windowObject.TRICKCAL_ANNOUNCEMENTS_RELEASE_CONFIG || {};
     const config = { ...releaseConfig, ...fixtureConfig };
@@ -110,10 +151,12 @@
     const injectedStorage = Object.prototype.hasOwnProperty.call(options, 'storageLocal')
       ? options.storageLocal
       : null;
+    const noticeStorage = () => injectedStorage || windowObject.TRICKCAL_STORAGE_FACADE?.localStorage || null;
     let state = emptyState();
     let storageFallback = false;
     let initialized = false;
     let currentView = 'list';
+    let historyVisibleCounts = Object.create(null);
     let currentAuto = null;
     let lastTrigger = null;
     let trigger = null;
@@ -136,40 +179,57 @@
     let backupController = null;
     let backupControllerUnsubscribe = null;
     let backupControllerReadyBound = false;
+    let storageWarning = null;
+
+    function showStorageWarning(message = '通知状態を保存できません。変更はこの画面だけに反映され、再読込後には残らない場合があります。') {
+      if (!documentObject?.body) return;
+      storageWarning = documentObject.querySelector?.('.trickcal-announcement-storage-unavailable') || storageWarning;
+      if (!storageWarning) {
+        storageWarning = documentObject.createElement('p');
+        storageWarning.className = 'trickcal-announcement-storage-unavailable';
+        storageWarning.setAttribute('role', 'status');
+        const target = documentObject.querySelector?.('main') || documentObject.body;
+        if (target?.children?.length) target.insertBefore(storageWarning, target.children[0]);
+        else target?.appendChild?.(storageWarning);
+      }
+      storageWarning.textContent = message;
+    }
+
+    function clearStorageWarning() {
+      if (storageWarning?.parentNode?.removeChild) storageWarning.parentNode.removeChild(storageWarning);
+      storageWarning = null;
+    }
 
     function readNoticeRaw() {
-      if (injectedStorage && typeof injectedStorage.getItem === 'function') return injectedStorage.getItem(NOTICE_STORAGE_KEY);
-      if (typeof window !== 'undefined' && window.TRICKCAL_STORAGE_FACADE) {
-        return window.TRICKCAL_STORAGE_FACADE.localStorage.getItem(NOTICE_STORAGE_KEY);
-      }
-      return null;
+      const storage = noticeStorage();
+      if (typeof storage?.getItem !== 'function') throw new Error('notification storage unavailable');
+      return storage.getItem(NOTICE_STORAGE_KEY);
     }
 
     function writeNoticeRaw(raw) {
-      if (injectedStorage && typeof injectedStorage.setItem === 'function') {
-        injectedStorage.setItem(NOTICE_STORAGE_KEY, raw);
-        return true;
-      }
-      if (typeof window !== 'undefined' && window.TRICKCAL_STORAGE_FACADE) {
-        window.TRICKCAL_STORAGE_FACADE.localStorage.setItem(NOTICE_STORAGE_KEY, raw);
-        return true;
-      }
-      return false;
+      const storage = noticeStorage();
+      if (typeof storage?.setItem !== 'function') throw new Error('notification storage unavailable');
+      storage.setItem(NOTICE_STORAGE_KEY, raw);
+      return true;
     }
 
     function readPersistedState() {
-      if (!injectedStorage && !(typeof window !== 'undefined' && window.TRICKCAL_STORAGE_FACADE)) {
+      if (!noticeStorage()) {
         storageFallback = true;
         return emptyState();
       }
       try {
         const raw = readNoticeRaw();
-        if (raw == null) return emptyState();
+        if (raw == null) {
+          storageFallback = false;
+          return emptyState();
+        }
         const parsed = sanitizeState(JSON.parse(raw));
         if (!parsed) {
           storageFallback = true;
           return emptyState();
         }
+        storageFallback = false;
         return parsed;
       } catch (_) {
         storageFallback = true;
@@ -177,15 +237,62 @@
       }
     }
 
-    function persistState() {
-      if (!injectedStorage && !(typeof window !== 'undefined' && window.TRICKCAL_STORAGE_FACADE)) {
+    function persistState(transition) {
+      if (typeof transition !== 'function' || !noticeStorage()) {
         storageFallback = true;
         return false;
       }
       try {
-        return writeNoticeRaw(JSON.stringify(cloneState(state)));
+        const raw = readNoticeRaw();
+        const latest = raw == null ? emptyState() : sanitizeState(JSON.parse(raw));
+        if (!latest) {
+          storageFallback = true;
+          return false;
+        }
+        const next = sanitizeState(transition(cloneState(latest)));
+        if (!next || !writeNoticeRaw(JSON.stringify(next))) {
+          storageFallback = true;
+          return false;
+        }
+        state = next;
+        storageFallback = false;
+        clearStorageWarning();
+        return true;
       } catch (_) {
         storageFallback = true;
+        return false;
+      }
+    }
+
+    function applyNoticeTransition(transition) {
+      const localNext = sanitizeState(transition(cloneState(state))) || cloneState(state);
+      const saved = persistState(transition);
+      if (!saved) {
+        state = localNext;
+        showStorageWarning();
+      }
+      return saved;
+    }
+
+    function refreshPersistedState() {
+      try {
+        const raw = readNoticeRaw();
+        const latest = raw == null ? emptyState() : sanitizeState(JSON.parse(raw));
+        if (!latest) {
+          storageFallback = true;
+          showStorageWarning();
+          return false;
+        }
+        state = latest;
+        storageFallback = false;
+        clearStorageWarning();
+        refreshUnread();
+        refreshFollowBar();
+        updateDisplaySettings();
+        return true;
+      } catch (_) {
+        storageFallback = true;
+        showStorageWarning();
         return false;
       }
     }
@@ -252,6 +359,20 @@
       }
     }
 
+    function validatedHistoryEntries() {
+      if (!historyData || typeof historyData.validateEntries !== 'function') {
+        return { ok: false, entries: [] };
+      }
+      try {
+        const result = historyData.validateEntries(historyData);
+        return result?.ok === true && Array.isArray(result.entries)
+          ? { ok: true, entries: result.entries }
+          : { ok: false, entries: [] };
+      } catch (_) {
+        return { ok: false, entries: [] };
+      }
+    }
+
     function isRead(id) {
       return state.readIds.includes(id);
     }
@@ -269,24 +390,27 @@
     }
 
     function markRead(id) {
-      if (!id || isRead(id)) return false;
-      state.readIds = [id].concat(state.readIds.filter(item => item !== id)).slice(0, MAX_STATE_ITEMS);
-      persistState();
+      if (!id) return false;
+      if (isRead(id)) return true;
+      const saved = applyNoticeTransition(latest => {
+        latest.readIds = [id].concat(latest.readIds.filter(item => item !== id)).slice(0, MAX_STATE_ITEMS);
+        return latest;
+      });
       refreshUnread();
-      return true;
+      return saved;
     }
 
     function acknowledgeAuto(article) {
       if (!article?.autoRevision) return false;
-      if (!isAutoAcknowledged(article)) {
-        state.autoAcknowledged = [{ id: article.id, revision: article.autoRevision }]
-          .concat(state.autoAcknowledged.filter(item => !(item.id === article.id && item.revision === article.autoRevision)))
+      const saved = applyNoticeTransition(latest => {
+        latest.autoAcknowledged = [{ id: article.id, revision: article.autoRevision }]
+          .concat(latest.autoAcknowledged.filter(item => !(item.id === article.id && item.revision === article.autoRevision)))
           .slice(0, MAX_STATE_ITEMS);
-      }
-      if (!isRead(article.id)) state.readIds = [article.id].concat(state.readIds).slice(0, MAX_STATE_ITEMS);
-      persistState();
+        latest.readIds = [article.id].concat(latest.readIds.filter(item => item !== article.id)).slice(0, MAX_STATE_ITEMS);
+        return latest;
+      });
       refreshUnread();
-      return true;
+      return saved;
     }
 
     function acknowledgeCurrentAuto() {
@@ -465,9 +589,36 @@
 
     function focusDialogStart() {
       try {
-        const candidates = Array.from(dialog?.querySelectorAll?.(FOCUSABLE_SELECTOR) || []);
+        const candidates = getFocusableCandidates(dialog);
         (candidates[0] || dialog)?.focus?.();
       } catch (_) { /* no-op */ }
+    }
+
+    function getFocusableCandidates(container) {
+      return Array.from(container?.querySelectorAll?.(FOCUSABLE_SELECTOR) || []).filter(element => {
+        if (element.disabled || element.hidden || element.inert
+          || element.getAttribute?.('disabled') !== null
+          || element.getAttribute?.('hidden') !== null
+          || element.getAttribute?.('inert') !== null
+          || element.getAttribute?.('aria-hidden') === 'true'
+          || element.getAttribute?.('tabindex') === '-1') return false;
+        let ancestor = element;
+        while (ancestor?.nodeType === 1) {
+          if (ancestor.hidden || ancestor.inert
+            || ancestor.getAttribute?.('hidden') !== null
+            || ancestor.getAttribute?.('inert') !== null
+            || ancestor.getAttribute?.('aria-hidden') === 'true') return false;
+          if (ancestor.tagName === 'DETAILS' && !ancestor.open
+            && ancestor.querySelector?.('summary') !== element) return false;
+          if (ancestor.tagName === 'DIALOG' && ancestor !== dialog && !ancestor.open) return false;
+          try {
+            const style = windowObject.getComputedStyle?.(ancestor);
+            if (style?.display === 'none' || style?.visibility === 'hidden') return false;
+          } catch (_) { /* computed styles are optional in fixtures */ }
+          ancestor = ancestor.parentNode;
+        }
+        return true;
+      });
     }
 
     function focusWithoutScroll(element) {
@@ -537,8 +688,10 @@
     function restoreDismissed() {
       const article = articleById(MIGRATION_ARTICLE_ID);
       if (!article || !isDismissed(article)) return false;
-      state.dismissedIds = state.dismissedIds.filter(id => id !== article.id);
-      const saved = persistState();
+      const saved = applyNoticeTransition(latest => {
+        latest.dismissedIds = latest.dismissedIds.filter(id => id !== article.id);
+        return latest;
+      });
       updateDisplaySettings(saved ? '' : 'この画面では再表示しましたが、設定を保存できませんでした。再読み込みすると非表示のままの場合があります。');
       refreshFollowBar();
       const stableTarget = displaySettings?.querySelector?.('summary') || displaySettings;
@@ -550,8 +703,10 @@
 
     function dismissArticle(article) {
       if (!article?.id || isDismissed(article)) return false;
-      state.dismissedIds = [article.id].concat(state.dismissedIds.filter(id => id !== article.id)).slice(0, MAX_STATE_ITEMS);
-      const saved = persistState();
+      const saved = applyNoticeTransition(latest => {
+        latest.dismissedIds = [article.id].concat(latest.dismissedIds.filter(id => id !== article.id)).slice(0, MAX_STATE_ITEMS);
+        return latest;
+      });
       updateDisplaySettings(saved ? '' : 'この画面では非表示にしましたが、設定を保存できませんでした。再読み込みすると表示される場合があります。');
       refreshFollowBar();
       const stableTarget = displaySettings?.querySelector?.('summary') || displaySettingsButton || documentObject.body;
@@ -637,31 +792,148 @@
       return fallback;
     }
 
+    function renderCurrentArticleCard(parent, article) {
+      const item = appendElement(parent, 'article', undefined, 'trickcal-announcement-card');
+      const button = appendElement(item, 'button', undefined, 'trickcal-announcement-card-button');
+      button.type = 'button';
+      button.dataset.articleId = article.id;
+      const meta = appendElement(button, 'span', `${article.date} · ${article.category}`, 'trickcal-announcement-meta');
+      meta.setAttribute('aria-hidden', 'true');
+      appendElement(button, 'strong', article.title, 'trickcal-announcement-title');
+      appendElement(button, 'span', article.summary, 'trickcal-announcement-summary');
+      const unread = appendElement(button, 'span', '未読', 'trickcal-announcement-unread');
+      unread.dataset.announcementUnreadId = article.id;
+      unread.hidden = isRead(article.id);
+      button.addEventListener('click', () => openArticleById(article.id));
+      return item;
+    }
+
+    function renderImportantArticle(parent) {
+      const section = appendElement(parent, 'section', undefined, 'trickcal-announcement-important');
+      appendElement(section, 'h3', '重要なお知らせ', 'trickcal-announcement-section-title');
+      const article = articleById(MIGRATION_ARTICLE_ID);
+      if (!article) {
+        appendElement(section, 'p', '移行案内を現在表示できません。', 'trickcal-announcement-history-unavailable');
+        return;
+      }
+      const card = appendElement(section, 'article', undefined, 'trickcal-announcement-important-card');
+      appendElement(card, 'strong', article.title, 'trickcal-announcement-title');
+      appendElement(card, 'p', article.summary, 'trickcal-announcement-summary');
+      const unread = appendElement(card, 'span', '未読', 'trickcal-announcement-unread');
+      unread.dataset.announcementUnreadId = article.id;
+      unread.hidden = isRead(article.id);
+      const button = appendElement(card, 'button', '移行の詳細を見る', 'trickcal-announcement-open-migration');
+      button.type = 'button';
+      button.dataset.articleId = article.id;
+      button.addEventListener('click', () => openArticleById(MIGRATION_ARTICLE_ID));
+    }
+
+    function appendHistoryEntry(parent, entry) {
+      const item = appendElement(parent, 'li', undefined, 'trickcal-announcement-history-item');
+      const details = appendElement(item, 'details', undefined, 'trickcal-announcement-history-entry');
+      details.dataset.historyId = entry.id;
+      const summary = appendElement(details, 'summary', undefined, 'trickcal-announcement-history-summary');
+      const meta = appendElement(summary, 'span', undefined, 'trickcal-announcement-history-meta');
+      const time = appendElement(meta, 'time', entry.date, 'trickcal-announcement-history-date');
+      time.setAttribute('datetime', entry.date);
+      const categoryLabels = { 'game-data': 'ゲームデータ', feature: '機能', fix: '不具合修正' };
+      appendElement(meta, 'span', categoryLabels[entry.category], 'trickcal-announcement-history-category');
+      appendElement(summary, 'strong', entry.title, 'trickcal-announcement-history-title');
+      entry.items.forEach(text => appendElement(details, 'p', text, 'trickcal-announcement-history-paragraph'));
+      if (Array.isArray(entry.historicalNotes) && entry.historicalNotes.length) {
+        const notes = appendElement(details, 'aside', undefined, 'trickcal-announcement-history-notes');
+        appendElement(notes, 'h4', '更新当時の注記');
+        const list = appendElement(notes, 'ul');
+        entry.historicalNotes.forEach(text => appendElement(list, 'li', text));
+      }
+      return item;
+    }
+
+    function renderHistorySection(parent, { key, title, entries, initialVisible, firstMoreLabel }) {
+      const section = appendElement(parent, 'section', undefined, `trickcal-announcement-history-section is-${key}`);
+      appendElement(section, 'h3', title, 'trickcal-announcement-section-title');
+      if (!entries.length) {
+        appendElement(section, 'p', 'この区分の更新履歴はありません。', 'trickcal-announcement-history-empty');
+        return;
+      }
+      const listId = `trickcal-announcement-history-${key}-list`;
+      const list = appendElement(section, 'ol', undefined, 'trickcal-announcement-history-list');
+      list.id = listId;
+      const live = appendElement(section, 'span', '', 'trickcal-announcement-history-live');
+      live.setAttribute('aria-live', 'polite');
+      live.setAttribute('aria-atomic', 'true');
+      let shown = Math.min(
+        Math.max(initialVisible, Number(historyVisibleCounts[key] || initialVisible)),
+        entries.length
+      );
+      historyVisibleCounts[key] = shown;
+      entries.slice(0, shown).forEach(entry => appendHistoryEntry(list, entry));
+      if (shown >= entries.length) return;
+      const moreLabel = shown > initialVisible ? 'もっと見る' : firstMoreLabel;
+      const more = appendElement(section, 'button', moreLabel, 'trickcal-announcement-history-more');
+      more.type = 'button';
+      more.dataset.historyLoadMore = key;
+      more.setAttribute('aria-controls', listId);
+      more.addEventListener('click', () => {
+        const nextShown = Math.min(shown + 5, entries.length);
+        const addedItems = entries.slice(shown, nextShown).map(entry => appendHistoryEntry(list, entry));
+        const added = nextShown - shown;
+        shown = nextShown;
+        historyVisibleCounts[key] = shown;
+        live.textContent = `${added}件を追加しました。${shown} / ${entries.length}件を表示中です。`;
+        const allShown = shown >= entries.length;
+        more.textContent = allShown ? '' : 'もっと見る';
+        more.hidden = allShown;
+        if (allShown) {
+          const firstNewSummary = addedItems[0]?.querySelector?.('summary');
+          if (firstNewSummary) firstNewSummary.focus?.();
+        } else if (documentObject.activeElement !== more) {
+          more.focus?.();
+        }
+      });
+    }
+
     function renderList() {
       if (!dialogBody) return;
       currentView = 'list';
       setDialogTitle('お知らせ');
       dialogBody.replaceChildren?.();
-      appendElement(dialogBody, 'p', '最新のお知らせと移行案内です。', 'trickcal-announcements-intro');
-      const list = appendElement(dialogBody, 'div', undefined, 'trickcal-announcements-list');
-      articles().forEach(article => {
-        const item = appendElement(list, 'article', undefined, 'trickcal-announcement-card');
-        const button = appendElement(item, 'button', undefined, 'trickcal-announcement-card-button');
-        button.type = 'button';
-        button.dataset.articleId = article.id;
-        const meta = appendElement(button, 'span', `${article.date} · ${article.category}`, 'trickcal-announcement-meta');
-        meta.setAttribute('aria-hidden', 'true');
-        appendElement(button, 'strong', article.title, 'trickcal-announcement-title');
-        appendElement(button, 'span', article.summary, 'trickcal-announcement-summary');
-        if (!isRead(article.id)) appendElement(button, 'span', '未読', 'trickcal-announcement-unread');
-        button.addEventListener('click', () => openArticleById(article.id));
-      });
-      if (!articles().length) appendElement(list, 'p', '現在表示できるお知らせはありません。', 'trickcal-announcements-empty');
+      dialogBody.dataset.announcementView = 'list';
+      renderImportantArticle(dialogBody);
+      const historyScroll = appendElement(dialogBody, 'div', undefined, 'trickcal-announcement-history-scroll');
+      const history = validatedHistoryEntries();
+      if (!history.ok) {
+        appendElement(historyScroll, 'p', '更新履歴を現在表示できません。', 'trickcal-announcement-history-unavailable');
+      } else {
+        const gameEntries = history.entries.filter(entry => entry.category === 'game-data');
+        const siteEntries = history.entries.filter(entry => entry.category === 'feature' || entry.category === 'fix');
+        renderHistorySection(historyScroll, {
+          key: 'game-data',
+          title: 'ゲームデータ更新',
+          entries: gameEntries,
+          initialVisible: 1,
+          firstMoreLabel: '過去の更新を見る'
+        });
+        renderHistorySection(historyScroll, {
+          key: 'site-updates',
+          title: 'サイトの更新履歴',
+          entries: siteEntries,
+          initialVisible: 3,
+          firstMoreLabel: 'もっと見る'
+        });
+      }
+      const otherArticles = articles().filter(article => article.id !== MIGRATION_ARTICLE_ID);
+      if (otherArticles.length) {
+        const section = appendElement(historyScroll, 'section', undefined, 'trickcal-announcements-list');
+        appendElement(section, 'h3', 'その他のお知らせ', 'trickcal-announcement-section-title');
+        otherArticles.forEach(article => renderCurrentArticleCard(section, article));
+      }
     }
 
     function renderArticle(article, auto = false) {
       if (!dialogBody || !article) return false;
       currentView = 'article';
+      dialogBody.dataset.announcementView = 'article';
       currentAuto = auto ? article : null;
       setDialogTitle(article.title);
       dialogBody.replaceChildren?.();
@@ -684,7 +956,9 @@
         });
       }
       appendDismissControl(dialogBody, article);
-      if (!auto) markRead(article.id);
+      if (!auto && !markRead(article.id)) {
+        appendElement(dialogBody, 'p', 'この記事を既読にしましたが、既読状態を保存できませんでした。', 'trickcal-announcement-storage-unavailable');
+      }
       return true;
     }
 
@@ -703,6 +977,7 @@
     function renderGuide() {
       if (!dialogBody) return false;
       currentView = 'guide';
+      dialogBody.dataset.announcementView = 'guide';
       currentAuto = null;
       setDialogTitle('保存データの移行方法');
       dialogBody.replaceChildren?.();
@@ -806,6 +1081,7 @@
       if (!dialog || dialog.open) return false;
       lastTrigger = source || trigger;
       currentAuto = null;
+      historyVisibleCounts = Object.create(null);
       renderList();
       openDialog();
       focusDialogStart();
@@ -845,6 +1121,9 @@
         target.setAttribute('title', unreadCount > 0 ? `お知らせ（未読${unreadCount}件）` : 'お知らせ');
         const unreadIndicator = target.querySelector?.('.trickcal-announcements-follow-unread');
         if (unreadIndicator) unreadIndicator.hidden = unreadCount <= 0;
+      });
+      documentObject?.querySelectorAll?.('[data-announcement-unread-id]')?.forEach?.(marker => {
+        marker.hidden = isRead(marker.dataset.announcementUnreadId);
       });
     }
 
@@ -950,7 +1229,7 @@
         dialog.addEventListener?.('close', handleDialogClosed);
         dialog.addEventListener?.('keydown', event => {
           if (event.key !== 'Tab') return;
-          const candidates = Array.from(dialog.querySelectorAll?.(FOCUSABLE_SELECTOR) || []);
+          const candidates = getFocusableCandidates(dialog);
           if (!candidates.length) return;
           const first = candidates[0];
           const last = candidates[candidates.length - 1];
@@ -1043,6 +1322,7 @@
     function initialize() {
       if (initialized || !documentObject?.body) return false;
       state = readPersistedState();
+      if (storageFallback) showStorageWarning('通知状態を読み込めませんでした。既読・非表示の変更は保存できません。');
       createDialog();
       bindTopbarTrigger();
       createFollowBar();
@@ -1053,6 +1333,13 @@
       }
       bindBackupController();
       initialized = true;
+      if (typeof windowObject.addEventListener === 'function') {
+        windowObject.addEventListener('storage', event => {
+          if (event?.key !== NOTICE_STORAGE_KEY && event?.key !== null) return;
+          refreshPersistedState();
+        });
+        windowObject.addEventListener('trickcal-storage-resumed', refreshPersistedState);
+      }
       refreshUnread();
       updateDisplaySettings();
       openMigrationGuideEntry();
