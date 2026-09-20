@@ -1,6 +1,6 @@
 # Trickcal Manager 現在地
 
-## 現在：管理画面カード画像先読み404修正の対象限定公開中（2026-09-20）
+## 現在：管理画面カード画像先読み404修正を新旧公開済み・xlsx復元待ち（2026-09-20）
 
 ### 修正
 
@@ -14,9 +14,16 @@
 - ブラウザーが求めた非カード404は `/favicon.ico` のみ（new 3件、legacy 3件）。今回のカード先読み修正対象外。要求ログは `tmp/card-preload-browser-20260920`、生成出力とcheck recordは `tmp/publication-card-manager-preload-20260920-02-*`。テストサーバーPID 30072／18508は停止済み、8871／8872はlistenなし。
 - 構文check、`git diff --check` 成功。編集前backupのコピーとSHA-256一致を確認し、台帳は `D:/Games/etc/trickcal/backups/card-manager-preload-404-20260920-112432/backup-manifest.txt`。
 
+### 公開
+
+- source commit `22a78aab7cd0690c30407c59eb5a1314b1e09903`（`fix: resolve card manager preload asset URLs`）をrelease-source限定でpush。candidate `84f8cbb3aa3e3cdd`、content digest `227c1438519c8b63bc87a0d3f655014bc1bd9e27de60834777456e0a1f69ea1a`、bundle `tmp/publication-card-manager-preload-20260920-03.json`。
+- new artifact `df5c0697b27da2a825be9c7b418f4b3d8eeac267`、output digest `17417f68042902f0`、[run 35491038493](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35491038493)。legacy artifact `a4e336e91fd15be3ffd711945a8e71a8f3cd1a2a`、output digest `f40d612e716124fe`、[run 35491218676](https://github.com/innocentroad/trickcal-manager/actions/runs/35491218676)。通常のdeployment承認後に両方成功。両identityでcandidate/source/profile/content digest/release ID一致。
+- v2 receipts: `tmp/delivery-84f8cbb3aa3e3cdd-new-f8e9364888cb.json`、`tmp/delivery-84f8cbb3aa3e3cdd-legacy-d10d9eaf205f.json`。公開記録: `backups/publication-history/84f8cbb3aa3e3cdd-{new,legacy}.json`。
+- ジョアン仮データのxlsxは候補に含まれないことをprepare結果・dry-run・生成artifact一覧で確認。公開後の実画面ではnew／legacyの遺物・スペル表示とカテゴリ切替が正常で、カード画像が表示された。公開URL・identity・代表画像のHTTP 200も確認。公開サイトのDevTools Network詳細ログは取得できておらず、実画面の描画および直接HTTP確認と、公開前の隔離ローカルNetwork検査（各profile 95要求、カード404／誤ったmanager/img要求0件）を区別する。非カードfavicon 404は対象外。
+
 ### 残件
 
-- source対象限定commit・pushとdual公開を実施中。ジョアン仮データ入りxlsxは公開に混ぜず、SHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`のrepo外backupおよびstash `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`で保全。公開・記録完了後に復元する。
+- 公開結果のGOAL／STATUS／履歴記録commit・push後、ジョアン仮データ入りxlsxをstash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`指定でapplyする。復元前のhash照合、復元後にSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`と未commit差分を確認し、stash・外部backupを保持する。外部backup: `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。
 - Search Consoleは利用者報告で所有権確認済み、manager／calc登録リクエスト送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回の作業ではSearch Console自体を操作しない。
 
 ## Search Console所有権確認ファイル公開（2026-09-20）

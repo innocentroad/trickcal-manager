@@ -2,13 +2,14 @@
 
 更新日: 2026-09-20
 
-## 現在の目標：管理画面カード先読み404修正の対象限定公開（2026-09-20）
+## 現在の目標：管理画面カード先読み404修正を新旧公開済み・xlsx復元待ち（2026-09-20）
 
 - 管理画面カード画像先読みの404をローカル修正。`stat-prototype.js`は`TRICKCAL_PUBLIC_SITE.assetUrl()`でprofile URLを解決してからImageへ設定し、同じ解決済みURLを重複防止キーに使う。runtimeなしは相対pathへfallbackする。
 - 回帰は公開site焦点テストへ統合し、new／legacy／runtimeなし、優先24件、idle／timeout、同一URL重複防止を確認。統合check `card-manager-preload-20260920-02` は成功、`localOnly=true`・`publishable=false`。
 - 生成後ページを隔離ブラウザーで確認：new `http://127.0.0.1:8871/manager/?card=spell`、legacy `http://127.0.0.1:8872/trickcal-manager/stat-dashboard.html?card=spell`。両方で遺物／スペル切替、各95件のカード画像要求、カード404 0件、誤ったmanager/img path 0件。
 - ローカル配信で別途`/favicon.ico`の404あり。カード画像ではなく今回の対象外。実装・焦点テストの編集前backupは `D:/Games/etc/trickcal/backups/card-manager-preload-404-20260920-112432`。
-- 対象限定公開を実施中。ジョアン仮データを含む`tools/trickcal_datasheet.xlsx`は公開対象外として、SHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`のrepo外backupとstash `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`で保全し、公開後にstash applyで復元する。
+- source commit `22a78aab7cd0690c30407c59eb5a1314b1e09903`を対象限定でpushし、candidate `84f8cbb3aa3e3cdd`をnew／legacyへ通常承認後に公開済み。両profileのidentity一致を確認。公開記録は[`カード画像先読み404修正の公開履歴`](docs/history/card-manager-preload-404-publication-2026-09-20.md)。
+- ジョアン仮データ入り`tools/trickcal_datasheet.xlsx`はartifactに含まれず、SHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`のrepo外backupとstash `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`で保全中。公開記録のcommit/push後に、このOIDを指定してapplyし、hash一致と未commit状態を確認する。stashとbackupは保持する。
 
 ## Search Console状態（2026-09-20）
 
