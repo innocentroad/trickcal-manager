@@ -25,9 +25,9 @@
 
 - xlsxのみをstashし、OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f` を記録した。stash内容は `tools/trickcal_datasheet.xlsx` だけで、stash blobと退避前blobは一致。stashはapply後も保全用に残す。
 - repo外backupは `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。`before/` に作業前のxlsx・GOAL・STATUS、`before-publication-result-record/` に公開結果記録前のGOAL・STATUSを保管し、SHA-256一致を記録した。
-- **復元は公開結果の記録commit・push完了後に実施する。** 復元前にxlsxがcleanで退避後編集されていないことを確認し、上記OIDを `git stash apply` で適用する（popしない）。復元後に退避前および外部backupとSHA-256が一致し、xlsxのみ未commit差分となることを確認する。stashとbackupは削除しない。
+- 公開結果記録commit `099fe6e750cbe6e35de3229ed824e8e46cab2089` のpush後、repo内xlsxに変更がなくcleanであることを再確認し、stash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`を `git stash apply` で適用した（popではない）。復元後のrepo内xlsxと外部backupはともにSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`。現在の未commit変更はxlsxのみ。stashとbackupは保持する。
 
 ## Search Consoleと残件
 
 - Search Consoleの操作はしていない。利用者報告の状態は、所有権確認済み、manager／calcの登録リクエスト送信済み、サイトマップ取得エラーは時間を置いて再確認待ち。
-- 本履歴・GOAL／STATUSの結果commit・push後にxlsxを復元する工程が残る。xlsx編集・再生成、他機能、mainへのpushは行っていない。
+- 公開結果記録commitは `099fe6e750cbe6e35de3229ed824e8e46cab2089`。xlsx復元確認をGOAL／STATUS・本履歴へ追記する対象限定記録commitを別途pushするが、公開は再実行しない。xlsx編集・再生成、他機能、mainへのpushは行っていない。

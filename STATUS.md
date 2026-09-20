@@ -1,6 +1,6 @@
 # Trickcal Manager 現在地
 
-## 現在：管理画面カード画像先読み404修正を新旧公開済み・xlsx復元待ち（2026-09-20）
+## 現在：管理画面カード画像先読み404修正を新旧公開済み・xlsx復元確認済み（2026-09-20）
 
 ### 修正
 
@@ -23,7 +23,7 @@
 
 ### 残件
 
-- 公開結果のGOAL／STATUS／履歴記録commit・push後、ジョアン仮データ入りxlsxをstash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`指定でapplyする。復元前のhash照合、復元後にSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`と未commit差分を確認し、stash・外部backupを保持する。外部backup: `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。
+- 公開結果記録commit `099fe6e750cbe6e35de3229ed824e8e46cab2089` をpush後、stash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`をpopせずapply。repo内xlsxと外部backupのSHA-256は `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`で一致し、現在の未commit差分はxlsxだけ。stashとbackupは保持。復元確認を追記した対象限定記録commitをpushし、サイトの再生成・再公開はしない。外部backup: `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。
 - Search Consoleは利用者報告で所有権確認済み、manager／calc登録リクエスト送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回の作業ではSearch Console自体を操作しない。
 
 ## Search Console所有権確認ファイル公開（2026-09-20）
