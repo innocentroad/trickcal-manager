@@ -9,7 +9,7 @@
 - 生成後ページを隔離ブラウザーで確認：new `http://127.0.0.1:8871/manager/?card=spell`、legacy `http://127.0.0.1:8872/trickcal-manager/stat-dashboard.html?card=spell`。両方で遺物／スペル切替、各95件のカード画像要求、カード404 0件、誤ったmanager/img path 0件。
 - ローカル配信で別途`/favicon.ico`の404あり。カード画像ではなく今回の対象外。実装・焦点テストの編集前backupは `D:/Games/etc/trickcal/backups/card-manager-preload-404-20260920-112432`。
 - source commit `22a78aab7cd0690c30407c59eb5a1314b1e09903`を対象限定でpushし、candidate `84f8cbb3aa3e3cdd`をnew／legacyへ通常承認後に公開済み。両profileのidentity一致を確認。公開記録は[`カード画像先読み404修正の公開履歴`](docs/history/card-manager-preload-404-publication-2026-09-20.md)。
-- 記録commit `099fe6e750cbe6e35de3229ed824e8e46cab2089` を `release-source` へpush後、stash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`をpopせずapplyした。repo内xlsxはrepo外backupとSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`で一致し、未commit変更として復元済み。stash・backupは保持する。復元確認の記録も同branchへpushし、サイトは再公開しない。
+- 記録commit `099fe6e750cbe6e35de3229ed824e8e46cab2089` を `release-source` へpush後、stash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`をpopせずapplyした。repo内xlsxはrepo外backupとSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`で一致し、未commit変更として復元済み。stash・backupは保持する。復元確認も別のdocs-only記録commitでpush済み。サイトは再公開していない。
 
 ## Search Console状態（2026-09-20）
 

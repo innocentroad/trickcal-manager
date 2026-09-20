@@ -30,4 +30,4 @@
 ## Search Consoleと残件
 
 - Search Consoleの操作はしていない。利用者報告の状態は、所有権確認済み、manager／calcの登録リクエスト送信済み、サイトマップ取得エラーは時間を置いて再確認待ち。
-- 公開結果記録commitは `099fe6e750cbe6e35de3229ed824e8e46cab2089`。xlsx復元確認をGOAL／STATUS・本履歴へ追記する対象限定記録commitを別途pushするが、公開は再実行しない。xlsx編集・再生成、他機能、mainへのpushは行っていない。
+- 公開結果記録commitは `099fe6e750cbe6e35de3229ed824e8e46cab2089`。xlsx復元確認もGOAL／STATUS・本履歴へ反映し、別のdocs-only記録commitとしてpushした。再公開はしていない。xlsx編集・再生成、他機能、mainへのpushは行っていない。

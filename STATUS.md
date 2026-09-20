@@ -21,10 +21,14 @@
 - v2 receipts: `tmp/delivery-84f8cbb3aa3e3cdd-new-f8e9364888cb.json`、`tmp/delivery-84f8cbb3aa3e3cdd-legacy-d10d9eaf205f.json`。公開記録: `backups/publication-history/84f8cbb3aa3e3cdd-{new,legacy}.json`。
 - ジョアン仮データのxlsxは候補に含まれないことをprepare結果・dry-run・生成artifact一覧で確認。公開後の実画面ではnew／legacyの遺物・スペル表示とカテゴリ切替が正常で、カード画像が表示された。公開URL・identity・代表画像のHTTP 200も確認。公開サイトのDevTools Network詳細ログは取得できておらず、実画面の描画および直接HTTP確認と、公開前の隔離ローカルNetwork検査（各profile 95要求、カード404／誤ったmanager/img要求0件）を区別する。非カードfavicon 404は対象外。
 
+### 作業ツリー・保全
+
+- ジョアン仮データ入りxlsxをstash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`からpopせずapplyし、外部backupとSHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`で一致。現在の未commit差分はxlsxだけ。stashとbackupは保持する。公開結果・復元結果の記録commitをpush済み。サイト再生成・再公開はしていない。外部backup: `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。
+
 ### 残件
 
-- 公開結果記録commit `099fe6e750cbe6e35de3229ed824e8e46cab2089` をpush後、stash OID `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`をpopせずapply。repo内xlsxと外部backupのSHA-256は `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`で一致し、現在の未commit差分はxlsxだけ。stashとbackupは保持。復元確認を追記した対象限定記録commitをpushし、サイトの再生成・再公開はしない。外部backup: `D:/Games/etc/trickcal/backups/card-preload-publication-20260920-140351`。
 - Search Consoleは利用者報告で所有権確認済み、manager／calc登録リクエスト送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回の作業ではSearch Console自体を操作しない。
+- 公開後の画面描画と直接HTTP 200は確認したが、公開サイトでDevTools Network全要求ログは取得していない。公開前の隔離ローカルNetworkでは両profile各95カード要求、カード404および誤った`manager/img`要求0件を確認済み。
 
 ## Search Console所有権確認ファイル公開（2026-09-20）
 
