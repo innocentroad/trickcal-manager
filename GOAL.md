@@ -2,15 +2,15 @@
 
 更新日: 2026-09-20
 
-## 現在の目標：SEO canonical移行の対象限定公開完了（Search Console確認待ち、2026-09-20）
+## 現在の目標：Search Console所有権確認ファイル公開済み（利用者の確認操作待ち、2026-09-20）
 
-- 正式rootは `D:/Games/etc/trickcal/trickcal-manager`、通常branchは `release-source`。SEO実装source commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` はtopic branchからfast-forward統合し、release-sourceだけへpushした。一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` を含む。
-- 現indexableなmanager／calc／share／dataの4 routeについて、new／legacy双方の公開HTMLでrel=canonicalが対応するnew絶対URLへ1件設定され、query/hashなしであることを確認。旧profileのOG URL・通常routeは旧profileを維持し、旧managerは強制転送されず、バックアップ操作入口へ到達できる。
-- 同一candidate `be9009c3d14f909a` をnew／legacyへ公開し、両run成功・identity一致を確認。公開記録・bundle・receipt・artifact/run情報は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)を参照。
-- **SEO実装の対象限定commit・統合・push・dual公開は完了。** Search Consoleのproperty／sitemap受付と、検索エンジンが選ぶcanonicalは未確認。ライブのrobots.txt／sitemap.xmlはこの確認環境から取得できず、公開後の当該2 endpointの直接確認は未完了として残す。生成時の焦点検査は成功済み。
-- xlsx編集・再生成、main-only機能の取り込み、旧worktree／stash／backupの削除、Search Console操作は行っていない。未公開・保留案件は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照。
+- 正式rootは `D:/Games/etc/trickcal/trickcal-manager`、通常branchは `release-source`。SEO canonical移行は先行source commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` で統合・公開済み。
+- Search Console確認ファイル `google4e94c2b3cb5b1c67.html` をnew専用manifest assetとして追加し、source commit `a30f74a3a6f011098cd7aaacce162e0220256579` を `release-source` へpushした。candidate `c92151ac342a7116` をdual公開し、new／legacy両run成功・identity一致。
+- new URLはHTTP 200、リダイレクトなし、53 bytesで入力とSHA-256一致。legacy生成物にファイルはなく、legacy URLは404。sitemapには含めていない。
+- Search Consoleにはアクセス・操作していない。所有権の確認成功は未確定で、利用者がSearch Consoleの「確認」を押す必要がある。確認後もファイルとnew専用manifest登録を削除せず保持する。
+- 詳細なsource/artifact commit、bundle、receipt、run、確認証拠は[所有権確認ファイル公開履歴](docs/history/search-console-ownership-asset-publication-2026-09-20.md)。SEO canonicalの公開記録は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)。未公開・保留案件は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照。
 
-ローカル実装・検証は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、公開・公開確認は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)、一本化と切り戻し設計は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)、移行証拠は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
+SEOローカル実装は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、作業場所一本化は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)と[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
 
 ## 履歴：移行前のGoal詳細（現在の作業指示ではない）
 

@@ -1,6 +1,6 @@
 # Trickcal Manager 現在地
 
-## 現在：SEO canonical移行のdual公開完了（Search Console確認待ち、2026-09-20）
+## 現在：Search Console所有権確認ファイル公開済み（利用者の確認操作待ち、2026-09-20）
 
 ### 完了済み
 
@@ -10,13 +10,16 @@
 - data詳細のnoindex、旧profileの通常リンク・資材・バックアップ導線、index aliasと互換redirectのquery/hash、Service Workerのscope／更新方式を維持。
 - candidate `be9009c3d14f909a` は同一source commitから生成。new artifact `e0da6dfba84ec9206daa0c359a909f5ac62330cd`・run [35478118808](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35478118808)、legacy artifact `7732004a19f79df041e2a7ea08011a2235322e9f`・run [35478300622](https://github.com/innocentroad/trickcal-manager/actions/runs/35478300622) は成功し、通常のdeployment承認とidentity照合を完了。
 - 公開後、new／legacy manager／calc／share／dataの8ページでcanonicalが各対応new URLに1件、query/hashなしを確認。OG URL・通常遷移はprofile別。legacy managerは旧URLに留まり、バックアップ操作入口へ到達した。保存・復元・importは実行していない。
+- Search Console確認ファイル `google4e94c2b3cb5b1c67.html` は明示asset `kind=file, profiles=["new"]` として登録し、source commit `a30f74a3a6f011098cd7aaacce162e0220256579` をpush。candidate `c92151ac342a7116`、content digest `8493662c17b34ff67f44def1d6bd33fb7d11e30d3630cb4efdf14f8b2e972113`。
+- new artifact `9f55704c0258ee5d0730b3631035d27fdd3620fb`／[run 35481810870](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35481810870)、legacy artifact `c9bb84bec4d722086763d2bd6d96fd4bb5149770`／[run 35482131893](https://github.com/innocentroad/trickcal-manager/actions/runs/35482131893)。通常のdeployment承認後、両方published・identity一致。同一candidateでnew成功後にlegacyを公開。
+- 公開URL `https://trickcal.irlab.dev/google4e94c2b3cb5b1c67.html` は直接GETでHTTP 200、Locationなし、本文53 bytes・SHA-256一致。legacy生成物には含まれず、旧URLは404。new sitemapにも未掲載。Search Consoleの「確認」操作は利用者待ちであり、所有権確認成功とは記録しない。確認後もファイルを残す。
 
 ### 残件・未確認
 
-- SEOの対象限定commit・release-source統合／push・new／legacy公開は完了。Search Consoleのproperty／sitemap受付、検索エンジン採用canonical、外部被リンクは未確認。公開後のrobots.txt／sitemap.xmlは確認環境の取得制約で直接確認できず、生成焦点検査の成功と区別して残す。
+- 所有権確認ファイルの対象限定commit・push・dual公開とHTTP／本文照合は完了。Search Consoleの「確認」ボタン、property／sitemap受付、検索エンジン採用canonical、外部被リンクは未確認。公開後のrobots.txt／sitemap.xml直接確認は以前の制約による未確認として残す。
 - 初回統合checkは旧HTTP検査の「legacyに新Originが一切ない」前提と、sitemapテストのXML宣言に対する過剰なquery判定で失敗した。前提をcanonicalと各`<loc>`へ限定し、再checkは成功。生成器がasset profile指定を無視していたため、manifestの明示制限を守る局所修正も含む。
 - 一本化commit `f59ffaa` は完了済み。旧worktree、main安全ref、stash、repo外backupは引き続き保全。xlsx編集／再生成、main-only機能取り込み、workflow／DNS／保護設定変更なし。
-- 実装・検証と編集前backupは[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、source／artifact commit・bundle／receipt・run・公開後確認は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)。
+- 実装・検証と編集前backupは[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、canonical公開は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)、確認ファイルのsource／artifact commit・bundle／receipt・run・HTTP確認と編集前backupは[所有権確認ファイル公開履歴](docs/history/search-console-ownership-asset-publication-2026-09-20.md)。
 
 ## 履歴：レビュー済み3系統の対象限定公開完了（2026-09-19、移行開始時点）
 
