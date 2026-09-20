@@ -6711,12 +6711,13 @@
     const warmOne = (card, index) => {
       const priority = getCardManagerImagePriority(index);
       [getCardManagerRarityFrame(card), getCardManagerImagePath(card)].filter(Boolean).forEach(src => {
-        if (cache.has(src)) return;
+        const resolvedSrc = window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(src) || src;
+        if (cache.has(resolvedSrc)) return;
         const image = new Image();
         image.decoding = 'async';
         image.fetchPriority = priority.fetchPriority;
-        image.src = src;
-        cache.set(src, image);
+        image.src = resolvedSrc;
+        cache.set(resolvedSrc, image);
       });
     };
     rows.slice(0, 24).forEach(warmOne);
