@@ -1,6 +1,6 @@
 # 作業ソース一本化・SEO再開の調査と移行案
 
-2026-09-19作成、2026-09-20移行実行・追補。正式な編集場所はrepo直下 `D:/Games/etc/trickcal/trickcal-manager`。一本化commit `f59ffaa` は完了し、SEO専用topic branch `topic/seo-canonical-migration` でローカル実装・検証済み、レビュー／公開待ち。旧 `tmp/release-source` は編集禁止のparked worktreeとして残す。new／legacy profileの移行画面確認と今回のSEO代表ページ確認の証拠は[移行履歴](history/source-worktree-unification-2026-09-20.md)および[SEO実装履歴](history/seo-canonical-migration-local-2026-09-20.md)を参照。全画像のnaturalWidth総点検、Search Console、公開反映は未実施。旧worktree撤去・main-only変更の統合も未実施。
+2026-09-19作成、2026-09-20移行実行・追補。正式な編集場所はrepo直下 `D:/Games/etc/trickcal/trickcal-manager`。一本化commit `f59ffaa` は完了し、SEO専用topic branchの実装はsource commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` として `release-source` へ統合・push後、new／legacy双方へ公開済み。旧 `tmp/release-source` は編集禁止のparked worktreeとして残す。ローカル実装は[SEO実装履歴](history/seo-canonical-migration-local-2026-09-20.md)、公開と公開後確認は[SEO公開履歴](history/seo-canonical-migration-publication-2026-09-20.md)、一本化証拠は[移行履歴](history/source-worktree-unification-2026-09-20.md)を参照。Search Console、公開後robots.txt／sitemap.xmlの直接取得は未確認。旧worktree撤去・main-only変更の統合も未実施。
 
 ## 結論と運用方針
 
@@ -213,8 +213,8 @@ mainの復元では、`main`本来のbranch tipと `safety/unification/<ID>/main
 2. `release-source-published` の354行規模のapostle data差分とstatData差分を意図した次期データ更新とみなすか。生成の再現性・データ承認なしに取り込まない。
 3. 更新済み `trickcal_skillmotion.xlsx` と `img/equipicons/Design/` を将来の対象に含めるか、workflow/push補助のdirtyをどう扱うか。
 4. detached snorky worktreeを用途確認後にいつ終了するか。並行作業を継続する限りはtemporary worktreeとして扱い、恒常sourceにはしない。
-5. SEOのlocal生成検査によりcanonicalとprofile別OG／structured dataの分離方針は確認済み。公開するかは別途レビュー・承認し、Search Console操作は権限・実施者を含め別途合意する。
+5. SEO canonical移行はdual公開済み。Search Consoleのproperty／sitemap受付・URL検査は、権限・実施者を含め別途合意して行う。robots.txt／sitemap.xmlの公開Originからの直接取得も確認環境の制約が解消してから補完する。
 
 ## 調査時点の未実施事項と移行後の現在地
 
-初回調査後の2026-09-20に一本化と画面確認を完了し、移行記録commit `f59ffaa` を作成した。今回、同commitを基点とするSEO専用topic branchでlocal実装・焦点検証・new／legacy manager/calcの代表画面確認を完了した。SEO差分は未commit・未公開でレビュー待ち。記録は[移行履歴](history/source-worktree-unification-2026-09-20.md)と[SEO実装履歴](history/seo-canonical-migration-local-2026-09-20.md)。Search Console、workflow/DNS/protection変更、旧worktree撤去、stash削除、xlsx編集／生成は未実施。
+初回調査後の2026-09-20に一本化と画面確認を完了し、移行記録commit `f59ffaa` を作成した。SEO専用topic branchの実装はsource commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` として対象限定統合・pushされ、同一candidateのnew／legacy公開まで完了した。Search Console、公開後robots.txt／sitemap.xml直接取得、workflow/DNS/protection変更、旧worktree撤去、stash削除、xlsx編集／生成は未実施。実行記録は[移行履歴](history/source-worktree-unification-2026-09-20.md)、[SEOローカル実装履歴](history/seo-canonical-migration-local-2026-09-20.md)、[SEO公開履歴](history/seo-canonical-migration-publication-2026-09-20.md)。

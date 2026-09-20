@@ -1,6 +1,6 @@
 # SEO canonical移行：ローカル実装・検証記録
 
-更新日: 2026-09-20。正式root一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` を基点に、`topic/seo-canonical-migration` で行ったローカル変更を記録する。SEO差分は未commit・未push・未公開で、レビュー待ち。
+更新日: 2026-09-20。正式root一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` を基点に、`topic/seo-canonical-migration` で行ったローカル変更を記録する。本書の「未commit・未push・未公開」「次の工程」はローカル実装終了時点の記録であり、その後の対象限定commit・統合・dual公開結果は[SEO公開履歴](seo-canonical-migration-publication-2026-09-20.md)を参照。
 
 ## 実装範囲
 
@@ -61,4 +61,4 @@
 
 ## 次の工程
 
-現状はローカル実装済み・レビュー待ち。対象限定commit／push／公開は別途承認後に既存publication runbookで行う。公開後にSearch Consoleの既存property、sitemap読込、代表URL検査を別途確認する。旧Originの通常利用と保存・バックアップ導線は維持する。
+この記述はローカル検証終了時点の次工程を記録したもの。対象限定commit／統合／pushとdual公開は後続作業で完了した（[SEO公開履歴](seo-canonical-migration-publication-2026-09-20.md)）。Search Consoleの既存property、sitemap受付、URL検査は別工程で未実施。旧Originの通常利用と保存・バックアップ導線は維持している。

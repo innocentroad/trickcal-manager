@@ -1,22 +1,22 @@
 # Trickcal Manager 現在地
 
-## 現在：SEO canonical移行のローカル実装・検証完了（レビュー／公開待ち、2026-09-20）
+## 現在：SEO canonical移行のdual公開完了（Search Console確認待ち、2026-09-20）
 
 ### 完了済み
 
-- 正式root `D:/Games/etc/trickcal/trickcal-manager`、branch `topic/seo-canonical-migration`。基点は一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb`。SEO差分は未commit。
+- 正式root `D:/Games/etc/trickcal/trickcal-manager`、branch `release-source`。一本化commit `f59ffaa` を含むSEO source commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` を対象限定で統合・push済み。
 - indexableなmanager／calc／share／dataだけに `canonicalProfile: new` を設定。new／legacy双方でrel=canonicalが対応するnew絶対URLに1件となり、query/hashを含まない。
 - 生成器でSEO canonical URLと提供profileのpage URLを分離。OG URL、JSON-LD、通常route URLはprofile別の従来値を保持。manifestのasset profile制限を生成時にも尊重し、new専用sitemap／robotsをlegacy出力へ複製しない。
 - data詳細のnoindex、旧profileの通常リンク・資材・バックアップ導線、index aliasと互換redirectのquery/hash、Service Workerのscope／更新方式を維持。
-- `node tools/test-seo-canonical-migration.js`、対象JS構文、`git diff --check`成功。統合 `node tools/public-site-publication.js check --name seo-canonical-local-20260920-r3` は `ok:true`、`localOnly:true`、`publishable:false`。出力は`tmp/publication-seo-canonical-local-20260920-r3-output`。
-- 生成後ページをブラウザーで確認。new manager/calcはnew URL、legacy manager/calcは`/trickcal-manager/...`に留まり、canonicalのみnew URL。表示範囲の使徒画像を確認。legacy managerでセーブ／ロード欄を開き「バックアップ保存」等の入口が表示されることを確認したが、保存・復元・importは実行していない。
+- candidate `be9009c3d14f909a` は同一source commitから生成。new artifact `e0da6dfba84ec9206daa0c359a909f5ac62330cd`・run [35478118808](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35478118808)、legacy artifact `7732004a19f79df041e2a7ea08011a2235322e9f`・run [35478300622](https://github.com/innocentroad/trickcal-manager/actions/runs/35478300622) は成功し、通常のdeployment承認とidentity照合を完了。
+- 公開後、new／legacy manager／calc／share／dataの8ページでcanonicalが各対応new URLに1件、query/hashなしを確認。OG URL・通常遷移はprofile別。legacy managerは旧URLに留まり、バックアップ操作入口へ到達した。保存・復元・importは実行していない。
 
-### レビュー・公開待ちと未確認
+### 残件・未確認
 
-- SEOのローカル実装・焦点検証・代表画面確認は完了。commit・push・公開は未実施で、公開は別工程。Search Consoleの現状、公開後の検索エンジン採用canonical、外部被リンクの更新は未確認。
+- SEOの対象限定commit・release-source統合／push・new／legacy公開は完了。Search Consoleのproperty／sitemap受付、検索エンジン採用canonical、外部被リンクは未確認。公開後のrobots.txt／sitemap.xmlは確認環境の取得制約で直接確認できず、生成焦点検査の成功と区別して残す。
 - 初回統合checkは旧HTTP検査の「legacyに新Originが一切ない」前提と、sitemapテストのXML宣言に対する過剰なquery判定で失敗した。前提をcanonicalと各`<loc>`へ限定し、再checkは成功。生成器がasset profile指定を無視していたため、manifestの明示制限を守る局所修正も含む。
 - 一本化commit `f59ffaa` は完了済み。旧worktree、main安全ref、stash、repo外backupは引き続き保全。xlsx編集／再生成、main-only機能取り込み、workflow／DNS／保護設定変更なし。
-- 詳細証拠・ローカル確認URL・対象ファイルのSHA-256 backup一覧は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)。
+- 実装・検証と編集前backupは[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、source／artifact commit・bundle／receipt・run・公開後確認は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)。
 
 ## 履歴：レビュー済み3系統の対象限定公開完了（2026-09-19、移行開始時点）
 
