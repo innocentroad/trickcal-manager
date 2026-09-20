@@ -298,6 +298,7 @@
     { "source": "ico.webp", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "robots.txt", "kind": "file", "profiles": ["new"] },
     { "source": "sitemap.xml", "kind": "file", "profiles": ["new"] },
+    { "source": "google4e94c2b3cb5b1c67.html", "kind": "file", "profiles": ["new"] },
     { "source": "app-cache.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements-release-config.js", "kind": "file", "profiles": ["new", "legacy"] },
     { "source": "announcements-data.js", "kind": "file", "profiles": ["new", "legacy"] },

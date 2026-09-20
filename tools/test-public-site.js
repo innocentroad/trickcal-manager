@@ -267,6 +267,14 @@ function run(options = {}) {
   const validation = validateManifest(manifest, { repoRoot });
   assert.strictEqual(validation.ok, true, validation.errors.join('\n'));
   const plan = buildPlan(manifest, { repoRoot, outputDir: path.join(repoRoot, 'tmp', 'public-site-test') });
+  const ownershipFile = 'google4e94c2b3cb5b1c67.html';
+  const ownershipAsset = manifest.assets.find(asset => asset.source === ownershipFile);
+  assert.deepStrictEqual(ownershipAsset, { source: ownershipFile, kind: 'file', profiles: ['new'] });
+  assert(!manifest.routes.some(route => route.source === ownershipFile), 'ownership file is an explicit asset, not a route');
+  const ownershipEntries = plan.entries
+    .filter(entry => entry.type === 'asset' && entry.source === ownershipFile)
+    .map(({ profile, outputRel }) => ({ profile, outputRel }));
+  assert.deepStrictEqual(ownershipEntries, [{ profile: 'new', outputRel: ownershipFile }]);
   const manager = plan.entries.find(entry => entry.profile === 'new' && entry.routeId === 'manager' && entry.role === 'canonical');
   const managerIndex = plan.publicPaths.get('new:/manager/index.html');
   assert(manager && manager.outputRel === 'manager/index.html');
@@ -298,6 +306,11 @@ function run(options = {}) {
     assert(generated.outputDigest);
     assertCanonicalProfileOutputs(testOutput, plan, manifest);
     const files = outputFiles(testOutput);
+    const ownershipSourceBytes = fs.readFileSync(path.join(repoRoot, ownershipFile));
+    const ownershipOutputBytes = fs.readFileSync(path.join(testOutput, ownershipFile));
+    assert.deepStrictEqual(ownershipOutputBytes, ownershipSourceBytes, 'new profile preserves the ownership file byte-for-byte');
+    assert(!files.includes(`trickcal-manager/${ownershipFile}`), 'legacy profile excludes the ownership verification file');
+    assert(!readOutputText(testOutput, 'sitemap.xml').includes(ownershipFile), 'ownership file is not added to the sitemap');
     for (const expected of [
       'index.html',
       'manager/index.html',
@@ -434,7 +447,7 @@ function run(options = {}) {
     if (!reuseGenerated) fs.rmSync(testOutput, { recursive: true, force: true });
   }
   testReleaseVersioning(repoRoot);
-  return { schema: true, routes: true, aliases: true, targets: true, collisionGuards: true, explicitOutput: true, releaseVersioning: true };
+  return { schema: true, routes: true, aliases: true, targets: true, collisionGuards: true, explicitOutput: true, ownershipAsset: true, releaseVersioning: true };
 }
 
 if (require.main === module) console.log('public site tests passed: ' + JSON.stringify(run()));
