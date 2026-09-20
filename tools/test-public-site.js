@@ -259,6 +259,117 @@ function testRuntimeApi(repoRoot) {
   assert.throws(() => publicSite.assetUrl('../img/test.webp'), /manifest-relative/);
 }
 
+function extractAdjacentFunction(source, name, nextName) {
+  const startMarker = `  function ${name}(`;
+  const endMarker = `\n  function ${nextName}(`;
+  const start = source.indexOf(startMarker);
+  assert.notStrictEqual(start, -1, `${name} exists in stat-prototype.js`);
+  const end = source.indexOf(endMarker, start + startMarker.length);
+  assert.notStrictEqual(end, -1, `${name} ends before ${nextName}`);
+  return source.slice(start + 2, end);
+}
+
+function testCardManagerPreloadUrls(repoRoot) {
+  const appSource = readOutputText(repoRoot, 'stat-prototype.js');
+  const runtimeSource = readOutputText(repoRoot, 'public-site-runtime.js');
+  const preloadFunction = extractAdjacentFunction(appSource, 'warmCardManagerImages', 'getCardManagerImagePriority');
+  const priorityFunction = extractAdjacentFunction(appSource, 'getCardManagerImagePriority', 'revealCardManagerGridWhenReady');
+
+  function createRuntime(profile) {
+    const basePath = profile === 'legacy' ? '/trickcal-manager/' : '/';
+    const sandbox = {
+      URL,
+      window: {
+        location: {
+          pathname: profile === 'legacy' ? '/trickcal-manager/stat-dashboard.html' : '/manager/',
+          origin: 'http://127.0.0.1',
+          href: `http://127.0.0.1${profile === 'legacy' ? '/trickcal-manager/stat-dashboard.html' : '/manager/'}`
+        },
+        TRICKCAL_PUBLIC_SITE_CONFIG: {
+          profile,
+          basePath,
+          assetBasePath: basePath,
+          assetVersion: 'preload-test-v1',
+          routes: { manager: profile === 'legacy' ? '/trickcal-manager/stat-dashboard.html' : '/manager/' },
+          peerRoutes: {},
+          serviceWorker: { script: 'service-worker.js', scope: basePath }
+        }
+      },
+      document: { documentElement: {} },
+      MutationObserver: undefined
+    };
+    vm.runInNewContext(runtimeSource, sandbox);
+    return sandbox.window.TRICKCAL_PUBLIC_SITE;
+  }
+
+  function runPreloadCase({ publicSite, useIdleCallback }) {
+    const requests = [];
+    const idleCallbacks = [];
+    const timeoutCallbacks = [];
+    class FakeImage {
+      set src(value) {
+        this.requestedSrc = value;
+        requests.push({ src: value, fetchPriority: this.fetchPriority });
+      }
+      get src() { return this.requestedSrc; }
+    }
+    const window = {};
+    if (useIdleCallback) {
+      window.requestIdleCallback = (callback, options) => idleCallbacks.push({ callback, options });
+    } else {
+      window.setTimeout = (callback, delay) => timeoutCallbacks.push({ callback, delay });
+    }
+    const sandbox = {
+      Map,
+      Image: FakeImage,
+      window,
+      getCardManagerRarityFrame: card => card.frame,
+      getCardManagerImagePath: card => card.imagePath
+    };
+    vm.runInNewContext(`${priorityFunction}\n${preloadFunction}\nthis.api = warmCardManagerImages;`, sandbox);
+    sandbox.window.TRICKCAL_PUBLIC_SITE = publicSite;
+    const rows = Array.from({ length: 26 }, (_, index) => ({
+      frame: 'img/Card/Card_Legendary.webp',
+      imagePath: `img/Card/Artifact/preload-fixture-${index}.webp`
+    }));
+    sandbox.api(rows);
+    assert.strictEqual(requests.length, 25, 'first 24 cards and their shared frame are warmed immediately');
+    assert(requests.slice(0, 24).every(request => request.fetchPriority === 'high'));
+    if (useIdleCallback) {
+      assert.strictEqual(idleCallbacks.length, 1, 'remaining cards use one idle callback');
+      assert.strictEqual(idleCallbacks[0].options?.timeout, 1200);
+      idleCallbacks[0].callback();
+    } else {
+      assert.strictEqual(timeoutCallbacks.length, 1, 'fallback schedules remaining cards once');
+      assert.strictEqual(timeoutCallbacks[0].delay, 160);
+      timeoutCallbacks[0].callback();
+    }
+    assert.strictEqual(requests.length, 27, 'the remaining two card images are requested once');
+    assert.strictEqual(requests[25].fetchPriority, 'low');
+    assert.strictEqual(requests[26].fetchPriority, 'low');
+    const keys = Array.from(sandbox.api.cache.keys());
+    assert.deepStrictEqual(keys, requests.map(request => request.src), 'preload cache keys equal the actual Image.src values');
+    sandbox.api(rows);
+    if (useIdleCallback) idleCallbacks[1].callback();
+    else timeoutCallbacks[1].callback();
+    assert.strictEqual(requests.length, 27, 'resolved URLs prevent duplicate image requests across repeated warming');
+    return requests.map(request => request.src);
+  }
+
+  const expectedSuffix = '?v=preload-test-v1';
+  const newUrls = runPreloadCase({ publicSite: createRuntime('new'), useIdleCallback: true });
+  assert(newUrls.includes(`/img/Card/Card_Legendary.webp${expectedSuffix}`));
+  assert(newUrls.includes(`/img/Card/Artifact/preload-fixture-0.webp${expectedSuffix}`));
+
+  const legacyUrls = runPreloadCase({ publicSite: createRuntime('legacy'), useIdleCallback: true });
+  assert(legacyUrls.includes(`/trickcal-manager/img/Card/Card_Legendary.webp${expectedSuffix}`));
+  assert(legacyUrls.includes(`/trickcal-manager/img/Card/Artifact/preload-fixture-0.webp${expectedSuffix}`));
+
+  const localFallbackUrls = runPreloadCase({ publicSite: undefined, useIdleCallback: false });
+  assert(localFallbackUrls.includes('img/Card/Card_Legendary.webp'));
+  assert(localFallbackUrls.includes('img/Card/Artifact/preload-fixture-0.webp'));
+}
+
 function run(options = {}) {
   const repoRoot = path.resolve(options.repoRoot || path.join(__dirname, '..'));
   const manifest = options.manifest || readManifest(path.join(repoRoot, 'tools', 'public-route-manifest.json'));
@@ -439,6 +550,7 @@ function run(options = {}) {
     assert(readOutputText(testOutput, 'calc/index.html').includes('"/calc/index.html"'));
     assert(readOutputText(testOutput, 'calc/index.html').includes('location.replace("/calc/"'));
     testRuntimeApi(repoRoot);
+    testCardManagerPreloadUrls(repoRoot);
     if (!reuseGenerated) {
       const checked = checkPublicSite(manifest, { repoRoot, outputDir: testOutput });
       assert.strictEqual(checked.ok, true);
@@ -447,7 +559,7 @@ function run(options = {}) {
     if (!reuseGenerated) fs.rmSync(testOutput, { recursive: true, force: true });
   }
   testReleaseVersioning(repoRoot);
-  return { schema: true, routes: true, aliases: true, targets: true, collisionGuards: true, explicitOutput: true, ownershipAsset: true, releaseVersioning: true };
+  return { schema: true, routes: true, aliases: true, targets: true, collisionGuards: true, explicitOutput: true, ownershipAsset: true, releaseVersioning: true, cardManagerPreloadUrls: true };
 }
 
 if (require.main === module) console.log('public site tests passed: ' + JSON.stringify(run()));

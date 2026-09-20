@@ -1,6 +1,25 @@
 # Trickcal Manager 現在地
 
-## 現在：Search Console所有権確認ファイル公開済み（利用者の確認操作待ち、2026-09-20）
+## 現在：管理画面カード画像先読み404修正の対象限定公開中（2026-09-20）
+
+### 修正
+
+- `stat-prototype.js` の `warmCardManagerImages()` が `img/Card/...` を直接 `new Image().src` に設定し、公開runtimeのDOM監視を通らず、`/manager/img/...` へ要求していた。既存の `TRICKCAL_PUBLIC_SITE.assetUrl()` でprofile-aware URLを解決し、そのURLをキャッシュキーと実際のsrcの両方に使う。runtime未使用時は従来相対pathへfallbackする。
+- `tools/test-public-site.js` に実処理関数＋実 `public-site-runtime.js` を使う焦点回帰を追加。new／legacy／runtimeなし、重複防止、優先24件、idle／timeoutを確認する。
+
+### 検証
+
+- `node tools/public-site-publication.js check --name card-manager-preload-20260920-02` 成功。`localOnly=true`、`publishable=false`、generation／manifest／publicSite／HTTP checksすべて成功。`publicSiteTest.assertions.cardManagerPreloadUrls=true`。
+- 統合check後の生成物を別ポートで隔離配信し、new `http://127.0.0.1:8871/manager/?card=spell`、legacy `http://127.0.0.1:8872/trickcal-manager/stat-dashboard.html?card=spell` を実ブラウザーで確認。各profileで遺物→スペルの実切替、カード資材95要求、カード404 0件、`/manager/img/`／`/trickcal-manager/manager/img/`要求0件。カード画像と等級枠は画面上で表示。
+- ブラウザーが求めた非カード404は `/favicon.ico` のみ（new 3件、legacy 3件）。今回のカード先読み修正対象外。要求ログは `tmp/card-preload-browser-20260920`、生成出力とcheck recordは `tmp/publication-card-manager-preload-20260920-02-*`。テストサーバーPID 30072／18508は停止済み、8871／8872はlistenなし。
+- 構文check、`git diff --check` 成功。編集前backupのコピーとSHA-256一致を確認し、台帳は `D:/Games/etc/trickcal/backups/card-manager-preload-404-20260920-112432/backup-manifest.txt`。
+
+### 残件
+
+- source対象限定commit・pushとdual公開を実施中。ジョアン仮データ入りxlsxは公開に混ぜず、SHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`のrepo外backupおよびstash `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`で保全。公開・記録完了後に復元する。
+- Search Consoleは利用者報告で所有権確認済み、manager／calc登録リクエスト送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回の作業ではSearch Console自体を操作しない。
+
+## Search Console所有権確認ファイル公開（2026-09-20）
 
 ### 完了済み
 
@@ -12,11 +31,11 @@
 - 公開後、new／legacy manager／calc／share／dataの8ページでcanonicalが各対応new URLに1件、query/hashなしを確認。OG URL・通常遷移はprofile別。legacy managerは旧URLに留まり、バックアップ操作入口へ到達した。保存・復元・importは実行していない。
 - Search Console確認ファイル `google4e94c2b3cb5b1c67.html` は明示asset `kind=file, profiles=["new"]` として登録し、source commit `a30f74a3a6f011098cd7aaacce162e0220256579` をpush。candidate `c92151ac342a7116`、content digest `8493662c17b34ff67f44def1d6bd33fb7d11e30d3630cb4efdf14f8b2e972113`。
 - new artifact `9f55704c0258ee5d0730b3631035d27fdd3620fb`／[run 35481810870](https://github.com/innocentroad/trickcal-manager-site/actions/runs/35481810870)、legacy artifact `c9bb84bec4d722086763d2bd6d96fd4bb5149770`／[run 35482131893](https://github.com/innocentroad/trickcal-manager/actions/runs/35482131893)。通常のdeployment承認後、両方published・identity一致。同一candidateでnew成功後にlegacyを公開。
-- 公開URL `https://trickcal.irlab.dev/google4e94c2b3cb5b1c67.html` は直接GETでHTTP 200、Locationなし、本文53 bytes・SHA-256一致。legacy生成物には含まれず、旧URLは404。new sitemapにも未掲載。Search Consoleの「確認」操作は利用者待ちであり、所有権確認成功とは記録しない。確認後もファイルを残す。
+- 公開URL `https://trickcal.irlab.dev/google4e94c2b3cb5b1c67.html` は直接GETでHTTP 200、Locationなし、本文53 bytes・SHA-256一致。legacy生成物には含まれず、旧URLは404。new sitemapにも未掲載。利用者報告で所有権確認は完了し、manager／calc登録リクエスト送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回エージェントはSearch Consoleを操作していない。確認後もファイルを残す。
 
 ### 残件・未確認
 
-- 所有権確認ファイルの対象限定commit・push・dual公開とHTTP／本文照合は完了。Search Consoleの「確認」ボタン、property／sitemap受付、検索エンジン採用canonical、外部被リンクは未確認。公開後のrobots.txt／sitemap.xml直接確認は以前の制約による未確認として残す。
+- 所有権確認ファイルの対象限定commit・push・dual公開とHTTP／本文照合は完了。manager／calcの登録リクエストは送信済み。サイトマップ取得エラーの再確認、検索エンジン採用canonical、外部被リンクは未確認。公開後のrobots.txt／sitemap.xml直接確認は以前の制約による未確認として残す。
 - 初回統合checkは旧HTTP検査の「legacyに新Originが一切ない」前提と、sitemapテストのXML宣言に対する過剰なquery判定で失敗した。前提をcanonicalと各`<loc>`へ限定し、再checkは成功。生成器がasset profile指定を無視していたため、manifestの明示制限を守る局所修正も含む。
 - 一本化commit `f59ffaa` は完了済み。旧worktree、main安全ref、stash、repo外backupは引き続き保全。xlsx編集／再生成、main-only機能取り込み、workflow／DNS／保護設定変更なし。
 - 実装・検証と編集前backupは[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、canonical公開は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)、確認ファイルのsource／artifact commit・bundle／receipt・run・HTTP確認と編集前backupは[所有権確認ファイル公開履歴](docs/history/search-console-ownership-asset-publication-2026-09-20.md)。

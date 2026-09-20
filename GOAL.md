@@ -2,12 +2,20 @@
 
 更新日: 2026-09-20
 
-## 現在の目標：Search Console所有権確認ファイル公開済み（利用者の確認操作待ち、2026-09-20）
+## 現在の目標：管理画面カード先読み404修正の対象限定公開（2026-09-20）
+
+- 管理画面カード画像先読みの404をローカル修正。`stat-prototype.js`は`TRICKCAL_PUBLIC_SITE.assetUrl()`でprofile URLを解決してからImageへ設定し、同じ解決済みURLを重複防止キーに使う。runtimeなしは相対pathへfallbackする。
+- 回帰は公開site焦点テストへ統合し、new／legacy／runtimeなし、優先24件、idle／timeout、同一URL重複防止を確認。統合check `card-manager-preload-20260920-02` は成功、`localOnly=true`・`publishable=false`。
+- 生成後ページを隔離ブラウザーで確認：new `http://127.0.0.1:8871/manager/?card=spell`、legacy `http://127.0.0.1:8872/trickcal-manager/stat-dashboard.html?card=spell`。両方で遺物／スペル切替、各95件のカード画像要求、カード404 0件、誤ったmanager/img path 0件。
+- ローカル配信で別途`/favicon.ico`の404あり。カード画像ではなく今回の対象外。実装・焦点テストの編集前backupは `D:/Games/etc/trickcal/backups/card-manager-preload-404-20260920-112432`。
+- 対象限定公開を実施中。ジョアン仮データを含む`tools/trickcal_datasheet.xlsx`は公開対象外として、SHA-256 `70C1B960D2D8A1AEE75200056DE739CFE13E7935EE741D3EF6078E5883CCF78C`のrepo外backupとstash `ce8c8dc98464345ad401e16ce33af075d6ca1d5f`で保全し、公開後にstash applyで復元する。
+
+## Search Console状態（2026-09-20）
 
 - 正式rootは `D:/Games/etc/trickcal/trickcal-manager`、通常branchは `release-source`。SEO canonical移行は先行source commit `4a251c56d2da54c8d14db7ac930144ca34d98b19` で統合・公開済み。
 - Search Console確認ファイル `google4e94c2b3cb5b1c67.html` をnew専用manifest assetとして追加し、source commit `a30f74a3a6f011098cd7aaacce162e0220256579` を `release-source` へpushした。candidate `c92151ac342a7116` をdual公開し、new／legacy両run成功・identity一致。
 - new URLはHTTP 200、リダイレクトなし、53 bytesで入力とSHA-256一致。legacy生成物にファイルはなく、legacy URLは404。sitemapには含めていない。
-- Search Consoleにはアクセス・操作していない。所有権の確認成功は未確定で、利用者がSearch Consoleの「確認」を押す必要がある。確認後もファイルとnew専用manifest登録を削除せず保持する。
+- 利用者報告ではSearch Consoleの所有権確認済みで、manager／calcの登録リクエストを送信済み。サイトマップ取得エラーは時間を置いて再確認待ち。今回の作業ではSearch Consoleへアクセス・操作していない。確認ファイルとnew専用manifest登録は削除せず保持する。
 - 詳細なsource/artifact commit、bundle、receipt、run、確認証拠は[所有権確認ファイル公開履歴](docs/history/search-console-ownership-asset-publication-2026-09-20.md)。SEO canonicalの公開記録は[SEO公開履歴](docs/history/seo-canonical-migration-publication-2026-09-20.md)。未公開・保留案件は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照。
 
 SEOローカル実装は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、作業場所一本化は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)と[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
