@@ -204,7 +204,15 @@ async function run(options = {}) {
     assert.match(newBoard, /public-site-runtime\.js\?v=[0-9a-f]{16}/);
     assert.match(newAlias, /location\.search \|\| ''/);
     assert.match(newAlias, /location\.hash \|\| ''/);
-    assert.doesNotMatch(legacyManager, /https:\/\/trickcal\.irlab\.dev/);
+    const managerRoute = manifest.routes.find(route => route.id === 'manager');
+    const expectedCanonical = `${manifest.profiles.new.origin}${managerRoute.profiles.new.publicPath}`;
+    const expectedLegacyPage = `${manifest.profiles.legacy.origin}${managerRoute.profiles.legacy.publicPath}`;
+    const canonicalTags = (legacyManager.match(/<link\b[^>]*>/gi) || [])
+      .filter(tag => /\brel=["'][^"']*\bcanonical\b[^"']*["']/i.test(tag));
+    assert.strictEqual(canonicalTags.length, 1, 'legacy manager has one canonical link');
+    assert(canonicalTags[0].includes(`href="${expectedCanonical}"`), 'legacy manager canonical points to new manager');
+    assert(legacyManager.includes(`<meta property="og:url" content="${expectedLegacyPage}">`), 'legacy manager og:url remains on legacy profile');
+    assert.doesNotMatch(legacyManager.replace(canonicalTags[0], ''), /https:\/\/trickcal\.irlab\.dev/, 'legacy response uses the new origin only in rel=canonical');
     assert.match(shareCreate, /TRICKCAL_PUBLIC_SITE\?\.pageUrl\?\.\('share'\)/);
     assert.doesNotMatch(shareCreate, /searchParams\.set\('v'/);
     assert.match(worker, /new URL\('dps-simulator\.js'/);

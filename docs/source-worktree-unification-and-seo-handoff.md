@@ -1,6 +1,6 @@
 # 作業ソース一本化・SEO再開の調査と移行案
 
-2026-09-19作成、2026-09-20移行実行・最終追補。設計作成後、利用者承認に基づくローカル一本化を実行した。正式な編集場所はrepo直下 `D:/Games/etc/trickcal/trickcal-manager` の `release-source`。旧 `tmp/release-source` は編集禁止のparked worktreeとして残す。生成済みnew／legacy profileの代表画面確認は完了した。全画像のnaturalWidth総点検などは未実施。実行証拠・確認URLは[移行実行記録](history/source-worktree-unification-2026-09-20.md)、未公開案件・資料の所在は[BACKLOG](BACKLOG.md)を参照する。旧worktree撤去・SEO実装/公開・main-only変更の統合は未実施。
+2026-09-19作成、2026-09-20移行実行・追補。正式な編集場所はrepo直下 `D:/Games/etc/trickcal/trickcal-manager`。一本化commit `f59ffaa` は完了し、SEO専用topic branch `topic/seo-canonical-migration` でローカル実装・検証済み、レビュー／公開待ち。旧 `tmp/release-source` は編集禁止のparked worktreeとして残す。new／legacy profileの移行画面確認と今回のSEO代表ページ確認の証拠は[移行履歴](history/source-worktree-unification-2026-09-20.md)および[SEO実装履歴](history/seo-canonical-migration-local-2026-09-20.md)を参照。全画像のnaturalWidth総点検、Search Console、公開反映は未実施。旧worktree撤去・main-only変更の統合も未実施。
 
 ## 結論と運用方針
 
@@ -53,7 +53,7 @@ main内の `public/board-layout-preview.js` と `public/apostle-data.js` は調�
 | --- | --- |
 | B01 共鳴性格R1〜R4 | mainの `formation-personality.js`、manager/calc/DPS/share接続があるが、公開sourceに `formation-personality.js` はない。隔離fixtureでの完了と実データ未確認を分け、明示選択後に専用topic branchへ。 |
 | B02 全列使徒 | main側の完了記録と残条件がある。実データ・manager→calc→DPS→保存/共有等の保留確認を維持し、公開sourceへ一括投入しない。 |
-| B03 SEO canonical移行 | mainにローカル実装があるが、公開sourceは旧manager/calc canonicalを維持。後述の比較設計で別topic branchへ。 |
+| B03 SEO canonical移行 | 公開sourceの現在の生成版では未反映だったため、2026-09-20に`topic/seo-canonical-migration`で現行manifest/generatorへ局所実装・ローカル検証した。公開・Search Consoleは別工程。 |
 | B14 manager画像背景404等 | mainのBACKLOGに調査・補修候補として残る。公開sourceで再現・原因・必要範囲を確認してから別判断。 |
 | mainの未公開ページ差分・設計/fixture/test | 使徒データ、ボード、上バー等の履歴は多くが公開済み機能と重複。現行公開版とファイル単位で照合してから、未反映の具体的な挙動だけをtopic branchへ移す。 |
 | `tools/trickcal_skillmotion.xlsx`、`img/equipicons/Design/`、`.github/workflows/pages.yml`、`tools/git/push.bat` | データ出典・未確定画像・workflow/ローカルpush補助の別差分。今回のSEO・source一本化に混ぜない。所有者の判断と個別検証が必要。 |
@@ -98,24 +98,25 @@ ignoredの内容値・秘密情報は読まず、パス分類とサイズ集計�
 
 ## SEO差分の判定
 
-根拠はmainのB03と `docs/seo-canonical-migration-roadmap.md`、公開sourceのmanifest/generator/runbook、2026-09-19の公開STATUS/履歴および依頼文の直前公開確認。Search Consoleはアクセス・確認していない。
+根拠はmain安全refのB03と `docs/seo-canonical-migration-roadmap.md`、一本化後のmanifest/generator、local-only統合checkおよび2026-09-20の生成後画面確認。Search Consoleと本番反映は確認・実施していない。
 
 | 項目 | 現在の判定 | 次の扱い |
 | --- | --- | --- |
-| new manager/calcの自己canonical、new robots/sitemapのnew domain整合 | 直前の公開確認で整合済み。公開sourceは `robots.txt` と `sitemap.xml` をnew profileだけへ生成し、new sitemapをindexable routeから作る。 | 維持。Search Consoleの採用canonicalや登録状態とは別。 |
-| legacy manager/calc canonicalをnewの対応URLへ向ける | 直前の公開確認では旧URLのまま。未反映。mainのmanifestにはindexableなmanager/calc/share/dataの `seo.canonicalProfile: new` とcanonical helper/検査がある。公開source側のrouteには指定がなく、canonical helperはprofileごとにfallbackするため、legacyも自己canonicalとなる。 | canonical指定だけを公開sourceの現行schema/validator/helperへ移植する設計が必要。4 routeそれぞれの公開要否は生成出力で確認する。 |
-| data詳細ページのnoindex | 公開sourceのroute manifestで詳細routeは`indexable:false`。変更対象にしない。 | 検索対象拡大をしない。 |
-| canonicalと通常route/asset/保存導線の分離 | 公開sourceの `updateCanonicalMetadata` にはlegacy `sourceUrl` をHTML全体へ `replaceAll` する処理があり、canonical変更がJSON-LD等の別用途まで及び得る。mainの実装はrouteのcanonical targetを選ぶhelperを持つ。 | `sourceUrl`全体置換を移植・拡大しない。roadmapに従い、canonical用絶対URLだけを更新。navigation、asset、form、backup/transfer、query/hashは各profileの既存runtimeを維持。og:url／structured dataは前回方針を再確認し、許可なしに一括更新しない。 |
-| mainの生成・検査差分 | main HEADには4 routeのcanonicalProfile、schema validation、canonical解決、sitemap生成/robots検査がある。現作業treeのgenerator差分にはdata入口/使徒route連携等も混在し、公開source版と同一ではない。 | generator全体を上書きしない。SEO機能の必要最小差分とtestだけを機能単位で適応する。 |
-| Search Console | 現在値は不明。今回未確認。 | S2公開とは別のS3で、権限・プロパティを確認してから利用者主体で確認/送信。Googleの採用canonical・検索順位の保証はしない。 |
+| new manager/calcの自己canonical、new robots/sitemapのnew domain整合 | source生成後に確認済み。canonicalは対応new URL、sitemapはindexableな4 routeだけ、robotsのSitemap行はnew origin。 |
+| manager/calc/share/dataのcanonical移行 | 現行manifestの4 routeだけに`canonicalProfile: new`を設定し、new／legacy生成HTMLそれぞれで1件の絶対canonical・query/hashなしを確認。公開環境への反映は未実施。 |
+| data詳細ページのnoindex | route manifestの`indexable:false`を維持。sitemapに含めない。 | 検索対象拡大をしない。 |
+| canonicalと通常route/asset/保存導線の分離 | `updateCanonicalMetadata`でcanonical URLと提供profileのpage URLを分離。canonicalだけ移行先へ向け、og:url／JSON-LD／通常URLはprofile別。通常route・資材・backup/transferはHTTP焦点テストとlegacy manager画面で確認。 |
+| manifest assetsのprofile指定 | 既存buildPlanが`asset.profiles`を生成時に無視していたため、new専用sitemap／robotsがlegacyにも出力されていた。今回、指定profileだけへ出す局所修正と回帰検査を追加。 |
+| Search Console | 現在値は不明。今回未確認。 | 公開後の別工程で権限・プロパティ・送信状態を確認する。検索エンジンのcanonical採用・順位は保証しない。 |
 
-### SEO再開手順（一本化後・別承認）
+今回のsource変更、検証結果、旧profile画面での確認、対象ファイルのバックアップ一覧は[SEOローカル実装履歴](history/seo-canonical-migration-local-2026-09-20.md)。公開前の生成物を手編集しておらず、対象外routeのindexability・OG内容・通常遷移・保存schemaは変更していない。
 
-1. 新rootの `release-source` から `topic/seo-canonical-migration` を作り、manifestの現indexable routeだけを対象にする。index aliasはcanonical routeへ統一し、noindex routeやdata detailを増やさない。
-2. manifest検証とcanonical helperを現行generatorへ最小適応する。canonicalはprofile-awareなnavigation/asset resolverと分離する。legacyの通常リンク・共有payload/hash・保存/backup/transfer導線がlegacyに留まる回帰検査を追加する。旧→新の強制redirectはしない。
-3. new/legacyの生成HTMLでmanager/calcを必須確認し、scope承認に応じてshare/dataを確認する。各HTMLのcanonicalが意図したnew absolute URLで正確に1件、query/hashなしであること、new sitemap/robots整合、noindex保持、link/asset profile保持を焦点検査する。生成HTMLやhashは手編集しない。
-4. S1のローカル検証を終えてレビュー待ちで停止。公開は対象限定commit/push/deployを別途明示承認されたときだけS2として実施する。
-5. 公開後のSearch Console確認はS3の別作業。新旧の既存プロパティ、sitemap送信状況、manager/calc URL検査、外部リンク更新可否を確認し、旧利用・保存導線を保つ。旧→新強制転送、旧サイト停止、データ詳細のindex拡大は別判断。
+### 次工程：レビュー・対象限定公開・Search Console（別工程）
+
+1. `topic/seo-canonical-migration`の対象限定差分と証拠をレビューする。現時点でcommit・push・公開はしていない。
+2. 公開は別途承認された場合だけ、既存runbookと現在のdual配信設定に従って行う。新側の成功・identityを確認してから旧側へ進む。強制転送・旧サイト閉鎖はしない。
+3. 公開後にSearch Consoleの既存property、sitemap送信・読み込み状況、manager/calc等のURL検査を確認する。Search Consoleの状態・アクセス権は未確認で、今回操作していない。
+4. data詳細の検索対象拡大、外部リンクの更新、旧サイト閉鎖は別判断とする。canonical指定だけで検索順位や切替時期を保証しない。
 
 ## 一本化の移行手順（設計・実行記録）
 
@@ -212,8 +213,8 @@ mainの復元では、`main`本来のbranch tipと `safety/unification/<ID>/main
 2. `release-source-published` の354行規模のapostle data差分とstatData差分を意図した次期データ更新とみなすか。生成の再現性・データ承認なしに取り込まない。
 3. 更新済み `trickcal_skillmotion.xlsx` と `img/equipicons/Design/` を将来の対象に含めるか、workflow/push補助のdirtyをどう扱うか。
 4. detached snorky worktreeを用途確認後にいつ終了するか。並行作業を継続する限りはtemporary worktreeとして扱い、恒常sourceにはしない。
-5. SEOは既存roadmapどおりcanonical/sitemapに限定し、OG metadataやstructured dataを現行公開版でどう扱うかを公開source上の生成テストで確認する。Search Console操作は権限・実施者を含め別途合意する。
+5. SEOのlocal生成検査によりcanonicalとprofile別OG／structured dataの分離方針は確認済み。公開するかは別途レビュー・承認し、Search Console操作は権限・実施者を含め別途合意する。
 
 ## 調査時点の未実施事項と移行後の現在地
 
-初回調査時点ではbranch/worktree変更、datasheet編集・生成、publication target変更、実生成/テスト、公開先への接続、Search Console確認/書込み、workflow/DNS/protection設定変更を行っていなかった。2026-09-20に承認範囲のbackup・safety ref・記録付きstash・旧worktree park・repo直下branch切替・局所path修正・local-only生成checkを実行し、生成済みnew／legacy profileの管理・計算・使徒データ・編成共有と共通上バーの代表操作をローカル確認した。証拠・URL・限界は[移行履歴](history/source-worktree-unification-2026-09-20.md)を参照する。本変更は一本化の対象限定記録commitに含め、push／公開は別途扱う。Search Console操作、workflow/DNS/protection変更、旧worktree撤去、stash削除、SEO実装は未実施。
+初回調査後の2026-09-20に一本化と画面確認を完了し、移行記録commit `f59ffaa` を作成した。今回、同commitを基点とするSEO専用topic branchでlocal実装・焦点検証・new／legacy manager/calcの代表画面確認を完了した。SEO差分は未commit・未公開でレビュー待ち。記録は[移行履歴](history/source-worktree-unification-2026-09-20.md)と[SEO実装履歴](history/seo-canonical-migration-local-2026-09-20.md)。Search Console、workflow/DNS/protection変更、旧worktree撤去、stash削除、xlsx編集／生成は未実施。

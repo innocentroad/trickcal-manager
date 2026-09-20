@@ -1,26 +1,22 @@
 # Trickcal Manager 現在地
 
-## 現在：正式rootへの一本化と必要なローカル画面確認完了（2026-09-20）
+## 現在：SEO canonical移行のローカル実装・検証完了（レビュー／公開待ち、2026-09-20）
 
 ### 完了済み
 
-- 正式root `D:/Games/etc/trickcal/trickcal-manager` をbranch `release-source`、HEAD `46686377d0902e828d5d03ea821f9dd3d85542f9` に切替済み。通常の編集場所はここ1か所。
-- 旧 `tmp/release-source` は `safety/unification/unification-20260920-010559/release-source-park` 上に保持。読み取り用退避元であり編集しない。worktree登録解除・削除は未実施。
-- mainの既存commitは `safety/unification/unification-20260920-010559/main` に保全。mainのdirtyはrepo外backupとstash OID `5e226347d201d540b088b168d96ebeefb488a40c` に保持し、適用・削除していない。未公開案件の所在は [`docs/BACKLOG.md`](docs/BACKLOG.md)。
-- Excel保存済みworkbookと新root `tools/trickcal_datasheet.xlsx` のSHA-256は一致（`FCCB7713269B410ADC8EDBFB94693BE1CD3912A603825ABC0F4FA7676CDE4F34`）。xlsx編集・再生成はしていない。
-- publication targetの相対pathを新root用に修正し、旧新rootで受信先絶対pathが同一であることを確認。配信mode・repo・branch・workflowは変更していない。公開履歴16件をhash照合で引き継ぎ、latest-new identityも一致。
-- `node tools/public-site-publication.js check --name source-unification-20260920-local` は `ok:true`, `localOnly:true`, `publishable:false`。生成済み画面出力: `tmp/publication-source-unification-20260920-local-output`。xlsx由来データ生成は実施していない。
-- ローカル実画面確認は、既存生成物を配信中のnew（port 53963）／legacy（port 53965）双方で完了。管理・計算・使徒データ・既存payloadの編成共有を表示し、本文・表・表示範囲の画像に明らかな崩れや欠落がないことを目視した。使徒データは両profileで78/78名。
-- 共通上バーは両profileで代表ページ遷移とデータメニューを操作。新旧とも一括設定の「研究」選択後に正しいmanager URL（`?global=research`）へ遷移し、研究の選択値はOFFのまま。お知らせ一覧の開閉を行い、閉じた後はベルへフォーカス復帰。使徒データ上でライト／ダークを切り替えて戻し、最終表示はダーク。移行案内の詳細ダイアログは許可範囲内で閉じたが、明示的な「今後表示しない」設定は操作せず、告知バーを維持した。
-- 確認専用ブラウザーでの許可済み表示操作以外に、実利用の編成・育成データの編集、インポート、リセットは行っていない。目視確認であり、全画像の通信完了／`naturalWidth`を機械計測したものではない。全画面幅・全機能・PNG生成も対象外。画面とURLの詳細は[一本化履歴](docs/history/source-worktree-unification-2026-09-20.md)。
+- 正式root `D:/Games/etc/trickcal/trickcal-manager`、branch `topic/seo-canonical-migration`。基点は一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb`。SEO差分は未commit。
+- indexableなmanager／calc／share／dataだけに `canonicalProfile: new` を設定。new／legacy双方でrel=canonicalが対応するnew絶対URLに1件となり、query/hashを含まない。
+- 生成器でSEO canonical URLと提供profileのpage URLを分離。OG URL、JSON-LD、通常route URLはprofile別の従来値を保持。manifestのasset profile制限を生成時にも尊重し、new専用sitemap／robotsをlegacy出力へ複製しない。
+- data詳細のnoindex、旧profileの通常リンク・資材・バックアップ導線、index aliasと互換redirectのquery/hash、Service Workerのscope／更新方式を維持。
+- `node tools/test-seo-canonical-migration.js`、対象JS構文、`git diff --check`成功。統合 `node tools/public-site-publication.js check --name seo-canonical-local-20260920-r3` は `ok:true`、`localOnly:true`、`publishable:false`。出力は`tmp/publication-seo-canonical-local-20260920-r3-output`。
+- 生成後ページをブラウザーで確認。new manager/calcはnew URL、legacy manager/calcは`/trickcal-manager/...`に留まり、canonicalのみnew URL。表示範囲の使徒画像を確認。legacy managerでセーブ／ロード欄を開き「バックアップ保存」等の入口が表示されることを確認したが、保存・復元・importは実行していない。
 
-### 一本化・画面確認の結論と別途保留
+### レビュー・公開待ちと未確認
 
-- **正式rootへの一本化と必要なローカル確認は完了。本変更は移行記録として対象限定commitに含める（push・公開は別途扱う）。** 旧worktreeとstashは保管を継続し、画面確認完了とは別管理する。
-- 画面確認はスクリーンショット／アクセシビリティ表示による代表状態の目視。全画像のHTTP/NaturalWidth総点検、全データ・全viewport、PNG生成・保存／コピー、計算精度、公開サイト再検証は未実施。
-- 旧worktreeの撤去、stash削除、移行差分のcommit/push/公開、SEO実装、Search Console、xlsx編集／再生成、workflow・保護設定変更は未実施。main-only機能も未取り込み。所在は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照。
-- 確認用serverは既存PID 14916（new/53963）と24712（legacy/53965）を使用し、今回起動・停止していない。前回特定・停止済みの重複server PID 37792/25908に関する記録は維持。
-- 作業証拠・URL一覧は[一本化履歴](docs/history/source-worktree-unification-2026-09-20.md)、設計とSEO再開手順は[引継ぎ文書](docs/source-worktree-unification-and-seo-handoff.md)。
+- SEOのローカル実装・焦点検証・代表画面確認は完了。commit・push・公開は未実施で、公開は別工程。Search Consoleの現状、公開後の検索エンジン採用canonical、外部被リンクの更新は未確認。
+- 初回統合checkは旧HTTP検査の「legacyに新Originが一切ない」前提と、sitemapテストのXML宣言に対する過剰なquery判定で失敗した。前提をcanonicalと各`<loc>`へ限定し、再checkは成功。生成器がasset profile指定を無視していたため、manifestの明示制限を守る局所修正も含む。
+- 一本化commit `f59ffaa` は完了済み。旧worktree、main安全ref、stash、repo外backupは引き続き保全。xlsx編集／再生成、main-only機能取り込み、workflow／DNS／保護設定変更なし。
+- 詳細証拠・ローカル確認URL・対象ファイルのSHA-256 backup一覧は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)。
 
 ## 履歴：レビュー済み3系統の対象限定公開完了（2026-09-19、移行開始時点）
 

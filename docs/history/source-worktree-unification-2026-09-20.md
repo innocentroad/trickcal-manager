@@ -1,6 +1,6 @@
 # 作業ソース一本化の実行記録
 
-最終更新日: 2026-09-20。これはローカル移行と依頼範囲の画面確認証拠を記録する。本記録を移行関連の対象限定commitに含め、旧worktree撤去・push・公開は含まない。
+最終更新日: 2026-09-20。これはローカル移行と依頼範囲の画面確認証拠を記録する。本記録は移行関連の対象限定commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` に含まれている。旧worktree撤去・push・公開は含まない。
 
 ## 到達状態
 
@@ -60,7 +60,7 @@
 
 ## 完了状態と別途保留
 
-- **正式rootへの一本化と必要なローカル確認は完了。本記録を含む対象限定commitを作成する（push・公開は別途扱う）。** GOAL／STATUSもこの状態へ更新した。
+- **正式rootへの一本化と必要なローカル確認は完了し、移行記録commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` を作成済み。** push・公開は別途扱う。GOAL／STATUSもこの状態へ更新した。
 - 旧worktreeのpark保管、mainの安全ref・stash・repo外backupは従前どおり保持。これらの保管継続は画面確認の未完了を意味しない。
-- 旧worktree撤去、stash削除、main-only変更の取り込み、SEO実装・公開、Search Console、xlsx編集／再生成、workflow／DNS／保護設定変更、commit／push／公開は未実施。
+- 旧worktree撤去、stash削除、main-only変更の取り込み、SEOのcommit／公開、Search Console、xlsx編集／再生成、workflow／DNS／保護設定変更は未実施。SEOのローカル実装は `topic/seo-canonical-migration` で完了し、レビュー待ち（詳細は[SEOローカル実装履歴](seo-canonical-migration-local-2026-09-20.md)）。
 - 通常のxlsx更新は正式rootで保存後、他の生成と競合しない状態で `tools\generate-all.bat` を実行する。今回、生成を再実行していない。

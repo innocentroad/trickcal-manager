@@ -80,6 +80,7 @@
       "id": "manager",
       "source": "stat-dashboard.html",
       "indexable": true,
+      "seo": { "canonicalProfile": "new" },
       "profiles": {
         "new": {
           "publicPath": "/manager/",
@@ -102,6 +103,7 @@
       "id": "calc",
       "source": "formation-damage-calc.html",
       "indexable": true,
+      "seo": { "canonicalProfile": "new" },
       "profiles": {
         "new": {
           "publicPath": "/calc/",
@@ -145,6 +147,7 @@
       "id": "share",
       "source": "formation-share.html",
       "indexable": true,
+      "seo": { "canonicalProfile": "new" },
       "profiles": {
         "new": {
           "publicPath": "/share/",
@@ -167,6 +170,7 @@
       "id": "data",
       "generator": "data-index",
       "indexable": true,
+      "seo": { "canonicalProfile": "new" },
       "profiles": {
         "new": {
           "publicPath": "/data/",

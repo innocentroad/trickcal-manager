@@ -471,6 +471,7 @@ function buildPlan(manifest, { repoRoot = ROOT, outputDir = DEFAULT_OUTPUT_DIR }
       }
     }
     for (const asset of manifest.assets) {
+      if (!asset.profiles.includes(profileName)) continue;
       const sourcePath = path.resolve(repoRoot, asset.source);
       const destinationBase = outputRelativePath(joinPublicPath(profile.assetBasePath, asset.source));
       if (asset.kind === 'file') {
@@ -658,6 +659,12 @@ function updateCanonicalMetadata(html, entry, context) {
   const route = context.routeById.get(entry.routeId);
   if (!route?.indexable) return html;
   const canonicalUrl = canonicalUrlForRoute(route, context, entry.profile);
+  const pageProfile = context.manifest.profiles[entry.profile];
+  const pageRoute = route.profiles?.[entry.profile];
+  if (!pageProfile || !pageRoute) {
+    throw new PublicSiteError(`ページprofileのURL解決に失敗しました: ${route.id}:${entry.profile}`);
+  }
+  const pageUrl = `${pageProfile.origin.replace(/\/$/, '')}${pageRoute.publicPath}`;
   let result = html;
   let canonicalCount = 0;
   result = result.replace(/<link\b[^>]*>/gi, tag => {
@@ -672,15 +679,15 @@ function updateCanonicalMetadata(html, entry, context) {
   let ogFound = false;
   result = result.replace(/(<meta\b[^>]*\bproperty=["']og:url["'][^>]*\bcontent=["'])[^"']*/i, (_match, prefix) => {
     ogFound = true;
-    return `${prefix}${canonicalUrl}`;
+    return `${prefix}${pageUrl}`;
   });
   const sourceUrl = route.source
     ? `${context.manifest.profiles.legacy.origin.replace(/\/$/, '')}/trickcal-manager/${route.source}`
     : '';
-  if (sourceUrl) result = result.replaceAll(sourceUrl, canonicalUrl);
+  if (sourceUrl) result = result.replaceAll(sourceUrl, pageUrl);
   const additions = [];
   if (canonicalCount === 0) additions.push(`<link rel="canonical" href="${canonicalUrl}">`);
-  if (!ogFound) additions.push(`<meta property="og:url" content="${canonicalUrl}">`);
+  if (!ogFound) additions.push(`<meta property="og:url" content="${pageUrl}">`);
   if (additions.length) result = result.replace(/<\/head>/i, `  ${additions.join('\n  ')}\n</head>`);
   return result;
 }
@@ -1276,5 +1283,6 @@ module.exports = {
   normalizePublicPath,
   outputRelativePath,
   readManifest,
+  updateCanonicalMetadata,
   validateManifest
 };

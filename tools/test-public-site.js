@@ -46,6 +46,79 @@ function readOutputText(directory, relativePath) {
   return fs.readFileSync(path.join(directory, relativePath), 'utf8');
 }
 
+function canonicalHref(html) {
+  const tags = (html.match(/<link\b[^>]*>/gi) || [])
+    .filter(tag => /\brel=["'][^"']*\bcanonical\b[^"']*["']/i.test(tag));
+  assert.strictEqual(tags.length, 1, 'generated indexable page has exactly one canonical link');
+  return tags[0].match(/\bhref=["']([^"']+)["']/i)?.[1] || '';
+}
+
+function metaContent(html, property) {
+  const tag = (html.match(/<meta\b[^>]*>/gi) || [])
+    .find(item => new RegExp(`\\bproperty=["']${property}["']`, 'i').test(item));
+  return tag?.match(/\bcontent=["']([^"']*)["']/i)?.[1] || '';
+}
+
+function assertCanonicalProfileOutputs(testOutput, plan, manifest) {
+  const indexableRoutes = manifest.routes.filter(route => route.indexable === true);
+  assert.deepStrictEqual(indexableRoutes.map(route => route.id), ['manager', 'calc', 'share', 'data']);
+  for (const route of indexableRoutes) {
+    assert.strictEqual(route.seo?.canonicalProfile, 'new', `${route.id} declares the new canonical profile`);
+    const canonicalUrl = `${manifest.profiles.new.origin}${route.profiles.new.publicPath}`;
+    for (const profileName of ['new', 'legacy']) {
+      const profile = manifest.profiles[profileName];
+      const profileRoute = route.profiles[profileName];
+      const pageUrl = `${profile.origin}${profileRoute.publicPath}`;
+      const pageEntry = plan.entries.find(entry => entry.type === 'route'
+        && entry.role === 'canonical'
+        && entry.profile === profileName
+        && entry.routeId === route.id);
+      assert(pageEntry, `${profileName}:${route.id} has a generated page`);
+      const html = readOutputText(testOutput, pageEntry.outputRel);
+      assert.strictEqual(canonicalHref(html), canonicalUrl, `${profileName}:${route.id} canonical maps to new profile`);
+      const parsedCanonical = new URL(canonicalHref(html));
+      assert.strictEqual(parsedCanonical.search, '', `${profileName}:${route.id} canonical omits query`);
+      assert.strictEqual(parsedCanonical.hash, '', `${profileName}:${route.id} canonical omits hash`);
+      assert.strictEqual(metaContent(html, 'og:url'), pageUrl, `${profileName}:${route.id} og:url stays profile-specific`);
+
+      for (const aliasPath of profileRoute.aliases.filter(alias => alias.endsWith('/index.html'))) {
+        assert.strictEqual(
+          plan.publicPaths.get(`${profileName}:${aliasPath}`),
+          pageEntry,
+          `${profileName}:${route.id} content index alias shares its canonical page`
+        );
+      }
+
+      for (const aliasPath of profileRoute.aliases) {
+        const aliasEntry = plan.publicPaths.get(`${profileName}:${aliasPath}`);
+        if (aliasEntry === pageEntry) continue;
+        assert(aliasEntry?.type === 'alias', `${profileName}:${route.id} compatibility alias is a redirect`);
+        const redirect = readOutputText(testOutput, aliasEntry.outputRel);
+        assert(redirect.includes(`const target = ${JSON.stringify(profileRoute.publicPath)}`), `${profileName}:${route.id} alias redirects within its profile`);
+        assert(redirect.includes("location.search || ''") && redirect.includes("location.hash || ''"), `${profileName}:${route.id} alias preserves query/hash`);
+      }
+
+      if (route.id === 'manager' || route.id === 'calc') {
+        const jsonLd = html.match(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/i);
+        assert(jsonLd, `${profileName}:${route.id} keeps structured data`);
+        assert.strictEqual(JSON.parse(jsonLd[1]).url, pageUrl, `${profileName}:${route.id} structured-data URL stays profile-specific`);
+      }
+    }
+  }
+
+  const sitemap = readOutputText(testOutput, 'sitemap.xml');
+  const locations = [...sitemap.matchAll(/<loc>(.*?)<\/loc>/g)].map(match => match[1]);
+  assert.deepStrictEqual(locations, indexableRoutes.map(route => `${manifest.profiles.new.origin}${route.profiles.new.publicPath}`));
+  assert(!sitemap.includes(manifest.profiles.legacy.origin), 'sitemap excludes legacy origin');
+  assert(locations.every(location => !/(?:index\.html|\?|#)/.test(location)), 'sitemap locations exclude aliases and query/hash');
+  assert(!sitemap.includes('<lastmod>'), 'sitemap does not invent lastmod');
+  const robots = readOutputText(testOutput, 'robots.txt');
+  assert.strictEqual((robots.match(/^Sitemap:/gm) || []).length, 1);
+  assert(robots.includes(`Sitemap: ${manifest.profiles.new.origin}/sitemap.xml`));
+  assert(!robots.includes(manifest.profiles.legacy.origin), 'new robots sitemap points only to new origin');
+  assert(!outputFiles(testOutput).some(file => file.startsWith('trickcal-manager/') && /(?:^|\/)(?:sitemap\.xml|robots\.txt)$/.test(file)), 'new-only sitemap and robots assets are not emitted into legacy profile');
+}
+
 function sha256File(directory, relativePath) {
   return crypto.createHash('sha256').update(fs.readFileSync(path.join(directory, relativePath))).digest('hex');
 }
@@ -208,6 +281,12 @@ function run(options = {}) {
   expectInvalid(manifest, repoRoot, candidate => { candidate.routes[0].profiles.new.aliases.push('/manager/'); }, /route\/alias pathが衝突|reserved path/);
   expectInvalid(manifest, repoRoot, candidate => { candidate.reservedPaths.new.push('/manager/'); }, /reserved path/);
   expectInvalid(manifest, repoRoot, candidate => { candidate.routes[1].profiles.new.aliases.push('/formation-damage-calc.html'); }, /route\/alias pathが衝突|assetとroute/);
+  expectInvalid(manifest, repoRoot, candidate => { candidate.routes.find(route => route.id === 'manager').seo.canonicalProfile = 'unknown'; }, /canonicalProfileは既知のprofile/);
+  expectInvalid(manifest, repoRoot, candidate => {
+    const route = candidate.routes.find(item => item.id === 'manager');
+    route.seo.canonicalProfile = 'legacy';
+    delete route.profiles.legacy;
+  }, /canonicalProfileのroute profileがありません: manager\.legacy/);
 
   const reuseGenerated = !!options.sourceDir;
   const testOutput = options.sourceDir || path.join(repoRoot, 'tmp', 'public-site-test');
@@ -217,6 +296,7 @@ function run(options = {}) {
       ? { outputDigest: directoryDigest(testOutput), assetVersion: JSON.parse(readOutputText(testOutput, 'public-site-build.json')).assetVersion }
       : generatePublicSite(manifest, { repoRoot, outputDir: testOutput, write: true });
     assert(generated.outputDigest);
+    assertCanonicalProfileOutputs(testOutput, plan, manifest);
     const files = outputFiles(testOutput);
     for (const expected of [
       'index.html',
@@ -242,6 +322,7 @@ function run(options = {}) {
     assert(!homeRedirect.includes('http-equiv="refresh"'));
     assert(managerAlias.includes('const target = "/manager/"'));
     assert(managerAlias.includes("location.search || ''") && managerAlias.includes("location.hash || ''"));
+    assert(!readOutputText(testOutput, 'trickcal-manager/stat-dashboard.html').includes('http-equiv="refresh"'), 'legacy manager remains a usable page rather than a forced redirect');
     const release = JSON.parse(readOutputText(testOutput, 'public-site-release.json'));
     assert(/^[0-9a-f]{40}$/.test(release.sourceCommit));
     const releaseGitState = readGitState(repoRoot);
@@ -323,7 +404,10 @@ function run(options = {}) {
     assert.match(shareHtml, /<link rel="canonical" href="https:\/\/trickcal\.irlab\.dev\/share\/">\n\s*<meta property="og:url" content="https:\/\/trickcal\.irlab\.dev\/share\/">/);
     assert.doesNotMatch(shareHtml, /\\n\s*<meta property="og:url"/, 'canonical metadataの改行がliteral\\nになっています');
     assert(legacyHtml.includes('href="/trickcal-manager/formation-damage-calc.html"'));
-    assert(!legacyHtml.includes('https://trickcal.irlab.dev'));
+    const legacyHtmlWithoutCanonical = legacyHtml.replace(/<link\b(?=[^>]*\brel=["'][^"']*\bcanonical\b[^"']*["'])[^>]*>/i, '');
+    assert(!legacyHtmlWithoutCanonical.includes(manifest.profiles.new.origin), 'legacy ordinary links, assets, OG, and structured data do not inherit canonical origin');
+    assert(legacyHtml.includes('href="/trickcal-manager/storage-recovery.html"'), 'legacy manager retains the legacy recovery entry');
+    assert(legacyHtml.includes('id="backup-export"') && legacyHtml.includes('id="backup-import"'), 'legacy manager retains backup controls');
     const appCache = readOutputText(testOutput, 'app-cache.js');
     assert(appCache.includes("publicSite.assetUrl?.(publicSite.serviceWorker.script, { versioned: false })"));
     const shareCreate = readOutputText(testOutput, 'formation-share-create.js');

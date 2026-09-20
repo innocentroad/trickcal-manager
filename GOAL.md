@@ -2,17 +2,16 @@
 
 更新日: 2026-09-20
 
-## 現在の目標：正式rootへの一本化と必要なローカル画面確認完了（2026-09-20）
+## 現在の目標：SEO canonical移行のローカル実装完了（レビュー・公開待ち、2026-09-20）
 
-- 正式な編集場所は `D:/Games/etc/trickcal/trickcal-manager`、branch `release-source`。通常のExcel更新・`tools\generate-all.bat`・日常編集はこのrootだけで行う。
-- 旧 `tmp/release-source` worktreeは `safety/unification/unification-20260920-010559/release-source-park` 上の編集禁止の退避元。撤去・登録解除は別判断まで行わない。
-- バックアップ、main側変更の保全、branch切替、公開path参照の修正、ローカル生成・統合checkは完了。main-only変更、SEO実装、資料は取り込んでいない。所在と再開条件は [`docs/BACKLOG.md`](docs/BACKLOG.md) に記録する。
-- 生成済みnew／legacy profile双方で管理・計算・使徒データ・既存payloadの編成共有を実画面確認した。代表ページは正常に描画され、表示範囲内の使徒・編成画像に明らかな欠落は見られなかった。
-- 両profileで上バーの代表遷移、データメニュー、一括設定から「研究」への遷移、お知らせ一覧の開閉、ライト／ダーク切替を確認した。研究値はOFFのまま。移行告知の詳細ダイアログだけを閉じ、明示的な非表示設定は変更していない。
-- 実利用の編成・育成データの編集、インポート、リセットは行っていない。画像全件の通信・naturalWidth検査や全画面幅の網羅確認は今回の範囲外。確認URL・画面ごとの結果・制約は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)に記録する。
-- **正式rootへの一本化と必要なローカル確認は完了。本変更は移行記録として対象限定commitに含める（push・公開は別途扱う）。** 旧worktree撤去、stash削除、Search Console、SEO実装は未実施であり、画面確認の未完了理由とはしない。
+- 正式rootは `D:/Games/etc/trickcal/trickcal-manager`。一本化commit `f59ffaa98f2bc04b713f636713c2bad39aa09cb` を基点に、SEO専用branch `topic/seo-canonical-migration` で作業中。新worktreeは作成していない。
+- 現indexableなmanager／calc／share／dataの4 routeに `seo.canonicalProfile: new` を設定。HTMLのrel=canonicalだけを対応するnew絶対URLへ向け、OG URL・JSON-LD・通常リンク・profile別資材／保存導線は提供中profileのままにする。
+- sitemapは4つのnew canonical URLだけ、robotsはnew sitemapのみ。index alias・query/hash・旧URL互換を維持し、data詳細のnoindex、Service Worker、旧サイトの利用可能性も維持する。
+- SEO焦点テストとlocal-only統合checkは成功。生成後のnew／legacy manager・calcを実画面確認し、legacy managerのURLが旧profileに留まること、旧側のバックアップ操作入口へ到達できることを確認した。操作はローカル確認Originに限り、保存・復元・importは実行していない。
+- **SEOのローカル実装・検証は完了。現在はレビュー待ち。commit・push・公開は未実施で、公開は別工程。** Search Consoleの現状・公開後の検索エンジン採用canonicalは未確認。
+- xlsx編集・再生成、main-only機能の取り込み、旧worktree／stash／backupの削除はしていない。未公開・保留案件の所在は [`docs/BACKLOG.md`](docs/BACKLOG.md) を参照。
 
-移行の詳細な設計・切り戻し手順は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)、実行証拠は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
+実装・検証証拠は[SEOローカル実装履歴](docs/history/seo-canonical-migration-local-2026-09-20.md)、一本化と切り戻し設計は[一本化・SEO引継ぎ](docs/source-worktree-unification-and-seo-handoff.md)、移行証拠は[移行履歴](docs/history/source-worktree-unification-2026-09-20.md)を参照。
 
 ## 履歴：移行前のGoal詳細（現在の作業指示ではない）
 

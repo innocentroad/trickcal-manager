@@ -16,7 +16,7 @@
 | --- | --- | --- | --- |
 | B01 | 共鳴性格R1〜R4 | main側の`formation-personality.js`とmanager/calc/DPS/share接続を未統合。実データ未確認を隔離fixtureの成功で代用しない。 | main安全refとstash／外部backup。利用者が選択した場合だけ専用topic branchで差分・実データ・計算経路を再確認する。 |
 | B02 | 全列使徒 | main側の実装・完了記録を未統合。実データ、manager→calc→DPS、保存／共有の残条件を維持する。 | main安全refのtracked files、stash内patch、外部backupのuntracked・ignored台帳。公開sourceへ一括コピーしない。 |
-| B03 | SEO canonical・sitemap移行 | new manager/calcの自己canonicalとnew robots/sitemapは公開済み。legacy manager/calcのcanonicalは旧URLのまま。data詳細noindexを維持。Search Console現状は未確認。 | main安全refの `docs/seo-canonical-migration-roadmap.md` とmain差分は保全領域にある。利用者判断後にSEO専用topic branchで現行manifest/generatorへ局所適応し、公開は別承認。強制転送・旧サイト閉鎖・data詳細のindex拡大は含めない。 |
+| B03 | SEO canonical・sitemap移行 | `topic/seo-canonical-migration` でローカル実装・検証済み。indexableなmanager／calc／share／dataのcanonicalをnew対応URLへ統一し、OG・JSON-LD・通常URLはprofile別に維持。new sitemapは4 URL、data詳細noindexも維持。 | [SEOローカル実装履歴](history/seo-canonical-migration-local-2026-09-20.md)。レビュー待ち。commit・push・公開は未実施で別工程。Search Console現状は未確認。旧サイト利用・保存導線を維持し、強制転送・旧サイト閉鎖・data詳細のindex拡大は行わない。 |
 | B14 | manager背景画像404 | 調査・補修候補。公開sourceでの再現・原因は今回未確認。 | main安全ref／元BACKLOG snapshotの記録を保全。現行公開sourceで再現し、原因と対象を特定した後に個別判断する。 |
 | B15のmain側差分 | 使徒データ | 使徒データの公開版は現在のrelease-sourceに存在する。main側の別実装・fixtureの差だけを理由に未公開機能とは扱わない。 | main untracked `public/apostle-data.html`／`.css`／`.js`、`tools/test-apostle-data-native.js`、関連design/historyはstashと外部backup `worktrees/main/untracked/`。具体的な公開版との機能差が必要になった場合のみ選択的に比較する。 |
 
@@ -37,4 +37,4 @@
 1. 利用者が選んだ案件だけGOALへ設定し、公開sourceのHEAD・差分・最新historyを基準に再評価する。
 2. 通常のxlsx更新は正式rootで保存確認後、単一の一括生成として実施する。未保存編集・別生成中は並行実行しない。大きな機能だけ必要な期間、一時topic branch/worktreeへ分離する。
 3. ignored資料、画像、公開証拠はbackup manifestとhashを確認してから扱う。秘密情報や巨大生成物を無条件にGitへ追加しない。
-4. SEO実装・Search Console、旧worktree撤去、stash削除、commit/push/公開はいずれも今回の移行作業には含まれない。
+4. SEO canonicalはローカル実装済みで、レビュー・対象限定commit/push/公開は別工程。Search Consoleも別途確認する。旧worktree撤去・stash削除は独立判断とする。
