@@ -3979,7 +3979,7 @@ body.dashboard-page.is-booting::after {
   background: var(--paper);
 }
 
-.dashboard-persistent-profile[class*="personality-"]:not(.is-resonance) .portrait-frame.dashboard-portrait,
+:root:not([data-theme="dark"]) .dashboard-persistent-profile[class*="personality-"]:not(.is-resonance) .portrait-frame.dashboard-portrait,
 [data-dashboard-panel="equipment"][class*="personality-"] .equipment-center-portrait {
   border-color: color-mix(in srgb, var(--profile-personality-color) 50%, white);
   background: color-mix(in srgb, var(--profile-personality-color) 18%, rgba(255, 253, 247, 0.96));
