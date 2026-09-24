@@ -3048,4 +3048,31 @@ assert.ok(chloeWithFavorite.timeline.some(event => event.type === 'effectStateCh
 assert.equal(chloeWithFavorite.timeline.filter(event => event.type === 'runtimeEffectHit' && event.runtimeEffectId === 'chloe-thread-tick'
   && event.frame > 13 * 60).length, 0, 'ぬいぐるみの意志終了後は2秒周期を停止する');
 
+const critRuntimeBase = (baseCrit, critRate, guaranteedCrit = false) => ({
+  baseCrit, baseCritRes: 100, finalCritRes: 100,
+  baseCritDmg: 100, baseCritDmgRes: 100, finalCritDmgRes: 100,
+  critRate, critMult: 1.75, guaranteedCrit
+});
+const critRuntimeRatio = (runtimeBase, critRateP) => simulator.evaluateDamageAtHit({
+  expectedDamage: 100,
+  actionKey: 'basicAttack',
+  runtimeBase,
+  modifierDelta: { critRateP }
+}).ratios.critical;
+const ratioAtRate = (before, after) => (1 + after * 0.75) / (1 + before * 0.75);
+assert.ok(Math.abs(critRuntimeRatio(critRuntimeBase(100, 0.3), 10) - ratioAtRate(0.3, 0.4)) < 1e-12,
+  '75%未満の動的会心率加算は従来の会心倍率で期待値を更新する');
+assert.ok(Math.abs(critRuntimeRatio(critRuntimeBase(2800, 0.75), -20) - ratioAtRate(0.75, 0.55)) < 1e-12,
+  '75%からの動的会心率減算を反映する');
+assert.equal(critRuntimeRatio(critRuntimeBase(2800, 0.75), 10), 1,
+  '75%到達時の動的加算は上限を超えない');
+assert.equal(critRuntimeRatio(critRuntimeBase(4000, 0.75), 10), 1,
+  '基礎会心率が75%を超えても動的再計算は75%で止まる');
+assert.equal(critRuntimeRatio(critRuntimeBase(2800, 0.8), 10), 1,
+  '旧80%の基礎会心率を取り込んだ場合も75%へ制限する');
+assert.equal(critRuntimeRatio(critRuntimeBase(0, 0.05), -20), 1,
+  '動的減算後も5%下限を維持する');
+assert.equal(critRuntimeRatio(critRuntimeBase(4000, 1, true), 10), 1,
+  '確定会心は動的補正後も100%を維持する');
+
 console.log('DPS runtime effect tests passed');

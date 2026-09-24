@@ -8284,7 +8284,7 @@
     const normal = damageSource * defRate * skill * addRate * type * special * other;
     const baseCritRate = calcCritRate(finalCrit, finalCritRes);
     const rawCritRate = baseCritRate + attacker.critRateP / 100 - defender.critResAddP / 100;
-    const critRate = selectedSkillOption?.guaranteedCrit ? 1 : clamp(rawCritRate, 0.05, 0.8);
+    const critRate = selectedSkillOption?.guaranteedCrit ? 1 : clamp(rawCritRate, 0.05, 0.75);
     const baseCritMult = calcCritMultiplier(finalCritDmg, finalCritDmgRes);
     const rawCritMult = baseCritMult + attacker.critDmgAddP / 100 - defender.critDmgResAddP / 100;
     const critMult = clamp(rawCritMult, 1.2, 2.5);
@@ -8352,10 +8352,10 @@
             differencePrefix: '-',
             differenceSuffix: '%'
           } : null,
-          critRate: rawCritRate >= 0.8 ? {
+          critRate: rawCritRate >= 0.75 ? {
             type: 'upper',
-            limitText: '80%',
-            difference: (rawCritRate - 0.8) * 100,
+            limitText: '75%',
+            difference: (rawCritRate - 0.75) * 100,
             differencePrefix: '+',
             differenceSuffix: '%'
           } : rawCritRate <= 0.05 ? {
@@ -11264,7 +11264,7 @@
   function calcCritRate(critAtk, critDef) {
     const x = critAtk / Math.max(1, critDef);
     const rate = x >= 1 ? 0.30 + 0.50 * ((x - 1) / (x + 2)) : 0.05 + 0.25 * (x / (2 - x));
-    return clamp(rate, 0.05, 0.8);
+    return clamp(rate, 0.05, 0.75);
   }
 
   function calcCritMultiplier(critAtk, critDmgRes) {

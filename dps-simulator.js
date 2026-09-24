@@ -901,7 +901,7 @@
     const rate = x >= 1
       ? 0.30 + 0.50 * ((x - 1) / (x + 2))
       : 0.05 + 0.25 * (x / (2 - x));
-    return Math.max(0.05, Math.min(0.8, rate));
+    return Math.max(0.05, Math.min(0.75, rate));
   }
 
   function calcRuntimeCritMultiplier(critDmg, critDmgRes) {
@@ -2458,7 +2458,7 @@
     if (critP || critRateP || critDmgP || critDmgAddP || enemyCritResDownP || enemyCritDmgResDownP) {
       const oldCritRate = base.guaranteedCrit
         ? 1
-        : Math.max(0.05, Math.min(0.8, toFiniteNumber(base.critRate, 0.05)));
+        : Math.max(0.05, Math.min(0.75, toFiniteNumber(base.critRate, 0.05)));
       const oldCritMult = Math.max(1.2, Math.min(2.5, toFiniteNumber(base.critMult, 1.2)));
       const newFinalCrit = Math.max(0, toFiniteNumber(base.baseCrit) * (
         1 + (toFiniteNumber(base.critP) + critP) / 100
@@ -2471,7 +2471,7 @@
       const newBaseCritRate = calcRuntimeCritRate(newFinalCrit, newFinalCritRes);
       const newCritRate = base.guaranteedCrit
         ? 1
-        : Math.max(0.05, Math.min(0.8,
+        : Math.max(0.05, Math.min(0.75,
           newBaseCritRate
             + (toFiniteNumber(base.critRateP) + critRateP) / 100
             - toFiniteNumber(base.critResAddP) / 100
