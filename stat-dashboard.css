@@ -464,20 +464,20 @@ body.dashboard-page.is-booting::after {
   background-color: rgba(20, 34, 52, 0.82);
 }
 
-:root[data-theme="dark"] button.apostle-picker-card {
+:root[data-theme="dark"] button.apostle-picker-card:not(.is-resonance) {
   color: #1f2933 !important;
   border-color: rgba(226, 232, 240, 0.42) !important;
   background: rgba(255, 255, 255, 0.96) !important;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card:hover:not(:disabled),
-:root[data-theme="dark"] button.apostle-picker-card:focus-visible {
+:root[data-theme="dark"] button.apostle-picker-card:not(.is-resonance):hover:not(:disabled),
+:root[data-theme="dark"] button.apostle-picker-card:not(.is-resonance):focus-visible {
   color: #111827 !important;
   border-color: rgba(134, 239, 172, 0.55) !important;
   background: rgba(255, 255, 255, 0.98) !important;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card .apostle-picker-art {
+:root[data-theme="dark"] button.apostle-picker-card:not(.is-resonance) .apostle-picker-art {
   background: color-mix(in srgb, var(--apostle-personality-color, #d8e4d1) 42%, white) !important;
 }
 
@@ -3979,7 +3979,7 @@ body.dashboard-page.is-booting::after {
   background: var(--paper);
 }
 
-.dashboard-persistent-profile[class*="personality-"] .portrait-frame.dashboard-portrait,
+.dashboard-persistent-profile[class*="personality-"]:not(.is-resonance) .portrait-frame.dashboard-portrait,
 [data-dashboard-panel="equipment"][class*="personality-"] .equipment-center-portrait {
   border-color: color-mix(in srgb, var(--profile-personality-color) 50%, white);
   background: color-mix(in srgb, var(--profile-personality-color) 18%, rgba(255, 253, 247, 0.96));
@@ -6661,6 +6661,14 @@ body.dashboard-page.is-booting::after {
   cursor: pointer;
 }
 
+.formation-apostle-card-wrap {
+  position: relative;
+  width: clamp(64px, 7vw, 80px);
+  height: clamp(64px, 7vw, 80px);
+  display: grid;
+  place-items: center;
+}
+
 .formation-apostle-slot {
   --formation-personality-color: var(--green);
   width: clamp(64px, 7vw, 78px);
@@ -6724,6 +6732,23 @@ body.dashboard-page.is-booting::after {
 .formation-apostle-slot.personality-狂気 { --formation-personality-color: var(--personality-madness); }
 .formation-apostle-slot.personality-活発 { --formation-personality-color: var(--personality-active); }
 .formation-apostle-slot.personality-憂鬱 { --formation-personality-color: var(--personality-gloomy); }
+
+.formation-resonance-warning {
+  margin: 0;
+  padding: 0.35rem 0.62rem;
+  border: 1px solid color-mix(in srgb, #8e44ad 34%, transparent);
+  border-radius: 0.65rem;
+  color: color-mix(in srgb, #6d2c8f 82%, var(--ink));
+  background: color-mix(in srgb, #e8d5f2 62%, transparent);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+:root[data-theme="dark"] .formation-resonance-warning {
+  color: #ead7f4;
+  border-color: rgba(196, 142, 222, 0.35);
+  background: rgba(104, 58, 124, 0.24);
+}
 
 .formation-artifact-list {
   display: grid;
@@ -7800,7 +7825,7 @@ body.dashboard-page.is-booting::after {
 .formation-picker-option.personality-活発 { --formation-picker-personality-color: var(--personality-active); }
 .formation-picker-option.personality-憂鬱 { --formation-picker-personality-color: var(--personality-gloomy); }
 
-.formation-picker-option[class*="personality-"] {
+.formation-picker-option[class*="personality-"]:not(.is-resonance-option) {
   border-color: color-mix(in srgb, var(--formation-picker-personality-color) 46%, white);
   background:
     linear-gradient(135deg,
@@ -7808,7 +7833,7 @@ body.dashboard-page.is-booting::after {
       rgba(255, 255, 255, 0.78));
 }
 
-.formation-picker-option[class*="personality-"] .formation-picker-option-image-wrap {
+.formation-picker-option[class*="personality-"]:not(.is-resonance-option) .formation-picker-option-image-wrap {
   border-radius: 13px;
   background: color-mix(in srgb, var(--formation-picker-personality-color) 24%, white);
 }
@@ -8457,6 +8482,11 @@ body.dashboard-page.is-booting::after {
     border-radius: 15px;
   }
 
+  .formation-apostle-card-wrap {
+    width: 64px;
+    height: 64px;
+  }
+
   .formation-artifact-list {
     grid-template-columns: repeat(3, 32px);
     justify-content: center;
@@ -8916,6 +8946,468 @@ body.dashboard-page.is-booting::after {
   }
 }
 
+/* Resonance marker used only by the manager's Apostle selection list. */
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option {
+  border: 1px solid #fff;
+  background-color: rgba(255, 244, 247, 0.96);
+  background-image: linear-gradient(132deg,
+    rgba(255, 228, 218, 0.92) 0%,
+    rgba(255, 239, 207, 0.9) 22%,
+    rgba(225, 245, 219, 0.9) 43%,
+    rgba(218, 239, 255, 0.92) 64%,
+    rgba(239, 224, 255, 0.92) 83%,
+    rgba(255, 226, 240, 0.94) 100%);
+  box-shadow: 0 0 0 1px rgba(64, 65, 93, 0.32), 0 4px 10px rgba(34, 45, 36, 0.12);
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option:hover {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.28), 0 5px 12px rgba(34, 45, 36, 0.16);
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option:focus-visible {
+  border-color: #fff;
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.is-selected,
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.is-current,
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option[aria-selected="true"] {
+  border-color: #fff;
+  box-shadow: inset 0 0 0 2px rgba(109, 40, 217, 0.58), 0 0 0 2px rgba(109, 40, 217, 0.36);
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-resonance-mark {
+  position: absolute;
+  z-index: 5;
+  top: -2px;
+  left: -2px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.98);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.4);
+  pointer-events: none;
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-resonance-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option {
+  border-color: rgba(248, 250, 252, 0.94);
+  background-color: rgba(28, 31, 48, 0.98);
+  background-image: linear-gradient(132deg,
+    rgba(107, 59, 62, 0.72) 0%,
+    rgba(105, 83, 48, 0.7) 22%,
+    rgba(50, 91, 69, 0.72) 43%,
+    rgba(47, 76, 110, 0.72) 64%,
+    rgba(82, 58, 112, 0.72) 83%,
+    rgba(104, 54, 86, 0.74) 100%);
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.78), 0 5px 13px rgba(0, 0, 0, 0.34);
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option:hover {
+  border-color: rgba(248, 250, 252, 0.94);
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.42), 0 5px 14px rgba(0, 0, 0, 0.42);
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option:focus-visible {
+  border-color: rgba(248, 250, 252, 0.94);
+  outline-color: #93c5fd;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.is-selected,
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.is-current,
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option[aria-selected="true"] {
+  border-color: rgba(248, 250, 252, 0.94);
+  box-shadow: inset 0 0 0 2px rgba(192, 132, 252, 0.76), 0 0 0 2px rgba(192, 132, 252, 0.5);
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-resonance-mark {
+  border-color: rgba(248, 250, 252, 0.94);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.68);
+}
+
+/* Formation resonance controls and compact picker modes are manager-only. */
+.dashboard-page #formation-board .formation-apostle-card-wrap {
+  overflow: visible;
+}
+
+@media (max-width: 980px) {
+  .dashboard-page #formation-board .formation-apostle-card-wrap {
+    width: 64px;
+    height: 64px;
+  }
+}
+
+.dashboard-page #formation-board .formation-card-icon-action {
+  position: absolute;
+  z-index: 8;
+  top: -10px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.96);
+  border-radius: 50%;
+  padding: 2px;
+  color: #243447;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 5px rgba(22, 34, 48, 0.35), 0 0 0 1px rgba(22, 34, 48, 0.14);
+  cursor: pointer;
+}
+
+.dashboard-page #formation-board .formation-personality-icon-action {
+  left: -9px;
+}
+
+.dashboard-page #formation-board .formation-personality-icon-action.is-invalid-selection {
+  color: #a33b15;
+  font-weight: 900;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-board .formation-personality-icon-action.is-invalid-selection {
+  color: #fbbf24;
+}
+
+.dashboard-page #formation-board .formation-placement-icon-action {
+  right: -8px;
+}
+
+.dashboard-page #formation-board .formation-card-icon-action img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.dashboard-page #formation-board .formation-card-icon-action:hover {
+  filter: brightness(1.06);
+  transform: scale(1.06);
+}
+
+.dashboard-page #formation-board .formation-card-icon-action:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 3px;
+}
+
+.dashboard-page #formation-board .formation-apostle-slot.is-resonance.is-filled {
+  border: 2px solid #fff !important;
+  background-color: rgba(255, 244, 247, 0.96) !important;
+  background-image: linear-gradient(132deg,
+    rgba(255, 228, 218, 0.92) 0%,
+    rgba(255, 239, 207, 0.9) 22%,
+    rgba(225, 245, 219, 0.9) 43%,
+    rgba(218, 239, 255, 0.92) 64%,
+    rgba(239, 224, 255, 0.92) 83%,
+    rgba(255, 226, 240, 0.94) 100%) !important;
+  box-shadow: 0 0 0 1px rgba(64, 65, 93, 0.32), 0 5px 12px rgba(34, 45, 36, 0.12) !important;
+}
+
+.dashboard-page #formation-board .formation-apostle-slot.is-resonance:not(.is-resonance-unselected) {
+  border-color: color-mix(in srgb, var(--formation-personality-color) 78%, white) !important;
+}
+
+.dashboard-page #formation-board .formation-apostle-slot.is-resonance.is-resonance-unselected {
+  border-color: #fff !important;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-board .formation-card-icon-action {
+  border-color: rgba(226, 232, 240, 0.86);
+  color: #e2e8f0;
+  background: rgba(30, 41, 59, 0.96);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(2, 6, 23, 0.62);
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-board .formation-apostle-slot.is-resonance.is-filled {
+  border: 2px solid rgba(248, 250, 252, 0.94) !important;
+  background-color: rgba(28, 31, 48, 0.98) !important;
+  background-image: linear-gradient(132deg,
+    rgba(107, 59, 62, 0.72) 0%,
+    rgba(105, 83, 48, 0.7) 22%,
+    rgba(50, 91, 69, 0.72) 43%,
+    rgba(47, 76, 110, 0.72) 64%,
+    rgba(82, 58, 112, 0.72) 83%,
+    rgba(104, 54, 86, 0.74) 100%) !important;
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.78), 0 7px 17px rgba(0, 0, 0, 0.34) !important;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-board .formation-apostle-slot.is-resonance:not(.is-resonance-unselected) {
+  border-color: color-mix(in srgb, var(--formation-personality-color) 78%, rgba(248, 250, 252, 0.78)) !important;
+}
+
+:root[data-theme="dark"] .dashboard-page #formation-board .formation-apostle-slot.is-resonance.is-resonance-unselected {
+  border-color: rgba(248, 250, 252, 0.94) !important;
+}
+
+.dashboard-page .formation-picker-dialog.is-compact-mode {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(580px, calc(100dvh - 24px));
+  overflow: auto;
+  padding: 14px;
+}
+
+.dashboard-page .formation-picker-dialog.is-compact-mode .formation-picker-head {
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.dashboard-page .formation-picker-dialog.is-compact-mode .formation-picker-head h2 {
+  font-size: 0.98rem;
+}
+
+.dashboard-page .formation-picker-dialog.is-compact-mode .formation-picker-tools[hidden],
+.dashboard-page .formation-picker-dialog.is-compact-mode .formation-filter-details[hidden] {
+  display: none !important;
+}
+
+.dashboard-page .formation-picker-dialog.is-compact-mode .formation-picker-grid {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-page .formation-picker-personality-note,
+.dashboard-page .formation-picker-move-note {
+  margin: 0 0 9px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.dashboard-page .formation-personality-picker-options {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.dashboard-page .formation-personality-choice {
+  min-width: 0;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 2px solid color-mix(in srgb, var(--formation-personality-color) 48%, white);
+  border-radius: 14px;
+  padding: 7px 3px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--formation-personality-color) 12%, var(--panel));
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.dashboard-page .formation-personality-choice.personality-純粋 { --formation-personality-color: var(--personality-pure); }
+.dashboard-page .formation-personality-choice.personality-冷静 { --formation-personality-color: var(--personality-calm); }
+.dashboard-page .formation-personality-choice.personality-狂気 { --formation-personality-color: var(--personality-madness); }
+.dashboard-page .formation-personality-choice.personality-活発 { --formation-personality-color: var(--personality-active); }
+.dashboard-page .formation-personality-choice.personality-憂鬱 { --formation-personality-color: var(--personality-gloomy); }
+
+.dashboard-page .formation-personality-choice img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.dashboard-page .formation-personality-choice.is-current {
+  border-color: var(--formation-personality-color);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--formation-personality-color) 26%, transparent);
+}
+
+.dashboard-page .formation-personality-choice:focus-visible,
+.dashboard-page .formation-picker-cancel:focus-visible,
+.dashboard-page .formation-picker-personality-clear:focus-visible,
+.dashboard-page .formation-picker-move-cell:focus-visible {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.dashboard-page .formation-picker-compact-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.dashboard-page .formation-picker-cancel,
+.dashboard-page .formation-picker-personality-clear {
+  min-height: 40px;
+  border: 1px solid color-mix(in srgb, var(--muted) 28%, transparent);
+  border-radius: 10px;
+  padding: 0.35rem 0.75rem;
+  color: var(--ink);
+  background: var(--panel);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.dashboard-page .formation-picker-personality-clear:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dashboard-page .formation-picker-dialog.is-move-mode {
+  width: min(590px, calc(100vw - 24px));
+}
+
+.dashboard-page .formation-picker-move-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dashboard-page .formation-picker-move-heading {
+  padding: 2px 3px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.dashboard-page .formation-picker-move-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--green) 24%, transparent);
+  border-radius: 12px;
+  padding: 5px 3px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 88%, var(--green) 12%);
+  cursor: pointer;
+  font: inherit;
+}
+
+.dashboard-page .formation-picker-move-cell.is-source {
+  border-style: dashed;
+  border-color: var(--green-dark);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--green) 34%, transparent);
+}
+
+.dashboard-page .formation-picker-move-cell:disabled:not(.is-source) {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.dashboard-page .formation-picker-move-portrait {
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+}
+
+.dashboard-page .formation-picker-move-empty {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed color-mix(in srgb, var(--muted) 42%, transparent);
+  border-radius: 10px;
+  color: var(--muted);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.dashboard-page .formation-picker-move-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.69rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-page .formation-picker-move-source-tag {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  border-radius: 5px;
+  padding: 1px 3px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 85%, var(--green) 15%);
+  font-size: 0.55rem;
+  font-weight: 900;
+}
+
+:root[data-theme="dark"] .dashboard-page .formation-personality-choice {
+  border-color: color-mix(in srgb, var(--formation-personality-color) 62%, rgba(226, 232, 240, 0.28));
+  color: var(--ink);
+  background: color-mix(in srgb, var(--formation-personality-color) 17%, var(--panel));
+}
+
+:root[data-theme="dark"] .dashboard-page .formation-picker-move-cell {
+  border-color: rgba(148, 163, 184, 0.32);
+  background: color-mix(in srgb, var(--panel) 91%, var(--green) 9%);
+}
+
+@media (max-width: 600px) {
+  .dashboard-page #formation-board .formation-apostle-card-wrap {
+    width: 54px;
+    height: 54px;
+  }
+
+  .dashboard-page .formation-picker-dialog.is-compact-mode {
+    padding: 12px;
+  }
+
+  .dashboard-page .formation-personality-picker-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .dashboard-page .formation-personality-choice {
+    min-height: 76px;
+    border-radius: 12px;
+  }
+
+  .dashboard-page .formation-personality-choice img {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dashboard-page .formation-picker-move-cell {
+    min-height: 72px;
+    padding: 4px 2px;
+  }
+
+  .dashboard-page .formation-picker-move-portrait,
+  .dashboard-page .formation-picker-move-empty {
+    width: 32px;
+    height: 32px;
+  }
+
+  .dashboard-page .formation-picker-move-source-tag {
+    top: 1px;
+    left: 1px;
+    font-size: 0.48rem;
+  }
+}
+
 @media (max-width: 360px) {
   .dashboard-layout {
     padding-inline: 4px;
@@ -9058,6 +9550,11 @@ body.dashboard-page.is-booting::after {
     width: 54px;
     height: 54px;
     border-radius: 13px;
+  }
+
+  .formation-apostle-card-wrap {
+    width: 54px;
+    height: 54px;
   }
 
   .formation-artifact-list {
@@ -9471,7 +9968,7 @@ body.dashboard-page.is-booting::after {
 :root[data-theme="dark"] .formation-picker-option.personality-活発 { --formation-picker-personality-color: var(--personality-active); }
 :root[data-theme="dark"] .formation-picker-option.personality-憂鬱 { --formation-picker-personality-color: var(--personality-gloomy); }
 
-:root[data-theme="dark"] .formation-picker-option[class*="personality-"] {
+:root[data-theme="dark"] .formation-picker-option[class*="personality-"]:not(.is-resonance-option) {
   border-color: color-mix(in srgb, var(--formation-picker-personality-color) 66%, rgba(255, 255, 255, 0.22));
   background:
     linear-gradient(135deg,
@@ -9479,7 +9976,7 @@ body.dashboard-page.is-booting::after {
       color-mix(in srgb, var(--formation-picker-personality-color) 24%, rgba(15, 23, 42, 0.36))) !important;
 }
 
-:root[data-theme="dark"] .formation-picker-option[class*="personality-"] .formation-picker-option-image-wrap {
+:root[data-theme="dark"] .formation-picker-option[class*="personality-"]:not(.is-resonance-option) .formation-picker-option-image-wrap {
   background: color-mix(in srgb, var(--formation-picker-personality-color) 36%, rgba(255, 255, 255, 0.08));
 }
 
@@ -10762,7 +11259,7 @@ body.dashboard-page.is-booting::after {
 .apostle-picker-card.personality-活発 { --apostle-personality-color: var(--personality-active); }
 .apostle-picker-card.personality-憂鬱 { --apostle-personality-color: var(--personality-gloomy); }
 
-button.apostle-picker-card[class*="personality-"] {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance) {
   position: relative;
   overflow: hidden;
   border-color: color-mix(in srgb, var(--apostle-personality-color) 68%, rgba(255, 255, 255, 0.5)) !important;
@@ -10775,7 +11272,7 @@ button.apostle-picker-card[class*="personality-"] {
     inset 0 1px 0 rgba(255, 255, 255, 0.58);
 }
 
-button.apostle-picker-card[class*="personality-"]::after {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance)::after {
   content: "";
   position: absolute;
   right: 0;
@@ -10787,19 +11284,19 @@ button.apostle-picker-card[class*="personality-"]::after {
   pointer-events: none;
 }
 
-button.apostle-picker-card[class*="personality-"].is-selected {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance).is-selected {
   border-color: color-mix(in srgb, var(--apostle-personality-color) 86%, white) !important;
   box-shadow:
     0 0 0 3px color-mix(in srgb, var(--apostle-personality-color) 26%, transparent),
     0 8px 18px color-mix(in srgb, var(--apostle-personality-color) 24%, transparent);
 }
 
-button.apostle-picker-card[class*="personality-"] .apostle-picker-art {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance) .apostle-picker-art {
   border-color: color-mix(in srgb, var(--apostle-personality-color) 70%, white) !important;
   background: color-mix(in srgb, var(--apostle-personality-color) 22%, white) !important;
 }
 
-button.apostle-picker-card[class*="personality-"] > strong {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance) > strong {
   position: relative;
   z-index: 2;
   display: block;
@@ -10814,13 +11311,13 @@ button.apostle-picker-card[class*="personality-"] > strong {
   text-shadow: none !important;
 }
 
-button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance) .apostle-picker-stars {
   z-index: 3;
   transform: translateY(-8px);
   margin-bottom: -5px;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"] {
+:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"]:not(.is-resonance) {
   color: #1f2933 !important;
   border-color: color-mix(in srgb, var(--apostle-personality-color) 78%, rgba(255, 255, 255, 0.35)) !important;
   background:
@@ -10829,12 +11326,12 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
       color-mix(in srgb, var(--apostle-personality-color) 10%, rgba(244, 247, 250, 0.94))) !important;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"] .apostle-picker-art {
+:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"]:not(.is-resonance) .apostle-picker-art {
   border-color: color-mix(in srgb, var(--apostle-personality-color) 72%, rgba(255, 255, 255, 0.58)) !important;
   background: color-mix(in srgb, var(--apostle-personality-color) 34%, white) !important;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"] > strong {
+:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"]:not(.is-resonance) > strong {
   position: relative;
   z-index: 2;
   display: block;
@@ -10849,14 +11346,14 @@ button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
   text-shadow: none !important;
 }
 
-:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"] .apostle-picker-stars {
+:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"]:not(.is-resonance) .apostle-picker-stars {
   z-index: 3;
   transform: translateY(-8px);
   margin-bottom: -5px;
 }
 
-button.apostle-picker-card[class*="personality-"] > strong.has-sort-value,
-:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"] > strong.has-sort-value {
+button.apostle-picker-card[class*="personality-"]:not(.is-resonance) > strong.has-sort-value,
+:root[data-theme="dark"] button.apostle-picker-card[class*="personality-"]:not(.is-resonance) > strong.has-sort-value {
   margin-top: -5px;
   padding-bottom: 7px;
   line-height: 0.98;
@@ -11447,7 +11944,7 @@ button.apostle-picker-card[class*="personality-"] > strong.has-sort-value .apost
   box-shadow: inset 2px 0 color-mix(in srgb, var(--apostle-bulk-personality-color) 58%, transparent);
 }
 
-.apostle-bulk-identity img {
+.apostle-bulk-avatar > img {
   width: 36px;
   height: 36px;
   flex: 0 0 auto;
@@ -11713,6 +12210,127 @@ button.apostle-picker-card[class*="personality-"] > strong.has-sort-value .apost
   .apostle-bulk-equipments {
     grid-template-columns: auto repeat(6, minmax(0, 1fr));
   }
+}
+
+/* Master-resonance presentation is independent from the personality selected in a formation. */
+.bottom-apostle-button.is-resonance {
+  border: 1px solid #fff !important;
+  background-color: #fff0f3 !important;
+  background-image: linear-gradient(112deg,
+    #ffdfe4 0%, #fff0c9 22%, #e5f1d5 44%, #dceafb 67%, #eadcf7 88%, #f6dce8 100%) !important;
+  box-shadow: 0 0 0 1px rgba(58, 52, 72, 0.4), 0 3px 10px rgba(58, 52, 72, 0.2) !important;
+}
+
+:root[data-theme="dark"] .bottom-apostle-button.is-resonance {
+  border-color: rgba(255, 255, 255, 0.96) !important;
+  background-color: #29313a !important;
+  background-image: linear-gradient(112deg,
+    #573747 0%, #51442d 22%, #344738 44%, #2e4358 67%, #44365a 88%, #503546 100%) !important;
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.82), 0 4px 12px rgba(0, 0, 0, 0.46) !important;
+}
+
+.apostle-picker-current-image.is-resonance {
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  background-color: #fff0f3;
+  background-image: linear-gradient(112deg,
+    #ffdfe4 0%, #fff0c9 22%, #e5f1d5 44%, #dceafb 67%, #eadcf7 88%, #f6dce8 100%);
+  box-shadow: 0 0 0 1px rgba(58, 52, 72, 0.38), 0 2px 7px rgba(58, 52, 72, 0.18);
+}
+
+:root[data-theme="dark"] .apostle-picker-current-image.is-resonance {
+  border-color: rgba(255, 255, 255, 0.96);
+  background-color: #29313a;
+  background-image: linear-gradient(112deg,
+    #573747 0%, #51442d 22%, #344738 44%, #2e4358 67%, #44365a 88%, #503546 100%);
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.82), 0 3px 8px rgba(0, 0, 0, 0.48);
+}
+
+button.apostle-picker-card.is-resonance {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #fff !important;
+  color: #1f2933 !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98)) !important;
+  box-shadow: 0 0 0 1px rgba(58, 52, 72, 0.38), 0 4px 10px rgba(58, 52, 72, 0.16) !important;
+}
+
+button.apostle-picker-card.is-resonance::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1;
+  height: 40px;
+  background: #fff;
+  pointer-events: none;
+}
+
+button.apostle-picker-card.is-resonance .apostle-picker-art {
+  border-color: rgba(255, 255, 255, 0.98) !important;
+  background: linear-gradient(120deg,
+    #ffdee6 0%, #fff0c9 22%, #e4f2dc 44%, #deebfb 67%, #eee2f8 88%, #f8e1ec 100%) !important;
+}
+
+button.apostle-picker-card.is-resonance > strong {
+  position: relative;
+  z-index: 2;
+  color: #1f2933 !important;
+  background: transparent !important;
+}
+
+button.apostle-picker-card.is-resonance.is-selected {
+  border-color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(109, 40, 217, 0.34), 0 6px 14px rgba(58, 52, 72, 0.24) !important;
+}
+
+:root[data-theme="dark"] button.apostle-picker-card.is-resonance.is-selected {
+  border-color: #fff !important;
+  box-shadow: 0 0 0 3px rgba(192, 132, 252, 0.58), 0 6px 15px rgba(0, 0, 0, 0.52) !important;
+}
+
+.apostle-bulk-avatar {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+}
+
+.apostle-bulk-row.is-resonance .apostle-bulk-identity {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, #e88a9f 17%, transparent) 0%,
+    color-mix(in srgb, #e7c56f 14%, transparent) 22%,
+    color-mix(in srgb, #78b782 11%, transparent) 44%,
+    color-mix(in srgb, #789bd2 8%, transparent) 67%,
+    color-mix(in srgb, #a783c6 5%, transparent) 88%,
+    color-mix(in srgb, #d48ba5 5%, transparent) 100%);
+  box-shadow: inset 2px 0 color-mix(in srgb, #d48ba5 58%, transparent);
+}
+
+:root[data-theme="dark"] .apostle-bulk-row.is-resonance .apostle-bulk-identity {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, #c56d86 20%, rgba(14, 24, 38, 0.45)) 0%,
+    color-mix(in srgb, #b49a5d 16%, rgba(14, 24, 38, 0.32)) 22%,
+    color-mix(in srgb, #639271 13%, rgba(14, 24, 38, 0.2)) 44%,
+    color-mix(in srgb, #5f83b1 10%, rgba(14, 24, 38, 0.1)) 67%,
+    color-mix(in srgb, #896ca8 7%, transparent) 88%,
+    color-mix(in srgb, #a2637b 7%, transparent) 100%);
+  box-shadow: inset 2px 0 color-mix(in srgb, #bb829e 68%, transparent);
+}
+
+.dashboard-persistent-profile.is-resonance .portrait-frame.dashboard-portrait {
+  border: 2px solid #fff;
+  background: linear-gradient(112deg,
+    #ffdfe4 0%, #fff0c9 22%, #e5f1d5 44%, #dceafb 67%, #eadcf7 88%, #f6dce8 100%);
+  box-shadow: 0 0 0 1px rgba(58, 52, 72, 0.38), 0 8px 18px rgba(58, 52, 72, 0.22);
+}
+
+:root[data-theme="dark"] .dashboard-persistent-profile.is-resonance .portrait-frame.dashboard-portrait {
+  border-color: rgba(255, 255, 255, 0.96);
+  background: linear-gradient(112deg,
+    #573747 0%, #51442d 22%, #344738 44%, #2e4358 67%, #44365a 88%, #503546 100%);
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.82), 0 8px 20px rgba(0, 0, 0, 0.42);
 }
 
 .board-progress-open {
@@ -13570,4 +14188,117 @@ button.apostle-picker-card[class*="personality-"] > strong.has-sort-value .apost
     font-size: 0.66rem;
     background-position: calc(100% - 1px) 50% !important;
   }
+}
+
+/* Per-apostle selectable personalities share the existing art-only card backgrounds. */
+:root[data-theme="dark"] { --personality-gradient-base: #253044; }
+.apostle-picker-current-image.has-personality-options,
+button.apostle-picker-card.has-personality-options,
+.dashboard-page #formation-picker-dialog .formation-picker-option.has-personality-options,
+.apostle-bulk-row.has-personality-options {
+  --personality-gradient-base: white;
+}
+.bottom-apostle-button.is-resonance.has-personality-options,
+.apostle-picker-current-image.is-resonance.has-personality-options,
+.dashboard-page #formation-board .formation-apostle-slot.is-resonance.has-personality-options.is-filled {
+  background-image: var(--personality-options-bg) !important;
+}
+button.apostle-picker-card.is-resonance.has-personality-options .apostle-picker-art,
+.dashboard-persistent-profile.is-resonance.has-personality-options .portrait-frame.dashboard-portrait,
+.apostle-bulk-row.is-resonance.has-personality-options .apostle-bulk-identity {
+  background-image: var(--personality-options-bg) !important;
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.has-personality-options {
+  background-image: none !important;
+  background-color: #fff !important;
+}
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.has-personality-options {
+  background-color: #1e293b !important;
+}
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-resonance-option.has-personality-options .formation-picker-option-image-wrap {
+  background-image: var(--personality-options-bg) !important;
+}
+
+/* Two candidates: the diagonal reaches opposite corners on both square and wide surfaces. */
+:root[data-theme] .bottom-apostle-button.is-two-tone,
+:root[data-theme] .apostle-picker-current-image.is-two-tone,
+:root[data-theme] .dashboard-page #formation-board .formation-apostle-slot.is-two-tone.is-resonance-unselected,
+:root[data-theme] .dashboard-persistent-profile.is-two-tone .portrait-frame.dashboard-portrait,
+:root[data-theme] .dashboard-page #formation-picker-dialog .formation-picker-option.is-two-tone .formation-picker-option-image-wrap,
+:root[data-theme] button.apostle-picker-card.is-two-tone .apostle-picker-art,
+:root[data-theme] .apostle-bulk-row.is-two-tone .apostle-bulk-avatar {
+  border-color: transparent !important;
+  background-image: var(--personality-options-bg), var(--personality-options-frame) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+}
+
+:root[data-theme] .bottom-apostle-button.is-two-tone {
+  border-width: 1px !important;
+  background-color: white !important;
+  background-image: linear-gradient(to bottom right,
+    color-mix(in srgb, var(--personality-option-first) 30%, white) 50%,
+    color-mix(in srgb, var(--personality-option-second) 30%, white) 50%),
+    var(--personality-options-frame) !important;
+}
+:root[data-theme="dark"] .bottom-apostle-button.is-two-tone {
+  background-color: #29313a !important;
+  background-image: linear-gradient(to bottom right,
+    color-mix(in srgb, var(--personality-option-first) 28%, #29313a) 50%,
+    color-mix(in srgb, var(--personality-option-second) 20%, #29313a) 50%),
+    var(--personality-options-frame) !important;
+}
+:root[data-theme] .apostle-picker-current-image.is-two-tone,
+:root[data-theme] .dashboard-persistent-profile.is-two-tone .portrait-frame.dashboard-portrait,
+:root[data-theme] .dashboard-page #formation-board .formation-apostle-slot.is-two-tone.is-resonance-unselected {
+  border-width: 2px !important;
+}
+
+.dashboard-page #formation-board .formation-apostle-slot.is-two-tone:not(.is-resonance-unselected) {
+  background-image: var(--personality-options-bg) !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+}
+
+button.apostle-picker-card.is-two-tone {
+  border-color: transparent !important;
+  background-image: linear-gradient(#fff, #fff), var(--personality-options-frame) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+}
+:root[data-theme="dark"] button.apostle-picker-card.is-two-tone {
+  background-image: linear-gradient(#1e293b, #1e293b), var(--personality-options-frame) !important;
+}
+
+.dashboard-page #formation-picker-dialog .formation-picker-option.is-two-tone {
+  border-color: transparent !important;
+  background-image: linear-gradient(#fff, #fff), var(--personality-options-frame) !important;
+  background-origin: padding-box, border-box !important;
+  background-clip: padding-box, border-box !important;
+}
+:root[data-theme="dark"] .dashboard-page #formation-picker-dialog .formation-picker-option.is-two-tone {
+  background-image: linear-gradient(#1e293b, #1e293b), var(--personality-options-frame) !important;
+}
+
+:root[data-theme] .apostle-bulk-row.is-resonance.is-two-tone .apostle-bulk-identity {
+  background: none !important;
+  box-shadow: none !important;
+}
+.apostle-bulk-row.is-two-tone .apostle-bulk-avatar {
+  box-sizing: border-box;
+  border: 2px solid transparent;
+  border-radius: 9px;
+}
+.apostle-bulk-row.is-two-tone .apostle-bulk-avatar > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 7px;
+}
+
+button.apostle-picker-card.is-two-tone.is-selected,
+:root[data-theme="dark"] button.apostle-picker-card.is-two-tone.is-selected {
+  border-color: transparent !important;
 }

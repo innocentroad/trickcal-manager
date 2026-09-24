@@ -33,7 +33,7 @@
     { label: '会心', indices: [5, 6] },
     { label: '会心抵抗', indices: [7, 8] }
   ];
-  const personalityNames = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+  const personalityNames = ['共鳴', '純粋', '冷静', '狂気', '活発', '憂鬱'];
 
   function splitAssetReference(value) {
     const text = String(value || '');
@@ -217,11 +217,20 @@
       + '" aria-label="アサイド' + escapeHtml(asideRank) + '">A' + escapeHtml(asideRank) + '</span>';
   }
 
-  function renderMember(member, relicEntries) {
+  function renderMember(member, relicEntries, slotIndex, snapshot) {
     const id = member?.id || '';
     const basic = basicById.get(id);
     const name = basic?.name || id || '空き枠';
-    const personality = basic?.personality || '';
+    const selectedPersonality = snapshot.v >= 2
+      ? snapshot.resonancePersonalities?.[slotIndex] || ''
+      : '';
+    const resolution = basic
+      ? window.TRICKCAL_FORMATION_PERSONALITY.resolveFormationPersonality(basic, selectedPersonality)
+      : null;
+    const needsSelection = !!resolution?.needsSelection;
+    const personality = resolution?.effectivePersonality || (resolution?.isSelectable ? '' : basic?.personality || '');
+    const status = resolution?.invalidSelection
+      ? `旧選択：${selectedPersonality}／現在の候補外` : needsSelection ? '性格未選択' : '';
     const personalityClass = personalityNames.includes(personality)
       ? 'personality-' + personality
       : '';
@@ -248,7 +257,10 @@
       name
     )).join('');
     return [
-      '<article class="', memberClass, '" title="', escapeHtml(basic ? [basic.position, basic.role, personality].filter(Boolean).join('・') : '使徒未選択'), '">',
+      '<article class="', memberClass, '" title="', escapeHtml(basic
+        ? [basic.position, basic.role, status || personality].filter(Boolean).join('・')
+        : '使徒未選択'), '">',
+      status ? '<p class="share-personality-status" style="margin:0 0 4px;font-size:.68rem;font-weight:800;color:var(--share-text)">' + escapeHtml(status) + '</p>' : '',
       '<div class="member-row">',
       '<div class="member-apostle"><div class="member-portrait">',
       portrait,
@@ -276,7 +288,9 @@
         '<div class="formation-column-body">',
         members.map((member, memberIndex) => renderMember(
           member,
-          relics.slice(memberIndex * 3, memberIndex * 3 + 3)
+          relics.slice(memberIndex * 3, memberIndex * 3 + 3),
+          rowIndex * 3 + memberIndex,
+          snapshot
         )).join(''),
         '</div></section>'
       ].join(''));
@@ -482,7 +496,7 @@
       return;
     }
     try {
-      const result = CODEC.decodeHash(window.location.hash);
+      const result = CODEC.decodeHash(window.location.hash, { displayData: DISPLAY_DATA });
       content.hidden = false;
       panel.hidden = true;
       renderFormation(result.snapshot);

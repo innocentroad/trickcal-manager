@@ -873,6 +873,17 @@
     }
 
     getSupport(snapshot) {
+      if (snapshot?.placementRequired) {
+        return { supported: false, reason: snapshot.placementMessage || '配置先を選択してください。' };
+      }
+      if (snapshot?.resonanceSelectionRequired || snapshot?.duplicateResonanceId) {
+        return {
+          supported: false,
+          reason: snapshot.duplicateResonanceId
+            ? `共鳴使徒「${snapshot.duplicateResonanceId}」の重複を解消してください。`
+            : snapshot.resonanceSelectionMessage || '共鳴性格を選択してください。'
+        };
+      }
       const registry = window.TRICKCAL_DPS_SUPPORT_REGISTRY;
       return registry?.evaluate?.(snapshot) || { supported: false, reason: 'DPS対応リストを読み込めませんでした。' };
     }

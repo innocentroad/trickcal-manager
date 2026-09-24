@@ -13,7 +13,8 @@
       'Butter', 'Patula', 'Barong', 'Picora', 'BigWood', 'Pira', 'Hilde', 'Festa', 'Blanchet', 'Fricle',
       'Haley', 'Beni', 'Belita', 'Veroo', 'Velvet', 'Posher', 'Mago', 'MaestroMK2', 'Mayo', 'Marie',
       'Mynx', 'Maison', 'Meluna', 'Momo', 'Yumimi', 'Yomi', 'Risty', 'Leets', 'Renewa', 'Rim',
-      'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum'
+      'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum',
+      'Joanne'
     ],
     artifacts: [
       'artifact_yomi_moonflower', 'artifact_erpin_ice_cream_cake', 'artifact_butter_yellow_card',
@@ -43,7 +44,8 @@
       'spell_firm_belief', 'spell_fatal_blow', 'spell_keeping_fit', 'spell_bulletproof',
       'spell_robust_health', 'spell_where_you_lookin', 'spell_personal_training', 'spell_empower',
       'spell_wizard_apprentice', 'spell_get_her', 'spell_random_coin', 'spell_big_tree_bark',
-      'spell_trainee', 'spell_soda_capsule', 'spell_strawberry_capsule'
+      'spell_trainee', 'spell_soda_capsule', 'spell_strawberry_capsule',
+      'spell_joanne_prayer_power'
     ],
     masterPowers: [
       'masterpower_punishment', 'masterpower_shield', 'masterpower_acceleration',

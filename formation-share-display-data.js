@@ -186,6 +186,17 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "role": "攻撃",
       "imagePath": "img/Chara/Sherum.webp?v=335cdfba266605ad"
     },
+    "Joanne": {
+      "name": "ジョアン",
+      "personality": "裏面",
+      "personalityOptions": [
+        "憂鬱",
+        "純粋"
+      ],
+      "position": "全列",
+      "role": "支援",
+      "imagePath": "img/Chara/Joanne.webp?v=8ae5075e52e5c4d7"
+    },
     "Xion": {
       "name": "シオン・ザ・DB",
       "personality": "憂鬱",
@@ -1007,6 +1018,15 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "kind": "spell",
       "imagePath": "img/Card/Spell/アヤの雪の花魔法.webp?v=674053a9ed116c58"
     },
+    "spell_joanne_prayer_power": {
+      "name": "ジョアンの祈りの権能",
+      "rarity": "伝説",
+      "cost": 30,
+      "signature": true,
+      "favoriteCharacter": "ジョアン",
+      "kind": "spell",
+      "imagePath": "img/Card/Spell/SpellCardIcon_58.webp?v=e2343b9cd372e43a"
+    },
     "spell_fatal_charm": {
       "name": "美しいって罪ね",
       "rarity": "伝説",
@@ -1273,6 +1293,7 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "img/Card/Card_Unique.webp": "img/Card/Card_Unique.webp?v=02e9a7a6aba39c42",
     "img/Card/Card_Rare.webp": "img/Card/Card_Rare.webp?v=7aa6ebaa81533b2c",
     "img/性格_純粋.webp": "img/性格_純粋.webp?v=60c05fcce955374f",
+    "img/性格_共鳴.webp": "img/性格_共鳴.webp?v=cdcda08dcd484081",
     "img/性格_冷静.webp": "img/性格_冷静.webp?v=7eeeb9e603a74b9b",
     "img/性格_狂気.webp": "img/性格_狂気.webp?v=0726ff85e9ed6456",
     "img/性格_活発.webp": "img/性格_活発.webp?v=20e99d6389bcd282",
@@ -1289,9 +1310,9 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "img/SP回復.webp": "img/SP回復.webp?v=04761ffeb11bd275"
   },
   "sourceCounts": {
-    "apostles": 78,
+    "apostles": 79,
     "artifacts": 52,
-    "spells": 35,
+    "spells": 36,
     "masterPowers": 6
   }
 };

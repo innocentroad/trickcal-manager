@@ -10223,6 +10223,870 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "joanne",
+    "name": "ジョアン",
+    "basic": {
+      "rarity": 3.0,
+      "eldain": "夢幻生",
+      "personality": "裏面",
+      "race": "妖精",
+      "role": "支援",
+      "position": "全列",
+      "attackType": "物理",
+      "initialSp": 180.0,
+      "spRecoveryPerSecond": 40.0,
+      "combatPowerCorrectionA": 120.0,
+      "combatPowerCorrectionB": 0.525,
+      "personalityOptions": [
+        "憂鬱",
+        "純粋"
+      ]
+    },
+    "statTypes": {
+      "hp": 4.0,
+      "atkP": 2.0,
+      "atkM": 0.0,
+      "defP": 3.0,
+      "defM": 3.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "effectId": "Joanne_low_e01",
+            "processGroupId": "Joanne_low_proc01",
+            "processOrder": 1.0,
+            "valueKind": "分散",
+            "valueClass": "状態付与",
+            "effectType": "固有状態",
+            "condition": "現在HP15%以上",
+            "effectTarget": "自身/攻撃力が最も高い味方2人"
+          },
+          {
+            "effectId": "Joanne_low_e02",
+            "processGroupId": "Joanne_low_proc01",
+            "processOrder": 2.0,
+            "valueKind": "分散",
+            "valueClass": "持続時間",
+            "effectType": "固有状態",
+            "condition": "現在HP15%以上",
+            "effectTarget": "自身/攻撃力が最も高い味方2人",
+            "fixedValue": 10.0
+          },
+          {
+            "effectId": "Joanne_low_e03",
+            "valueKind": "攻撃力増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "conditionType": "対象状態",
+            "conditionValue": "分散",
+            "condition": "分散保有中",
+            "effectTarget": "分散を保有する対象",
+            "levels": {
+              "1": 25.0,
+              "2": 27.0,
+              "3": 29.0,
+              "4": 31.0,
+              "5": 33.0,
+              "6": 35.0,
+              "7": 37.0,
+              "8": 39.0,
+              "9": 41.0,
+              "10": 43.0,
+              "11": 45.0,
+              "12": 47.0,
+              "13": 49.0,
+              "14": 51.0,
+              "15": 53.0
+            }
+          },
+          {
+            "effectId": "Joanne_low_e04",
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "damageModifierCategory": "与ダメージ量",
+            "conditionType": "対象状態",
+            "conditionValue": "分散",
+            "condition": "分散保有中",
+            "effectTarget": "分散を保有する対象",
+            "levels": {
+              "1": 10.0,
+              "2": 11.0,
+              "3": 12.0,
+              "4": 13.0,
+              "5": 14.0,
+              "6": 15.0,
+              "7": 16.0,
+              "8": 17.0,
+              "9": 18.0,
+              "10": 19.0,
+              "11": 20.0,
+              "12": 21.0,
+              "13": 22.0,
+              "14": 23.0,
+              "15": 24.0
+            }
+          },
+          {
+            "effectId": "Joanne_low_e05",
+            "valueKind": "分散割合",
+            "valueClass": "倍率",
+            "effectType": "固有状態",
+            "condition": "分散保有中。",
+            "effectTarget": "分散を保有する対象",
+            "fixedValue": 90.0
+          }
+        ],
+        "skillId": "Joanne_low",
+        "skillType": "低学年",
+        "skillName": "教理を行ない",
+        "description": "一定時間、自身と攻撃力が最も高いの味方使徒2名に分散効果を付与する。分散効果を保有している場合、攻撃力を増加させ、被ダメージ量を減少させる。\n現在HPが15%未満の味方はスキル対象から除外され、分散効果を受けない。\n分散効果は解除できず、分散ダメージによって味方が倒れることはない。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Joanne_high_e01",
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "condition": "ジョアンの配置列で選択：前列=最寄り、中列=中央、後列=指定範囲内の最遠",
+            "effectTarget": "配置列に応じて選択した敵/範囲",
+            "levels": {
+              "1": 700.0,
+              "2": 770.0,
+              "3": 840.0,
+              "4": 910.0,
+              "5": 980.0,
+              "6": 1050.0,
+              "7": 1120.0,
+              "8": 1190.0,
+              "9": 1260.0,
+              "10": 1330.0,
+              "11": 1400.0,
+              "12": 1470.0,
+              "13": 1540.0,
+              "14": 1610.0,
+              "15": 1680.0
+            }
+          },
+          {
+            "effectId": "Joanne_high_e02",
+            "valueKind": "敵現在高学年クールタイム増加",
+            "valueClass": "クールタイム",
+            "effectType": "クールタイム",
+            "condition": "高学年ダメージ命中後",
+            "effectTarget": "ダメージを受けた敵",
+            "targetSkill": "敵高学年スキル",
+            "levels": {
+              "1": 6.0,
+              "2": 6.0,
+              "3": 6.0,
+              "4": 7.0,
+              "5": 7.0,
+              "6": 7.0,
+              "7": 8.0,
+              "8": 8.0,
+              "9": 8.0,
+              "10": 9.0,
+              "11": 9.0,
+              "12": 9.0,
+              "13": 10.0,
+              "14": 10.0,
+              "15": 10.0
+            }
+          },
+          {
+            "effectId": "Joanne_high_e03",
+            "processGroupId": "Joanne_high_proc01",
+            "processOrder": 1.0,
+            "valueKind": "夢現の姿",
+            "valueClass": "状態付与",
+            "effectType": "固有状態",
+            "condition": "解除不可",
+            "effectTarget": "自身"
+          },
+          {
+            "effectId": "Joanne_high_e04",
+            "processGroupId": "Joanne_high_proc01",
+            "processOrder": 2.0,
+            "valueKind": "夢現の姿",
+            "valueClass": "持続時間",
+            "effectType": "固有状態",
+            "condition": "解除不可",
+            "effectTarget": "自身",
+            "fixedValue": 20.0
+          },
+          {
+            "effectId": "Joanne_high_e05",
+            "processGroupId": "Joanne_high_proc02",
+            "processOrder": 1.0,
+            "valueKind": "シールド",
+            "valueClass": "倍率",
+            "effectType": "シールド",
+            "condition": "シールドの最大HP参照主体は要確認",
+            "effectTarget": "自身を除く味方全員",
+            "reference": "最大HP",
+            "levels": {
+              "1": 20.0,
+              "2": 21.0,
+              "3": 22.0,
+              "4": 23.0,
+              "5": 24.0,
+              "6": 25.0,
+              "7": 26.0,
+              "8": 27.0,
+              "9": 28.0,
+              "10": 29.0,
+              "11": 30.0,
+              "12": 31.0,
+              "13": 32.0,
+              "14": 33.0,
+              "15": 34.0
+            }
+          },
+          {
+            "effectId": "Joanne_high_e06",
+            "processGroupId": "Joanne_high_proc02",
+            "processOrder": 2.0,
+            "valueKind": "シールド",
+            "valueClass": "持続時間",
+            "effectType": "シールド",
+            "effectTarget": "自身を除く味方全員",
+            "fixedValue": 10.0
+          }
+        ],
+        "skillId": "Joanne_high",
+        "skillType": "高学年",
+        "skillName": "私が目撃したことを",
+        "description": "敵に範囲物理ダメージを与え、ダメージを受けた使徒の現在の高学年スキルのクールタイムを即時増加させる。自身は20秒間夢現の姿状態となり、自身を除く全ての味方にシールドを付与する。夢現の姿は解除できない。攻撃対象は自身のは位置列に応じて変化する。\n前列配置：最も近い敵\n中列配置：真ん中にいる敵\n後列配置：指定範囲内で最も遠い敵",
+        "cooldownSeconds": 34.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Joanne_passive_e01",
+            "valueKind": "味方攻撃力増加",
+            "valueClass": "倍率",
+            "effectType": "パッシブ",
+            "condition": "ジョアンがフィールドに不在でも発動。編成外・未所持の扱いは要確認",
+            "effectTarget": "味方全員",
+            "levels": {
+              "1": 6.0,
+              "2": 6.5,
+              "3": 7.0,
+              "4": 7.5,
+              "5": 8.0,
+              "6": 8.5,
+              "7": 9.0,
+              "8": 9.5,
+              "9": 10.0,
+              "10": 10.5,
+              "11": 11.0,
+              "12": 11.5,
+              "13": 12.0,
+              "14": 12.5,
+              "15": 13.0
+            }
+          }
+        ],
+        "skillId": "Joanne_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "味方使徒の攻撃力を増加させる。\n（この効果はジョアンがフィールドにいなくても発動する。）"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Joanne_basic_e01",
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "attackCategory": "普通攻撃",
+            "condition": "夢現の姿を保有していない時のみ。変身時のダメージに加算しない",
+            "effectTarget": "敵",
+            "fixedValue": 200.0
+          },
+          {
+            "effectId": "Joanne_basic_e02",
+            "valueKind": "夢現の姿時物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "attackCategory": "普通攻撃",
+            "conditionType": "自身状態",
+            "conditionValue": "夢現の姿",
+            "condition": "夢現の姿時。通常時の200%を置換する",
+            "effectTarget": "敵/範囲",
+            "fixedValue": 500.0
+          },
+          {
+            "effectId": "Joanne_basic_e03",
+            "valueKind": "HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "conditionType": "自身状態",
+            "conditionValue": "夢現の姿",
+            "condition": "夢現の姿時。回復基準となる与ダメージの集計範囲は要確認",
+            "effectTarget": "味方全員",
+            "reference": "与ダメージ量",
+            "fixedValue": 150.0
+          }
+        ],
+        "skillId": "Joanne_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本",
+        "description": "鎖を飛ばし、敵に物理ダメージを与える。\n夢現の姿状態の時、鎖を召喚して敵に範囲物理ダメージを与え、味方全員のHPを回復する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Joanne_enhanced_e01",
+            "processGroupId": "Joanne_enhanced_proc01",
+            "processOrder": 1.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "damageModifierCategory": "与ダメージ量",
+            "condition": "ジョアンが前列に配置されている",
+            "effectTarget": "味方全員",
+            "fixedValue": 15.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e02",
+            "processGroupId": "Joanne_enhanced_proc01",
+            "processOrder": 2.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "ジョアンが前列に配置されている",
+            "effectTarget": "味方全員",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e03",
+            "processGroupId": "Joanne_enhanced_proc02",
+            "processOrder": 1.0,
+            "valueKind": "普通攻撃ダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "damageModifierCategory": "与ダメージ量",
+            "condition": "ジョアンが中列に配置されている",
+            "effectTarget": "味方全員",
+            "targetSkill": "普通攻撃",
+            "fixedValue": 20.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e04",
+            "processGroupId": "Joanne_enhanced_proc02",
+            "processOrder": 2.0,
+            "valueKind": "普通攻撃ダメージ量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "ジョアンが中列に配置されている",
+            "effectTarget": "味方全員",
+            "targetSkill": "普通攻撃",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e05",
+            "processGroupId": "Joanne_enhanced_proc03",
+            "processOrder": 1.0,
+            "valueKind": "スキルダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "damageModifierCategory": "与ダメージ量",
+            "condition": "ジョアンが後列に配置されている",
+            "effectTarget": "味方全員",
+            "targetSkill": "スキル",
+            "fixedValue": 20.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e06",
+            "processGroupId": "Joanne_enhanced_proc03",
+            "processOrder": 2.0,
+            "valueKind": "スキルダメージ量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "ジョアンが後列に配置されている",
+            "effectTarget": "味方全員",
+            "targetSkill": "スキル",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e07",
+            "processGroupId": "Joanne_enhanced_proc04",
+            "processOrder": 1.0,
+            "valueKind": "シールド",
+            "valueClass": "倍率",
+            "effectType": "シールド",
+            "condition": "ジョアンが前列に配置され、夢現の姿状態の時",
+            "effectTarget": "前列の味方",
+            "reference": "最大HP",
+            "fixedValue": 35.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e08",
+            "processGroupId": "Joanne_enhanced_proc04",
+            "processOrder": 2.0,
+            "valueKind": "シールド",
+            "valueClass": "持続時間",
+            "effectType": "シールド",
+            "condition": "ジョアンが前列に配置され、夢現の姿状態の時",
+            "effectTarget": "前列の味方",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e09",
+            "processGroupId": "Joanne_enhanced_proc05",
+            "processOrder": 1.0,
+            "valueKind": "攻撃速度増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "condition": "ジョアンが中列に配置され、夢現の姿状態の時",
+            "effectTarget": "中列の味方",
+            "fixedValue": 50.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e10",
+            "processGroupId": "Joanne_enhanced_proc05",
+            "processOrder": 2.0,
+            "valueKind": "攻撃速度増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "ジョアンが中列に配置され、夢現の姿状態の時",
+            "effectTarget": "中列の味方",
+            "fixedValue": 8.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e11",
+            "processGroupId": "Joanne_enhanced_proc06",
+            "processOrder": 1.0,
+            "valueKind": "毎秒SP回復量増加",
+            "valueClass": "固定値",
+            "effectType": "バフ",
+            "condition": "ジョアンが後列に配置され、夢現の姿状態の時",
+            "effectTarget": "後列の味方",
+            "fixedValue": 15.0
+          },
+          {
+            "effectId": "Joanne_enhanced_e12",
+            "processGroupId": "Joanne_enhanced_proc06",
+            "processOrder": 2.0,
+            "valueKind": "毎秒SP回復量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "ジョアンが後列に配置され、夢現の姿状態の時",
+            "effectTarget": "後列の味方",
+            "fixedValue": 8.0
+          }
+        ],
+        "skillId": "Joanne_enhanced",
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "自身の配置列に応じて異なる効果を受ける。夢現の姿状態の時、効果が追加される。すべての効果は8秒間持続する。\n\n前列配置：4回目の攻撃の代わりに味方全員の被ダメージ量を減少させる。夢現の姿状態の時、前列の味方使徒にシールドを付与する。\n\n中列配置：4回目の攻撃の代わりに味方全員の普通攻撃のダメージ量を増加させる。夢現の姿状態の時、中列の味方使徒の攻撃速度を増加させる。\n\n後列配置：4回目の攻撃の代わりに味方全員のスキルダメージ量を増加させる。夢現の姿状態の時、後列の味方使徒の1秒ごとのSP回復量を増加させる。",
+        "triggerType": "n回ごと",
+        "triggerValue": 4.0
+      }
+    ],
+    "uniqueStates": [
+      {
+        "stateId": "Joanne_dream_form",
+        "name": "夢現の姿",
+        "category": "固有状態",
+        "valueType": "真偽",
+        "scope": "所有者単位",
+        "initialValue": 0.0,
+        "minValue": 0.0,
+        "maxValue": 1.0,
+        "step": 1.0,
+        "capBehavior": "上限で打ち止め",
+        "dispelPolicy": "解除不能",
+        "retention": "スキル指定時間",
+        "calculationSupportLevel": "未対応",
+        "verificationStatus": "暫定",
+        "notes": "高学年スキルで20秒付与。普通攻撃効果を変更する。",
+        "ownerId": "joanne"
+      },
+      {
+        "stateId": "Joanne_disperse",
+        "name": "分散",
+        "category": "固有状態",
+        "valueType": "真偽",
+        "scope": "対象単位",
+        "initialValue": 0.0,
+        "minValue": 0.0,
+        "maxValue": 1.0,
+        "step": 1.0,
+        "capBehavior": "上限で打ち止め",
+        "dispelPolicy": "解除不能",
+        "retention": "10秒",
+        "calculationSupportLevel": "未対応",
+        "verificationStatus": "暫定",
+        "notes": "分散を保有する他の味方とダメージを分かち合う。分散ダメージで味方は倒れない。分散比率は別途要確認。",
+        "ownerId": "joanne"
+      }
+    ],
+    "favoriteCard": {
+      "name": "ジョアンの祈りの権能",
+      "kind": "スペル",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "effectId": "Joanne_favorite_1_e01",
+                "processGroupId": "Joanne_favorite_1_proc01",
+                "processOrder": 1.0,
+                "targetSkillName": "前列バフ",
+                "valueKind": "無敵",
+                "valueClass": "状態付与",
+                "effectType": "バフ",
+                "triggerType": "n秒ごと",
+                "triggerValue": 15.0,
+                "conditionType": "編成中",
+                "conditionValue": "Joanne",
+                "condition": "ジョアン編成時、15秒ごと",
+                "effectTarget": "前列の味方"
+              },
+              {
+                "effectId": "Joanne_favorite_1_e02",
+                "processGroupId": "Joanne_favorite_1_proc01",
+                "processOrder": 2.0,
+                "targetSkillName": "前列バフ",
+                "valueKind": "無敵",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "triggerType": "n秒ごと",
+                "triggerValue": 15.0,
+                "conditionType": "編成中",
+                "conditionValue": "Joanne",
+                "condition": "ジョアン編成時、15秒ごと",
+                "effectTarget": "前列の味方",
+                "fixedValue": 2.0
+              },
+              {
+                "effectId": "Joanne_favorite_1_e03",
+                "targetSkill": "高学年",
+                "targetSkillName": "中列バフ",
+                "valueKind": "現在高学年クールタイム減少",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
+                "triggerType": "n秒ごと",
+                "triggerValue": 15.0,
+                "conditionType": "編成中",
+                "conditionValue": "Joanne",
+                "condition": "ジョアン編成時、15秒ごと",
+                "effectTarget": "中列の味方",
+                "fixedValue": 3.0
+              },
+              {
+                "effectId": "Joanne_favorite_1_e04",
+                "processGroupId": "Joanne_favorite_1_proc02",
+                "processOrder": 1.0,
+                "targetSkillName": "後列バフ",
+                "valueKind": "攻撃速度増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "triggerType": "n秒ごと",
+                "triggerValue": 15.0,
+                "conditionType": "編成中",
+                "conditionValue": "Joanne",
+                "condition": "ジョアン編成時、15秒ごと",
+                "effectTarget": "後列の味方",
+                "fixedValue": 33.0
+              }
+            ],
+            "skillId": "Joanne_favorite_1",
+            "skillName": "愛用Lv1",
+            "description": "デッキにジョアンが編成されている場合、以下の効果が発動する。\n15秒ごとに味方全員に有利なバフを付与する。\n対象の配置列に応じて異なる効果を受ける。\n前列配置：一定時間、無敵状態になる。\n中列配置：現在の高学年スキルクールタイムが即時減少する。\n後列配置：一定時間、攻撃速度が増加する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "effectId": "Joanne_favorite_3_e01",
+                "targetSkill": "高学年",
+                "targetSkillName": "愛用Lv3",
+                "valueKind": "高学年クールタイム減少",
+                "valueClass": "クールタイム",
+                "effectType": "クールタイム",
+                "conditionType": "編成中",
+                "conditionValue": "Joanne",
+                "condition": "愛用Lv3",
+                "effectTarget": "ジョアン",
+                "fixedValue": 5.0
+              }
+            ],
+            "skillId": "Joanne_favorite_3",
+            "skillName": "愛用Lv3",
+            "description": "ジョアンの高学年スキルのクールタイムが5秒減少する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "主教の経典",
+      "levels": {
+        "1": {
+          "name": "教主日誌",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Joanne_aside_1",
+              "effectId": "Joanne_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Joanne_aside_1",
+              "effectId": "Joanne_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Joanne_aside_1",
+              "effectId": "Joanne_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Joanne_aside_1",
+              "effectId": "Joanne_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Joanne_aside_1",
+              "effectId": "Joanne_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "妖精降臨",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 30.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e02",
+              "processGroupId": "Joanne_aside_2_proc03",
+              "processOrder": 1.0,
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "ジョアンが前列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "fixedValue": 30.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e03",
+              "processGroupId": "Joanne_aside_2_proc04",
+              "processOrder": 1.0,
+              "valueKind": "普通攻撃ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "ジョアンが中列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 40.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e04",
+              "processGroupId": "Joanne_aside_2_proc05",
+              "processOrder": 1.0,
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "condition": "ジョアンが後列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "targetSkill": "スキル",
+              "fixedValue": 40.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e05",
+              "processGroupId": "Joanne_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "triggerType": "固有状態付与時",
+              "triggerSourceId": "Joanne_high_e03",
+              "condition": "夢現の姿発動時",
+              "effectTarget": "自身を除く味方全員",
+              "fixedValue": 50.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e06",
+              "processGroupId": "Joanne_aside_2_proc01",
+              "processOrder": 2.0,
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "固有状態付与時",
+              "triggerSourceId": "Joanne_high_e03",
+              "condition": "夢現の姿発動時",
+              "effectTarget": "自身を除く味方全員",
+              "fixedValue": 30.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e07",
+              "processGroupId": "Joanne_aside_2_proc02",
+              "processOrder": 1.0,
+              "valueKind": "攻撃速度増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "conditionType": "状態保有",
+              "conditionValue": "夢現の姿",
+              "condition": "夢現の姿を保有している間のみ有効。独立した持続秒数ではなく状態の終了に追従する",
+              "effectTarget": "自身",
+              "fixedValue": 125.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e08",
+              "processGroupId": "Joanne_aside_2_proc02",
+              "processOrder": 2.0,
+              "valueKind": "攻撃速度増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "conditionType": "状態保有",
+              "conditionValue": "夢現の姿",
+              "condition": "夢現の姿を保有している間のみ有効。状態追従として実装時に整理する",
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e09",
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "condition": "ジョアンが付与した分散の終了時。終了前の対象集合に対して回復する",
+              "effectTarget": "終了した分散効果を受けていた味方全員",
+              "reference": "対象の最大HP",
+              "fixedValue": 30.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e10",
+              "processGroupId": "Joanne_aside_2_proc03",
+              "processOrder": 2.0,
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "condition": "ジョアンが前列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e11",
+              "processGroupId": "Joanne_aside_2_proc04",
+              "processOrder": 2.0,
+              "valueKind": "普通攻撃ダメージ量増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "condition": "ジョアンが中列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Joanne_aside_2",
+              "effectId": "Joanne_aside_2_e12",
+              "processGroupId": "Joanne_aside_2_proc05",
+              "processOrder": 2.0,
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "condition": "ジョアンが後列に配置されている時の強化攻撃。通常の強化効果を2倍の値に置換し、通常値と加算しない",
+              "effectTarget": "味方全員",
+              "targetSkill": "スキル",
+              "fixedValue": 8.0
+            }
+          ],
+          "description": "最大HPが増加する。\n強化攻撃の被ダメージ量減少、普通攻撃ダメージ量増加、スキルダメージ量増加値が2倍になる。\n分散効果終了時、分散効果を受けた味方全員のHPを回復させる。\n高学年スキルで夢現の姿状態になる時、自身を除く味方全員のダメージ量を増加させる。\n夢現の姿状態の時、自身の攻撃速度が増加する。"
+        },
+        "3": {
+          "name": "恩を返すジョアン",
+          "stats": [
+            {
+              "skillId": "Joanne_aside_3_global",
+              "effectId": "Joanne_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "HP",
+              "increaseP": 4.0
+            },
+            {
+              "skillId": "Joanne_aside_3_global",
+              "effectId": "Joanne_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "物理攻撃力",
+              "increaseP": 4.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Joanne_aside_3_battle",
+              "effectId": "Joanne_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全員",
+              "fixedValue": 15.0
+            },
+            {
+              "skillId": "Joanne_aside_3_battle",
+              "effectId": "Joanne_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全員",
+              "fixedValue": 6.7
+            }
+          ],
+          "description": "味方全員の敵への与ダメージ量を増加させ、味方全員の敵からの被ダメージ量を減少させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "xion",
     "name": "シオン・ザ・DB",
     "basic": {

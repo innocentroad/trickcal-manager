@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "84f8cbb3aa3e3cdd",
-  "sourceCommit": "22a78aab7cd0690c30407c59eb5a1314b1e09903",
+  "candidateId": "b4dbbafd1f8a7a96",
+  "sourceCommit": "14cd5856183b30b222d5df1b161955b0b189ac84",
   "profile": "legacy",
-  "contentDigest": "227c1438519c8b63bc87a0d3f655014bc1bd9e27de60834777456e0a1f69ea1a",
-  "outputDigest": "f40d612e716124fe",
+  "contentDigest": "5f903b01f0bc76333d3156251e64d1a5e54e1754485b0670804b7289c11d0cec",
+  "outputDigest": "e6bc325e12599646",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
       "path": "announcement-history-data.js",
-      "sha256": "1895b49925fcf287728c2488eba8f0b6260937abb2ddbb44b22da37876fb680c"
+      "sha256": "82a46b7d27c6c242e6ef17af4ce2814b23d4df223f751388423819f7fde11cb6"
     },
     {
       "path": "announcements-data.js",
@@ -29,12 +29,16 @@
       "sha256": "97ce4db555f48cf8b34c0c835ef6eeb97adfe02ab285e41920137bcbd2388b16"
     },
     {
+      "path": "apostle-skill-image-data.js",
+      "sha256": "78baab2040b0802435e13b5377b7e0b1b49a66419be82672c04c847969096a60"
+    },
+    {
       "path": "apostles.js",
-      "sha256": "8ac18f6636626537d6f481ab5201c005c69163452d17ac4f66fb2136113b8aca"
+      "sha256": "2c0ca8489937a7630ada8bd6d732975cf273c49b43216986e0896681ec747205"
     },
     {
       "path": "app-cache.js",
-      "sha256": "408e89fdc6fc84e8de253c3c473f2a91afda6a520f2b890230906cdf3fdadc3b"
+      "sha256": "c01324dd2e99f52128eba3fb9c3f625da78ad63e507e4a7e882035b64308f0db"
     },
     {
       "path": "calc/dps/index.html",
@@ -46,7 +50,7 @@
     },
     {
       "path": "cards.js",
-      "sha256": "045e35cf50ad061363504d208248fd7e499b52ef033c4128b60307d7c5bd15d2"
+      "sha256": "1b6b5b41fb51ad79fc68a37d16da940bdb9ce1428c6621c04189cfe293c95664"
     },
     {
       "path": "combat-scenario.js",
@@ -66,7 +70,7 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "59a5dc3b04e7f781bf488d225c4040017813604d5f3cd0cd4d25a6e9e619c54d"
+      "sha256": "f2327ec612ee8cd5a269ca9ad91762b9bb9a28f378d94e2e1bb1b46ae428be2b"
     },
     {
       "path": "dps-simulator-worker.js",
@@ -90,7 +94,7 @@
     },
     {
       "path": "enemy-presets.js",
-      "sha256": "00019b80764b9207e9d8a0c96307489548c2a910e4fc231ca84aa4afd7010983"
+      "sha256": "66610a41778fdaf146d2a77d05470ef1bc4dcc4cb7afee15107eef286f6537ce"
     },
     {
       "path": "enemy-status.css",
@@ -98,7 +102,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "fa76ba3832dcf1af3a3ea7e6fb308d6d252913d0ee261391cb1114c2cea0747c"
+      "sha256": "41614ec3e716a7166f2530cf3dade04ee7ad128e2575224fec047188d7a5867a"
     },
     {
       "path": "enemy-status.js",
@@ -106,15 +110,15 @@
     },
     {
       "path": "formation-damage-calc.css",
-      "sha256": "3c6622deb526a88c33a192593d7969dcedffdc1952c36c21298c5f29532cb638"
+      "sha256": "a9fe2e924d753b20200850efc8a7a1ae914c7143c12c4cea43b13dafec0b0c28"
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "aeee92d9716f04580577072af9c95caeb8e3ef1e71e31ab1c5a922f895299cdc"
+      "sha256": "b78156b53d74767ccf9b12f225c707f5cdadee9791d8c6a05a989bc8decdf9b3"
     },
     {
       "path": "formation-damage-calc.js",
-      "sha256": "96fe8a3664844830d0f60d56b7110210e494c1bda8b615596777012cbfcc1f8b"
+      "sha256": "90619b96ac64abdd9871a55f0b87532224e6957ec83651b783d8b748e04c6309"
     },
     {
       "path": "formation-damage-dps-prototype.css",
@@ -122,27 +126,35 @@
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "a85eb7155d90f19ef52c329012b77c1dcf230d486f9ecf826254f79ae5634ded"
+      "sha256": "ac5ab400a1053899477f80752494667c4f97d1d2f774a50173408c85a1193e9f"
     },
     {
       "path": "formation-damage-dps-prototype.js",
-      "sha256": "54e1f42ccde477b980e3f050e0e21fcba0dfe22172b169c2935e625ec2b6df5d"
+      "sha256": "d9348daaaf647aba5f8e1f0fd095993608caab09d7273f278552199c8e42bf3f"
+    },
+    {
+      "path": "formation-personality.js",
+      "sha256": "9a01e22b700a179b41e48f320473a1a3a6f44e6d2eee8a1adca867617b8f1a82"
+    },
+    {
+      "path": "formation-placement.js",
+      "sha256": "986e8027da9eb993e512ade8843bd61ea16fa6a78d159e2bfa07aa0b03aeacc0"
     },
     {
       "path": "formation-share-catalog.js",
-      "sha256": "f831ed029d771efa316a48a975afd6d44911d9711f15d86378c1c0ee7eb43d1c"
+      "sha256": "c795d918708efd9c36653b80cde1c487d84912b2fa406f7ca780da71184ef695"
     },
     {
       "path": "formation-share-codec.js",
-      "sha256": "53216a7afa317aab3bd812e50edbd8c401ee8db5cc7a43ec7d753693ff533f53"
+      "sha256": "ff3f685a11f3fc3ae446920dca282e650dbd85fbf56cc29f2ffd853e66c946c6"
     },
     {
       "path": "formation-share-create.js",
-      "sha256": "a800de8c14f18d96797d5a9814638f0b8a187ae838327b098258e45b81a49861"
+      "sha256": "3897d5e58f2f2f3891744e592fa374307fe2e754d8baf75d08554ad26d355cb5"
     },
     {
       "path": "formation-share-display-data.js",
-      "sha256": "5c60cf538126f03736e795690056e27576c74a277b37720062ca138673a154f9"
+      "sha256": "b583f54a6d7c8b00841c429fe4684bfea3040a0fe1758e45275b199e8079c745"
     },
     {
       "path": "formation-share-image.js",
@@ -158,11 +170,11 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "647bb123efeed30b159b11823020172588968b225c12f167970b3e5e4ea39836"
+      "sha256": "e2943aa2976eb766a6c42671baf910328ee0d222ba30446deab9e410d3f5a1fd"
     },
     {
       "path": "formation-share.js",
-      "sha256": "4362bd97027b5d7de2d8c34fcac37526685867a5e569cd7e9185b08a10db67f2"
+      "sha256": "593a192af15b18bc37d78b526f06f75b7eff9ce0df2ad5cf135822eeb4ed5706"
     },
     {
       "path": "ico.webp",
@@ -170,7 +182,7 @@
     },
     {
       "path": "image-preload.js",
-      "sha256": "608a35874a605ad3c4b04e0fefae5564372e50c8d00af7e30bba1dad1941ca11"
+      "sha256": "8168473160df96f15e23c13021f193feffbc803be58a746321274a5aa3612321"
     },
     {
       "path": "img/★1共同教団証.webp",
@@ -593,6 +605,10 @@
       "sha256": "50b1a71d6c0e107863ac8f3d1b98f78353b55f27354d67310fcccb8ea4df65de"
     },
     {
+      "path": "img/Card/Spell/SpellCardIcon_58.webp",
+      "sha256": "e2343b9cd372e43aa47d9e89db5be8f6becbb39baa8237a8e6ab57d1b1777f87"
+    },
+    {
       "path": "img/Card/Spell/あいつを捕まえろ！.webp",
       "sha256": "b72d1c5ab01c33ac11163fcb089e951fb9488e3e7237892a5629f0e94c3d88b9"
     },
@@ -961,6 +977,18 @@
       "sha256": "ebe2f233bed8a3319e397c213af82c113df6f5abcd19526348d0afe87c3d0172"
     },
     {
+      "path": "img/Chara/Aside/Aside_Skill_Joanne_1.webp",
+      "sha256": "d1b6e8813fac2afedc1e89db77d44d64515fcc03abe8d855904ae88825aa778e"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Joanne_2.webp",
+      "sha256": "a4dc9517ff0e6ca77c4cef2ba46dbd67f0a2c0976bacd84cfc052678b695db8f"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Joanne_3.webp",
+      "sha256": "b407191a49a48597eb7d252629773aaa129471f44e0eabddd4f4587cb9513e33"
+    },
+    {
       "path": "img/Chara/Aside/Aside_Skill_Kidian_1.webp",
       "sha256": "87a2de6b466113ad21582f8c0ee9fe62b3d5cad0a6e64ce291bee4a8aedc64e9"
     },
@@ -1321,6 +1349,10 @@
       "sha256": "4a45b2ed1b5c994cde6940a997535a51657395ab2b6bf2c3dd93d0c4351b34af"
     },
     {
+      "path": "img/Chara/Aside/AsideIcon_Joanne.webp",
+      "sha256": "33449a5ad7e228f951ac9df7a82a43cb66845b1ef3142f5c787cde97ce864e63"
+    },
+    {
       "path": "img/Chara/Aside/AsideIcon_Kidian.webp",
       "sha256": "5293698cd696e1c7b8cb6f08b037fb63ed3daf7ba5834cdf4b4ac0634007b4fa"
     },
@@ -1525,6 +1557,10 @@
       "sha256": "4594891e34f37a8a4b437e4f992849093dbe8337c57247fc9ece897f6b7221bc"
     },
     {
+      "path": "img/Chara/Joanne.webp",
+      "sha256": "8ae5075e52e5c4d7357a96d87e68db6ea8663ca6a0d32115e1945d838569720a"
+    },
+    {
       "path": "img/Chara/Jubee.webp",
       "sha256": "19b4b67f3cf7514ddf16c7268e0b80cf47c960819c27b8c053a1d9ac25e89c82"
     },
@@ -1675,6 +1711,14 @@
     {
       "path": "img/Chara/Sist.webp",
       "sha256": "46ebf72990d83c5cd4906af8737739ce2ba895838cb6a7b8f8356394d2dff7d9"
+    },
+    {
+      "path": "img/Chara/Skill/Icon_AdmissionSkill_Joanne.webp",
+      "sha256": "121f6ed0df3456cc2411c4099f481f71b4c69847e3fedea9133b8a0443597ca1"
+    },
+    {
+      "path": "img/Chara/Skill/Icon_GraduateSkill_Joanne.webp",
+      "sha256": "c9baf7eac0c9154ef2cf58c6d410b0f2812adf96b2632ca005039b61c817e95c"
     },
     {
       "path": "img/Chara/Skill/MagicAttack.webp",
@@ -4153,6 +4197,10 @@
       "sha256": "20e99d6389bcd28279ba21205911219654e314ee186bfcb063fd339ae6cad99d"
     },
     {
+      "path": "img/性格_共鳴.webp",
+      "sha256": "cdcda08dcd484081b5c65a482daf136d0c0b96239b128ada52a60b1cbe7201e1"
+    },
+    {
       "path": "img/性格_狂気.webp",
       "sha256": "0726ff85e9ed6456e3ea75ad8de54a2a2dc82236378f630646bda944a66a1314"
     },
@@ -4163,6 +4211,10 @@
     {
       "path": "img/性格_憂鬱.webp",
       "sha256": "896cdbbcb67d69eb3bc8a216867055e3e03666534fc8b153c3c223e0c9c90a9a"
+    },
+    {
+      "path": "img/性格_裏面.webp",
+      "sha256": "07f586a1bedb12a89111996c71c6a0bf0f53c8293fef77210fb84eab9f098652"
     },
     {
       "path": "img/性格_冷静.webp",
@@ -4183,6 +4235,10 @@
     {
       "path": "img/配置列_前列.webp",
       "sha256": "40bfaf415dd3ca3406e09cda14e96272c165caca8ae26c32bab5308166ed21f6"
+    },
+    {
+      "path": "img/配置列_全列.webp",
+      "sha256": "8972bd89efb7ba376bd53396429bbf9846efe721be1f3946f7435380f405eb04"
     },
     {
       "path": "img/配置列_中列.webp",
@@ -4230,7 +4286,7 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "90aa62bdd1f90808263596b4b5450f49249b90ba5e765e8a96f0751ef2e91c1a"
+      "sha256": "ffb82feb96a8037082a499e61fb241625f4d912c8b8107b4d7ed5c8ee42f3677"
     },
     {
       "path": "public-site-runtime.js",
@@ -4242,7 +4298,7 @@
     },
     {
       "path": "public/apostle-data.html",
-      "sha256": "3db28689ad2d508c8d078dc4f46ab6f3c3684fba42990546eb437a03dea88db1"
+      "sha256": "9d8c1485fdb9863f986967ffeb3e6ae3b3b750ffeaae613fba5e93e9acbccad4"
     },
     {
       "path": "public/apostle-data.js",
@@ -4254,7 +4310,7 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "cc81877520e78e8ea20d3e9a54b797443fdad25b8653a507360a89f0d6b6cb0e"
+      "sha256": "6d97612fc07b4a948f1fc07d7760b27b3c8c87f7f088ea48208769a0c3a33f43"
     },
     {
       "path": "public/board-layout-preview.js",
@@ -4265,8 +4321,12 @@
       "sha256": "4e9ef7e517d20a80271b785ddfa7a943bebc4531b33c0ee7631ec8ab40dcad50"
     },
     {
+      "path": "research-progress.js",
+      "sha256": "135db5453dce6ba90ccc565a98b6a00d9d99f47bda54aa33889f6f136186a917"
+    },
+    {
       "path": "service-worker.js",
-      "sha256": "01d751038ccfe606e6771fe80b5a589dbcd671477e73b94230c4373a485f307d"
+      "sha256": "387857e408603318690994d32a7bd566bfc4a39d547a2158c3500582660296d1"
     },
     {
       "path": "share/index.html",
@@ -4286,15 +4346,15 @@
     },
     {
       "path": "stat-dashboard.css",
-      "sha256": "8daff51a9a35d77fcdc655477ea5d9b1ab2c822a3be5a31fac79df4ee89472a2"
+      "sha256": "6145bd287d4b5a046bf539cd86478b298548aa9459aa49531579452733fb249c"
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "a86ec80e53eb99c3ebf677701e55c8d58f47eefecfc8c7f2ac357a3996c731ce"
+      "sha256": "f5c77155f8f1cd0701ed101f1614d6dd834de003d0e20d1682d6840c9d090d36"
     },
     {
       "path": "stat-dashboard.js",
-      "sha256": "1ece05a22c4282ca1ab25bb6dabe7471a4bbde61ffc9fb45a2abbe079e066d00"
+      "sha256": "5985c5ac8b98681e2b181b8ccc28984dbd130a744a8c449d671fb5072fa58fa6"
     },
     {
       "path": "stat-engine.js",
@@ -4306,11 +4366,11 @@
     },
     {
       "path": "stat-prototype.js",
-      "sha256": "8f7c8b6ca5f3b0dba0a24afb9780381bb8449a1e3e2ea9312bce965a81607d73"
+      "sha256": "76fe24075e9826752dc61feca9c95b66b900f4e86648dc5e27e359c20608775f"
     },
     {
       "path": "statData.js",
-      "sha256": "e1823534cf1b379eca25c7b568604573507d3c2496bb09bb8dbe67d00fa625dd"
+      "sha256": "08887c0d64f93fcf3c0ac143116226eb74bc878a6c3c492c07f2051416532ebe"
     },
     {
       "path": "storage-backup.js",
@@ -4322,7 +4382,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "2aa570b818e6c2c85ced8ecc9129320fbab898ee874b5e1d26f918335b322c18"
+      "sha256": "b346f6213768afa3d8e89d016a4b20597d05f65c214b342d5df873266cf0882a"
     },
     {
       "path": "storage-registry.js",
@@ -4338,7 +4398,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "0bb7156eadbb3ac966fd0e869347b8508a13f526c18b20047f5308c972bd7eb4"
+      "sha256": "7782e1cdf1b6b3e664d82a721c779348b7bb05bd2225f94169dd5df5ddf4d3bc"
     },
     {
       "path": "storage-transfer.js",

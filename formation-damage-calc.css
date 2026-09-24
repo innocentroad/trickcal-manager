@@ -2326,6 +2326,13 @@ body.theme-light .fdc-attack-type-chip.is-magic {
   margin-bottom: 0.85rem;
 }
 
+.fdc-target-preview-wrap {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
 .fdc-target-side-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(8.5rem, 1fr));
@@ -2720,21 +2727,24 @@ body.theme-light .fdc-formation-loader select {
   gap: 0.62rem;
 }
 
-.fdc-picker-row .fdc-picker-slot:nth-child(1) {
+.fdc-picker-row > .fdc-picker-slot:nth-child(1):not(.is-resonance),
+.fdc-picker-row .fdc-picker-member-choice:nth-child(1) .fdc-picker-slot:not(.is-resonance) {
   background:
     linear-gradient(135deg,
       color-mix(in srgb, dodgerblue 28%, var(--fdc-input)),
       color-mix(in srgb, var(--fdc-personality-color) 14%, var(--fdc-input)));
 }
 
-.fdc-picker-row .fdc-picker-slot:nth-child(2) {
+.fdc-picker-row > .fdc-picker-slot:nth-child(2):not(.is-resonance),
+.fdc-picker-row .fdc-picker-member-choice:nth-child(2) .fdc-picker-slot:not(.is-resonance) {
   background:
     linear-gradient(135deg,
       color-mix(in srgb, mediumseagreen 28%, var(--fdc-input)),
       color-mix(in srgb, var(--fdc-personality-color) 14%, var(--fdc-input)));
 }
 
-.fdc-picker-row .fdc-picker-slot:nth-child(3) {
+.fdc-picker-row > .fdc-picker-slot:nth-child(3):not(.is-resonance),
+.fdc-picker-row .fdc-picker-member-choice:nth-child(3) .fdc-picker-slot:not(.is-resonance) {
   background:
     linear-gradient(135deg,
       color-mix(in srgb, indianred 30%, var(--fdc-input)),
@@ -2794,6 +2804,220 @@ body.theme-light .fdc-formation-loader select {
 .fdc-picker-slot.is-active:focus-visible {
   transform: translateY(-2px) scale(1.03);
 }
+
+/* 共鳴カードは選択性格の枠色を保持し、操作状態は外側のoutlineで示す。 */
+.fdc-picker-slot.is-resonance {
+  --fdc-resonance-frame-color: #fff;
+  border-color: var(--fdc-resonance-frame-color);
+  background: linear-gradient(135deg,
+    #fff0f4 0%, #fff4e8 19%, #f5f8e9 39%, #eaf7f3 59%, #edf3ff 79%, #f7efff 100%);
+  box-shadow: 0 1px 4px rgba(42, 30, 58, 0.34), inset 0 0 0 1px rgba(48, 36, 63, 0.16);
+}
+
+body.theme-light .fdc-picker-slot.is-resonance {
+  background: linear-gradient(135deg,
+    #ffe1e5 0%, #fff0c8 20%, #e3f0d0 41%, #dbeafb 63%, #e7daf7 83%, #f5dce9 100%);
+}
+
+body.theme-dark .fdc-picker-slot.is-resonance {
+  background: linear-gradient(135deg,
+    #593747 0%, #56472e 20%, #3a5039 41%, #30485f 63%, #4a3b62 83%, #59394d 100%);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.72), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.fdc-picker-slot.is-resonance.personality-純粋 { --fdc-resonance-frame-color: mediumseagreen; }
+.fdc-picker-slot.is-resonance.personality-冷静 { --fdc-resonance-frame-color: dodgerblue; }
+.fdc-picker-slot.is-resonance.personality-狂気 { --fdc-resonance-frame-color: crimson; }
+.fdc-picker-slot.is-resonance.personality-活発 { --fdc-resonance-frame-color: goldenrod; }
+.fdc-picker-slot.is-resonance.personality-憂鬱 { --fdc-resonance-frame-color: slateblue; }
+
+.fdc-picker-slot.is-resonance,
+.fdc-picker-slot.is-resonance.is-active,
+.fdc-picker-slot.is-resonance:not(:disabled):hover,
+.fdc-picker-slot.is-resonance:not(:disabled):focus-visible {
+  border-color: var(--fdc-resonance-frame-color);
+}
+
+.fdc-picker-slot.is-resonance.is-active {
+  outline: 2px solid color-mix(in srgb, var(--fdc-primary) 72%, transparent);
+  outline-offset: 3px;
+  transform: none;
+}
+
+.fdc-picker-slot.is-resonance:not(:disabled):hover,
+.fdc-picker-slot.is-resonance:not(:disabled):focus-visible {
+  transform: none;
+}
+
+.fdc-resonance-personality-trigger {
+  position: absolute;
+  top: -0.28rem;
+  left: -0.28rem;
+  z-index: 9;
+  display: grid;
+  place-items: center;
+  width: 1.48rem;
+  height: 1.48rem;
+  border: 2px solid var(--fdc-panel);
+  border-radius: 50%;
+  padding: 0.06rem;
+  color: var(--fdc-text);
+  background: var(--fdc-panel);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.46);
+  cursor: pointer;
+}
+
+.fdc-resonance-personality-trigger img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.fdc-resonance-personality-trigger:focus-visible {
+  outline: 3px solid var(--fdc-primary);
+  outline-offset: 2px;
+}
+
+.fdc-target-resonance-trigger {
+  top: -0.26rem;
+  left: -0.26rem;
+  z-index: 5;
+}
+
+.fdc-floating-resonance-trigger {
+  position: fixed;
+  z-index: 1125;
+  top: calc(var(--trickcal-top-occupied-height) + 0.18rem);
+  left: calc(clamp(0.55rem, 1.4vw, 1rem) - 0.24rem);
+}
+
+.fdc-floating-resonance-trigger[hidden] {
+  display: none;
+}
+
+.fdc-target-preview.is-resonance,
+.fdc-floating-target.is-resonance {
+  --fdc-resonance-frame-color: #fff;
+  border-color: var(--fdc-resonance-frame-color);
+  background-color: #fff0f3;
+  background-image: linear-gradient(112deg,
+    #ffe1e5 0%, #fff0c8 20%, #e3f0d0 41%, #dbeafb 63%, #e7daf7 83%, #f5dce9 100%);
+  box-shadow: 0 0 0 1px rgba(45, 38, 58, 0.44), 0 8px 18px rgba(24, 32, 48, 0.24);
+}
+
+body.theme-dark .fdc-target-preview.is-resonance,
+body.theme-dark .fdc-floating-target.is-resonance {
+  background-color: #29313a;
+  background-image: linear-gradient(112deg,
+    #593747 0%, #56472e 20%, #3a5039 41%, #30485f 63%, #4a3b62 83%, #59394d 100%);
+  box-shadow: 0 0 0 1px rgba(5, 8, 18, 0.82), 0 8px 20px rgba(0, 0, 0, 0.42);
+}
+
+.fdc-target-preview.is-resonance.personality-純粋,
+.fdc-picker-slot.is-resonance.personality-純粋,
+.fdc-floating-target.is-resonance.personality-純粋 { --fdc-resonance-frame-color: mediumseagreen; }
+.fdc-target-preview.is-resonance.personality-冷静,
+.fdc-picker-slot.is-resonance.personality-冷静,
+.fdc-floating-target.is-resonance.personality-冷静 { --fdc-resonance-frame-color: dodgerblue; }
+.fdc-target-preview.is-resonance.personality-狂気,
+.fdc-picker-slot.is-resonance.personality-狂気,
+.fdc-floating-target.is-resonance.personality-狂気 { --fdc-resonance-frame-color: crimson; }
+.fdc-target-preview.is-resonance.personality-活発,
+.fdc-picker-slot.is-resonance.personality-活発,
+.fdc-floating-target.is-resonance.personality-活発 { --fdc-resonance-frame-color: goldenrod; }
+.fdc-target-preview.is-resonance.personality-憂鬱,
+.fdc-picker-slot.is-resonance.personality-憂鬱,
+.fdc-floating-target.is-resonance.personality-憂鬱 { --fdc-resonance-frame-color: slateblue; }
+
+.fdc-target-preview.is-resonance.is-resonance-unselected,
+.fdc-picker-slot.is-resonance.is-resonance-unselected,
+.fdc-floating-target.is-resonance.is-resonance-unselected {
+  --fdc-resonance-frame-color: #fff;
+}
+
+.fdc-target-preview.is-resonance,
+.fdc-floating-target.is-resonance {
+  border-color: color-mix(in srgb, var(--fdc-resonance-frame-color) 88%, white);
+}
+
+body.theme-dark .fdc-target-preview.is-resonance,
+body.theme-dark .fdc-floating-target.is-resonance {
+  border-color: color-mix(in srgb, var(--fdc-resonance-frame-color) 82%, rgba(248, 250, 252, 0.9));
+}
+
+.fdc-target-preview.is-resonance .fdc-target-portrait {
+  box-sizing: border-box;
+  padding: 3px;
+  background-color: #fff0f3;
+  background-image: linear-gradient(112deg,
+    #ffe1e5 0%, #fff0c8 20%, #e3f0d0 41%, #dbeafb 63%, #e7daf7 83%, #f5dce9 100%);
+}
+
+body.theme-dark .fdc-target-preview.is-resonance .fdc-target-portrait {
+  background-color: #29313a;
+  background-image: linear-gradient(112deg,
+    #593747 0%, #56472e 20%, #3a5039 41%, #30485f 63%, #4a3b62 83%, #59394d 100%);
+}
+
+.fdc-target-preview.is-resonance .fdc-target-portrait > img {
+  inset: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 6px);
+  clip-path: inset(0 round 13px);
+}
+
+.fdc-floating-target.is-resonance .fdc-floating-target-portrait {
+  box-sizing: border-box;
+  padding: 2px;
+  background-color: #fff0f3;
+  background-image: linear-gradient(112deg,
+    #ffe1e5 0%, #fff0c8 20%, #e3f0d0 41%, #dbeafb 63%, #e7daf7 83%, #f5dce9 100%);
+}
+
+body.theme-dark .fdc-floating-target.is-resonance .fdc-floating-target-portrait {
+  background-color: #29313a;
+  background-image: linear-gradient(112deg,
+    #593747 0%, #56472e 20%, #3a5039 41%, #30485f 63%, #4a3b62 83%, #59394d 100%);
+}
+
+.fdc-floating-target.is-resonance .fdc-floating-target-portrait > img:first-child {
+  inset: 2px;
+  width: calc(100% - 4px);
+  height: calc(100% - 4px);
+  clip-path: inset(0 round calc(0.9rem - 4px));
+}
+
+.fdc-resonance-personality-dialog {
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-width: calc(100vw - 1.5rem);
+  max-height: min(90dvh, 38rem);
+  overflow: auto;
+  border: 1px solid var(--fdc-border);
+  border-radius: 1rem;
+  padding: 0;
+  color: var(--fdc-text);
+  background: var(--fdc-panel);
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.5);
+  font: inherit;
+}
+
+.fdc-resonance-personality-dialog::backdrop {
+  background: rgba(3, 7, 18, 0.62);
+}
+
+.fdc-resonance-dialog-panel { padding: 1rem; }
+.fdc-resonance-dialog-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35rem 0.8rem; margin-bottom: 0.8rem; }
+.fdc-resonance-dialog-header h2 { margin: 0; font-size: 1.05rem; }
+.fdc-resonance-dialog-header span { color: var(--fdc-muted); font-size: 0.9rem; }
+.fdc-resonance-dialog-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.45rem; }
+.fdc-resonance-dialog-option { display: grid; justify-items: center; align-content: center; gap: 0.25rem; min-width: 0; min-height: 4rem; border: 1px solid var(--fdc-border); border-radius: 0.7rem; padding: 0.35rem 0.15rem; color: var(--fdc-text); background: var(--fdc-input); font: inherit; font-size: 0.76rem; cursor: pointer; }
+.fdc-resonance-dialog-option img { width: 1.8rem; height: 1.8rem; object-fit: contain; }
+.fdc-resonance-dialog-option.is-current { border-color: var(--fdc-primary); box-shadow: inset 0 0 0 1px var(--fdc-primary); }
+.fdc-resonance-dialog-option:focus-visible,
+.fdc-resonance-dialog-actions button:focus-visible { outline: 3px solid var(--fdc-primary); outline-offset: 2px; }
+.fdc-resonance-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.9rem; }
+.fdc-resonance-dialog-actions button { min-height: 2.75rem; border: 1px solid var(--fdc-border); border-radius: 0.65rem; padding: 0.4rem 0.75rem; color: var(--fdc-text); background: var(--fdc-input); font: inherit; cursor: pointer; }
+.fdc-resonance-dialog-clear { margin-right: auto; }
 
 .fdc-picker-slot.is-temp::after {
   content: "仮";
@@ -2979,6 +3203,71 @@ body.theme-light .fdc-formation-loader select {
     min-height: 1.85rem;
     padding: 0.18rem 0.28rem;
   }
+}
+
+.fdc-picker-member-choice {
+  position: relative;
+  width: 4.85rem;
+  height: 4.2rem;
+  min-width: 4.85rem;
+  justify-self: center;
+}
+
+.fdc-resonance-required {
+  border: 1px solid color-mix(in srgb, #8e44ad 38%, var(--fdc-border));
+  border-radius: 0.55rem;
+  padding: 0.5rem 0.65rem;
+  background: color-mix(in srgb, #8e44ad 9%, var(--fdc-panel));
+}
+
+.fdc-result-placement-required,
+.fdc-target-placement-required {
+  color: var(--accent, #c55a11);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.fdc-target-placement-required {
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.fdc-position-text-badge {
+  left: 1.55rem;
+  bottom: -0.16rem;
+  width: auto !important;
+  min-width: 1.5rem;
+  height: 1rem !important;
+  padding: 0 0.22rem;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 999px;
+  color: #fff;
+  background: rgba(56, 72, 87, 0.9);
+  font-size: 0.54rem;
+  font-weight: 900;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.fdc-resonance-mark {
+  right: -0.2rem;
+  bottom: -0.2rem;
+  z-index: 6;
+  width: auto !important;
+  min-width: 0.95rem;
+  height: 1rem !important;
+  max-width: none !important;
+  max-height: none !important;
+  padding: 0.1rem 0.28rem;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 999px !important;
+  color: #fff;
+  background: linear-gradient(135deg, #8e44ad, #d35400);
+  font-size: 0.55rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
 }
 
 .fdc-panel .stat-category {
@@ -6830,4 +7119,44 @@ body.theme-light .fdc-result-diff.is-negative {
   .fdc-mixed-percent-grid .fdc-stat-field[data-stat="crit-dmg-res"] > span {
     font-size: 0.56rem;
   }
+}
+
+@media (max-width: 560px) {
+  .fdc-resonance-personality-dialog {
+    width: calc(100vw - 1rem);
+    max-width: calc(100vw - 1rem);
+    max-height: min(88dvh, 34rem);
+  }
+
+  .fdc-resonance-dialog-panel { padding: 0.8rem; }
+  .fdc-resonance-dialog-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .fdc-resonance-dialog-option { min-height: 3.25rem; }
+}
+
+/* Selectable personalities with 2-4 candidates tint portraits without changing text areas. */
+body.theme-dark { --personality-gradient-base: #253044; }
+.fdc-picker-slot.has-personality-options { --personality-gradient-base: white; }
+.fdc-picker-slot.is-resonance.has-personality-options,
+.fdc-target-preview.is-resonance.has-personality-options,
+.fdc-floating-target.is-resonance.has-personality-options,
+.fdc-target-preview.is-resonance.has-personality-options .fdc-target-portrait,
+.fdc-floating-target.is-resonance.has-personality-options .fdc-floating-target-portrait {
+  background-image: var(--personality-options-bg) !important;
+}
+
+.fdc-picker-slot.is-two-tone.is-resonance-unselected,
+.fdc-target-preview.is-two-tone.is-resonance-unselected,
+.fdc-floating-target.is-two-tone.is-resonance-unselected {
+  border-color: transparent !important;
+  background-image: var(--personality-options-bg), var(--personality-options-frame) !important;
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+}
+
+.fdc-picker-slot.is-two-tone:not(.is-resonance-unselected),
+.fdc-target-preview.is-two-tone:not(.is-resonance-unselected),
+.fdc-floating-target.is-two-tone:not(.is-resonance-unselected) {
+  background-image: var(--personality-options-bg) !important;
+  background-origin: padding-box;
+  background-clip: padding-box;
 }
