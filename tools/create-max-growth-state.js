@@ -4,6 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const RESEARCH = require('../research-progress.js');
 
 const ROOT = path.join(__dirname, '..');
 const DEFAULT_OUTPUT = path.join(__dirname, 'fixtures', 'max-growth-verification-state.json');
@@ -149,7 +150,10 @@ function createMaxGrowthPayload(options = {}) {
     activeStateSlot: VERIFICATION_SLOT,
     apostles,
     comparisonStats: { v: 1, a: {} },
-    research: { level: 10, progress: 45 },
+    research: (() => {
+      const limits = RESEARCH.getLimits(data.sheets.research || []);
+      return { level: limits.maxLevel, progress: RESEARCH.getProgressLimit(limits, limits.maxLevel) };
+    })(),
     cards: cardStates,
     formation: createDefaultFormation(),
     totalCombatPower: 0,

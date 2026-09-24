@@ -51,6 +51,7 @@
     const storageTransfer = window.TRICKCAL_STORAGE_TRANSFER;
 
   const DATA = window.TRICKCAL_STAT_DATA;
+  const RESEARCH = window.TRICKCAL_RESEARCH_PROGRESS;
   if (!DATA) {
     document.body.classList.remove('is-booting');
     document.body.removeAttribute('aria-busy');
@@ -81,8 +82,7 @@
   };
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
-  const RESEARCH_MAX_LEVEL = 10;
-  const RESEARCH_MAX_PROGRESS = 45;
+  const RESEARCH_LIMITS = RESEARCH.getLimits(DATA.sheets.research || []);
   const COMBAT_POWER_BASE_BY_RARITY = {
     1: 1.015,
     2: 1.03,
@@ -535,6 +535,7 @@
   const apostleBulkLevelHistoryActions = new WeakMap();
   let formationPointerDragState = null;
   let formationSuppressClickUntil = 0;
+  let formationPickerReturnFocus = null;
   let boardProgressCountsCache = {};
   let boardProgressRequirementCache = {};
   const historyState = {
@@ -728,12 +729,7 @@
     ].map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
     renderAsideLevelOptions(0);
 
-    elements.researchProgressSelect.innerHTML = Array.from({ length: RESEARCH_MAX_PROGRESS + 1 }, (_, index) => {
-      const label = index === 0 ? 'OFF' : `${index}回目`;
-      return `<option value="${index}">${label}</option>`;
-    }).join('');
-
-    elements.researchLevelSelect.innerHTML = Array.from({ length: RESEARCH_MAX_LEVEL + 1 }, (_, index) => {
+    elements.researchLevelSelect.innerHTML = Array.from({ length: RESEARCH_LIMITS.maxLevel + 1 }, (_, index) => {
       const label = index === 0 ? 'OFF' : `${index}段階`;
       return `<option value="${index}">${label}</option>`;
     }).join('');
@@ -775,9 +771,17 @@
       document.documentElement.dataset.theme = event.newValue;
       syncThemeToggle();
     });
-    elements.themeToggles.forEach(button => button.addEventListener('click', () => {
-      setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
-    }));
+    // The shared topbar owns its generated theme button. Keep the legacy
+    // manager control functional without binding a second handler to it.
+    if (elements.themeToggle && elements.themeToggle.dataset.sharedThemeButton !== 'true') {
+      elements.themeToggle.addEventListener('click', () => {
+        setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
+      });
+    }
+    document.addEventListener('click', event => {
+      if (!event.target?.closest?.('.dashboard-top-theme-toggle[data-shared-theme-button="true"]')) return;
+      queueMicrotask(() => setTheme(getCurrentTheme()));
+    });
 
     elements.boardOffModeCancel?.addEventListener('click', () => {
       elements.boardOffModeDialog.close();
@@ -1286,6 +1290,18 @@
         return;
       }
 
+      const moveButton = event.target.closest('[data-formation-move-row]');
+      if (moveButton) {
+        openFormationPicker('apostle-move', Number(moveButton.dataset.formationMoveRow) || 0, Number(moveButton.dataset.formationMoveLine) || 0);
+        return;
+      }
+
+      const personalityButton = event.target.closest('[data-formation-personality-row]');
+      if (personalityButton) {
+        openFormationPicker('personality', Number(personalityButton.dataset.formationPersonalityRow) || 0, Number(personalityButton.dataset.formationPersonalityLine) || 0);
+        return;
+      }
+
       const apostleButton = event.target.closest('[data-formation-apostle-row]');
       if (apostleButton) {
         openFormationPicker(
@@ -1559,8 +1575,21 @@
       elements.formationPickerDialog.close();
     });
 
+    elements.formationPickerDialog?.addEventListener('close', () => {
+      const picker = view.formationPicker;
+      const fallback = getFormationPickerReturnTarget(picker);
+      const target = formationPickerReturnFocus?.isConnected ? formationPickerReturnFocus : fallback;
+      formationPickerReturnFocus = null;
+      view.formationPicker = null;
+      target?.focus({ preventScroll: true });
+    });
+
     elements.formationPickerDialog?.addEventListener('click', event => {
       if (event.target === elements.formationPickerDialog) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      if (event.target.closest('[data-formation-picker-cancel]')) {
         elements.formationPickerDialog.close();
         return;
       }
@@ -1774,6 +1803,10 @@
     elements.researchLevelSelect.addEventListener('change', () => {
       const history = beginHistoryAction('研究Lv変更');
       appState.research.level = Number(elements.researchLevelSelect.value) || 0;
+      appState.research.progress = Math.min(
+        Number(appState.research.progress) || 0,
+        RESEARCH.getProgressLimit(RESEARCH_LIMITS, appState.research.level)
+      );
       saveState();
       render();
       commitHistoryAction(history);
@@ -2363,7 +2396,7 @@
       return;
     }
     elements.apostlePickerCurrent.innerHTML = `
-      <span class="apostle-picker-current-image">
+      <span class="apostle-picker-current-image ${getFormationPersonalityResolution(basic, null).isSelectable ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)}" ${getSelectableMasterStyle(basic)}>
         <img data-apostle-image src="${escapeAttr(getApostleImagePath(basic.id))}" alt="">
       </span>
       <span class="apostle-picker-current-text">
@@ -2386,7 +2419,7 @@
     return `
       <button
         type="button"
-        class="apostle-picker-card personality-${escapeAttr(basic.性格 || '')} ${selected ? 'is-selected' : ''}"
+        class="apostle-picker-card personality-${escapeAttr(basic.性格 || '')} ${getFormationPersonalityResolution(basic, null).isSelectable ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)} ${selected ? 'is-selected' : ''}" ${getSelectableMasterStyle(basic)}
         data-apostle-picker-id="${escapeAttr(basic.id)}"
         aria-pressed="${selected ? 'true' : 'false'}"
       >
@@ -2410,7 +2443,7 @@
     const roleAsset = getRoleAssetName(basic.役割);
     const mode = overlay ? ' overlay' : '';
     return `
-      ${personality ? `<img class="apostle-info-badge personality${mode}" src="img/性格_${escapeAttr(personality)}.webp" alt="${escapeAttr(personality)}" title="${escapeAttr(personality)}">` : ''}
+      ${(getFormationPersonalityNames().includes(personality) || personality === '共鳴' || personality === '裏面') ? `<img class="apostle-info-badge personality${mode}" src="img/性格_${escapeAttr(personality)}.webp" alt="${escapeAttr(personality)}" title="${escapeAttr(personality)}">` : ''}
       ${species ? `<img class="apostle-info-badge species${mode}" src="img/種族_${escapeAttr(species)}.webp" alt="${escapeAttr(species)}" title="${escapeAttr(species)}">` : ''}
       ${roleAsset ? `<img class="apostle-info-badge role${mode}" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
       ${position ? `<img class="apostle-info-badge position${mode}" src="img/配置列_${escapeAttr(position)}.webp" alt="${escapeAttr(position)}" title="${escapeAttr(position)}">` : ''}
@@ -2458,6 +2491,11 @@
     return aliases[id] || id;
   }
 
+  function getApostleSkillImagePath(kind, id) {
+    const assetId = getApostleAssetId(id);
+    return window.TRICKCAL_APOSTLE_SKILL_IMAGE_DATA?.[assetId]?.[kind] || '';
+  }
+
   function clearAsideImageFallback(image) {
     if (!(image instanceof HTMLImageElement)) return;
     image.hidden = false;
@@ -2497,7 +2535,7 @@
     const skillFallback = image.dataset.apostleSkillFallback || '';
     if (skillAssetId && skillFallback === 'passive') {
       image.dataset.apostleSkillFallback = 'portrait';
-      image.src = `img/Chara/Skill/Skill_P_${skillAssetId}.webp`;
+      image.src = getApostleSkillImagePath('passive', skillAssetId) || `img/Chara/${skillAssetId}.webp`;
       return;
     }
     if (skillAssetId && skillFallback === 'portrait') {
@@ -4341,6 +4379,18 @@
     const personalityClasses = ['純粋', '冷静', '狂気', '活発', '憂鬱'].map(name => `personality-${name}`);
     const equipmentPanel = elements.equipment?.closest('[data-dashboard-panel="equipment"]');
     elements.profileCard?.classList.remove(...personalityClasses);
+    elements.profileCard?.classList.toggle('is-resonance', getFormationPersonalityResolution(basic, null).isSelectable);
+    const masterOptions = getFormationPersonalityResolution(basic, null).personalityOptions;
+    elements.profileCard?.classList.toggle('has-personality-options', masterOptions.length >= 2 && masterOptions.length < 5);
+    elements.profileCard?.classList.toggle('is-two-tone', masterOptions.length === 2);
+    if (masterOptions.length >= 2 && masterOptions.length < 5) {
+      elements.profileCard?.style.setProperty('--personality-options-bg', window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionGradient(masterOptions));
+      if (masterOptions.length === 2) elements.profileCard?.style.setProperty('--personality-options-frame', window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionFrameGradient(masterOptions));
+      else elements.profileCard?.style.removeProperty('--personality-options-frame');
+    } else {
+      elements.profileCard?.style.removeProperty('--personality-options-bg');
+      elements.profileCard?.style.removeProperty('--personality-options-frame');
+    }
     if (basic?.性格) elements.profileCard?.classList.add(`personality-${basic.性格}`);
     if (!equipmentPanel) return;
     const rankClasses = ['rank-gray', 'rank-green', 'rank-blue', 'rank-purple', 'rank-gold'];
@@ -5297,7 +5347,10 @@
   function getSkillInfoIconHtml(kind, basic) {
     const iconCode = getSkillIconCode(kind);
     if (iconCode) {
-      return `<img data-apostle-image src="img/Chara/Skill/Skill_${iconCode}_${escapeAttr(getApostleAssetId(basic.id))}.webp" alt="">`;
+      const imageKind = iconCode === 'P' ? 'passive' : iconCode === 'F' ? 'low' : 'high';
+      const imagePath = getApostleSkillImagePath(imageKind, basic.id);
+      if (imagePath) return `<img data-apostle-image src="${escapeAttr(imagePath)}" alt="">`;
+      return '<span class="skill-info-icon-placeholder" aria-hidden="true">—</span>';
     }
     if (String(kind).includes('普通攻撃')) {
       const attackAsset = basic.攻撃タイプ === '物理' ? 'Physic' : 'Magic';
@@ -5800,14 +5853,21 @@
 
   function renderResearchControls() {
     elements.researchGrid.innerHTML = '';
+    const { level, progress } = RESEARCH.normalizeState(appState.research, RESEARCH_LIMITS);
+    const limit = RESEARCH.getProgressLimit(RESEARCH_LIMITS, level);
+    if (elements.researchProgressSelect.options.length !== limit + 1) {
+      elements.researchProgressSelect.innerHTML = Array.from({ length: limit + 1 }, (_, index) =>
+        `<option value="${index}">${index ? `${index}回目` : 'OFF'}</option>`).join('');
+    }
+    elements.researchLevelSelect.value = String(level);
+    elements.researchProgressSelect.value = String(progress);
   }
 
   function renderActiveResearch(basic, totals, activeEffects, breakdown) {
     if (!basic) return;
     const progress = Number(appState.research.progress) || 0;
     const level = Number(appState.research.level) || 0;
-    elements.researchProgressSelect.value = String(progress);
-    elements.researchLevelSelect.value = String(level);
+    renderResearchControls();
 
     const rows = getActiveResearchRows().filter(row => row.種族 === basic.種族);
     const entries = [];
@@ -5818,7 +5878,7 @@
       addSourceNamedStat(breakdown, 'research', row.ステータス, value);
       activeEffects.push(`研究${level}段階${progress}回目 ${row.ステータス}+${value}`);
       entries.push({
-        count: row.id,
+        count: RESEARCH.getCurrentOrder(row, level, progress) ?? '—',
         stage: getResearchAppliedStage(row, level, progress),
         species: row.種族,
         stat: row.ステータス,
@@ -5853,7 +5913,7 @@
       .map(row => ({ row, value: getResearchValue(row, level, progress) }))
       .filter(item => item.value)
       .map(({ row, value }) => ({
-        count: row.id,
+        count: RESEARCH.getCurrentOrder(row, level, progress) ?? '—',
         stage: getResearchAppliedStage(row, level, progress),
         species: row.種族,
         stat: row.ステータス,
@@ -5870,7 +5930,7 @@
       .filter(isResearchStatRow)
       .forEach(row => {
         addNamedStat(effects, row.ステータス, getResearchValue(row, level, progress));
-        addNamedStat(maximumEffects, row.ステータス, getResearchValue(row, RESEARCH_MAX_LEVEL, RESEARCH_MAX_PROGRESS));
+        addNamedStat(maximumEffects, row.ステータス, getResearchValue(row, RESEARCH_LIMITS.maxLevel, RESEARCH.getProgressLimit(RESEARCH_LIMITS, RESEARCH_LIMITS.maxLevel)));
       });
     elements.researchOverviewSummary.innerHTML = renderStatTotalsComparisonTable(
       effects,
@@ -5885,7 +5945,7 @@
     const speciesHeader = showSpecies ? '<th>種族</th>' : '';
     const rows = entries.map(entry => `
       <tr>
-        <td>${escapeHtml(entry.count)}回目</td>
+        <td>${entry.count === '—' ? '—' : `${escapeHtml(entry.count)}回目`}</td>
         <td>${escapeHtml(entry.stage)}</td>
         ${showSpecies ? `<td>${escapeHtml(entry.species || '')}</td>` : ''}
         <td>${escapeHtml(entry.stat || '')}</td>
@@ -5994,26 +6054,11 @@
   }
 
   function getResearchAppliedStage(row, stage, count) {
-    const stageValue = Math.max(0, Number(stage) || 0);
-    const countValue = Math.max(0, Number(count) || 0);
-    if (!stageValue || !countValue) return '-';
-    const rowCount = Number(row.id) || 0;
-    const maxStageForRow = rowCount <= countValue ? stageValue : stageValue - 1;
-    if (maxStageForRow <= 0) return '-';
-    return maxStageForRow === 1 ? '1' : `1-${maxStageForRow}`;
+    return RESEARCH.getAppliedStages(row, stage, count).join(', ') || '-';
   }
 
   function getResearchValue(row, stage, count) {
-    const stageValue = Math.max(0, Number(stage) || 0);
-    const countValue = Math.max(0, Number(count) || 0);
-    if (!stageValue || !countValue) return 0;
-    const rowCount = Number(row.id) || 0;
-    const maxStageForRow = rowCount <= countValue ? stageValue : stageValue - 1;
-    let total = 0;
-    for (let index = 1; index <= maxStageForRow; index++) {
-      total += Number(row[`段階${index}`]) || 0;
-    }
-    return total;
+    return RESEARCH.getValue(row, stage, count);
   }
 
   function renderApostleBulkSettings() {
@@ -6103,6 +6148,7 @@
 
   function renderApostleBulkRow(basic) {
     const state = ensureApostleState(basic.id);
+    const isResonance = getFormationPersonalityResolution(basic, null).isSelectable;
     const combatPower = getApostleCombatPowerForSort(basic.id);
     const identityMeta = [basic.性格, basic.種族].filter(Boolean).join(' / ');
     const asideRank = getEffectiveAsideRank(basic.id, state.asideRank);
@@ -6139,11 +6185,13 @@
       `;
     }).join('');
     return `
-      <article class="apostle-bulk-row personality-${escapeAttr(basic.性格 || '')}" data-apostle-bulk-row="${escapeAttr(basic.id)}"
+      <article class="apostle-bulk-row personality-${escapeAttr(basic.性格 || '')} ${isResonance ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)}" ${getSelectableMasterStyle(basic)} data-apostle-bulk-row="${escapeAttr(basic.id)}"
         data-apostle-bulk-combat-power="${combatPower}">
         <div class="apostle-bulk-identity">
-          <img loading="lazy" decoding="async" data-apostle-image data-apostle-skill-asset="${escapeAttr(getApostleAssetId(basic.id))}"
-            data-apostle-skill-fallback="passive" src="img/Chara/Skill/Skill_S_${escapeAttr(getApostleAssetId(basic.id))}.webp" alt="">
+          <span class="apostle-bulk-avatar">
+            <img loading="lazy" decoding="async" data-apostle-image
+              src="${escapeAttr(getApostleSkillImagePath('high', basic.id) || getApostleImagePath(basic.id))}" alt="">
+          </span>
           <span>
             <strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>
             <small>${escapeHtml(identityMeta)}</small>
@@ -6359,7 +6407,7 @@
             : 'rank-gray';
     return `
       <label class="rank-overview-card personality-${escapeAttr(row.性格 || '')} ${rankTone}" data-rank-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の装備Rankを変更">
-        <img data-apostle-image data-apostle-skill-asset="${escapeAttr(assetId)}" data-apostle-skill-fallback="passive" class="rank-overview-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(assetId)}.webp" alt="">
+        <img data-apostle-image class="rank-overview-icon" src="${escapeAttr(getApostleSkillImagePath('high', row.id) || getApostleImagePath(row.id))}" alt="">
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
         <strong class="rank-overview-value">R${state.rank}</strong>
         <select data-rank-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 装備Rank">
@@ -6478,7 +6526,7 @@
     const bondTone = getBondOverviewTone(state.bond);
     return `
       <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
-        <img data-apostle-image data-apostle-skill-asset="${escapeAttr(getApostleAssetId(row.id))}" data-apostle-skill-fallback="passive" class="rank-overview-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <img data-apostle-image class="rank-overview-icon" src="${escapeAttr(getApostleSkillImagePath('high', row.id) || getApostleImagePath(row.id))}" alt="">
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
         <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
         <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
@@ -7154,12 +7202,25 @@
     if (!elements.formationSynergySummary) return;
     const personalitySynergies = Array.isArray(window.PERSONALITY_SYNERGIES) ? window.PERSONALITY_SYNERGIES : [];
     const raceSynergies = Array.isArray(window.RACE_SYNERGIES) ? window.RACE_SYNERGIES : [];
+    const unselectedResonanceMembers = (formation.rows || []).flatMap((row, rowIndex) =>
+      (row.apostles || []).flatMap((id, lineIndex) => {
+        const basic = id ? DATA.getById('basicInfo', id) : null;
+        const resolution = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]);
+        return resolution.needsSelection
+          ? [`${getFormationColumnPosition(rowIndex)} ${lineIndex + 1}: ${basic?.使徒名 || id}`]
+          : [];
+      })
+    );
+    const selectionNotice = unselectedResonanceMembers.length
+      ? `<p class="formation-resonance-warning" role="status">性格を選択してください。${escapeHtml(unselectedResonanceMembers.join('、'))}。下書き保存できますが、ダメージ計算は選択完了まで停止します。</p>`
+      : '';
     if (!personalitySynergies.length && !raceSynergies.length) {
-      elements.formationSynergySummary.innerHTML = '';
+      elements.formationSynergySummary.innerHTML = selectionNotice;
       return;
     }
     const state = collectFormationSynergyState(formation);
     elements.formationSynergySummary.innerHTML = `
+      ${selectionNotice}
       <section class="formation-synergy-group formation-synergy-personality" aria-label="性格シナジー">
         ${renderFormationSynergySlots('personality', personalitySynergies, state.personality, state.personalityExtras)}
       </section>
@@ -7220,11 +7281,12 @@
     };
     const selectedBasics = [];
     (formation.rows || []).forEach(row => {
-      (row.apostles || []).forEach(id => {
+      (row.apostles || []).forEach((id, lineIndex) => {
         const basic = id ? DATA.getById('basicInfo', id) : null;
         if (!basic) return;
         selectedBasics.push(basic);
-        if (basic.性格) state.personality[basic.性格] = (state.personality[basic.性格] || 0) + 1;
+        const personality = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]).effectivePersonality;
+        if (personality) state.personality[personality] = (state.personality[personality] || 0) + 1;
         if (basic.種族) state.race[basic.種族] = (state.race[basic.種族] || 0) + 1;
       });
     });
@@ -7526,18 +7588,35 @@
   function renderFormationLine(row, rowIndex, lineIndex) {
     const apostleId = row.apostles?.[lineIndex] || '';
     const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+    const personalityResolution = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]);
+    const effectivePersonality = personalityResolution.effectivePersonality || '';
     const artifacts = Array.isArray(row.artifacts?.[lineIndex]) ? row.artifacts[lineIndex] : [];
     const roleAsset = getRoleAssetName(basic?.役割);
     const attackIcon = basic?.攻撃タイプ ? `img/Attack_${basic.攻撃タイプ === '物理' ? 'phys' : 'mag'}.webp` : '';
+    const canChangePlacement = basic && getAllowedFormationRows(basic).length > 1;
+    const resonanceClass = personalityResolution.isSelectable
+      ? `is-resonance ${effectivePersonality ? '' : 'is-resonance-unselected'}`
+      : '';
+    const personalityIconName = effectivePersonality || (personalityResolution.isResonance ? '共鳴' : '');
+    const invalidSelectionLabel = personalityResolution.invalidSelection
+      ? `旧選択：${personalityResolution.originalSelection}／現在の候補外。性格を再選択`
+      : '';
+    const candidateStyle = window.TRICKCAL_FORMATION_PERSONALITY?.getPersonalityOptionStyle(personalityResolution.personalityOptions) || '';
+    const candidateClass = personalityResolution.personalityOptions.length === 2 ? 'has-personality-options is-two-tone'
+      : candidateStyle ? 'has-personality-options' : '';
     return `
       <div class="formation-line">
-        <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} personality-${escapeAttr(basic?.性格 || '')}" data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="false" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
-          ${basic ? '' : '<img class="formation-slot-bg" src="img/使徒bg.png" alt="">'}
-          ${basic ? `<span class="formation-apostle-clip"><img data-apostle-image class="formation-apostle-img" src="${escapeAttr(getApostleImagePath(basic.id))}" alt="${escapeAttr(basic.使徒名 || basic.id)}"></span>` : '<span class="formation-empty-icon">?</span>'}
-          ${basic?.性格 ? `<img class="formation-apostle-badge formation-personality-badge" src="img/性格_${escapeAttr(basic.性格)}.webp" alt="${escapeAttr(basic.性格)}" title="${escapeAttr(basic.性格)}">` : ''}
-          ${roleAsset ? `<img class="formation-apostle-badge formation-role-badge" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
-          ${attackIcon ? `<img class="formation-apostle-badge formation-attack-badge" src="${escapeAttr(attackIcon)}" alt="${escapeAttr(basic.攻撃タイプ)}" title="${escapeAttr(basic.攻撃タイプ)}">` : ''}
-        </button>
+        <div class="formation-apostle-card-wrap">
+          <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} ${resonanceClass} ${candidateClass} personality-${escapeAttr(effectivePersonality)}" ${candidateStyle ? `style="${escapeAttr(candidateStyle)}"` : ''} data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="false" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
+            ${basic ? '' : '<img class="formation-slot-bg" src="img/使徒bg.png" alt="">'}
+            ${basic ? `<span class="formation-apostle-clip"><img data-apostle-image class="formation-apostle-img" src="${escapeAttr(getApostleImagePath(basic.id))}" alt="${escapeAttr(basic.使徒名 || basic.id)}"></span>` : '<span class="formation-empty-icon">?</span>'}
+            ${basic && !personalityResolution.isSelectable && basic.性格 ? `<img class="formation-apostle-badge formation-personality-badge" src="img/性格_${escapeAttr(basic.性格)}.webp" alt="${escapeAttr(basic.性格)}" title="${escapeAttr(basic.性格)}">` : ''}
+            ${roleAsset ? `<img class="formation-apostle-badge formation-role-badge" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
+            ${attackIcon ? `<img class="formation-apostle-badge formation-attack-badge" src="${escapeAttr(attackIcon)}" alt="${escapeAttr(basic.攻撃タイプ)}" title="${escapeAttr(basic.攻撃タイプ)}">` : ''}
+          </button>
+          ${personalityResolution.isSelectable ? `<button type="button" class="formation-card-icon-action formation-personality-icon-action${invalidSelectionLabel ? ' is-invalid-selection' : ''}" data-formation-personality-row="${rowIndex}" data-formation-personality-line="${lineIndex}" aria-haspopup="dialog" aria-label="${escapeAttr(invalidSelectionLabel || `${basic?.使徒名 || '使徒'}の性格を${effectivePersonality ? `変更（現在：${effectivePersonality}）` : '選択'}`)}" title="${escapeAttr(invalidSelectionLabel || (effectivePersonality ? `性格：${effectivePersonality}（変更）` : '性格を選択'))}">${personalityIconName ? `<img src="img/性格_${escapeAttr(personalityIconName)}.webp" alt="">` : invalidSelectionLabel ? '<span aria-hidden="true">!</span>' : ''}</button>` : ''}
+          ${canChangePlacement ? `<button type="button" class="formation-card-icon-action formation-placement-icon-action" data-formation-move-row="${rowIndex}" data-formation-move-line="${lineIndex}" aria-haspopup="dialog" aria-label="${escapeAttr(`${basic.使徒名 || basic.id}の配置先を変更`)}" title="配置先を変更"><img src="img/配置列_全列.webp" alt=""></button>` : ''}
+        </div>
         <div class="formation-artifact-list">
           ${Array.from({ length: 3 }, (_, artifactSlot) => renderFormationArtifactSlot(artifacts[artifactSlot] || '', rowIndex, lineIndex, artifactSlot)).join('')}
         </div>
@@ -8119,34 +8198,139 @@
       .join(' / ');
   }
 
-  function openFormationPicker(type, rowIndex, lineIndex = 0, artifactSlot = 0) {
-    if (!elements.formationPickerDialog) return;
-    view.formationPicker = { type, rowIndex, lineIndex, artifactSlot };
-    elements.formationPickerSearch.value = '';
-    elements.formationPickerTitle.textContent = type === 'apostle'
-      ? `${getFormationColumnPosition(rowIndex)}の使徒を選択`
-      : type === 'spell'
-        ? 'スペルを選択'
-        : '遺物を選択';
-    if (elements.formationPickerSortWrap) elements.formationPickerSortWrap.hidden = type !== 'apostle';
-    if (elements.formationFilterDetails) elements.formationFilterDetails.hidden = type !== 'apostle';
-    if (type === 'apostle') {
+  function getFormationPickerTitle(picker = view.formationPicker) {
+    if (!picker) return '選択';
+    if (picker.type === 'apostle-move') return '配置先を選択';
+    if (picker.type === 'personality') return picker.isNewPlacement ? '性格を選択' : '性格を選択';
+    if (picker.type === 'apostle') return `${getFormationColumnPosition(picker.rowIndex)}の使徒を選択`;
+    if (picker.type === 'spell') return 'スペルを選択';
+    return '遺物を選択';
+  }
+
+  function updateFormationPickerPresentation() {
+    const picker = view.formationPicker;
+    if (!picker || !elements.formationPickerDialog) return;
+    const type = picker.type;
+    const isApostle = type === 'apostle';
+    const isPersonality = type === 'personality';
+    const isMove = type === 'apostle-move';
+    elements.formationPickerTitle.textContent = getFormationPickerTitle(picker);
+    elements.formationPickerDialog.setAttribute('aria-labelledby', 'formation-picker-title');
+    elements.formationPickerDialog.classList.toggle('is-compact-mode', isPersonality || isMove);
+    elements.formationPickerDialog.classList.toggle('is-personality-mode', isPersonality);
+    elements.formationPickerDialog.classList.toggle('is-move-mode', isMove);
+    if (elements.formationPickerSortWrap) elements.formationPickerSortWrap.hidden = !isApostle;
+    if (elements.formationFilterDetails) elements.formationFilterDetails.hidden = !isApostle;
+    const tools = elements.formationPickerSearch?.closest('.formation-picker-tools');
+    if (tools) tools.hidden = isPersonality || isMove;
+    if (isApostle) {
       if (elements.formationPickerSort) elements.formationPickerSort.value = view.formationSort;
       renderFormationPickerFilters();
     }
     renderFormationPickerOptions();
-    elements.formationPickerDialog.showModal();
+  }
+
+  function getFormationPickerReturnTarget(picker) {
+    if (!picker || !elements.formationBoard) return null;
+    const row = Number(picker.rowIndex) || 0;
+    const line = Number(picker.lineIndex) || 0;
+    if (picker.type === 'personality') {
+      return elements.formationBoard.querySelector(`[data-formation-personality-row="${row}"][data-formation-personality-line="${line}"]`)
+        || elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'apostle-move') {
+      return elements.formationBoard.querySelector(`[data-formation-move-row="${row}"][data-formation-move-line="${line}"]`)
+        || elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'apostle') {
+      return elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'artifact') {
+      return elements.formationBoard.querySelector(`[data-formation-artifact-row="${row}"][data-formation-artifact-line="${line}"][data-formation-artifact-slot="${Number(picker.artifactSlot) || 0}"]`);
+    }
+    return null;
+  }
+
+  function focusFormationPickerInitialControl() {
+    const picker = view.formationPicker;
+    if (!picker) return;
+    if (picker.type === 'personality') {
+      const selected = elements.formationPickerGrid?.querySelector('[data-formation-picker-value].is-current');
+      const firstPersonality = elements.formationPickerGrid?.querySelector('[data-formation-picker-value]:not(.is-clear)');
+      (selected || firstPersonality || elements.formationPickerClose)?.focus({ preventScroll: true });
+      return;
+    }
+    if (picker.type === 'apostle-move') {
+      const firstTarget = elements.formationPickerGrid?.querySelector('[data-formation-picker-value]:not(:disabled)');
+      (firstTarget || elements.formationPickerClose)?.focus({ preventScroll: true });
+      return;
+    }
     focusDialogControl(elements.formationPickerSearch, elements.formationPickerClose);
+  }
+
+  function openFormationPicker(type, rowIndex, lineIndex = 0, artifactSlot = 0) {
+    if (!elements.formationPickerDialog) return;
+    if (!elements.formationPickerDialog.open) formationPickerReturnFocus = document.activeElement;
+    view.formationPicker = { type, rowIndex, lineIndex, artifactSlot };
+    if (elements.formationPickerSearch) elements.formationPickerSearch.value = '';
+    updateFormationPickerPresentation();
+    if (!elements.formationPickerDialog.open) elements.formationPickerDialog.showModal();
+    focusFormationPickerInitialControl();
   }
 
   function renderFormationPickerOptions() {
     if (!elements.formationPickerGrid || !view.formationPicker) return;
     const query = String(elements.formationPickerSearch?.value || '').toLocaleLowerCase('ja');
-    const { type, rowIndex } = view.formationPicker;
+    const { type, rowIndex, lineIndex } = view.formationPicker;
+    if (type === 'apostle-move') {
+      const formation = ensureFormationState();
+      const sourceId = formation.rows?.[rowIndex]?.apostles?.[lineIndex] || '';
+      const sourceBasic = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+      elements.formationPickerGrid.innerHTML = sourceBasic ? `
+        <p class="formation-picker-move-note"><strong>${escapeHtml(sourceBasic.使徒名 || sourceBasic.id)}</strong>を移動または交換</p>
+        <div class="formation-picker-move-grid" role="group" aria-label="配置先。列は後列、中列、前列の順">
+          ${Array.from({ length: 3 }, (_, columnIndex) => `<span class="formation-picker-move-heading">${escapeHtml(getFormationColumnPosition(columnIndex))}</span>`).join('')}
+          ${Array.from({ length: 3 }, (_, targetLine) => Array.from({ length: 3 }, (_, targetRow) => {
+            const targetId = formation.rows[targetRow]?.apostles?.[targetLine] || '';
+            const targetBasic = targetId ? DATA.getById('basicInfo', targetId) : null;
+            const isSource = rowIndex === targetRow && lineIndex === targetLine;
+            const allowed = !isSource && canMoveFormationSlot(rowIndex, lineIndex, targetRow, targetLine);
+            const label = `${getFormationColumnPosition(targetRow)} ${targetLine + 1}、${targetBasic?.使徒名 || '空き枠'}${isSource ? '、移動元' : allowed ? targetBasic ? 'と交換' : 'へ移動' : '、移動不可'}`;
+            return `<button type="button" class="formation-picker-move-cell ${isSource ? 'is-source' : ''} ${targetBasic ? 'is-occupied' : 'is-empty'}" data-formation-picker-value="${targetRow}:${targetLine}" aria-label="${escapeAttr(label)}" title="${escapeAttr(label)}" ${allowed ? '' : 'disabled'}>
+              ${targetBasic ? `<img class="formation-picker-move-portrait" src="${escapeAttr(getApostleImagePath(targetBasic.id))}" alt=""><span class="formation-picker-move-name">${escapeHtml(targetBasic.使徒名 || targetBasic.id)}</span>` : '<span class="formation-picker-move-empty" aria-hidden="true">＋</span><span class="formation-picker-move-name">空き</span>'}
+              ${isSource ? '<span class="formation-picker-move-source-tag">移動元</span>' : ''}
+            </button>`;
+          }).join('')).join('')}
+        </div>
+        <div class="formation-picker-compact-actions"><button type="button" class="formation-picker-cancel" data-formation-picker-cancel>キャンセル</button></div>` : '<p class="formation-picker-empty">移動する使徒が見つかりません。</p>';
+      return;
+    }
+    if (type === 'personality') {
+      const formation = ensureFormationState();
+      const row = formation.rows?.[rowIndex];
+      const isNewPlacement = view.formationPicker.isNewPlacement === true;
+      const apostleId = isNewPlacement ? view.formationPicker.pendingApostleId : row?.apostles?.[lineIndex];
+      const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+      const resolution = getFormationPersonalityResolution(basic, isNewPlacement ? null : row?.resonancePersonalities?.[lineIndex]);
+      if (!basic || !resolution.isSelectable) {
+        elements.formationPickerGrid.innerHTML = '<p class="formation-picker-empty">性格選択対象の使徒が見つかりません。</p>';
+        return;
+      }
+      const current = isNewPlacement ? '' : resolution.effectivePersonality || '';
+      elements.formationPickerGrid.innerHTML = `<p class="formation-picker-personality-note"><strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>${isNewPlacement ? 'の性格を選んで配置を確定' : 'の性格を選択'}</p>
+        <div class="formation-personality-picker-options">
+          ${resolution.personalityOptions.map(name => `<button type="button" class="formation-personality-choice personality-${escapeAttr(name)} ${current === name ? 'is-current is-selected' : ''}" data-formation-picker-value="${escapeAttr(name)}" aria-label="${escapeAttr(`${name}を選択`)}" aria-pressed="${current === name ? 'true' : 'false'}" title="${escapeAttr(name)}"><img src="img/性格_${escapeAttr(name)}.webp" alt=""><span>${escapeHtml(name)}</span></button>`).join('')}
+        </div>
+        <div class="formation-picker-compact-actions">
+          ${isNewPlacement ? '' : `<button type="button" class="formation-picker-personality-clear" data-formation-picker-value="" ${current ? '' : 'disabled'}>未選択に戻す</button>`}
+          <button type="button" class="formation-picker-cancel" data-formation-picker-cancel>キャンセル</button>
+        </div>`;
+      return;
+    }
     const targetPosition = type === 'apostle' ? getFormationColumnPosition(rowIndex) : '';
     const items = type === 'apostle'
       ? DATA.sheets.basicInfo
-        .filter(basic => !targetPosition || (basic.配列 || basic.配置列 || '') === targetPosition)
+        .filter(basic => !targetPosition || canPlaceApostle(basic, targetPosition))
         .filter(matchesFormationPickerFilters)
         .sort((a, b) => compareApostleRowsBySort(a, b, view.formationSort))
         .map(basic => ({
@@ -8156,7 +8340,11 @@
           image: getApostleImagePath(basic.id),
           imageAttrs: 'data-apostle-image',
           apostle: basic,
-          personality: basic.性格 || ''
+          isResonance: getFormationPersonalityResolution(basic, null).isSelectable,
+          classificationIcon: ['共鳴', '裏面'].includes(basic.性格) ? basic.性格 : '',
+          personality: basic.性格 || '',
+          candidateClass: getSelectableMasterClass(basic),
+          candidateStyle: getSelectableMasterStyle(basic)
         }))
       : getCardManagerCards(type === 'spell' ? 'spell' : 'artifact').slice().sort(compareCardManagerCards).map(card => ({ id: card.id, label: card.name, sub: `${card.rarity || ''}${card.signature ? ' / 愛用' : ''}`, image: getCardManagerImagePath(card), card }));
     const filtered = items.filter(item => !query || [item.label, item.sub, item.id]
@@ -8168,10 +8356,11 @@
         <span><strong>未選択</strong><small>この枠を空にする</small></span>
       </button>
       ${filtered.map(item => `
-        <button type="button" class="formation-picker-option ${item.card ? getCardManagerRarityClass(item.card) : ''} ${item.apostle ? `personality-${escapeAttr(item.personality)}` : ''}" data-formation-picker-value="${escapeAttr(item.id)}">
+        <button type="button" class="formation-picker-option ${item.card ? getCardManagerRarityClass(item.card) : ''} ${item.apostle ? `personality-${escapeAttr(item.personality)} ${item.isResonance ? 'is-resonance-option' : ''} ${item.candidateClass}` : ''}" ${item.candidateStyle || ''} data-formation-picker-value="${escapeAttr(item.id)}">
           <span class="formation-picker-option-image-wrap">
             ${item.card && item.card.kind === 'artifact' ? `<img class="formation-picker-option-bg" src="${escapeAttr(getFormationArtifactBg(item.card))}" alt="">` : ''}
             <img ${item.imageAttrs || ''} src="${escapeAttr(item.image)}" alt="">
+            ${item.classificationIcon ? `<span class="formation-picker-resonance-mark" aria-hidden="true"><img src="img/性格_${escapeAttr(item.classificationIcon)}.webp" alt="" draggable="false"></span>` : ''}
             ${item.card ? renderFormationCostBadge(item.card.cost) : ''}
             ${item.card ? `
               <span class="formation-picker-option-tools">
@@ -8192,42 +8381,121 @@
     if (!view.formationPicker) return;
     const formation = ensureFormationState();
     const { type, rowIndex, lineIndex, artifactSlot } = view.formationPicker;
-    const history = beginHistoryAction(type === 'spell' ? '編成スペル変更' : type === 'apostle' ? '編成使徒変更' : '編成遺物変更');
+    if (type === 'apostle-move') {
+      const [targetRow, targetLine] = String(value || '').split(':').map(Number);
+      if (swapFormationApostlesInRow(rowIndex, lineIndex, targetRow, targetLine)) elements.formationPickerDialog.close();
+      return;
+    }
+    if (type === 'personality') {
+      const row = formation.rows[rowIndex];
+      const isNewPlacement = view.formationPicker.isNewPlacement === true;
+      const selectedPersonality = normalizeFormationPersonalitySelection(value);
+      const apostleId = isNewPlacement ? view.formationPicker.pendingApostleId : row?.apostles?.[lineIndex];
+      const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+      const options = getFormationPersonalityResolution(basic, selectedPersonality);
+      if (!row || !basic || !options.isSelectable) return;
+      if (isNewPlacement) {
+        if (!selectedPersonality || !options.personalityOptions.includes(selectedPersonality)) return;
+        if (!canPlaceApostle(basic, getFormationColumnPosition(rowIndex))) return;
+        const history = beginHistoryAction('編成使徒変更');
+        row.apostles[lineIndex] = apostleId;
+        ensureFormationRowPersonalityState(row);
+        row.resonancePersonalities[lineIndex] = selectedPersonality;
+        saveState({ refreshSnapshots: false });
+        renderFormation();
+        elements.formationPickerDialog.close();
+        commitHistoryAction(history);
+        return;
+      }
+      if (value && !options.personalityOptions.includes(selectedPersonality)) return;
+      const current = row.resonancePersonalities?.[lineIndex] || null;
+      if (current === selectedPersonality) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      const history = beginHistoryAction('性格変更');
+      ensureFormationRowPersonalityState(row);
+      row.resonancePersonalities[lineIndex] = selectedPersonality;
+      saveState({ refreshSnapshots: false });
+      renderFormation();
+      elements.formationPickerDialog.close();
+      commitHistoryAction(history);
+      return;
+    }
+    let history = null;
     if (type === 'spell') {
+      history = beginHistoryAction('編成スペル変更');
       formation.spells = normalizeFormationSpells(formation.spells);
       if (value) formation.spells.push(value);
     } else if (type === 'apostle') {
       const row = formation.rows[rowIndex];
       if (!row) return;
+      const basic = value ? DATA.getById('basicInfo', value) : null;
+      if (value && (!basic || !canPlaceApostle(basic, getFormationColumnPosition(rowIndex)))) return;
+      const previousId = row.apostles[lineIndex] || '';
+      if (previousId === value) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      if (value && getFormationPersonalityResolution(basic, null).isSelectable) {
+        view.formationPicker = { type: 'personality', rowIndex, lineIndex, artifactSlot, pendingApostleId: value, isNewPlacement: true };
+        if (elements.formationPickerSearch) elements.formationPickerSearch.value = '';
+        updateFormationPickerPresentation();
+        focusFormationPickerInitialControl();
+        return;
+      }
+      const previousSelection = row.resonancePersonalities?.[lineIndex] || null;
+      history = beginHistoryAction('編成使徒変更');
       row.apostles[lineIndex] = value;
+      ensureFormationRowPersonalityState(row);
+      row.resonancePersonalities[lineIndex] = previousId === value && getFormationPersonalityResolution(basic, previousSelection).isSelectable ? previousSelection : null;
     } else {
       const row = formation.rows[rowIndex];
       if (!row) return;
+      history = beginHistoryAction('編成遺物変更');
       if (!Array.isArray(row.artifacts[lineIndex])) row.artifacts[lineIndex] = ['', '', ''];
       row.artifacts[lineIndex][artifactSlot] = value;
     }
     saveState({ refreshSnapshots: false });
     renderFormation();
     elements.formationPickerDialog.close();
-    commitHistoryAction(history);
+    if (history) commitHistoryAction(history);
   }
 
   function swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine) {
     if (![sourceRow, sourceLine, targetRow, targetLine].every(Number.isFinite)) return;
-    if (sourceRow !== targetRow || sourceLine === targetLine) return;
+    if (sourceRow === targetRow && sourceLine === targetLine) return false;
     const formation = ensureFormationState();
-    const row = formation.rows[sourceRow];
-    if (!row) return;
+    const source = formation.rows[sourceRow];
+    const target = formation.rows[targetRow];
+    if (!source || !target) return false;
+    const sourceId = source.apostles?.[sourceLine] || '';
+    const targetId = target.apostles?.[targetLine] || '';
+    const sourceBasic = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+    const targetBasic = targetId ? DATA.getById('basicInfo', targetId) : null;
+    if (!sourceBasic || !canSwapFormationApostles(sourceBasic, getFormationColumnPosition(sourceRow), targetBasic, getFormationColumnPosition(targetRow))) return false;
     const history = beginHistoryAction('編成配置変更');
-    const apostles = row.apostles || ['', '', ''];
-    const artifacts = row.artifacts || [[], [], []];
-    [apostles[sourceLine], apostles[targetLine]] = [apostles[targetLine] || '', apostles[sourceLine] || ''];
-    [artifacts[sourceLine], artifacts[targetLine]] = [artifacts[targetLine] || ['', '', ''], artifacts[sourceLine] || ['', '', '']];
-    row.apostles = apostles;
-    row.artifacts = artifacts;
+    ensureFormationRowPersonalityState(source);
+    ensureFormationRowPersonalityState(target);
+    [source.apostles[sourceLine], target.apostles[targetLine]] = [targetId, sourceId];
+    [source.artifacts[sourceLine], target.artifacts[targetLine]] = [target.artifacts[targetLine] || ['', '', ''], source.artifacts[sourceLine] || ['', '', '']];
+    [source.resonancePersonalities[sourceLine], target.resonancePersonalities[targetLine]] = [
+      targetId && getFormationPersonalityResolution(targetBasic, target.resonancePersonalities[targetLine]).isSelectable ? target.resonancePersonalities[targetLine] || null : null,
+      sourceId && getFormationPersonalityResolution(sourceBasic, source.resonancePersonalities[sourceLine]).isSelectable ? source.resonancePersonalities[sourceLine] || null : null
+    ];
     saveState({ refreshSnapshots: false });
     renderFormation();
     commitHistoryAction(history);
+    return true;
+  }
+
+  function canMoveFormationSlot(sourceRow, sourceLine, targetRow, targetLine) {
+    const formation = ensureFormationState();
+    const sourceId = formation.rows?.[sourceRow]?.apostles?.[sourceLine] || '';
+    const targetId = formation.rows?.[targetRow]?.apostles?.[targetLine] || '';
+    const source = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+    const target = targetId ? DATA.getById('basicInfo', targetId) : null;
+    return !!source && canSwapFormationApostles(source, getFormationColumnPosition(sourceRow), target, getFormationColumnPosition(targetRow));
   }
 
   function beginFormationPointerDrag(event) {
@@ -8348,19 +8616,71 @@
   }
 
   function createDefaultFormationRow() {
-    return { apostles: ['', '', ''], artifacts: Array.from({ length: 3 }, () => ['', '', '']) };
+    return { apostles: ['', '', ''], resonancePersonalities: [null, null, null], artifacts: Array.from({ length: 3 }, () => ['', '', '']) };
   }
 
   function normalizeFormationRow(row) {
     const sourceArtifacts = Array.isArray(row?.artifacts) ? row.artifacts : [];
     return {
       apostles: Array.from({ length: 3 }, (_, index) => row?.apostles?.[index] || ''),
+      resonancePersonalities: Array.from({ length: 3 }, (_, index) => window.TRICKCAL_FORMATION_PERSONALITY.normalizeStoredSelection(row?.resonancePersonalities?.[index])),
       artifacts: Array.from({ length: 3 }, (_, lineIndex) => {
         const line = sourceArtifacts[lineIndex];
         if (Array.isArray(line)) return Array.from({ length: 3 }, (_, artifactSlot) => resolveCardIdAlias(line[artifactSlot] || ''));
         return [resolveCardIdAlias(line || ''), '', ''];
       })
     };
+  }
+
+  function getFormationPersonalityNames() {
+    return window.TRICKCAL_FORMATION_PERSONALITY?.PERSONALITY_NAMES
+      ? Array.from(window.TRICKCAL_FORMATION_PERSONALITY.PERSONALITY_NAMES)
+      : ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+  }
+
+  function normalizeFormationPersonalitySelection(value) {
+    return window.TRICKCAL_FORMATION_PERSONALITY?.normalizeSelection
+      ? window.TRICKCAL_FORMATION_PERSONALITY.normalizeSelection(value)
+      : getFormationPersonalityNames().includes(String(value || '').trim()) ? String(value).trim() : null;
+  }
+
+  function getSelectableMasterStyle(basic) {
+    const resolution = getFormationPersonalityResolution(basic, null);
+    const style = window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionStyle(resolution.personalityOptions);
+    return style ? `style="${escapeAttr(style)}"` : '';
+  }
+
+  function getSelectableMasterClass(basic) {
+    const count = getFormationPersonalityResolution(basic, null).personalityOptions.length;
+    return count === 2 ? 'has-personality-options is-two-tone' : count < 5 && count > 2 ? 'has-personality-options' : '';
+  }
+
+  function getFormationPersonalityResolution(basic, selection) {
+    const resolve = window.TRICKCAL_FORMATION_PERSONALITY?.resolveFormationPersonality;
+    return resolve(basic || {}, selection);
+  }
+
+  function ensureFormationRowPersonalityState(row) {
+    if (!row) return [];
+    row.resonancePersonalities = Array.from({ length: 3 }, (_, index) => window.TRICKCAL_FORMATION_PERSONALITY.normalizeStoredSelection(row.resonancePersonalities?.[index]));
+    return row.resonancePersonalities;
+  }
+
+  function getAllowedFormationRows(source) {
+    return window.TRICKCAL_FORMATION_PLACEMENT?.getAllowedFormationRows(source)
+      || (['後列', '中列', '前列'].includes(source?.配列 || source?.配置列) ? [source?.配列 || source?.配置列] : []);
+  }
+
+  function canPlaceApostle(source, destination) {
+    const helper = window.TRICKCAL_FORMATION_PLACEMENT?.canPlaceApostle;
+    if (typeof helper === 'function') return helper(source, destination);
+    return String(source?.配列 || source?.配置列 || '') === String(destination || '');
+  }
+
+  function canSwapFormationApostles(source, sourceDestination, target, targetDestination) {
+    const helper = window.TRICKCAL_FORMATION_PLACEMENT?.canSwapFormationApostles;
+    if (typeof helper === 'function') return helper(source, sourceDestination, target, targetDestination);
+    return canPlaceApostle(source, targetDestination) && (!target || canPlaceApostle(target, sourceDestination));
   }
 
   function normalizeFormationSpells(spells) {
@@ -8980,7 +9300,6 @@
         </div>
       `;
     }).join('');
-    const assetId = getApostleAssetId(basic.id);
     return `
       <section class="board-global-card personality-${escapeAttr(basic.性格 || '')}"
         data-board-global-card-id="${escapeAttr(basic.id)}">
@@ -8991,7 +9310,7 @@
             data-board-global-open-apostle="${escapeAttr(basic.id)}"
             title="${escapeAttr(`${basic.使徒名 || basic.id}のボードを開く`)}"
           >
-            <img data-apostle-image data-apostle-skill-asset="${escapeAttr(assetId)}" data-apostle-skill-fallback="passive" class="board-global-apostle-icon" src="img/Chara/Skill/Skill_S_${escapeAttr(assetId)}.webp" alt="">
+            <img data-apostle-image class="board-global-apostle-icon" src="${escapeAttr(getApostleSkillImagePath('high', basic.id) || getApostleImagePath(basic.id))}" alt="">
             <span class="board-global-apostle-meta">
               <span class="board-global-apostle-name">${escapeHtml(basic.使徒名 || basic.id)}</span>
               <span class="board-global-apostle-traits">${escapeHtml(basic.性格 || '')} / ${escapeHtml(basic.種族 || '')}</span>
@@ -12450,6 +12769,7 @@
     const formation = ensureFormationState();
     const members = [];
     const relicSlots = [];
+    const resonancePersonalities = [];
     (formation.rows || []).forEach(row => {
       const apostles = Array.isArray(row?.apostles) ? row.apostles : [];
       const artifacts = Array.isArray(row?.artifacts) ? row.artifacts : [];
@@ -12457,8 +12777,10 @@
         const id = apostles[index] || '';
         if (!id) {
           members.push(null);
+          resonancePersonalities.push(null);
         } else {
           const state = appState.apostles?.[id];
+          const basic = DATA.getById('basicInfo', id);
           members.push({
             id: String(id),
             star: getShareStateNumber(state, 'star', 1, APOSTLE_STAR_MAX),
@@ -12466,6 +12788,9 @@
               ? 'notApplicable'
               : getShareStateNumber(state, 'asideRank', 0, 3)
           });
+          resonancePersonalities.push(getFormationPersonalityResolution(basic, row?.resonancePersonalities?.[index]).isSelectable
+            ? row?.resonancePersonalities?.[index] || null
+            : null);
         }
         const artifactLine = Array.isArray(artifacts[index]) ? artifacts[index] : [];
         for (let slot = 0; slot < 3; slot += 1) {
@@ -12478,9 +12803,10 @@
       }
     });
     return {
-      v: 1,
+      v: 2,
       m: 1,
       members,
+      resonancePersonalities,
       relicSlots,
       spells: aggregateShareCards(formation.spells),
       powers: Array.isArray(formation.masterPowers)

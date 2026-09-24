@@ -75,6 +75,10 @@ SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES = {
     "artifact_chalice_of_origins_e01": "固定値",
 }
 
+CARD_IMAGE_FILE_OVERRIDES = {
+    "spell_joanne_prayer_power": "SpellCardIcon_58.webp",
+}
+
 RUNTIME_EFFECT_FIELDS = {
     "効果処理グループID": "processGroupId",
     "スタックグループID": "stackGroupId",
@@ -363,6 +367,9 @@ def build_cards(
             "rarity": clean(row.get("レア度")),
             "name": clean(row.get("カード名")),
         }
+        image_file = CARD_IMAGE_FILE_OVERRIDES.get(card_id)
+        if image_file:
+            card["imageFile"] = image_file
         if as_bool(row.get("愛用")):
             card["signature"] = True
         favorite = clean(row.get("愛用使徒"))

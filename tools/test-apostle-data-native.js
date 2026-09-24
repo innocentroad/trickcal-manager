@@ -12,6 +12,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const ROOT = path.resolve(process.env.APOSTLE_DATA_TEST_ROOT || PROJECT_ROOT);
 const TEST_ROUTE = process.env.APOSTLE_DATA_TEST_ROUTE || '/public/apostle-data.html?apostleDataTest=1';
 const SCREENSHOT_PREFIX = process.env.APOSTLE_DATA_TEST_PREFIX || 'apostle-data';
+const EXPECTED_APOSTLE_ROWS = 79;
 const MIME = {
   '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -56,7 +57,7 @@ async function setViewport(cdp, page, width, height) {
 async function waitReady(cdp, page) {
   return browser.waitFor(async () => browser.evaluate(cdp, page, `(() =>
     !!document.querySelector('[data-apostle-view-title]')
-      && document.querySelectorAll('[data-apostle-data-row]').length === 78
+      && document.querySelectorAll('[data-apostle-data-row]').length === ${EXPECTED_APOSTLE_ROWS}
       && [...document.querySelectorAll('img[data-apostle-data-image]')].every(image => image.complete && image.naturalWidth > 0)
   )()`), { timeoutMs: 30000 });
 }
@@ -81,6 +82,11 @@ async function facts(cdp, page) {
       width: innerWidth,
       overflow: document.documentElement.scrollWidth - innerWidth,
       rows: document.querySelectorAll('[data-apostle-data-row]').length,
+      joanne: (() => {
+        const row = document.querySelector('[data-apostle-data-row="Joanne"]');
+        const image = row?.querySelector('img[data-apostle-data-image]');
+        return { present: !!row, name: row?.innerText || '', imageLoaded: !!image && image.complete && image.naturalWidth > 0 };
+      })(),
       images: [...document.querySelectorAll('img[data-apostle-data-image]')].map(image => ({ complete: image.complete, naturalWidth: image.naturalWidth, src: image.currentSrc || image.src })),
       view: document.querySelector('[data-apostle-view-title]')?.textContent.trim() || '',
       currentTabs: [...document.querySelectorAll('[data-apostle-view][aria-current="page"]')].map(button => button.dataset.apostleView),
@@ -176,7 +182,10 @@ async function run() {
       assert.deepEqual(current.legacyTemplates, [], `${variant.label}: 旧操作templateがレイアウトDOMに残っています`);
       assert.ok(current.topbarGeometry?.height > 0, `${variant.label}: 共通上バーの実測高さ`);
       assert.equal(current.topbarGeometry.syncedHeight, Math.ceil(current.topbarGeometry.height), `${variant.label}: 高さ同期用変数`);
-      assert.equal(current.rows, 78, `${variant.label}: 基礎行数`);
+      assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, `${variant.label}: 基礎行数`);
+      assert.equal(current.joanne.present, true, `${variant.label}: 使徒データにジョアン`);
+      assert.match(current.joanne.name, /ジョアン/, `${variant.label}: ジョアン日本語名`);
+      assert.equal(current.joanne.imageLoaded, true, `${variant.label}: ジョアン画像`);
       assert.equal(current.images.every(image => image.complete && image.naturalWidth > 0), true, `${variant.label}: 画像読込`);
       assert.deepEqual(current.dataMenuItems.map(item => item.target), ['apostles', 'enemies', 'board'], `${variant.label}: dataメニュー`);
       assert.equal(current.dataMenuItems.filter(item => item.active).length, 1, `${variant.label}: data現在項目`);
@@ -324,7 +333,7 @@ async function run() {
     assert.equal(collapsedFiltered.filterClearHidden, false, '条件適用中は解除を表示');
     await browser.clickSelector(cdp, page, '#apostle-data-filter-clear');
     const cleared = await facts(cdp, page);
-    assert.equal(cleared.rows, 78, '閉じたfilterを0件から解除');
+    assert.equal(cleared.rows, EXPECTED_APOSTLE_ROWS, '閉じたfilterを0件から解除');
     assert.equal(cleared.filterSummary, '', '解除で適用表示を消す');
     assert.equal(cleared.filterDetailsOpen, false, '解除でfilterを勝手に展開しない');
     const filterA11y = await browser.evaluate(cdp, page, `(() => {
@@ -338,6 +347,8 @@ async function run() {
     await browser.clickSelector(cdp, page, '[data-apostle-view="equipment"]');
     let current = await facts(cdp, page);
     assert.equal(current.view, '装備等級', '装備view切替');
+    assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, '装備viewの使徒行数');
+    assert.equal(current.joanne.present && current.joanne.imageLoaded, true, '装備等級にジョアンと画像');
     const equipmentCellFacts = await browser.evaluate(cdp, page, `(() => {
       const row = document.querySelector('[data-apostle-data-row="Amelia"]');
       return {
@@ -403,17 +414,24 @@ async function run() {
     await browser.clickSelector(cdp, page, '[data-apostle-view="board"]');
     current = await facts(cdp, page);
     assert.equal(current.view, 'ボード等級', 'ボードview切替');
+    assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, 'ボードviewの使徒行数');
+    assert.equal(current.joanne.present && current.joanne.imageLoaded, true, 'ボード等級にジョアンと画像');
     assert.match(current.status, /一意/); assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-data-row] a")?.getAttribute("href") || ""'), /board-layout-preview|data\/boards/);
     await browser.evaluate(cdp, page, 'history.back()');
     await browser.waitFor(async () => browser.evaluate(cdp, page, 'new URL(location.href).searchParams.get("view") === "equipment"'), { timeoutMs: 5000 });
 
     await browser.clickSelector(cdp, page, '[data-apostle-view="aside"]');
     current = await facts(cdp, page);
+    assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, 'アサイドviewの使徒行数');
+    assert.equal(current.joanne.present && current.joanne.imageLoaded, true, 'アサイド等級にジョアンと画像');
     assert.match(current.status, /登録/); assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-data-row]")?.innerText || ""'), /等級/);
     await browser.clickSelector(cdp, page, '[data-apostle-option="asideExpanded"]');
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /補助値表示/);
 
     await browser.clickSelector(cdp, page, '[data-apostle-view="rank"]');
+    current = await facts(cdp, page);
+    assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, 'Rank viewの使徒行数');
+    assert.equal(current.joanne.present && current.joanne.imageLoaded, true, 'Rank効果にジョアンと画像');
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /Rank 1→2/);
     await selectValue(cdp, page, '#apostle-data-rank-transition', '2-3');
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /Rank 2→3/);
@@ -421,7 +439,7 @@ async function run() {
     await browser.evaluate(cdp, page, 'document.querySelector("#apostle-data-search").value = "not-found"; document.querySelector("#apostle-data-search").dispatchEvent(new Event("input", { bubbles: true }));');
     assert.equal((await facts(cdp, page)).rows, 0, '検索0件');
     await browser.clickSelector(cdp, page, '#apostle-data-filter-clear');
-    assert.equal((await facts(cdp, page)).rows, 78, '検索解除');
+    assert.equal((await facts(cdp, page)).rows, EXPECTED_APOSTLE_ROWS, '検索解除');
 
     await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-view=board]").click()');
     const fixture = await browser.evaluate(cdp, page, `(() => {

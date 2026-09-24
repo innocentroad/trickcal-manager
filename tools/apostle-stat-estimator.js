@@ -3,6 +3,7 @@
 
   const DATA = window.TRICKCAL_STAT_DATA;
   const ENGINE = window.TRICKCAL_SHARED_STAT_ENGINE;
+  const RESEARCH = window.TRICKCAL_RESEARCH_PROGRESS;
   if (!DATA || !ENGINE) return;
 
   const STAT_DEFS = [
@@ -273,11 +274,7 @@
     const researchProgress = Number(context?.research?.progress) || 0;
     if (researchLevel && researchProgress) {
       (DATA.sheets?.research || []).filter(row => row.種族 === elements.species.value && row.ステータス).forEach(row => {
-        const rowCount = Number(row.id) || 0;
-        const maxStage = rowCount <= researchProgress ? researchLevel : researchLevel - 1;
-        let value = 0;
-        for (let stage = 1; stage <= maxStage; stage += 1) value += Number(row[`段階${stage}`]) || 0;
-        addNamedStat(totals, row.ステータス, value);
+        addNamedStat(totals, row.ステータス, RESEARCH.getValue(row, researchLevel, researchProgress));
       });
     }
     return totals;

@@ -3,6 +3,7 @@
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const RESEARCH = require('../research-progress.js');
 
 const {
   DEFAULT_OUTPUT,
@@ -31,8 +32,9 @@ assert.equal(fixture.version, EXPORT_VERSION);
 assert.equal(fixture.kind, 'slot');
 assert.equal(fixture.sourceSlot, VERIFICATION_SLOT);
 assert.equal(fixture.snapshot.slotName, 'Codex表示検証用・全育成最大');
-assert.equal(fixture.snapshot.research.level, 10);
-assert.equal(fixture.snapshot.research.progress, 45);
+const researchLimits = RESEARCH.getLimits(data.sheets.research || []);
+assert.equal(fixture.snapshot.research.level, researchLimits.maxLevel);
+assert.equal(fixture.snapshot.research.progress, RESEARCH.getProgressLimit(researchLimits, researchLimits.maxLevel));
 
 const basicInfo = data.sheets.basicInfo || [];
 assert.equal(Object.keys(fixture.snapshot.apostles).length, basicInfo.length, '全使徒を含む');

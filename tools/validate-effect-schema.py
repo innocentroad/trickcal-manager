@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from research_data import ResearchDataError, validate_research_rows
 
 
 EFFECT_SHEETS = (
@@ -128,6 +129,23 @@ def validate(input_path: Path) -> tuple[list[Issue], dict[str, int]]:
     all_effect_ids: set[str] = set()
     source_references: list[tuple[str, int, str, str]] = []
     condition_references: list[tuple[str, int, str, str]] = []
+
+    research_sheet = "研究効果"
+    if research_sheet not in workbook.sheetnames:
+        issues.append(Issue("ERROR", research_sheet, 1, "", "シートがありません"))
+    else:
+        values = workbook[research_sheet].iter_rows(values_only=True)
+        headers = [text(value) for value in next(values, ())]
+        research_rows = [
+            {header: cells[index] if index < len(cells) else None
+             for index, header in enumerate(headers) if header}
+            for cells in values if any(text(value) for value in cells)
+        ]
+        try:
+            stage_counts = validate_research_rows(headers, research_rows)
+            stats["researchStages"] = len(stage_counts)
+        except ResearchDataError as error:
+            issues.append(Issue("ERROR", research_sheet, 1, "", str(error)))
 
     parent_ids: dict[str, set[str]] = {}
     for sheet_name, required_headers in BASE_SHEET_HEADERS.items():

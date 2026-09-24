@@ -204,9 +204,10 @@
     if (!assetId) return;
     urls.add(`img/Chara/${assetId}.webp`);
     if (isDamageCalcPage()) return;
-    urls.add(`img/Chara/Skill/Skill_P_${assetId}.webp`);
-    urls.add(`img/Chara/Skill/Skill_F_${assetId}.webp`);
-    urls.add(`img/Chara/Skill/Skill_S_${assetId}.webp`);
+    const skillImages = window.TRICKCAL_APOSTLE_SKILL_IMAGE_DATA?.[assetId] || {};
+    ['passive', 'low', 'high'].forEach(kind => {
+      if (skillImages[kind]) urls.add(skillImages[kind]);
+    });
     if (!hasPublicAsideData(id)) return;
     urls.add(`img/Chara/Aside/AsideIcon_${assetId}.webp`);
     urls.add(`img/Chara/Aside/Aside_Skill_${assetId}_1.webp`);

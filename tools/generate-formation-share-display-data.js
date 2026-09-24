@@ -31,6 +31,7 @@ const COMMON_SHARE_ASSETS = [
   'img/Card/Card_Unique.webp',
   'img/Card/Card_Rare.webp',
   'img/性格_純粋.webp',
+  'img/性格_共鳴.webp',
   'img/性格_冷静.webp',
   'img/性格_狂気.webp',
   'img/性格_活発.webp',
@@ -146,6 +147,7 @@ function buildDisplayData(options) {
     apostles[id] = {
       name,
       personality,
+      ...(row.personalityOptions ? { personalityOptions: row.personalityOptions } : {}),
       position: typeof row?.配置列 === 'string' ? row.配置列 : '',
       role: typeof row?.役割 === 'string' ? row.役割 : '',
       imagePath: getImagePath(`img/Chara/${imageFile}`, `${id}の画像`, options, missingImages)

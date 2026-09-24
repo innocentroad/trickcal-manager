@@ -14,7 +14,7 @@
       'formation-share-image.js', 'formation-share-page-actions.js', 'formation-share-create.js',
       'stat-prototype.css', 'stat-dashboard.css', 'shared-topbar.css', 'statData.js',
       'public-release-config.js', 'sp-engine.js', 'synergy.js', 'cards.js', 'stat-engine.js',
-      'stat-prototype.js', 'stat-dashboard.js', 'image-preload.js', 'public-site-runtime.js'
+      'formation-personality.js', 'formation-placement.js', 'apostle-skill-image-data.js', 'stat-prototype.js', 'stat-dashboard.js', 'image-preload.js', 'public-site-runtime.js'
     ],
     calc: [
       'storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js', 'style.css',
@@ -22,7 +22,7 @@
       'statData.js', 'public-release-config.js', 'sp-engine.js', 'stat-engine.js', 'apostles.js',
       'cards.js', 'synergy.js', 'enemy-presets.js', 'combat-scenario.js', 'dps-trigger-policy.js',
       'dps-timing-data.js', 'dps-simulator.js', 'dps-simulator-worker.js', 'dps-support-registry.js',
-      'formation-damage-calc.js', 'formation-damage-dps-prototype.js', 'image-preload.js', 'public-site-runtime.js'
+      'formation-personality.js', 'formation-placement.js', 'formation-damage-calc.js', 'formation-damage-dps-prototype.js', 'image-preload.js', 'public-site-runtime.js'
     ],
     dps: [
       'storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js', 'formation-damage-dps-prototype.css',

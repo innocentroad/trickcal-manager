@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
+from personality_options import normalize_personality_options
 
 
 SHEETS = {
@@ -33,6 +34,7 @@ KEY_MAP = {
     "レア度": "rarity",
     "エルダイン": "eldain",
     "性格": "personality",
+    "性格候補": "personalityOptions",
     "種族": "race",
     "役割": "role",
     "配列": "position",
@@ -562,6 +564,7 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
         apostle_id = row.get("id")
         if not apostle_id:
             continue
+        normalize_personality_options(row, personality_key="personality", options_key="personalityOptions")
         basic = compact_row(row)
         stat_types: dict[str, Any] = {}
         for out_key, in_key in (

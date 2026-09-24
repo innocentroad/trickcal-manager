@@ -3887,6 +3887,77 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "spell_joanne_prayer_power",
+            "kind": "spell",
+            "rarity": "伝説",
+            "name": "ジョアンの祈りの権能",
+            "imageFile": "SpellCardIcon_58.webp",
+            "signature": true,
+            "favoriteCharacter": "ジョアン",
+            "cost": 30,
+            "bonusesByStar": [
+                {
+                    "hpP": 13.7,
+                    "defP": 10.3
+                },
+                {
+                    "hpP": 17.1,
+                    "defP": 12.8
+                },
+                {
+                    "hpP": 20.5,
+                    "defP": 15.4
+                },
+                {
+                    "hpP": 23.9,
+                    "defP": 18
+                },
+                {
+                    "hpP": 27.4,
+                    "defP": 20.5
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "spell_joanne_prayer_power_e01",
+                    "type": "toggle",
+                    "label": "常時 受けるシールド効果増加",
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "常時",
+                    "shortLabel": "受けるシールド効果増加",
+                    "valueClass": "倍率",
+                    "nonStackingSameEffect": true,
+                    "nonStackingSameApostle": true,
+                    "description": "味方全員 / 倍率",
+                    "descriptionByStar": [
+                        "受けるシールド効果増加20% (常時 / 味方全員)",
+                        "受けるシールド効果増加25% (常時 / 味方全員)",
+                        "受けるシールド効果増加30% (常時 / 味方全員)",
+                        "受けるシールド効果増加35% (常時 / 味方全員)",
+                        "受けるシールド効果増加40% (常時 / 味方全員)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "shieldEffectP": 20
+                        },
+                        {
+                            "shieldEffectP": 25
+                        },
+                        {
+                            "shieldEffectP": 30
+                        },
+                        {
+                            "shieldEffectP": 35
+                        },
+                        {
+                            "shieldEffectP": 40
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "spell_fatal_charm",
             "kind": "spell",
             "rarity": "伝説",
@@ -5881,6 +5952,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "critDmgP": 2.4,
             "critRateP": 4.6
+        }
+    },
+    "spell_joanne_prayer_power": {
+        "1": {
+            "hpP": 3.4,
+            "defP": 2.6
+        },
+        "2": {
+            "hpP": 6.8,
+            "defP": 5.2
         }
     },
     "spell_fatal_charm": {

@@ -11,6 +11,8 @@ import re
 import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from personality_options import normalize_personality_options
+from research_data import validate_research_rows
 
 MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -223,6 +225,7 @@ def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object
     normalized: list[dict[str, object]] = []
     for row in rows:
         item = dict(row)
+        normalize_personality_options(item)
         renames = {
             "配置列": "配列",
             "攻撃Type": "攻撃タイプ",
@@ -611,6 +614,9 @@ def generate(input_path: Path, output_path: Path) -> None:
             ignored_sheets.append(sheet_name)
             continue
         sheets[key] = rows_to_objects(rows)
+        if key == "research":
+            first = next((row for row in rows if any(value != "" for value in row)), [])
+            validate_research_rows(unique_headers(first), sheets[key])
 
     if "skillBasics" in sheets or "skillEffects" in sheets:
         sheets["skills"] = merge_effect_sheets(

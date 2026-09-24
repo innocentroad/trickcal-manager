@@ -18,6 +18,25 @@
   const LEGACY_THEME_KEY = 'trickcal_damage_calc_theme';
   const FALLBACK_IMAGE = 'img/Chara/null.webp';
   const POSITIONS = ['後列', '中列', '前列'];
+  const formationPlacement = window.TRICKCAL_FORMATION_PLACEMENT;
+  const formationPersonality = window.TRICKCAL_FORMATION_PERSONALITY;
+  const researchProgress = window.TRICKCAL_RESEARCH_PROGRESS;
+  const researchLimits = researchProgress.getLimits(window.TRICKCAL_STAT_DATA?.sheets?.research || []);
+  if (!formationPlacement || !formationPersonality) throw new Error('formation helpers unavailable');
+  const JOANNE_DISPERSION_DAMAGE_EFFECTS = new Set(['Joanne_low_e03', 'Joanne_low_e04']);
+  const JOANNE_TAKEN_DAMAGE_EFFECTS = new Set([
+    'Joanne_low_e04',
+    'Joanne_enhanced_e01',
+    'Joanne_aside_2_e02'
+  ]);
+  const JOANNE_ENHANCED_SUPPORT_ROWS = Object.freeze({
+    Joanne_enhanced_e01: { row: '前列', asideEffectId: 'Joanne_aside_2_e02' },
+    Joanne_enhanced_e03: { row: '中列', asideEffectId: 'Joanne_aside_2_e03' },
+    Joanne_enhanced_e05: { row: '後列', asideEffectId: 'Joanne_aside_2_e04' },
+    Joanne_aside_2_e02: { row: '前列', asideEffectId: 'Joanne_aside_2_e02', aside: true },
+    Joanne_aside_2_e03: { row: '中列', asideEffectId: 'Joanne_aside_2_e03', aside: true },
+    Joanne_aside_2_e04: { row: '後列', asideEffectId: 'Joanne_aside_2_e04', aside: true }
+  });
   const FDC_STATUS_SKILL_MULTIPLIERS = Object.freeze({
     '火傷': 30,
     '毒': 6,
@@ -335,6 +354,8 @@
     conditionalEffectEnabled: {},
     conditionalEffectStackCounts: {},
     tempMembers: {},
+    tempResonancePersonalities: {},
+    tempUnplacedResonancePersonality: null,
     tempSpells: null,
     pendingTempMemberId: '',
     spellDetailsOpen: false,
@@ -626,6 +647,7 @@
     });
     document.addEventListener('keydown', event => {
       if (event.key !== 'Escape') return;
+      if (document.getElementById('fdc-resonance-personality-dialog')?.open) return;
       if (el.formationPicker && !el.formationPicker.hidden) closeFormationPicker();
     });
     document.addEventListener('change', event => {
@@ -682,6 +704,8 @@
     el.formationPreset?.addEventListener('change', () => {
       view.formationPresetId = el.formationPreset.value || '';
       view.tempMembers = {};
+      view.tempResonancePersonalities = {};
+      view.tempUnplacedResonancePersonality = null;
       view.tempArtifacts = { formation: {}, target: {} };
       view.tempSpells = null;
       view.pendingTempMemberId = '';
@@ -889,9 +913,12 @@
     });
     [el.enemyResearchLevel, el.enemyResearchProgress].forEach(select => {
       select?.addEventListener('change', () => {
+        const level = Number(el.enemyResearchLevel?.value) || 0;
+        const progress = Math.min(Number(el.enemyResearchProgress?.value) || 0,
+          researchProgress.getProgressLimit(researchLimits, level));
         view.enemyResearchPreset = {
-          level: Math.max(0, Math.min(10, Number(el.enemyResearchLevel?.value) || 0)),
-          progress: Math.max(0, Math.min(45, Number(el.enemyResearchProgress?.value) || 0)),
+          level,
+          progress,
           dirty: true
         };
         renderEnemyBoardPresetUi(buildContext());
@@ -2021,12 +2048,16 @@
     const formationSource = getSelectedFormationSource(state);
     const formation = applyTempSpellOverrides(applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(formationSource.formation))));
     const members = getFormationMembers(formation, state);
-    const allMembers = getAllApostleMembers(state);
+    const allMembers = getAllApostleMembers(state, formation);
+    const resonanceValidation = validateFormationResonanceState(formation, members);
     if (formationSource.preset && !members.some(member => member.id === view.targetId)) {
       view.targetId = members[0]?.id || view.targetId;
     }
     if (!view.targetId || !allMembers.some(member => member.id === view.targetId)) view.targetId = members[0]?.id || allMembers[0]?.id || '';
-    const target = getCurrentTargetMember(members, allMembers);
+    const target = resonanceValidation.duplicateId ? null : getCurrentTargetMember(members, allMembers);
+    const targetPlacementRequired = isTargetPlacementRequired(target, members);
+    const unplacedTargetSelectionRequired = !!target?.needsSelection
+      && !members.some(member => member.id === target.id);
     const enemyMember = getSelectedEnemyApostleMember(allMembers, state);
     const damageType = overrides.forceSelfAttack
       ? resolveSelfDamageType(target)
@@ -2041,7 +2072,18 @@
     }
     const effects = collectEffects({ target, formation, cards, damageType, state, actionCategory });
     const skillEffectStateOverrides = overrides.skillEffectStateOverrides || null;
-    applyEnabledSelfSkillEffects(effects, { target, formation, cards, damageType, state, actionCategory, members, allMembers, skillEffectStateOverrides });
+    applyEnabledSelfSkillEffects(effects, {
+      target,
+      formation,
+      cards,
+      damageType,
+      state,
+      actionCategory,
+      members,
+      allMembers,
+      skillEffectStateOverrides,
+      excludeNormalCalculationOnlyEffects: !!overrides.excludeNormalCalculationOnlyEffects
+    });
     const summary = summarizeEffects(getEnabledEffectRows(effects));
     const enemyAttackEffects = collectEnemyCardEffects({
       target: enemyMember,
@@ -2070,9 +2112,25 @@
       members,
       allMembers,
       target,
+      targetPlacementRequired,
+      formationSelectionRequired: resonanceValidation.unselected.length > 0 || unplacedTargetSelectionRequired,
+      formationSelectionMessage: [
+        ...resonanceValidation.unselected,
+        ...(unplacedTargetSelectionRequired ? [`対象：${target.name || target.id}`] : [])
+      ].length
+        ? `性格を選択してください（${[
+          ...resonanceValidation.unselected,
+          ...(unplacedTargetSelectionRequired ? [`対象：${target.name || target.id}`] : [])
+        ].join('、')}）`
+        : '',
+      formationDuplicateResonanceId: resonanceValidation.duplicateId,
+      formationDuplicateMessage: resonanceValidation.duplicateId
+        ? `選択式使徒「${resonanceValidation.duplicateId}」が編成内で重複しているため、計算を停止しました。`
+        : '',
       enemyMember,
       damageType,
       forceSelfAttack: !!overrides.forceSelfAttack,
+      excludeNormalCalculationOnlyEffects: !!overrides.excludeNormalCalculationOnlyEffects,
       actionCategory,
       skillEffectStateOverrides,
       effects,
@@ -2130,6 +2188,24 @@
     };
   }
 
+  function validateFormationResonanceState(formation, members = []) {
+    const resonanceMembers = members.filter(member => member.isResonance);
+    const counts = new Map();
+    resonanceMembers.forEach(member => counts.set(member.id, (counts.get(member.id) || 0) + 1));
+    const duplicateId = Array.from(counts.entries()).find(([, count]) => count > 1)?.[0] || '';
+    return {
+      duplicateId,
+      unselected: resonanceMembers
+        .filter(member => member.needsSelection)
+        .map(member => `${member.position || '編成'}・${member.line || '?'}：${member.name || member.id}`)
+    };
+  }
+
+  function isTargetPlacementRequired(target, members = []) {
+    if (!target || target.basePosition !== formationPlacement.ALL_ROWS) return false;
+    return !members.some(member => member.id === target.id && formationPlacement.canPlaceApostle(member, member.position));
+  }
+
   function getSavedFormationPresets(state = {}) {
     return Array.isArray(state.savedFormations)
       ? state.savedFormations
@@ -2167,19 +2243,57 @@
 
   function applyTempMemberOverrides(formation) {
     const next = normalizeFormation(formation);
-    Object.entries(view.tempMembers || {}).forEach(([key, id]) => {
-      const [rowIndex, lineIndex] = key.split(':').map(Number);
-      const row = next.rows[rowIndex];
-      if (!row || lineIndex < 0 || lineIndex >= 3) return;
-      const memberId = id || '';
-      if (memberId) {
-        next.rows.forEach(otherRow => {
-          otherRow.apostles = otherRow.apostles.map(existingId => existingId === memberId ? '' : existingId);
+    const originalSelections = Object.fromEntries(next.rows.flatMap((row, rowIndex) => row.apostles.map((id, lineIndex) => [
+      `${rowIndex}:${lineIndex}`,
+      { id, selection: row.resonancePersonalities[lineIndex] }
+    ])));
+    const entries = Object.entries(view.tempMembers || {})
+      .map(([key, id]) => ({ slot: parseFormationSlotKey(key), id: id || '' }))
+      .filter(entry => !!entry.slot);
+    const movedIds = new Set(entries.map(entry => entry.id).filter(Boolean));
+    if (movedIds.size) {
+      next.rows.forEach(row => {
+        row.apostles = row.apostles.map((existingId, lineIndex) => {
+          if (movedIds.has(existingId)) {
+            row.resonancePersonalities[lineIndex] = null;
+            return '';
+          }
+          return existingId;
         });
-      }
-      row.apostles[lineIndex] = memberId;
+      });
+    }
+    entries.forEach(({ slot, id }) => {
+      next.rows[slot.rowIndex].apostles[slot.lineIndex] = id;
+      next.rows[slot.rowIndex].resonancePersonalities[slot.lineIndex] = getTempResonanceSelection(
+        `${slot.rowIndex}:${slot.lineIndex}`,
+        id,
+        next,
+        originalSelections
+      );
+    });
+    Object.entries(view.tempResonancePersonalities || {}).forEach(([key, stored]) => {
+      const slot = parseFormationSlotKey(key);
+      if (!slot || !stored || typeof stored !== 'object') return;
+      const row = next.rows[slot.rowIndex];
+      if (!row || row.apostles[slot.lineIndex] !== stored.apostleId) return;
+      if (!formationPersonality.resolveFormationPersonality(getApostle(stored.apostleId), stored.selection).isSelectable) return;
+      row.resonancePersonalities[slot.lineIndex] = formationPersonality.normalizeStoredSelection(stored.selection);
     });
     return next;
+  }
+
+  function getTempResonanceSelection(slotKey, apostleId, formation, originalSelections = {}) {
+    if (!apostleId || !formationPersonality.resolveFormationPersonality(getApostle(apostleId), null).isSelectable) return null;
+    const stored = view.tempResonancePersonalities?.[slotKey];
+    if (stored && typeof stored === 'object' && stored.apostleId === apostleId) {
+      return formationPersonality.normalizeStoredSelection(stored.selection);
+    }
+    if (typeof stored === 'string') return formationPersonality.normalizeStoredSelection(stored);
+    const original = originalSelections[slotKey];
+    if (original?.id === apostleId) return formationPersonality.normalizeStoredSelection(original.selection);
+    const slot = parseFormationSlotKey(slotKey);
+    const row = slot ? formation.rows?.[slot.rowIndex] : null;
+    return formationPersonality.normalizeStoredSelection(row?.resonancePersonalities?.[slot?.lineIndex]);
   }
 
   function loadDamageCalculationSaves() {
@@ -2364,7 +2478,9 @@
       formationState: {
         presetId: savedView.formationPresetId || '',
         formation: clonePlain(referenceState.formation || {}),
-        tempMembers: clonePlain(savedView.tempMembers || {})
+        tempMembers: clonePlain(savedView.tempMembers || {}),
+        tempResonancePersonalities: clonePlain(savedView.tempResonancePersonalities || {}),
+        tempUnplacedResonancePersonality: clonePlain(savedView.tempUnplacedResonancePersonality || null)
       },
       cardState: {
         cards: clonePlain(referenceState.cards || {}),
@@ -2487,6 +2603,8 @@
         conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
         tempMembers: view.tempMembers || {},
+        tempResonancePersonalities: clonePlain(view.tempResonancePersonalities || {}),
+        tempUnplacedResonancePersonality: clonePlain(view.tempUnplacedResonancePersonality || null),
         tempArtifacts: view.tempArtifacts || { formation: {}, target: {} },
         tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
         tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
@@ -2564,9 +2682,23 @@
       if (savedView.resultDisplays && typeof savedView.resultDisplays === 'object') view.resultDisplays = { ...view.resultDisplays, ...pickBooleanMap(savedView.resultDisplays, Object.keys(view.resultDisplays)) };
       view.selfSkillEffectEnabled = savedView.selfSkillEffectEnabled && typeof savedView.selfSkillEffectEnabled === 'object' ? pickBooleanMap(savedView.selfSkillEffectEnabled) : {};
       view.conditionalEffectEnabled = savedView.conditionalEffectEnabled && typeof savedView.conditionalEffectEnabled === 'object' ? migrateCardEffectStateMap(pickBooleanMap(savedView.conditionalEffectEnabled)) : {};
+      const migratedJoanneChoices = migrateLegacyJoanneCalculationChoices(
+        view.selfSkillEffectEnabled,
+        view.conditionalEffectEnabled,
+        view.targetId,
+        view.perspective
+      );
+      view.selfSkillEffectEnabled = migratedJoanneChoices.selfSkillEffectEnabled;
+      view.conditionalEffectEnabled = migratedJoanneChoices.conditionalEffectEnabled;
       view.conditionalEffectStackCounts = savedView.conditionalEffectStackCounts && typeof savedView.conditionalEffectStackCounts === 'object' ? migrateCardEffectStateMap(pickNumberMap(savedView.conditionalEffectStackCounts)) : {};
       view.skillLevelOverrides = savedView.skillLevelOverrides && typeof savedView.skillLevelOverrides === 'object' ? sanitizeSkillLevelOverrides(savedView.skillLevelOverrides) : {};
       view.tempMembers = savedView.tempMembers && typeof savedView.tempMembers === 'object' ? clonePlain(savedView.tempMembers) : {};
+      view.tempResonancePersonalities = savedView.tempResonancePersonalities && typeof savedView.tempResonancePersonalities === 'object'
+        ? clonePlain(savedView.tempResonancePersonalities)
+        : {};
+      view.tempUnplacedResonancePersonality = savedView.tempUnplacedResonancePersonality && typeof savedView.tempUnplacedResonancePersonality === 'object'
+        ? clonePlain(savedView.tempUnplacedResonancePersonality)
+        : null;
       view.tempArtifacts = savedView.tempArtifacts && typeof savedView.tempArtifacts === 'object'
         ? migrateTempArtifactOverrides(savedView.tempArtifacts)
         : { formation: {}, target: {} };
@@ -2728,12 +2860,27 @@
       if (saved.conditionalEffectEnabled && typeof saved.conditionalEffectEnabled === 'object') {
         view.conditionalEffectEnabled = migrateCardEffectStateMap(pickBooleanMap(saved.conditionalEffectEnabled));
       }
+      const migratedJoanneChoices = migrateLegacyJoanneCalculationChoices(
+        view.selfSkillEffectEnabled,
+        view.conditionalEffectEnabled,
+        view.targetId,
+        view.perspective
+      );
+      view.selfSkillEffectEnabled = migratedJoanneChoices.selfSkillEffectEnabled;
+      view.conditionalEffectEnabled = migratedJoanneChoices.conditionalEffectEnabled;
       if (saved.conditionalEffectStackCounts && typeof saved.conditionalEffectStackCounts === 'object') {
         view.conditionalEffectStackCounts = migrateCardEffectStateMap(pickNumberMap(saved.conditionalEffectStackCounts));
       }
       if (saved.skillLevelOverrides && typeof saved.skillLevelOverrides === 'object') {
         view.skillLevelOverrides = sanitizeSkillLevelOverrides(saved.skillLevelOverrides);
       }
+      view.tempMembers = saved.tempMembers && typeof saved.tempMembers === 'object' ? clonePlain(saved.tempMembers) : {};
+      view.tempResonancePersonalities = saved.tempResonancePersonalities && typeof saved.tempResonancePersonalities === 'object'
+        ? clonePlain(saved.tempResonancePersonalities)
+        : {};
+      view.tempUnplacedResonancePersonality = saved.tempUnplacedResonancePersonality && typeof saved.tempUnplacedResonancePersonality === 'object'
+        ? clonePlain(saved.tempUnplacedResonancePersonality)
+        : null;
       view.tempSpells = Array.isArray(saved.tempSpells) ? saved.tempSpells.filter(Boolean).map(resolveCardIdAlias) : null;
       view.tempCardStates = sanitizeFdcTempCardStates(saved.tempCardStates);
       if (saved.extraCrayon && typeof saved.extraCrayon === 'object') {
@@ -2784,6 +2931,9 @@
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
         conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
+        tempMembers: clonePlain(view.tempMembers || {}),
+        tempResonancePersonalities: clonePlain(view.tempResonancePersonalities || {}),
+        tempUnplacedResonancePersonality: clonePlain(view.tempUnplacedResonancePersonality || null),
         tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
         tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
         extraCrayon: readExtraCrayonInputs()
@@ -2956,6 +3106,7 @@
   function normalizeFormationRow(row = {}) {
     return {
       apostles: Array.from({ length: 3 }, (_, index) => row.apostles?.[index] || ''),
+      resonancePersonalities: Array.from({ length: 3 }, (_, index) => formationPersonality.normalizeStoredSelection(row.resonancePersonalities?.[index])),
       artifacts: Array.from({ length: 3 }, (_, lineIndex) => {
         const line = row.artifacts?.[lineIndex];
         if (Array.isArray(line)) return Array.from({ length: 3 }, (_, index) => resolveCardIdAlias(line[index] || ''));
@@ -2978,32 +3129,54 @@
 
   function getFormationMembers(formation, state = {}) {
     return formation.rows.flatMap((row, rowIndex) =>
-      row.apostles.map((id, lineIndex) => createMember(id, rowIndex, lineIndex, state, row.artifacts[lineIndex])).filter(Boolean)
+      row.apostles.map((id, lineIndex) => createMember(id, rowIndex, lineIndex, state, row.artifacts[lineIndex], {
+        formationSlot: true,
+        resonanceSelection: row.resonancePersonalities[lineIndex]
+      })).filter(Boolean)
     );
   }
 
-  function getAllApostleMembers(state = {}) {
+  function getAllApostleMembers(state = {}, formation = null) {
     const data = typeof TRICKCAL_STAT_DATA === 'undefined' ? null : TRICKCAL_STAT_DATA;
-    return (data?.sheets?.basicInfo || []).map(row => createMember(row.id, getPreferredPositionIndex(row), null, state, [])).filter(Boolean);
+    const placedIds = new Set((formation?.rows || []).flatMap(row => row.apostles || []).filter(Boolean));
+    return (data?.sheets?.basicInfo || []).map(row => {
+      const isUnplacedTarget = String(row.id || '') === String(view.targetId || '') && !placedIds.has(row.id);
+      return createMember(row.id, getPreferredPositionIndex(row), null, state, [], isUnplacedTarget ? {
+        formationSlot: true,
+        resonanceSelection: getUnplacedResonanceSelection(row.id)
+      } : {});
+    }).filter(Boolean);
   }
 
   function getPreferredPositionIndex(source = {}) {
-    const position = source.position || source.配置列 || source.配列 || '';
-    const index = POSITIONS.indexOf(position);
-    return index >= 0 ? index : 1;
+    const rows = formationPlacement.getAllowedFormationRows(source);
+    return rows.length === 1 ? POSITIONS.indexOf(rows[0]) : null;
   }
 
-  function createMember(id, rowIndex, lineIndex, state = {}, artifactIds = []) {
+  function createMember(id, rowIndex, lineIndex, state = {}, artifactIds = [], options = {}) {
     const basic = getApostle(id);
     if (!id || !basic) return null;
     const apostleState = state.apostles?.[id] || {};
     const hasPlannedSnapshot = !!apostleState.statSnapshots?.planned;
+    const personalityResolution = formationPersonality.resolveFormationPersonality(
+      basic,
+      options.resonanceSelection
+    );
     return {
       id,
       name: basic.使徒名 || id,
-      position: POSITIONS[rowIndex],
+      position: Number.isInteger(rowIndex) ? POSITIONS[rowIndex] : '',
+      basePosition: formationPlacement.getBasePosition(basic),
+      allowedRows: formationPlacement.getAllowedFormationRows(basic),
       line: lineIndex == null ? null : lineIndex + 1,
-      personality: basic.性格 || '',
+      personality: personalityResolution.isSelectable ? personalityResolution.effectivePersonality : basic.性格 || '',
+      basePersonality: personalityResolution.basePersonality,
+      resonanceSelection: options.formationSlot && personalityResolution.isSelectable
+        ? formationPersonality.normalizeStoredSelection(options.resonanceSelection)
+        : null,
+      isResonance: personalityResolution.isSelectable,
+      personalityOptions: personalityResolution.personalityOptions,
+      needsSelection: options.formationSlot && personalityResolution.needsSelection,
       race: basic.種族 || '',
       role: basic.役割 || '',
       attackType: basic.攻撃タイプ || basic.攻撃Type || '',
@@ -3089,17 +3262,13 @@
   function calculateEnemyResearchPreset(context) {
     const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
     const race = context?.enemyMember?.race || '';
-    const stage = Math.max(0, Math.min(10, Number(view.enemyResearchPreset?.level) || 0));
-    const progress = Math.max(0, Math.min(45, Number(view.enemyResearchPreset?.progress) || 0));
+    const { level: stage, progress } = researchProgress.normalizeState(view.enemyResearchPreset, researchLimits);
     if (!race || !stage || !progress || typeof TRICKCAL_STAT_DATA === 'undefined') return totals;
     (TRICKCAL_STAT_DATA?.sheets?.research || []).forEach(row => {
       if (row.種族 !== race || !row.ステータス) return;
-      const rowCount = Number(row.id) || 0;
-      const maxStage = rowCount <= progress ? stage : stage - 1;
-      if (maxStage <= 0) return;
       const statKey = getEnemyBoardPresetStatKey(row.ステータス);
       if (!statKey) return;
-      for (let index = 1; index <= maxStage; index += 1) totals[statKey] += Number(row[`段階${index}`]) || 0;
+      totals[statKey] += researchProgress.getValue(row, stage, progress);
     });
     return totals;
   }
@@ -3143,8 +3312,7 @@
   function syncEnemyResearchPresetFromState(context) {
     if (view.enemyResearchPreset?.dirty) return;
     view.enemyResearchPreset = {
-      level: Math.max(0, Math.min(10, Number(context?.state?.research?.level) || 0)),
-      progress: Math.max(0, Math.min(45, Number(context?.state?.research?.progress) || 0)),
+      ...researchProgress.normalizeState(context?.state?.research, researchLimits),
       dirty: false
     };
   }
@@ -3166,12 +3334,14 @@
     }
     if (el.enemyRankPreset) el.enemyRankPreset.value = normalizeEnemyRankPreset(view.enemyRankPreset);
     if (el.enemyResearchLevel) {
-      if (!el.enemyResearchLevel.options.length) el.enemyResearchLevel.innerHTML = Array.from({ length: 11 }, (_, index) => `<option value="${index}">${index ? `${index}段階` : 'OFF'}</option>`).join('');
-      el.enemyResearchLevel.value = String(view.enemyResearchPreset?.level || 0);
+      if (el.enemyResearchLevel.options.length !== researchLimits.maxLevel + 1) el.enemyResearchLevel.innerHTML = Array.from({ length: researchLimits.maxLevel + 1 }, (_, index) => `<option value="${index}">${index ? `${index}段階` : 'OFF'}</option>`).join('');
+      el.enemyResearchLevel.value = String(researchProgress.normalizeState(view.enemyResearchPreset, researchLimits).level);
     }
     if (el.enemyResearchProgress) {
-      if (!el.enemyResearchProgress.options.length) el.enemyResearchProgress.innerHTML = Array.from({ length: 46 }, (_, index) => `<option value="${index}">${index ? `${index}回目` : 'OFF'}</option>`).join('');
-      el.enemyResearchProgress.value = String(view.enemyResearchPreset?.progress || 0);
+      const { level, progress } = researchProgress.normalizeState(view.enemyResearchPreset, researchLimits);
+      const limit = researchProgress.getProgressLimit(researchLimits, level);
+      if (el.enemyResearchProgress.options.length !== limit + 1) el.enemyResearchProgress.innerHTML = Array.from({ length: limit + 1 }, (_, index) => `<option value="${index}">${index ? `${index}回目` : 'OFF'}</option>`).join('');
+      el.enemyResearchProgress.value = String(progress);
     }
   }
   function renderEnemyCorrectionEnabledUi() {
@@ -3475,11 +3645,20 @@
     const target = context.target;
     if (!target) {
       el.targetPreview.className = 'fdc-target-preview';
+      el.targetPreview.style.removeProperty('--personality-options-bg');
+      el.targetPreview.style.removeProperty('--personality-options-frame');
       el.targetPreview.innerHTML = '<span class="fdc-target-empty">編成から使徒を選択</span>';
+      syncTargetResonancePersonalityTrigger(null, context);
       renderFloatingTarget(null, context);
       return;
     }
-    el.targetPreview.className = `fdc-target-preview is-filled personality-${target.personality || ''}`;
+    el.targetPreview.className = `fdc-target-preview is-filled ${getFdcPersonalityDisplayClasses(target)}`;
+    const targetGradient = getFdcCandidateGradient(target);
+    if (targetGradient) el.targetPreview.style.setProperty('--personality-options-bg', targetGradient);
+    else el.targetPreview.style.removeProperty('--personality-options-bg');
+    const targetFrame = getFdcCandidateFrameGradient(target);
+    if (targetFrame) el.targetPreview.style.setProperty('--personality-options-frame', targetFrame);
+    else el.targetPreview.style.removeProperty('--personality-options-frame');
     el.targetPreview.title = `${target.name} / ${[target.position, normalizeRole(target.role), formatDamageType(context.damageType), formatStatModeLabel(target), formatGradeLabel(target)].filter(Boolean).join(' / ')}`;
     el.targetPreview.setAttribute('aria-expanded', String(!el.formationPicker?.hidden));
     el.targetPreview.innerHTML = `
@@ -3488,21 +3667,91 @@
         ${renderApostleBadges(target)}
         <span class="fdc-target-grade-icons" title="${escapeAttr(formatGradeLabel(target))}">${renderGradeIcons(target.grade)}</span>
       </span>
+      ${context.targetPlacementRequired ? '<span class="fdc-target-placement-required">配置先を選択してください</span>' : ''}
     `;
+    syncTargetResonancePersonalityTrigger(target, context);
     renderFloatingTarget(target, context);
     updateFloatingTargetVisibility();
   }
 
+  function getFdcCandidateGradient(member) {
+    return member?.isResonance && member.personalityOptions?.length < 5
+      ? formationPersonality.getPersonalityOptionGradient(member.personalityOptions) : '';
+  }
+
+  function getFdcCandidateFrameGradient(member) {
+    return member?.isResonance && member.personalityOptions?.length === 2
+      ? formationPersonality.getPersonalityOptionFrameGradient(member.personalityOptions) : '';
+  }
+
+  function getFdcPersonalityDisplayClasses(member) {
+    if (!member?.isResonance) return `personality-${member?.personality || ''}`;
+    const selection = member.personality;
+    const optionCount = member.personalityOptions?.length || 0;
+    return `is-resonance ${optionCount >= 2 && optionCount < 5 ? 'has-personality-options' : ''} ${optionCount === 2 ? 'is-two-tone' : ''} ${selection ? '' : 'is-resonance-unselected'} personality-${selection || '共鳴'}`;
+  }
+
+  function createFdcResonancePersonalityTrigger(member, context, className = '') {
+    const slot = getMemberFormationSlot(member, context.members);
+    const slotKey = slot ? `${slot.rowIndex}:${slot.lineIndex}` : '';
+    const template = document.createElement('template');
+    template.innerHTML = renderResonancePersonalityButton(member, {
+      slotKey,
+      unplaced: !slot,
+      className
+    }).trim();
+    const button = template.content.firstElementChild;
+    if (!button) return null;
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const currentContext = buildContext();
+      const currentSlot = parseFormationSlotKey(button.dataset.fdcResonancePersonalitySlot || '');
+      const currentMember = currentSlot
+        ? currentContext.members.find(item => item.id === button.dataset.fdcResonancePersonalityId
+          && item.position === POSITIONS[currentSlot.rowIndex] && item.line === currentSlot.lineIndex + 1)
+        : currentContext.allMembers.find(item => item.id === button.dataset.fdcResonancePersonalityId);
+      if (!currentMember?.isResonance) return;
+      openResonancePersonalityDialog({
+        member: currentMember,
+        slotKey: button.dataset.fdcResonancePersonalitySlot || '',
+        unplaced: button.dataset.fdcResonancePersonalityUnplaced != null,
+        returnFocusElement: button,
+        current: button.dataset.fdcResonancePersonalitySlot
+          ? currentMember.resonanceSelection
+          : getUnplacedResonanceSelection(currentMember.id, currentMember.resonanceSelection)
+      });
+    });
+    return button;
+  }
+
+  function syncTargetResonancePersonalityTrigger(member, context) {
+    const wrapper = el.targetPreview?.closest('.fdc-target-preview-wrap');
+    wrapper?.querySelector('.fdc-target-resonance-trigger')?.remove();
+    if (!member?.isResonance || !wrapper) return;
+    const button = createFdcResonancePersonalityTrigger(member, context, 'fdc-target-resonance-trigger');
+    if (button) el.targetPreview.insertAdjacentElement('afterend', button);
+  }
+
   function renderFloatingTarget(target, context) {
     if (!el.floatingTarget) return;
+    document.getElementById('fdc-floating-resonance-trigger')?.remove();
     if (!target) {
       el.floatingTarget.className = 'fdc-floating-target';
+      el.floatingTarget.style.removeProperty('--personality-options-bg');
+      el.floatingTarget.style.removeProperty('--personality-options-frame');
       el.floatingTarget.innerHTML = '';
       el.floatingTarget.title = '使徒を選択';
       updateFloatingTargetVisibility();
       return;
     }
-    el.floatingTarget.className = `fdc-floating-target is-filled personality-${target.personality || ''}`;
+    el.floatingTarget.className = `fdc-floating-target is-filled ${getFdcPersonalityDisplayClasses(target)}`;
+    const floatingGradient = getFdcCandidateGradient(target);
+    if (floatingGradient) el.floatingTarget.style.setProperty('--personality-options-bg', floatingGradient);
+    else el.floatingTarget.style.removeProperty('--personality-options-bg');
+    const floatingFrame = getFdcCandidateFrameGradient(target);
+    if (floatingFrame) el.floatingTarget.style.setProperty('--personality-options-frame', floatingFrame);
+    else el.floatingTarget.style.removeProperty('--personality-options-frame');
     el.floatingTarget.title = 'クリックで使徒選択';
     el.floatingTarget.innerHTML = `
       <span class="fdc-floating-target-portrait">
@@ -3510,6 +3759,13 @@
         ${renderApostleBadges(target)}
       </span>
     `;
+    if (target.isResonance) {
+      const button = createFdcResonancePersonalityTrigger(target, context, 'fdc-floating-resonance-trigger');
+      if (button) {
+        button.id = 'fdc-floating-resonance-trigger';
+        el.floatingTarget.insertAdjacentElement('afterend', button);
+      }
+    }
   }
 
   function updateFloatingTargetVisibility() {
@@ -3518,6 +3774,8 @@
     const shouldShow = !!view.targetId && window.scrollY > 180 && previewBottom < 18;
     el.floatingTarget.hidden = !shouldShow;
     el.floatingTarget.classList.toggle('is-visible', shouldShow);
+    const personalityTrigger = document.getElementById('fdc-floating-resonance-trigger');
+    if (personalityTrigger) personalityTrigger.hidden = !shouldShow;
   }
 
   function renderGradeIcons(grade) {
@@ -3528,6 +3786,7 @@
 
   function renderFormationPicker(context) {
     if (!el.formationPicker) return;
+    ensureResonancePersonalityDialog();
     const pendingMember = getPendingTempMember(context);
     const body = view.pickerMode === 'all' && !pendingMember
       ? renderAllApostlePicker(context)
@@ -3535,7 +3794,7 @@
         <div class="fdc-picker-row" data-line="${lineIndex}">
           ${POSITIONS.map((position, rowIndex) => {
             const member = context.members.find(item => item.line === lineIndex + 1 && item.position === position);
-            return renderFormationPickerSlot(member, rowIndex, lineIndex, pendingMember, context.state?.cards);
+            return renderFormationPickerSlot(member, rowIndex, lineIndex, pendingMember, context.state?.cards, context.members);
           }).join('')}
         </div>
       `).join('');
@@ -3579,6 +3838,27 @@
         renderFormationPicker(buildContext());
       });
     });
+    el.formationPicker.querySelectorAll('[data-fdc-resonance-personality-trigger]:not(.fdc-target-resonance-trigger):not(.fdc-floating-resonance-trigger)').forEach(button => {
+      button.addEventListener('click', event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const memberId = button.dataset.fdcResonancePersonalityId || '';
+        const slotKey = button.dataset.fdcResonancePersonalitySlot || '';
+        const member = context.members.find(item => item.id === memberId
+          && (!slotKey || `${POSITIONS.indexOf(item.position)}:${Number(item.line) - 1}` === slotKey))
+          || context.allMembers.find(item => item.id === memberId);
+        if (!member?.isResonance) return;
+        openResonancePersonalityDialog({
+          member,
+          slotKey,
+          unplaced: !slotKey,
+          returnFocusElement: button,
+          current: slotKey
+            ? member.resonanceSelection
+            : getUnplacedResonanceSelection(member.id, member.resonanceSelection)
+        });
+      });
+    });
     el.formationPicker.querySelector('[data-fdc-temp-member-cancel]')?.addEventListener('click', () => {
       view.pendingTempMemberId = '';
       view.pickerMode = 'all';
@@ -3589,7 +3869,20 @@
         if (!view.pendingTempMemberId) return;
         event.preventDefault();
         event.stopImmediatePropagation();
-        applyPendingTempMemberToSlot(button.dataset.fdcTempMemberSlot || '', buildContext());
+        const slotKey = button.dataset.fdcTempMemberSlot || '';
+        const currentContext = buildContext();
+        const pendingMember = getPendingTempMember(currentContext);
+        if (pendingMember?.isResonance && !getMemberFormationSlot(pendingMember, currentContext.members)) {
+          openResonancePersonalityDialog({
+            member: pendingMember,
+            slotKey,
+            mode: 'placement',
+            returnFocusElement: button,
+            current: getUnplacedResonanceSelection(pendingMember.id, pendingMember.resonanceSelection)
+          });
+          return;
+        }
+        if (!applyPendingTempMemberToSlot(slotKey, currentContext)) return;
         view.statDirty = false;
         el.formationPicker.hidden = true;
         el.formationPicker.classList.remove('is-floating-picker');
@@ -3615,6 +3908,12 @@
   function selectMemberFromPicker(id, context) {
     if (!id) return '';
     const existingMember = context.members.find(member => member.id === id);
+    if (existingMember?.basePosition === formationPlacement.ALL_ROWS) {
+      view.targetId = id;
+      view.pendingTempMemberId = id;
+      view.pickerMode = 'formation';
+      return 'placement';
+    }
     if (existingMember || view.pickerMode !== 'all') {
       view.targetId = id;
       syncSelectedApostleToStatManager(id);
@@ -3636,32 +3935,255 @@
   }
 
   function getPendingTempMember(context) {
-    return view.pendingTempMemberId
-      ? context.allMembers.find(member => member.id === view.pendingTempMemberId) || null
-      : null;
+    if (!view.pendingTempMemberId) return null;
+    return context.members.find(member => member.id === view.pendingTempMemberId)
+      || context.allMembers.find(member => member.id === view.pendingTempMemberId)
+      || null;
   }
 
   function renderPendingTempMemberNotice(member) {
     return `
       <div class="fdc-picker-placement">
         <span><strong>${escapeHtml(member.name)}</strong> の配置先を選択</span>
-        <small>${escapeHtml(member.position || '')}のみ</small>
+        <small>${escapeHtml(member.allowedRows?.join('・') || '配置できる列がありません')}に配置できます</small>
         <button type="button" data-fdc-temp-member-cancel>キャンセル</button>
       </div>
     `;
   }
 
-  function applyPendingTempMemberToSlot(slotKey, context) {
+  function applyPendingTempMemberToSlot(slotKey, context, resonanceSelection = undefined) {
     const member = getPendingTempMember(context);
-    if (!member || !slotKey) return;
+    if (!member || !slotKey) return false;
+    if (context.formationDuplicateResonanceId) return false;
     const [rowIndex, lineIndex] = slotKey.split(':').map(Number);
-    if (rowIndex !== getPreferredPositionIndex(member)) return;
-    view.tempMembers[`${rowIndex}:${lineIndex}`] = member.id;
+    if (!Number.isInteger(rowIndex) || !Number.isInteger(lineIndex)) return false;
+    const target = context.members.find(item => item.position === POSITIONS[rowIndex] && item.line === lineIndex + 1) || null;
+    if (!canPlacePendingMemberInSlot(member, rowIndex, lineIndex, target, context.members)) return false;
+    const source = getMemberFormationSlot(member, context.members);
+    if (source) moveTempMemberToSlot(member, source, { rowIndex, lineIndex }, target, context);
+    else {
+      view.tempMembers[slotKey] = member.id;
+      view.tempResonancePersonalities[slotKey] = {
+        apostleId: member.id,
+        selection: member.isResonance
+          ? formationPersonality.normalizeStoredSelection(resonanceSelection === undefined
+            ? getUnplacedResonanceSelection(member.id, member.resonanceSelection)
+            : resonanceSelection)
+          : null
+      };
+      view.tempUnplacedResonancePersonality = null;
+    }
     view.targetId = member.id;
     view.pendingTempMemberId = '';
     syncSelectedApostleToStatManager(member.id);
     applyEnemyPreset();
     saveCalcSettings();
+    return true;
+  }
+
+  function parseFormationSlotKey(value) {
+    const match = String(value || '').match(/^([0-2]):([0-2])$/);
+    return match ? { rowIndex: Number(match[1]), lineIndex: Number(match[2]) } : null;
+  }
+
+  function getMemberFormationSlot(member, members = []) {
+    const found = members.find(item => item.id === member?.id && POSITIONS.includes(item.position) && Number.isInteger(item.line));
+    if (!found) return null;
+    const rowIndex = POSITIONS.indexOf(found.position);
+    const lineIndex = Number(found.line) - 1;
+    return rowIndex >= 0 && lineIndex >= 0 && lineIndex < 3 ? { rowIndex, lineIndex } : null;
+  }
+
+  function canPlacePendingMemberInSlot(member, rowIndex, lineIndex, target = null, members = []) {
+    if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex > 2 || !Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex > 2) return false;
+    if (!formationPlacement.canPlaceApostle(member, rowIndex)) return false;
+    const source = getMemberFormationSlot(member, members);
+    if (!source) return true;
+    if (source.rowIndex === rowIndex && source.lineIndex === lineIndex) return false;
+    return formationPlacement.canSwapFormationApostles(member, source.rowIndex, target, rowIndex);
+  }
+
+  function moveTempMemberToSlot(member, source, destination, target, context) {
+    const sourceKey = `${source.rowIndex}:${source.lineIndex}`;
+    const destinationKey = `${destination.rowIndex}:${destination.lineIndex}`;
+    const sourceMember = context.members.find(item => item.position === POSITIONS[source.rowIndex] && item.line === source.lineIndex + 1);
+    const sourceArtifacts = context.formation.rows[source.rowIndex]?.artifacts?.[source.lineIndex] || ['', '', ''];
+    const destinationArtifacts = context.formation.rows[destination.rowIndex]?.artifacts?.[destination.lineIndex] || ['', '', ''];
+    const sourceSelection = sourceMember?.isResonance
+      ? formationPersonality.normalizeStoredSelection(sourceMember.resonanceSelection)
+      : member.isResonance ? getUnplacedResonanceSelection(member.id, member.resonanceSelection) : null;
+    const targetSelection = target?.isResonance ? formationPersonality.normalizeStoredSelection(target.resonanceSelection) : null;
+    view.tempMembers[sourceKey] = target?.id || '';
+    view.tempMembers[destinationKey] = member.id;
+    view.tempResonancePersonalities[sourceKey] = { apostleId: target?.id || '', selection: targetSelection };
+    view.tempResonancePersonalities[destinationKey] = { apostleId: member.id, selection: sourceSelection };
+    view.tempUnplacedResonancePersonality = null;
+    Array.from({ length: 3 }, (_, artifactIndex) => {
+      view.tempArtifacts.formation[`${source.rowIndex}:${source.lineIndex}:${artifactIndex}`] = destinationArtifacts[artifactIndex] || '';
+      view.tempArtifacts.formation[`${destination.rowIndex}:${destination.lineIndex}:${artifactIndex}`] = sourceArtifacts[artifactIndex] || '';
+    });
+  }
+
+  function getUnplacedResonanceSelection(apostleId, fallback = null) {
+    const stored = view.tempUnplacedResonancePersonality;
+    return stored?.apostleId === apostleId
+      ? formationPersonality.normalizeStoredSelection(stored.selection)
+      : formationPersonality.normalizeStoredSelection(fallback);
+  }
+
+  function setTempResonancePersonality(slotKey, selection) {
+    const slot = parseFormationSlotKey(slotKey);
+    if (!slot) return;
+    const context = buildContext();
+    const member = context.members.find(item => item.position === POSITIONS[slot.rowIndex] && item.line === slot.lineIndex + 1);
+    if (!member?.isResonance) return;
+    const normalized = formationPersonality.normalizeStoredSelection(selection);
+    if (normalized && !member.personalityOptions.includes(normalized)) return;
+    view.tempResonancePersonalities[slotKey] = {
+      apostleId: member.id,
+      selection: normalized
+    };
+    saveCalcSettings();
+    render();
+  }
+
+  let resonancePersonalityDialogAction = null;
+
+  function ensureResonancePersonalityDialog() {
+    let dialog = document.getElementById('fdc-resonance-personality-dialog');
+    if (dialog) return dialog;
+    dialog = document.createElement('dialog');
+    dialog.id = 'fdc-resonance-personality-dialog';
+    dialog.className = 'fdc-resonance-personality-dialog';
+    dialog.addEventListener('click', event => {
+      event.stopPropagation();
+      const cancelButton = event.target.closest('[data-fdc-resonance-dialog-cancel]');
+      if (cancelButton) {
+        dialog.close('cancel');
+        return;
+      }
+      const clearButton = event.target.closest('[data-fdc-resonance-personality-clear]');
+      const optionButton = event.target.closest('[data-fdc-resonance-personality-option]');
+      if (!clearButton && !optionButton) return;
+      const action = resonancePersonalityDialogAction;
+      if (!action) return;
+      const selection = clearButton ? null : optionButton.dataset.fdcResonancePersonalityOption || '';
+      const chosenMember = getApostle(action.memberId);
+      if (selection && !formationPersonality.getPersonalityOptions(chosenMember).includes(selection)) return;
+      if (action.mode === 'placement') {
+        const context = buildContext();
+        const member = getPendingTempMember(context);
+        if (member?.id !== action.memberId || !applyPendingTempMemberToSlot(action.slotKey, context, selection)) return;
+        action.focusTarget = 'target';
+        view.statDirty = false;
+        if (el.formationPicker) {
+          el.formationPicker.hidden = true;
+          el.formationPicker.classList.remove('is-floating-picker');
+        }
+        render();
+      } else if (action.slotKey) {
+        setTempResonancePersonality(action.slotKey, selection);
+      } else if (action.unplaced) {
+        view.tempUnplacedResonancePersonality = {
+          apostleId: action.memberId,
+          selection: formationPersonality.normalizeStoredSelection(selection)
+        };
+        saveCalcSettings();
+        render();
+      }
+      dialog.close('select');
+    });
+    dialog.addEventListener('close', () => {
+      const action = resonancePersonalityDialogAction;
+      resonancePersonalityDialogAction = null;
+      if (!action) return;
+      let target = action.returnFocusElement?.isConnected
+        && !action.returnFocusElement.hidden
+        && action.returnFocusElement.getClientRects().length
+        ? action.returnFocusElement
+        : null;
+      if (action.focusTarget === 'target') {
+        target ||= el.targetPreview || el.floatingTarget;
+      } else if (!target && action.slotKey) {
+        target = [...document.querySelectorAll('[data-fdc-resonance-personality-trigger]')]
+          .find(button => button.dataset.fdcResonancePersonalitySlot === action.slotKey) || null;
+        if (!target && action.mode === 'placement') {
+          target = [...document.querySelectorAll('[data-fdc-temp-member-slot]')]
+            .find(button => button.dataset.fdcTempMemberSlot === action.slotKey) || null;
+        }
+      } else if (!target && action.unplaced) {
+        target = [...document.querySelectorAll('[data-fdc-resonance-personality-trigger]')]
+          .find(button => button.dataset.fdcResonancePersonalityUnplaced === action.memberId) || null;
+      }
+      target?.focus({ preventScroll: true });
+    });
+    document.body.append(dialog);
+    return dialog;
+  }
+
+  function openResonancePersonalityDialog({ member, slotKey = '', unplaced = false, mode = '', current = null, returnFocusElement = null } = {}) {
+    if (!member?.id) return;
+    const dialog = ensureResonancePersonalityDialog();
+    const options = member.personalityOptions || formationPersonality.getPersonalityOptions(getApostle(member.id));
+    const selected = options.includes(current) ? current : null;
+    resonancePersonalityDialogAction = {
+      memberId: member.id,
+      slotKey,
+      unplaced: !!unplaced,
+      mode,
+      focusTarget: '',
+      returnFocusElement
+    };
+    dialog.innerHTML = `
+      <section class="fdc-resonance-dialog-panel" aria-labelledby="fdc-resonance-dialog-title">
+        <header class="fdc-resonance-dialog-header">
+          <h2 id="fdc-resonance-dialog-title">性格を選択</h2>
+          <span>${escapeHtml(member.name || member.id)}</span>
+        </header>
+        <div class="fdc-resonance-dialog-options" role="group" aria-label="性格">
+          ${options.map(name => `
+            <button type="button" class="fdc-resonance-dialog-option ${selected === name ? 'is-current' : ''}"
+              data-fdc-resonance-personality-option="${escapeAttr(name)}" aria-pressed="${selected === name}"
+              aria-label="${escapeAttr(`${name}を選択`)}" title="${escapeAttr(name)}">
+              <img src="img/性格_${escapeAttr(name)}.webp" alt="" data-fallback>
+              <span>${escapeHtml(name)}</span>
+            </button>
+          `).join('')}
+        </div>
+        <footer class="fdc-resonance-dialog-actions">
+          ${selected && mode !== 'placement' ? '<button type="button" class="fdc-resonance-dialog-clear" data-fdc-resonance-personality-clear>未選択に戻す</button>' : ''}
+          <button type="button" class="fdc-resonance-dialog-cancel" data-fdc-resonance-dialog-cancel>キャンセル</button>
+        </footer>
+      </section>
+    `;
+    if (!dialog.open) dialog.showModal();
+    requestAnimationFrame(() => {
+      const buttons = [...dialog.querySelectorAll('[data-fdc-resonance-personality-option]')];
+      (buttons.find(button => button.dataset.fdcResonancePersonalityOption === selected) || buttons[0])?.focus();
+    });
+  }
+
+  function renderResonancePersonalityButton(member, { slotKey = '', unplaced = false, className = '' } = {}) {
+    if (!member?.isResonance) return '';
+    const stored = slotKey
+      ? member.resonanceSelection
+      : getUnplacedResonanceSelection(member.id, member.resonanceSelection);
+    const resolution = formationPersonality.resolveFormationPersonality(getApostle(member.id), stored);
+    const current = resolution.effectivePersonality;
+    const iconPersonality = current || (member.basePersonality === '共鳴' || (unplaced && member.basePersonality === '裏面')
+      ? member.basePersonality : '');
+    const currentLabel = resolution.invalidSelection ? `旧選択 ${resolution.originalSelection}（候補外）` : current ? `現在 ${current}` : '現在未選択';
+    const slotAttribute = slotKey ? `data-fdc-resonance-personality-slot="${escapeAttr(slotKey)}"` : '';
+    const unplacedAttribute = unplaced ? `data-fdc-resonance-personality-unplaced="${escapeAttr(member.id)}"` : '';
+    return `
+      <button type="button" class="fdc-resonance-personality-trigger ${escapeAttr(className)}" data-fdc-resonance-personality-trigger
+        data-fdc-resonance-personality-id="${escapeAttr(member.id)}" ${slotAttribute} ${unplacedAttribute}
+        aria-haspopup="dialog" aria-controls="fdc-resonance-personality-dialog"
+        aria-label="${escapeAttr(`${member.name || member.id}の性格を選択（${currentLabel}）`)}"
+        title="${escapeAttr(`性格を選択 / ${currentLabel}`)}">
+        ${iconPersonality ? `<img src="img/性格_${escapeAttr(iconPersonality)}.webp" alt="" data-fallback>` : ''}
+      </button>
+    `;
   }
 
   function renderSelfSkillChoices(context) {
@@ -3700,6 +4222,7 @@
       && !selectedOptionByKey.isPreferredForCurrentArtifactCount
       ? preferredOption
       : selectedOptionByKey)
+      || categoryOptions.find(option => target.id === 'Joanne' && option.effectId === 'Joanne_basic_e01')
       || preferredOption
       || categoryOptions.find(option => option.skillRewrite)
       || categoryOptions.find(option => !option.isSupersededBase)
@@ -3729,7 +4252,7 @@
         return `
         <button type="button" class="fdc-skill-choice ${view.selectedSkillOptionKey === option.key ? 'is-active' : ''}" data-fdc-skill-value="${escapeAttr(option.value)}" data-fdc-skill-category="${escapeAttr(option.category)}" data-fdc-skill-key="${escapeAttr(option.key)}">
           <span class="fdc-skill-choice-action-cell">
-            <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(sourceCategory))}">${escapeHtml(getFdcApostleSkillActionLabel(sourceCategory))}</span>
+            <span class="fdc-skill-choice-action ${escapeAttr(getFdcApostleSkillTone(sourceCategory))}">${escapeHtml(option.actionLabel || getFdcApostleSkillActionLabel(sourceCategory))}</span>
             ${option.isSupersededBase ? '<small class="fdc-skill-choice-before-rewrite" title="単発ダメージ確認用。DPSでは変更後のスキルを使用します">変更前・単発のみ</small>' : ''}
             ${rewriteLabel ? `<small class="fdc-skill-choice-rewrite" title="愛用品・アサイドによるスキル書き換え">変更後 / ${escapeHtml(rewriteLabel)}</small>` : ''}
             ${classificationLabel ? `<small class="fdc-skill-choice-classification" title="${escapeAttr(`攻撃分類: ${classificationLabel}`)}">分類: ${escapeHtml(classificationLabel)}</small>` : ''}
@@ -3770,6 +4293,84 @@
       });
     });
     bindFdcSkillLevelControls(target);
+  }
+
+  function getJoanneDispersionEffectKey(targetId) {
+    return `Joanne:formation-dispersion:${String(targetId || '')}:all`;
+  }
+
+  function getJoanneDreamAttackOptionKey(effectId = 'Joanne_basic_e02') {
+    const apostle = getApostleSkillData({ id: 'joanne' });
+    for (const [skillIndex, skill] of normalizeFdcArray(apostle?.skills).entries()) {
+      const effectIndex = normalizeFdcArray(skill?.effects).findIndex(effect => effect?.effectId === effectId);
+      if (effectIndex < 0) continue;
+      return `${apostle?.id || 'Joanne'}:base:${skillIndex}:${effectIndex}`;
+    }
+    return '';
+  }
+
+  function isJoanneDreamFormSelected(target) {
+    return target?.id === 'Joanne'
+      && view.selectedSkillOptionKey === getJoanneDreamAttackOptionKey('Joanne_basic_e02');
+  }
+
+  function migrateLegacyJoanneCalculationChoices(selfEffectStates = {}, conditionalStates = {}, targetId = '', perspective = 'self') {
+    const nextSelfStates = pickBooleanMap(selfEffectStates);
+    const nextConditionalStates = migrateCardEffectStateMap(pickBooleanMap(conditionalStates));
+    Object.entries(nextConditionalStates).forEach(([key, enabled]) => {
+      const dreamMatch = key.match(/^Joanne_dream_form:(self|enemy):([^:]+)$/);
+      if (dreamMatch) {
+        if (enabled && dreamMatch[1] === 'self' && dreamMatch[2] === 'Joanne' && targetId === 'Joanne') {
+          const dreamOptionKey = getJoanneDreamAttackOptionKey('Joanne_basic_e02');
+          if (dreamOptionKey) {
+            view.selectedSkillCategory = '普通攻撃';
+            view.selectedSkillOptionKey = dreamOptionKey;
+          }
+        }
+        delete nextConditionalStates[key];
+        return;
+      }
+      const dispersionMatch = key.match(/^Joanne_disperse:([^:]+):(self|enemy):([^:]+)$/);
+      if (!dispersionMatch) return;
+      const [, stateTargetId, statePerspective, stateOwnerId] = dispersionMatch;
+      if (enabled && stateTargetId === targetId && stateOwnerId === targetId && statePerspective === perspective) {
+        const newKey = getJoanneDispersionEffectKey(targetId);
+        if (!Object.prototype.hasOwnProperty.call(nextSelfStates, newKey)) nextSelfStates[newKey] = true;
+        view._selfSkillEffectActionCategory = view.selectedSkillCategory || '';
+      }
+      delete nextConditionalStates[key];
+    });
+    return { selfSkillEffectEnabled: nextSelfStates, conditionalEffectEnabled: nextConditionalStates };
+  }
+
+  function getJoanneEnhancedSupportInfo(effect, sourceKey, owner) {
+    const effectId = String(effect?.effectId || '');
+    const definition = JOANNE_ENHANCED_SUPPORT_ROWS[effectId];
+    if (!definition || owner?.id !== 'Joanne') return null;
+    const asideRank = getFdcEffectiveSkillLevels(owner).asideRank;
+    const a2Replacement = isPublicAsideEnabled(owner) && asideRank >= 2;
+    if (!!definition.aside !== a2Replacement || String(sourceKey || '').startsWith('aside:') !== !!definition.aside) {
+      return { hidden: true };
+    }
+    if (owner.position !== definition.row) return { hidden: true };
+    return {
+      row: definition.row,
+      a2Replacement,
+      condition: `ジョアンが${definition.row}に配置され、4回目の攻撃を支援へ置換する場合（手動選択）。${a2Replacement ? 'A2値が通常値を置換します。' : ''}`
+    };
+  }
+
+  function normalizeJoanneSkillEffectBonus(effect, skillLevel) {
+    const effectId = String(effect?.effectId || '');
+    if (JOANNE_TAKEN_DAMAGE_EFFECTS.has(effectId)
+      && /被ダメージ/.test(String(effect?.valueKind || ''))
+      && normalizeFdcDamageModifierCategory(effect?.damageModifierCategory) === 'damageAmount') {
+      // この3行はdatasheet上の値の種類が「被ダメージ量減少」で、
+      // 旧damageModifierCategory列だけが与ダメージ区分になっている。
+      // Joanneの確定効果として受ける側の補正へ限定して正規化する。
+      return normalizeFdcSkillEffectBonus({ ...effect, damageModifierCategory: '' }, skillLevel);
+    }
+    return normalizeFdcSkillEffectBonus(effect, skillLevel);
   }
 
   function showFdcSkillPopover(anchor, option, target = null, context = null) {
@@ -4605,11 +5206,23 @@
 
   function applyEnabledSelfSkillEffects(effects, context) {
     buildSelfSkillEffectOptions(context.target, context)
+      .filter(option => !(context.excludeNormalCalculationOnlyEffects && option.normalCalculationOnly))
       .filter(isFdcSkillEffectSourceEnabled)
       .filter(option => isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides))
       .forEach(option => {
         const item = setEffectTags({
           source: option.group === 'formation' ? '編成スキル' : option.source || '本人スキル',
+          ownerId: option.ownerId || '',
+          ownerName: option.ownerName || '',
+          effectId: option.effectId || '',
+          group: option.group || '',
+          perspective: option.perspective || '',
+          valueKind: option.valueKind || '',
+          effectType: option.effectType || '',
+          effectTarget: option.effectTarget || '',
+          condition: option.condition || '',
+          effectValue: option.effectValue || '',
+          normalCalculationOnly: !!option.normalCalculationOnly,
           spSourceLabel: option.spSourceLabel || '',
           label: option.label,
           bonuses: getSkillEffectOptionBonuses(option),
@@ -4711,15 +5324,21 @@
       normalizeFdcArray(skill.effects).forEach((effect, effectIndex) => {
         if (isFdcApostleAttackMultiplierEffect(effect)) return;
         if (isFdcEnemyOutgoingDamageReduction(effect)) return;
+        if (target.id === 'Joanne' && JOANNE_DISPERSION_DAMAGE_EFFECTS.has(String(effect?.effectId || ''))) return;
+        const joanneSupport = getJoanneEnhancedSupportInfo(effect, sourceKey, target);
+        if (joanneSupport?.hidden) return;
         const resolvedEffect = inheritFdcSkillTriggerMetadata(effect, skill);
         const skillLevel = getFdcSkillLevelForEffect(levels, effect, category);
-        const bonuses = normalizeFdcSkillEffectBonus(effect, skillLevel);
+        const bonuses = normalizeJoanneSkillEffectBonus(effect, skillLevel);
         if (!bonuses || !Object.keys(bonuses).length) return;
         const effectText = getFdcSkillEffectConditionText(skill, resolvedEffect);
         const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
         const allyPersonalityState = getAllyPersonalityConditionState(effectText, target);
         const durationText = getFdcSkillEffectDurationText(skill, effect, skillLevel);
         const durationSeconds = parseFdcDurationSeconds(durationText);
+        const joanneDreamAttackSpeed = target.id === 'Joanne'
+          && effect.effectId === 'Joanne_aside_2_e07'
+          && sourceKey === 'aside:2';
         const label = createFdcSkillEffectLabel({
           sourceLabel,
           sourceKey,
@@ -4730,7 +5349,7 @@
           effectLabel: effect.valueKind || effect.effectType || '効果'
         });
         options.push({
-          key: `${target.id}:${sourceKey}:${effectIndex}:${getFdcSkillEffectActionKey(effect, actionKey)}`,
+          key: `${target.id}:${sourceKey}:${effectIndex}:${getFdcSkillEffectActionKey(effect, actionKey)}${joanneSupport ? `:row:${encodeURIComponent(joanneSupport.row)}` : ''}`,
           effectId: effect.effectId || '',
           sourceId: sourceKey,
           category,
@@ -4746,15 +5365,20 @@
           effectValue: formatFdcSkillEffectValue(effect, skillLevel),
           durationText,
           durationSeconds,
-          condition: getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason),
+          condition: joanneSupport?.condition
+            || (joanneDreamAttackSpeed ? '夢幻の化身中（単発ダメージへ攻撃速度を乗算しない）' : getFdcSkillEffectDisplayCondition(effect, allyPersonalityState.reason, enemyPersonalityState.reason)),
           effectTarget: effect.effectTarget || '本人',
           actionScoped: judgeFdcEffectValueActionScope(effect, '').hasActionScope,
           spSourceLabel: createFdcSpSourceLabel(target?.name || apostle?.name, sourceLabel, category),
-          controlMode: getFdcFormationSkillEffectControlMode(resolvedEffect, effectText, context, context.actionCategory),
-          defaultEnabled: durationSeconds > 0
-            ? false
-            : getFdcSkillEffectDefaultEnabled(effectText, resolvedEffect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category),
+          controlMode: joanneSupport ? 'manual'
+            : (joanneDreamAttackSpeed ? 'automatic' : getFdcFormationSkillEffectControlMode(resolvedEffect, effectText, context, context.actionCategory)),
+          defaultEnabled: joanneSupport ? false
+            : (joanneDreamAttackSpeed ? isJoanneDreamFormSelected(target)
+              : (durationSeconds > 0
+                ? false
+                : getFdcSkillEffectDefaultEnabled(effectText, resolvedEffect, enemyPersonalityState, context.actionCategory, allyPersonalityState, context, category))),
           detailText: getFdcUniqueTextLines([
+            joanneSupport?.condition || '',
             enemyPersonalityState.reason,
             skill.description,
             effect.description,
@@ -4834,17 +5458,72 @@
         });
       });
     });
-    return options.concat(buildFormationA3SkillEffectOptions(target, context));
+    return options.concat(
+      buildFormationA3SkillEffectOptions(target, context),
+      buildJoanneDispersionSkillEffectOption(target, context)
+    );
+  }
+
+  function buildJoanneDispersionSkillEffectOption(target, context) {
+    if (!target || !context?.members?.some(member => member.id === target.id)) return [];
+    const joanne = context.members.find(member => member?.id === 'Joanne');
+    if (!joanne) return [];
+    const apostle = getApostleSkillData(joanne);
+    const skill = normalizeFdcArray(apostle?.skills).find(item => item?.skillId === 'Joanne_low')
+      || normalizeFdcArray(apostle?.skills).find(item => normalizeFdcArray(item?.effects)
+        .some(effect => JOANNE_DISPERSION_DAMAGE_EFFECTS.has(String(effect?.effectId || ''))));
+    if (!skill) return [];
+    const level = getFdcEffectiveSkillLevels(joanne).low;
+    const values = [];
+    const bonuses = {};
+    normalizeFdcArray(skill.effects)
+      .filter(effect => JOANNE_DISPERSION_DAMAGE_EFFECTS.has(String(effect?.effectId || '')))
+      .forEach(effect => {
+        const normalized = normalizeJoanneSkillEffectBonus(effect, getFdcSkillLevelForEffect({ low: level }, effect, '低学年')) || {};
+        const accepted = Object.entries(normalized)
+          .filter(([key, value]) => ['atkP', 'takenDmgP'].includes(key) && Number(value));
+        if (!accepted.length) return;
+        accepted.forEach(([key, value]) => { bonuses[key] = Number(value); });
+        values.push(`${effect.effectId === 'Joanne_low_e03' ? '攻撃力増加' : '被ダメージ量減少'} ${formatFdcSkillEffectValue(effect, level)}`);
+      });
+    if (!Object.keys(bonuses).length) return [];
+    const label = '分散中：攻撃力増加・被ダメージ量減少';
+    return [{
+      key: getJoanneDispersionEffectKey(target.id),
+      effectId: 'Joanne_low_e03+Joanne_low_e04',
+      sourceId: 'Joanne:low',
+      ownerId: joanne.id,
+      ownerName: joanne.name || 'ジョアン',
+      group: 'formation',
+      category: '低学年スキル',
+      source: '編成スキル',
+      sourceTag: 'スキル/アサイド',
+      controlMode: 'manual',
+      defaultEnabled: false,
+      perspective: getFdcEffectPerspective({ effectType: 'バフ', effectTarget: '計算対象', valueKind: '攻撃力増加・被ダメージ量減少' }, bonuses),
+      bonuses,
+      label,
+      valueKind: label,
+      effectType: 'バフ',
+      effectTarget: '計算対象',
+      effectValue: values.join(' / '),
+      condition: '計算対象が分散中（手動選択）',
+      normalCalculationOnly: true,
+      detailText: `ジョアンの低学年スキルLv${level}の生成値を使用。${values.join(' / ')}。対象の自動選定、90%配分、持続終了、終了時回復は計算しません。`
+    }];
   }
 
   function createFormationSkillEffectOption({ effect, effectText = '', effectIndex, sourceKey, sourceLabel, category, skill, skillLevel, member, memberName, target, actionCategory = '', context = null }) {
     if (isFdcApostleAttackMultiplierEffect(effect)) return null;
+    if (member?.id === 'Joanne' && JOANNE_DISPERSION_DAMAGE_EFFECTS.has(String(effect?.effectId || ''))) return null;
+    const joanneSupport = getJoanneEnhancedSupportInfo(effect, sourceKey, member);
+    if (joanneSupport?.hidden) return null;
     const targetState = getFormationSkillTargetState(effect.effectTarget, target, member, effectText);
     if (!targetState.applies) return null;
-    const bonuses = pickDamageRelevantBonusMap(normalizeFdcSkillEffectBonus(effect, skillLevel));
+    const bonuses = pickDamageRelevantBonusMap(normalizeJoanneSkillEffectBonus(effect, skillLevel));
     if (!bonuses || !Object.keys(bonuses).length) return null;
     const enemyPersonalityState = getEnemyPersonalityConditionState(effectText);
-    const defaultEnabled = targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(
+    const defaultEnabled = !joanneSupport && targetState.defaultEnabled && getFdcSkillEffectDefaultEnabled(
       effectText,
       effect,
       enemyPersonalityState,
@@ -4855,7 +5534,7 @@
       { formationOwnerTrigger: true }
     );
     return {
-      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'), { includeTriggerAction: false })}`,
+      key: `${member.id}:formation-skill:${sourceKey}:${effectIndex}:${target.id}:${getFdcSkillEffectActionKey(effect, encodeURIComponent(actionCategory || 'none'), { includeTriggerAction: false })}${joanneSupport ? `:row:${encodeURIComponent(joanneSupport.row)}` : ''}`,
       effectId: effect.effectId || '',
       sourceId: `${member.id}:${sourceKey}`,
       ownerId: member.id,
@@ -4863,7 +5542,7 @@
       category,
       source: '編成スキル',
       sourceTag: 'スキル/アサイド',
-      controlMode: getFdcFormationSkillEffectControlMode(effect, effectText, context, actionCategory),
+      controlMode: joanneSupport ? 'manual' : getFdcFormationSkillEffectControlMode(effect, effectText, context, actionCategory),
       defaultEnabled,
       perspective: getFdcEffectPerspective(effect, bonuses),
       damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
@@ -4887,11 +5566,12 @@
       effectValue: formatFdcSkillEffectValue(effect, skillLevel),
       durationText: getFdcSkillEffectDurationText(skill, effect, skillLevel),
       durationSeconds: parseFdcDurationSeconds(getFdcSkillEffectDurationText(skill, effect, skillLevel)),
-      condition: getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
+      condition: joanneSupport?.condition || getFdcSkillEffectDisplayCondition(effect, targetState.reason, enemyPersonalityState.reason),
       effectTarget: effect.effectTarget || '味方',
       actionScoped: judgeFdcEffectValueActionScope(effect, '', { includeTriggerAction: false }).hasActionScope,
       spSourceLabel: createFdcSpSourceLabel(memberName, sourceLabel, category),
       detailText: getFdcUniqueTextLines([
+        joanneSupport?.condition || '',
         targetState.reason,
         enemyPersonalityState.reason,
         skill?.description,
@@ -5019,6 +5699,7 @@
   }
 
   function isFdcSkillEffectAutoOnly(option = {}) {
+    if (option.normalCalculationOnly) return false;
     const bonusKeys = Object.keys(option.bonuses || {});
     // SPは単発ダメージを変えず、DPSタイムラインで発生時点を管理する。
     // 発動条件の解決可否にかかわらず手動トグルへは出さず、確認用の
@@ -5336,9 +6017,12 @@
     else if (isOtherMultiplier) addSigned('otherP');
     else if (/全行動速度/.test(valueKind) && !targetEnemy) add('accelerationP');
     else if (/攻撃速度/.test(valueKind) && !targetEnemy) add('hasteP');
+    else if (/最大?HP/.test(valueKind) && !targetEnemy) addSigned('hpP');
     else if (/攻撃力/.test(valueKind) && !targetEnemy) addSigned('atkP');
     else if (/防御力/.test(valueKind)) {
       if (targetEnemy && decrease) add('enemyDefDownP');
+      else if (!targetEnemy && /物理防御力/.test(valueKind)) addSigned('physicalDefP');
+      else if (!targetEnemy && /魔法防御力/.test(valueKind)) addSigned('magicDefP');
       else if (!targetEnemy) addSigned('defP');
     } else if (/会心被(?:ダメージ量|DMG量)|被会心(?:ダメージ量|DMG量)|被会心.*ダメージ量|被会心.*DMG量/.test(valueKind)) {
       addDamageTakenMod('critDmgResAddP');
@@ -5798,11 +6482,12 @@
     const search = String(view.pickerSearch || '').trim().toLowerCase();
     const filters = view.pickerFilters || {};
     const members = context.allMembers.filter(member => {
-      if (filters.personality && member.personality !== filters.personality) return false;
-      if (filters.position && member.position !== filters.position) return false;
+      if (filters.personality && member.personality !== filters.personality
+        && !(member.personalityOptions || []).includes(filters.personality)) return false;
+      if (filters.position && !(member.allowedRows || []).includes(filters.position)) return false;
       if (filters.role && normalizeRole(member.role) !== filters.role) return false;
       if (!search) return true;
-      return [member.id, member.name, member.personality, member.race, normalizeRole(member.role), member.position]
+      return [member.id, member.name, member.personality, member.basePersonality, member.race, normalizeRole(member.role), member.position, ...(member.allowedRows || [])]
         .filter(Boolean)
         .some(value => String(value).toLowerCase().includes(search));
     });
@@ -5812,7 +6497,7 @@
       if (sortKey === 'level') return (Number(b.level) || 0) - (Number(a.level) || 0) || nameSort(a, b);
       if (sortKey === 'rank') return (Number(b.rank) || 0) - (Number(a.rank) || 0) || nameSort(a, b);
       if (sortKey === 'combatPower') return (Number(b.stats?.combatPower) || 0) - (Number(a.stats?.combatPower) || 0) || nameSort(a, b);
-      if (sortKey === 'position') return POSITIONS.indexOf(a.position) - POSITIONS.indexOf(b.position) || nameSort(a, b);
+      if (sortKey === 'position') return (POSITIONS.indexOf(a.position) < 0 ? 3 : POSITIONS.indexOf(a.position)) - (POSITIONS.indexOf(b.position) < 0 ? 3 : POSITIONS.indexOf(b.position)) || nameSort(a, b);
       if (sortKey === 'star') return (Number(b.star) || 0) - (Number(a.star) || 0) || nameSort(a, b);
       return nameSort(a, b);
     });
@@ -5866,8 +6551,9 @@
     return `<option value="${escapeAttr(value)}" ${String(current || '') === String(value) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
   }
 
-  function renderFormationPickerSlot(member, rowIndex, lineIndex, pendingMember = null, cards = {}) {
-    const canPlacePending = !!pendingMember && rowIndex === getPreferredPositionIndex(pendingMember);
+  function renderFormationPickerSlot(member, rowIndex, lineIndex, pendingMember = null, cards = {}, members = []) {
+    const canPlacePending = !!pendingMember && rowIndex != null && lineIndex != null
+      && canPlacePendingMemberInSlot(pendingMember, rowIndex, lineIndex, member, members);
     const pendingSlotAttrs = canPlacePending
       ? `data-fdc-temp-member-slot="${rowIndex}:${lineIndex}"`
       : '';
@@ -5880,12 +6566,31 @@
     }
     const isTempMember = rowIndex != null && lineIndex != null && !!view.tempMembers?.[`${rowIndex}:${lineIndex}`];
     const placementClass = pendingMember ? (canPlacePending ? 'is-placeable' : 'is-locked') : '';
+    const storedSelection = rowIndex == null || lineIndex == null
+      ? getUnplacedResonanceSelection(member.id, member.resonanceSelection)
+      : member.resonanceSelection;
+    const resonanceSelection = member.isResonance
+      ? formationPersonality.resolveFormationPersonality(getApostle(member.id), storedSelection).effectivePersonality
+      : null;
+    const personalityClass = member.isResonance
+      ? `is-resonance ${member.personalityOptions?.length >= 2 && member.personalityOptions.length < 5 ? 'has-personality-options' : ''} ${member.personalityOptions?.length === 2 ? 'is-two-tone' : ''} ${resonanceSelection ? `personality-${escapeAttr(resonanceSelection)}` : 'is-resonance-unselected'}`
+      : `personality-${escapeAttr(member.personality || member.basePersonality || '')}`;
+    const personalityControl = member.isResonance
+      ? renderResonancePersonalityButton(member, rowIndex == null || lineIndex == null
+        ? { unplaced: true }
+        : { slotKey: `${rowIndex}:${lineIndex}` })
+      : '';
+    const candidateGradient = getFdcCandidateGradient(member);
+    const candidateFrame = getFdcCandidateFrameGradient(member);
     return `
-      <button type="button" class="fdc-picker-slot is-filled ${member.id === view.targetId ? 'is-active' : ''} ${isTempMember ? 'is-temp' : ''} ${placementClass} personality-${escapeAttr(member.personality || '')}" data-fdc-member-id="${escapeAttr(member.id)}" ${pendingSlotAttrs} ${pendingMember && !canPlacePending ? 'disabled' : ''} title="${escapeAttr(member.name)}${isTempMember ? ' / 一時配置' : ''}">
-        <img class="fdc-picker-portrait" src="${escapeAttr(getApostleImage(member.id, member.name))}" alt="" data-fallback>
-        ${renderApostleBadges(member)}
-        ${rowIndex == null || lineIndex == null ? '' : renderPickerArtifactStrip(member, cards)}
-      </button>
+      <div class="fdc-picker-member-choice">
+        <button type="button" class="fdc-picker-slot is-filled ${member.id === view.targetId ? 'is-active' : ''} ${isTempMember ? 'is-temp' : ''} ${placementClass} ${personalityClass}" ${candidateGradient ? `style="--personality-options-bg: ${escapeAttr(candidateGradient)}; ${candidateFrame ? `--personality-options-frame: ${escapeAttr(candidateFrame)};` : ''}"` : ''} data-fdc-member-id="${escapeAttr(member.id)}" ${pendingSlotAttrs} ${pendingMember && !canPlacePending ? 'disabled' : ''} title="${escapeAttr(member.name)}${isTempMember ? ' / 一時配置' : ''}">
+          <img class="fdc-picker-portrait" src="${escapeAttr(getApostleImage(member.id, member.name))}" alt="" data-fallback>
+          ${renderApostleBadges(member)}
+          ${rowIndex == null || lineIndex == null ? '' : renderPickerArtifactStrip(member, cards)}
+        </button>
+        ${personalityControl}
+      </div>
     `;
   }
 
@@ -5921,14 +6626,19 @@
   }
 
   function renderApostleBadges(member) {
-    const personality = member.personality || '';
+    const personality = member.isResonance ? '' : (member.personality || '');
     const roleAsset = getRoleAssetName(member.role);
     const attackType = resolveDamageType('auto', member);
     const attackAsset = attackType === 'magic' ? 'mag' : attackType === 'physical' ? 'phys' : '';
     const position = member.position || '';
+    const positionBadge = position
+      ? `<img class="fdc-apostle-badge fdc-position-badge" src="img/配置列_${escapeAttr(position)}.webp" alt="${escapeAttr(position)}" title="${escapeAttr(position)}">`
+      : member.basePosition === formationPlacement.ALL_ROWS
+        ? '<img class="fdc-apostle-badge fdc-position-badge" src="img/配置列_全列.webp" alt="全列" title="前列・中列・後列に配置できます">'
+        : '';
     return `
       ${personality ? `<img class="fdc-apostle-badge fdc-personality-badge" src="img/性格_${escapeAttr(personality)}.webp" alt="${escapeAttr(personality)}" title="${escapeAttr(personality)}">` : ''}
-      ${position ? `<img class="fdc-apostle-badge fdc-position-badge" src="img/配置列_${escapeAttr(position)}.webp" alt="${escapeAttr(position)}" title="${escapeAttr(position)}">` : ''}
+      ${positionBadge}
       ${roleAsset ? `<img class="fdc-apostle-badge fdc-role-badge" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(member.role || '')}" title="${escapeAttr(member.role || '')}">` : ''}
       ${attackAsset ? `<img class="fdc-apostle-badge fdc-attack-badge" src="img/Attack_${attackAsset}.webp" alt="${escapeAttr(member.attackType || '')}" title="${escapeAttr(member.attackType || '')}">` : ''}
     `;
@@ -7057,6 +7767,24 @@
   }
 
   function renderResult(context) {
+    if (context.targetPlacementRequired) {
+      renderPlacementRequiredResult();
+      window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
+        detail: { targetId: context.target?.id || '', placementRequired: true }
+      }));
+      return;
+    }
+    if (context.formationDuplicateResonanceId || context.formationSelectionRequired) {
+      renderResonanceRequiredResult(context);
+      window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
+        detail: {
+          targetId: context.target?.id || '',
+          resonanceSelectionRequired: !!context.formationSelectionRequired,
+          duplicateResonanceId: context.formationDuplicateResonanceId || ''
+        }
+      }));
+      return;
+    }
     const result = calculateDamage(context);
     const pinnedComparison = getPinnedSingleComparison(context);
     syncPinnedComparisonUi(context);
@@ -7073,6 +7801,37 @@
     window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
       detail: { targetId: context.target?.id || '' }
     }));
+  }
+
+  function renderPlacementRequiredResult() {
+    [el.result.normal, el.result.crit, el.result.expected, el.result.critRate].forEach(element => {
+      if (!element) return;
+      element.textContent = '—';
+      element.classList.remove('is-compare');
+    });
+    Object.values(el.result.hpRates || {}).forEach(element => {
+      if (!element) return;
+      element.hidden = true;
+      element.textContent = '';
+    });
+    if (el.result.detailNote) el.result.detailNote.textContent = '配置先を選択するまで、計算結果は更新されません。';
+    if (el.result.detailGrid) el.result.detailGrid.innerHTML = '<p class="fdc-result-placement-required">配置先を選択してください。通常計算とDPS計算は開始しません。</p>';
+  }
+
+  function renderResonanceRequiredResult(context) {
+    [el.result.normal, el.result.crit, el.result.expected, el.result.critRate].forEach(element => {
+      if (!element) return;
+      element.textContent = '—';
+      element.classList.remove('is-compare');
+    });
+    Object.values(el.result.hpRates || {}).forEach(element => {
+      if (!element) return;
+      element.hidden = true;
+      element.textContent = '';
+    });
+    const message = context.formationDuplicateMessage || context.formationSelectionMessage || '性格を選択してください。';
+    if (el.result.detailNote) el.result.detailNote.textContent = message;
+    if (el.result.detailGrid) el.result.detailGrid.innerHTML = `<p class="fdc-result-placement-required fdc-resonance-required">${escapeHtml(message)} 通常計算とDPS計算は開始しません。</p>`;
   }
 
   function renderResultMetricSwitch(result, currentResult = null, beforeLabel = '変更前') {
@@ -7423,6 +8182,8 @@
   }
 
   function calculateDamage(context) {
+    if (context?.targetPlacementRequired) return createPlacementRequiredDamageResult();
+    if (context?.formationDuplicateResonanceId || context?.formationSelectionRequired) return createResonanceRequiredDamageResult(context);
     const summary = context.summary || {};
     const isEnemyAttack = !context.forceSelfAttack && view.perspective === 'enemy';
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
@@ -7619,6 +8380,22 @@
           } : null
         }
       }
+    };
+  }
+
+  function createPlacementRequiredDamageResult() {
+    return {
+      unavailable: 'placement-required', hp: 0, normal: 0, crit: 0, expected: 0, critRate: 0, defRate: 0,
+      summary: {}, detail: { stats: {}, mods: {}, caps: {} }
+    };
+  }
+
+  function createResonanceRequiredDamageResult(context = {}) {
+    return {
+      unavailable: context.formationDuplicateResonanceId ? 'duplicate-resonance' : 'resonance-selection-required',
+      message: context.formationDuplicateMessage || context.formationSelectionMessage || '性格を選択してください。',
+      hp: 0, normal: 0, crit: 0, expected: 0, critRate: 0, defRate: 0,
+      summary: {}, detail: { stats: {}, mods: {}, caps: {} }
     };
   }
 
@@ -8052,9 +8829,11 @@
 
   function hasTemporaryFormationComparisonChanges() {
     const hasMembers = Object.values(view.tempMembers || {}).some(Boolean);
+    const hasResonancePersonalities = Object.keys(view.tempResonancePersonalities || {}).length > 0
+      || !!view.tempUnplacedResonancePersonality;
     const hasArtifacts = Object.values(view.tempArtifacts?.formation || {}).some(Boolean)
       || Object.values(view.tempArtifacts?.target || {}).some(Boolean);
-    return hasMembers || hasArtifacts || Array.isArray(view.tempSpells)
+    return hasMembers || hasResonancePersonalities || hasArtifacts || Array.isArray(view.tempSpells)
       || Object.keys(sanitizeFdcTempCardStates(view.tempCardStates)).length > 0;
   }
 
@@ -8104,7 +8883,9 @@
       ...clonePlain(candidate.formationState),
       presetId: snapshot.activeFormationPresetId || '',
       formation: clonePlain(normalizeFormation(snapshot.formation || {})),
-      tempMembers: {}
+      tempMembers: {},
+      tempResonancePersonalities: {},
+      tempUnplacedResonancePersonality: null
     };
     source.cardState = {
       ...clonePlain(candidate.cardState),
@@ -8167,7 +8948,9 @@
       ...clonePlain(candidate.formationState),
       presetId: preset.id || '',
       formation: clonePlain(normalizeFormation(preset.formation || {})),
-      tempMembers: {}
+      tempMembers: {},
+      tempResonancePersonalities: {},
+      tempUnplacedResonancePersonality: null
     };
     return getCombatScenarioApi()?.createScenario?.(source) || source;
   }
@@ -8182,6 +8965,8 @@
       referenceState: view.referenceState,
       referenceOptions: view.referenceOptions,
       tempMembers: view.tempMembers,
+      tempResonancePersonalities: view.tempResonancePersonalities,
+      tempUnplacedResonancePersonality: view.tempUnplacedResonancePersonality,
       tempArtifacts: view.tempArtifacts,
       tempSpells: view.tempSpells,
       tempCardStates: view.tempCardStates,
@@ -8223,6 +9008,8 @@
       };
       view.referenceOptions = { cards: true, global: true, apostles: true };
       view.tempMembers = clonePlain(scenario.formationState?.tempMembers || {});
+      view.tempResonancePersonalities = clonePlain(scenario.formationState?.tempResonancePersonalities || {});
+      view.tempUnplacedResonancePersonality = clonePlain(scenario.formationState?.tempUnplacedResonancePersonality || null);
       view.tempArtifacts = clonePlain(scenario.cardState?.tempArtifacts || { formation: {}, target: {} });
       view.tempSpells = Array.isArray(scenario.cardState?.tempSpells) ? scenario.cardState.tempSpells.slice() : null;
       view.tempCardStates = sanitizeFdcTempCardStates(scenario.cardState?.tempCardStates);
@@ -9419,7 +10206,7 @@
   function getActiveAddBonus(summary, actionCategory = '') {
     const actionText = String(actionCategory || '').replace(/[\s　]/g, '');
     let total = Number(summary.addP) || 0;
-    if (/基本攻撃|強化攻撃/.test(actionText)) total += Number(summary.normalAttackAddP) || 0;
+    if (/普通攻撃|通常攻撃|基本攻撃|強化攻撃/.test(actionText)) total += Number(summary.normalAttackAddP) || 0;
     if (/基本攻撃/.test(actionText)) total += Number(summary.basicAddP) || 0;
     if (/強化攻撃/.test(actionText)) total += Number(summary.enhancedAddP) || 0;
     if (/低学年/.test(actionText)) total += Number(summary.lowSkillAddP) || 0;
@@ -9431,7 +10218,7 @@
   function getActiveActionMultiplierBonus(summary, actionCategory = '') {
     const actionText = String(actionCategory || '').replace(/[\s　]/g, '');
     let total = Number(summary.actionMultiplierBonusP) || 0;
-    if (/基本攻撃|強化攻撃/.test(actionText)) {
+    if (/普通攻撃|通常攻撃|基本攻撃|強化攻撃/.test(actionText)) {
       total += Number(summary.normalAttackMultiplierBonusP) || 0;
     }
     if (/基本攻撃/.test(actionText)) {
@@ -10407,11 +11194,20 @@
   function collectSynergyCounts(formation, state = {}) {
     const personality = {};
     const race = {};
-    const selectedIds = formation.rows.flatMap(row => row.apostles).filter(Boolean);
-    selectedIds.forEach(id => {
-      const basic = getApostle(id);
-      if (basic?.性格) personality[basic.性格] = (personality[basic.性格] || 0) + 1;
-      if (basic?.種族) race[basic.種族] = (race[basic.種族] || 0) + 1;
+    const selectedIds = [];
+    formation.rows.forEach(row => {
+      (row.apostles || []).forEach((id, lineIndex) => {
+        if (!id) return;
+        const basic = getApostle(id);
+        if (!basic) return;
+        selectedIds.push(id);
+        const effectivePersonality = formationPersonality.resolveFormationPersonality(
+          basic,
+          row.resonancePersonalities?.[lineIndex]
+        ).effectivePersonality;
+        if (effectivePersonality) personality[effectivePersonality] = (personality[effectivePersonality] || 0) + 1;
+        if (basic.種族) race[basic.種族] = (race[basic.種族] || 0) + 1;
+      });
     });
     applyPersonalityExtraCounts({ personality }, formation, selectedIds, state);
     return { personality, race };
@@ -10634,6 +11430,11 @@
           conditionValue: effect.conditionValue ?? '',
           effectStack: effect.effectStack,
           maxStack: Number(effect.maxStack) || 0,
+          actionLabel: target?.id === 'Joanne' && effect.effectId === 'Joanne_basic_e01'
+            ? '普通攻撃'
+            : target?.id === 'Joanne' && effect.effectId === 'Joanne_basic_e02'
+              ? '普通攻撃〈夢幻の化身〉'
+              : '',
           shortDetail: [
             triggerProbability,
             referenceLabel,
@@ -11749,6 +12550,7 @@
   }
 
   function setTheme(theme, persist = true) {
+    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
     document.body.classList.toggle('theme-light', theme === 'light');
     document.body.classList.toggle('theme-dark', theme !== 'light');
     if (el.themeToggle) el.themeToggle.setAttribute('aria-pressed', String(theme !== 'light'));
@@ -11757,7 +12559,7 @@
     storageLocal.setItem(LEGACY_THEME_KEY, theme);
   }
 
-  function captureCombatScenario(context = buildContext()) {
+  function captureCombatScenario(context = buildContext(), options = {}) {
     const scenarioApi = typeof TRICKCAL_COMBAT_SCENARIO === 'undefined' ? null : TRICKCAL_COMBAT_SCENARIO;
     const target = context.target;
     const enemyMember = context.enemyMember;
@@ -11806,7 +12608,9 @@
       formationState: {
         presetId: view.formationPresetId || '',
         formation: clonePlain(context.formation || {}),
-        tempMembers: clonePlain(view.tempMembers || {})
+        tempMembers: clonePlain(view.tempMembers || {}),
+        tempResonancePersonalities: clonePlain(view.tempResonancePersonalities || {}),
+        tempUnplacedResonancePersonality: clonePlain(view.tempUnplacedResonancePersonality || null)
       },
       cardState: {
         cards: clonePlain(referenceState.cards || {}),
@@ -11836,7 +12640,8 @@
       },
       effectAssumptions: {
         effectSources: pickBooleanMap(view.effectSources),
-        selfSkillEffectEnabled: pickBooleanMap(view.selfSkillEffectEnabled),
+        selfSkillEffectEnabled: Object.fromEntries(Object.entries(pickBooleanMap(view.selfSkillEffectEnabled))
+          .filter(([key]) => !options.excludeNormalCalculationOnlyEffects || !key.startsWith('Joanne:formation-dispersion:'))),
         conditionalEffectEnabled: pickBooleanMap(view.conditionalEffectEnabled),
         conditionalEffectStackCounts: pickNumberMap(view.conditionalEffectStackCounts),
         skillLevelOverrides: sanitizeSkillLevelOverrides(view.skillLevelOverrides),
@@ -11936,9 +12741,40 @@
     );
   }
 
+  function excludeNormalCalculationOnlyEffectsFromContext(context = {}) {
+    const applied = Array.isArray(context.effects?.applied) ? context.effects.applied : [];
+    const filteredApplied = applied.filter(item => !item.normalCalculationOnly);
+    if (filteredApplied.length === applied.length) return { ...context, excludeNormalCalculationOnlyEffects: true };
+    const effects = { ...context.effects, applied: filteredApplied };
+    return {
+      ...context,
+      effects,
+      summary: summarizeEffects(getEnabledEffectRows(effects)),
+      excludeNormalCalculationOnlyEffects: true
+    };
+  }
+
   function createDpsEvaluationInput(contextOverride = null) {
-    const context = contextOverride || buildContext({ forceSelfAttack: true });
-    const scenario = captureCombatScenario(context);
+    const context = excludeNormalCalculationOnlyEffectsFromContext(contextOverride || buildContext({ forceSelfAttack: true }));
+    const unavailable = {
+      scenario: {}, targetId: '', targetName: '', target: null, apostle: null,
+      skillLevels: {}, dpsSkillOverrides: {}, dpsTimingBranches: {}, damageType: context.damageType,
+      actionCategory: context.actionCategory, selectedSkillOptionKey: '', boardState: {}, selectedSkillOptions: [],
+      singleActionProfiles: {}, actionDamageProfiles: {}, additionalDamageComponents: [], statusDamageProfiles: {},
+      actionEffectAudit: {}, effectOwnership: {}, runtimeEffects: {}, formationEventCandidates: []
+    };
+    if (context.targetPlacementRequired) {
+      return { ...unavailable, placementRequired: true, placementMessage: '配置先を選択してください。' };
+    }
+    if (context.formationDuplicateResonanceId || context.formationSelectionRequired) {
+      return {
+        ...unavailable,
+        resonanceSelectionRequired: !!context.formationSelectionRequired,
+        duplicateResonanceId: context.formationDuplicateResonanceId || '',
+        resonanceSelectionMessage: context.formationDuplicateMessage || context.formationSelectionMessage
+      };
+    }
+    const scenario = captureCombatScenario(context, { excludeNormalCalculationOnlyEffects: true });
     const target = context.target;
     const apostle = getApostleSkillData(target);
     const selectedSkillOptions = target ? buildFdcApostleSkillOptions(target, context) : [];
@@ -12436,6 +13272,7 @@
       .map(item => item.key));
     return Object.fromEntries(buildSelfSkillEffectOptions(target, context)
       .filter(option => {
+        if (option.normalCalculationOnly) return false;
         if (!option.actionScoped || managedKeys.has(getFdcSkillEffectCanonicalKey(option.key))) return true;
         return isDpsUnsupportedRuntimeTrigger(option, [
           option.condition,
@@ -12592,7 +13429,8 @@
         actionCategory,
         detached: true,
         forceSelfAttack: true,
-        skillEffectStateOverrides: sharedSkillEffectStates
+        skillEffectStateOverrides: sharedSkillEffectStates,
+        excludeNormalCalculationOnlyEffects: true
       });
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       actionContext.ignoreEnemyStatusDamageWeakness = true;
@@ -12613,7 +13451,8 @@
         actionCategory: evaluationActionCategory,
         detached: true,
         forceSelfAttack: true,
-        skillEffectStateOverrides: sharedSkillEffectStates
+        skillEffectStateOverrides: sharedSkillEffectStates,
+        excludeNormalCalculationOnlyEffects: true
       });
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       actionContext.ignoreEnemyStatusDamageWeakness = true;
@@ -12754,6 +13593,7 @@
   function getDpsApostlePersonality(target) {
     if (!target) return '';
     const direct = String(target.personality || '').trim();
+    if (target.isResonance) return direct;
     if (direct) return direct;
     const apostle = getApostleSkillData(target);
     return String(apostle?.basic?.personality || apostle?.personality || '').trim();
@@ -14401,6 +15241,7 @@
       rows.set(item.key, item);
     };
     buildSelfSkillEffectOptions(context.target, context)
+      .filter(option => !(context.excludeNormalCalculationOnlyEffects && option.normalCalculationOnly))
       .filter(option => isBonusMapRelevantToPerspective(option.bonuses))
       .forEach(option => {
         const sourceEnabled = isFdcSkillEffectSourceEnabled(option);

@@ -3,6 +3,7 @@
 
   const globalObject = typeof globalThis !== 'undefined' ? globalThis : {};
   const VERSION = 1;
+  const RESONANCE_VERSION = 2;
   const CATALOG_VERSION = 1;
   const MAGIC = [0x54, 0x43, 0x53, 0x50]; // TCSP
   const FLAGS = Object.freeze({ GLOBAL_PERCENT: 1 });
@@ -20,6 +21,8 @@
   const MAX_GLOBAL_SCALE = 3;
   const MAX_U32 = 0xffffffff;
   const CARD_KINDS = Object.freeze({ artifact: '遺物', spell: 'スペル' });
+  const RESONANCE_PERSONALITY_NAMES = Object.freeze(['純粋', '冷静', '狂気', '活発', '憂鬱']);
+  const RESONANCE_PERSONALITY_CODES = Object.freeze({ '純粋': 1, '冷静': 2, '狂気': 3, '活発': 4, '憂鬱': 5 });
 
   const LENGTH_BASE = Object.freeze([
     3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59,
@@ -541,9 +544,50 @@
     return scale ? Number((value / (10 ** scale)).toFixed(scale)) : value;
   }
 
-  function normalizeSnapshot(snapshot) {
+  function normalizeResonanceSelection(value) {
+    if (value == null) return null;
+    assert(RESONANCE_PERSONALITY_NAMES.includes(String(value)), '共鳴性格が不正です: ' + value);
+    return String(value);
+  }
+
+  function getDisplayApostle(displayData, id) {
+    if (!displayData) return null;
+    if (displayData.apostles && typeof displayData.apostles === 'object') {
+      if (displayData.apostles instanceof Map) return displayData.apostles.get(id) || null;
+      return displayData.apostles[id] || null;
+    }
+    if (Array.isArray(displayData.basicInfo)) return displayData.basicInfo.find(item => item?.id === id) || null;
+    return null;
+  }
+
+  function validateResonanceSelections(snapshot, displayData, allowLegacySelection = false) {
+    if (snapshot.v !== RESONANCE_VERSION) return;
+    assert(displayData && typeof displayData === 'object', '共鳴性格の表示マスターがありません');
+    snapshot.resonancePersonalities.forEach((selection, index) => {
+      const member = snapshot.members[index];
+      if (selection == null) return;
+      assert(member, '空き使徒枠に共鳴性格が設定されています: ' + index);
+      const basic = getDisplayApostle(displayData, member.id);
+      assert(basic, '共鳴性格の使徒表示データがありません: ' + member.id);
+      const base = String(basic.personality || basic.性格 || '');
+      const options = basic.personalityOptions || basic.性格候補 || (base === '共鳴' ? RESONANCE_PERSONALITY_NAMES : null);
+      assert(Array.isArray(options) && options.length >= 2, '通常使徒に選択性格を設定できません: ' + member.id);
+      if (!allowLegacySelection) assert(options.includes(selection), '現在の性格候補に含まれません: ' + member.id + ' / ' + selection);
+    });
+    snapshot.members.forEach((member, index) => {
+      if (!member) return;
+      const basic = getDisplayApostle(displayData, member.id);
+      if (!basic) return;
+      if (!basic.personalityOptions && !basic.性格候補 && String(basic.personality || basic.性格 || '') !== '共鳴') {
+        assert(snapshot.resonancePersonalities[index] == null, '通常使徒に共鳴性格を設定できません: ' + member.id);
+      }
+    });
+  }
+
+  function normalizeSnapshot(snapshot, options = {}) {
     assert(snapshot && typeof snapshot === 'object', '共有スナップショットが不正です');
-    assert(Number(snapshot.v ?? snapshot.version ?? VERSION) === VERSION, '共有形式版が不正です');
+    const version = Number(snapshot.v ?? snapshot.version ?? VERSION);
+    assert(version === VERSION || version === RESONANCE_VERSION, '共有形式版が不正です');
     assert(Number(snapshot.m ?? snapshot.catalogVersion ?? CATALOG_VERSION) === CATALOG_VERSION, '共有マスター版が不正です');
     const members = Array.isArray(snapshot.members) ? snapshot.members : [];
     const relicSlots = Array.isArray(snapshot.relicSlots) ? snapshot.relicSlots : [];
@@ -553,8 +597,8 @@
     assert(relicSlots.length === MAX_RELIC_SLOTS, '遺物枠は27件で固定です');
     assert(spells.length <= MAX_SPELL_ENTRIES, 'スペル件数が上限を超えています');
     assert(powers.length <= MAX_POWER_ENTRIES, '権能件数が上限を超えています');
-    return {
-      v: VERSION,
+    const normalized = {
+      v: version,
       m: CATALOG_VERSION,
       members,
       relicSlots,
@@ -562,6 +606,15 @@
       powers,
       globalPercent: normalizeGlobalPercent(snapshot)
     };
+    if (version === RESONANCE_VERSION) {
+      assert(Array.isArray(snapshot.resonancePersonalities) && snapshot.resonancePersonalities.length === MAX_MEMBERS,
+        '共鳴性格は9件で固定です');
+      normalized.resonancePersonalities = snapshot.resonancePersonalities.map(normalizeResonanceSelection);
+    } else if (snapshot.resonancePersonalities) {
+      assert(Array.isArray(snapshot.resonancePersonalities) && snapshot.resonancePersonalities.every(value => value == null),
+        'v1共有データに共鳴性格を含められません');
+    }
+    return normalized;
   }
 
   function normalizeMember(member, catalog) {
@@ -613,15 +666,17 @@
     });
   }
 
-  function normalizeSnapshotForCatalog(snapshot, catalog) {
-    const normalized = normalizeSnapshot(snapshot);
-    return {
+  function normalizeSnapshotForCatalog(snapshot, catalog, options = {}) {
+    const normalized = normalizeSnapshot(snapshot, options);
+    const result = {
       ...normalized,
       members: normalized.members.map(member => normalizeMember(member, catalog)),
       relicSlots: normalized.relicSlots.map(card => normalizeCard(card, catalog, 'artifacts')),
       spells: normalizeSpells(normalized.spells, catalog),
       powers: normalizePowers(normalized.powers, catalog)
     };
+    validateResonanceSelections(result, options.displayData);
+    return result;
   }
 
   function aggregateSpells(spells, catalog) {
@@ -704,14 +759,14 @@
     return values;
   }
 
-  function encodeBinary(snapshot, catalogInput) {
+  function encodeBinary(snapshot, catalogInput, options = {}) {
     const catalog = normalizeCatalog(catalogInput);
-    const normalized = normalizeSnapshotForCatalog(snapshot, catalog);
+    const normalized = normalizeSnapshotForCatalog(snapshot, catalog, options);
     const relicDictionary = createRelicDictionary(normalized.relicSlots, catalog);
     const spells = aggregateSpells(normalized.spells, catalog);
     const writer = new BinaryWriter();
     MAGIC.forEach(value => writer.byte(value));
-    writer.byte(VERSION);
+    writer.byte(normalized.v);
     writer.u32(CATALOG_VERSION);
     const hasGlobalPercent = normalized.globalPercent !== null;
     writer.byte(hasGlobalPercent ? FLAGS.GLOBAL_PERCENT : 0);
@@ -742,6 +797,12 @@
     writer.u32(normalized.powers.length);
     normalized.powers.forEach(power => writer.u32(getRef(catalog, 'masterPowers', power)));
 
+    if (normalized.v === RESONANCE_VERSION) {
+      normalized.resonancePersonalities.forEach(selection => {
+        writer.byte(selection == null ? 0 : RESONANCE_PERSONALITY_CODES[selection]);
+      });
+    }
+
     if (hasGlobalPercent) encodeGlobalPercent(writer, normalized.globalPercent);
     return writer.finish();
   }
@@ -750,13 +811,14 @@
     MAGIC.forEach(expected => assert(reader.byte() === expected, '共有データの識別子が不正です'));
   }
 
-  function decodeBinary(value, catalogInput) {
+  function decodeBinary(value, catalogInput, options = {}) {
     const catalog = normalizeCatalog(catalogInput);
     const bytes = asUint8Array(value);
     const body = verifyChecksum(bytes);
     const reader = new BinaryReader(body);
     assertMagic(reader);
-    assert(reader.byte() === VERSION, '未知の共有形式版です');
+    const version = reader.byte();
+    assert(version === VERSION || version === RESONANCE_VERSION, '未知の共有形式版です');
     assert(reader.u32() === CATALOG_VERSION, '未知の表示マスター版です');
     const flags = reader.byte();
     assert((flags & ~FLAGS.GLOBAL_PERCENT) === 0, '予約フラグが設定されています');
@@ -814,10 +876,17 @@
       powers.push(id);
     }
 
+    const resonancePersonalities = version === RESONANCE_VERSION
+      ? Array.from({ length: MAX_MEMBERS }, () => {
+        const code = reader.byte();
+        assert(code >= 0 && code <= RESONANCE_PERSONALITY_NAMES.length, '共鳴性格コードが不正です');
+        return code === 0 ? null : RESONANCE_PERSONALITY_NAMES[code - 1];
+      })
+      : null;
     const globalPercent = flags & FLAGS.GLOBAL_PERCENT ? decodeGlobalPercent(reader) : null;
     reader.end();
-    return {
-      v: VERSION,
+    const snapshot = {
+      v: version,
       m: CATALOG_VERSION,
       members,
       relicSlots,
@@ -825,17 +894,20 @@
       powers,
       globalPercent
     };
+    if (version === RESONANCE_VERSION) snapshot.resonancePersonalities = resonancePersonalities;
+    validateResonanceSelections(snapshot, options.displayData, true);
+    return snapshot;
   }
 
   function encode(snapshot, options = {}) {
     const catalog = options.catalog || globalObject.TRICKCAL_FORMATION_SHARE_CATALOG;
-    const normalized = normalizeSnapshotForCatalog(snapshot, normalizeCatalog(catalog));
-    const binary = encodeBinary(normalized, catalog);
+    const normalized = normalizeSnapshotForCatalog(snapshot, normalizeCatalog(catalog), options);
+    const binary = encodeBinary(normalized, catalog, options);
     const compressed = deflateRaw(binary);
     const payload = toBase64Url(compressed);
     assert(payload.length <= MAX_URL_DATA_CHARS, '共有URLデータが長すぎます');
     return {
-      format: '1.z',
+      format: `${normalized.v}.z`,
       snapshot: normalized,
       binary,
       compressed,
@@ -847,8 +919,9 @@
     const catalog = options.catalog || globalObject.TRICKCAL_FORMATION_SHARE_CATALOG;
     const compressed = fromBase64Url(payload);
     const binary = inflateRaw(compressed);
-    const snapshot = decodeBinary(binary, catalog);
-    return { format: '1.z', snapshot, binary, compressed, payload };
+    const snapshot = decodeBinary(binary, catalog, options);
+    if (options.formatVersion != null) assert(Number(options.formatVersion) === snapshot.v, '共有URLと内部データの版が一致しません');
+    return { format: `${snapshot.v}.z`, snapshot, binary, compressed, payload };
   }
 
   function stripUrlSuffix(value) {
@@ -865,20 +938,22 @@
         baseUrl = 'formation-share.html';
       }
     }
-    return stripUrlSuffix(baseUrl) + '#1.z.' + encoded.payload;
+    return stripUrlSuffix(baseUrl) + '#' + encoded.format + '.' + encoded.payload;
   }
 
   function decodeHash(hash = globalObject.location?.hash || '', options = {}) {
     assert(typeof hash === 'string', '共有URLのfragmentが不正です');
     const fragment = hash.startsWith('#') ? hash.slice(1) : hash;
     const parts = fragment.split('.');
-    assert(parts.length === 3 && parts[0] === String(VERSION) && parts[1] === 'z',
+    const version = Number(parts[0]);
+    assert(parts.length === 3 && (version === VERSION || version === RESONANCE_VERSION) && parts[1] === 'z',
       '共有URL形式が不正です');
-    return decode(parts[2], options);
+    return decode(parts[2], { ...options, formatVersion: version });
   }
 
   const api = Object.freeze({
     VERSION,
+    RESONANCE_VERSION,
     CATALOG_VERSION,
     FLAGS,
     GLOBAL_PERCENT_KEYS,
@@ -895,7 +970,8 @@
     FormationShareCodecError,
     normalizeSnapshot: (snapshot, options = {}) => normalizeSnapshotForCatalog(
       snapshot,
-      normalizeCatalog(options.catalog || globalObject.TRICKCAL_FORMATION_SHARE_CATALOG)
+      normalizeCatalog(options.catalog || globalObject.TRICKCAL_FORMATION_SHARE_CATALOG),
+      options
     ),
     crc32,
     deflateRaw,

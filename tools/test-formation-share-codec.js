@@ -120,6 +120,63 @@ assert.deepEqual(
 );
 assert.ok(representativeEncoded.payload.length < codec.LIMITS.maxUrlDataChars);
 
+const joanneId = catalog.apostles.find(id => String(id).toLowerCase() === 'joanne');
+assert.ok(joanneId, '共有辞書へジョアンIDが末尾追加されている');
+const resonanceDisplayData = {
+  apostles: {
+    [joanneId]: { id: joanneId, personality: '共鳴' },
+    [catalog.apostles[0]]: { id: catalog.apostles[0], personality: '冷静' }
+  }
+};
+const resonanceSnapshot = {
+  ...empty,
+  v: 2,
+  members: [
+    { id: joanneId, star: 3, asideRank: 0 },
+    ...Array(8).fill(null)
+  ],
+  resonancePersonalities: ['活発', ...Array(8).fill(null)]
+};
+const resonanceEncoded = codec.encode(resonanceSnapshot, { catalog, displayData: resonanceDisplayData });
+assert.equal(resonanceEncoded.format, '2.z');
+assert.deepEqual(resonanceEncoded.snapshot, resonanceSnapshot);
+assert.deepEqual(
+  codec.decode(resonanceEncoded.payload, { catalog, displayData: resonanceDisplayData }).snapshot,
+  resonanceSnapshot
+);
+assert.match(codec.createUrl(resonanceSnapshot, {
+  catalog,
+  displayData: resonanceDisplayData,
+  baseUrl: measurementBaseUrl
+}), /#2\.z\.[A-Za-z0-9_-]+$/);
+assert.deepEqual(
+  codec.decodeHash('#2.z.' + resonanceEncoded.payload, { catalog, displayData: resonanceDisplayData }).snapshot,
+  resonanceSnapshot
+);
+const unselectedResonanceSnapshot = {
+  ...resonanceSnapshot,
+  resonancePersonalities: Array(9).fill(null)
+};
+assert.deepEqual(
+  codec.decode(codec.encode(unselectedResonanceSnapshot, { catalog, displayData: resonanceDisplayData }).payload, {
+    catalog,
+    displayData: resonanceDisplayData
+  }).snapshot,
+  unselectedResonanceSnapshot,
+  'v2共有で未選択の共鳴性格を未選択のまま保持'
+);
+expectError(() => codec.encode(resonanceSnapshot, { catalog }), /表示マスターがありません/);
+expectError(() => codec.encode({
+  ...resonanceSnapshot,
+  members: [{ id: catalog.apostles[0], star: 1, asideRank: 0 }, ...Array(8).fill(null)],
+  resonancePersonalities: ['活発', ...Array(8).fill(null)]
+}, { catalog, displayData: resonanceDisplayData }), /通常使徒/);
+expectError(() => codec.encode({
+  ...resonanceSnapshot,
+  members: Array(9).fill(null),
+  resonancePersonalities: ['活発', ...Array(8).fill(null)]
+}, { catalog, displayData: resonanceDisplayData }), /空き使徒枠/);
+
 const full = {
   v: 1,
   m: 1,

@@ -154,6 +154,25 @@
     bottomApostleImage.alt = apostleName;
     bottomApostleName.textContent = apostleName;
     bottomApostleButton.classList.remove(...personalityToneClasses);
+    const personality = window.TRICKCAL_FORMATION_PERSONALITY?.resolveFormationPersonality(basicInfo || {}, null);
+    bottomApostleButton.classList.toggle('is-resonance', !!personality?.isSelectable);
+    const options = personality?.personalityOptions || [];
+    bottomApostleButton.classList.toggle('has-personality-options', options.length >= 2 && options.length < 5);
+    bottomApostleButton.classList.toggle('is-two-tone', options.length === 2);
+    const gradient = options.length < 5
+      ? window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionGradient(options) : '';
+    if (gradient) bottomApostleButton.style.setProperty('--personality-options-bg', gradient);
+    else bottomApostleButton.style.removeProperty('--personality-options-bg');
+    if (options.length === 2) {
+      bottomApostleButton.style.setProperty('--personality-options-frame', window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionFrameGradient(options));
+      const [first, second] = window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionColors(options);
+      bottomApostleButton.style.setProperty('--personality-option-first', first);
+      bottomApostleButton.style.setProperty('--personality-option-second', second);
+    } else {
+      bottomApostleButton.style.removeProperty('--personality-options-frame');
+      bottomApostleButton.style.removeProperty('--personality-option-first');
+      bottomApostleButton.style.removeProperty('--personality-option-second');
+    }
     if (personalityTone) bottomApostleButton.classList.add(`personality-${personalityTone}`);
     syncAsideAvailability(apostleSelect.value, apostleName);
     syncSkillIcons(apostleSelect.value, apostleName);
