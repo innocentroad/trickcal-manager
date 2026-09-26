@@ -152,8 +152,9 @@
     "passive": "img/Chara/Skill/Skill_P_Jade.webp"
   },
   "Joanne": {
-    "high": "img/Chara/Skill/Icon_GraduateSkill_Joanne.webp",
-    "low": "img/Chara/Skill/Icon_AdmissionSkill_Joanne.webp"
+    "high": "img/Chara/Skill/Skill_S_Joanne.webp",
+    "low": "img/Chara/Skill/Skill_F_Joanne.webp",
+    "passive": "img/Chara/Skill/Skill_P_Joanne.webp"
   },
   "Jubee": {
     "high": "img/Chara/Skill/Skill_S_Jubee.webp",
