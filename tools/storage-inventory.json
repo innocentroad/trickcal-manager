@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-09-12",
+  "updatedAt": "2026-09-26",
   "purpose": "保存保守・新ドメイン移行S1の保存経路台帳。アプリ本体の保存動作を変更せず、キー・責任・現行挙動の基準を固定する。",
   "productionSources": [
     "storage-registry.js",
@@ -19,6 +19,7 @@
     "public/board-layout-preview.js",
     "public/board-layout-preview.html",
     "formation-share.html",
+    "shared-topbar.js",
     "formation-share.js",
     "formation-share-codec.js",
     "formation-share-prototype.js",
@@ -26,6 +27,19 @@
     "image-preload.js",
     "app-cache.js",
     "service-worker.js"
+  ],
+  "localPrototypeSources": [
+    {
+      "file": "enemy-research.js",
+      "scope": "未追跡のローカル試作。公開manifestにないため配信対象ではない。存在する場合は同じAST保存検査を行う。",
+      "keys": [
+        { "key": "trickcal.enemyResearch.studies.v1", "area": "localStorage", "operations": ["getItem", "setItem"], "purpose": "調査案件の配列", "readFailure": "起動時のgetItem例外は捕捉されず起動を妨げる。破損JSONは空配列からサンプルを表示する。", "writeFailure": "saveAllのcatchで失敗表示。複数キーの途中書込は原子的ではない。" },
+        { "key": "trickcal.enemyResearch.rosters.v1", "area": "localStorage", "operations": ["getItem", "setItem"], "purpose": "編成版の配列", "readFailure": "起動時のgetItem例外は捕捉されず起動を妨げる。破損JSONは空配列からサンプルを表示する。", "writeFailure": "saveAllのcatchで失敗表示。先行して書いた案件キーは戻さない。" },
+        { "key": "trickcal.enemyResearch.activeCase.v1", "area": "localStorage", "operations": ["getItem", "setItem"], "purpose": "選択中の調査案件ID", "readFailure": "起動時のgetItem例外は捕捉されず起動を妨げる。未保存IDは最初の案件へfallback。", "writeFailure": "案件切替では捕捉して任意設定として扱い、saveAllでは失敗表示。" },
+        { "key": "trickcal.enemyResearch.recentEnemies.v1", "area": "localStorage", "operations": ["getItem", "setItem"], "purpose": "直近の敵名候補（最大10件）", "readFailure": "getItem例外は捕捉されず候補表示を妨げる。破損JSONは空配列へfallback。", "writeFailure": "候補の保存失敗を捕捉し、ページ表示は維持する。" },
+        { "key": "trickcal.enemyResearch.theme.v1", "area": "localStorage", "operations": ["getItem", "setItem"], "purpose": "試作専用の明暗テーマ", "readFailure": "getItem例外は捕捉されず初期化を妨げる。未保存または無効値はdark。", "writeFailure": "例外を捕捉し、現在ページのテーマ表示は維持する。" }
+      ]
+    }
   ],
   "verificationSources": [
     "tools/apostle-stat-estimator.js",
@@ -199,8 +213,8 @@
     {
       "entryId": "preference.commonTheme",
       "successBehavior": "テーマをDOMへ適用し、共通テーマキーへ保存する。実装によっては旧テーマキーも同時に更新する。",
-      "readFailure": "stat-prototype.jsのloadSavedThemeとformation-damage-calc.jsのinitThemeにはread catchがなく、storage例外が呼出元へ伝播し得る。enemy-status、board preview、shareのbootstrapは各実装のfallbackまたは現状維持へ進む。",
-      "writeFailure": "stat/calcは例外が呼出元へ伝播し得る。enemy-status、board preview、share prototypeはその場の表示を維持して握りつぶす。",
+      "readFailure": "stat-prototype.jsのloadSavedThemeとformation-damage-calc.jsのinitThemeにはread catchがなく、storage例外が呼出元へ伝播し得る。enemy-status、board preview、share bootstrap、shared-topbarのdata初期化は各実装のfallbackまたは現状維持へ進む。",
+      "writeFailure": "stat/calcは例外が呼出元へ伝播し得る。enemy-status、board preview、share prototype、shared-topbarはその場の表示を維持して握りつぶす。",
       "deleteFailure": "storage key自体の削除経路は確認できない。",
       "callerOutcome": "保存不能でも現在ページのテーマ切替は維持される実装と、例外で処理が中断し得る実装が混在する。",
       "startupWrites": true,
@@ -211,6 +225,8 @@
         { "file": "public/board-layout-preview.js", "function": "applyTheme", "operations": ["setItem"], "keyResolution": "COMMON_THEME_KEY定数", "evidence": "public/board-layout-preview.js:156-157" },
         { "file": "formation-share-prototype.js", "function": "<anonymous>", "operations": ["setItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "formation-share-prototype.js:610" },
         { "file": "stat-dashboard.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "stat-dashboard.html:42" },
+        { "file": "formation-share.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "formation-share.html:12" },
+        { "file": "shared-topbar.js", "function": "applyTheme/initializeBar", "operations": ["getItem", "setItem"], "keyResolution": "THEME_KEY定数", "evidence": "shared-topbar.js:206,521" },
         { "file": "formation-share-prototype.html", "function": "<anonymous>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "formation-share-prototype.html:11" },
         { "file": "public/board-layout-preview.html", "function": "<top-level>", "operations": ["getItem"], "keyResolution": "リテラルtrickcal_theme", "evidence": "public/board-layout-preview.html:10" }
       ]
@@ -467,14 +483,14 @@
       "category": "display",
       "role": "shared-preference",
       "owner": "stat-prototype.js",
-      "readers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "enemy-status.js", "public/board-layout-preview.js", "stat-dashboard.html", "formation-share-prototype.html", "public/board-layout-preview.html", "image-preload.js"],
-      "writers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "enemy-status.js", "public/board-layout-preview.js"],
+      "readers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "formation-share.html", "shared-topbar.js", "enemy-status.js", "public/board-layout-preview.js", "stat-dashboard.html", "formation-share-prototype.html", "public/board-layout-preview.html", "image-preload.js"],
+      "writers": ["stat-prototype.js", "formation-damage-calc.js", "formation-share-prototype.js", "shared-topbar.js", "enemy-status.js", "public/board-layout-preview.js"],
       "operations": ["read", "write"],
       "payload": "lightまたはdark。",
       "writeTriggers": ["テーマ切替", "起動時のページ固有テーマ反映"],
       "crossTab": "stat側とboard preview側の一部がstorage eventを購読する。",
       "migrationDisposition": "ゲーム状態とは分離。ユーザー設定として含めるかはgateBで確定。",
-      "evidence": ["stat-prototype.js:17", "stat-prototype.js:516", "enemy-status.js:57", "public/board-layout-preview.js:156"]
+      "evidence": ["stat-prototype.js:17", "stat-prototype.js:516", "enemy-status.js:57", "public/board-layout-preview.js:156", "formation-share.html:12", "shared-topbar.js:206,521"]
     },
     {
       "id": "preference.statThemeLegacy",

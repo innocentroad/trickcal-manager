@@ -417,6 +417,8 @@
     { key: 'crit', label: '会心系', statKeys: ['crit', 'critDmg'] },
     { key: 'critRes', label: '会心抵抗系', statKeys: ['critRes', 'critDmgRes'] }
   ];
+  let cachedStatStateRaw = null;
+  let cachedStatState = null;
   restoreCalcSettings();
 
   initTheme();
@@ -1131,7 +1133,7 @@
     renderArtifactCategory(context);
     renderSpellCategory(context, { keepPopover: !!options.keepSpellPopover });
     syncCardCostUi(context);
-    renderResult(context);
+    renderResult(buildContext());
   }
 
   function getEnemyIndividualBaseState(context, id = view.enemyApostleId) {
@@ -2043,6 +2045,19 @@
     return scaled;
   }
 
+  function getStatRecalculationMessage(state, enemyMember) {
+    if (enemyMember && view.enemySourceMode === 'apostle') {
+      const basic = getApostle(enemyMember.id);
+      const savedRank = state?.apostles?.[enemyMember.id]?.asideRank;
+      const statEngine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+      if (statEngine?.requiresAsideGlobalRecalculation?.(
+        TRICKCAL_STAT_DATA, basic, savedRank, enemyMember.asideRank)) {
+        return 'アサイドA3の全体補正率が変わるため、この保存値からは個別設定を再計算できません。ステータス管理で対象使徒のアサイドを変更・保存し、計算画面で保存設定を読み直してください。';
+      }
+    }
+    return '保存ステータスの再計算に必要な内訳または育成条件が不足・不一致です。ステータス管理で該当使徒・スロットの設定を確認し、不足する育成条件は再設定して保存してください。';
+  }
+
   function buildContext(overrides = {}) {
     const state = getEffectiveStatState();
     const formationSource = getSelectedFormationSource(state);
@@ -2059,6 +2074,8 @@
     const unplacedTargetSelectionRequired = !!target?.needsSelection
       && !members.some(member => member.id === target.id);
     const enemyMember = getSelectedEnemyApostleMember(allMembers, state);
+    const enemySnapshot = enemyMember && view.enemySourceMode === 'apostle'
+      ? getEnemyApostleStatSnapshot({ state, enemyMember }) : null;
     const damageType = overrides.forceSelfAttack
       ? resolveSelfDamageType(target)
       : resolveActiveDamageType(target);
@@ -2112,6 +2129,9 @@
       members,
       allMembers,
       target,
+      statRecalculationRequired: (!!target && !target.stats)
+        || (!!enemyMember && view.enemySourceMode === 'apostle' && !enemySnapshot),
+      statRecalculationMessage: getStatRecalculationMessage(state, enemyMember),
       targetPlacementRequired,
       formationSelectionRequired: resonanceValidation.unselected.length > 0 || unplacedTargetSelectionRequired,
       formationSelectionMessage: [
@@ -2371,7 +2391,10 @@
       ? `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
       : '';
     const expected = Number(item.snapshot?.result?.expected);
-    const expectedText = Number.isFinite(expected) && expected > 0 ? `期待値 ${formatCompactDamage(expected)}` : '';
+    const oldResult = Number(item.snapshot?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+    const expectedText = oldResult ? '計算値の再確認が必要'
+      : Number.isFinite(expected) && expected > 0 ? `期待値 ${formatCompactDamage(expected)}` : '';
     return [includeName ? item.name || '無題の計算' : '', expectedText, stamp].filter(Boolean).join(' / ');
   }
 
@@ -2390,6 +2413,10 @@
     const saves = loadDamageCalculationSaves();
     const existing = saves.find(item => item.id === selectedId) || null;
     const context = buildContext();
+    if (context.statRecalculationRequired) {
+      window.alert(context.statRecalculationMessage);
+      return;
+    }
     const defaultName = existing?.name || createDamageSaveDefaultName(context);
     const enteredName = window.prompt(existing ? '保存名を変更して上書き' : '保存名', defaultName);
     if (enteredName === null) return;
@@ -2419,10 +2446,19 @@
     const scenarioApi = getCombatScenarioApi();
     if (!selected || !scenarioApi?.savePinnedComparison) return;
     const scenario = createCombatScenarioFromDamageSave(selected);
-    const dpsSnapshot = selected.snapshot?.comparison?.dpsSnapshot || {};
+    const oldResult = Number(selected.snapshot?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+    const evaluation = oldResult ? evaluateComparisonScenario(scenario) : null;
+    if (evaluation?.error) {
+      if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
+      return;
+    }
+    scenario.sourceMeta = { ...(scenario.sourceMeta || {}),
+      statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion };
+    const dpsSnapshot = oldResult ? evaluation.dpsSnapshot : selected.snapshot?.comparison?.dpsSnapshot || {};
     const session = scenarioApi.savePinnedComparison({
       scenario,
-      singleActionResult: selected.snapshot?.result || {},
+      singleActionResult: oldResult ? evaluation.result : selected.snapshot?.result || {},
       dpsSnapshot,
       singleActionInputFingerprint: createPinnedSingleActionInputFingerprint(scenario),
       dpsInputFingerprint: createPinnedDpsInputFingerprint(scenario, dpsSnapshot)
@@ -2545,7 +2581,9 @@
       return;
     }
     const result = item.snapshot?.result || {};
-    el.loadedSaveLabel.innerHTML = `<strong>${escapeHtml(item.name || '無題の計算')}</strong><span>期待値 ${escapeHtml(formatCompactDamage(Number(result.expected) || 0))}</span>`;
+    const oldResult = Number(item.snapshot?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+    el.loadedSaveLabel.innerHTML = `<strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${oldResult ? '計算値の再確認が必要' : `期待値 ${escapeHtml(formatCompactDamage(Number(result.expected) || 0))}`}</span>`;
     el.loadedSaveLabel.title = formatDamageSaveOptionLabel(item);
   }
   function createDamageSaveDefaultName(context = buildContext()) {
@@ -2562,6 +2600,7 @@
     const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
     return {
       version: 4,
+      statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
       savedAt: Date.now(),
       view: clonePlain({
         targetId: view.targetId || '',
@@ -3051,7 +3090,35 @@
     try {
       const raw = storageLocal.getItem(STAT_STORAGE_KEY);
       if (!raw) return { found: false };
+      if (raw === cachedStatStateRaw && cachedStatState) return clonePlain(cachedStatState);
       const state = JSON.parse(raw);
+      const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+      if (engine && typeof TRICKCAL_STAT_DATA !== 'undefined') {
+        Object.entries(state.apostles || {}).forEach(([id, apostle]) => {
+          const basic = getApostle(id);
+          if (!basic || !apostle?.statSnapshots) return;
+          ['current', 'planned'].forEach(mode => {
+            const old = apostle.statSnapshots[mode];
+            if (!old?.stats || Number(old.calculationVersion) === engine.snapshotCalculationVersion) return;
+            if (!engine.canRebuildLegacySnapshot(TRICKCAL_STAT_DATA, basic, apostle, old,
+              { mode, research: state.research })) return;
+            const next = engine.applyApostleOverridesToSnapshot(TRICKCAL_STAT_DATA, basic, apostle, {
+              snapshot: old, mode, kind: `${mode}:legacyRecalculated`
+            });
+            if (!next) return;
+            const gradeOne = engine.applyGradeOverrideToSnapshot(TRICKCAL_STAT_DATA, basic, apostle, {
+              snapshot: next, grade: 1, mode, kind: `${mode}:combatPowerInput`
+            });
+            next.stats.combatPower = gradeOne?.internalTotals
+              ? engine.calculateCombatPower(basic, apostle, gradeOne.internalTotals)
+              : null;
+            apostle.statSnapshots[mode] = next;
+            if (mode === 'current') apostle.finalStats = clonePlain(next.stats);
+          });
+        });
+      }
+      // The calculator must not publish a stale copy over a newer manager-tab save.
+      // Rebuilt legacy values are read-only here; manager resave persists version 2.
       state.cards = migrateCardStateMap(state.cards);
       state.formation = normalizeFormation(state.formation || {});
       if (Array.isArray(state.savedFormations)) {
@@ -3060,7 +3127,9 @@
           formation: normalizeFormation(item?.formation || {})
         }));
       }
-      return { ...state, found: true };
+      cachedStatStateRaw = raw;
+      cachedStatState = { ...state, found: true };
+      return clonePlain(cachedStatState);
     } catch {
       return { found: false };
     }
@@ -3524,6 +3593,7 @@
       return getGradeAdjustedSnapshot(apostleState, basic, getEffectiveGradeOverride(), view.statMode);
     }
     const snapshot = getGradeAdjustedSnapshot(apostleState, basic, 'saved', view.statMode);
+    if (!snapshot) return null;
     return TRICKCAL_SHARED_STAT_ENGINE.applyApostleOverridesToSnapshot(
       TRICKCAL_STAT_DATA,
       basic,
@@ -3535,7 +3605,7 @@
   function getEnemyStatsWithGlobalPercentOverrides(context, member) {
     const snapshot = getEnemyApostleStatSnapshot(context);
     const raw = snapshot?.stats;
-    if (!raw) return member?.stats || {};
+    if (!raw) return null;
     const breakdown = snapshot?.breakdown || {};
     const increases = breakdown.globalPercent || {};
     const savedRates = snapshot?.globalPercentRates || {};
@@ -3582,6 +3652,7 @@
       return;
     }
     const stats = getEnemyStatsWithGlobalPercentOverrides(context, member);
+    if (!stats) return;
     const enemyDamageType = resolveEnemyDamageType();
     const selfDamageType = resolveSelfDamageType(context?.target);
     el.inputs.enemyHp.value = Math.round(Number(stats.hp) || 0);
@@ -3594,7 +3665,7 @@
   }
 
   function syncStatsFromTarget(context) {
-    if (view.statDirty || !context.target) return;
+    if (view.statDirty || !context.target || !context.target.stats) return;
     const stats = context.target.stats || {};
     const atk = context.damageType === 'magic' ? stats.magicAtk : stats.physicalAtk;
     const def = context.damageType === 'magic' ? stats.magicDef : stats.physicalDef;
@@ -7767,6 +7838,10 @@
   }
 
   function renderResult(context) {
+    if (context.statRecalculationRequired) {
+      renderStatRecalculationRequiredResult(context);
+      return;
+    }
     if (context.targetPlacementRequired) {
       renderPlacementRequiredResult();
       window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
@@ -7816,6 +7891,30 @@
     });
     if (el.result.detailNote) el.result.detailNote.textContent = '配置先を選択するまで、計算結果は更新されません。';
     if (el.result.detailGrid) el.result.detailGrid.innerHTML = '<p class="fdc-result-placement-required">配置先を選択してください。通常計算とDPS計算は開始しません。</p>';
+  }
+
+  function renderStatRecalculationRequiredResult(context) {
+    [el.result.normal, el.result.crit, el.result.expected, el.result.critRate].forEach(element => {
+      if (!element) return;
+      element.textContent = '—';
+      element.classList.remove('is-compare');
+    });
+    Object.values(el.result.hpRates || {}).forEach(element => {
+      if (!element) return;
+      element.hidden = true;
+      element.textContent = '';
+    });
+    const message = context?.statRecalculationMessage || getStatRecalculationMessage();
+    if (el.result.detailNote) el.result.detailNote.textContent = message;
+    if (el.result.detailGrid) el.result.detailGrid.innerHTML = `<p class="fdc-result-placement-required">${message}</p>`;
+    if (el.pinnedCompareNote) {
+      const session = getPinnedComparisonSession();
+      const oldBaseline = session && Number(session.baseline?.scenario?.sourceMeta?.statCalculationVersion)
+        !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+      el.pinnedCompareNote.textContent = oldBaseline
+        ? '旧形式の比較基準です。現在の設定で基準を更新してください。'
+        : '現在のステータスを再計算するまで比較を停止します。';
+    }
   }
 
   function renderResonanceRequiredResult(context) {
@@ -8182,6 +8281,7 @@
   }
 
   function calculateDamage(context) {
+    if (context?.statRecalculationRequired) return { ...createPlacementRequiredDamageResult(), unavailable: 'stat-recalculation-required' };
     if (context?.targetPlacementRequired) return createPlacementRequiredDamageResult();
     if (context?.formationDuplicateResonanceId || context?.formationSelectionRequired) return createResonanceRequiredDamageResult(context);
     const summary = context.summary || {};
@@ -8868,7 +8968,7 @@
   function createCombatScenarioFromStateSnapshot(snapshot = {}, sourceMeta = {}) {
     const candidate = captureCombatScenario(buildContext());
     const source = clonePlain(candidate);
-    const hydrated = hydrateComparisonApostleSnapshots(snapshot.apostles || {}, snapshot.comparisonStats);
+    const hydrated = hydrateComparisonApostleSnapshots(snapshot.apostles || {}, snapshot.comparisonStats, snapshot.research);
     source.sourceMeta = {
       type: 'stateSlot',
       ...clonePlain(sourceMeta),
@@ -8897,7 +8997,7 @@
     return getCombatScenarioApi()?.createScenario?.(source) || source;
   }
 
-  function hydrateComparisonApostleSnapshots(savedApostles = {}, comparisonStats = {}) {
+  function hydrateComparisonApostleSnapshots(savedApostles = {}, comparisonStats = {}, research = {}) {
     const apostles = clonePlain(savedApostles || {});
     const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
     const decoded = engine?.decodeComparisonStatSnapshots?.(comparisonStats) || {};
@@ -8911,17 +9011,27 @@
         apostles[id].finalStats = clonePlain(apostles[id].statSnapshots.current.stats);
       }
     });
-    const liveApostles = loadStatState().apostles || {};
     const missingIds = [];
     Object.entries(apostles).forEach(([id, savedState]) => {
-      if (savedState?.statSnapshots?.current?.stats) return;
-      const liveState = liveApostles[id];
-      if (liveState?.statSnapshots?.current?.stats && areEquivalentApostleSettings(savedState, liveState)) {
-        savedState.statSnapshots = clonePlain(liveState.statSnapshots);
-        savedState.finalStats = clonePlain(liveState.finalStats || liveState.statSnapshots.current.stats);
-        return;
+      const basic = getApostle(id);
+      for (const mode of ['current', 'planned']) {
+        const saved = savedState?.statSnapshots?.[mode];
+        if (mode === 'planned' && !saved) continue;
+        if (saved?.stats && Number(saved.calculationVersion) === engine?.snapshotCalculationVersion) continue;
+        if (saved?.stats && basic && engine?.canRebuildLegacySnapshot?.(
+          TRICKCAL_STAT_DATA, basic, savedState, saved, { mode, research })) {
+          const rebuilt = engine.applyApostleOverridesToSnapshot(TRICKCAL_STAT_DATA, basic, savedState, {
+            snapshot: saved, mode, kind: `comparisonLegacyRecalculated:${mode}`
+          });
+          if (rebuilt) {
+            savedState.statSnapshots[mode] = rebuilt;
+            if (mode === 'current') savedState.finalStats = clonePlain(rebuilt.stats);
+            continue;
+          }
+        }
+        missingIds.push(id);
+        break;
       }
-      missingIds.push(id);
     });
     return { apostles, missingIds };
   }
@@ -9035,6 +9145,9 @@
       if (!context.target || context.target.id !== targetId) {
         return { error: '選択した比較元の編成に現在の使徒がいません' };
       }
+      if (context.statRecalculationRequired) {
+      return { error: context.statRecalculationMessage };
+      }
       writeSelfStatInputsForStats(context, context.target.stats || {});
       const result = calculateDamage(context);
       const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
@@ -9049,6 +9162,10 @@
     const api = getCombatScenarioApi();
     if (!api?.savePinnedComparison) return;
     const context = buildContext();
+    if (context.statRecalculationRequired) {
+      if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = context.statRecalculationMessage;
+      return;
+    }
     if (!context.target) {
       if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = '先に比較する使徒を選択してください';
       return;
@@ -9059,8 +9176,20 @@
     let dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput());
     if (source?.type === 'calc') {
       scenario = createCombatScenarioFromDamageSave(source.data);
-      result = source.data.snapshot?.result || {};
-      dpsSnapshot = source.data.snapshot?.comparison?.dpsSnapshot || {};
+      const oldResult = Number(source.data.snapshot?.statCalculationVersion)
+        !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+      if (oldResult) {
+        const evaluation = evaluateComparisonScenario(scenario);
+        if (evaluation.error) {
+          if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
+          return;
+        }
+        result = evaluation.result;
+        dpsSnapshot = evaluation.dpsSnapshot;
+      } else {
+        result = source.data.snapshot?.result || {};
+        dpsSnapshot = source.data.snapshot?.comparison?.dpsSnapshot || {};
+      }
     } else if (source?.type === 'slot' || source?.type === 'formation') {
       const scopes = getSelectedComparisonScopes();
       if (!scopes.length) {
@@ -9073,11 +9202,14 @@
           name: formatComparisonStateSlotLabel(source.data)
         })
         : createCombatScenarioFromFormationPreset(source.data);
-      const missingTargetSnapshot = source.type === 'slot'
-        && sourceScenario.sourceMeta?.missingStatSnapshotIds?.includes(context.target.id);
-      if (missingTargetSnapshot) {
+      const sourceMembers = (sourceScenario.formationState?.formation?.rows || [])
+        .flatMap(row => row.apostles || []).filter(Boolean);
+      const missingRelevantSnapshots = source.type === 'slot'
+        ? (sourceScenario.sourceMeta?.missingStatSnapshotIds || [])
+          .filter(id => id === context.target.id || sourceMembers.includes(id)) : [];
+      if (missingRelevantSnapshots.length) {
         if (el.pinnedCompareNote) {
-          el.pinnedCompareNote.textContent = 'この保存スロットは旧形式のため、ステータス管理で一度読み込み、再保存してください';
+          el.pinnedCompareNote.textContent = `スロット${source.data.slot}の${missingRelevantSnapshots.map(id => getApostle(id)?.使徒名 || id).join('・')}は計算内訳または育成条件が不足・不一致です。ステータス管理でこのスロットを読み込み、設定を確認してください。育成条件が欠けている場合は再設定してから再保存してください。`;
         }
         return;
       }
@@ -9096,6 +9228,8 @@
       scenario.characterState.boardState = clonePlain(dpsSnapshot.boardState || scenario.characterState.boardState || {});
       if (api.fingerprint) scenario.sourceMeta.fingerprint = api.fingerprint(scenario);
     }
+    scenario.sourceMeta = { ...(scenario.sourceMeta || {}),
+      statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion };
     const singleActionInputFingerprint = createPinnedSingleActionInputFingerprint(scenario);
     const dpsInputFingerprint = createPinnedDpsInputFingerprint(scenario, dpsSnapshot);
     const session = api.savePinnedComparison({
@@ -9189,6 +9323,8 @@
   // キャッシュとして分離している。旧v2セッションの読み込み時も、正規化API
   // が互換キャッシュへ移してくれるため、画面側はこのアクセサだけを使う。
   function getPinnedSingleActionCache(session = null) {
+    if (Number(session?.baseline?.scenario?.sourceMeta?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) return null;
     const cache = session?.caches?.singleAction;
     if (cache?.inputFingerprint) {
       const expected = createPinnedSingleActionInputFingerprint(session?.baseline?.scenario || {});
@@ -9200,6 +9336,8 @@
   }
 
   function getPinnedDpsCache(session = null) {
+    if (Number(session?.baseline?.scenario?.sourceMeta?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) return null;
     const cache = session?.caches?.dps;
     if (cache?.inputFingerprint) {
       const expected = createPinnedDpsInputFingerprint(
@@ -9317,6 +9455,12 @@
       return;
     }
     const scenario = session.baseline.scenario || {};
+    if (Number(scenario.sourceMeta?.statCalculationVersion)
+      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) {
+      el.pinnedCompareNote.textContent = '旧形式の比較基準です。現在の設定で基準を更新してください。';
+      el.pinnedCompareNote.title = el.pinnedCompareNote.textContent;
+      return;
+    }
     const name = scenario.actors?.self?.name || scenario.actors?.self?.id || '使徒未選択';
     const sourceLabel = formatPinnedComparisonSource(scenario);
     const baselineBoard = scenario.characterState?.boardState || getPinnedDpsCache(session)?.boardState || {};
@@ -10431,12 +10575,8 @@
 
   function readMemberStats(apostleState = {}, basic = null, gradeOverride = 'saved', statMode = 'current') {
     const snapshot = getGradeAdjustedSnapshot(apostleState, basic, gradeOverride, statMode);
-    const raw = snapshot?.stats
-      || apostleState.finalStats
-      || apostleState.stats
-      || apostleState.totals
-      || apostleState.calculatedStats
-      || {};
+    if (!snapshot?.stats) return null;
+    const raw = snapshot.stats;
     return applyExtraCrayonToStats({
       hp: readStatValue(raw, ['hp', 'HP']),
       physicalAtk: readStatValue(raw, ['physicalAtk', 'patk', '物理攻撃', '物理攻撃力']),
@@ -10528,6 +10668,19 @@
       ? apostleState.statSnapshots?.planned || apostleState.statSnapshots?.current || null
       : apostleState.statSnapshots?.current || null;
     const statEngine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    if (snapshot && !statEngine?.hasCompleteBreakdown?.(snapshot)) return null;
+    if (snapshot && Number(snapshot.calculationVersion) !== statEngine?.snapshotCalculationVersion) {
+      // Full historical breakdowns can be rebuilt from their own saved settings.
+      // Compact v1 snapshots cannot recover the missing board/research contributions.
+      snapshot = basic && statEngine?.canRebuildLegacySnapshot?.(
+        TRICKCAL_STAT_DATA, basic, apostleState, snapshot,
+        { mode, research: view.referenceState?.research || loadStatState().research })
+        ? statEngine.applyApostleOverridesToSnapshot(TRICKCAL_STAT_DATA, basic, apostleState, {
+          snapshot, mode, kind: 'legacySnapshotRecalculated'
+        })
+        : null;
+      if (!snapshot) return null;
+    }
     if (
       snapshot
       && basic
@@ -10543,6 +10696,7 @@
     }
     if (
       !snapshot
+      && !Object.keys(apostleState || {}).some(key => !['statSnapshots', 'finalStats'].includes(key))
       && basic
       && typeof statEngine?.createInitialSnapshot === 'function'
     ) {
@@ -10552,6 +10706,7 @@
         apostleState
       );
     }
+    if (!snapshot) return null;
     if (gradeOverride === 'saved' || !basic || typeof statEngine?.applyGradeOverrideToSnapshot !== 'function') return snapshot;
     return statEngine.applyGradeOverrideToSnapshot(
       TRICKCAL_STAT_DATA,
@@ -12765,6 +12920,9 @@
     };
     if (context.targetPlacementRequired) {
       return { ...unavailable, placementRequired: true, placementMessage: '配置先を選択してください。' };
+    }
+    if (context.statRecalculationRequired) {
+      return { ...unavailable, statRecalculationRequired: true, statRecalculationMessage: context.statRecalculationMessage };
     }
     if (context.formationDuplicateResonanceId || context.formationSelectionRequired) {
       return {

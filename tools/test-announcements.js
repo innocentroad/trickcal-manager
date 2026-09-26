@@ -374,6 +374,12 @@ const twoArticleTestData = Object.freeze({
 }
 
 const historyValidation = announcementHistoryData.validateEntries(announcementHistoryData);
+const asideFix = announcementHistoryData.entries.filter(entry => entry.id === '20260926-fix-aside-combat-power');
+assert.equal(asideFix.length, 1, '今回の計算更新は履歴に1件だけ登録');
+assert.equal(asideFix[0].category, 'fix');
+assert.equal(asideFix[0].date, '2026-09-26');
+assert.equal(asideFix[0].items.length, 4);
+assert.match(asideFix[0].items[3], /不足項目を再設定して保存/);
 assert.equal(historyValidation.ok, true, '現在の更新履歴dataのschemaと内容が妥当です');
 const seedValidation = announcementHistoryData.validateEntries(seedHistory);
 assert.equal(seedValidation.ok, true, '凍結した初期seed fixtureが妥当です');

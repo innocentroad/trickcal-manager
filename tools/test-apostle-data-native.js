@@ -288,7 +288,7 @@ async function run() {
     assert.equal((await facts(cdp, page)).theme, initialTheme, 'テーマを元へ戻す');
     const basicFacts = await facts(cdp, page);
     assert.deepEqual(basicFacts.headers.slice(0, 10), ['使徒', 'レア度', 'エルダイン', '性格', '種族', '役割', '攻撃タイプ', '配置列', '初期SP', '毎秒SP回復量'], '基礎設定の既存列を維持');
-    assert.deepEqual(basicFacts.headers.slice(10), ['HP等級', '物理攻撃力等級', '魔法攻撃力等級', '物理防御力等級', '魔法防御力等級', '会心等級', '会心DMG等級', '会心抵抗等級', '会心DMG抵抗等級', '戦闘力補正値A', '戦闘力補正値B'], '基礎設定の等級・補正値列');
+    assert.deepEqual(basicFacts.headers.slice(10), ['HP等級', '物理攻撃力等級', '魔法攻撃力等級', '物理防御力等級', '魔法防御力等級', '会心等級', '会心DMG等級', '会心抵抗等級', '会心DMG抵抗等級', '攻撃速度基礎', '戦闘力補正値'], '基礎設定は攻撃速度基礎・戦闘力補正値を表示し、計算用4係数は表示しない');
     const basicDataFacts = await browser.evaluate(cdp, page, `(() => {
       const rows = [...document.querySelectorAll('[data-apostle-data-row]')];
       const headerIndex = Object.fromEntries([...document.querySelectorAll('[data-apostle-thead] th')].map((cell, index) => [cell.textContent.trim(), index]));
@@ -297,26 +297,26 @@ async function run() {
         amelia: {
           magicAttackTier: get('Amelia', '魔法攻撃力等級'),
           physicalAttackTier: get('Amelia', '物理攻撃力等級'),
-          correctionA: get('Amelia', '戦闘力補正値A'),
-          correctionB: get('Amelia', '戦闘力補正値B')
+          speed: get('Amelia', '攻撃速度基礎'),
+          correction: get('Amelia', '戦闘力補正値')
         },
         aya: { physicalAttackTier: get('Aya', '物理攻撃力等級'), magicAttackTier: get('Aya', '魔法攻撃力等級') },
-        correctionZero: window.__TRICKCAL_APOSTLE_DATA_TESTING__?.basicDisplayValue(0, { dataKey: '戦闘力補正値A' }) || ''
+        correctionZero: window.__TRICKCAL_APOSTLE_DATA_TESTING__?.basicDisplayValue(0, { dataKey: '戦闘力補正値' }) || ''
       };
     })()`);
     assert.equal(basicDataFacts.amelia.magicAttackTier, '', '魔法型で非対応の魔法攻撃等級を空欄');
     assert.notEqual(basicDataFacts.amelia.physicalAttackTier, '', '魔法型で物理攻撃等級を表示');
-    assert.equal(basicDataFacts.amelia.correctionA, '90', '戦闘力補正値Aをそのまま表示');
-    assert.equal(basicDataFacts.amelia.correctionB, '0.525', '戦闘力補正値Bの小数を保持');
+    assert.equal(basicDataFacts.amelia.speed, '100', '攻撃速度基礎を表示');
+    assert.equal(basicDataFacts.amelia.correction, '0.525', '戦闘力補正値の小数を保持');
     assert.equal(basicDataFacts.aya.physicalAttackTier, '', '物理型で非対応の物理攻撃等級を空欄');
     assert.notEqual(basicDataFacts.aya.magicAttackTier, '', '物理型で魔法攻撃等級を表示');
-    assert.equal(basicDataFacts.correctionZero, '0', '隔離fixture:戦闘力補正値Aの0を表示');
-    await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-sort=\\"combatPowerB\\"]")?.click()');
+    assert.equal(basicDataFacts.correctionZero, '0', '隔離fixture:戦闘力補正値の0を表示');
+    await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-sort=\\"combatPowerCorrection\\"]")?.click()');
     const correctionSort = await browser.evaluate(cdp, page, `(() => {
-      const headerIndex = [...document.querySelectorAll('[data-apostle-thead] th')].findIndex(cell => cell.textContent.trim() === '戦闘力補正値B');
+      const headerIndex = [...document.querySelectorAll('[data-apostle-thead] th')].findIndex(cell => cell.textContent.trim() === '戦闘力補正値');
       return [...document.querySelectorAll('[data-apostle-data-row]')].map(row => Number(row.children[headerIndex]?.textContent.trim())).filter(Number.isFinite);
     })()`);
-    assert.ok(correctionSort.every((value, index) => index === 0 || correctionSort[index - 1] <= value), '戦闘力補正値Bを数値順にソート');
+    assert.ok(correctionSort.every((value, index) => index === 0 || correctionSort[index - 1] <= value), '戦闘力補正値を数値順にソート');
     await capture(cdp, page, `${SCREENSHOT_PREFIX}-basic-filter-collapsed-375.png`);
     await browser.evaluate(cdp, page, 'document.querySelector("#apostle-data-filter-toggle")?.click()');
     await browser.waitFor(async () => browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-filter-details]")?.open === true'), { timeoutMs: 5000 });
@@ -425,6 +425,7 @@ async function run() {
     assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, 'アサイドviewの使徒行数');
     assert.equal(current.joanne.present && current.joanne.imageLoaded, true, 'アサイド等級にジョアンと画像');
     assert.match(current.status, /登録/); assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-data-row]")?.innerText || ""'), /等級/);
+    assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-option=asideExpanded]")?.textContent || ""'), /基礎値・成長値を表示/);
     await browser.clickSelector(cdp, page, '[data-apostle-option="asideExpanded"]');
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /補助値表示/);
 

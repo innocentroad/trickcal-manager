@@ -55,8 +55,8 @@
     { key: 'critDmgResTier', label: '会心DMG抵抗等級', dataKey: '会心DMG抵抗Tier' }
   ]);
   const BASIC_COMBAT_COLUMNS = Object.freeze([
-    { key: 'combatPowerA', label: '戦闘力補正値A', dataKey: '戦闘力補正値A' },
-    { key: 'combatPowerB', label: '戦闘力補正値B', dataKey: '戦闘力補正値B' }
+    { key: 'baseAttackSpeed', label: '攻撃速度基礎', dataKey: '攻撃速度基礎' },
+    { key: 'combatPowerCorrection', label: '戦闘力補正値', dataKey: '戦闘力補正値' }
   ]);
   const BOARD_COLUMNS = Object.freeze([
     { key: 'hp', label: 'HP', effect: 'HP', group: 'hp' },
@@ -149,7 +149,7 @@
 
   function basicDisplayValue(value, column) {
     if (column.attack && isHiddenAttackValue(value)) return emptyCell();
-    if (column.dataKey.startsWith('戦闘力補正値')) return escapeHtml(formatRawValue(value));
+    if (column.dataKey.startsWith('戦闘力') || column.dataKey === '攻撃速度基礎') return escapeHtml(formatRawValue(value));
     return escapeHtml(formatNumber(value));
   }
 
@@ -474,9 +474,8 @@
     const columns = [{ key: 'name', label: '使徒', sortKey: 'name' }, ...ASIDE_COLUMNS.map(column => ({ key: column.key, label: column.label }))];
     if (state.asideExpanded) {
       ASIDE_COLUMNS.forEach(column => {
-        columns.push({ key: `${column.key}-manifest`, label: `${column.label} 発現` });
+        columns.push({ key: `${column.key}-manifest`, label: `${column.label} 基礎` });
         columns.push({ key: `${column.key}-growth`, label: `${column.label} A1成長` });
-        columns.push({ key: `${column.key}-star`, label: `${column.label} 星上昇` });
       });
     }
     renderTable(columns, visibleRows, `${VIEWS.aside.caption}${state.asideExpanded ? ' / 補助値表示' : ''}`, row => {
@@ -486,9 +485,8 @@
       });
       if (state.asideExpanded) {
         ASIDE_COLUMNS.forEach(column => {
-          cells.push(cellStack(formatNumber(asideSupplement(row, column, '発現値')), '', { status: asideSupplement(row, column, '発現値') == null ? 'unregistered' : 'known' }));
+          cells.push(cellStack(formatNumber(asideSupplement(row, column, '基礎値') ?? asideSupplement(row, column, '発現値')), '', { status: (asideSupplement(row, column, '基礎値') ?? asideSupplement(row, column, '発現値')) == null ? 'unregistered' : 'known' }));
           cells.push(cellStack(formatNumber(asideSupplement(row, column, '_A1成長値')), '', { status: asideSupplement(row, column, '_A1成長値') == null ? 'unregistered' : 'known' }));
-          cells.push(cellStack(formatNumber(asideSupplement(row, column, '星上昇値')), '', { status: asideSupplement(row, column, '星上昇値') == null ? 'unregistered' : 'known' }));
         });
       }
       return [apostleCell(row), ...cells];
@@ -563,7 +561,7 @@
       state.rankFrom = current.from; state.rankTo = current.to;
       elements.options.innerHTML = `<label>Rank遷移 <select id="apostle-data-rank-transition" data-apostle-option="rankTransition">${rankList.map(item => `<option value="${item.from}-${item.to}" ${item.from === current.from && item.to === current.to ? 'selected' : ''}>Rank ${item.from} → ${item.to}</option>`).join('')}</select></label>`;
     } else if (state.view === 'aside') {
-      elements.options.innerHTML = `<button type="button" data-apostle-option="asideExpanded" aria-expanded="${state.asideExpanded}">${state.asideExpanded ? '補助値を隠す' : '発現値・成長値・星上昇値を表示'}</button>`;
+      elements.options.innerHTML = `<button type="button" data-apostle-option="asideExpanded" aria-expanded="${state.asideExpanded}">${state.asideExpanded ? '補助値を隠す' : '基礎値・成長値を表示'}</button>`;
     } else {
       elements.options.replaceChildren();
     }

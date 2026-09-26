@@ -15,19 +15,12 @@
   };
 
   const TOTAL_KEYS = Object.keys(INTERNAL_TO_SNAPSHOT);
-  const COMPARISON_STATS_SCHEMA_VERSION = 1;
+  const COMPARISON_STATS_SCHEMA_VERSION = 2;
+  const SNAPSHOT_CALCULATION_VERSION = 2;
+  const ADDITIVE_SOURCES = ['base', 'rankUp', 'equipment', 'rankGlobal', 'research', 'boardBasic', 'boardAdvanced', 'bond', 'asideManifest', 'asideLevel'];
   const COMPARISON_STAT_KEYS = [...Object.values(INTERNAL_TO_SNAPSHOT), 'combatPower'];
-  const COMBAT_POWER_BASE_BY_RARITY = {
-    1: 1.015,
-    2: 1.03,
-    3: 1.06
-  };
-  const COMBAT_POWER_ASIDE_BONUS = 0.7;
-  const COMBAT_POWER_SKILL_VALUE_BY_RARITY = {
-    1: 0.005,
-    2: 0.01,
-    3: 0.02
-  };
+  // v22: these three grades were checked against AsideGrade's five stat slots.
+  const ASIDE_GRADE_MULTIPLIERS = Object.freeze({ 1: 1, 2: 1.03, 3: 1.06 });
 
   function cloneJson(value) {
     return JSON.parse(JSON.stringify(value || {}));
@@ -47,26 +40,35 @@
   }
 
   function encodeComparisonSnapshot(snapshot = null) {
-    if (!snapshot?.stats) return null;
+    if (Number(snapshot?.calculationVersion) !== SNAPSHOT_CALCULATION_VERSION || !hasCompleteBreakdown(snapshot)) return null;
     return [
       encodeNumberVector(snapshot.stats, COMPARISON_STAT_KEYS),
-      encodeNumberVector(snapshot.breakdown?.base, TOTAL_KEYS),
+      ADDITIVE_SOURCES.map(source => encodeNumberVector(snapshot.breakdown?.[source], TOTAL_KEYS)),
       encodeNumberVector(snapshot.breakdown?.globalPercent, TOTAL_KEYS),
-      encodeNumberVector(snapshot.globalPercentRates, Object.values(INTERNAL_TO_SNAPSHOT))
+      encodeNumberVector(snapshot.globalPercentRates, Object.values(INTERNAL_TO_SNAPSHOT)),
+      Number(snapshot.calculationVersion) || 0,
+      snapshot.stats.combatPower == null
     ];
   }
 
-  function decodeComparisonSnapshot(value = null, mode = 'current') {
+  function decodeComparisonSnapshot(value = null, mode = 'current', version = 1) {
     if (!Array.isArray(value) || !Array.isArray(value[0])) return null;
-    return {
+    const modern = version === COMPARISON_STATS_SCHEMA_VERSION;
+    if (modern && (!Array.isArray(value[1]) || value[1].length !== ADDITIVE_SOURCES.length
+      || value[1].some(vector => !Array.isArray(vector) || vector.length !== TOTAL_KEYS.length))) return null;
+    const snapshot = {
       kind: `comparisonCompact:${mode}`,
       stats: decodeNumberVector(value[0], COMPARISON_STAT_KEYS),
-      breakdown: {
-        base: decodeNumberVector(value[1], TOTAL_KEYS),
-        globalPercent: decodeNumberVector(value[2], TOTAL_KEYS)
-      },
-      globalPercentRates: decodeNumberVector(value[3], Object.values(INTERNAL_TO_SNAPSHOT))
+      breakdown: modern
+        ? Object.fromEntries(ADDITIVE_SOURCES.map((source, index) => [source, decodeNumberVector(value[1]?.[index], TOTAL_KEYS)]))
+        : { base: decodeNumberVector(value[1], TOTAL_KEYS) },
+      globalPercentRates: decodeNumberVector(value[3], Object.values(INTERNAL_TO_SNAPSHOT)),
+      calculationVersion: modern ? Number(value[4]) || 0 : 0
     };
+    snapshot.breakdown.globalPercent = decodeNumberVector(value[2], TOTAL_KEYS);
+    // Old compact snapshots contain display integers, not the v29 internal inputs.
+    if (!modern || snapshot.calculationVersion !== SNAPSHOT_CALCULATION_VERSION || value[5] === true) snapshot.stats.combatPower = null;
+    return snapshot;
   }
 
   function encodeComparisonStatSnapshots(apostles = {}) {
@@ -83,12 +85,13 @@
   }
 
   function decodeComparisonStatSnapshots(store = {}) {
-    if (Number(store?.v) !== COMPARISON_STATS_SCHEMA_VERSION || !store.a || typeof store.a !== 'object') return {};
+    const version = Number(store?.v);
+    if (![1, COMPARISON_STATS_SCHEMA_VERSION].includes(version) || !store.a || typeof store.a !== 'object') return {};
     const decoded = {};
     Object.entries(store.a).forEach(([id, value]) => {
       if (!Array.isArray(value)) return;
-      const current = decodeComparisonSnapshot(value[0], 'current');
-      const planned = decodeComparisonSnapshot(value[1], 'planned');
+      const current = decodeComparisonSnapshot(value[0], 'current', version);
+      const planned = decodeComparisonSnapshot(value[1], 'planned', version);
       if (!current && !planned) return;
       decoded[id] = {};
       if (current) decoded[id].current = current;
@@ -160,7 +163,7 @@
     const levelValue = Math.max(1, Number(level) || 1);
     const starValue = normalizeApostleStar(star);
     const gradeRate = getGradeStatBonusRate(data, grade, statKey, basic);
-    const starRate = statKey === 'spRegen' ? 0 : 0.2 * (starValue - 1);
+    const starRate = statKey === 'spRegen' ? 0 : (starValue - 1) * 0.2;
     return Math.floor((Number(base) + Number(coeff) * (levelValue - 1)) * (1 + starRate) * (1 + gradeRate));
   }
 
@@ -207,41 +210,103 @@
     return Number(snapshot?.globalPercentRates?.[snapshotKey] ?? snapshot?.globalPercentRates?.[internalKey]) || 0;
   }
 
-  function applyGradeOverrideToSnapshot(data, basic, apostleState = {}, options = {}) {
-    const grade = normalizeGrade(options.grade ?? apostleState.grade ?? 1);
-    const snapshot = cloneJson(options.snapshot || getSnapshot(apostleState, options.mode || 'current'));
-    if (!snapshot?.stats) {
-      return {
-        kind: options.kind || 'gradeOverride',
-        stats: mapInternalTotalsToSnapshot(calculateBaseTotals(data, basic, apostleState, { grade })),
-        breakdown: { base: calculateBaseTotals(data, basic, apostleState, { grade }) },
-        globalPercentRates: {},
-        gradeOverride: grade
-      };
-    }
+  function hasCompleteBreakdown(snapshot) {
+    const hasNumber = value => value !== null && value !== undefined && value !== ''
+      && Number.isFinite(Number(value));
+    return !!snapshot?.stats && !!snapshot?.globalPercentRates && !!snapshot.breakdown?.globalPercent
+      && ADDITIVE_SOURCES.every(source => snapshot.breakdown?.[source]
+      && TOTAL_KEYS.every(key => hasNumber(snapshot.breakdown[source][key])))
+      && TOTAL_KEYS.every(key => hasNumber(snapshot.breakdown.globalPercent[key])
+        && hasNumber(snapshot.globalPercentRates[INTERNAL_TO_SNAPSHOT[key]]));
+  }
 
-    const currentBase = snapshot.breakdown?.base || calculateBaseTotals(data, basic, apostleState);
-    const nextBase = calculateBaseTotals(data, basic, apostleState, { grade });
-    const next = cloneJson(snapshot);
-    next.kind = options.kind || `${snapshot.kind || 'current'}:gradeOverride`;
-    next.gradeOverride = grade;
+  function canRebuildLegacySnapshot(data, basic, apostleState, snapshot, options = {}) {
+    if (!data || !basic || !hasCompleteBreakdown(snapshot) || !apostleState) return false;
+    // A complete vector is not proof that it belongs to these saved settings.
+    const required = ['level', 'star', 'grade', 'rank', 'bond', 'asideRank'];
+    const missingNumber = value => value === null || value === undefined || value === ''
+      || !Number.isFinite(Number(value));
+    if (required.some(key => missingNumber(apostleState[key]))) return false;
+    if (Number(apostleState.asideRank) > 0 && missingNumber(apostleState.asideLevel)) return false;
+    if (options.mode === 'planned' && (!apostleState.plannedBoards || !snapshot.boardDiff)) return false;
+    const nonzero = source => TOTAL_KEYS.some(key => Number(snapshot.breakdown[source]?.[key]) !== 0);
+    // These legacy vectors have no board/research/rank-global provenance. Their
+    // presence alongside saved settings cannot establish that they still agree.
+    if (['boardBasic', 'boardAdvanced', 'research', 'rankGlobal'].some(nonzero)) return false;
+    const expected = {
+      base: calculateBaseTotals(data, basic, apostleState),
+      rankUp: calculateRankUpTotals(data, basic, apostleState.rank),
+      equipment: calculateEquipmentTotals(data, basic, apostleState),
+      bond: calculateBondTotals(data, basic, apostleState.bond)
+    };
+    return Object.entries(expected).every(([source, values]) => values
+      && TOTAL_KEYS.every(key => Math.abs(Number(snapshot.breakdown[source]?.[key]) - Number(values[key])) < 1e-7));
+  }
+
+  function requiresAsideGlobalRecalculation(data, basic, previousRank, nextRank) {
+    if ((Number(previousRank) >= 3) === (Number(nextRank) >= 3)) return false;
+    if (!data || !basic) return true;
+    const rows = data.getById?.('asideStatEffects', basic.id);
+    if (rows == null && !Array.isArray(data.sheets?.asideStatEffects)) return true;
+    return (Array.isArray(rows) ? rows : []).some(row =>
+      Number(row.SLv ?? row.Lv) === 3
+      && String(row.ステ適用 || '').includes('全体')
+      && String(row.ステ能力値 || '').trim()
+      && Number(row['上昇%']) !== 0);
+  }
+
+  function rebuildSnapshot(data, basic, apostleState, options = {}) {
+    const original = options.snapshot;
+    if (!hasCompleteBreakdown(original)) return null;
+    const state = normalizeApostleOverrideState(basic, apostleState, options.overrides || {});
+    const previous = normalizeApostleOverrideState(basic, original.overrideState || apostleState);
+    // A3 may grant a party-wide percent effect. Its rate cannot be reconstructed
+    // from one apostle's saved snapshot when crossing the A3 boundary.
+    if (requiresAsideGlobalRecalculation(data, basic, previous.asideRank, state.asideRank)) return null;
+    const replacements = {
+      base: calculateBaseTotals(data, basic, state),
+      rankUp: calculateRankUpTotals(data, basic, state.rank),
+      equipment: calculateEquipmentTotals(data, basic, state),
+      bond: calculateBondTotals(data, basic, state.bond),
+      asideManifest: calculateAsideManifestTotals(data, basic, state),
+      asideLevel: calculateAsideLevelTotals(data, basic, state)
+    };
+    if (Object.values(replacements).some(value => value === null)) return null;
+    const next = cloneJson(original);
     next.breakdown = next.breakdown || {};
-    next.breakdown.base = cloneJson(nextBase);
+    Object.entries(replacements).forEach(([source, totals]) => { next.breakdown[source] = cloneJson(totals); });
     next.breakdown.globalPercent = next.breakdown.globalPercent || {};
-
+    next.globalPercentRates = next.globalPercentRates || {};
+    next.stats = next.stats || {};
+    const internalTotals = createEmptyTotals();
     TOTAL_KEYS.forEach(internalKey => {
       const snapshotKey = INTERNAL_TO_SNAPSHOT[internalKey];
-      const oldFinal = Number(snapshot.stats?.[snapshotKey]) || 0;
-      const oldGlobalIncrease = Number(snapshot.breakdown?.globalPercent?.[internalKey]) || 0;
-      const oldBase = Number(currentBase?.[internalKey]) || 0;
-      const additiveWithoutBase = oldFinal - oldGlobalIncrease - oldBase;
-      const additive = additiveWithoutBase + (Number(nextBase[internalKey]) || 0);
-      const percent = readSnapshotRate(snapshot, internalKey);
-      const nextGlobalIncrease = Math.floor(additive * percent / 100);
-      next.breakdown.globalPercent[internalKey] = nextGlobalIncrease;
-      next.stats[snapshotKey] = Math.floor(additive + nextGlobalIncrease);
+      const additive = ADDITIVE_SOURCES.reduce((sum, source) => sum + Number(next.breakdown[source][internalKey] || 0), 0);
+      const followDelta = internalKey === 'spRegen' ? 0 : (state.follow ? 3 : 0) - (previous.follow ? 3 : 0);
+      const rate = readSnapshotRate(original, internalKey) + followDelta;
+      const increase = Math.floor(additive * rate / 100);
+      internalTotals[internalKey] = additive + increase;
+      next.breakdown.globalPercent[internalKey] = increase;
+      next.globalPercentRates[snapshotKey] = rate;
+      next.stats[snapshotKey] = Math.floor(internalTotals[internalKey]);
     });
+    next.internalTotals = internalTotals;
+    next.calculationVersion = SNAPSHOT_CALCULATION_VERSION;
+    next.overrideState = cloneJson(state);
+    next.kind = options.kind || `${original.kind || 'current'}:apostleOverride`;
     next.updatedAt = new Date().toISOString();
+    next.stats.combatPower = null;
+    return next;
+  }
+
+  function applyGradeOverrideToSnapshot(data, basic, apostleState = {}, options = {}) {
+    const grade = normalizeGrade(options.grade ?? apostleState.grade ?? 1);
+    const next = applyApostleOverridesToSnapshot(data, basic, apostleState, {
+      ...options,
+      overrides: { ...(options.overrides || {}), grade },
+      kind: options.kind || 'gradeOverride'
+    });
+    if (next) next.gradeOverride = grade;
     return next;
   }
 
@@ -249,49 +314,71 @@
     return Object.fromEntries(TOTAL_KEYS.map(key => [INTERNAL_TO_SNAPSHOT[key], Math.floor(Number(totals?.[key]) || 0)]));
   }
 
+  function requiredNumber(source, keys) {
+    for (const key of keys) {
+      const value = source?.[key];
+      if (value !== undefined && value !== null && value !== '') {
+        const number = Number(value);
+        if (!Number.isFinite(number) || number < 0) throw new Error(`戦闘力入力が不正: ${key}`);
+        return number;
+      }
+    }
+    return null;
+  }
+
+  function round3AwayFromZero(value) {
+    if (!Number.isFinite(value) || Math.abs(value) >= 1e15) throw new Error('戦闘力の丸め範囲外');
+    const scaled = value * 1000;
+    const whole = Math.trunc(scaled);
+    return (whole + (Math.abs(scaled - whole) >= 0.5 ? Math.sign(scaled) : 0)) / 1000;
+  }
+
   function calculateCombatPower(basic, apostleState = {}, stats = {}) {
-    if (!basic) return 0;
-    const activeAttack = String(basic.攻撃タイプ || basic.攻撃Type || '') === '魔法'
-      ? Number(stats.magicAtk) || 0
-      : Number(stats.physicalAtk) || 0;
-    const defensesAndCrit = (Number(stats.physicalDef) || 0)
-      + (Number(stats.magicDef) || 0)
-      + (Number(stats.crit) || 0)
-      + (Number(stats.critDmg) || 0)
-      + (Number(stats.critRes) || 0)
-      + (Number(stats.critDmgRes) || 0);
-    const correctionA = Number(
-      basic.戦闘力補正値A
-      ?? basic.combatPowerCorrectionA
-      ?? basic.combat_power_correction_a
-    ) || 0;
-    const rarity = Number(basic.レア度) || 3;
-    const rarityCorrection = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
-    const correctionB = Number(
-      basic.戦闘力補正値B
-      ?? basic.combatPowerCorrectionB
-      ?? basic.combat_power_correction_b
-      ?? basic.戦闘力補正
-      ?? basic.combatPowerCorrection
-      ?? basic.weight_value_a
-    ) || 0;
-    const skillCorrection = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity]
-      ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
+    if (!basic) return null;
+    const correction = requiredNumber(basic, ['戦闘力補正値', 'combatPowerCorrection']);
+    const legacyCorrection = requiredNumber(basic, ['戦闘力補正値B', 'combatPowerCorrectionB', 'weight_value_a']);
+    if (correction !== null && legacyCorrection !== null && correction !== legacyCorrection) {
+      throw new Error(`戦闘力補正値と旧Bが矛盾: ${basic.id || ''}`);
+    }
+    const weights = [
+      requiredNumber(basic, ['戦闘力低学年係数', 'combatPowerLowSkillCoefficient']),
+      requiredNumber(basic, ['戦闘力高学年係数', 'combatPowerHighSkillCoefficient']),
+      requiredNumber(basic, ['戦闘力パッシブ係数', 'combatPowerPassiveCoefficient']),
+      requiredNumber(basic, ['戦闘力アサイド係数', 'combatPowerAsideCoefficient'])
+    ];
+    const speed = requiredNumber(basic, ['攻撃速度基礎', 'baseAttackSpeed']);
+    if (correction === null && legacyCorrection === null || weights.includes(null) || speed === null) return null;
+    const numeric = key => {
+      const value = Number(stats[key]);
+      if (!Number.isFinite(value) || value < 0) throw new Error(`戦闘力内部値が不正: ${key}`);
+      return value;
+    };
+    const attack = String(basic.攻撃タイプ || basic.攻撃Type || basic.attackType || '') === '魔法'
+      ? numeric('matk') : numeric('patk');
+    const terms = [
+      attack * 2.1,
+      (numeric('pdef') + numeric('mdef')) * 0.7,
+      numeric('hp') * 0.08,
+      numeric('crit') * 0.7,
+      numeric('critDmg') * 0.7,
+      numeric('critRes') * 0.7,
+      numeric('critDmgRes') * 0.7,
+      speed * 0.6
+    ];
+    const sum = terms.reduce((value, term) => value + round3AwayFromZero(term), 0);
     const skills = apostleState.skillLevels || apostleState.skills || {};
-    const skillLevelSum = ['low', 'high', 'passive']
-      .map(key => Math.max(1, Number(skills[key]) || 1))
-      .reduce((total, value) => total + value, 0);
-    const asideBonus = isPublicAsideEnabled(basic?.id) && (Number(apostleState.asideRank) || 0) >= 2
-      ? COMBAT_POWER_ASIDE_BONUS
-      : 0;
-    const basePower = (Number(stats.hp) || 0) * 0.08
-      + activeAttack * 2.1
-      + (defensesAndCrit + correctionA) * 0.7;
-    const multiplier = rarityCorrection
-      + correctionB
-      + asideBonus
-      + skillCorrection * Math.max(0, skillLevelSum - 3);
-    return Math.max(0, Math.floor(basePower * multiplier));
+    const levels = ['low', 'high', 'passive'].map(key => {
+      const value = Number(skills[key] ?? 1);
+      if (!Number.isInteger(value) || value < 0) throw new Error(`戦闘力スキルLvが不正: ${key}`);
+      return value;
+    });
+    const aside = isPublicAsideEnabled(basic.id) && Number(apostleState.asideRank || 0) >= 2 ? weights[3] : 0;
+    let factor = weights[0] * levels[0] + 1;
+    factor += weights[1] * levels[1];
+    factor += weights[2] * levels[2];
+    factor += aside;
+    factor += correction ?? legacyCorrection;
+    return Math.trunc(sum * factor);
   }
 
   function calculateRankUpTotals(data, basic, rankValue) {
@@ -365,60 +452,51 @@
 
   function getAsideAttackFields(basic) {
     const physical = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理';
-    return {
-      key: physical ? 'patk' : 'matk',
-      tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ',
-      manifest: physical ? '物理攻撃力発現値' : '魔法攻撃力発現値',
-      star: physical ? '物理攻撃力星上昇値' : '魔法攻撃力星上昇値'
+    return { key: physical ? 'patk' : 'matk' };
+  }
+
+  function calculateAsideContribution(data, basic, state) {
+    const rank = Number(state?.asideRank) || 0;
+    if (!rank || !isPublicAsideEnabled(basic?.id)) {
+      return { base: createEmptyTotals(), growth: createEmptyTotals(), total: createEmptyTotals(), multiplier: 0 };
+    }
+    const multiplier = ASIDE_GRADE_MULTIPLIERS[rank];
+    if (multiplier === undefined) throw new Error(`未対応のアサイド段階: ${rank}`);
+    const row = getAsideTierRow(data, basic);
+    if (!row) return null;
+    const attackFields = getAsideAttackFields(basic);
+    const read = (newKey, oldKey) => {
+      const value = row[newKey] ?? row[oldKey];
+      if (value === undefined || value === null || value === '') return null;
+      const number = Number(value);
+      if (!Number.isFinite(number)) throw new Error(`アサイド原値が不正: ${basic.id}/${newKey}`);
+      return number;
     };
+    const fields = [
+      ['hp', 'HP'], [attackFields.key, attackFields.key === 'patk' ? '物理攻撃力' : '魔法攻撃力'],
+      ['pdef', '物理防御力'], ['mdef', '魔法防御力']
+    ];
+    const base = createEmptyTotals();
+    const growth = createEmptyTotals();
+    const total = createEmptyTotals();
+    const growthLevels = Math.max(0, Number(state?.asideLevel || 1) - 1);
+    for (const [key, label] of fields) {
+      const rawBase = read(`${label}基礎値`, `${label}発現値`);
+      const rawGrowth = read(`${label}_A1成長値`, `${label}_A1成長値`);
+      if (rawBase === null || rawGrowth === null) return null;
+      base[key] = rawBase * multiplier;
+      growth[key] = rawGrowth * growthLevels * multiplier;
+      total[key] = (rawBase + rawGrowth * growthLevels) * multiplier;
+    }
+    return { base, growth, total, multiplier };
   }
 
   function calculateAsideManifestTotals(data, basic, state) {
-    const totals = createEmptyTotals();
-    if (!isPublicAsideEnabled(basic?.id) || !(Number(state?.asideRank) || 0)) return totals;
-    const row = getAsideTierRow(data, basic);
-    const attackFields = getAsideAttackFields(basic);
-    const attackKey = attackFields.key;
-    const baseAttackTier = attackKey === 'patk' ? basic?.物理攻撃力タイプ : basic?.魔法攻撃力タイプ;
-    const values = {
-      hp: Number(row?.HP発現値) || (Number(findBaseStatValue(data, Number(row?.HPタイプ) || basic?.HPタイプ, 'hp')?.base) || 0) * 3,
-      attack: Number(row?.[attackFields.manifest]) || Number(row?.攻撃力発現値)
-        || (Number(findBaseStatValue(data, Number(row?.[attackFields.tier]) || Number(row?.攻撃力タイプ) || baseAttackTier, 'attack')?.base) || 0) * 3,
-      pdef: Number(row?.物理防御力発現値) || (Number(findBaseStatValue(data, Number(row?.物理防御力タイプ) || basic?.物理防御力タイプ, 'defense')?.base) || 0) * 3,
-      mdef: Number(row?.魔法防御力発現値) || (Number(findBaseStatValue(data, Number(row?.魔法防御力タイプ) || basic?.魔法防御力タイプ, 'defense')?.base) || 0) * 3
-    };
-    totals.hp = values.hp;
-    totals[attackKey] = values.attack;
-    totals.pdef = values.pdef;
-    totals.mdef = values.mdef;
-    return totals;
+    return calculateAsideContribution(data, basic, state)?.base ?? null;
   }
 
   function calculateAsideLevelTotals(data, basic, state) {
-    const totals = createEmptyTotals();
-    if (!isPublicAsideEnabled(basic?.id)) return totals;
-    const rank = Math.max(0, Math.min(3, Number(state?.asideRank) || 0));
-    const level = Number(state?.asideLevel) || 0;
-    const multiplier = ({ 1: 3, 2: 3.09, 3: 3.18 })[rank] || 0;
-    if (!rank || !level || !multiplier) return totals;
-    const row = getAsideTierRow(data, basic);
-    const attackFields = getAsideAttackFields(basic);
-    const attackKey = attackFields.key;
-    const baseAttackTier = attackKey === 'patk' ? basic?.物理攻撃力タイプ : basic?.魔法攻撃力タイプ;
-    const growthLevels = Math.max(0, level - 1);
-    const starBonusCount = Math.max(0, Math.min(2, rank - 1));
-    const calculate = (tier, group, starBonus) =>
-      Math.floor((Number(findBaseStatValue(data, tier, group)?.coeff) || 0) * multiplier * growthLevels)
-      + (Number(starBonus) || 0) * starBonusCount;
-    totals.hp = calculate(Number(row?.HPタイプ) || basic?.HPタイプ, 'hp', row?.HP星上昇値);
-    totals[attackKey] = calculate(
-      Number(row?.[attackFields.tier]) || Number(row?.攻撃力タイプ) || baseAttackTier,
-      'attack',
-      row?.[attackFields.star] ?? row?.攻撃力星上昇値
-    );
-    totals.pdef = calculate(Number(row?.物理防御力タイプ) || basic?.物理防御力タイプ, 'defense', row?.物理防御力星上昇値);
-    totals.mdef = calculate(Number(row?.魔法防御力タイプ) || basic?.魔法防御力タイプ, 'defense', row?.魔法防御力星上昇値);
-    return totals;
+    return calculateAsideContribution(data, basic, state)?.growth ?? null;
   }
 
   function normalizeApostleOverrideState(basic, apostleState, overrides = {}) {
@@ -458,51 +536,12 @@
       kind: 'calculatedFallback',
       stats: mapInternalTotalsToSnapshot(emptyTotals),
       breakdown: {
-        base: cloneJson(emptyTotals),
-        rankUp: cloneJson(emptyTotals),
-        equipment: cloneJson(emptyTotals),
-        bond: cloneJson(emptyTotals),
-        asideManifest: cloneJson(emptyTotals),
-        asideLevel: cloneJson(emptyTotals),
+        ...Object.fromEntries(ADDITIVE_SOURCES.map(source => [source, cloneJson(emptyTotals)])),
         globalPercent: cloneJson(emptyTotals)
       },
       globalPercentRates: {}
     };
-    const state = normalizeApostleOverrideState(basic, apostleState, options.overrides || {});
-    const previous = normalizeApostleOverrideState(basic, apostleState, {});
-    const replacements = {
-      base: calculateBaseTotals(data, basic, state),
-      rankUp: calculateRankUpTotals(data, basic, state.rank),
-      equipment: calculateEquipmentTotals(data, basic, state),
-      bond: calculateBondTotals(data, basic, state.bond),
-      asideManifest: calculateAsideManifestTotals(data, basic, state),
-      asideLevel: calculateAsideLevelTotals(data, basic, state)
-    };
-    const next = cloneJson(snapshot);
-    next.kind = options.kind || `${snapshot.kind || 'current'}:apostleOverride`;
-    next.breakdown = next.breakdown || {};
-    next.breakdown.globalPercent = next.breakdown.globalPercent || {};
-    next.globalPercentRates = next.globalPercentRates || {};
-
-    TOTAL_KEYS.forEach(internalKey => {
-      const snapshotKey = INTERNAL_TO_SNAPSHOT[internalKey];
-      const oldFinal = Number(snapshot.stats?.[snapshotKey]) || 0;
-      const oldGlobalIncrease = Number(snapshot.breakdown?.globalPercent?.[internalKey]) || 0;
-      let additive = Math.max(0, oldFinal - oldGlobalIncrease);
-      Object.entries(replacements).forEach(([source, totals]) => {
-        additive += (Number(totals?.[internalKey]) || 0) - (Number(snapshot.breakdown?.[source]?.[internalKey]) || 0);
-      });
-      const followDelta = internalKey === 'spRegen' ? 0 : (state.follow ? 3 : 0) - (previous.follow ? 3 : 0);
-      const rate = readSnapshotRate(snapshot, internalKey) + followDelta;
-      const increase = Math.floor(Math.max(0, additive) * rate / 100);
-      next.breakdown.globalPercent[internalKey] = increase;
-      next.globalPercentRates[snapshotKey] = rate;
-      next.stats[snapshotKey] = Math.floor(Math.max(0, additive) + increase);
-    });
-    Object.entries(replacements).forEach(([source, totals]) => { next.breakdown[source] = cloneJson(totals); });
-    next.overrideState = cloneJson(state);
-    next.updatedAt = new Date().toISOString();
-    return next;
+    return rebuildSnapshot(data, basic, apostleState, { ...options, snapshot });
   }
 
   function createInitialSnapshot(data, basic, apostleState = {}) {
@@ -510,18 +549,23 @@
     const snapshot = applyApostleOverridesToSnapshot(data, basic, apostleState, {
       kind: 'initialDefault'
     });
-    if (snapshot?.stats) {
-      snapshot.stats.combatPower = calculateCombatPower(basic, apostleState, snapshot.stats);
-    }
+    // An existing snapshot cannot be reversed into exact internal fractional stats.
+    if (snapshot?.stats) snapshot.stats.combatPower = null;
     return snapshot;
   }
 
   window.TRICKCAL_SHARED_STAT_ENGINE = {
-    version: 5,
+    version: 7,
+    snapshotCalculationVersion: SNAPSHOT_CALCULATION_VERSION,
+    hasCompleteBreakdown,
+    canRebuildLegacySnapshot,
+    requiresAsideGlobalRecalculation,
     normalizeGrade,
     getGradeStatBonusRate,
     calculateBaseTotals,
     calculateCombatPower,
+    round3AwayFromZero,
+    calculateAsideContribution,
     encodeComparisonStatSnapshots,
     decodeComparisonStatSnapshots,
     createInitialSnapshot,

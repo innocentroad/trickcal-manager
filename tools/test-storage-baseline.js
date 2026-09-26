@@ -30,6 +30,7 @@ function readJson(relativePath) {
 const inventory = readJson('tools/storage-inventory.json');
 assert.equal(inventory.schemaVersion, 1, '保存台帳のschemaVersionが想定外です');
 assert.ok(Array.isArray(inventory.productionSources) && inventory.productionSources.length > 0, '本番参照元が空です');
+assert.ok(Array.isArray(inventory.localPrototypeSources), 'ローカル試作の保存範囲がありません');
 assert.ok(Array.isArray(inventory.verificationSources) && inventory.verificationSources.length > 0, '検証参照元が空です');
 assert.ok(Array.isArray(inventory.entries) && inventory.entries.length >= 19, '保存キー台帳が不足しています');
 assert.ok(Array.isArray(inventory.channels) && inventory.channels.length >= 5, '保存関連チャネル台帳が不足しています');
@@ -292,6 +293,15 @@ const commentOnlyInspection = inspectStorageProject({
   ]])
 });
 assert.deepEqual(commentOnlyInspection.errors, [], 'コメント内のstorage文字列を本番検査で誤検出しています');
+if (productionFiles.has('enemy-research.js')) {
+  const prototypeMutation = inspectStorageProject({
+    root: ROOT,
+    sourceOverrides: new Map([['enemy-research.js',
+      `${readText('enemy-research.js')}\nlocalStorage.setItem('trickcal.enemyResearch.unregistered.v1', 'x');\n`]])
+  });
+  assert.ok(prototypeMutation.errors.some(error => error.includes('trickcal.enemyResearch.unregistered.v1')),
+    'ローカル試作の未登録キーを見逃しています');
+}
 
 assert.throws(
   () => scanStorageAccesses('localStorage.setItem(', 'parse-error.js'),
@@ -649,6 +659,15 @@ for (const entry of inventory.entries) {
   assert.ok(sourceText.includes(entry.key), `${entry.id}のキーが参照元にありません: ${entry.key}`);
   assert.ok(Array.isArray(entry.operations) && entry.operations.includes('read'), `${entry.id}にread操作がありません`);
 }
+for (const prototype of inventory.localPrototypeSources) {
+  assert.ok(!inventory.productionSources.includes(prototype.file), `${prototype.file}を公開参照元として誤分類しています`);
+  assert.ok(Array.isArray(prototype.keys) && prototype.keys.length > 0, `${prototype.file}の試作保存キーがありません`);
+  for (const entry of prototype.keys) {
+    assert.ok(!keys.has(entry.key), `保存キーが本番または試作内で重複しています: ${entry.key}`);
+    keys.add(entry.key);
+    assert.ok(entry.purpose && entry.readFailure && entry.writeFailure, `${entry.key}の用途・失敗経路が不足しています`);
+  }
+}
 
 const failureEntryIds = new Set(inventory.failureMatrix.map(item => item.entryId));
 assert.equal(failureEntryIds.size, inventory.failureMatrix.length, '失敗経路台帳のentryIdが重複しています');
@@ -740,14 +759,15 @@ for (const [page, appScript] of storageBootPages) {
   assert.ok(bootIndex >= 0, `${page}がstorage-bootstrap.jsを読み込みません`);
   assert.ok(appIndex > bootIndex, `${page}がstorage boot前に${appScript}を読み込みます`);
 }
-for (const asset of [
-  'storage-registry.js?v=20260913a',
-  'storage-runtime.js?v=20260913a',
-  'storage-bootstrap.js?v=20260913a'
-]) {
-  assert.ok(appCache.includes(asset), `app-cache.jsに${asset}が登録されていません`);
+for (const route of ['manager', 'calc', 'dps']) {
+  const assets = appCache.match(new RegExp(`\\b${route}: \\[((?:.|\\n)*?)\\]`))?.[1] || '';
+  for (const asset of ['storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js']) {
+    assert.ok(assets.includes(`'${asset}'`), `app-cache.jsの${route}に${asset}が登録されていません`);
+  }
 }
-assert.match(serviceWorker, /const CACHE_VERSION = '20260913-storage-1'/, 'storage共通層のCache版が更新されていません');
+assert.match(serviceWorker, /const CACHE_VERSION = ["'][^"']+["']/, '表示Cache版がありません');
+assert.match(serviceWorker, /const RUNTIME_CACHE = `\$\{OWNED_CACHE_PREFIX\}\$\{CACHE_VERSION\}`/,
+  '表示Cache版をprofile別namespaceへ接続していません');
 
 assert.match(stat, /const EXPORT_SCHEMA = 'trickcal-stat-state'/, 'ステータスexport schemaが変わっています');
 assert.match(stat, /const EXPORT_VERSION = 2/, 'ステータスexport versionが変わっています');
@@ -783,7 +803,12 @@ assert.ok(dps.includes('persistDpsSettingsForTarget(targetId'), 'DPS対象別保
 assert.match(legacyDps, /DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1'/, '旧DPS controllerの共有overrideキーが変わっています');
 assert.match(combat, /const COMPARISON_SESSION_VERSION = 3/, '比較session versionが変わっています');
 assert.match(pages, /--exclude 'tools\//, 'Pagesの検証用tools除外が変わっています');
-assert.match(serviceWorker, /const CACHE_PREFIX = 'trickcal-manager'/, '表示Cacheのprefixが変わっています');
+assert.match(serviceWorker, /const PROFILE_KEY = BASE_PATH === '\/' \? 'new-root' : 'legacy-trickcal-manager'/,
+  '表示Cacheのprofile別識別が変わっています');
+assert.match(serviceWorker, /const CACHE_NAMESPACE = `\$\{APP_ID\}-\$\{PROFILE_KEY\}`/,
+  '表示Cacheのprofile別namespaceが変わっています');
+assert.match(serviceWorker, /key\.startsWith\(OWNED_CACHE_PREFIX\) \|\| KNOWN_OLD_CACHE_NAMES\.includes\(key\)/,
+  '所有cache以外を削除対象にしています');
 
 const fixture = readJson('tools/fixtures/max-growth-verification-state.json');
 assert.equal(fixture.schema, 'trickcal-stat-state', '最大育成fixtureのschemaが変わっています');

@@ -35,7 +35,11 @@ const totals = {
   critRes: 100,
   critDmgRes: 100
 };
-const enabledBasic = { id: 'kidian', レア度: 3, 攻撃タイプ: '物理' };
+const enabledBasic = {
+  id: 'kidian', 攻撃タイプ: '物理', 攻撃速度基礎: 100, 戦闘力補正値: 0.2,
+  戦闘力低学年係数: 0.02, 戦闘力高学年係数: 0.02,
+  戦闘力パッシブ係数: 0.02, 戦闘力アサイド係数: 0.7
+};
 const enabledState = { asideRank: 3, skillLevels: { low: 1, high: 1, passive: 1 } };
 const noAsidePower = engine.calculateCombatPower(enabledBasic, { ...enabledState, asideRank: 0 }, totals);
 const enabledPower = engine.calculateCombatPower(enabledBasic, enabledState, totals);

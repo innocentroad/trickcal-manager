@@ -238,13 +238,22 @@ def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object
             "会心DMGTier": "会心DMGタイプ",
             "会心抵抗Tier": "会心抵抗タイプ",
             "会心DMG抵抗Tier": "会心DMG抵抗タイプ",
-            # Keep the public names used by the CP formula stable while accepting the legacy datasheet header as the B correction.
-            "戦闘力補正": "戦闘力補正値B",
-            "weight_value_a": "戦闘力補正値B",
+            "戦闘力補正値B": "戦闘力補正値",
+            "戦闘力補正": "戦闘力補正値",
+            "weight_value_a": "戦闘力補正値",
         }
         for old, new in renames.items():
-            if new not in item and old in item:
-                item[new] = item[old]
+            if old in item and item[old] not in ("", None):
+                if new in item and item[new] not in ("", None) and item[new] != item[old]:
+                    raise ValueError(f"basicInfo {item.get('id')}: {new} conflicts with {old}")
+                if new not in item or item[new] in ("", None):
+                    item[new] = item[old]
+        if item.get("id"):
+            required = ("攻撃速度基礎", "戦闘力補正値", "戦闘力低学年係数",
+                        "戦闘力高学年係数", "戦闘力パッシブ係数", "戦闘力アサイド係数")
+            missing = [key for key in required if item.get(key) in ("", None)]
+            if missing:
+                raise ValueError(f"basicInfo {item['id']}: missing combat-power inputs: {missing}")
         normalized.append(item)
     return normalized
 
@@ -499,12 +508,11 @@ def normalize_aside_tiers(
     rows: list[dict[str, object]],
     basic_info: list[dict[str, object]],
 ) -> list[dict[str, object]]:
-    ids_by_name = {
-        str(row.get("使徒名", "")): str(row.get("id", ""))
-        for row in basic_info
-        if row.get("使徒名", "") != "" and row.get("id", "") != ""
-    }
-    valid_ids = set(ids_by_name.values())
+    ids_by_name: dict[str, set[str]] = {}
+    for basic in basic_info:
+        if basic.get("使徒名") and basic.get("id"):
+            ids_by_name.setdefault(str(basic["使徒名"]), set()).add(str(basic["id"]))
+    valid_ids = {str(row["id"]) for row in basic_info if row.get("id")}
     basic_by_id = {
         str(row.get("id", "")): row
         for row in basic_info
@@ -523,7 +531,10 @@ def normalize_aside_tiers(
         name = str(row.get("使徒名", ""))
         row_id = str(row.get("id", ""))
         if row_id not in valid_ids:
-            row_id = ids_by_name.get(name, row_id)
+            matches = ids_by_name.get(name, set())
+            if len(matches) != 1:
+                raise ValueError(f"asideTiers: unresolved id={row_id!r}, name={name!r}, candidates={sorted(matches)}")
+            row_id = next(iter(matches))
         if row_id == "":
             continue
         basic = basic_by_id.get(row_id, {})
@@ -534,8 +545,12 @@ def normalize_aside_tiers(
         magic_attack_bonus_legacy = ("ATK\nAsideBonus",) if attack_type == "魔法" else ()
         physical_attack_growth_legacy = ("ATK\nAsideGrowth",) if attack_type == "物理" else ()
         magic_attack_growth_legacy = ("ATK\nAsideGrowth",) if attack_type == "魔法" else ()
-        physical_attack_star_legacy = ("ATK\nAsideStarBonus",) if attack_type == "物理" else ()
-        magic_attack_star_legacy = ("ATK\nAsideStarBonus",) if attack_type == "魔法" else ()
+        def base_value(prefix: str, *legacy: str) -> object:
+            current = first_value(row, f"{prefix}_AsideBase")
+            old = first_value(row, f"{prefix}_AsideBonus", *legacy)
+            if current not in ("", None) and old not in ("", None) and current != old:
+                raise ValueError(f"asideTiers {row_id}: {prefix}_AsideBase conflicts with AsideBonus")
+            return current if current not in ("", None) else old
         normalized.append({
             "id": row_id,
             "使徒名": name,
@@ -548,15 +563,11 @@ def normalize_aside_tiers(
             ),
             "物理防御力タイプ": first_value(row, "物理防御力_AsideTier", "DEF\nAsideTier"),
             "魔法防御力タイプ": first_value(row, "魔法防御力_AsideTier", "DEF\nAsideTier"),
-            "HP発現値": first_value(row, "HP_AsideBonus", "HP\nAsideBonus"),
-            "物理攻撃力発現値": first_value(
-                row, "物理攻撃力_AsideBonus", *physical_attack_bonus_legacy
-            ),
-            "魔法攻撃力発現値": first_value(
-                row, "魔法攻撃力_AsideBonus", *magic_attack_bonus_legacy
-            ),
-            "物理防御力発現値": first_value(row, "物理防御力_AsideBonus", "DEF\nAsideBonus"),
-            "魔法防御力発現値": first_value(row, "魔法防御力_AsideBonus", "DEF\nAsideBonus"),
+            "HP基礎値": base_value("HP", "HP\nAsideBonus"),
+            "物理攻撃力基礎値": base_value("物理攻撃力", *physical_attack_bonus_legacy),
+            "魔法攻撃力基礎値": base_value("魔法攻撃力", *magic_attack_bonus_legacy),
+            "物理防御力基礎値": base_value("物理防御力", "DEF\nAsideBonus"),
+            "魔法防御力基礎値": base_value("魔法防御力", "DEF\nAsideBonus"),
             "HP_A1成長値": first_value(row, "HP_AsideGrowth", "HP\nAsideGrowth"),
             "物理攻撃力_A1成長値": first_value(
                 row, "物理攻撃力_AsideGrowth", *physical_attack_growth_legacy
@@ -566,15 +577,6 @@ def normalize_aside_tiers(
             ),
             "物理防御力_A1成長値": first_value(row, "物理防御力_AsideGrowth", "DEF\nAsideGrowth"),
             "魔法防御力_A1成長値": first_value(row, "魔法防御力_AsideGrowth", "DEF\nAsideGrowth"),
-            "HP星上昇値": first_value(row, "HP_AsideStarBonus", "HP\nAsideStarBonus"),
-            "物理攻撃力星上昇値": first_value(
-                row, "物理攻撃力_AsideStarBonus", *physical_attack_star_legacy
-            ),
-            "魔法攻撃力星上昇値": first_value(
-                row, "魔法攻撃力_AsideStarBonus", *magic_attack_star_legacy
-            ),
-            "物理防御力星上昇値": first_value(row, "物理防御力_AsideStarBonus", "DEF\nAsideStarBonus"),
-            "魔法防御力星上昇値": first_value(row, "魔法防御力_AsideStarBonus", "DEF\nAsideStarBonus"),
         })
     return normalized
 

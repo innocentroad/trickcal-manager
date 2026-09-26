@@ -62,10 +62,15 @@ KEY_MAP = {
     "SP回復": "initialSp",
     "初期SP": "initialSp",
     "毎秒SP回復量": "spRecoveryPerSecond",
-    "戦闘力補正値A": "combatPowerCorrectionA",
-    "戦闘力補正値B": "combatPowerCorrectionB",
-    "戦闘力補正": "combatPowerCorrectionB",
-    "weight_value_a": "combatPowerCorrectionB",
+    "攻撃速度基礎": "baseAttackSpeed",
+    "戦闘力補正値": "combatPowerCorrection",
+    "戦闘力補正値B": "combatPowerCorrection",
+    "戦闘力補正": "combatPowerCorrection",
+    "weight_value_a": "combatPowerCorrection",
+    "戦闘力低学年係数": "combatPowerLowSkillCoefficient",
+    "戦闘力高学年係数": "combatPowerHighSkillCoefficient",
+    "戦闘力パッシブ係数": "combatPowerPassiveCoefficient",
+    "戦闘力アサイド係数": "combatPowerAsideCoefficient",
     "ボードタイプ": "boardType",
     "ボード形": "boardShape",
     "no": "no",
@@ -255,6 +260,8 @@ def read_sheet_rows(
             if key == "effectStack" and value is False:
                 continue
             if has_value(value):
+                if key == "combatPowerCorrection" and key in item and item[key] != value:
+                    raise ValueError(f"{sheet_name}: 戦闘力補正値と旧Bが矛盾: {item.get('id')}")
                 item[key] = value
         if item.get("targetSkill") in REFERENCE_VALUE_NAMES and not item.get("reference"):
             item["reference"] = item.pop("targetSkill")
@@ -564,6 +571,12 @@ def build_library(workbook: Any) -> tuple[list[dict[str, Any]], dict[str, dict[s
         apostle_id = row.get("id")
         if not apostle_id:
             continue
+        required = ("baseAttackSpeed", "combatPowerCorrection", "combatPowerLowSkillCoefficient",
+                    "combatPowerHighSkillCoefficient", "combatPowerPassiveCoefficient",
+                    "combatPowerAsideCoefficient")
+        missing = [key for key in required if key not in row]
+        if missing:
+            raise ValueError(f"basic {apostle_id}: missing combat-power inputs: {missing}")
         normalize_personality_options(row, personality_key="personality", options_key="personalityOptions")
         basic = compact_row(row)
         stat_types: dict[str, Any] = {}

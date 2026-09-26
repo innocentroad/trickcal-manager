@@ -661,16 +661,16 @@ async function run() {
     assert.ok(asideSnapshots.tier && asideSnapshots.variants.every(item => Number.isInteger(item.asideRank)), '既存stat engineのジョアンA0〜A3 snapshotを生成');
     const [aside0, aside1, aside2, aside3] = asideSnapshots.variants;
     const expectedManifest = {
-      hp: Number(asideSnapshots.tier.HP発現値) || 0,
-      patk: Number(asideSnapshots.tier.物理攻撃力発現値) || 0,
-      pdef: Number(asideSnapshots.tier.物理防御力発現値) || 0,
-      mdef: Number(asideSnapshots.tier.魔法防御力発現値) || 0
+      hp: Number(asideSnapshots.tier.HP基礎値 ?? asideSnapshots.tier.HP発現値),
+      patk: Number(asideSnapshots.tier.物理攻撃力基礎値 ?? asideSnapshots.tier.物理攻撃力発現値),
+      pdef: Number(asideSnapshots.tier.物理防御力基礎値 ?? asideSnapshots.tier.物理防御力発現値),
+      mdef: Number(asideSnapshots.tier.魔法防御力基礎値 ?? asideSnapshots.tier.魔法防御力発現値)
     };
     for (const [key, value] of Object.entries(expectedManifest)) {
       assert.equal(aside0.manifest[key], 0, `A0ではアサイド発現を加算しない: ${key}`);
       assert.equal(aside1.manifest[key], value, `A1発現値をシート値で一度だけ適用: ${key}`);
-      assert.equal(aside2.manifest[key], value, `A2でも発現値を重複加算しない: ${key}`);
-      assert.equal(aside3.manifest[key], value, `A3でも発現値を重複加算しない: ${key}`);
+      assert.ok(Math.abs(aside2.manifest[key] - value * 1.03) < 1e-8, `A2は基礎値にも段階倍率を一度だけ適用: ${key}`);
+      assert.ok(Math.abs(aside3.manifest[key] - value * 1.06) < 1e-8, `A3は基礎値にも段階倍率を一度だけ適用: ${key}`);
     }
     const expectedA1Growth = {
       hp: (Number(asideSnapshots.tier.HP_A1成長値) || 0) * 29,
@@ -680,8 +680,8 @@ async function run() {
     };
     for (const [key, value] of Object.entries(expectedA1Growth)) {
       assert.equal(aside1.level[key], value, `A1の29成長段階はA1成長値から一度だけ算出: ${key}`);
-      assert.equal(aside2.level[key], Number(asideSnapshots.tier[({ hp: 'HP星上昇値', patk: '物理攻撃力星上昇値', pdef: '物理防御力星上昇値', mdef: '魔法防御力星上昇値' })[key]]) || 0, `A2 Lv1の星上昇分: ${key}`);
-      assert.equal(aside3.level[key], 2 * (Number(asideSnapshots.tier[({ hp: 'HP星上昇値', patk: '物理攻撃力星上昇値', pdef: '物理防御力星上昇値', mdef: '魔法防御力星上昇値' })[key]]) || 0), `A3 Lv1の星上昇分: ${key}`);
+      assert.equal(aside2.level[key], 0, `A2 Lv1に固定星上昇を加えない: ${key}`);
+      assert.equal(aside3.level[key], 0, `A3 Lv1に固定星上昇を加えない: ${key}`);
     }
     for (const [key, value] of Object.entries(asideSnapshots.globalRates)) {
       const a3Rate = Number(aside3.globalPercentRates[key]) || 0;

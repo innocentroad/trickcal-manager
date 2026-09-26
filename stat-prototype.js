@@ -83,17 +83,6 @@
   const APOSTLE_STAR_MAX = 5;
   const GRADE_MAX = 6;
   const RESEARCH_LIMITS = RESEARCH.getLimits(DATA.sheets.research || []);
-  const COMBAT_POWER_BASE_BY_RARITY = {
-    1: 1.015,
-    2: 1.03,
-    3: 1.06
-  };
-  const COMBAT_POWER_ASIDE_BONUS = 0.7;
-  const COMBAT_POWER_SKILL_VALUE_BY_RARITY = {
-    1: 0.005,
-    2: 0.01,
-    3: 0.02
-  };
   const FORMATION_COIN_BASE = 216;
   const FORMATION_COIN_BONUS = 30;
   const FORMATION_COIN_CP_RATE = 0.000012;
@@ -178,11 +167,6 @@
     { key: 'asideLevel', label: 'アサイドLv' }
   ];
 
-  const ASIDE_LEVEL_STAT_MULTIPLIERS = {
-    1: 3,
-    2: 3.09,
-    3: 3.18
-  };
 
   const STAT_ALIASES = {
     HP: 'hp',
@@ -510,6 +494,7 @@
   let statSnapshotRefreshTimer = 0;
   let statSnapshotRefreshWorkTimer = 0;
   let pendingStatSnapshotRefreshIds = new Set();
+  let stateSlotSavePending = false;
   let stateManagerRenderTimer = 0;
   let renderTimer = 0;
   let pendingImportedState = null;
@@ -2704,7 +2689,7 @@
       button.classList.toggle('is-dirty', key === slotKey && dirty);
       button.classList.toggle('has-external-conflict', key === externalConflictSlotKey);
       button.classList.toggle('has-data', !!snapshot);
-      button.disabled = (mode === 'delete' || mode === 'export') && !snapshot;
+      button.disabled = stateSlotSavePending || ((mode === 'delete' || mode === 'export') && !snapshot);
       button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
       button.title = snapshot
         ? `${key === externalConflictSlotKey ? '別タブ更新あり / ' : ''}${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
@@ -2745,9 +2730,8 @@
     }
     [elements.saveStateSlot, elements.loadStateSlot, elements.deleteStateSlot].forEach(button => {
       button?.classList.toggle('is-selected', button.dataset.stateSlotMode === mode);
+      if (button) button.disabled = stateSlotSavePending;
     });
-    elements.loadStateSlot.disabled = false;
-    elements.deleteStateSlot.disabled = false;
   }
 
   function getStateSlotMode() {
@@ -2769,10 +2753,14 @@
   }
 
   function handleStateSlotClick(targetSlot) {
+    if (stateSlotSavePending) return;
     persistCurrentControls();
     const mode = getStateSlotMode();
     if (mode === 'save') {
-      void saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '').catch(reportStorageFailure);
+      void saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '').catch(error => {
+        reportStorageFailure(error);
+        showStateStatus('保存処理を完了できませんでした。スロットの保存状態を確認してください。', true);
+      });
       return;
     }
     if (mode === 'load') {
@@ -2822,8 +2810,26 @@
   }
 
   async function saveCurrentStateToSlot(slot, slotName = '') {
+    if (stateSlotSavePending) return false;
+    stateSlotSavePending = true;
+    showStateStatus('スロットを保存中です');
+    renderStateManager();
+    try {
     persistCurrentControls();
     appState.activeId = view.id;
+    // Capture the slot's own current/planned values after all pending edits,
+    // including members other than the selected apostle.
+    if (statSnapshotRefreshTimer) {
+      window.clearTimeout(statSnapshotRefreshTimer);
+      statSnapshotRefreshTimer = 0;
+    }
+    if (statSnapshotRefreshWorkTimer) {
+      window.clearTimeout(statSnapshotRefreshWorkTimer);
+      statSnapshotRefreshWorkTimer = 0;
+    }
+    pendingStatSnapshotRefreshIds = new Set();
+    isRefreshingStatSnapshots = false;
+    refreshAllStatSnapshots();
     const safeSlot = normalizeStateSlot(slot);
     const previousName = appState.savedStates[String(safeSlot)]?.slotName || '';
     const normalizedName = String(slotName || '').trim() || previousName;
@@ -2857,12 +2863,19 @@
     appState.activeStateSlot = view.stateSlot;
     stateSlotBaseRevision = result.slotRevision;
     stateExternalConflict = null;
-    if (!saveState({ flush: true })) return false;
+    if (!saveState({ flush: true })) {
+      showStateStatus(`スロット${safeSlot}は保存しましたが、作業状態の同期に失敗しました。再読み込み前に保存状態を確認してください。`, true);
+      return false;
+    }
     setStateSlotMode('');
     renderStateManager();
     const savedName = getStateSlotDisplayName(String(safeSlot), snapshot);
     showStateStatus(`${savedName}（スロット${view.stateSlot}）に保存しました`);
     return true;
+    } finally {
+      stateSlotSavePending = false;
+      renderStateManager();
+    }
   }
 
   function loadStateSlot(slot) {
@@ -2877,9 +2890,18 @@
     setStateSlotMode('');
     if (applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), { activeStateSlot: safeSlot }) === false) return;
     commitHistoryAction(history);
-    showStateStatus(snapshot
-      ? `スロット${safeSlot}を読み込みました`
-      : `空のスロット${safeSlot}を新規状態として開きました`);
+    const missingGrowth = snapshot && Number(snapshot.comparisonStats?.v) !== 2
+      ? Object.entries(snapshot.apostles || {}).flatMap(([id, apostle]) => {
+        const required = [['level', 'Lv'], ['star', '★'], ['grade', '学年'], ['rank', 'Rank'],
+          ['bond', '好感度'], ['asideRank', 'アサイド段階']];
+        if (Number(apostle?.asideRank) > 0) required.push(['asideLevel', 'アサイドLv']);
+        const missing = required.filter(([key]) => apostle?.[key] == null || apostle[key] === '');
+        return missing.length ? [`${DATA.getById('basicInfo', id)?.使徒名 || id}：${missing.map(([, label]) => label).join('・')}`] : [];
+      }) : [];
+    showStateStatus(missingGrowth.length
+      ? `スロット${safeSlot}を読み込みました。保存時の育成条件が不足しています（${missingGrowth.join('、')}）。表示された既定値を元の設定と見なさず、確認・再設定してから再保存してください。`
+      : snapshot ? `スロット${safeSlot}を読み込みました`
+        : `空のスロット${safeSlot}を新規状態として開きました`, missingGrowth.length > 0);
   }
 
   function createEmptyStateSnapshot(slot) {
@@ -4005,6 +4027,12 @@
       ? cloneJson(snapshot.apostles)
       : {};
     applyComparisonStatsStore(apostles, snapshot.comparisonStats);
+    Object.values(apostles).forEach(state => {
+      for (const mode of ['current', 'planned']) {
+        if (state?.statSnapshots?.[mode]?.stats) state.statSnapshots[mode].stats.combatPower = null;
+      }
+      if (state?.finalStats) state.finalStats.combatPower = null;
+    });
     const research = snapshot.research && typeof snapshot.research === 'object'
       ? cloneJson(snapshot.research)
       : {};
@@ -4030,7 +4058,7 @@
       research,
       cards,
       formation,
-      totalCombatPower: normalizeFormationCoins(snapshot.totalCombatPower),
+      totalCombatPower: 0, // Derived from refreshed internal stats; never restore an old computed value.
       activeFormationPresetId: snapshot.activeFormationPresetId || '',
       savedFormations: Array.isArray(snapshot.savedFormations)
         ? normalizeFormationPresetList(snapshot.savedFormations)
@@ -4192,6 +4220,7 @@
     elements.stateStatus.textContent = message;
     elements.stateStatus.classList.toggle('is-error', isError);
     stateStatusTimer = window.setTimeout(() => {
+      if (stateSlotSavePending) return;
       elements.stateStatus.textContent = '';
       elements.stateStatus.classList.remove('is-error');
     }, 3200);
@@ -4554,7 +4583,7 @@
     return `
       <span class="profile-combat-power" title="戦闘力">
         <img src="img/c_pow.webp" alt="戦闘力">
-        <strong data-profile-combat-power-value>${escapeHtml(formatNumber(value))}</strong>
+        <strong data-profile-combat-power-value>${value == null ? '未計算' : escapeHtml(formatNumber(value))}</strong>
       </span>
     `;
   }
@@ -4570,7 +4599,7 @@
 
   function updateProfileCombatPowerDisplay(value = currentApostleCombatPower()) {
     elements.profileCard?.querySelectorAll('[data-profile-combat-power-value]')
-      .forEach(node => { node.textContent = formatNumber(value); });
+      .forEach(node => { node.textContent = value == null ? '未計算' : formatNumber(value); });
   }
 
   function renderGradeIcons(value) {
@@ -5290,6 +5319,10 @@
     const attackType = String(basic.攻撃タイプ || basic['攻撃Type'] || '').trim();
     const attackLabel = attackType === '魔法' ? '魔法攻撃' : '物理攻撃';
     const attackFields = getAsideAttackFieldNames(basic);
+    if (rank && !TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state)) {
+      elements.asideTierList.innerHTML = '<p class="empty-note">解放済みアサイドの基礎値・成長値が未登録です。</p>';
+      return;
+    }
     const manifest = getAsideManifestBonus(basic) || {};
     const levelBonus = calculateAsideLevelBonus(basic, level, rank) || {};
     const rows = [
@@ -8703,7 +8736,8 @@
   }
 
   function currentApostleCombatPower() {
-    return Number(currentApostleState()?.statSnapshots?.current?.stats?.combatPower) || 0;
+    const value = currentApostleState()?.statSnapshots?.current?.stats?.combatPower;
+    return value == null ? null : Number(value);
   }
 
   function getSavedTotalCombatPower() {
@@ -10653,121 +10687,48 @@
     const rank = Number(state.asideRank) || 0;
     const level = Number(state.asideLevel) || 0;
     if (!rank) return;
-    const result = getAsideManifestBonus(basic);
+    const result = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
     if (!result) {
       activeEffects.push(`A${rank} ステータス補正(詳細未設定)`);
       return;
     }
 
     const attackKey = basic?.攻撃タイプ === '物理' ? 'patk' : 'matk';
-    const values = [
-      ['hp', result.hp],
-      [attackKey, result.attack],
-      ['pdef', result.pdef],
-      ['mdef', result.mdef]
-    ];
-    values.forEach(([key, value]) => {
-      addStatValue(totals, key, value);
-      addSourceStat(breakdown, 'asideManifest', key, value);
+    ['hp', attackKey, 'pdef', 'mdef'].forEach(key => {
+      addStatValue(totals, key, result.total[key]);
+      addSourceStat(breakdown, 'asideManifest', key, result.base[key]);
+      addSourceStat(breakdown, 'asideLevel', key, result.growth[key]);
     });
 
     const attackLabel = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
-    activeEffects.push(`A${rank}発現(${result.source}) HP+${result.hp} / ${attackLabel}+${result.attack} / 物防+${result.pdef} / 魔防+${result.mdef}`);
-    const levelBonus = calculateAsideLevelBonus(basic, level, rank);
-    if (levelBonus) {
-      const levelValues = [
-        ['hp', levelBonus.hp],
-        [attackKey, levelBonus.attack],
-        ['pdef', levelBonus.pdef],
-        ['mdef', levelBonus.mdef]
-      ];
-      levelValues.forEach(([key, value]) => {
-        addStatValue(totals, key, value);
-        addSourceStat(breakdown, 'asideLevel', key, value);
-      });
-      activeEffects.push(`アサイドLv${level}(A${rank} ×${levelBonus.multiplier}, Lv成長${levelBonus.growthLevels}) HP+${levelBonus.hp} / ${attackLabel}+${levelBonus.attack} / 物防+${levelBonus.pdef} / 魔防+${levelBonus.mdef}`);
-    }
+    activeEffects.push(`A${rank} Lv${level}(×${result.multiplier}) HP+${result.total.hp} / ${attackLabel}+${result.total[attackKey]} / 物防+${result.total.pdef} / 魔防+${result.total.mdef}`);
   }
 
   function getAsideManifestBonus(basic) {
     if (!basic) return null;
-    const asideTier = DATA.getById('asideTiers', basic.id);
-    if (asideTier) {
-      const attackFields = getAsideAttackFieldNames(basic);
-      const sheetValues = {
-        hp: Number(asideTier.HP発現値) || 0,
-        attack: Number(asideTier[attackFields.manifest] ?? asideTier.攻撃力発現値) || 0,
-        pdef: Number(asideTier.物理防御力発現値) || 0,
-        mdef: Number(asideTier.魔法防御力発現値) || 0
-      };
-      if (Object.values(sheetValues).some(Boolean)) {
-        return { ...sheetValues, source: 'シート値' };
-      }
-    }
-    const calculated = calculateAsideManifestBonus(basic);
-    return calculated ? { ...calculated, source: '計算値' } : null;
-  }
-
-  function calculateAsideManifestBonus(basic) {
-    const tiers = getAsideStatTiers(basic);
-    const hpBase = Number(findBaseStatValue(tiers.hp, 'hp')?.base) || 0;
-    const attackBase = Number(findBaseStatValue(tiers.attack, 'attack')?.base) || 0;
-    const pdefBase = Number(findBaseStatValue(tiers.pdef, 'defense')?.base) || 0;
-    const mdefBase = Number(findBaseStatValue(tiers.mdef, 'defense')?.base) || 0;
-    if (!hpBase && !attackBase && !pdefBase && !mdefBase) return null;
-    return {
-      hp: hpBase * 3,
-      attack: attackBase * 3,
-      pdef: pdefBase * 3,
-      mdef: mdefBase * 3
-    };
+    const state = currentApostleState();
+    const contribution = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
+    if (!contribution) return null;
+    const key = basic.攻撃タイプ === '物理' ? 'patk' : 'matk';
+    return { hp: contribution.base.hp, attack: contribution.base[key], pdef: contribution.base.pdef, mdef: contribution.base.mdef };
   }
 
   function calculateAsideLevelBonus(basic, level, rank) {
-    const growthLevels = Math.max(0, (Number(level) || 0) - 1);
     if (!basic) return null;
-    const multiplier = ASIDE_LEVEL_STAT_MULTIPLIERS[Number(rank)] || 0;
-    if (!multiplier) return null;
-    const tiers = getAsideStatTiers(basic);
-    const starBonusCount = Math.max(0, Math.min(2, (Number(rank) || 0) - 1));
-    const starBonus = getAsideStarBonus(basic);
-    const hpCoeff = Number(findBaseStatValue(tiers.hp, 'hp')?.coeff) || 0;
-    const attackCoeff = Number(findBaseStatValue(tiers.attack, 'attack')?.coeff) || 0;
-    const pdefCoeff = Number(findBaseStatValue(tiers.pdef, 'defense')?.coeff) || 0;
-    const mdefCoeff = Number(findBaseStatValue(tiers.mdef, 'defense')?.coeff) || 0;
-    const bonus = {
-      hp: Math.floor(hpCoeff * multiplier * growthLevels) + starBonus.hp * starBonusCount,
-      attack: Math.floor(attackCoeff * multiplier * growthLevels) + starBonus.attack * starBonusCount,
-      pdef: Math.floor(pdefCoeff * multiplier * growthLevels) + starBonus.pdef * starBonusCount,
-      mdef: Math.floor(mdefCoeff * multiplier * growthLevels) + starBonus.mdef * starBonusCount,
-      multiplier,
-      growthLevels
-    };
-    return bonus.hp || bonus.attack || bonus.pdef || bonus.mdef ? bonus : null;
-  }
-
-  function getAsideStarBonus(basic) {
-    const asideTier = DATA.getById('asideTiers', basic?.id);
-    const attackFields = getAsideAttackFieldNames(basic);
-    return {
-      hp: Number(asideTier?.HP星上昇値) || 0,
-      attack: Number(asideTier?.[attackFields.star] ?? asideTier?.攻撃力星上昇値) || 0,
-      pdef: Number(asideTier?.物理防御力星上昇値) || 0,
-      mdef: Number(asideTier?.魔法防御力星上昇値) || 0
-    };
+    const contribution = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, { asideLevel: level, asideRank: rank });
+    if (!contribution) return null;
+    const key = basic.攻撃タイプ === '物理' ? 'patk' : 'matk';
+    return { hp: contribution.growth.hp, attack: contribution.growth[key], pdef: contribution.growth.pdef, mdef: contribution.growth.mdef, multiplier: contribution.multiplier, growthLevels: Math.max(0, level - 1) };
   }
 
   function getAsideStatTiers(basic) {
     const override = DATA.getById('asideTiers', basic?.id);
     const attackFields = getAsideAttackFieldNames(basic);
-    const baseAttackTier = basic?.攻撃タイプ === '物理'
-      ? basic?.物理攻撃力タイプ
-      : basic?.魔法攻撃力タイプ;
     return {
-      hp: Number(override?.HPタイプ) || Number(basic?.HPタイプ) || 0,
-      attack: Number(override?.[attackFields.tier]) || Number(override?.攻撃力タイプ) || Number(baseAttackTier) || 0,
-      pdef: Number(override?.物理防御力タイプ) || Number(basic?.物理防御力タイプ) || 0,
-      mdef: Number(override?.魔法防御力タイプ) || Number(basic?.魔法防御力タイプ) || 0
+      hp: Number(override?.HPタイプ) || 0,
+      attack: Number(override?.[attackFields.tier]) || Number(override?.攻撃力タイプ) || 0,
+      pdef: Number(override?.物理防御力タイプ) || 0,
+      mdef: Number(override?.魔法防御力タイプ) || 0
     };
   }
 
@@ -11504,24 +11465,24 @@
     const combatPowerTotals = options.combatPowerTotals === true
       ? totals
       : (options.combatPowerTotals || createCombatPowerTotalsAtGradeOne(basic, state, options.boardOverride));
-    stats.combatPower = calculateCombatPower(basic, state, combatPowerTotals || totals);
-    return {
+    const asideMissing = Number(state?.asideRank) > 0
+      && !TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
+    stats.combatPower = asideMissing ? null : calculateCombatPower(basic, state, combatPowerTotals || totals);
+    const snapshot = {
       kind,
+      calculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
       stats,
       breakdown: cloneJson(breakdown),
       globalPercentRates: mapTotalsForSnapshot(globalPercentRates),
       updatedAt: new Date().toISOString()
     };
+    if (options.captureInternalTotals) snapshot.internalTotals = cloneJson(totals);
+    return snapshot;
   }
 
   function getAsideAttackFieldNames(basic) {
     const physical = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理';
-    return {
-      tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ',
-      manifest: physical ? '物理攻撃力発現値' : '魔法攻撃力発現値',
-      growth: physical ? '物理攻撃力_A1成長値' : '魔法攻撃力_A1成長値',
-      star: physical ? '物理攻撃力星上昇値' : '魔法攻撃力星上昇値'
-    };
+    return { tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ' };
   }
 
   function createCombatPowerTotalsAtGradeOne(basic, state, boardOverride = null) {
@@ -11536,69 +11497,13 @@
       cpState,
       boardOverride || cpState.boards || {},
       'combatPower',
-      { combatPowerTotals: true }
+      { combatPowerTotals: true, captureInternalTotals: true }
     );
-    return snapshot?.stats ? snapshotTotalsFromStats(snapshot.stats) : null;
-  }
-
-  function snapshotTotalsFromStats(stats = {}) {
-    return {
-      hp: Number(stats.hp) || 0,
-      patk: Number(stats.physicalAtk) || 0,
-      matk: Number(stats.magicAtk) || 0,
-      pdef: Number(stats.physicalDef) || 0,
-      mdef: Number(stats.magicDef) || 0,
-      crit: Number(stats.crit) || 0,
-      critDmg: Number(stats.critDmg) || 0,
-      critRes: Number(stats.critRes) || 0,
-      critDmgRes: Number(stats.critDmgRes) || 0
-    };
+    return snapshot?.internalTotals || null;
   }
 
   function calculateCombatPower(basic, state, totals) {
-    if (!basic || !totals) return 0;
-    const activeAttack = basic.攻撃タイプ === '魔法'
-      ? Number(totals.matk) || 0
-      : Number(totals.patk) || 0;
-    const hp = Math.max(0, Number(totals.hp) || 0);
-    const defensesAndCrit = (Number(totals.pdef) || 0)
-      + (Number(totals.mdef) || 0)
-      + (Number(totals.crit) || 0)
-      + (Number(totals.critDmg) || 0)
-      + (Number(totals.critRes) || 0)
-      + (Number(totals.critDmgRes) || 0);
-    const correctionA = Number(
-      basic.戦闘力補正値A
-      ?? basic.combatPowerCorrectionA
-      ?? basic.combat_power_correction_a
-    ) || 0;
-    const rarity = Number(basic.レア度) || 3;
-    const rarityCorrection = COMBAT_POWER_BASE_BY_RARITY[rarity] ?? COMBAT_POWER_BASE_BY_RARITY[3];
-    const correctionB = Number(
-      basic.戦闘力補正値B
-      ?? basic.combatPowerCorrectionB
-      ?? basic.combat_power_correction_b
-      ?? basic.戦闘力補正
-      ?? basic.combatPowerCorrection
-      ?? basic.weight_value_a
-    ) || 0;
-    const skillCorrection = COMBAT_POWER_SKILL_VALUE_BY_RARITY[rarity]
-      ?? COMBAT_POWER_SKILL_VALUE_BY_RARITY[3];
-    const skills = state?.skillLevels || {};
-    const skillLevelSum = ['low', 'high', 'passive']
-      .map(key => Math.max(1, Number(skills[key]) || 1))
-      .reduce((total, value) => total + value, 0);
-    const asideBonus = isPublicAsideEnabled(basic?.id) && (Number(state?.asideRank) || 0) >= 2
-      ? COMBAT_POWER_ASIDE_BONUS
-      : 0;
-    const basePower = hp * 0.08
-      + activeAttack * 2.1
-      + (defensesAndCrit + correctionA) * 0.7;
-    const multiplier = rarityCorrection
-      + correctionB
-      + asideBonus
-      + skillCorrection * Math.max(0, skillLevelSum - 3);
-    return Math.max(0, Math.floor(basePower * multiplier));
+    return TRICKCAL_SHARED_STAT_ENGINE.calculateCombatPower(basic, state, totals);
   }
 
   function mapTotalsForSnapshot(totals) {

@@ -14,8 +14,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.525
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.525,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 1.0,
@@ -368,8 +372,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.325
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.325,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -991,8 +999,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.375
+      "baseAttackSpeed": 144.0,
+      "combatPowerCorrection": 0.375,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -1818,8 +1830,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 70.0,
-      "combatPowerCorrectionB": 0.21
+      "baseAttackSpeed": 75.0,
+      "combatPowerCorrection": 0.21,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -2002,8 +2018,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 160.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -2584,8 +2604,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -2821,8 +2845,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 95.0,
-      "combatPowerCorrectionB": 0.425
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.425,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -3250,8 +3278,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -3785,8 +3817,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.335
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.335,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -4079,8 +4115,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -4298,8 +4338,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.465
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.465,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -4689,8 +4733,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.375
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.375,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -5108,8 +5156,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 135.0,
-      "combatPowerCorrectionB": 0.375
+      "baseAttackSpeed": 155.0,
+      "combatPowerCorrection": 0.375,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -5433,8 +5485,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.565
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.565,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -5652,8 +5708,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.4
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.4,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -5808,8 +5868,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -6135,8 +6199,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.3
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.3,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -6686,8 +6754,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 95.0,
-      "combatPowerCorrectionB": 0.335
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.335,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -7278,8 +7350,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.31
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.31,
+      "combatPowerLowSkillCoefficient": 0.005,
+      "combatPowerHighSkillCoefficient": 0.005,
+      "combatPowerPassiveCoefficient": 0.005,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -7419,8 +7495,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -8148,8 +8228,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -8452,8 +8536,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.26
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.26,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -8605,8 +8693,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -8890,8 +8982,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 25.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.375
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.375,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -9114,8 +9210,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 25.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.3
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.3,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -9522,8 +9622,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -10235,8 +10339,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 180.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.525,
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.525,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7,
       "personalityOptions": [
         "憂鬱",
         "純粋"
@@ -11099,8 +11207,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 50.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 105.0,
-      "combatPowerCorrectionB": 0.325
+      "baseAttackSpeed": 120.0,
+      "combatPowerCorrection": 0.325,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -11577,8 +11689,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.3
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.3,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -11969,8 +12085,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 95.0,
-      "combatPowerCorrectionB": 0.41
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.41,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -12313,8 +12433,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.26
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.26,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -12538,8 +12662,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.325
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.325,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -12939,8 +13067,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.34
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.34,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -13584,8 +13716,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.3
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.3,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -13795,8 +13931,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -14285,8 +14425,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.31
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.31,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -14645,8 +14789,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.31
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.31,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -14791,8 +14939,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.26
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.26,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -14945,8 +15097,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.45
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.45,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -15308,8 +15464,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.29
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.29,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -15924,8 +16084,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.525
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.525,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -16397,8 +16561,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 95.0,
-      "combatPowerCorrectionB": 0.45
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.45,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -16826,8 +16994,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -17136,8 +17308,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.195
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.195,
+      "combatPowerLowSkillCoefficient": 0.005,
+      "combatPowerHighSkillCoefficient": 0.005,
+      "combatPowerPassiveCoefficient": 0.005,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -17293,8 +17469,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -17527,8 +17707,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 180.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.235
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.235,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -18175,8 +18359,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.525
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.525,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -18905,8 +19093,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.185
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.185,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -19119,8 +19311,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 105.0,
-      "combatPowerCorrectionB": 0.44
+      "baseAttackSpeed": 120.0,
+      "combatPowerCorrection": 0.44,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -19740,8 +19936,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.425
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.425,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -20141,8 +20341,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -20348,8 +20552,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.345
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.345,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -20954,8 +21162,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.335
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.335,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -21353,8 +21565,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -21890,8 +22106,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.2
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.2,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -22122,8 +22342,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -22289,8 +22513,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.22
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.22,
+      "combatPowerLowSkillCoefficient": 0.005,
+      "combatPowerHighSkillCoefficient": 0.005,
+      "combatPowerPassiveCoefficient": 0.005,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -22456,8 +22684,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 25.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -22710,8 +22942,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 200.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.475
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.475,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 1.0,
@@ -23097,8 +23333,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 150.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.39
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.39,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 2.0,
@@ -23251,8 +23491,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.185
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.185,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -23437,8 +23681,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.325
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.325,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -23692,8 +23940,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.26
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.26,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -23907,8 +24159,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.195
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.195,
+      "combatPowerLowSkillCoefficient": 0.005,
+      "combatPowerHighSkillCoefficient": 0.005,
+      "combatPowerPassiveCoefficient": 0.005,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -24053,8 +24309,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 20.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.27
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.27,
+      "combatPowerLowSkillCoefficient": 0.005,
+      "combatPowerHighSkillCoefficient": 0.005,
+      "combatPowerPassiveCoefficient": 0.005,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -24220,8 +24480,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.425
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.425,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 1.0,
@@ -24470,8 +24734,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 20.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -25026,8 +25294,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.31
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.31,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -25173,8 +25445,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 220.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 110.0,
-      "combatPowerCorrectionB": 0.4
+      "baseAttackSpeed": 125.0,
+      "combatPowerCorrection": 0.4,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -25661,8 +25937,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 44.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.37
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.37,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -26131,8 +26411,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 80.0,
-      "combatPowerCorrectionB": 0.22
+      "baseAttackSpeed": 90.0,
+      "combatPowerCorrection": 0.22,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -26626,8 +26910,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 160.0,
       "spRecoveryPerSecond": 40.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.37
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.37,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -27215,8 +27503,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -27637,8 +27929,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.25
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.25,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -28231,8 +28527,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.275
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.275,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -28608,8 +28908,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.31
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.31,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,
@@ -28761,8 +29065,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 37.0,
-      "combatPowerCorrectionA": 130.0,
-      "combatPowerCorrectionB": 0.225
+      "baseAttackSpeed": 150.0,
+      "combatPowerCorrection": 0.225,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 4.0,
@@ -28967,8 +29275,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "物理",
       "initialSp": 0.0,
       "spRecoveryPerSecond": 50.0,
-      "combatPowerCorrectionA": 90.0,
-      "combatPowerCorrectionB": 0.22
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.22,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 5.0,
@@ -29240,8 +29552,12 @@ const APOSTLE_LIBRARY = [
       "attackType": "魔法",
       "initialSp": 100.0,
       "spRecoveryPerSecond": 30.0,
-      "combatPowerCorrectionA": 120.0,
-      "combatPowerCorrectionB": 0.35
+      "baseAttackSpeed": 135.0,
+      "combatPowerCorrection": 0.35,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
     },
     "statTypes": {
       "hp": 3.0,

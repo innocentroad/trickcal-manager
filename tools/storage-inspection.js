@@ -86,6 +86,7 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
   };
   if (inventory.schemaVersion !== 1) addError(errors, 'INSPECTION_LEDGER', '保存台帳のschemaVersionが想定外です');
   requireArray(inventory.productionSources, '本番参照元', 1);
+  requireArray(inventory.localPrototypeSources, 'ローカル試作参照元');
   requireArray(inventory.verificationSources, '検証参照元', 1);
   requireArray(inventory.entries, '保存キー', 19);
   requireArray(inventory.channels, '保存関連チャネル', 5);
@@ -151,6 +152,33 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
 
   const registeredProductionSources = asSet(inventory.productionSources);
   const discoveredSet = new Set(discovered);
+  const localPrototypeSources = new Map();
+  const localPrototypeKeys = new Map();
+  for (const prototype of inventory.localPrototypeSources || []) {
+    if (!prototype?.file || registeredProductionSources.has(prototype.file)
+      || localPrototypeSources.has(prototype.file) || !Array.isArray(prototype.keys)) {
+      addError(errors, 'INSPECTION_LEDGER', `ローカル試作の分類が不正です: ${prototype?.file || '(unknown)'}`);
+      continue;
+    }
+    localPrototypeSources.set(prototype.file, prototype);
+    for (const entry of prototype.keys) {
+      if (!entry?.key || localPrototypeKeys.has(entry.key) || !entry.purpose
+        || !entry.readFailure || !entry.writeFailure || !Array.isArray(entry.operations)
+        || !entry.operations.includes('getItem') || !entry.area) {
+        addError(errors, 'INSPECTION_LEDGER', `試作保存キーの契約が不正です: ${entry?.key || '(unknown)'}`);
+        continue;
+      }
+      localPrototypeKeys.set(entry.key, { ...entry, file: prototype.file });
+    }
+    if (discoveredSet.has(prototype.file)) {
+      const source = productionFiles.get(prototype.file) || '';
+      for (const entry of prototype.keys) {
+        if (entry.key && !source.includes(entry.key)) {
+          addError(errors, 'INSPECTION_LEDGER', `試作保存キーが参照元にありません: ${prototype.file}:${entry.key}`);
+        }
+      }
+    }
+  }
   for (const source of registeredProductionSources) {
     if (!discoveredSet.has(source)) {
       addError(errors, 'DISCOVERY_MISSING_REGISTERED_SOURCE', `台帳の本番参照元を候補探索できません: ${source}`, { file: source });
@@ -158,8 +186,17 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
   }
   const keyRegistry = asSet((inventory.entries || []).map(entry => entry.key));
   const areasByKey = new Map((inventory.entries || []).map(entry => [entry.key, new Set([entry.area])]));
+  for (const [key, entry] of localPrototypeKeys) {
+    if (keyRegistry.has(key)) addError(errors, 'INSPECTION_LEDGER', `本番と試作の保存キーが重複しています: ${key}`);
+    keyRegistry.add(key);
+    areasByKey.set(key, new Set([entry.area]));
+  }
+  const registeredInspectionSources = new Set(registeredProductionSources);
+  for (const file of localPrototypeSources.keys()) {
+    if (discoveredSet.has(file)) registeredInspectionSources.add(file);
+  }
   const detectorResult = validateStorageAnalyses(discoveredAnalyses, {
-    registeredSources: registeredProductionSources,
+    registeredSources: registeredInspectionSources,
     keys: keyRegistry,
     areasByKey,
     allowedParameterAccesses: inventory.storageParameterContracts || [],
@@ -310,6 +347,16 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
     for (const access of accesses) {
       const operation = OPERATION_TO_LEDGER_OPERATION[access.operation];
       if (!operation || access.resolvedKey == null) continue;
+      if (localPrototypeSources.has(file)) {
+        const prototypeEntry = localPrototypeKeys.get(access.resolvedKey);
+        if (!prototypeEntry || prototypeEntry.file !== file
+          || prototypeEntry.area !== access.area
+          || !prototypeEntry.operations.includes(access.operation)) {
+          addError(errors, 'LEDGER_ACCESS', `${file}:${access.line}の試作保存契約が不足・不一致です: ${access.resolvedKey}`,
+            { file, line: access.line });
+        }
+        continue;
+      }
       const entry = operationToEntry.get(access.resolvedKey);
       if (!entry) {
         addError(errors, 'LEDGER_ACCESS', `${file}:${access.line}のキーが台帳にありません: ${access.resolvedKey}`, { file, line: access.line });
@@ -372,7 +419,12 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
     ['formation-dps-calc.js', /DPS_RUNTIME_OVERRIDE_STORAGE_KEY = 'trickcal:dps-runtime-effect-overrides:v1'/, '旧DPS controllerの共有overrideキーが変わっています'],
     ['combat-scenario.js', /const COMPARISON_SESSION_VERSION = 3/, '比較session versionが変わっています'],
     [productionDiscovery.workflow, /--exclude 'tools\//, 'Pagesの検証用tools除外が変わっています'],
-    ['service-worker.js', /const CACHE_PREFIX = 'trickcal-manager'/, '表示Cacheのprefixが変わっています']
+    ['service-worker.js', value => (
+      /const PROFILE_KEY = BASE_PATH === '\/' \? 'new-root' : 'legacy-trickcal-manager'/.test(value)
+      && /const CACHE_NAMESPACE = `\$\{APP_ID\}-\$\{PROFILE_KEY\}`/.test(value)
+      && /const OWNED_CACHE_PREFIX = `\$\{CACHE_NAMESPACE\}-`/.test(value)
+      && /key\.startsWith\(OWNED_CACHE_PREFIX\) \|\| KNOWN_OLD_CACHE_NAMES\.includes\(key\)/.test(value)
+    ), '表示Cacheのprofile別namespaceまたは所有cache限定処理が変わっています']
   ];
   for (const [file, predicate, message] of staticChecks) {
     const text = file === productionDiscovery.workflow ? pagesWorkflow : productionFiles.get(file);
@@ -410,8 +462,10 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
     summary: {
       discoveredSources: discoveredProductionSources.length,
       registeredSources: registeredProductionSources.size,
+      localPrototypeSources: [...localPrototypeSources.keys()].filter(file => discoveredSet.has(file)).length,
       storageAccesses: Array.from(discoveredStorageAccesses.values()).reduce((sum, accesses) => sum + accesses.length, 0),
       keys: inventory.entries?.length || 0,
+      localPrototypeKeys: localPrototypeKeys.size,
       channels: inventory.channels?.length || 0
     },
     inventory,

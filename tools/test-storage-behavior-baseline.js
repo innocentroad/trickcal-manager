@@ -228,7 +228,7 @@ class RecordingStorage {
 
 function loadFunctions(source, names, contextValues = {}) {
   const context = {
-    console: { warn() {}, log() {} },
+    console,
     isStorageRuntimeError(error) {
       return error?.name === 'StorageRuntimeError';
     },
@@ -1091,12 +1091,13 @@ function testDebounceWithRealPersistState() {
   assert.equal(messages.length, 2, '実persistStateの通知回数が保存回数と一致しません');
 }
 
-function testStateLifecycleHandlerBehavior() {
+async function testStateLifecycleHandlerBehavior() {
   const listeners = new Map();
   const timers = new Map();
   const clearedTimers = [];
   const trace = [];
   const messages = [];
+  const resumedEvents = [];
   let nextTimerId = 1;
   let now = 0;
   const workspaceKey = 'trickcal_stat_workspace_v2';
@@ -1117,6 +1118,8 @@ function testStateLifecycleHandlerBehavior() {
   };
   const window = {
     addEventListener(type, handler) { listeners.set(`window:${type}`, handler); },
+    CustomEvent: class { constructor(type) { this.type = type; } },
+    dispatchEvent(event) { resumedEvents.push(event.type); },
     setTimeout(callback, delay) {
       const id = nextTimerId++;
       timers.set(id, { callback, delay, due: now + delay });
@@ -1185,7 +1188,7 @@ function testStateLifecycleHandlerBehavior() {
 
   const lifecycleWindow = window;
   lifecycleWindow.document = document;
-  const lifecycleLoaded = loadFunctions(readSource('storage-bootstrap.js'), ['installLifecycle'], {
+  const lifecycleLoaded = loadFunctions(readSource('storage-bootstrap.js'), ['notifyStorageResumed', 'installLifecycle'], {
     root: lifecycleWindow,
     lifecycleRuntimes: new WeakSet(),
     showLifecycleFailure() {}
@@ -1294,6 +1297,10 @@ function testStateLifecycleHandlerBehavior() {
   listeners.get('window:beforeunload')();
   assert.deepEqual(clearedTimers, [blurTimer, hiddenTimer, pagehideTimer, beforeunloadTimer], 'beforeunload時に実pending debounceを解除しません');
   assert.deepEqual(traceShape(), fullPersistTrace, 'beforeunload時の実flush保存・通知順が変わりました');
+  listeners.get('window:pageshow')();
+  await Promise.resolve();
+  assert.deepEqual(resumedEvents, ['trickcal-storage-resumed', 'trickcal-storage-resumed'],
+    'visibility/pageshow復帰通知が発火しません');
 }
 
 function testCalculationSaveBehavior() {
@@ -2135,7 +2142,7 @@ function testComparisonSessionBehavior() {
   testLoadStateStartupBehavior();
   testDebounceAndFlushBehavior();
   testDebounceWithRealPersistState();
-  testStateLifecycleHandlerBehavior();
+  await testStateLifecycleHandlerBehavior();
   testCalculationSaveBehavior();
   await testBackupCalculationResultRoundTrip();
   await testStateExportImportBehavior();
