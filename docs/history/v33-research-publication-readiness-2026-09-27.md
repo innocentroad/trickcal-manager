@@ -1,4 +1,6 @@
-# v33計算・研究画面更新の公開前引き継ぎ（2026-09-27、未公開）
+# v33計算・研究画面更新の公開準備と結果（2026-09-27）
+
+公開結果は末尾に追記した。以下の「未公開」は公開準備時点の記録であり、最終状態ではない。
 
 ## 基準と境界
 
@@ -51,3 +53,12 @@
 - 375pxの変更前→後は基礎行約80→66px、他タブ約88→66px（Rank約68px）。可視行は基礎6→8、装備・ボード・アサイド5→7、Rank4→7。可視列は装備・ボード・アサイド2→3、基礎4→4、Rank2→3（全11列は内部横スクロール）。1280pxでは基礎7→9行・17→18列、他タブ6→8〜9行。Rankは3→11列を同時表示。固定見出し・使徒列・下バーとの収まりを隔離Chromeで確認。
 - 変更前後画像は`tmp/apostle-all-tabs-before-20260927-{view}-{375|1280}-initial.png`と`tmp/apostle-all-tabs-after-20260927-{view}-{375|1280}-initial.png`（view=`equipment`／`board`／`aside`／`rank`）。基礎のPCは同prefixの`basic-1280-initial.png`、375pxは`basic-filter-collapsed-375.png`。変更後の明色も`*-opposite-theme.png`を保存。焦点テスト、構文・対象差分検査は成功。編集前保全：`D:/Games/etc/trickcal/backups/apostle-data-all-tabs-rank-20260927-134000/ledger.tsv`。この追加候補も未commit・未公開。
 - 追加追補（アサイド・装備、未公開）：アサイド等級へ魔法防御力の等級・基礎・A1成長列と画像説明を接続。未登録の行／項目／補助値はセルを空欄とし、明示0・対象外・公開制限は区別する。元データ登録40件の魔法防御3値と表示を照合し、未登録39件の空欄、数値並べ替えを検査。装備等級は画像右下の数字背景を外し、等級別の文字色と縁取りへ変更、セルを中央揃えにした。375／1280pxの明暗・通常／補助表示は`tmp/apostle-data-aside-{375|1280}-expanded-magic-defense*.png`および`tmp/apostle-data-equipment-{375|1280}*.png`で確認。焦点テスト・構文・差分検査を実施。編集前保全：`D:/Games/etc/trickcal/backups/apostle-aside-equipment-20260927-134414/ledger.tsv`。xlsx・生成データは変更していない。
+
+## 公開結果（2026-09-27）
+
+- 利用者の追加許可により、先行commit `3061b80520e4077cfb295b2e2b896fe34ca36136`のジョアン画像追加・旧名からのリネーム・`apostle-skill-image-data.js`の参照変更も対象に含めた。同commitは画像3件と対応表のみで、計算・スキル値・性格候補の変更はない。先行候補`ffa78e9f3616275a`のnew run `36233993541`は指定runだけキャンセル済みで、承認・再実行はしていない。
+- 公開source commitは`2babb0594f78e6c03193dbfd714408b22cb6ba22`。既存bundle `tmp/publication-20260927051955432.json`、candidate `1e05899775b3aa3e`（contentDigest `784d0ae3d158d762e6932c7785b8be0d4bdf1b87e5d88504059579663dda73d0`）を再利用し、prepareを繰り返していない。
+- new：receipt `tmp/delivery-1e05899775b3aa3e-new-f8e9364888cb.json`、artifact commit `a8a1f0fc82c346ac48ff5ae858a7637cad79d8f1`、run `https://github.com/innocentroad/trickcal-manager-site/actions/runs/36297504179`。通常承認後にdeploy成功し、公開identityのcandidate／source／profile／digest一致を確認。
+- legacy：new成功後に同じbundleを使用。所有台帳にあるジョアン旧画像2件のみを削除対象とした。receipt `tmp/delivery-1e05899775b3aa3e-legacy-d10d9eaf205f.json`、artifact commit `790e2a37603c8b86923391357d3bd23f3257f321`、run `https://github.com/innocentroad/trickcal-manager/actions/runs/36297672403`。通常承認後にdeploy成功し、公開identity一致を確認。
+- 新旧の隔離Chromeで管理・計算・研究・使徒データを表示。計算版4、研究ツリー画像、Rank 1〜10の11列表（79行）を確認。ジョアンの低・高・パッシブ新画像3件は両profileで読込成功、旧ファイル名へのNetwork要求0件、対象資材404・重大なJS例外0件。所持素材の入力・保存・再読込は使い捨てプロファイル内で両サイト成功。代表画像は`tmp/publication-v33-live-20260927/`。お知らせ2026-09-27の3件と重要な移行案内を維持。ゲーム内全条件との完全一致や実利用の保存データの移行は今回再検証していない。
+- 配信artifactにxlsx、敵研究試作、テスト、文書は含めていない。対象外dirty 14ファイルは`D:/Games/etc/trickcal/backups/v33-publication-outside-20260927-144500/ledger.tsv`とSHA-256一致で元の場所へ復元済み。公開結果記録だけのcommitではサイト再生成・再公開しない。
