@@ -19,7 +19,7 @@
     equipment: { title: '装備等級', note: '', caption: '使徒ごとの装備等級一覧' },
     board: { title: 'ボード等級', note: '実マス値と対応表から一意に判定できた等級だけを表示します。', caption: '使徒ごとのボード等級一覧' },
     aside: { title: 'アサイド等級', note: '', caption: '使徒ごとのアサイド等級一覧' },
-    rank: { title: 'Rank全体効果', note: '選択したRank遷移の増分を表示します。累積値ではありません。', caption: '使徒ごとのRank全体効果一覧' }
+    rank: { title: 'Rank全体効果', note: '各Rank到達時の増分。Rank 1は遷移なし・値は元データ単位（累積値ではありません）。', caption: '使徒ごとのRank全体効果一覧' }
   });
   const VIEW_KEYS = Object.freeze(Object.keys(VIEWS));
   const APOSTLE_ASSET_ALIASES = Object.freeze({
@@ -41,7 +41,8 @@
     { key: 'HP', label: 'HP', type: 'HP', value: 'HP' },
     { key: 'physicalAttack', label: '物理攻撃', type: '物理攻撃力', value: '物理攻撃力' },
     { key: 'magicAttack', label: '魔法攻撃', type: '魔法攻撃力', value: '魔法攻撃力' },
-    { key: 'physicalDefense', label: '物理防御', type: '物理防御力', value: '物理防御力' }
+    { key: 'physicalDefense', label: '物理防御', type: '物理防御力', value: '物理防御力' },
+    { key: 'magicDefense', label: '魔法防御力', type: '魔法防御力', value: '魔法防御力' }
   ]);
   const BASIC_TIER_COLUMNS = Object.freeze([
     { key: 'hpTier', label: 'HP等級', dataKey: 'HPTier' },
@@ -58,6 +59,35 @@
     { key: 'baseAttackSpeed', label: '攻撃速度基礎', dataKey: '攻撃速度基礎' },
     { key: 'combatPowerCorrection', label: '戦闘力補正値', dataKey: '戦闘力補正値' }
   ]);
+  // 列の意味が単一のものだけを、実在するステータス画像へ対応させる。
+  const BASIC_HEADER_ICONS = Object.freeze({
+    initialSP: 'SP.webp', spRegen: 'SP回復.webp',
+    hpTier: 'HP.webp', physicalAttackTier: '物理攻撃力.webp', magicAttackTier: '魔法攻撃力.webp',
+    physicalDefenseTier: '物理防御力.webp', magicDefenseTier: '魔法防御力.webp',
+    critTier: '会心.webp', critDmgTier: '会心ダメージ.webp',
+    critResTier: '会心抵抗.webp', critDmgResTier: '会心DMG抵抗.webp',
+    baseAttackSpeed: '攻撃速度.webp', combatPowerCorrection: 'c_pow.webp'
+  });
+  const STAT_ICONS = Object.freeze({
+    HP: 'HP.webp', 物理攻撃力: '物理攻撃力.webp', 魔法攻撃力: '魔法攻撃力.webp',
+    物理防御力: '物理防御力.webp', 魔法防御力: '魔法防御力.webp',
+    会心: '会心.webp', 会心ダメージ: '会心ダメージ.webp',
+    会心抵抗: '会心抵抗.webp', 会心DMG抵抗: '会心DMG抵抗.webp', 攻撃力: '攻撃力.webp'
+  });
+  const EQUIPMENT_HEADER_STATS = Object.freeze({
+    HP: ['HP'], 物理攻撃: ['物理攻撃力'], 魔法攻撃: ['魔法攻撃力'],
+    物理防御: ['物理防御力'], 魔法防御: ['魔法防御力'],
+    '会心/会心DMG': ['会心', '会心ダメージ'],
+    '会心抵抗/会心DMG抵抗': ['会心抵抗', '会心DMG抵抗']
+  });
+  const BOARD_HEADER_STATS = Object.freeze({
+    hp: ['HP'], attack: ['攻撃力'], physicalDefense: ['物理防御力'], magicDefense: ['魔法防御力'],
+    crit: ['会心'], critDmg: ['会心ダメージ'], critRes: ['会心抵抗'], critDmgRes: ['会心DMG抵抗']
+  });
+  const ASIDE_HEADER_STATS = Object.freeze({
+    HP: ['HP'], physicalAttack: ['物理攻撃力'], magicAttack: ['魔法攻撃力'],
+    physicalDefense: ['物理防御力'], magicDefense: ['魔法防御力']
+  });
   const BOARD_COLUMNS = Object.freeze([
     { key: 'hp', label: 'HP', effect: 'HP', group: 'hp' },
     { key: 'attack', label: '攻撃力', effect: 'attack', group: 'attack' },
@@ -99,13 +129,19 @@
     equipmentDialogClose: document.querySelector('[data-apostle-equipment-dialog-close]')
   };
   let equipmentDialogOpener = null;
+  const headerHelp = document.createElement('div');
+  headerHelp.id = 'apostle-data-header-help';
+  headerHelp.className = 'apostle-data-header-help';
+  headerHelp.setAttribute('role', 'tooltip');
+  headerHelp.hidden = true;
+  document.body.append(headerHelp);
+  let headerHelpTrigger = null;
+  let headerHelpPinned = false;
   const state = {
     view: readView(),
     search: '',
     filters: { personality: '', species: '', role: '', attackType: '', column: '' },
     equipmentRank: readNumberParam('rank', 1),
-    rankFrom: readNumberParam('rankFrom', 1),
-    rankTo: readNumberParam('rankTo', 2),
     asideExpanded: false,
     sort: Object.fromEntries(VIEW_KEYS.map(view => [view, { key: 'name', direction: 'asc' }]))
   };
@@ -192,7 +228,7 @@
         <span class="is-missing" data-apostle-data-image-fallback hidden>画像なし</span>
       </span>
       <span class="apostle-data-apostle-name"><strong>${escapeHtml(name)}</strong></span>`;
-    const body = `<span class="apostle-data-apostle-cell">${content}</span>`;
+    const body = `<span class="apostle-data-apostle-cell" title="${escapeHtml(name)}">${content}</span>`;
     return link
       ? `<a class="apostle-data-link" href="${escapeHtml(routeUrl('board', '../board-layout-preview.html', { apostle: id }))}">${body}</a>`
       : body;
@@ -336,14 +372,14 @@
 
   function asideValue(row, column) {
     const hideAttack = column.key === 'physicalAttack' || column.key === 'magicAttack';
-    if (!row.aside) return hideAttack ? { status: 'blank', blank: true } : { status: 'unregistered', label: '未登録' };
+    if (!row.aside) return { status: 'unregistered', blank: true };
     if (typeof window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled === 'function'
       && !window.TRICKCAL_PUBLIC_RELEASE.isAsideEnabled(row.basic.id)) {
       return hideAttack ? { status: 'blank', blank: true } : { status: 'disabled', label: '非公開' };
     }
     const type = row.aside[`${column.type}タイプ`];
     if (type === undefined || type === null || cleanText(type) === '') {
-      return hideAttack ? { status: 'blank', blank: true } : { status: 'unregistered', label: '未登録' };
+      return { status: 'unregistered', blank: true };
     }
     if (Number(type) === 0) return hideAttack ? { status: 'blank', blank: true } : { status: 'excluded', label: '対象外', detail: '0' };
     return { status: 'known', label: `等級${type}`, tier: Number(type) };
@@ -355,14 +391,15 @@
     return value === undefined || value === null || cleanText(value) === '' ? null : value;
   }
 
-  function rankEffect(row, index) {
+  function rankEffect(row, index, from, to) {
     if (!row.rank) return { status: 'unregistered', type: '', value: null };
-    const prefix = `Rank${state.rankFrom}to${state.rankTo}`;
+    const prefix = `Rank${from}to${to}`;
     const type = cleanText(row.rank[`${prefix}_type${index}`]);
     const raw = row.rank[`${prefix}_value${index}`];
     if (!type && (raw === undefined || raw === null || cleanText(raw) === '')) return { status: 'unregistered', type: '', value: null };
+    if (!type && Number(raw) === 0) return { status: 'excluded', type: '', value: 0 };
+    if (!type || raw === undefined || raw === null || cleanText(raw) === '') return { status: 'unregistered', type, value: null };
     const value = raw === undefined || raw === null || cleanText(raw) === '' ? null : Number(raw);
-    if (isAttackEffectType(type) && isHiddenAttackValue(value)) return { status: 'blank', type: '', value: null, blank: true };
     return { status: 'known', type, value: Number.isFinite(value) ? value : raw };
   }
 
@@ -386,8 +423,8 @@
     }
     const name = value.detail || '装備名未登録';
     const icon = value.icon
-      ? `<span class="apostle-data-icon-wrap"><img data-apostle-data-image src="${escapeHtml(value.icon)}" alt=""><span class="is-missing" data-apostle-data-image-fallback hidden>画像なし</span><b class="apostle-data-tier-badge" aria-label="等級${escapeHtml(value.tier)}">${escapeHtml(value.tier)}</b></span>`
-      : `<span class="apostle-data-icon-wrap apostle-data-icon-placeholder" aria-hidden="true"><span>画像なし</span><b class="apostle-data-tier-badge" aria-label="等級${escapeHtml(value.tier)}">${escapeHtml(value.tier)}</b></span>`;
+      ? `<span class="apostle-data-icon-wrap"><img data-apostle-data-image src="${escapeHtml(value.icon)}" alt=""><span class="is-missing" data-apostle-data-image-fallback hidden>画像なし</span><b class="apostle-data-tier-badge" data-tier="${escapeHtml(value.tier)}" aria-label="等級${escapeHtml(value.tier)}">${escapeHtml(value.tier)}</b></span>`
+      : `<span class="apostle-data-icon-wrap apostle-data-icon-placeholder" aria-hidden="true"><span>画像なし</span><b class="apostle-data-tier-badge" data-tier="${escapeHtml(value.tier)}" aria-label="等級${escapeHtml(value.tier)}">${escapeHtml(value.tier)}</b></span>`;
     const label = `${name} Rank ${state.equipmentRank} 等級${value.tier}の装備詳細`;
     return `<button type="button" class="apostle-data-equipment-button" data-apostle-equipment-open data-apostle-id="${escapeHtml(row.basic.id)}" data-apostle-equipment-column="${escapeHtml(column.key)}" data-apostle-equipment-rank="${escapeHtml(state.equipmentRank)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${icon}</button>`;
   }
@@ -396,7 +433,55 @@
     const sortKey = column.sortKey || column.key;
     const active = state.sort[state.view]?.key === sortKey;
     const direction = active ? state.sort[state.view].direction : '';
-    return `<th scope="col"><button type="button" class="apostle-data-sort-button" data-apostle-sort="${escapeHtml(sortKey)}" aria-sort="${direction}">${escapeHtml(column.label)}</button></th>`;
+    if (state.view === 'rank' && column.key !== 'name') {
+      return `<th scope="col" data-apostle-column="${escapeHtml(column.key)}" aria-label="${escapeHtml(column.description)}"><button type="button" class="apostle-data-rank-heading" data-apostle-header-help="${escapeHtml(column.description)}" aria-label="${escapeHtml(column.description)}" aria-describedby="apostle-data-header-help" aria-expanded="false">${escapeHtml(column.label)}</button></th>`;
+    }
+    let icons = [];
+    let shortLabel = '';
+    if (state.view === 'basic' && BASIC_HEADER_ICONS[column.key]) {
+      icons = [BASIC_HEADER_ICONS[column.key]];
+      shortLabel = column.key.endsWith('Tier') ? '等級' : column.key === 'initialSP' ? '初期' : column.key === 'spRegen' ? '毎秒' : column.key === 'baseAttackSpeed' ? '基礎' : '補正';
+    } else if (state.view === 'equipment') {
+      icons = (EQUIPMENT_HEADER_STATS[column.key] || []).map(name => STAT_ICONS[name]);
+      shortLabel = '等級';
+    } else if (state.view === 'board') {
+      icons = (BOARD_HEADER_STATS[column.key] || []).map(name => STAT_ICONS[name]);
+      shortLabel = '等級';
+    } else if (state.view === 'aside') {
+      const baseKey = column.key.replace(/-(manifest|growth)$/, '');
+      icons = (ASIDE_HEADER_STATS[baseKey] || []).map(name => STAT_ICONS[name]);
+      shortLabel = column.key.endsWith('-manifest') ? '基礎' : column.key.endsWith('-growth') ? '成長' : '等級';
+    }
+    if (!icons.length) return `<th scope="col" data-apostle-column="${escapeHtml(column.key)}"><button type="button" class="apostle-data-sort-button" data-apostle-sort="${escapeHtml(sortKey)}" aria-sort="${direction}">${escapeHtml(column.label)}</button></th>`;
+    const visible = icons.length === 1
+      ? `<img src="${escapeHtml(assetUrl(`img/${icons[0]}`))}" alt="" data-apostle-data-image>`
+      : `<span class="apostle-data-header-pair">${icons.map(icon => `<img src="${escapeHtml(assetUrl(`img/${icon}`))}" alt="" data-apostle-data-image>`).join('')}</span>`;
+    return `<th scope="col" data-apostle-column="${escapeHtml(column.key)}" aria-label="${escapeHtml(column.label)}"><span class="apostle-data-header-stack"><button type="button" class="apostle-data-header-icon" data-apostle-header-help="${escapeHtml(column.label)}" aria-label="${escapeHtml(column.label)}の説明" aria-describedby="apostle-data-header-help" aria-expanded="false">${visible}</button><button type="button" class="apostle-data-sort-button" data-apostle-sort="${escapeHtml(sortKey)}" aria-sort="${direction}" aria-label="${escapeHtml(column.label)}で並べ替え">${shortLabel}</button></span></th>`;
+  }
+
+  function positionHeaderHelp(trigger) {
+    const rect = trigger.getBoundingClientRect();
+    const width = headerHelp.getBoundingClientRect().width;
+    const height = headerHelp.getBoundingClientRect().height;
+    headerHelp.style.left = `${Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, innerWidth - width - 8))}px`;
+    headerHelp.style.top = `${rect.bottom + height + 8 <= innerHeight ? rect.bottom + 6 : Math.max(8, rect.top - height - 6)}px`;
+  }
+
+  function closeHeaderHelp() {
+    if (headerHelpTrigger?.isConnected) headerHelpTrigger.setAttribute('aria-expanded', 'false');
+    headerHelpTrigger = null;
+    headerHelpPinned = false;
+    headerHelp.hidden = true;
+  }
+
+  function showHeaderHelp(trigger, pinned = false) {
+    if (headerHelpTrigger !== trigger) closeHeaderHelp();
+    headerHelpTrigger = trigger;
+    headerHelpPinned = pinned || headerHelpPinned;
+    trigger.setAttribute('aria-expanded', String(headerHelpPinned));
+    headerHelp.textContent = trigger.dataset.apostleHeaderHelp;
+    headerHelp.hidden = false;
+    positionHeaderHelp(trigger);
   }
 
   function renderTable(columns, visibleRows, caption, cellBuilder) {
@@ -407,7 +492,7 @@
       elements.tbody.innerHTML = `<tr><td class="apostle-data-empty" colspan="${columns.length}">条件に一致する使徒はいません。絞り込みを解除してください。</td></tr>`;
       return;
     }
-    elements.tbody.innerHTML = visibleRows.map(row => `<tr data-apostle-data-row="${escapeHtml(row.basic.id)}">${cellBuilder(row).map((cell, index) => index === 0 ? `<th scope="row">${cell}</th>` : `<td>${cell}</td>`).join('')}</tr>`).join('');
+    elements.tbody.innerHTML = visibleRows.map(row => `<tr data-apostle-data-row="${escapeHtml(row.basic.id)}">${cellBuilder(row).map((cell, index) => index === 0 ? `<th scope="row">${cell}</th>` : `<td data-apostle-column="${escapeHtml(columns[index].key)}">${cell}</td>`).join('')}</tr>`).join('');
   }
 
   function baseColumns() {
@@ -485,8 +570,12 @@
       });
       if (state.asideExpanded) {
         ASIDE_COLUMNS.forEach(column => {
-          cells.push(cellStack(formatNumber(asideSupplement(row, column, '基礎値') ?? asideSupplement(row, column, '発現値')), '', { status: (asideSupplement(row, column, '基礎値') ?? asideSupplement(row, column, '発現値')) == null ? 'unregistered' : 'known' }));
-          cells.push(cellStack(formatNumber(asideSupplement(row, column, '_A1成長値')), '', { status: asideSupplement(row, column, '_A1成長値') == null ? 'unregistered' : 'known' }));
+          const published = typeof window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled !== 'function'
+            || window.TRICKCAL_PUBLIC_RELEASE.isAsideEnabled(row.basic.id);
+          const base = published ? asideSupplement(row, column, '基礎値') ?? asideSupplement(row, column, '発現値') : null;
+          const growth = published ? asideSupplement(row, column, '_A1成長値') : null;
+          cells.push(base == null ? emptyCell() : cellStack(formatNumber(base)));
+          cells.push(growth == null ? emptyCell() : cellStack(formatNumber(growth)));
         });
       }
       return [apostleCell(row), ...cells];
@@ -497,17 +586,25 @@
   }
 
   function renderRank(visibleRows) {
-    const columns = [{ key: 'name', label: '使徒', sortKey: 'name' }, { key: 'effect1', label: '効果1' }, { key: 'effect2', label: '効果2' }];
-    renderTable(columns, visibleRows, `${VIEWS.rank.caption} / Rank ${state.rankFrom}→${state.rankTo}`, row => {
-      const effects = [rankEffect(row, 1), rankEffect(row, 2)];
-      return [apostleCell(row), ...effects.map(effect => effect.status === 'unregistered'
-        ? cellStack('未登録', '', { status: effect.status })
-        : effect.blank ? emptyCell()
-        : cellStack(effect.type || '種類なし', effect.value == null ? '値なし' : formatNumber(effect.value), { status: effect.status }))];
-    });
+    const columns = [{ key: 'name', label: '使徒', sortKey: 'name' }, ...Array.from({ length: 10 }, (_, index) => {
+      const rank = index + 1;
+      return { key: `rank${rank}`, label: `Rank ${rank}`, description: rank === 1 ? 'Rank 1：対応する遷移効果はありません' : `Rank ${rank}：Rank ${rank - 1}→${rank}の増分` };
+    })];
+    renderTable(columns, visibleRows, VIEWS.rank.caption, row => [apostleCell(row), ...columns.slice(1).map((column, index) => {
+      const rank = index + 1;
+      if (rank === 1 || !rankList.some(item => item.from === rank - 1 && item.to === rank)) return '<span class="apostle-data-rank-empty">—</span>';
+      const effects = [rankEffect(row, 1, rank - 1, rank), rankEffect(row, 2, rank - 1, rank)];
+      return `<span class="apostle-data-rank-effects">${effects.map(effect => {
+        if (effect.status === 'unregistered') return '<span class="apostle-data-rank-status">未登録</span>';
+        if (effect.status === 'excluded') return '<span class="apostle-data-rank-status">対象外</span>';
+        const icon = STAT_ICONS[effect.type];
+        const label = `${effect.type} ${effect.value == null ? '値なし' : formatNumber(effect.value)}`;
+        return `<button type="button" class="apostle-data-rank-effect" data-apostle-header-help="${escapeHtml(effect.type)}" aria-label="${escapeHtml(label)}" aria-describedby="apostle-data-header-help" aria-expanded="false">${icon ? `<img src="${escapeHtml(assetUrl(`img/${icon}`))}" alt="" data-apostle-data-image>` : `<span class="apostle-data-rank-type">${escapeHtml(effect.type || '種類なし')}</span>`}<span>${escapeHtml(effect.value == null ? '値なし' : formatNumber(effect.value))}</span></button>`;
+      }).join('')}</span>`;
+    })]);
     const unregistered = visibleRows.filter(row => !row.rank).length;
-    elements.status.textContent = `増分表示：Rank ${state.rankFrom}→${state.rankTo} / 未登録：${unregistered}名。値はschemaの単位をそのまま表示しています。`;
-    elements.status.hidden = false;
+    elements.status.textContent = unregistered ? `未登録：${unregistered}名` : '';
+    elements.status.hidden = !unregistered;
   }
 
   function sortValue(row, key) {
@@ -532,7 +629,7 @@
       const column = ASIDE_COLUMNS.find(item => item.key === key);
       return column ? asideValue(row, column).tier ?? null : null;
     }
-    return key === 'effect1' ? rankEffect(row, 1).value : key === 'effect2' ? rankEffect(row, 2).value : null;
+    return null;
   }
 
   function sortedRows(visibleRows) {
@@ -556,10 +653,6 @@
   function renderOptions() {
     if (state.view === 'equipment') {
       elements.options.innerHTML = `<label>Rank <select id="apostle-data-equipment-rank" data-apostle-option="equipmentRank">${equipmentRanks.map(rank => `<option value="${rank}" ${rank === state.equipmentRank ? 'selected' : ''}>${rank}</option>`).join('')}</select></label>`;
-    } else if (state.view === 'rank') {
-      const current = rankList.find(item => item.from === state.rankFrom && item.to === state.rankTo) || rankList[0] || { from: 1, to: 2 };
-      state.rankFrom = current.from; state.rankTo = current.to;
-      elements.options.innerHTML = `<label>Rank遷移 <select id="apostle-data-rank-transition" data-apostle-option="rankTransition">${rankList.map(item => `<option value="${item.from}-${item.to}" ${item.from === current.from && item.to === current.to ? 'selected' : ''}>Rank ${item.from} → ${item.to}</option>`).join('')}</select></label>`;
     } else if (state.view === 'aside') {
       elements.options.innerHTML = `<button type="button" data-apostle-option="asideExpanded" aria-expanded="${state.asideExpanded}">${state.asideExpanded ? '補助値を隠す' : '基礎値・成長値を表示'}</button>`;
     } else {
@@ -627,6 +720,7 @@
   }
 
   function render() {
+    closeHeaderHelp();
     if (elements.equipmentDialog?.open) closeEquipmentDialog(false);
     const config = VIEWS[state.view];
     const filtered = getFilteredRows();
@@ -657,11 +751,7 @@
     else url.searchParams.set('view', state.view);
     if (state.view === 'equipment' && state.equipmentRank !== 1) url.searchParams.set('rank', state.equipmentRank);
     else url.searchParams.delete('rank');
-    if (state.view === 'rank' && (state.rankFrom !== 1 || state.rankTo !== 2)) {
-      url.searchParams.set('rankFrom', state.rankFrom); url.searchParams.set('rankTo', state.rankTo);
-    } else {
-      url.searchParams.delete('rankFrom'); url.searchParams.delete('rankTo');
-    }
+    url.searchParams.delete('rankFrom'); url.searchParams.delete('rankTo');
     window.history[replace ? 'replaceState' : 'pushState']({ view: state.view }, '', `${url.pathname}${url.search}${url.hash}`);
   }
 
@@ -684,6 +774,42 @@
   }
 
   function bindEvents() {
+    elements.table.addEventListener('mouseover', event => {
+      const button = event.target.closest('[data-apostle-header-help]');
+      if (button && !button.contains(event.relatedTarget)) showHeaderHelp(button);
+    });
+    elements.table.addEventListener('mouseout', event => {
+      const button = event.target.closest('[data-apostle-header-help]');
+      if (button === headerHelpTrigger && !button.contains(event.relatedTarget) && !headerHelpPinned && document.activeElement !== button) closeHeaderHelp();
+    });
+    elements.table.addEventListener('focusin', event => {
+      const button = event.target.closest('[data-apostle-header-help]');
+      if (button) showHeaderHelp(button);
+    });
+    elements.table.addEventListener('focusout', event => {
+      if (event.target === headerHelpTrigger && !headerHelpPinned) closeHeaderHelp();
+    });
+    elements.tableWrap.addEventListener('scroll', () => {
+      if (!headerHelpTrigger) return;
+      window.requestAnimationFrame(() => {
+        if (!headerHelpTrigger) return;
+        const trigger = headerHelpTrigger.getBoundingClientRect();
+        const wrap = elements.tableWrap.getBoundingClientRect();
+        if (trigger.right < wrap.left || trigger.left > wrap.right || trigger.bottom < wrap.top || trigger.top > wrap.bottom) {
+          if (document.activeElement !== headerHelpTrigger) closeHeaderHelp();
+        } else positionHeaderHelp(headerHelpTrigger);
+      });
+    }, { passive: true });
+    window.addEventListener('resize', closeHeaderHelp);
+    document.addEventListener('pointerdown', event => {
+      if (headerHelpTrigger && !headerHelpTrigger.contains(event.target)) closeHeaderHelp();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && headerHelpTrigger) {
+        closeHeaderHelp();
+        event.stopPropagation();
+      }
+    });
     elements.bottom.addEventListener('click', event => {
       const button = event.target.closest('[data-apostle-view]');
       if (button) setView(button.dataset.apostleView);
@@ -697,10 +823,6 @@
     });
     elements.options.addEventListener('change', event => {
       if (event.target.dataset.apostleOption === 'equipmentRank') state.equipmentRank = Number(event.target.value) || 1;
-      if (event.target.dataset.apostleOption === 'rankTransition') {
-        const [from, to] = event.target.value.split('-').map(Number);
-        state.rankFrom = from; state.rankTo = to;
-      }
       updateUrl(true); render();
     });
     elements.options.addEventListener('click', event => {
@@ -709,6 +831,12 @@
       render();
     });
     elements.table.addEventListener('click', event => {
+      const helpButton = event.target.closest('[data-apostle-header-help]');
+      if (helpButton) {
+        if (headerHelpTrigger === helpButton && headerHelpPinned) closeHeaderHelp();
+        else showHeaderHelp(helpButton, true);
+        return;
+      }
       const equipmentButton = event.target.closest('[data-apostle-equipment-open]');
       if (equipmentButton) {
         openEquipmentDialog(equipmentButton);
@@ -778,6 +906,6 @@
   render();
 
   if (new URLSearchParams(window.location.search).get('apostleDataTest') === '1') {
-    window.__TRICKCAL_APOSTLE_DATA_TESTING__ = Object.freeze({ inferBoardTierStatus, isHiddenAttackValue, basicDisplayValue });
+    window.__TRICKCAL_APOSTLE_DATA_TESTING__ = Object.freeze({ inferBoardTierStatus, isHiddenAttackValue, basicDisplayValue, rankEffect, asideValue, asideSupplement });
   }
 })();

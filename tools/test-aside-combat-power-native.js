@@ -85,7 +85,7 @@ async function run() {
         { snapshot: changed, overrides: { asideLevel: 1 } });
       const newSlotStats = engine.encodeComparisonStatSnapshots({ Kyarot: { statSnapshots: { current: expected } },
         Joanne: { statSnapshots: { current: joanneSnapshot } } });
-      return { grades, title: document.title, legacySnapshot: legacy, newSlotStats,
+      return { grades, calculationVersion: engine.snapshotCalculationVersion, title: document.title, legacySnapshot: legacy, newSlotStats,
         joanneState, joanneSnapshot,
         legacyMatchesSaved, legacyRejectsOtherLevel, override: {
         savedHp: saved.stats.hp, expectedHp: expected.stats.hp, changedHp: changed?.stats.hp,
@@ -113,6 +113,44 @@ async function run() {
     assert.equal(result.override.revertedHp, result.override.savedHp, 'revert restores saved HP');
     assert.equal(result.override.crossAsideRankBlocked, true, 'A3 party-rate change cannot reuse the old global rate');
     assert.equal(result.override.gradeHp, result.override.directGradeHp, 'grade override keeps fractions');
+    const equipment = await browser.evaluate(cdp, page, `(() => {
+      const data = window.TRICKCAL_STAT_DATA;
+      const api = window.TRICKCAL_STAT_ENGINE;
+      const shared = window.TRICKCAL_SHARED_STAT_ENGINE;
+      const id = data.sheets.equipment.find(row => Number(row.Equip_Rank1_HP) === 1).id;
+      const basic = data.getById('basicInfo', id);
+      const state = { level: 1, star: 1, grade: 1, rank: 1, bond: 1, asideRank: 0,
+        equipment: { HP: { enabled: true, enhance: 1 } } };
+      const snapshot = api.calculateApostleStats(id, state, { captureInternalTotals: true }).snapshot;
+      const next = shared.applyApostleOverridesToSnapshot(data, basic, state,
+        { snapshot, overrides: { equipment: { HP: { enabled: true, enhance: 2 } } } });
+      const direct = api.calculateApostleStats(id, { ...state,
+        equipment: { HP: { enabled: true, enhance: 2 } } }, { captureInternalTotals: true }).snapshot;
+      const restored = shared.decodeComparisonStatSnapshots(JSON.parse(JSON.stringify(
+        shared.encodeComparisonStatSnapshots({ [id]: { statSnapshots: { current: snapshot } } })
+      )))[id].current;
+      return { id, value: snapshot.breakdown.equipment.hp,
+        next: next.stats.hp, direct: direct.stats.hp, nextInternal: next.internalTotals.hp,
+        directInternal: direct.internalTotals.hp, restored: restored.breakdown.equipment.hp };
+    })()`);
+    assert.equal(equipment.value, 1826.49, 'manager uses base-relative fractional equipment');
+    assert.equal(equipment.restored, equipment.value, 'comparison save retains equipment precision');
+    assert.equal(equipment.next, equipment.direct, 'equipment override agrees with direct manager calculation');
+    assert.ok(Math.abs(equipment.nextInternal - equipment.directInternal) < 1e-7);
+    console.log('Equipment manager/shared/compact checks:', JSON.stringify(equipment));
+    const equipmentDataPage = await browser.createPage(cdp,
+      `http://127.0.0.1:${port}/public/apostle-data.html?view=equipment`);
+    await browser.waitFor(async () => browser.evaluate(cdp, equipmentDataPage,
+      `!!document.querySelector('[data-apostle-equipment-open]')`), { timeoutMs: 30000 });
+    const equipmentText = await browser.evaluate(cdp, equipmentDataPage, `(() => {
+      const button = Array.from(document.querySelectorAll('[data-apostle-equipment-open]')).find(button =>
+        button.dataset.apostleId === ${JSON.stringify(equipment.id)} && button.dataset.apostleEquipmentColumn === 'HP');
+      button.click();
+      return document.querySelector('.apostle-data-equipment-values')?.textContent;
+    })()`);
+    assert.match(equipmentText, /1,826\.49/, 'equipment data dialog shows fractional effect');
+    assert.match(equipmentText, /1,945\.98/, 'equipment data dialog hides binary representation noise only');
+    await cdp.send('Target.closeTarget', { targetId: equipmentDataPage.targetId });
     await cdp.send('Target.closeTarget', { targetId: page.targetId });
     const seed = await browser.createPage(cdp, `http://127.0.0.1:${port}/enemy-status.html`);
     await browser.waitFor(async () => browser.evaluate(cdp, seed,
@@ -179,7 +217,7 @@ async function run() {
         rawKeys: Object.keys(raw || {}), stateKeys: Object.keys(raw?.apostles?.Kyarot || {}),
         status: document.querySelector('#fdc-result-detail-note')?.textContent };
     })()`);
-    assert.equal(loaded.version, 2, `direct calc entry rebuilds old full snapshot in memory: ${JSON.stringify(loaded)}`);
+    assert.equal(loaded.version, result.calculationVersion, `direct calc entry rebuilds old full snapshot in memory: ${JSON.stringify(loaded)}`);
     assert.equal(loaded.sourceVersion, undefined, 'calculator does not overwrite manager state');
     assert.equal(loaded.hp, result.override.savedHp, `legacy display value replaced on direct load: ${JSON.stringify(loaded)}`);
     assert.equal(loaded.power, result.legacySnapshot.stats.combatPower, 'old combat power recalculated from internal values');
@@ -188,6 +226,22 @@ async function run() {
     assert.equal(loaded.plannedVersion, undefined, 'unverifiable old planned board value remains legacy');
     await browser.clickSelector(cdp, calc, '#fdc-target-preview');
     await browser.clickSelector(cdp, calc, '[data-fdc-member-id="Kyarot"]');
+    const fractionalInput = await browser.evaluate(cdp, calc, `(() => {
+      const snapshot = window.TRICKCAL_DAMAGE_CALC.captureCombatScenario()
+        ?.characterState?.apostles?.Kyarot?.statSnapshots?.current;
+      const normal = window.TRICKCAL_DAMAGE_CALC.createDpsEvaluationInput()?.target?.stats;
+      const mappings = [['patk', 'physicalAtk'], ['matk', 'magicAtk'],
+        ['pdef', 'physicalDef'], ['mdef', 'magicDef'], ['crit', 'crit'],
+        ['critDmg', 'critDmg'], ['critRes', 'critRes'], ['critDmgRes', 'critDmgRes']];
+      const selected = mappings.find(([internal]) =>
+        Math.abs(Number(snapshot?.internalTotals?.[internal]) % 1) > 1e-7);
+      return { selected, internal: snapshot?.internalTotals?.[selected?.[0]],
+        display: snapshot?.stats?.[selected?.[1]], dps: normal?.[selected?.[1]] };
+    })()`);
+    assert.ok(fractionalInput.selected, `fixture has a non-HP fractional stat: ${JSON.stringify(fractionalInput)}`);
+    assert.ok(Math.abs(fractionalInput.dps - fractionalInput.internal) < 1e-7,
+      `DPS receives the internal fraction, not display integer: ${JSON.stringify(fractionalInput)}`);
+    assert.notEqual(fractionalInput.dps, fractionalInput.display);
     const plannedUi = await browser.evaluate(cdp, calc, `(() => {
       const select = document.querySelector('#fdc-stat-mode');
       select.value = 'planned';
@@ -375,14 +429,15 @@ async function run() {
     await browser.clickSelector(cdp, managerRecovery, '[data-state-slot="1"]');
     await browser.waitFor(async () => browser.evaluate(cdp, managerRecovery, `(() => {
       const state = JSON.parse(localStorage.getItem('trickcal_stat_prototype_v1') || '{}');
-      return state.apostles?.Kyarot?.statSnapshots?.current?.calculationVersion === 2;
+      return state.apostles?.Kyarot?.statSnapshots?.current?.calculationVersion === window.TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion;
     })()`), { timeoutMs: 30000 });
     await browser.clickSelector(cdp, managerRecovery, '.bottom-save-menu > summary');
     await browser.clickSelector(cdp, managerRecovery, '#save-state-slot');
     await browser.clickSelector(cdp, managerRecovery, '[data-state-slot="1"]');
     await browser.waitFor(async () => browser.evaluate(cdp, managerRecovery, `(() => {
       const store = JSON.parse(localStorage.getItem('trickcal_stat_slots_v2') || '{}');
-      return store.slots?.['1']?.snapshot?.comparisonStats?.v === 2;
+      return store.slots?.['1']?.snapshot?.comparisonStats?.v
+        === window.TRICKCAL_SHARED_STAT_ENGINE.encodeComparisonStatSnapshots({}).v;
     })()`), { timeoutMs: 30000 });
     const recovered = await browser.evaluate(cdp, managerRecovery, `(() => {
       const store = JSON.parse(localStorage.getItem('trickcal_stat_slots_v2'));
@@ -397,7 +452,7 @@ async function run() {
         plannedCompact: !!saved.comparisonStats.a?.Kyarot?.[1],
         hp: state.apostles.Kyarot.statSnapshots.current.stats.hp };
     })()`);
-    assert.equal(recovered.slotVersion, 2);
+    assert.equal(recovered.slotVersion, 3);
     assert.equal(recovered.level, 1);
     assert.equal(recovered.formationId, 'Kyarot');
     assert.equal(recovered.resonanceSelection, '純粋');
@@ -472,7 +527,7 @@ async function run() {
       await browser.waitFor(async () => browser.evaluate(cdp, boundaryManager,
         `(() => { const state = JSON.parse(localStorage.getItem('trickcal_stat_prototype_v1') || '{}');
           return state.apostles?.Kyarot?.asideRank === ${rank}
-            && state.apostles.Kyarot.statSnapshots?.current?.calculationVersion === 2; })()`),
+            && state.apostles.Kyarot.statSnapshots?.current?.calculationVersion === window.TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion; })()`),
       { timeoutMs: 30000 }).catch(async error => {
         const observed = await browser.evaluate(cdp, boundaryManager, `(() => {
           const state = JSON.parse(localStorage.getItem('trickcal_stat_prototype_v1') || '{}');
@@ -574,7 +629,8 @@ async function run() {
     await browser.clickSelector(cdp, missingManager, '[data-state-slot="3"]');
     await browser.waitFor(async () => browser.evaluate(cdp, missingManager, `(() => {
       const slot = JSON.parse(localStorage.getItem('trickcal_stat_slots_v2')).slots['3'].snapshot;
-      return slot.apostles.Kyarot.level === 2 && slot.comparisonStats?.v === 2;
+      return slot.apostles.Kyarot.level === 2 && slot.comparisonStats?.v
+        === window.TRICKCAL_SHARED_STAT_ENGINE.encodeComparisonStatSnapshots({}).v;
     })()`), { timeoutMs: 30000 });
     const missingRecovered = await browser.evaluate(cdp, missingManager, `(() => {
       const slot = JSON.parse(localStorage.getItem('trickcal_stat_slots_v2')).slots['3'].snapshot;

@@ -12,7 +12,8 @@ import zipfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from personality_options import normalize_personality_options
-from research_data import validate_research_rows
+from research_data import normalize_vertical_research
+from equipment_data import normalize_equipment_values
 
 MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -311,26 +312,6 @@ def normalize_base_stat_values(rows: list[dict[str, object]]) -> list[dict[str, 
     return normalized
 
 
-def normalize_equipment_values(rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    normalized: list[dict[str, object]] = []
-    stat_names = {
-        "物理攻撃": "物理攻撃力",
-        "魔法攻撃": "魔法攻撃力",
-        "物理防御": "物理防御力",
-        "魔法防御": "魔法防御力",
-    }
-    for row in rows:
-        stat_group = stat_names.get(str(row.get("ステータス", "")), row.get("ステータス", ""))
-        item = dict(row)
-        item["statGroup"] = stat_group
-        item["equipName"] = row.get("装備名", "")
-        item["enhance0"] = row.get("強化なし", "")
-        for enhance in range(1, 6):
-            item[f"enhance{enhance}"] = row.get(f"強化+{enhance}", "")
-        normalized.append(item)
-    return normalized
-
-
 def normalize_rank_up_bonuses(rows: list[dict[str, object]]) -> list[dict[str, object]]:
     normalized: list[dict[str, object]] = []
     for row in rows:
@@ -616,9 +597,18 @@ def generate(input_path: Path, output_path: Path) -> None:
             ignored_sheets.append(sheet_name)
             continue
         sheets[key] = rows_to_objects(rows)
-        if key == "research":
-            first = next((row for row in rows if any(value != "" for value in row)), [])
-            validate_research_rows(unique_headers(first), sheets[key])
+
+    if "研究効果" in workbook:
+        material_rows = workbook.get("素材マスター")
+        catalog = (rows_to_objects(material_rows) if material_rows is not None else
+                   read_tsv_objects(input_path.parent / "research-material-master.tsv"))
+        sheets.update(normalize_vertical_research(
+            rows_to_objects(workbook["研究効果"]),
+            rows_to_objects(workbook.get("研究素材", [])),
+            rows_to_objects(workbook.get("素材製作レシピ", [])),
+            rows_to_objects(workbook.get("施設強化素材", [])),
+            catalog,
+        ))
 
     if "skillBasics" in sheets or "skillEffects" in sheets:
         sheets["skills"] = merge_effect_sheets(

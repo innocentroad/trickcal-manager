@@ -34,6 +34,7 @@
     ['preference.calcThemeLegacy', 'localStorage', 'trickcal_damage_calc_theme', 'display', 'legacy-preference', 'formation-damage-calc.js'],
     ['preference.boardShortcutOffMode', 'localStorage', 'trickcal_board_shortcut_off_mode', 'display', 'user-preference', 'stat-prototype.js'],
     ['preference.boardOrientation', 'localStorage', 'trickcal_board_orientation', 'display', 'user-preference', 'stat-prototype.js'],
+    ['research.materialInventory', 'localStorage', 'trickcal_research_inventory_v1', 'research', 'user-working-settings', 'stat-prototype.js'],
     ['calc.settings', 'localStorage', 'trickcal_formation_damage_settings_v1', 'calculation', 'user-working-settings', 'formation-damage-calc.js'],
     ['calc.resultSaves', 'localStorage', 'trickcal_formation_damage_result_saves_v1', 'calculation', 'named-user-snapshots', 'formation-damage-calc.js'],
     ['calc.enemyPresets', 'localStorage', 'trickcal_formation_damage_enemy_presets_v1', 'enemy', 'user-authored-data', 'formation-damage-calc.js'],

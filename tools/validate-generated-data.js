@@ -88,6 +88,22 @@ function main() {
   if ((cards.artifacts.length + cards.spells.length) < 80) fail('cards.js: カード件数が不足しています');
   if (!statData?.sheets || !statData?.indexes) fail('statData.js: sheets/indexesがありません');
 
+  const equipmentValues = statData.sheets.equipmentValues;
+  if (!equipmentValues?.length) fail('statData.js: 装備効果がありません');
+  for (const row of equipmentValues) {
+    if (typeof row.enhance0 !== 'number' || !Number.isFinite(row.enhance0) || row.enhance0 < 0) {
+      fail(`statData.js: 装備基礎値が不正: ${row.equipName}`);
+    }
+    for (let level = 1; level <= 5; level += 1) {
+      const multiplier = Number(row[`強化倍率+${level}`]);
+      if (!Number.isFinite(multiplier) || multiplier < 1
+        || !Number.isFinite(row[`enhance${level}`])
+        || row[`enhance${level}`] !== row.enhance0 * multiplier) {
+        fail(`statData.js: 装備倍率/小数値が不正: ${row.equipName} +${level}`);
+      }
+    }
+  }
+
   rejectRawHeaders(apostles, 'apostles.js');
   rejectRawHeaders(cards, 'cards.js');
 

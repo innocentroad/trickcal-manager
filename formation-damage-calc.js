@@ -3612,13 +3612,13 @@
     const savedGlobalAdditive = getSavedEnemyGlobalAdditive(context, snapshot);
     const stats = { ...(member?.stats || {}) };
     ENEMY_GLOBAL_PERCENT_CONFIG.forEach(({ inputKey, additiveInputKey, statKey, memberKey, aliases }) => {
-      const finalValue = Number(readStatValue(raw, aliases)) || 0;
+      const finalValue = Number(snapshot?.internalTotals?.[statKey] ?? readStatValue(raw, aliases)) || 0;
       const savedRate = Number(savedRates[statKey] ?? savedRates[memberKey]) || 0;
       let beforePercent = finalValue;
       if (Object.prototype.hasOwnProperty.call(increases, statKey)) {
         beforePercent = Math.max(0, finalValue - (Number(increases[statKey]) || 0));
       } else if (savedRate) {
-        beforePercent = Math.max(0, Math.round(finalValue / (1 + savedRate / 100)));
+        beforePercent = Math.max(0, finalValue / (1 + savedRate / 100));
       }
       const additiveBase = Number(savedGlobalAdditive[statKey]) || 0;
       const editedGlobalAdditive = view.enemyGlobalAdditiveEnabled === false
@@ -3626,7 +3626,9 @@
         : additiveInputKey ? readNumber(el.inputs[additiveInputKey]) : additiveBase;
       const editedAdditive = Math.max(0, beforePercent - additiveBase + editedGlobalAdditive);
       const editedRate = view.enemyGlobalPercentEnabled === false ? 0 : readNumber(el.inputs[inputKey]);
-      stats[memberKey] = editedAdditive + Math.floor(editedAdditive * editedRate / 100);
+      const follow = context.state?.apostles?.[member.id]?.follow;
+      const love = TRICKCAL_SHARED_STAT_ENGINE?.followFraction?.({ follow }, statKey) || 0;
+      stats[memberKey] = editedAdditive * ((1 + editedRate / 100) + love);
     });
     return stats;
   }
@@ -10577,19 +10579,24 @@
     const snapshot = getGradeAdjustedSnapshot(apostleState, basic, gradeOverride, statMode);
     if (!snapshot?.stats) return null;
     const raw = snapshot.stats;
-    return applyExtraCrayonToStats({
-      hp: readStatValue(raw, ['hp', 'HP']),
-      physicalAtk: readStatValue(raw, ['physicalAtk', 'patk', '物理攻撃', '物理攻撃力']),
-      magicAtk: readStatValue(raw, ['magicAtk', 'matk', '魔法攻撃', '魔法攻撃力']),
-      physicalDef: readStatValue(raw, ['physicalDef', 'pdef', '物理防御', '物理防御力']),
-      magicDef: readStatValue(raw, ['magicDef', 'mdef', '魔法防御', '魔法防御力']),
-      crit: readStatValue(raw, ['crit', '会心']),
-      critDmg: readStatValue(raw, ['critDmg', '会心DMG', '会心ダメージ']),
-      critRes: readStatValue(raw, ['critRes', '会心抵抗']),
-      critDmgRes: readStatValue(raw, ['critDmgRes', '会心DMG抵抗']),
+    const internal = snapshot.internalTotals || {};
+    const result = applyExtraCrayonToStats({
+      hp: Number(internal.hp ?? readStatValue(raw, ['hp', 'HP'])),
+      physicalAtk: Number(internal.patk ?? readStatValue(raw, ['physicalAtk', 'patk', '物理攻撃', '物理攻撃力'])),
+      magicAtk: Number(internal.matk ?? readStatValue(raw, ['magicAtk', 'matk', '魔法攻撃', '魔法攻撃力'])),
+      physicalDef: Number(internal.pdef ?? readStatValue(raw, ['physicalDef', 'pdef', '物理防御', '物理防御力'])),
+      magicDef: Number(internal.mdef ?? readStatValue(raw, ['magicDef', 'mdef', '魔法防御', '魔法防御力'])),
+      crit: Number(internal.crit ?? readStatValue(raw, ['crit', '会心'])),
+      critDmg: Number(internal.critDmg ?? readStatValue(raw, ['critDmg', '会心DMG', '会心ダメージ'])),
+      critRes: Number(internal.critRes ?? readStatValue(raw, ['critRes', '会心抵抗'])),
+      critDmgRes: Number(internal.critDmgRes ?? readStatValue(raw, ['critDmgRes', '会心DMG抵抗'])),
       spRegen: readStatValue(raw, ['spRegen', '毎秒SP回復量', '毎秒SP回復']),
       combatPower: readStatValue(raw, ['combatPower', '戦闘力'])
     }, snapshot);
+    // The ordinary battle HP input remains an integer; other stats retain the
+    // snapshot's calculation fractions until their own consumer rounds them.
+    result.hp = Math.floor(result.hp);
+    return result;
   }
 
   function applyExtraCrayonToStats(stats = {}, snapshot = null) {
@@ -10601,7 +10608,7 @@
       if (!percent) return finalValue;
       const existingGlobalIncrease = Number(snapshot?.breakdown?.globalPercent?.[internalKey]) || 0;
       const additiveBase = Math.max(0, finalValue - existingGlobalIncrease);
-      if (snapshot?.breakdown?.globalPercent) return finalValue + Math.floor(additiveBase * percent / 100);
+      if (snapshot?.breakdown?.globalPercent) return finalValue + additiveBase * percent / 100;
       return finalValue * (1 + percent / 100);
     };
     return {

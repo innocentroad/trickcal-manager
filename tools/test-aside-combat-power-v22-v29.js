@@ -86,9 +86,11 @@ assert.equal(Object.keys(engine.encodeComparisonStatSnapshots({ Porsher: { statS
 const sources = ['base', 'rankUp', 'equipment', 'rankGlobal', 'research', 'boardBasic', 'boardAdvanced', 'bond', 'asideManifest', 'asideLevel'];
 const keys = ['hp', 'patk', 'matk', 'pdef', 'mdef', 'crit', 'critDmg', 'critRes', 'critDmgRes', 'spRegen'];
 const snapshotKeys = ['hp', 'physicalAtk', 'magicAtk', 'physicalDef', 'magicDef', 'crit', 'critDmg', 'critRes', 'critDmgRes', 'spRegen'];
-const full = { calculationVersion: engine.snapshotCalculationVersion, stats: { hp: 5011, combatPower: 123 },
+const full = { calculationVersion: engine.snapshotCalculationVersion,
+  stats: { ...Object.fromEntries(snapshotKeys.map(key => [key, key === 'hp' ? 5011 : 0])), combatPower: 123 },
   breakdown: Object.fromEntries(sources.map(source => [source, Object.fromEntries(keys.map(key => [key, key === 'hp' && source === 'asideManifest' ? 2178.3 : 0]))])),
-  globalPercentRates: Object.fromEntries(snapshotKeys.map(key => [key, 0])) };
+  globalPercentRates: Object.fromEntries(snapshotKeys.map(key => [key, 0])),
+  internalTotals: Object.fromEntries(keys.map(key => [key, key === 'hp' ? 5011.02 : 0])) };
 full.breakdown.asideLevel.hp = 648.72;
 full.breakdown.base.hp = 2184;
 full.breakdown.globalPercent = Object.fromEntries(keys.map(key => [key, 0]));
@@ -96,12 +98,14 @@ const plannedFull = JSON.parse(JSON.stringify(full));
 plannedFull.kind = 'planned';
 plannedFull.stats.hp = 5012;
 plannedFull.breakdown.boardBasic.hp = 1;
+plannedFull.internalTotals.hp = 5012.02;
 const compact = engine.encodeComparisonStatSnapshots({ Kyarot: { statSnapshots: { current: full, planned: plannedFull } } });
-assert.equal(compact.v, 2);
+assert.equal(compact.v, 3);
 const restored = engine.decodeComparisonStatSnapshots(JSON.parse(JSON.stringify(compact))).Kyarot.current;
-assert.equal(restored.calculationVersion, 2);
+assert.equal(restored.calculationVersion, engine.snapshotCalculationVersion);
 assert.equal(restored.breakdown.asideManifest.hp, 2178.3);
 assert.equal(restored.breakdown.asideLevel.hp, 648.72);
+assert.equal(restored.internalTotals.hp, 5011.02);
 assert.equal(engine.hasCompleteBreakdown(restored), true);
 assert.equal(engine.hasCompleteBreakdown({ ...full, breakdown: { ...full.breakdown, base: { hp: 2184 } } }), false,
   'missing vector dimensions are not a complete breakdown');

@@ -25,6 +25,19 @@ assert.deepEqual(research.getAppliedStages({ id: 1, 段階1: 5, 段階3: 9 }, 3,
 assert.equal(research.getCurrentOrder(fixture[0], 11, 6), null);
 assert.equal(research.getCurrentOrder(fixture[0], 11, 7), 7);
 assert.equal(research.getValue(fixture[1], 12, 7), 0, '説明行を数値計算へ加えない');
+const vertical = [
+  { 研究ID: 1, 段階: 10, 取得順: 45, 種族: '妖精', ステータス: '物理攻撃力', 増加値: 15 },
+  { 研究ID: 2, 段階: 11, 取得順: 7, 種族: '妖精', ステータス: '物理攻撃力', 増加値: 54 },
+  { 研究ID: 3, 段階: 12, 取得順: 7, 種族: '妖精', ステータス: '物理攻撃力', 増加値: 54 },
+  { 研究ID: 4, 段階: 12, 取得順: 47, 種族: '', ステータス: '', 増加値: '', 非ステータス効果原値: '進軍コイン増加' }
+];
+assert.equal(research.getValue(vertical[0], 11, 6), 15);
+assert.equal(research.getValue(vertical[1], 11, 6), 0);
+assert.equal(research.getValue(vertical[1], 11, 7), 54);
+assert.equal(research.getValue(vertical[2], 12, 7), 54);
+assert.equal(research.getValue(vertical[3], 12, 47), 0);
+assert.equal(research.getOrder(vertical[1], 11), 7);
+assert.deepEqual(research.getAppliedStages(vertical[1], 11, 7), [11]);
 
 const source = fs.readFileSync(require.resolve('../formation-damage-calc.js'), 'utf8');
 const start = source.indexOf('  function calculateEnemyResearchPreset(context) {');
@@ -50,13 +63,13 @@ assert.equal(fdcContext.calculate({ enemyMember: { race: '妖精' } }).patk, 0);
 const generated = { window: {} };
 vm.runInNewContext(fs.readFileSync(require.resolve('../statData.js'), 'utf8'), generated);
 const rows = generated.window.TRICKCAL_STAT_DATA.sheets.research;
-if (rows.some(row => Object.hasOwn(row, '段階12'))) {
+if (rows.some(row => Object.hasOwn(row, '段階12') || Number(row.段階) === 12)) {
   const limits = research.getLimits(rows);
   assert.equal(limits.maxLevel, 12);
   assert.equal(limits.progressByStage[10], 45);
   assert.equal(limits.progressByStage[11], 47);
   assert.equal(limits.progressByStage[12], 47);
-  assert.equal(research.getValue(rows.find(row => row.id === 47), 12, 47), 0, 'コイン説明行を加算しない');
+  assert.equal(research.getValue(rows.find(row => row.id === 47 || row.内容 === '進軍コイン増加'), 12, 47), 0, 'コイン説明行を加算しない');
   for (const species of new Set(rows.map(row => row.種族).filter(Boolean))) {
     const totals = Object.create(null);
     const statRows = rows.filter(row => row.種族 === species && row.ステータス);

@@ -284,6 +284,19 @@
       ]
     },
     {
+      "entryId": "research.materialInventory",
+      "successBehavior": "旧形式の名前別JSONを読み込み、研究所持数専用Web Lockの排他区間で最新itemsを読み、選択素材だけを反映したversion:2のitemsとupdatedAtを保存する。未入力と明示0を区別し、計画表示だけに反映する。研究進行度や使徒snapshotは変更しない。",
+      "readFailure": "読込・JSON・数量の不正時は元データを上書きせず、警告を表示して計画上は所持数0を用いる。保存も拒否する。",
+      "writeFailure": "書込失敗・同じ素材の別タブ競合・Web Lock利用不可時は保存済み所持数と日時を維持し、入力下書きを残して失敗表示を出す。他素材の更新は排他区間内の最新値を取り込む。待機中は二重保存と入力・閉じる操作を抑止し、成功表示はしない。",
+      "deleteFailure": "キー削除操作はない。",
+      "callerOutcome": "所持数だけを操作する。計画条件変更は書き込まない。",
+      "startupWrites": false,
+      "accessSites": [
+        { "file": "stat-prototype.js", "function": "loadResearchInventory", "operations": ["getItem"], "keyResolution": "RESEARCH_INVENTORY_KEY定数", "evidence": "stat-prototype.js:RESEARCH_INVENTORY_KEY" },
+        { "file": "stat-prototype.js", "function": "saveResearchInventoryLocked", "operations": ["getItem", "setItem"], "keyResolution": "RESEARCH_INVENTORY_KEY定数。saveResearchInventoryItemからWeb Lock排他区間へ委譲", "evidence": "stat-prototype.js:research-inventory-dialog-save.click" }
+      ]
+    },
+    {
       "entryId": "calc.settings",
       "successBehavior": "現在の計算対象・編成・敵・補正・効果・表示・一時状態をschema付きJSONとして保存する。",
       "readFailure": "JSON解析・個別フィールドの不正は既定値を維持し、全体例外はwarnして起動を継続する。",
@@ -555,6 +568,22 @@
       "crossTab": "専用storage event処理は確認できない。",
       "migrationDisposition": "表示設定。gateBで移行対象か再構成かを確定。",
       "evidence": ["stat-prototype.js:20", "stat-prototype.js:527", "stat-prototype.js:536"]
+    },
+    {
+      "id": "research.materialInventory",
+      "key": "trickcal_research_inventory_v1",
+      "area": "localStorage",
+      "category": "research",
+      "role": "user-working-settings",
+      "owner": "stat-prototype.js",
+      "readers": ["stat-prototype.js"],
+      "writers": ["stat-prototype.js"],
+      "operations": ["read", "write"],
+      "payload": "旧形式は素材名→0以上の整数のJSON object。新形式はversion:2、items（明示入力した素材のみを保持し0と未入力を区別）、updatedAt（保存成功時の日時）のJSON object。旧形式に日時はない。",
+      "writeTriggers": ["研究画面の所持素材から1素材を編集→入力検証→保存"],
+      "crossTab": "研究所持数専用Web Lock内で最新itemsを読み、選択素材の編集開始時の値だけを照合する。同素材の競合は下書きを残して拒否し、別素材の更新は最新値から保持する。Web Lock非対応時は保存しない。",
+      "migrationDisposition": "研究進行度と独立した利用者設定。バックアップ・移行対象。",
+      "evidence": ["stat-prototype.js:RESEARCH_INVENTORY_KEY"]
     },
     {
       "id": "calc.settings",

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import re
 from collections import defaultdict
 from dataclasses import dataclass
@@ -11,7 +12,8 @@ from pathlib import Path
 from typing import Any
 
 from openpyxl import load_workbook
-from research_data import ResearchDataError, validate_research_rows
+from research_data import ResearchDataError, normalize_vertical_research
+from equipment_data import normalize_equipment_values
 
 
 EFFECT_SHEETS = (
@@ -130,22 +132,35 @@ def validate(input_path: Path) -> tuple[list[Issue], dict[str, int]]:
     source_references: list[tuple[str, int, str, str]] = []
     condition_references: list[tuple[str, int, str, str]] = []
 
-    research_sheet = "研究効果"
-    if research_sheet not in workbook.sheetnames:
-        issues.append(Issue("ERROR", research_sheet, 1, "", "シートがありません"))
-    else:
-        values = workbook[research_sheet].iter_rows(values_only=True)
+    def research_sheet_rows(name: str) -> list[dict[str, Any]]:
+        if name not in workbook.sheetnames:
+            raise ResearchDataError(f"{name} 行1 シート: ありません")
+        values = workbook[name].iter_rows(values_only=True)
         headers = [text(value) for value in next(values, ())]
-        research_rows = [
+        return [
             {header: cells[index] if index < len(cells) else None
              for index, header in enumerate(headers) if header}
             for cells in values if any(text(value) for value in cells)
         ]
-        try:
-            stage_counts = validate_research_rows(headers, research_rows)
-            stats["researchStages"] = len(stage_counts)
-        except ResearchDataError as error:
-            issues.append(Issue("ERROR", research_sheet, 1, "", str(error)))
+
+    try:
+        if "素材マスター" in workbook.sheetnames:
+            catalog = research_sheet_rows("素材マスター")
+        else:
+            with (input_path.parent / "research-material-master.tsv").open(encoding="utf-8", newline="") as file:
+                catalog = list(csv.DictReader(file, delimiter="\t"))
+        research_data = normalize_vertical_research(
+            research_sheet_rows("研究効果"), research_sheet_rows("研究素材"),
+            research_sheet_rows("素材製作レシピ"), research_sheet_rows("施設強化素材"), catalog,
+        )
+        stats["researchStages"] = len({row["段階"] for row in research_data["research"]})
+    except (ResearchDataError, OSError) as error:
+        issues.append(Issue("ERROR", "研究効果", 1, "", str(error)))
+
+    try:
+        stats["equipmentValues"] = len(normalize_equipment_values(research_sheet_rows("装備効果")))
+    except ValueError as error:
+        issues.append(Issue("ERROR", "装備効果", 1, "", str(error)))
 
     parent_ids: dict[str, set[str]] = {}
     for sheet_name, required_headers in BASE_SHEET_HEADERS.items():

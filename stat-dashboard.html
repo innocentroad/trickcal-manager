@@ -348,18 +348,47 @@
             <div id="apostle-bulk-list" class="apostle-bulk-list"></div>
           </div>
           <div class="setting-panel is-active" data-setting-panel="research">
-            <p class="panel-note">研究は使徒設定ではなく、アカウント全体の設定として扱います。下部の合計は「現在の研究進行度 / 全研究最大」で表示します。</p>
+            <h3>研究進行度</h3>
             <div class="research-controls">
-              <label class="research-control"><span>段階</span><select id="research-level-select"></select></label>
-              <label class="research-control"><span>回目</span><select id="research-progress-select"></select></label>
+              <label class="research-control"><span>現在段階</span><select id="research-level-select"></select></label>
+              <label class="research-control"><span>取得済み件数</span><select id="research-progress-select"></select></label>
             </div>
-            <h3>選択使徒に適用中</h3>
-            <div id="active-research-list" class="research-table-wrap research-active-list"></div>
-            <details class="research-overview-details">
-              <summary>研究全体の適用一覧</summary>
-              <div id="research-grid" class="research-table-wrap"></div>
-            </details>
-            <div id="research-overview-summary" class="compact-table-wrap rank-overview-summary"></div>
+            <div class="research-section-heading"><h3>各段階の研究（取得順）</h3>
+              <label class="research-control"><span>閲覧段階</span><select id="research-browse-stage"></select></label></div>
+            <div id="research-stage-costs" class="research-stage-costs"></div>
+            <div id="research-grid" class="research-table-wrap research-detail-wrap"></div>
+            <details class="research-effect-panel"><summary id="research-active-heading">選択使徒に適用中の研究効果</summary>
+              <div id="active-research-list" class="research-table-wrap research-active-list"></div></details>
+            <details class="research-effect-panel"><summary>種族別の研究効果合計</summary>
+              <div id="research-overview-summary" class="compact-table-wrap rank-overview-summary"></div></details>
+            <h3>素材・製作計画</h3>
+            <div class="research-plan-tabs" role="group" aria-label="素材計画の表示"><button type="button" data-research-plan-tab="remaining" aria-pressed="true">残り研究</button><button type="button" data-research-plan-tab="inventory" aria-pressed="false">所持素材</button></div>
+            <div id="research-plan-controls" class="research-plan-controls">
+              <p id="research-plan-current"></p>
+              <div class="research-plan-fields">
+                <label class="research-control"><span>終了段階</span><select id="research-plan-end-stage"></select></label>
+                <label class="research-control"><span>計算方法</span><select id="research-plan-mode"><option value="total">総必要数</option><option value="shortfall">不足分</option></select></label>
+              </div>
+            </div>
+            <div id="research-plan-summary" class="research-plan-summary" aria-live="polite"></div>
+            <section id="research-inventory-panel" class="research-inventory-panel" hidden aria-label="所持素材の編集">
+              <div class="research-inventory-toolbar"><span id="research-inventory-updated"></span><label><span>検索</span><input id="research-inventory-search" type="search" placeholder="素材名で検索"></label></div>
+              <p id="research-inventory-status" role="status"></p>
+              <div id="research-inventory-list" class="research-inventory-list"></div>
+            </section>
+            <dialog id="research-material-dialog" class="research-material-dialog" aria-labelledby="research-material-dialog-title">
+              <div class="research-dialog-heading"><h4 id="research-material-dialog-title">素材の製作ツリー</h4><button type="button" id="research-material-dialog-close" aria-label="製作ツリーを閉じる">閉じる</button></div>
+              <p id="research-material-dialog-subtitle" class="research-dialog-subtitle" hidden></p>
+              <div id="research-material-dialog-detail" class="research-material-detail"></div>
+            </dialog>
+            <dialog id="research-inventory-dialog" class="research-material-dialog research-inventory-dialog" aria-labelledby="research-inventory-dialog-title">
+              <div class="research-dialog-heading"><h4 id="research-inventory-dialog-title">所持数を変更</h4><button type="button" id="research-inventory-dialog-close" aria-label="所持数の入力を閉じる">閉じる</button></div>
+              <div id="research-inventory-dialog-material" class="research-inventory-dialog-material"></div>
+              <label class="research-control" for="research-inventory-input"><span>所持数</span><input id="research-inventory-input" type="text" inputmode="numeric" autocomplete="off"></label>
+              <p class="research-dialog-subtitle">空欄は未入力として扱います。</p>
+              <p id="research-inventory-dialog-status" class="research-inventory-error" role="status"></p>
+              <div class="research-inventory-actions"><button type="button" id="research-inventory-dialog-cancel">取消</button><button type="button" id="research-inventory-dialog-save">保存</button></div>
+            </dialog>
           </div>
           <div class="setting-panel" data-setting-panel="rank">
             <p class="panel-note">使徒ごとのRankとRank全体効果をまとめて管理します。下部の合計は「現在Rank / 全キャラ最大（Rank9）」で表示します。</p>
@@ -848,7 +877,7 @@
     </div>
   </dialog>
 
-  <script src="statData.js?v=292840e8d571c0ec"></script>
+  <script src="statData.js?v=eeb89a644bf5a8fc"></script>
   <script src="public-release-config.js?v=20260903a"></script>
   <script src="sp-engine.js?v=20260720b"></script>
   <script src="synergy.js"></script>

@@ -154,6 +154,20 @@ async function capture(cdp, page, filename) {
   fs.writeFileSync(path.join(PROJECT_ROOT, 'tmp', filename), Buffer.from(result.data, 'base64'));
 }
 
+async function tableGeometry(cdp, page) {
+  return browser.evaluate(cdp, page, `(() => {
+    const wrap = document.querySelector('[data-apostle-table-wrap]');
+    const rect = wrap.getBoundingClientRect();
+    const rows = [...document.querySelectorAll('[data-apostle-data-row]')];
+    const columns = [...document.querySelectorAll('[data-apostle-thead] th')];
+    return { rowHeight: rows[0]?.getBoundingClientRect().height || 0,
+      visibleRows: rows.filter(row => { const r = row.getBoundingClientRect(); return r.top >= rect.top && r.bottom <= rect.bottom; }).length,
+      visibleColumns: columns.filter(cell => { const r = cell.getBoundingClientRect(); return r.left >= rect.left && r.right <= rect.right; }).length,
+      firstWidth: columns[0]?.getBoundingClientRect().width || 0,
+      scrollWidth: wrap.scrollWidth, clientWidth: wrap.clientWidth };
+  })()`);
+}
+
 async function run() {
   const serverPort = await browser.findFreePort();
   const cdpPort = await browser.findFreePort([serverPort]);
@@ -269,12 +283,36 @@ async function run() {
       assert.ok(closed.tableRect?.height > 0, `${variant.label}: 再折畳み後の表領域`);
     }
 
+    const viewGeometry = {};
     for (const view of ['equipment', 'board', 'aside', 'rank']) {
       const directPage = await openPage(cdp, origin, 375, 844, `${TEST_ROUTE}&view=${view}`);
       pages.push(directPage);
       const directFacts = await facts(cdp, directPage);
       assert.equal(directFacts.filterDetailsOpen, false, `view=${view}: 初期filter折畳み`);
       assert.equal(directFacts.filterExpanded, 'false', `view=${view}: filter aria-expanded`);
+      viewGeometry[`375-${view}`] = await tableGeometry(cdp, directPage);
+      assert.ok(viewGeometry[`375-${view}`].rowHeight <= 70, `${view}:通常行を70px以下に整理`);
+      if (view === 'equipment') {
+        const badge = await browser.evaluate(cdp, directPage, `(() => { const b=document.querySelector('.apostle-data-tier-badge'); const c=b?.closest('td'); const s=b&&getComputedStyle(b); return { tier:b?.dataset.tier, background:s?.backgroundColor, color:s?.color, stroke:s?.webkitTextStrokeWidth, align:c&&getComputedStyle(c).textAlign }; })()`);
+        assert.ok(['1','2','3','4','5'].includes(badge.tier), '装備の元データ等級を表示');
+        assert.equal(badge.background, 'rgba(0, 0, 0, 0)', '装備等級数字に背景を置かない');
+        assert.equal(badge.stroke, '2px', '数字の縁取りを維持');
+        assert.equal(badge.align, 'center', '装備セルを中央揃え');
+        const tierColors = await browser.evaluate(cdp, directPage, `(() => Object.fromEntries([...document.querySelectorAll('.apostle-data-tier-badge')].map(b => [b.dataset.tier, getComputedStyle(b).color])))()`);
+        assert.ok(new Set(Object.values(tierColors)).size >= 3, '装備等級ごとに判別できる文字色');
+      }
+      await capture(cdp, directPage, `${SCREENSHOT_PREFIX}-${view}-375-initial.png`);
+      await browser.clickSelector(cdp, directPage, '[data-shared-theme-button]');
+      await capture(cdp, directPage, `${SCREENSHOT_PREFIX}-${view}-375-opposite-theme.png`);
+      await browser.clickSelector(cdp, directPage, '[data-shared-theme-button]');
+      if (view === 'aside') {
+        await browser.clickSelector(cdp, directPage, '[data-apostle-option="asideExpanded"]');
+        await capture(cdp, directPage, `${SCREENSHOT_PREFIX}-aside-375-expanded.png`);
+        await browser.evaluate(cdp, directPage, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = document.querySelector('[data-apostle-table-wrap]').scrollWidth`);
+        await capture(cdp, directPage, `${SCREENSHOT_PREFIX}-aside-375-expanded-magic-defense.png`);
+        await browser.clickSelector(cdp, directPage, '[data-shared-theme-button]');
+        await capture(cdp, directPage, `${SCREENSHOT_PREFIX}-aside-375-expanded-magic-defense-opposite-theme.png`);
+      }
     }
 
     const page = await openPage(cdp, origin, 375, 844);
@@ -284,14 +322,73 @@ async function run() {
     const darkTheme = await facts(cdp, page);
     assert.notEqual(darkTheme.theme, initialTheme, 'テーマ切替で本文状態を更新');
     assert.ok(darkTheme.themeLabel, 'テーマ切替のaria-label');
+    await capture(cdp, page, `${SCREENSHOT_PREFIX}-basic-375-opposite-theme.png`);
     await browser.clickSelector(cdp, page, '[data-shared-theme-button]');
     assert.equal((await facts(cdp, page)).theme, initialTheme, 'テーマを元へ戻す');
     const basicFacts = await facts(cdp, page);
-    assert.deepEqual(basicFacts.headers.slice(0, 10), ['使徒', 'レア度', 'エルダイン', '性格', '種族', '役割', '攻撃タイプ', '配置列', '初期SP', '毎秒SP回復量'], '基礎設定の既存列を維持');
-    assert.deepEqual(basicFacts.headers.slice(10), ['HP等級', '物理攻撃力等級', '魔法攻撃力等級', '物理防御力等級', '魔法防御力等級', '会心等級', '会心DMG等級', '会心抵抗等級', '会心DMG抵抗等級', '攻撃速度基礎', '戦闘力補正値'], '基礎設定は攻撃速度基礎・戦闘力補正値を表示し、計算用4係数は表示しない');
+    viewGeometry['375-basic'] = await tableGeometry(cdp, page);
+    const basicHeaders = await browser.evaluate(cdp, page, `[...document.querySelectorAll('[data-apostle-thead] th')].map(cell => cell.getAttribute('aria-label') || cell.textContent.trim())`);
+    assert.deepEqual(basicHeaders.slice(0, 10), ['使徒', 'レア度', 'エルダイン', '性格', '種族', '役割', '攻撃タイプ', '配置列', '初期SP', '毎秒SP回復量'], '基礎設定の既存列を維持');
+    assert.deepEqual(basicHeaders.slice(10), ['HP等級', '物理攻撃力等級', '魔法攻撃力等級', '物理防御力等級', '魔法防御力等級', '会心等級', '会心DMG等級', '会心抵抗等級', '会心DMG抵抗等級', '攻撃速度基礎', '戦闘力補正値'], '基礎設定は攻撃速度基礎・戦闘力補正値を表示し、計算用4係数は表示しない');
+    const compact = await browser.evaluate(cdp, page, `(() => {
+      const row = document.querySelector('[data-apostle-data-row="Amelia"]');
+      const image = row.querySelector('.apostle-data-apostle-image-wrap').getBoundingClientRect();
+      const name = row.querySelector('.apostle-data-apostle-name').getBoundingClientRect();
+      const headers = [...document.querySelectorAll('[data-apostle-thead] th[data-apostle-column]')];
+      return { imageBottom: image.bottom, nameTop: name.top, firstWidth: row.firstElementChild.getBoundingClientRect().width,
+        headerImagesLoaded: headers.flatMap(cell => [...cell.querySelectorAll('img')]).every(img => img.complete && img.naturalWidth > 0),
+        iconSources: Object.fromEntries(headers.map(cell => [cell.dataset.apostleColumn, cell.querySelector('img')?.getAttribute('src') || ''])),
+        columnWidths: Object.fromEntries(headers.map(cell => [cell.dataset.apostleColumn, cell.getBoundingClientRect().width])),
+        numericAligned: getComputedStyle(row.querySelector('[data-apostle-column="initialSP"]')).textAlign,
+        textAligned: getComputedStyle(row.querySelector('[data-apostle-column="personality"]')).textAlign,
+        numericUnclipped: [...document.querySelectorAll('[data-apostle-data-row] td:nth-child(n+9)')].every(cell => cell.scrollWidth <= cell.clientWidth + 1),
+        nameTitle: row.querySelector('.apostle-data-apostle-cell').title,
+        allNamesAvailable: [...document.querySelectorAll('.apostle-data-apostle-cell')].every(cell => cell.title === cell.querySelector('img')?.alt && cell.title.length > 0),
+        lineClamp: getComputedStyle(row.querySelector('.apostle-data-apostle-name')).webkitLineClamp };
+    })()`);
+    assert.ok(compact.imageBottom <= compact.nameTop, '使徒画像の下に名前');
+    assert.ok(compact.firstWidth < 120, '使徒列の幅を圧縮');
+    assert.equal(compact.headerImagesLoaded, true, '基礎見出し画像の読込');
+    assert.match(compact.iconSources.initialSP, /\/img\/SP\.webp$/);
+    assert.match(compact.iconSources.spRegen, /\/img\/SP回復\.webp$/);
+    assert.match(compact.iconSources.baseAttackSpeed, /\/img\/攻撃速度\.webp$/, '攻撃速度画像');
+    assert.match(compact.iconSources.combatPowerCorrection, /\/img\/c_pow\.webp$/, '戦闘力画像');
+    assert.ok(compact.columnWidths.hpTier < 65, '等級列の左右余白を縮める');
+    assert.ok(compact.columnWidths.hpTier < compact.columnWidths.attackType, '列幅を一律にせず意味に合わせる');
+    assert.equal(compact.numericAligned, 'center', '数値列を中央揃え');
+    assert.equal(compact.textAligned, 'center', '文字の値列も中央揃え');
+    assert.equal(compact.numericUnclipped, true, '最大数値も省略・欠けなし');
+    assert.equal(compact.nameTitle, 'アメリア', '省略時も正式名を確認できる');
+    assert.equal(compact.allNamesAvailable, true, '長い名前も正式名を確認できる');
+    assert.equal(compact.lineClamp, '2', '名前は最大2行');
+    const help = '[data-apostle-header-help="HP等級"]';
+    await browser.clickSelector(cdp, page, help);
+    const helpOpen = await browser.evaluate(cdp, page, `(() => { const box = document.querySelector('#apostle-data-header-help'); const r = box.getBoundingClientRect(); return { text: box.textContent, hidden: box.hidden, left: r.left, right: r.right, top: r.top, bottom: r.bottom }; })()`);
+    assert.equal(helpOpen.text, 'HP等級');
+    assert.equal(helpOpen.hidden, false, 'クリックで説明を開く');
+    assert.ok(helpOpen.left >= 0 && helpOpen.right <= 375 && helpOpen.top >= 0 && helpOpen.bottom <= 844, '説明が画面内に収まる');
+    await browser.evaluate(cdp, page, `document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`);
+    assert.equal(await browser.evaluate(cdp, page, `document.querySelector('#apostle-data-header-help').hidden`), true, 'Escapeで説明を閉じる');
+    await browser.evaluate(cdp, page, `document.querySelector('#apostle-data-filter-toggle').focus(); document.querySelector('[data-apostle-header-help="HP等級"]').focus()`);
+    const focusHelp = await browser.evaluate(cdp, page, `({ hidden: document.querySelector('#apostle-data-header-help').hidden, active: document.activeElement?.outerHTML, scrollLeft: document.querySelector('[data-apostle-table-wrap]').scrollLeft })`);
+    assert.equal(focusHelp.hidden, false, `キーボードフォーカスで説明を表示: ${JSON.stringify(focusHelp)}`);
+    await browser.clickSelector(cdp, page, '#apostle-data-count');
+    assert.equal(await browser.evaluate(cdp, page, `document.querySelector('#apostle-data-header-help').hidden`), true, '外側操作で説明を閉じる');
+    const edgeHelp = await browser.evaluate(cdp, page, `(() => {
+      const wrap = document.querySelector('[data-apostle-table-wrap]');
+      wrap.scrollLeft = wrap.scrollWidth;
+      const button = document.querySelector('[data-apostle-header-help="戦闘力補正値"]');
+      button.focus();
+      const rect = document.querySelector('#apostle-data-header-help').getBoundingClientRect();
+      return { left: rect.left, right: rect.right, text: document.querySelector('#apostle-data-header-help').textContent };
+    })()`);
+    assert.equal(edgeHelp.text, '戦闘力補正値');
+    assert.ok(edgeHelp.left >= 0 && edgeHelp.right <= 375, '右端の説明も画面内');
+    await capture(cdp, page, `${SCREENSHOT_PREFIX}-basic-right-help-375.png`);
+    await browser.evaluate(cdp, page, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = 0`);
     const basicDataFacts = await browser.evaluate(cdp, page, `(() => {
       const rows = [...document.querySelectorAll('[data-apostle-data-row]')];
-      const headerIndex = Object.fromEntries([...document.querySelectorAll('[data-apostle-thead] th')].map((cell, index) => [cell.textContent.trim(), index]));
+      const headerIndex = Object.fromEntries([...document.querySelectorAll('[data-apostle-thead] th')].map((cell, index) => [cell.getAttribute('aria-label') || cell.textContent.trim(), index]));
       const get = (id, label) => rows.find(row => row.dataset.apostleDataRow === id)?.children[headerIndex[label]]?.textContent.trim() || '';
       return {
         amelia: {
@@ -313,7 +410,7 @@ async function run() {
     assert.equal(basicDataFacts.correctionZero, '0', '隔離fixture:戦闘力補正値の0を表示');
     await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-sort=\\"combatPowerCorrection\\"]")?.click()');
     const correctionSort = await browser.evaluate(cdp, page, `(() => {
-      const headerIndex = [...document.querySelectorAll('[data-apostle-thead] th')].findIndex(cell => cell.textContent.trim() === '戦闘力補正値');
+      const headerIndex = [...document.querySelectorAll('[data-apostle-thead] th')].findIndex(cell => cell.getAttribute('aria-label') === '戦闘力補正値');
       return [...document.querySelectorAll('[data-apostle-data-row]')].map(row => Number(row.children[headerIndex]?.textContent.trim())).filter(Number.isFinite);
     })()`);
     assert.ok(correctionSort.every((value, index) => index === 0 || correctionSort[index - 1] <= value), '戦闘力補正値を数値順にソート');
@@ -366,6 +463,20 @@ async function run() {
     assert.equal(equipmentCellFacts.magicAttackHasControl, false, '非対応の魔法攻撃セルに操作を表示しない');
     assert.ok(equipmentCellFacts.widths.length === 7 && Math.max(...equipmentCellFacts.widths) - Math.min(...equipmentCellFacts.widths) <= 1, '装備列を等幅化');
     assert.ok(equipmentCellFacts.equipmentButtons > 0, '装備画像ボタンを生成');
+    const equipmentHeaders = await browser.evaluate(cdp, page, `(() => {
+      const pair = document.querySelector('[data-apostle-thead] th[data-apostle-column="会心/会心DMG"]');
+      return { count: pair.querySelectorAll('.apostle-data-header-pair img').length,
+        label: pair.getAttribute('aria-label'),
+        help: pair.querySelector('[data-apostle-header-help]')?.dataset.apostleHeaderHelp,
+        loaded: [...document.querySelectorAll('[data-apostle-thead] img')].every(img => img.complete && img.naturalWidth > 0) };
+    })()`);
+    assert.equal(equipmentHeaders.count, 2, '複合装備見出しは2画像を重ねる');
+    assert.match(equipmentHeaders.label, /会心・会心DMG/);
+    assert.equal(equipmentHeaders.help, equipmentHeaders.label, '複合見出しの説明');
+    assert.equal(equipmentHeaders.loaded, true, '装備見出し画像を読込');
+    await browser.clickSelector(cdp, page, '[data-apostle-column="会心/会心DMG"] [data-apostle-header-help]');
+    assert.equal(await browser.evaluate(cdp, page, `document.querySelector('#apostle-data-header-help').textContent`), '会心・会心DMG', '複合見出しをタップで説明');
+    await browser.evaluate(cdp, page, `document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape',bubbles:true}))`);
     const equipmentBadge = await browser.evaluate(cdp, page, `(() => {
       const badge = document.querySelector('[data-apostle-data-row] .apostle-data-tier-badge');
       const image = badge?.closest('.apostle-data-icon-wrap')?.querySelector('img');
@@ -428,14 +539,104 @@ async function run() {
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-option=asideExpanded]")?.textContent || ""'), /基礎値・成長値を表示/);
     await browser.clickSelector(cdp, page, '[data-apostle-option="asideExpanded"]');
     assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /補助値表示/);
+    const asideHeaders = await browser.evaluate(cdp, page, `(() => ({ count: document.querySelectorAll('[data-apostle-thead] th').length,
+      basis: document.querySelector('[data-apostle-column="HP-manifest"]')?.querySelector('.apostle-data-sort-button')?.textContent.trim(),
+      growth: document.querySelector('[data-apostle-column="HP-growth"]')?.querySelector('.apostle-data-sort-button')?.textContent.trim() }))()`);
+    assert.deepEqual(asideHeaders, {count:16,basis:'基礎',growth:'成長'}, '魔法防御を含むアサイド補助列');
+    const asideFacts = await browser.evaluate(cdp, page, `(() => {
+      const source = window.TRICKCAL_STAT_DATA.sheets.asideTiers;
+      const rows = [...document.querySelectorAll('[data-apostle-data-row]')];
+      const byId = new Map(source.map(item => [String(item.id), item]));
+      const cell = (row,key) => row?.querySelector('[data-apostle-column="'+key+'"]');
+      const shown = value => value === undefined || value === null || String(value).trim() === '' ? '' : Number(value).toLocaleString('ja-JP');
+      const mismatches = [];
+      for (const row of rows) {
+        const data = byId.get(row.dataset.apostleDataRow);
+        const allowed = !data || typeof window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled !== 'function' || window.TRICKCAL_PUBLIC_RELEASE.isAsideEnabled(row.dataset.apostleDataRow);
+        const type = data?.['魔法防御力タイプ'];
+        const expectedTier = !data || type === undefined || type === null || String(type).trim() === '' ? '' : !allowed ? '非公開' : Number(type) === 0 ? '対象外0' : '等級'+type;
+        const base = data?.['魔法防御力基礎値'] ?? data?.['魔法防御力発現値'];
+        const growth = data?.['魔法防御力_A1成長値'];
+        const expectedBase = allowed ? shown(base) : '';
+        const expectedGrowth = allowed ? shown(growth) : '';
+        const actual = [cell(row,'magicDefense')?.textContent.trim() || '', cell(row,'magicDefense-manifest')?.textContent.trim() || '', cell(row,'magicDefense-growth')?.textContent.trim() || ''];
+        if (actual.join('|') !== [expectedTier,expectedBase,expectedGrowth].join('|')) mismatches.push({id:row.dataset.apostleDataRow,actual,expected:[expectedTier,expectedBase,expectedGrowth]});
+      }
+      const amelia = document.querySelector('[data-apostle-data-row="Amelia"]');
+      const missing = rows.filter(row => !byId.has(row.dataset.apostleDataRow));
+      const fixture = window.__TRICKCAL_APOSTLE_DATA_TESTING__;
+      const column = {key:'magicDefense',type:'魔法防御力',value:'魔法防御力'};
+      const basic = {id:'Amelia'};
+      return { registered:source.length, missing:missing.length, mismatches:mismatches.slice(0,5),
+        amelia:[cell(amelia,'magicDefense')?.textContent.trim(),cell(amelia,'magicDefense-manifest')?.textContent.trim(),cell(amelia,'magicDefense-growth')?.textContent.trim()],
+        noUnregisteredText:rows.every(row => [...row.querySelectorAll('td')].every(td => !td.textContent.includes('未登録'))),
+        missingBlank:missing.every(row => [...row.querySelectorAll('td')].every(td => td.textContent.trim()==='')),
+        fixture:{none:fixture.asideValue({basic,aside:null},column), partial:fixture.asideValue({basic,aside:{HPタイプ:1}},column), zero:fixture.asideValue({basic,aside:{魔法防御力タイプ:0,魔法防御力基礎値:0,魔法防御力_A1成長値:0}},column), baseZero:fixture.asideSupplement({aside:{魔法防御力基礎値:0}},column,'基礎値'), growthMissing:fixture.asideSupplement({aside:{}},column,'_A1成長値')},
+        icon:document.querySelector('[data-apostle-thead] [data-apostle-column="magicDefense"] img')?.getAttribute('src'),
+        help:document.querySelector('[data-apostle-thead] [data-apostle-column="magicDefense"] [data-apostle-header-help]')?.dataset.apostleHeaderHelp };
+    })()`);
+    assert.equal(asideFacts.registered, 40, '登録済み行数');
+    assert.deepEqual(asideFacts.mismatches, [], '全登録済み行の魔法防御等級・基礎・成長を元データと照合');
+    assert.deepEqual(asideFacts.amelia, ['等級1','324','45'], 'アメリアの原値');
+    assert.equal(asideFacts.noUnregisteredText && asideFacts.missingBlank, true, 'アサイド欠損セルは空欄');
+    assert.equal(asideFacts.fixture.none.blank && asideFacts.fixture.partial.blank, true, '未登録全体と項目欠損を区別');
+    assert.equal(asideFacts.fixture.zero.status, 'excluded', '明示0は未登録ではない');
+    assert.equal(asideFacts.fixture.baseZero, 0, '基礎値の明示0を維持');
+    assert.equal(asideFacts.fixture.growthMissing, null, '成長値の空欄を維持');
+    assert.match(asideFacts.icon, /魔法防御力\.webp/);
+    assert.equal(asideFacts.help, '魔法防御力', '正式名称の説明');
+    await browser.clickSelector(cdp, page, '[data-apostle-column="magicDefense"] [data-apostle-sort]');
+    const sortedAside = await browser.evaluate(cdp, page, `(() => { const map=new Map(window.TRICKCAL_STAT_DATA.sheets.asideTiers.map(r=>[String(r.id),r])); return [...document.querySelectorAll('[data-apostle-data-row]')].map(row=>map.get(row.dataset.apostleDataRow)?.['魔法防御力タイプ'] ?? null); })()`);
+    const knownAside = sortedAside.filter(value => value !== null);
+    assert.deepEqual(knownAside, [...knownAside].sort((a,b)=>a-b), '魔法防御の数値等級で並べ替え');
+    assert.ok(sortedAside.slice(knownAside.length).every(value => value === null), '未登録を等級0と混同しない');
 
     await browser.clickSelector(cdp, page, '[data-apostle-view="rank"]');
     current = await facts(cdp, page);
     assert.equal(current.rows, EXPECTED_APOSTLE_ROWS, 'Rank viewの使徒行数');
     assert.equal(current.joanne.present && current.joanne.imageLoaded, true, 'Rank効果にジョアンと画像');
-    assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /Rank 1→2/);
-    await selectValue(cdp, page, '#apostle-data-rank-transition', '2-3');
-    assert.match(await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-table] caption")?.textContent || ""'), /Rank 2→3/);
+    const rankFacts = await browser.evaluate(cdp, page, `(() => {
+      const row = document.querySelector('[data-apostle-data-row="Amelia"]');
+      const source = window.TRICKCAL_STAT_DATA.sheets.rankGlobalBonuses.find(item => item.id === 'Amelia');
+      return { headers: [...document.querySelectorAll('[data-apostle-thead] th')].map(cell => cell.dataset.apostleColumn),
+        noSelector: !document.querySelector('#apostle-data-rank-transition'),
+        rank1: row.querySelector('[data-apostle-column="rank1"]').textContent.trim(),
+        rank2: [...row.querySelectorAll('[data-apostle-column="rank2"] .apostle-data-rank-effect')].map(button => button.getAttribute('aria-label')),
+        rank10: [...row.querySelectorAll('[data-apostle-column="rank10"] .apostle-data-rank-effect')].map(button => button.getAttribute('aria-label')),
+        allRowsComplete: [...document.querySelectorAll('[data-apostle-data-row]')].every(item => item.children.length === 11),
+        allRankMatches: window.TRICKCAL_STAT_DATA.sheets.rankGlobalBonuses.every(item => {
+          const rendered = [...document.querySelectorAll('[data-apostle-data-row]')].find(row => row.dataset.apostleDataRow === String(item.id));
+          if (!rendered || rendered.querySelector('[data-apostle-column="rank1"]')?.textContent.trim() !== '—') return false;
+          return Array.from({length:9}, (_, index) => index + 2).every(rank => {
+            const prefix = 'Rank' + (rank - 1) + 'to' + rank;
+            const labels = [...rendered.querySelectorAll('[data-apostle-column="rank' + rank + '"] .apostle-data-rank-effect')].map(button => button.getAttribute('aria-label'));
+            return labels.length === 2 && [1,2].every((effect, slot) => labels[slot] === item[prefix + '_type' + effect] + ' ' + item[prefix + '_value' + effect]);
+          });
+        }),
+        source2: [source.Rank1to2_type1, source.Rank1to2_value1, source.Rank1to2_type2, source.Rank1to2_value2],
+        source10: [source.Rank9to10_type1, source.Rank9to10_value1, source.Rank9to10_type2, source.Rank9to10_value2],
+        zero: window.__TRICKCAL_APOSTLE_DATA_TESTING__.rankEffect({rank:{Rank1to2_type1:'HP',Rank1to2_value1:0}},1,1,2),
+        missing: window.__TRICKCAL_APOSTLE_DATA_TESTING__.rankEffect({rank:{}},1,1,2),
+        excluded: window.__TRICKCAL_APOSTLE_DATA_TESTING__.rankEffect({rank:{Rank1to2_type1:'',Rank1to2_value1:0}},1,1,2) };
+    })()`);
+    assert.deepEqual(rankFacts.headers, ['name', ...Array.from({length:10}, (_, index) => `rank${index + 1}`)], 'Rank 1〜10を同時表示');
+    assert.equal(rankFacts.noSelector, true, '不要なRank遷移切替を削除');
+    assert.equal(rankFacts.rank1, '—', 'Rank 1は架空の効果を補わない');
+    assert.deepEqual(rankFacts.rank2, ['会心 24', '会心ダメージ 24'], 'Rank 2は1→2の増分');
+    assert.deepEqual(rankFacts.rank10, ['物理防御力 33', '魔法防御力 33'], 'Rank 10は9→10の増分');
+    assert.deepEqual(rankFacts.source2, ['会心',24,'会心ダメージ',24], '元データのRank 1→2を照合');
+    assert.deepEqual(rankFacts.source10, ['物理防御力',33,'魔法防御力',33], '元データのRank 9→10を照合');
+    assert.equal(rankFacts.allRowsComplete, true, '全使徒に10 Rank列');
+    assert.equal(rankFacts.allRankMatches, true, '全79使徒・Rank 2〜10の増分を生成元と照合');
+    assert.equal(rankFacts.zero.status, 'known', '明示0を残す');
+    assert.equal(rankFacts.missing.status, 'unregistered', '未登録を区別');
+    assert.equal(rankFacts.excluded.status, 'excluded', '対象外を区別');
+    assert.match(await browser.evaluate(cdp, page, `document.querySelector('[data-apostle-column="rank10"] [data-apostle-header-help]')?.dataset.apostleHeaderHelp || ''`), /Rank 9→10/);
+    await browser.clickSelector(cdp, page, '[data-apostle-column="rank2"] .apostle-data-rank-effect');
+    assert.equal(await browser.evaluate(cdp, page, `document.querySelector('#apostle-data-header-help').textContent`), '会心', 'Rank効果アイコンの説明');
+    await browser.clickSelector(cdp, page, '[data-apostle-thead] [data-apostle-column="rank10"] [data-apostle-header-help]');
+    const rankEdgeHelp = await browser.evaluate(cdp, page, `(() => { const r=document.querySelector('#apostle-data-header-help').getBoundingClientRect(); return { left:r.left,right:r.right,text:document.querySelector('#apostle-data-header-help').textContent }; })()`);
+    assert.ok(rankEdgeHelp.left >= 0 && rankEdgeHelp.right <= 375 && rankEdgeHelp.text.includes('Rank 9→10'), '最右Rank見出しの説明が画面内');
 
     await browser.evaluate(cdp, page, 'document.querySelector("#apostle-data-search").value = "not-found"; document.querySelector("#apostle-data-search").dispatchEvent(new Event("input", { bubbles: true }));');
     assert.equal((await facts(cdp, page)).rows, 0, '検索0件');
@@ -463,11 +664,32 @@ async function run() {
     await capture(cdp, page, `${SCREENSHOT_PREFIX}-375.png`);
     const desktop = await openPage(cdp, origin, 1280, 900);
     pages.push(desktop);
+    for (const view of ['basic', 'equipment', 'board', 'aside', 'rank']) {
+      if (view !== 'basic') await browser.clickSelector(cdp, desktop, `[data-apostle-view="${view}"]`);
+      viewGeometry[`1280-${view}`] = await tableGeometry(cdp, desktop);
+      await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-${view}-1280-initial.png`);
+      await browser.clickSelector(cdp, desktop, '[data-shared-theme-button]');
+      await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-${view}-1280-opposite-theme.png`);
+      await browser.clickSelector(cdp, desktop, '[data-shared-theme-button]');
+      if (view === 'aside') {
+        await browser.clickSelector(cdp, desktop, '[data-apostle-option="asideExpanded"]');
+        await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-aside-1280-expanded.png`);
+        await browser.evaluate(cdp, desktop, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = document.querySelector('[data-apostle-table-wrap]').scrollWidth`);
+        await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-aside-1280-expanded-magic-defense.png`);
+        await browser.clickSelector(cdp, desktop, '[data-shared-theme-button]');
+        await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-aside-1280-expanded-magic-defense-opposite-theme.png`);
+      }
+    }
     await browser.clickSelector(cdp, desktop, '[data-apostle-view="equipment"]');
     await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-equipment-1280.png`);
     await browser.clickSelector(cdp, desktop, '[data-apostle-view="basic"]');
     await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-1280.png`);
-    console.log(JSON.stringify({ ok: true, responsive, expandedResponsive, screenshots: [`tmp/${SCREENSHOT_PREFIX}-basic-filter-collapsed-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-600.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-480.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-dialog-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-1280.png`, `tmp/${SCREENSHOT_PREFIX}-375.png`, `tmp/${SCREENSHOT_PREFIX}-1280.png`], fixture }, null, 2));
+    await browser.evaluate(cdp, desktop, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = document.querySelector('[data-apostle-table-wrap]').scrollWidth`);
+    await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-basic-right-1280.png`);
+    await browser.evaluate(cdp, desktop, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = 0`);
+    await browser.clickSelector(cdp, desktop, '[data-shared-theme-button]');
+    await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-1280-opposite-theme.png`);
+    console.log(JSON.stringify({ ok: true, responsive, expandedResponsive, viewGeometry, screenshots: [`tmp/${SCREENSHOT_PREFIX}-basic-filter-collapsed-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-375-opposite-theme.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-help-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-600.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-480.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-dialog-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-1280.png`, `tmp/${SCREENSHOT_PREFIX}-375.png`, `tmp/${SCREENSHOT_PREFIX}-1280.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-1280.png`, `tmp/${SCREENSHOT_PREFIX}-1280-opposite-theme.png`], fixture }, null, 2));
   } finally {
     try { await cdp?.disconnect(); } catch {}
     try { chrome?.kill(); } catch {}

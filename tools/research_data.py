@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import re
+from pathlib import Path
 
 
 STAGE_RE = re.compile(r"^段階([1-9][0-9]*)$")
@@ -88,3 +89,175 @@ def validate_research_rows(headers: list[str], rows: list[dict[str, object]]) ->
             missing = sorted(expected - set(stage_orders))
             fail("", f"取得順{stage}" if f"取得順{stage}" in headers else "id", f"{stage}段階の取得順に欠番があります: {missing}")
     return {stage: len(stage_orders) for stage, stage_orders in orders.items()}
+
+
+def normalize_vertical_research(
+    effects: list[dict[str, object]], materials: list[dict[str, object]],
+    recipes: list[dict[str, object]], facilities: list[dict[str, object]],
+    catalog: list[dict[str, object]],
+    image_dir: Path | None = None,
+) -> dict[str, list[dict[str, object]]]:
+    """Validate the user-facing sheets and emit only the public research fields."""
+    def fail(sheet: str, row: int, column: str, reason: str) -> None:
+        raise ResearchDataError(f"{sheet} 行{row} {column}: {reason}")
+
+    def integer(value: object, sheet: str, row: int, column: str, *, zero: bool = False) -> int:
+        if isinstance(value, bool) or not filled(value):
+            fail(sheet, row, column, "整数が必要です")
+        try:
+            number = float(value)
+        except (TypeError, ValueError):
+            fail(sheet, row, column, "整数が必要です")
+        if not math.isfinite(number) or not number.is_integer() or number < (0 if zero else 1):
+            fail(sheet, row, column, "有効な整数が必要です")
+        return int(number)
+
+    def number(value: object, sheet: str, row: int, column: str) -> float | int:
+        if isinstance(value, bool) or not filled(value):
+            fail(sheet, row, column, "数値が必要です")
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            fail(sheet, row, column, "数値が必要です")
+        if not math.isfinite(result):
+            fail(sheet, row, column, "有限の数値が必要です")
+        return int(result) if result.is_integer() else result
+
+    def ingredients(source: dict[str, object], sheet: str, row: int) -> list[dict[str, object]]:
+        result = []
+        for index in (1, 2):
+            name = source.get(f"材料{index}")
+            count = source.get(f"必要数{index}")
+            if filled(name) != filled(count):
+                fail(sheet, row, f"材料{index}/必要数{index}", "両方記入するか両方空欄にしてください")
+            if filled(name):
+                result.append({"name": str(name), "count": integer(count, sheet, row, f"必要数{index}")})
+        if len({item["name"] for item in result}) != len(result):
+            fail(sheet, row, "材料", "同じ素材が重複しています")
+        return result
+
+    image_keys: dict[str, str] = {}
+    image_dir = (image_dir or Path(__file__).resolve().parent.parent / "img" / "Materials").resolve()
+    for row_number, row in enumerate(catalog, 2):
+        name, key = row.get("素材名"), row.get("画像キー")
+        if not filled(name):
+            fail("素材マスター", row_number, "素材名", "名称が必要です")
+        if filled(key):
+            filename = str(key)
+            if (not re.fullmatch(r'[^<>:"/\\|?*\x00-\x1f]+\.(?:png|webp)', filename)
+                    or filename.startswith(".")):
+                fail("素材マスター", row_number, "画像キー", f"素材「{name}」の不正なファイル名: {filename}")
+            image_path = (image_dir / filename).resolve()
+            if image_path.parent != image_dir or not image_path.is_file():
+                fail("素材マスター", row_number, "画像キー", f"素材「{name}」の画像がありません: {filename}")
+        if name in image_keys:
+            fail("素材マスター", row_number, "素材名", "重複しています")
+        image_keys[str(name)] = str(key) if filled(key) else ""
+
+    def known(name: object, sheet: str, row: int, column: str) -> str:
+        if not filled(name) or str(name) not in image_keys:
+            fail(sheet, row, column, f"素材マスターに完全一致する名称がありません: {name}")
+        return str(name)
+
+    research: list[dict[str, object]] = []
+    by_id: dict[int, tuple[int, int]] = {}
+    orders: dict[int, set[int]] = {}
+    for row_number, row in enumerate(effects, 2):
+        sheet = "研究効果"
+        research_id = integer(row.get("研究ID"), sheet, row_number, "研究ID")
+        if research_id in by_id:
+            fail(sheet, row_number, "研究ID", f"重複しています（先行行{by_id[research_id][1]}）")
+        stage = integer(row.get("段階"), sheet, row_number, "段階")
+        order = integer(row.get("取得順"), sheet, row_number, "取得順")
+        if order in orders.setdefault(stage, set()):
+            fail(sheet, row_number, "取得順", f"{stage}段階で重複しています")
+        orders[stage].add(order)
+        if not filled(row.get("内容")) or not filled(row.get("区分")):
+            fail(sheet, row_number, "区分/内容", "必須です")
+        species, stat = row.get("種族"), row.get("ステータス")
+        if filled(species) != filled(stat):
+            fail(sheet, row_number, "種族/ステータス", "両方記入するか両方空欄にしてください")
+        value = row.get("増加値")
+        raw_effect = row.get("非ステータス効果原値")
+        if filled(stat):
+            value = number(value, sheet, row_number, "増加値")
+        elif filled(value) or not filled(raw_effect):
+            fail(sheet, row_number, "増加値/非ステータス効果原値", "非ステータス効果の原値が必要です")
+        if row.get("研究時間単位") != "秒":
+            fail(sheet, row_number, "研究時間単位", "秒が必要です")
+        research.append({
+            "研究ID": research_id, "段階": stage, "取得順": order,
+            "区分": row["区分"], "内容": row["内容"],
+            "種族": species if filled(species) else "", "ステータス": stat if filled(stat) else "",
+            "増加値": value if filled(stat) else "",
+            "非ステータス効果原値": raw_effect if filled(raw_effect) else "",
+            "必要ゴールド": integer(row.get("必要ゴールド"), sheet, row_number, "必要ゴールド", zero=True),
+            "研究時間": integer(row.get("研究時間"), sheet, row_number, "研究時間", zero=True),
+            "研究時間単位": "秒",
+        })
+        by_id[research_id] = (stage, row_number)
+    if sorted(orders) != list(range(1, max(orders, default=0) + 1)):
+        fail("研究効果", 1, "段階", "1から連続する段階が必要です")
+    for stage, values in orders.items():
+        if values != set(range(1, len(values) + 1)):
+            fail("研究効果", 1, "取得順", f"{stage}段階に欠番があります")
+    research.sort(key=lambda row: (row["段階"], row["取得順"]))
+
+    material_by_id: dict[int, list[dict[str, object]]] = {}
+    for row_number, row in enumerate(materials, 2):
+        sheet = "研究素材"
+        research_id = integer(row.get("研究ID"), sheet, row_number, "研究ID")
+        stage = integer(row.get("段階"), sheet, row_number, "段階")
+        if research_id not in by_id or by_id[research_id][0] != stage:
+            fail(sheet, row_number, "研究ID/段階", "研究効果に一致する行がありません")
+        name = known(row.get("素材名（参照用）"), sheet, row_number, "素材名（参照用）")
+        group = material_by_id.setdefault(research_id, [])
+        if any(item["name"] == name for item in group):
+            fail(sheet, row_number, "素材名（参照用）", "研究内で重複しています")
+        group.append({"name": name, "count": integer(row.get("必要数"), sheet, row_number, "必要数")})
+    for row in research:
+        row["素材"] = material_by_id.get(row["研究ID"], [])
+
+    output_recipes = []
+    recipe_names = set()
+    for row_number, row in enumerate(recipes, 2):
+        sheet = "素材製作レシピ"
+        name = known(row.get("完成素材"), sheet, row_number, "完成素材")
+        if name in recipe_names:
+            fail(sheet, row_number, "完成素材", "重複しています")
+        recipe_names.add(name)
+        items = ingredients(row, sheet, row_number)
+        if not items:
+            fail(sheet, row_number, "材料1", "少なくとも1つ必要です")
+        for item in items:
+            known(item["name"], sheet, row_number, "材料")
+        if row.get("時間単位") != "秒":
+            fail(sheet, row_number, "時間単位", "秒が必要です")
+        output_recipes.append({
+            "name": name, "stage": integer(row.get("レシピ段階"), sheet, row_number, "レシピ段階"),
+            "outputCount": integer(row.get("完成数"), sheet, row_number, "完成数"),
+            "seconds": integer(row.get("製作時間"), sheet, row_number, "製作時間", zero=True),
+            "materials": items,
+        })
+
+    transitions = set()
+    for row_number, row in enumerate(facilities, 2):
+        sheet = "施設強化素材"
+        name = row.get("施設")
+        if not filled(name):
+            fail(sheet, row_number, "施設", "必須です")
+        before = integer(row.get("変更前Lv"), sheet, row_number, "変更前Lv")
+        after = integer(row.get("変更後Lv"), sheet, row_number, "変更後Lv")
+        if after != before + 1:
+            fail(sheet, row_number, "変更後Lv", "変更前Lvの次のレベルが必要です")
+        key = (name, before, after)
+        if key in transitions:
+            fail(sheet, row_number, "施設/変更前Lv", "重複しています")
+        transitions.add(key)
+        items = ingredients(row, sheet, row_number)
+        for item in items:
+            known(item["name"], sheet, row_number, "材料")
+        integer(row.get("必要ゴールド"), sheet, row_number, "必要ゴールド", zero=True)
+
+    return {"research": research, "researchRecipes": output_recipes,
+            "researchMaterialCatalog": [{"name": name, "imageKey": key} for name, key in image_keys.items()]}
