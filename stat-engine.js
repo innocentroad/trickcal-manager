@@ -15,8 +15,10 @@
   };
 
   const TOTAL_KEYS = Object.keys(INTERNAL_TO_SNAPSHOT);
-  const COMPARISON_STATS_SCHEMA_VERSION = 2;
-  const SNAPSHOT_CALCULATION_VERSION = 2;
+  // v3 adds the calculation's fractional totals to compact comparison slots.
+  const COMPARISON_STATS_SCHEMA_VERSION = 3;
+  // v4: retain fractions through the ordered final multiplier.
+  const SNAPSHOT_CALCULATION_VERSION = 4;
   const ADDITIVE_SOURCES = ['base', 'rankUp', 'equipment', 'rankGlobal', 'research', 'boardBasic', 'boardAdvanced', 'bond', 'asideManifest', 'asideLevel'];
   const COMPARISON_STAT_KEYS = [...Object.values(INTERNAL_TO_SNAPSHOT), 'combatPower'];
   // v22: these three grades were checked against AsideGrade's five stat slots.
@@ -47,15 +49,28 @@
       encodeNumberVector(snapshot.breakdown?.globalPercent, TOTAL_KEYS),
       encodeNumberVector(snapshot.globalPercentRates, Object.values(INTERNAL_TO_SNAPSHOT)),
       Number(snapshot.calculationVersion) || 0,
-      snapshot.stats.combatPower == null
+      snapshot.stats.combatPower == null,
+      encodeNumberVector(snapshot.internalTotals, TOTAL_KEYS)
     ];
   }
 
   function decodeComparisonSnapshot(value = null, mode = 'current', version = 1) {
     if (!Array.isArray(value) || !Array.isArray(value[0])) return null;
-    const modern = version === COMPARISON_STATS_SCHEMA_VERSION;
+    const modern = version === 2 || version === COMPARISON_STATS_SCHEMA_VERSION;
     if (modern && (!Array.isArray(value[1]) || value[1].length !== ADDITIVE_SOURCES.length
       || value[1].some(vector => !Array.isArray(vector) || vector.length !== TOTAL_KEYS.length))) return null;
+    if (version === COMPARISON_STATS_SCHEMA_VERSION
+      && (!Array.isArray(value[6]) || value[6].length !== TOTAL_KEYS.length)) return null;
+    if (version === COMPARISON_STATS_SCHEMA_VERSION) {
+      const valid = entry => entry !== null && entry !== undefined && entry !== ''
+        && Number.isFinite(Number(entry));
+      if (!Array.isArray(value[0]) || value[0].length !== COMPARISON_STAT_KEYS.length
+        || value[0].slice(0, -1).some(entry => !valid(entry))
+        || value[1].some(vector => vector.some(entry => !valid(entry)))
+        || !Array.isArray(value[2]) || value[2].length !== TOTAL_KEYS.length || value[2].some(entry => !valid(entry))
+        || !Array.isArray(value[3]) || value[3].length !== TOTAL_KEYS.length || value[3].some(entry => !valid(entry))
+        || value[6].some(entry => !valid(entry))) return null;
+    }
     const snapshot = {
       kind: `comparisonCompact:${mode}`,
       stats: decodeNumberVector(value[0], COMPARISON_STAT_KEYS),
@@ -63,7 +78,9 @@
         ? Object.fromEntries(ADDITIVE_SOURCES.map((source, index) => [source, decodeNumberVector(value[1]?.[index], TOTAL_KEYS)]))
         : { base: decodeNumberVector(value[1], TOTAL_KEYS) },
       globalPercentRates: decodeNumberVector(value[3], Object.values(INTERNAL_TO_SNAPSHOT)),
-      calculationVersion: modern ? Number(value[4]) || 0 : 0
+      calculationVersion: modern ? Number(value[4]) || 0 : 0,
+      ...(version === COMPARISON_STATS_SCHEMA_VERSION
+        ? { internalTotals: decodeNumberVector(value[6], TOTAL_KEYS) } : {})
     };
     snapshot.breakdown.globalPercent = decodeNumberVector(value[2], TOTAL_KEYS);
     // Old compact snapshots contain display integers, not the v29 internal inputs.
@@ -86,7 +103,7 @@
 
   function decodeComparisonStatSnapshots(store = {}) {
     const version = Number(store?.v);
-    if (![1, COMPARISON_STATS_SCHEMA_VERSION].includes(version) || !store.a || typeof store.a !== 'object') return {};
+    if (![1, 2, COMPARISON_STATS_SCHEMA_VERSION].includes(version) || !store.a || typeof store.a !== 'object') return {};
     const decoded = {};
     Object.entries(store.a).forEach(([id, value]) => {
       if (!Array.isArray(value)) return;
@@ -164,7 +181,8 @@
     const starValue = normalizeApostleStar(star);
     const gradeRate = getGradeStatBonusRate(data, grade, statKey, basic);
     const starRate = statKey === 'spRegen' ? 0 : (starValue - 1) * 0.2;
-    return Math.floor((Number(base) + Number(coeff) * (levelValue - 1)) * (1 + starRate) * (1 + gradeRate));
+    const levelStat = Number(base) + Number(coeff) * (levelValue - 1);
+    return (levelStat * (1 + starRate)) * (1 + gradeRate);
   }
 
   function createEmptyTotals() {
@@ -210,6 +228,42 @@
     return Number(snapshot?.globalPercentRates?.[snapshotKey] ?? snapshot?.globalPercentRates?.[internalKey]) || 0;
   }
 
+  function followFraction(state, internalKey) {
+    if (!state?.follow || internalKey === 'spRegen') return 0;
+    // HeroLove.Value 30 -> single(30) * single(0.001), then widened to double.
+    return Math.fround(Math.fround(30) * Math.fround(0.001));
+  }
+
+  function commonFlatValue(value) {
+    // ApplyCommonStat/AllValue converts each incoming entry before addition.
+    return Math.trunc(Number(value) || 0);
+  }
+
+  function calculateFinalInternalTotals(data, basic, state, breakdown, commonRates) {
+    const aside = calculateAsideContribution(data, basic, state);
+    if (!aside) return null;
+    const totals = createEmptyTotals();
+    const increases = createEmptyTotals();
+    TOTAL_KEYS.forEach(key => {
+      const read = source => Number(breakdown?.[source]?.[key]) || 0;
+      // GetDefaultStat already includes its Rank addition. GetBaseStat then
+      // adds the remaining groups in the compiled order; aside.total must not
+      // be reconstructed from the two display-only breakdown columns.
+      let value = read('base') + read('rankUp');
+      value = value + read('equipment');
+      value = read('boardBasic') + value;
+      value = read('bond') + value;
+      value = read('research') + value;
+      value = Number(aside.total[key] || 0) + value;
+      value = (read('rankGlobal') + read('boardAdvanced')) + value;
+      const rate = Number(commonRates?.[INTERNAL_TO_SNAPSHOT[key]] ?? commonRates?.[key]) || 0;
+      const factor = (1 + rate / 100) + followFraction(state, key);
+      totals[key] = factor * value;
+      increases[key] = totals[key] - value;
+    });
+    return { totals, increases };
+  }
+
   function hasCompleteBreakdown(snapshot) {
     const hasNumber = value => value !== null && value !== undefined && value !== ''
       && Number.isFinite(Number(value));
@@ -217,7 +271,10 @@
       && ADDITIVE_SOURCES.every(source => snapshot.breakdown?.[source]
       && TOTAL_KEYS.every(key => hasNumber(snapshot.breakdown[source][key])))
       && TOTAL_KEYS.every(key => hasNumber(snapshot.breakdown.globalPercent[key])
-        && hasNumber(snapshot.globalPercentRates[INTERNAL_TO_SNAPSHOT[key]]));
+        && hasNumber(snapshot.globalPercentRates[INTERNAL_TO_SNAPSHOT[key]]))
+      && (Number(snapshot.calculationVersion) !== SNAPSHOT_CALCULATION_VERSION
+        || (TOTAL_KEYS.every(key => hasNumber(snapshot.internalTotals?.[key]))
+          && Object.values(INTERNAL_TO_SNAPSHOT).every(key => hasNumber(snapshot.stats[key]))));
   }
 
   function canRebuildLegacySnapshot(data, basic, apostleState, snapshot, options = {}) {
@@ -233,14 +290,22 @@
     // These legacy vectors have no board/research/rank-global provenance. Their
     // presence alongside saved settings cannot establish that they still agree.
     if (['boardBasic', 'boardAdvanced', 'research', 'rankGlobal'].some(nonzero)) return false;
+    const savedAside = calculateAsideContribution(data, basic, apostleState);
+    if (!savedAside) return false;
     const expected = {
       base: calculateBaseTotals(data, basic, apostleState),
       rankUp: calculateRankUpTotals(data, basic, apostleState.rank),
       equipment: calculateEquipmentTotals(data, basic, apostleState),
-      bond: calculateBondTotals(data, basic, apostleState.bond)
+      bond: calculateBondTotals(data, basic, apostleState.bond),
+      asideManifest: savedAside.base,
+      asideLevel: savedAside.growth
     };
     return Object.entries(expected).every(([source, values]) => values
-      && TOTAL_KEYS.every(key => Math.abs(Number(snapshot.breakdown[source]?.[key]) - Number(values[key])) < 1e-7));
+      && TOTAL_KEYS.every(key => {
+        const expectedValue = source === 'base' && Number(snapshot.calculationVersion) < SNAPSHOT_CALCULATION_VERSION
+          ? Math.floor(Number(values[key])) : Number(values[key]);
+        return Math.abs(Number(snapshot.breakdown[source]?.[key]) - expectedValue) < 1e-7;
+      }));
   }
 
   function requiresAsideGlobalRecalculation(data, basic, previousRank, nextRank) {
@@ -278,19 +343,24 @@
     next.breakdown.globalPercent = next.breakdown.globalPercent || {};
     next.globalPercentRates = next.globalPercentRates || {};
     next.stats = next.stats || {};
-    const internalTotals = createEmptyTotals();
+    const commonRates = createEmptyTotals();
     TOTAL_KEYS.forEach(internalKey => {
       const snapshotKey = INTERNAL_TO_SNAPSHOT[internalKey];
-      const additive = ADDITIVE_SOURCES.reduce((sum, source) => sum + Number(next.breakdown[source][internalKey] || 0), 0);
-      const followDelta = internalKey === 'spRegen' ? 0 : (state.follow ? 3 : 0) - (previous.follow ? 3 : 0);
-      const rate = readSnapshotRate(original, internalKey) + followDelta;
-      const increase = Math.floor(additive * rate / 100);
-      internalTotals[internalKey] = additive + increase;
-      next.breakdown.globalPercent[internalKey] = increase;
-      next.globalPercentRates[snapshotKey] = rate;
-      next.stats[snapshotKey] = Math.floor(internalTotals[internalKey]);
+      const savedRate = readSnapshotRate(original, internalKey);
+      // v3 stored the integer +3% follow bonus in the common-rate vector.
+      const rate = savedRate - (Number(original.calculationVersion) < SNAPSHOT_CALCULATION_VERSION
+        && internalKey !== 'spRegen' && previous.follow ? 3 : 0);
+      commonRates[snapshotKey] = rate;
     });
-    next.internalTotals = internalTotals;
+    const combined = calculateFinalInternalTotals(data, basic, state, next.breakdown, commonRates);
+    if (!combined) return null;
+    TOTAL_KEYS.forEach(internalKey => {
+      const snapshotKey = INTERNAL_TO_SNAPSHOT[internalKey];
+      next.breakdown.globalPercent[internalKey] = combined.increases[internalKey];
+      next.globalPercentRates[snapshotKey] = commonRates[snapshotKey];
+      next.stats[snapshotKey] = Math.trunc(combined.totals[internalKey]);
+    });
+    next.internalTotals = combined.totals;
     next.calculationVersion = SNAPSHOT_CALCULATION_VERSION;
     next.overrideState = cloneJson(state);
     next.kind = options.kind || `${original.kind || 'current'}:apostleOverride`;
@@ -311,7 +381,7 @@
   }
 
   function mapInternalTotalsToSnapshot(totals) {
-    return Object.fromEntries(TOTAL_KEYS.map(key => [INTERNAL_TO_SNAPSHOT[key], Math.floor(Number(totals?.[key]) || 0)]));
+    return Object.fromEntries(TOTAL_KEYS.map(key => [INTERNAL_TO_SNAPSHOT[key], Math.trunc(Number(totals?.[key]) || 0)]));
   }
 
   function requiredNumber(source, keys) {
@@ -555,7 +625,7 @@
   }
 
   window.TRICKCAL_SHARED_STAT_ENGINE = {
-    version: 7,
+    version: 9,
     snapshotCalculationVersion: SNAPSHOT_CALCULATION_VERSION,
     hasCompleteBreakdown,
     canRebuildLegacySnapshot,
@@ -566,6 +636,9 @@
     calculateCombatPower,
     round3AwayFromZero,
     calculateAsideContribution,
+    calculateFinalInternalTotals,
+    followFraction,
+    commonFlatValue,
     encodeComparisonStatSnapshots,
     decodeComparisonStatSnapshots,
     createInitialSnapshot,

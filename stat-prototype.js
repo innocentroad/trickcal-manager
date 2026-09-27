@@ -69,6 +69,7 @@
   const BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY = 'trickcal_board_shortcut_off_mode';
   const BOARD_ORIENTATION_STORAGE_KEY = 'trickcal_board_orientation';
   const DASHBOARD_RELOAD_CONTEXT_KEY = 'trickcal_dashboard_reload_context_v1';
+  const RESEARCH_INVENTORY_KEY = 'trickcal_research_inventory_v1';
   const EXPORT_SCHEMA = 'trickcal-stat-state';
   const EXPORT_VERSION = 2;
   const APOSTLE_IMAGE_FALLBACK = 'img/Chara/null.webp';
@@ -135,10 +136,6 @@
     { key: 'critDmgRes', label: '会心DMG抵抗', tone: 'crit-res', icon: '会心DMG抵抗.webp' },
     { key: 'spRegen', label: '毎秒SP回復', tone: 'sp', icon: 'SP回復.webp' }
   ];
-
-  const FOLLOW_BONUS_KEYS = TOTAL_LABELS
-    .map(item => item.key)
-    .filter(key => key !== 'spRegen');
 
   const BOARD_GLOBAL_STAT_GROUPS = [
     { key: 'hp', label: 'HP', stats: ['hp'], icon: 'Tile_Hp_On.webp' },
@@ -341,6 +338,21 @@
     formationMasterPower: document.getElementById('formation-master-power'),
     researchProgressSelect: document.getElementById('research-progress-select'),
     researchLevelSelect: document.getElementById('research-level-select'),
+    researchBrowseStage: document.getElementById('research-browse-stage'),
+    researchStageCosts: document.getElementById('research-stage-costs'),
+    researchMaterialDialog: document.getElementById('research-material-dialog'),
+    researchMaterialDialogDetail: document.getElementById('research-material-dialog-detail'),
+    researchPlanEndStage: document.getElementById('research-plan-end-stage'),
+    researchPlanMode: document.getElementById('research-plan-mode'),
+    researchPlanSummary: document.getElementById('research-plan-summary'),
+    researchInventoryList: document.getElementById('research-inventory-list'),
+    researchInventoryStatus: document.getElementById('research-inventory-status'),
+    researchInventoryPanel: document.getElementById('research-inventory-panel'),
+    researchInventoryDialog: document.getElementById('research-inventory-dialog'),
+    researchInventoryInput: document.getElementById('research-inventory-input'),
+    researchInventoryDialogStatus: document.getElementById('research-inventory-dialog-status'),
+    researchInventoryUpdated: document.getElementById('research-inventory-updated'),
+    researchInventorySearch: document.getElementById('research-inventory-search'),
     researchGrid: document.getElementById('research-grid'),
     researchOverviewSummary: document.getElementById('research-overview-summary'),
     activeResearch: document.getElementById('active-research-list'),
@@ -409,6 +421,14 @@
   let sharedStateSlotStore = null;
   let initialWorkspaceState = null;
   const appState = loadState();
+  let researchInventoryWarning = '';
+  let researchInventorySavedRaw = null;
+  let researchInventoryUpdatedAt = null;
+  let researchInventory = loadResearchInventory();
+  let researchInventoryEditing = null;
+  let researchInventorySaving = false;
+  let researchPlan = null;
+  let researchDialogOpener = null;
   let boardDraft = null;
   let globalBoardDrafts = {};
   let snapshotBoardOverride = null;
@@ -428,6 +448,10 @@
     },
     apostleSort: 'name',
     apostleBulkSearch: '',
+    researchBrowseStage: 1,
+    researchPlanEndStage: RESEARCH_LIMITS.maxLevel,
+    researchPlanMode: 'total',
+    researchPlanTab: 'remaining',
     apostleBulkSort: 'combatPower',
     apostleBulkFilters: {
       personality: new Set(),
@@ -484,6 +508,7 @@
     },
     formationSpellDetailsOpen: false
   };
+  const missingResearchImages = new Set();
   let stateSlotBaseRevision = Math.max(0, Number(initialWorkspaceState?.baseSlotRevision) || 0);
   let stateExternalConflict = null;
   let stateSyncChannel = null;
@@ -755,6 +780,18 @@
       if (event.key !== COMMON_THEME_STORAGE_KEY || !['light', 'dark'].includes(event.newValue)) return;
       document.documentElement.dataset.theme = event.newValue;
       syncThemeToggle();
+    });
+    window.addEventListener('storage', event => {
+      if (event.key !== RESEARCH_INVENTORY_KEY) return;
+      if (researchInventoryEditing) {
+        if (!elements.researchInventoryDialogStatus.textContent) {
+          elements.researchInventoryDialogStatus.textContent = '別タブで所持数が更新されました。保存時に選択素材の競合を確認します。';
+        }
+        return;
+      }
+      researchInventoryWarning = '';
+      researchInventory = loadResearchInventory();
+      renderResearchPlan();
     });
     // The shared topbar owns its generated theme button. Keep the legacy
     // manager control functional without binding a second handler to it.
@@ -1795,6 +1832,89 @@
       saveState();
       render();
       commitHistoryAction(history);
+    });
+
+    elements.researchBrowseStage.addEventListener('change', () => {
+      view.researchBrowseStage = Number(elements.researchBrowseStage.value) || 1;
+      renderResearchOverview();
+    });
+    elements.researchGrid.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-material]');
+      if (!button) return;
+      openResearchMaterialDialog(button.dataset.researchMaterial, Number(button.dataset.researchCount) || 1, button);
+    });
+    elements.researchStageCosts.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-material]');
+      if (button) openResearchMaterialDialog(button.dataset.researchMaterial, Number(button.dataset.researchCount) || 1, button);
+    });
+    document.querySelectorAll('[data-research-plan-tab]').forEach(button => button.addEventListener('click', () => {
+      view.researchPlanTab = button.dataset.researchPlanTab;
+      renderResearchPlan();
+    }));
+    elements.researchPlanEndStage.addEventListener('change', () => {
+      view.researchPlanEndStage = Number(elements.researchPlanEndStage.value);
+      renderResearchPlan();
+    });
+    elements.researchPlanMode.addEventListener('change', () => {
+      view.researchPlanMode = elements.researchPlanMode.value;
+      renderResearchPlan();
+    });
+    elements.researchPlanSummary.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-plan-material]');
+      if (!button) return;
+      openResearchMaterialDialog(button.dataset.researchPlanMaterial, Number(button.dataset.researchCount), button, button.dataset.researchStageBreakdown || '');
+    });
+    const showResearchTreeNode = event => {
+      const button = event.target.closest('button[data-research-node]');
+      if (!button) return;
+      event.currentTarget.querySelector('.research-tree-selected').textContent = button.dataset.detail;
+    };
+    elements.researchMaterialDialogDetail.addEventListener('click', showResearchTreeNode);
+    elements.researchMaterialDialogDetail.addEventListener('focusin', showResearchTreeNode);
+    document.getElementById('research-material-dialog-close').addEventListener('click', () => elements.researchMaterialDialog.close());
+    elements.researchMaterialDialog.addEventListener('close', () => {
+      if (researchDialogOpener?.isConnected) researchDialogOpener.focus();
+      researchDialogOpener = null;
+    });
+    elements.researchInventoryList.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-owned]');
+      if (button) openResearchInventoryDialog(button.dataset.researchOwned, button);
+    });
+    elements.researchInventorySearch.addEventListener('input', renderResearchInventory);
+    elements.researchInventoryInput.addEventListener('input', () => validateResearchInventoryInput());
+    document.getElementById('research-inventory-dialog-save').addEventListener('click', saveResearchInventoryItem);
+    document.getElementById('research-inventory-dialog-cancel').addEventListener('click', () => requestCloseResearchInventoryDialog());
+    document.getElementById('research-inventory-dialog-close').addEventListener('click', () => requestCloseResearchInventoryDialog());
+    elements.researchInventoryDialog.addEventListener('cancel', event => {
+      event.preventDefault();
+      requestCloseResearchInventoryDialog();
+    });
+    elements.researchInventoryDialog.addEventListener('click', event => {
+      if (event.target === elements.researchInventoryDialog) requestCloseResearchInventoryDialog();
+    });
+    elements.researchInventoryDialog.addEventListener('close', () => {
+      const edit = researchInventoryEditing;
+      researchInventoryEditing = null;
+      researchInventoryWarning = '';
+      researchInventory = loadResearchInventory();
+      renderResearchPlan();
+      const opener = [...elements.researchInventoryList.querySelectorAll('[data-research-owned]')]
+        .find(button => button.dataset.researchOwned === edit?.name) || edit?.opener;
+      opener?.focus();
+    });
+    const onResearchImageError = event => {
+      const image = event.target;
+      if (!image?.dataset?.researchImage) return;
+      missingResearchImages.add(image.dataset.researchImage);
+      image.hidden = true;
+    };
+    elements.researchGrid.addEventListener('error', onResearchImageError, true);
+    elements.researchMaterialDialogDetail.addEventListener('error', onResearchImageError, true);
+    elements.researchPlanSummary.addEventListener('error', onResearchImageError, true);
+    elements.researchInventoryList.addEventListener('error', onResearchImageError, true);
+    elements.researchInventoryDialog.addEventListener('error', onResearchImageError, true);
+    window.addEventListener('resize', () => {
+      if (elements.researchMaterialDialog.open) drawResearchTreeLinks(elements.researchMaterialDialogDetail);
     });
 
     elements.apostleBulkSearch?.addEventListener('input', () => {
@@ -4296,7 +4416,7 @@
     }
     collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
     collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
-    collectFollowGlobalPercent(globalPercentBonuses, activeEffects);
+    collectFollowGlobalPercent(activeEffects);
     applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
     updateStatSnapshots(basic, totals, breakdown, globalPercentRates);
     renderTotals(totals, activeEffects);
@@ -5683,7 +5803,8 @@
     const starValue = normalizeApostleStar(star);
     const gradeRate = getGradeStatBonusRate(grade, statKey, basic);
     const starRate = statKey === 'spRegen' ? 0 : 0.2 * (starValue - 1);
-    return Math.floor((baseValue + coeffValue * (levelValue - 1)) * (1 + starRate) * (1 + gradeRate));
+    const levelStat = baseValue + coeffValue * (levelValue - 1);
+    return (levelStat * (1 + starRate)) * (1 + gradeRate);
   }
 
   function getGradeStatBonusRate(star, statKey = '', basic = null) {
@@ -5777,7 +5898,7 @@
       <div class="stat-inline ${item.tone}" title="${escapeAttr(item.label)}">
         <img src="img/${escapeAttr(item.icon)}" alt="">
         <span class="label">${escapeHtml(item.label)}</span>
-        <strong class="value">${formatNumber(totals[item.key] || 0)}</strong>
+        <strong class="value">${formatMainStatValue(totals[item.key])}</strong>
       </div>
     `).join('');
     elements.activeEffects.innerHTML = activeEffects.length
@@ -5807,8 +5928,9 @@
           <th>${escapeHtml(item.label)}</th>
           ${additiveSources.map(source => `<td>${formatBreakdownValue(breakdown[source.key]?.[item.key])}</td>`).join('')}
           <td class="total">${formatBreakdownValue(additiveTotal)}</td>
-          <td>${formatGlobalPercentBreakdownValue(globalIncrease, globalPercent)}</td>
-          <td class="total">${formatBreakdownValue(totals[item.key])}</td>
+          <td>${formatGlobalPercentBreakdownValue(globalIncrease, globalPercent,
+            item.key !== 'spRegen' && currentApostleState().follow)}</td>
+          <td class="total">${formatMainStatValue(totals[item.key])}</td>
         </tr>
       `;
     }).join('');
@@ -5859,7 +5981,7 @@
     const effects = createEmptyTotals();
     DATA.sheets.rankGlobalBonuses.forEach(row => {
       const state = ensureApostleState(row.id);
-      applyRankBonusToTotals(row, state.rank, effects);
+      applyRankBonusToTotals(row, state.rank, effects, true);
     });
     TOTAL_LABELS.forEach(item => {
       const value = Number(effects[item.key]) || 0;
@@ -5871,7 +5993,7 @@
     if (summary) activeEffects.push(`Rank全体効果 ${summary}`);
   }
 
-  function applyRankBonusToTotals(rankBonus, rankValue, totals) {
+  function applyRankBonusToTotals(rankBonus, rankValue, totals, commonFlat = false) {
     if (!rankBonus) return;
     const rankLimit = Math.min(Number(rankValue) - 1, 9);
     for (let rank = 1; rank <= rankLimit; rank++) {
@@ -5879,13 +6001,12 @@
         const type = rankBonus[`Rank${rank}to${rank + 1}_type${index}`];
         const value = Number(rankBonus[`Rank${rank}to${rank + 1}_value${index}`]) || 0;
         if (!type || !value) continue;
-        addNamedStat(totals, type, value);
+        addNamedStat(totals, type, commonFlat ? TRICKCAL_SHARED_STAT_ENGINE.commonFlatValue(value) : value);
       }
     }
   }
 
   function renderResearchControls() {
-    elements.researchGrid.innerHTML = '';
     const { level, progress } = RESEARCH.normalizeState(appState.research, RESEARCH_LIMITS);
     const limit = RESEARCH.getProgressLimit(RESEARCH_LIMITS, level);
     if (elements.researchProgressSelect.options.length !== limit + 1) {
@@ -5894,13 +6015,25 @@
     }
     elements.researchLevelSelect.value = String(level);
     elements.researchProgressSelect.value = String(progress);
+    if (elements.researchBrowseStage.options.length !== RESEARCH_LIMITS.maxLevel) {
+      elements.researchBrowseStage.innerHTML = RESEARCH_LIMITS.stages.map(stage =>
+        `<option value="${stage}">${stage}段階</option>`).join('');
+    }
+    elements.researchBrowseStage.value = String(view.researchBrowseStage);
   }
 
   function renderActiveResearch(basic, totals, activeEffects, breakdown) {
-    if (!basic) return;
+    if (!basic) {
+      renderResearchControls();
+      document.getElementById('research-active-heading').textContent = '選択使徒に適用中の研究効果';
+      elements.activeResearch.textContent = '使徒を選択すると適用中の研究を表示します';
+      renderResearchOverview();
+      return;
+    }
     const progress = Number(appState.research.progress) || 0;
     const level = Number(appState.research.level) || 0;
     renderResearchControls();
+    document.getElementById('research-active-heading').textContent = `${basic.使徒名 || basic.名前 || '選択使徒'}に適用中の研究効果`;
 
     const rows = getActiveResearchRows().filter(row => row.種族 === basic.種族);
     const entries = [];
@@ -5937,22 +6070,314 @@
     const level = Number(appState.research.level) || 0;
     const progress = Number(appState.research.progress) || 0;
     renderResearchOverviewSummary(level, progress);
-    const rows = getActiveResearchRows();
+    const stage = view.researchBrowseStage;
+    const rows = (DATA.sheets.research || []).filter(row => Number(row.段階) === stage)
+      .sort((left, right) => Number(left.取得順) - Number(right.取得順));
     if (!rows.length) {
-      elements.researchGrid.innerHTML = '<p class="empty-note">研究効果OFF</p>';
+      elements.researchGrid.innerHTML = '<p class="empty-note">この段階の研究はありません</p>';
+      elements.researchStageCosts.textContent = '';
+      renderResearchPlan();
       return;
     }
-    const entries = rows
-      .map(row => ({ row, value: getResearchValue(row, level, progress) }))
-      .filter(item => item.value)
-      .map(({ row, value }) => ({
-        count: RESEARCH.getCurrentOrder(row, level, progress) ?? '—',
-        stage: getResearchAppliedStage(row, level, progress),
-        species: row.種族,
-        stat: row.ステータス,
-        value
-      }));
-    elements.researchGrid.innerHTML = renderResearchTable(entries, '研究効果なし', true);
+    const acquired = row => level > 0 && progress > 0 &&
+      (stage < level || (stage === level && Number(row.取得順) <= progress));
+    const totalGold = rows.reduce((sum, row) => sum + Number(row.必要ゴールド), 0);
+    const remainingGold = rows.reduce((sum, row) => sum + (acquired(row) ? 0 : Number(row.必要ゴールド)), 0);
+    const totalSeconds = rows.reduce((sum, row) => sum + Number(row.研究時間), 0);
+    const remainingSeconds = rows.reduce((sum, row) => sum + (acquired(row) ? 0 : Number(row.研究時間)), 0);
+    const materialTotals = new Map();
+    const remainingMaterials = new Map();
+    rows.forEach(row => (row.素材 || []).forEach(item => {
+      materialTotals.set(item.name, (materialTotals.get(item.name) || 0) + Number(item.count));
+      if (!acquired(row)) remainingMaterials.set(item.name, (remainingMaterials.get(item.name) || 0) + Number(item.count));
+    }));
+    const listCosts = totals => [...totals].map(([name, count]) =>
+      `<button type="button" class="research-material-button" data-research-material="${escapeHtml(name)}" data-research-count="${count}" aria-label="${escapeHtml(name)}の製作ツリーを表示">${renderResearchMaterialImage(name)}${escapeHtml(name)}×${count.toLocaleString('ja-JP')}</button>`).join('') || 'なし';
+    elements.researchStageCosts.innerHTML = `<strong>未取得分：${remainingGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(remainingSeconds))}</strong>` +
+      `<details class="research-overview-details"><summary>素材内訳</summary><div>段階合計：${totalGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(totalSeconds))}・${listCosts(materialTotals)}</div>` +
+      `<div>未取得分：${remainingGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(remainingSeconds))}・${listCosts(remainingMaterials)}</div></details>`;
+    elements.researchGrid.innerHTML = `<table class="research-table research-detail-table">
+      <thead><tr><th scope="col">順・取得</th><th scope="col">効果</th><th scope="col">直接素材</th><th scope="col">ゴールド</th><th scope="col">時間</th></tr></thead>
+      <tbody>${rows.map(row => {
+        const effect = row.ステータス ? `${row.種族} ${row.ステータス} +${row.増加値}` :
+          (row.非ステータス効果原値 || row.内容);
+        const materialHtml = (row.素材 || []).map(item => {
+          const image = renderResearchMaterialImage(item.name);
+          const contents = `${image}<span>${escapeHtml(item.name)}×${Number(item.count).toLocaleString('ja-JP')}</span>`;
+          return `<button type="button" class="research-material-button" data-research-material="${escapeHtml(item.name)}" data-research-count="${Number(item.count)}" aria-label="${escapeHtml(item.name)}の製作ツリーを表示">${contents}</button>`;
+        }).join('') || '—';
+        return `<tr><th scope="row" class="research-order-cell"><span class="research-order-group">${row.取得順}<span class="research-acquired-mark${acquired(row) ? ' is-acquired' : ''}" role="img" aria-label="${acquired(row) ? '取得済み' : '未取得'}">${acquired(row) ? '✓' : ''}</span></span></th><td class="research-effect-cell"><strong>${escapeHtml(effect)}</strong>${effect !== row.内容 ? `<small>${escapeHtml(row.内容)}</small>` : ''}</td>` +
+          `<td class="research-material-cell">${materialHtml}</td><td class="research-gold-cell">${Number(row.必要ゴールド).toLocaleString('ja-JP')}</td>` +
+          `<td class="research-time-cell">${escapeHtml(formatResearchDuration(row.研究時間))}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    renderResearchPlan();
+  }
+
+  function formatResearchDuration(seconds) {
+    const value = Number(seconds);
+    if (!Number.isFinite(value) || value < 0) return '不明';
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    const remainder = value % 60;
+    return `${hours ? `${hours}時間` : ''}${minutes ? `${minutes}分` : ''}${remainder || (!hours && !minutes) ? `${remainder}秒` : ''}`;
+  }
+
+  function renderResearchMaterialImage(name, eager = false) {
+    const catalog = (DATA.sheets.researchMaterialCatalog || []).find(entry => entry.name === name);
+    if (!catalog?.imageKey || missingResearchImages.has(catalog.imageKey)) return '';
+    const path = `img/Materials/${catalog.imageKey}`;
+    const url = window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
+    return `<img src="${escapeHtml(url)}" alt="" loading="${eager ? 'eager' : 'lazy'}" data-research-image="${escapeHtml(catalog.imageKey)}">`;
+  }
+
+  // Gold is displayed as a research fee, not as an inventory material.
+  function researchInventoryMaterials() {
+    return (DATA.sheets.researchMaterialCatalog || []).filter(item => item.name !== 'ゴールド');
+  }
+
+  function parseResearchInventory(raw) {
+      if (!raw) return { items: {}, updatedAt: null };
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('invalid inventory');
+      const items = parsed.version === 2 ? parsed.items : parsed;
+      if (!items || typeof items !== 'object' || Array.isArray(items)) throw new Error('invalid inventory items');
+      if (parsed.version === 2 && parsed.updatedAt != null && (typeof parsed.updatedAt !== 'string' || !Number.isFinite(Date.parse(parsed.updatedAt)))) throw new Error('invalid updatedAt');
+      const names = new Set((DATA.sheets.researchMaterialCatalog || []).map(item => item.name));
+      const safe = {};
+      Object.entries(items).forEach(([name, count]) => {
+        if (!names.has(name)) return;
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error('invalid inventory count');
+        safe[name] = count;
+      });
+      return { items: safe, updatedAt: parsed.version === 2 ? parsed.updatedAt || null : null };
+  }
+
+  function loadResearchInventory() {
+    try {
+      const raw = storageLocal.getItem(RESEARCH_INVENTORY_KEY);
+      researchInventorySavedRaw = raw;
+      const parsed = parseResearchInventory(raw);
+      researchInventoryUpdatedAt = parsed.updatedAt;
+      return parsed.items;
+    } catch (error) {
+      researchInventoryWarning = '所持数の保存データを読めません。元の保存は変更せず、計画上は0として表示しています。';
+      return {};
+    }
+  }
+
+  function validateResearchInventoryInput() {
+    const input = elements.researchInventoryInput;
+    const value = input.value;
+    const valid = value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)));
+    input.setAttribute('aria-invalid', String(!valid));
+    elements.researchInventoryDialogStatus.textContent = valid ? '' : '0以上の整数で入力してください';
+    return valid;
+  }
+
+  function renderResearchInventory() {
+    const search = elements.researchInventorySearch.value.trim();
+    const shown = researchInventoryMaterials().filter(item => !search || item.name.includes(search));
+    const unentered = researchInventoryMaterials().filter(item => !Object.hasOwn(researchInventory, item.name)).length;
+    elements.researchInventoryUpdated.textContent = `${researchInventorySavedRaw == null ? '' : `最終更新：${researchInventoryUpdatedAt ? new Date(researchInventoryUpdatedAt).toLocaleString('ja-JP') : '更新日時不明'}・`}未入力${unentered}件`;
+    elements.researchInventoryStatus.textContent = researchInventoryWarning;
+    elements.researchInventoryList.innerHTML = shown.map(item => {
+      const count = researchInventory[item.name];
+      const spoken = Object.hasOwn(researchInventory, item.name) ? `${count.toLocaleString('ja-JP')}` : '未入力';
+      return `<button type="button" class="research-inventory-chip" data-research-owned="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}：${spoken}" aria-label="${escapeHtml(item.name)}、所持数${spoken}を編集">${renderResearchMaterialImage(item.name) || '<span aria-hidden="true">?</span>'}<strong class="research-plan-count">${count == null ? '—' : count.toLocaleString('ja-JP')}</strong></button>`;
+    }).join('') || '<p>該当する素材はありません</p>';
+  }
+
+  function openResearchInventoryDialog(name, opener) {
+    if (!researchInventoryMaterials().some(item => item.name === name)) return;
+    researchInventoryWarning = '';
+    researchInventory = loadResearchInventory();
+    renderResearchInventory();
+    const original = Object.hasOwn(researchInventory, name) ? String(researchInventory[name]) : '';
+    researchInventoryEditing = { name, original, opener };
+    document.getElementById('research-inventory-dialog-title').textContent = '所持数を変更';
+    document.getElementById('research-inventory-dialog-material').innerHTML = `${renderResearchMaterialImage(name, true)}<strong>${escapeHtml(name)}</strong>`;
+    elements.researchInventoryInput.value = original;
+    elements.researchInventoryInput.setAttribute('aria-invalid', 'false');
+    elements.researchInventoryDialogStatus.textContent = researchInventoryWarning;
+    elements.researchInventoryDialog.showModal();
+    elements.researchInventoryInput.focus();
+  }
+
+  function requestCloseResearchInventoryDialog() {
+    if (researchInventorySaving) {
+      elements.researchInventoryDialogStatus.textContent = '保存処理中です。完了後に操作してください。';
+      return;
+    }
+    if (researchInventoryEditing && elements.researchInventoryInput.value !== researchInventoryEditing.original &&
+        !window.confirm('未保存の所持数を破棄しますか？')) return;
+    elements.researchInventoryDialog.close();
+  }
+
+  async function saveResearchInventoryItem() {
+    if (researchInventorySaving) return;
+    const edit = researchInventoryEditing;
+    if (!edit || !validateResearchInventoryInput()) { elements.researchInventoryInput.focus(); return; }
+    if (researchInventoryWarning) {
+      elements.researchInventoryDialogStatus.textContent = researchInventoryWarning + ' 元データを保全するため保存できません。';
+      return;
+    }
+    if (!navigator.locks?.request) {
+      elements.researchInventoryDialogStatus.textContent = '排他機能を利用できないため保存できません。この入力は残しています。対応ブラウザで再試行してください。';
+      return;
+    }
+    const name = edit.name;
+    const original = edit.original;
+    const entered = elements.researchInventoryInput.value;
+    const controls = [elements.researchInventoryInput, ...elements.researchInventoryDialog.querySelectorAll('button')];
+    researchInventorySaving = true;
+    elements.researchInventoryDialog.setAttribute('aria-busy', 'true');
+    controls.forEach(control => { control.disabled = true; });
+    elements.researchInventoryDialogStatus.textContent = '保存中です…';
+    try {
+      const result = await navigator.locks.request('trickcal-research-inventory-v1', { mode: 'exclusive' }, function saveResearchInventoryLocked() {
+        const latest = parseResearchInventory(storageLocal.getItem(RESEARCH_INVENTORY_KEY));
+        const latestValue = Object.hasOwn(latest.items, name) ? String(latest.items[name]) : '';
+        if (latestValue !== original) return { conflict: true };
+        const next = { ...latest.items };
+        if (entered === '') delete next[name];
+        else next[name] = Number(entered);
+        const updatedAt = new Date().toISOString();
+        const raw = JSON.stringify({ version: 2, items: next, updatedAt });
+        storageLocal.setItem(RESEARCH_INVENTORY_KEY, raw);
+        return { raw, updatedAt, next };
+      });
+      if (result.conflict) {
+        elements.researchInventoryDialogStatus.textContent = '別タブでこの素材が更新されました。取消して最新の値を確認してください。';
+        return;
+      }
+      researchInventorySavedRaw = result.raw;
+      researchInventoryUpdatedAt = result.updatedAt;
+      researchInventory = result.next;
+      researchInventoryEditing.original = entered;
+      elements.researchInventoryDialog.close();
+    } catch (error) {
+      elements.researchInventoryDialogStatus.textContent = '所持数を保存できませんでした。入力は残しています。保存領域を確認して再試行してください。';
+    } finally {
+      researchInventorySaving = false;
+      elements.researchInventoryDialog.removeAttribute('aria-busy');
+      controls.forEach(control => { control.disabled = false; });
+    }
+  }
+
+  function renderResearchPlan() {
+    if (!elements.researchPlanEndStage.options.length) {
+      elements.researchPlanEndStage.innerHTML = RESEARCH_LIMITS.stages.map(stage =>
+        `<option value="${stage}">${stage}段階の最後まで</option>`).join('');
+    }
+    elements.researchPlanEndStage.value = String(view.researchPlanEndStage);
+    elements.researchPlanMode.value = view.researchPlanMode;
+    document.getElementById('research-plan-current').textContent = `現在：${Number(appState.research.level) || 0}段階・${Number(appState.research.progress) || 0}件取得`;
+    document.getElementById('research-plan-controls').hidden = view.researchPlanTab !== 'remaining';
+    document.querySelectorAll('[data-research-plan-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.researchPlanTab === view.researchPlanTab)));
+    elements.researchPlanSummary.hidden = view.researchPlanTab !== 'remaining';
+    elements.researchInventoryPanel.hidden = view.researchPlanTab !== 'inventory';
+    try {
+      const plan = RESEARCH.planRemainingResearch(DATA.sheets.research, DATA.sheets.researchRecipes,
+        DATA.sheets.researchMaterialCatalog, appState.research, view.researchPlanEndStage,
+        researchInventory, view.researchPlanMode);
+      researchPlan = plan;
+      const chip = (name, count, stage = '') => `<button type="button" class="research-material-label research-plan-chip" data-research-plan-material="${escapeHtml(name)}" data-research-count="${Number(count)}" data-research-stage-breakdown="${escapeHtml(stage)}" title="${escapeHtml(name)}${stage ? `（${escapeHtml(stage)}）` : ''}" aria-label="${escapeHtml(name)} ${Number(count).toLocaleString('ja-JP')}${stage ? `、研究で直接使う総数：${escapeHtml(stage)}` : ''}">${renderResearchMaterialImage(name) || '<span aria-hidden="true">?</span>'}<strong class="research-plan-count">${Number(count).toLocaleString('ja-JP')}</strong></button>`;
+      const group = entries => entries.length ? `<div class="research-material-chip-list">${entries.join('')}</div>` : 'なし';
+      const stageText = name => [...plan.byStage].filter(([, items]) => items.has(name))
+        .map(([stage, items]) => `${stage}段階：${items.get(name)}`).join('／');
+      const direct = [...plan.direct].map(([name, count]) => chip(name, count, stageText(name)));
+      const raw = plan.ordered.filter(name => !plan.entries.get(name).recipe)
+        .map(name => chip(name, plan.entries.get(name).missing));
+      elements.researchPlanSummary.innerHTML = `<p>${view.researchPlanEndStage}段階まで：残り${plan.researchCount}件${plan.researchCount ? '' : '・必要数0'}` +
+        `／${view.researchPlanMode === 'shortfall' ? '所持数を一度だけ控除した不足分' : '所持数を考慮しない総必要数'}</p>` +
+        `<table><tbody><tr><th scope="row">研究で直接必要</th><td>${group(direct)}</td></tr>` +
+        `<tr><th scope="row">製作に必要な原材料</th><td>${group(raw)}</td></tr></tbody></table>`;
+    } catch (error) {
+      researchPlan = null;
+      elements.researchPlanSummary.textContent = `素材計画を計算できません：${error.message}`;
+    }
+    renderResearchInventory();
+  }
+
+  function openResearchMaterialDialog(name, count, opener, stageBreakdown = '') {
+    researchDialogOpener = opener;
+    document.getElementById('research-material-dialog-title').textContent = `${name}の製作ツリー`;
+    const subtitle = document.getElementById('research-material-dialog-subtitle');
+    subtitle.hidden = !stageBreakdown;
+    subtitle.textContent = stageBreakdown ? `研究で直接使う総数：${stageBreakdown}（所持数控除前）` : '';
+    elements.researchMaterialDialog.showModal();
+    renderResearchMaterialDetail(elements.researchMaterialDialogDetail, name, count);
+    elements.researchMaterialDialogDetail.querySelector('.research-tree-scroll')?.scrollTo({ left: 0 });
+    document.getElementById('research-material-dialog-close').focus();
+  }
+
+  function renderResearchMaterialDetail(target, name, count) {
+    if (!name) {
+      target.hidden = true;
+      target.textContent = '';
+      return;
+    }
+    try {
+      const planner = RESEARCH.createMaterialPlanner(DATA.sheets.researchRecipes, DATA.sheets.researchMaterialCatalog);
+      const plan = planner.expand(new Map([[name, count]]), researchInventory, view.researchPlanMode);
+      const recipe = planner.recipes.get(name);
+      const visible = new Set(plan.ordered.filter(item => item === name || plan.entries.get(item).demand > 0));
+      const positions = new Map();
+      let leaf = 0;
+      const place = item => {
+        if (positions.has(item)) return positions.get(item);
+        const entry = plan.entries.get(item);
+        const children = (entry.recipe?.materials || []).map(part => part.name).filter(child => visible.has(child));
+        const x = children.length ? children.reduce((sum, child) => sum + place(child), 0) / children.length : leaf++ * 92 + 46;
+        positions.set(item, x);
+        return x;
+      };
+      place(name);
+      const width = Math.max(92, leaf * 92);
+      const height = (plan.entries.get(name).depth + 1) * 94;
+      const markerId = 'research-dialog-tree-arrow';
+      target.hidden = false;
+      target.innerHTML = `<div class="research-tree-scroll"><div class="research-tree-canvas" style="width:${width}px;height:${height}px"><svg class="research-tree-lines" data-arrow-id="${markerId}" aria-hidden="true"><defs><marker id="${markerId}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="currentColor"/></marker></defs></svg>${plan.ordered.filter(item => visible.has(item)).map(item => {
+            const entry = plan.entries.get(item);
+            const number = view.researchPlanMode === 'shortfall' ? entry.missing : entry.demand;
+            const detail = `${item}：${view.researchPlanMode === 'shortfall' ? '不足' : '必要'}${number}、所持${entry.owned}、${entry.recipe ? `${entry.batches}回製作・余り${entry.surplus}` : '原材料'}`;
+            return `<button type="button" class="research-tree-node${item === name ? ' is-target' : ''}" data-research-node="${escapeHtml(item)}" data-detail="${escapeHtml(detail)}" style="left:${positions.get(item) - 42}px;top:${entry.depth * 94}px" aria-label="${escapeHtml(detail)}">` +
+              `${renderResearchMaterialImage(item, true)}<strong>${number.toLocaleString('ja-JP')}</strong></button>`;
+          }).join('')}</div></div><div class="research-tree-selected" role="status">${view.researchPlanMode === 'shortfall' && plan.entries.get(name).missing === 0 ? '所持分で充足。製作材料は不要です。' : `${escapeHtml(name)}を選択すると詳細を表示します。`}</div>` +
+        `<small>${recipe ? `レシピ${recipe.stage}段階・基礎製作時間 ${escapeHtml(formatResearchDuration(recipe.seconds))}` : '製作レシピなし'}</small>`;
+      requestAnimationFrame(() => drawResearchTreeLinks(target));
+    } catch (error) {
+      target.hidden = false;
+      target.textContent = `製作ツリーを計算できません：${error.message}`;
+    }
+  }
+
+  function drawResearchTreeLinks(target) {
+    const canvas = target.querySelector('.research-tree-canvas');
+    const svg = canvas?.querySelector('svg');
+    if (!canvas || !svg) return;
+    const origin = canvas.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${canvas.offsetWidth} ${canvas.offsetHeight}`);
+    const nodes = new Map([...canvas.querySelectorAll('[data-research-node]')].map(node => [node.dataset.researchNode, node]));
+    const lines = [];
+    (DATA.sheets.researchRecipes || []).forEach(recipe => {
+      const to = nodes.get(recipe.name);
+      if (!to) return;
+      const end = to.getBoundingClientRect();
+      recipe.materials.forEach(item => {
+        const from = nodes.get(item.name);
+        if (!from) return;
+        const start = from.getBoundingClientRect();
+        const x1 = start.left + start.width / 2 - origin.left;
+        const y1 = start.bottom - origin.top;
+        const x2 = end.left + end.width / 2 - origin.left;
+        const y2 = end.top - origin.top;
+        const middle = (y1 + y2) / 2;
+        lines.push(`<path d="M${x1} ${y1} V${middle} H${x2} V${y2 - 5}" fill="none" stroke="currentColor" stroke-width="2.5" marker-end="url(#${svg.dataset.arrowId})"/>`);
+      });
+    });
+    svg.querySelectorAll('path.research-tree-edge').forEach(path => path.remove());
+    svg.insertAdjacentHTML('beforeend', lines.join('').replace(/<path /g, '<path class="research-tree-edge" '));
   }
 
   function renderResearchOverviewSummary(level, progress) {
@@ -11134,12 +11559,14 @@
         if (activeEffects) activeEffects.push(`ボード${row.ボード階層} ${type}+${value}%`);
         return;
       }
-      addNamedStat(totals, type, value);
+      const flatValue = row.マス_type === '上級'
+        ? TRICKCAL_SHARED_STAT_ENGINE.commonFlatValue(value) : value;
+      addNamedStat(totals, type, flatValue);
       addSourceNamedStat(
         breakdown,
         row.マス_type === '上級' ? 'boardAdvanced' : 'boardBasic',
         type,
-        value
+        flatValue
       );
       if (activeEffects && (row.マス_type === '上級' || row.マス_type === '特殊')) {
         activeEffects.push(`ボード${row.ボード階層} ${type}+${value}`);
@@ -11212,10 +11639,9 @@
     });
   }
 
-  function collectFollowGlobalPercent(globalPercentBonuses, activeEffects) {
+  function collectFollowGlobalPercent(activeEffects) {
     if (!currentApostleState().follow) return;
     const followPercent = 3;
-    FOLLOW_BONUS_KEYS.forEach(key => addStatValue(globalPercentBonuses, key, followPercent));
     activeEffects.push(`フォロー 全ステータス+${followPercent}%`);
   }
 
@@ -11269,18 +11695,21 @@
     const entries = TOTAL_LABELS
       .map(item => ({ key: item.key, label: item.label, percent: Number(globalPercentBonuses[item.key]) || 0 }))
       .filter(item => item.percent);
-    if (!entries.length) return;
-
     entries.forEach(item => {
       addStatValue(globalPercentRates, item.key, item.percent);
-      const increase = Math.floor((totals[item.key] || 0) * item.percent / 100);
-      if (!increase) return;
-      totals[item.key] += increase;
-      addSourceStat(breakdown, 'globalPercent', item.key, increase);
     });
-
-    const summary = entries.map(item => `${item.label}+${formatBoardSummaryValue(item.percent)}%`).join(' / ');
-    activeEffects.push(`全体補正 ${summary}`);
+    const basic = DATA.getById('basicInfo', view.id);
+    const combined = TRICKCAL_SHARED_STAT_ENGINE.calculateFinalInternalTotals(
+      DATA, basic, currentApostleState(), breakdown, globalPercentRates
+    );
+    if (combined) TOTAL_LABELS.forEach(item => {
+      totals[item.key] = combined.totals[item.key];
+      breakdown.globalPercent[item.key] = combined.increases[item.key];
+    });
+    if (entries.length) {
+      const summary = entries.map(item => `${item.label}+${formatBoardSummaryValue(item.percent)}%`).join(' / ');
+      activeEffects.push(`全体補正 ${summary}`);
+    }
   }
 
   function updateStatSnapshots(basic, totals, breakdown, globalPercentRates) {
@@ -11385,10 +11814,6 @@
       applyResearchForSnapshot(basic, totals, breakdown);
       collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
       collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
-      if (state.follow) {
-        const followPercent = 3;
-        FOLLOW_BONUS_KEYS.forEach(key => addStatValue(globalPercentBonuses, key, followPercent));
-      }
       applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
       return createStatSnapshot(kind, totals, breakdown, globalPercentRates, basic, state, {
         ...options,
@@ -11470,13 +11895,13 @@
     stats.combatPower = asideMissing ? null : calculateCombatPower(basic, state, combatPowerTotals || totals);
     const snapshot = {
       kind,
-      calculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
+      calculationVersion: asideMissing ? 0 : TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
       stats,
       breakdown: cloneJson(breakdown),
-      globalPercentRates: mapTotalsForSnapshot(globalPercentRates),
+      globalPercentRates: mapTotalsForSnapshot(globalPercentRates, false),
+      internalTotals: cloneJson(totals),
       updatedAt: new Date().toISOString()
     };
-    if (options.captureInternalTotals) snapshot.internalTotals = cloneJson(totals);
     return snapshot;
   }
 
@@ -11506,18 +11931,19 @@
     return TRICKCAL_SHARED_STAT_ENGINE.calculateCombatPower(basic, state, totals);
   }
 
-  function mapTotalsForSnapshot(totals) {
+  function mapTotalsForSnapshot(totals, truncate = true) {
+    const value = key => truncate ? Math.trunc(Number(totals?.[key]) || 0) : Number(totals?.[key]) || 0;
     return {
-      hp: Math.floor(Number(totals?.hp) || 0),
-      physicalAtk: Math.floor(Number(totals?.patk) || 0),
-      magicAtk: Math.floor(Number(totals?.matk) || 0),
-      physicalDef: Math.floor(Number(totals?.pdef) || 0),
-      magicDef: Math.floor(Number(totals?.mdef) || 0),
-      crit: Math.floor(Number(totals?.crit) || 0),
-      critDmg: Math.floor(Number(totals?.critDmg) || 0),
-      critRes: Math.floor(Number(totals?.critRes) || 0),
-      critDmgRes: Math.floor(Number(totals?.critDmgRes) || 0),
-      spRegen: Math.floor(Number(totals?.spRegen) || 0)
+      hp: value('hp'),
+      physicalAtk: value('patk'),
+      magicAtk: value('matk'),
+      physicalDef: value('pdef'),
+      magicDef: value('mdef'),
+      crit: value('crit'),
+      critDmg: value('critDmg'),
+      critRes: value('critRes'),
+      critDmgRes: value('critDmgRes'),
+      spRegen: value('spRegen')
     };
   }
 
@@ -13313,6 +13739,11 @@
     return Math.round(num).toLocaleString();
   }
 
+  function formatMainStatValue(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? Math.trunc(num).toLocaleString('ja-JP') : '-';
+  }
+
   function formatFormationCoinCount(value) {
     const num = Number(value);
     return Number.isFinite(num) ? String(Math.round(num)) : '-';
@@ -13323,11 +13754,12 @@
     return num ? formatNumber(num) : '';
   }
 
-  function formatGlobalPercentBreakdownValue(increase, percent) {
+  function formatGlobalPercentBreakdownValue(increase, percent, follow = false) {
     const increaseValue = Number(increase) || 0;
     const percentValue = Number(percent) || 0;
-    if (!increaseValue && !percentValue) return '';
-    const percentLabel = `${formatBoardSummaryValue(percentValue)}%`;
+    if (!increaseValue && !percentValue && !follow) return '';
+    const percentLabel = [percentValue ? `${formatBoardSummaryValue(percentValue)}%` : '',
+      follow ? 'フォロー3%' : ''].filter(Boolean).join(' + ');
     return increaseValue ? `${formatNumber(increaseValue)} (${percentLabel})` : `0 (${percentLabel})`;
   }
 
