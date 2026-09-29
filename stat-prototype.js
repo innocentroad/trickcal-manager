@@ -2435,8 +2435,8 @@
       {
         key: 'species',
         label: '種族',
-        values: ['妖精', '獣人', 'エルフ', '精霊', '幽霊', '竜族', '魔女', '？？？'],
-        icon: value => `img/種族_${value}.webp`
+        values: ['妖精', '獣人', 'エルフ', '精霊', '幽霊', '竜族', '魔女', 'ミスティック'],
+        icon: value => window.TRICKCAL_SPECIES?.iconPath(value) || ''
       },
       {
         key: 'role',
@@ -2466,6 +2466,7 @@
           <div class="apostle-filter-options">
             ${group.values.map(value => {
               const active = filters[group.key].has(value);
+              const iconPath = group.icon(value);
               return `
                 <button
                   type="button"
@@ -2476,7 +2477,7 @@
                   aria-pressed="${active ? 'true' : 'false'}"
                   title="${escapeAttr(value)}"
                 >
-                  <img src="${escapeAttr(group.icon(value))}" alt="">
+                  ${iconPath ? `<img src="${escapeAttr(iconPath)}" alt="">` : ''}
                 </button>
               `;
             }).join('')}
@@ -2543,13 +2544,14 @@
 
   function renderApostleInfoBadges(basic, overlay) {
     const personality = basic.性格 || '';
-    const species = basic.種族 || '';
+    const species = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '') || '';
+    const speciesIcon = window.TRICKCAL_SPECIES?.iconPath(species) || '';
     const position = basic.配列 || '';
     const roleAsset = getRoleAssetName(basic.役割);
     const mode = overlay ? ' overlay' : '';
     return `
       ${(getFormationPersonalityNames().includes(personality) || personality === '共鳴' || personality === '裏面') ? `<img class="apostle-info-badge personality${mode}" src="img/性格_${escapeAttr(personality)}.webp" alt="${escapeAttr(personality)}" title="${escapeAttr(personality)}">` : ''}
-      ${species ? `<img class="apostle-info-badge species${mode}" src="img/種族_${escapeAttr(species)}.webp" alt="${escapeAttr(species)}" title="${escapeAttr(species)}">` : ''}
+      ${species && speciesIcon ? `<img class="apostle-info-badge species${mode}" src="${escapeAttr(speciesIcon)}" alt="${escapeAttr(species)}" title="${escapeAttr(species)}">` : ''}
       ${roleAsset ? `<img class="apostle-info-badge role${mode}" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
       ${position ? `<img class="apostle-info-badge position${mode}" src="img/配置列_${escapeAttr(position)}.webp" alt="${escapeAttr(position)}" title="${escapeAttr(position)}">` : ''}
     `;
@@ -6035,7 +6037,10 @@
     renderResearchControls();
     document.getElementById('research-active-heading').textContent = `${basic.使徒名 || basic.名前 || '選択使徒'}に適用中の研究効果`;
 
-    const rows = getActiveResearchRows().filter(row => row.種族 === basic.種族);
+    const selectedSpecies = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '');
+    const rows = getActiveResearchRows().filter(row =>
+      window.TRICKCAL_SPECIES?.normalizeName(row.種族 || '') === selectedSpecies
+    );
     const entries = [];
     rows.forEach(row => {
       const value = getResearchValue(row, level, progress);
@@ -7745,7 +7750,8 @@
         selectedBasics.push(basic);
         const personality = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]).effectivePersonality;
         if (personality) state.personality[personality] = (state.personality[personality] || 0) + 1;
-        if (basic.種族) state.race[basic.種族] = (state.race[basic.種族] || 0) + 1;
+        const species = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '');
+        if (species) state.race[species] = (state.race[species] || 0) + 1;
       });
     });
     applyFormationSynergyExtraCounts(state, selectedBasics, formation);
@@ -12024,7 +12030,9 @@
     const level = Number(appState.research.level) || 0;
     if (!progress || !level) return;
     (DATA.sheets.research || [])
-      .filter(row => isResearchStatRow(row) && row.種族 === basic.種族)
+      .filter(row => isResearchStatRow(row)
+        && window.TRICKCAL_SPECIES?.normalizeName(row.種族 || '')
+          === window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || ''))
       .forEach(row => {
         const value = getResearchValue(row, level, progress);
         if (value) addSourceNamedStat(breakdown, 'research', row.ステータス, value);

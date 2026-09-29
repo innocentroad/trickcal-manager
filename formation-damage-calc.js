@@ -3246,7 +3246,7 @@
       isResonance: personalityResolution.isSelectable,
       personalityOptions: personalityResolution.personalityOptions,
       needsSelection: options.formationSlot && personalityResolution.needsSelection,
-      race: basic.種族 || '',
+      race: normalizeSpeciesName(basic.種族 || ''),
       role: basic.役割 || '',
       attackType: basic.攻撃タイプ || basic.攻撃Type || '',
       level: Number(apostleState.level) || 1,
@@ -3330,11 +3330,11 @@
 
   function calculateEnemyResearchPreset(context) {
     const totals = Object.fromEntries(ENEMY_GLOBAL_PERCENT_CONFIG.map(config => [config.statKey, 0]));
-    const race = context?.enemyMember?.race || '';
+    const race = normalizeSpeciesName(context?.enemyMember?.race || '');
     const { level: stage, progress } = researchProgress.normalizeState(view.enemyResearchPreset, researchLimits);
     if (!race || !stage || !progress || typeof TRICKCAL_STAT_DATA === 'undefined') return totals;
     (TRICKCAL_STAT_DATA?.sheets?.research || []).forEach(row => {
-      if (row.種族 !== race || !row.ステータス) return;
+      if (normalizeSpeciesName(row.種族) !== race || !row.ステータス) return;
       const statKey = getEnemyBoardPresetStatKey(row.ステータス);
       if (!statKey) return;
       totals[statKey] += researchProgress.getValue(row, stage, progress);
@@ -5236,7 +5236,7 @@
     const counts = collectSynergyCounts(context.formation, context.state);
     return [
       ...getSynergyRowsForType('personality', typeof PERSONALITY_SYNERGIES === 'undefined' ? [] : PERSONALITY_SYNERGIES, counts.personality, context.target?.personality),
-      ...getSynergyRowsForType('race', typeof RACE_SYNERGIES === 'undefined' ? [] : RACE_SYNERGIES, counts.race, context.target?.race)
+      ...getSynergyRowsForType('race', typeof RACE_SYNERGIES === 'undefined' ? [] : RACE_SYNERGIES, counts.race, normalizeSpeciesName(context.target?.race))
     ].filter(row => row.count > 0 && (row.type === 'personality' || (row.bonuses && Object.keys(row.bonuses).length)));
   }
 
@@ -10250,9 +10250,10 @@
   function pushSynergyEffects(list, formation, target, state = {}) {
     const counts = collectSynergyCounts(formation, state);
     const personalityEffect = findSynergyEffect(typeof PERSONALITY_SYNERGIES === 'undefined' ? [] : PERSONALITY_SYNERGIES, target.personality, counts.personality[target.personality]);
-    const raceEffect = findSynergyEffect(typeof RACE_SYNERGIES === 'undefined' ? [] : RACE_SYNERGIES, target.race, counts.race[target.race]);
+    const race = normalizeSpeciesName(target.race);
+    const raceEffect = findSynergyEffect(typeof RACE_SYNERGIES === 'undefined' ? [] : RACE_SYNERGIES, race, counts.race[race]);
     if (personalityEffect) list.push({ source: '性格シナジー', label: target.personality, bonuses: normalizeSynergyEffect(personalityEffect) });
-    if (raceEffect) list.push({ source: '種族シナジー', label: target.race, bonuses: normalizeSynergyEffect(raceEffect) });
+    if (raceEffect) list.push({ source: '種族シナジー', label: race, bonuses: normalizeSynergyEffect(raceEffect) });
   }
 
   function normalizeSynergyEffect(effect = {}) {
@@ -11368,7 +11369,8 @@
           row.resonancePersonalities?.[lineIndex]
         ).effectivePersonality;
         if (effectivePersonality) personality[effectivePersonality] = (personality[effectivePersonality] || 0) + 1;
-        if (basic.種族) race[basic.種族] = (race[basic.種族] || 0) + 1;
+        const species = normalizeSpeciesName(basic.種族);
+        if (species) race[species] = (race[species] || 0) + 1;
       });
     });
     applyPersonalityExtraCounts({ personality }, formation, selectedIds, state);
@@ -12457,6 +12459,11 @@
   function getApostle(id) {
     const data = typeof TRICKCAL_STAT_DATA === 'undefined' ? null : TRICKCAL_STAT_DATA;
     return (data?.sheets?.basicInfo || []).find(row => row.id === id) || null;
+  }
+
+  function normalizeSpeciesName(value) {
+    const normalize = window.TRICKCAL_SPECIES?.normalizeName;
+    return typeof normalize === 'function' ? normalize(value) : value;
   }
 
   function getApostleSkillData(target) {

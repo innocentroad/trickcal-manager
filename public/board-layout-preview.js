@@ -10,6 +10,7 @@
 
   const DATA = window.TRICKCAL_STAT_DATA;
   const publicSite = window.TRICKCAL_PUBLIC_SITE;
+  const normalizeSpeciesName = value => window.TRICKCAL_SPECIES?.normalizeName(value) ?? value;
 
   function boardAssetPath(relativePath) {
     if (typeof relativePath !== 'string') return relativePath;
@@ -108,7 +109,7 @@
       '<option value="">カスタム指定</option>',
       ...basicRows.map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.使徒名)}</option>`)
     ].join('');
-    const species = Array.from(new Set(basicRows.map(row => String(row.種族 || '')).filter(Boolean)));
+    const species = Array.from(new Set(basicRows.map(row => String(normalizeSpeciesName(row.種族 || ''))).filter(Boolean)));
     elements.species.innerHTML = species.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
     const tierOptions = Array.from({ length: 5 }, (_, index) => `<option value="${index + 1}">Tier ${index + 1}</option>`).join('');
     elements.tierSelects.forEach(select => {
@@ -347,7 +348,7 @@
     const rows = DATA.getById('board', basic.id) || [];
     const specialType = inferSpecialType(rows);
     const attackType = normalizeAttackType(basic.攻撃タイプ || basic.攻撃Type);
-    elements.species.value = String(basic.種族 || elements.species.options[0]?.value || '');
+    elements.species.value = String(normalizeSpeciesName(basic.種族 || elements.species.options[0]?.value || ''));
     updateSpecialTypeOptions(specialType);
     elements.attackType.value = attackType;
     const tiers = inferBoardTiers(rows, attackType);
@@ -366,7 +367,7 @@
       const rows = DATA.getById('board', basic.id) || [];
       if (rows.length !== 91) return;
       const specialType = inferSpecialType(rows);
-      const speciesName = String(basic.種族 || '');
+      const speciesName = String(normalizeSpeciesName(basic.種族 || ''));
       if (!specialType || !speciesName) return;
       const reference = { basic, rows, specialType };
       const key = referenceKey(speciesName, specialType);
@@ -456,7 +457,7 @@
   }
 
   function referenceKey(species, specialType) {
-    return `${species}\u0000${specialType}`;
+    return `${normalizeSpeciesName(species)}\u0000${specialType}`;
   }
 
   function getSettings() {

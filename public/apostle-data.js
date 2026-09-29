@@ -2,6 +2,7 @@
   'use strict';
 
   const DATA = window.TRICKCAL_STAT_DATA || { sheets: {} };
+  const normalizeSpeciesName = value => window.TRICKCAL_SPECIES?.normalizeName(value) ?? value;
   const SHEETS = DATA.sheets || {};
   const basicRows = Array.isArray(SHEETS.basicInfo) ? SHEETS.basicInfo : [];
   const equipmentRows = new Map((SHEETS.equipment || []).map(row => [String(row.id), row]));
@@ -273,10 +274,14 @@
     };
     elements.filters.forEach(select => {
       const key = select.dataset.apostleFilter;
-      const values = Array.from(new Set(rows.map(row => cleanText(row.basic[options[key]])).filter(Boolean)))
+      const values = Array.from(new Set(rows.map(row => cleanText(key === 'species'
+        ? normalizeSpeciesName(row.basic[options[key]])
+        : row.basic[options[key]])).filter(Boolean)))
         .sort((a, b) => a.localeCompare(b, 'ja'));
       select.innerHTML = `<option value="">すべて</option>${values.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('')}`;
-      select.value = state.filters[key] || '';
+      select.value = key === 'species'
+        ? normalizeSpeciesName(state.filters[key] || '')
+        : state.filters[key] || '';
     });
   }
 
@@ -287,7 +292,11 @@
       const basic = row.basic;
       const haystack = `${cleanText(basic.id)} ${cleanText(basic.使徒名)}`.toLocaleLowerCase();
       if (search && !haystack.includes(search)) return false;
-      return Object.entries(keys).every(([filterKey, dataKey]) => !state.filters[filterKey] || cleanText(basic[dataKey]) === state.filters[filterKey]);
+      return Object.entries(keys).every(([filterKey, dataKey]) => {
+        if (!state.filters[filterKey]) return true;
+        const value = filterKey === 'species' ? normalizeSpeciesName(basic[dataKey]) : basic[dataKey];
+        return cleanText(value) === state.filters[filterKey];
+      });
     });
   }
 
@@ -517,7 +526,7 @@
         formatNumber(b.レア度),
         cleanText(b.エルダイン) || '—',
         cleanText(b.性格) || '—',
-        cleanText(b.種族) || '—',
+        cleanText(normalizeSpeciesName(b.種族)) || '—',
         cleanText(b.役割) || '—',
         cleanText(b.攻撃Type) || '—',
         cleanText(b.配置列) || '—',

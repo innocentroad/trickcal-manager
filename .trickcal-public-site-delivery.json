@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "1e05899775b3aa3e",
-  "sourceCommit": "2babb0594f78e6c03193dbfd714408b22cb6ba22",
+  "candidateId": "c33c9bbcb783238c",
+  "sourceCommit": "7c35dd59d6fe568b3a6cba7279680da6144d47db",
   "profile": "legacy",
-  "contentDigest": "784d0ae3d158d762e6932c7785b8be0d4bdf1b87e5d88504059579663dda73d0",
-  "outputDigest": "e125c19a3419cea3",
+  "contentDigest": "6d4a5a77a268190724eb7c0d5a6259d36ab20215b1319c3cafe1b3911cf6ac4d",
+  "outputDigest": "42434bbc1baf38a8",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
       "path": "announcement-history-data.js",
-      "sha256": "587835c27e7e7e808d75cab2b8d8ba1f4faaa895a232917c1afa38df2a8faeac"
+      "sha256": "7e64503031f8525d9c2e4129127366da4dd2b5f8bc69b3db7bbd7f67abfbfd23"
     },
     {
       "path": "announcements-data.js",
@@ -34,7 +34,7 @@
     },
     {
       "path": "apostles.js",
-      "sha256": "58dea0235626fbe8a69cb584aee0347bd54a1e25a73358d2b2867eb1a65b140e"
+      "sha256": "ff2fd38fc438260befd3bfd4d48e950a27ad1995e6b39304fde945120590c2c8"
     },
     {
       "path": "app-cache.js",
@@ -50,7 +50,7 @@
     },
     {
       "path": "cards.js",
-      "sha256": "1b6b5b41fb51ad79fc68a37d16da940bdb9ce1428c6621c04189cfe293c95664"
+      "sha256": "83f088f1b895664648c7f96224d0877e7f061540f04bef94346415bd3ec5fe44"
     },
     {
       "path": "combat-scenario.js",
@@ -70,7 +70,7 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "8c14e6d5e320655e92fe930ac4f0b6d40147223c2bb862b891789a15d055812c"
+      "sha256": "2d2689e006b61a433a52e6829c1c1d1589951f205a02e5267f3a1c12edde870d"
     },
     {
       "path": "dps-simulator-worker.js",
@@ -102,7 +102,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "b9e7ca5d69ba42efffcdedcf975f932d18339bc4ea0043cbba8ac9b44b96c566"
+      "sha256": "d2871a30a4e51303be4d1f941a049a1d0068033c1ea35d4fe57dad72d5f14399"
     },
     {
       "path": "enemy-status.js",
@@ -114,11 +114,11 @@
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "d1e974706cdec7ba3b22c0b3567986a0c90b7c4bcfdb36d52011e728547e541e"
+      "sha256": "eb2c43346d47db2d8c96f204ea12ea61051d79ec30e725c7a2cbee83287d7e0c"
     },
     {
       "path": "formation-damage-calc.js",
-      "sha256": "b635ea67ad7cd2601ab798b6cdf1f6f644a93a4c0470499847bf45fdbe06dcfc"
+      "sha256": "353e99158190d072d398c94e7fd354ba5bb7c709716daf03796c867aacb0ef74"
     },
     {
       "path": "formation-damage-dps-prototype.css",
@@ -126,7 +126,7 @@
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "209a472bf1029e0121395975dc8891e14eb2af468542dee552df0f305f304f84"
+      "sha256": "021c336ce77245f2924c53042285888baea5b0ee6471bdf7404cd3f03d49b30b"
     },
     {
       "path": "formation-damage-dps-prototype.js",
@@ -150,11 +150,11 @@
     },
     {
       "path": "formation-share-create.js",
-      "sha256": "3897d5e58f2f2f3891744e592fa374307fe2e754d8baf75d08554ad26d355cb5"
+      "sha256": "27fce1e9ebd3ff16cfc53c4f3d10b4ea66eeb73adc3bc3f4752d4abcb1cae472"
     },
     {
       "path": "formation-share-display-data.js",
-      "sha256": "b583f54a6d7c8b00841c429fe4684bfea3040a0fe1758e45275b199e8079c745"
+      "sha256": "53b3e754070050172fd7a6756dcfdd0d290821aa0ad162c6ee0c3eb9047bab5f"
     },
     {
       "path": "formation-share-image.js",
@@ -170,7 +170,7 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "b79f823aafa1d50b020ea3e96da2f6bedad0b4983ba9333290fed0c3e43a2885"
+      "sha256": "e7122af9f6f0df4a018243f3818adb9e1575a409a24d55f2bdc8839b3e9866c8"
     },
     {
       "path": "formation-share.js",
@@ -605,10 +605,6 @@
       "sha256": "50b1a71d6c0e107863ac8f3d1b98f78353b55f27354d67310fcccb8ea4df65de"
     },
     {
-      "path": "img/Card/Spell/SpellCardIcon_58.webp",
-      "sha256": "e2343b9cd372e43aa47d9e89db5be8f6becbb39baa8237a8e6ab57d1b1777f87"
-    },
-    {
       "path": "img/Card/Spell/あいつを捕まえろ！.webp",
       "sha256": "b72d1c5ab01c33ac11163fcb089e951fb9488e3e7237892a5629f0e94c3d88b9"
     },
@@ -635,6 +631,10 @@
     {
       "path": "img/Card/Spell/これ、残像だよ.webp",
       "sha256": "62345128ed9c1a56d4737d46fb8f4871e028e7c97bc323dbf1ff147c0147d29d"
+    },
+    {
+      "path": "img/Card/Spell/ジョアンの祈りの権能.webp",
+      "sha256": "e2343b9cd372e43aa47d9e89db5be8f6becbb39baa8237a8e6ab57d1b1777f87"
     },
     {
       "path": "img/Card/Spell/センター最高！.webp",
@@ -757,28 +757,48 @@
       "sha256": "26253ae75ab2d98519ef5d3b968198bad4eeaffe76d3e5184e82b85913a5908f"
     },
     {
+      "path": "img/Card/カードロック.png",
+      "sha256": "b6c90a7160b63c063ce5ac9b1f30f51eefe5e6995feca18afd688825944f6730"
+    },
+    {
+      "path": "img/Card/スペル.png",
+      "sha256": "32e774a1561ad23afb44ac07fd34e44d5cce66f6f119b309e501a628dae561c6"
+    },
+    {
+      "path": "img/Card/愛用.png",
+      "sha256": "b2cf34023da3b9be5152747b2515be5ce132895ca5695c74f17498cdacd2f38b"
+    },
+    {
+      "path": "img/Card/遺物.png",
+      "sha256": "f31539694161abdc969a931669e67f78b9459b09f2f8ad3c1f41d7af31a7cb24"
+    },
+    {
       "path": "img/Card/権能_ヌルゲーシールド.webp",
-      "sha256": "e8e89b040e36c2c473026ffb6050553b3ac1e1d92a50677a607db01b5dc46397"
+      "sha256": "cb2311ea06d848461ec1f7faa0919b798581dd630b560cf4829f81d3a45d8703"
     },
     {
       "path": "img/Card/権能_ポップピンスター.webp",
-      "sha256": "d3046bcd0f2e428f91279017862f86b7f60f6ddab4195e49e1157624817f5c0a"
+      "sha256": "3ac257dfd9de4020be0a866a822cb86437011af13ba65122e9d25e76b221d8be"
     },
     {
       "path": "img/Card/権能_ボディブロー.webp",
-      "sha256": "830d79dddb0bb5e724d99f22e9fe40d22855c4cbda918b6624e3ad172e0d7cd3"
+      "sha256": "2f73b45413ee68d330ad7ef776254b534a395468202ba9135acc3197dff0ab49"
     },
     {
       "path": "img/Card/権能_マジ天罰.webp",
-      "sha256": "1d6bfe8948fae17c8e831f49756be8a891d94d6f92037814fdd0d96cd444d769"
+      "sha256": "3c2eadf7c050de3afc0fe0aa9d557e4c492a4cade26f1589405b3f0a0dc757b7"
     },
     {
       "path": "img/Card/権能_安心毛布.webp",
-      "sha256": "ab5c1a327b94d5fa39973bfe6aa8efde9f16e57bcb88bc808eaf85e41ce61496"
+      "sha256": "8b3798349aacad727a4d49b8a1d40d9479f4386c690fa55290c205e4982e256b"
     },
     {
       "path": "img/Card/権能_急発進.webp",
-      "sha256": "79093e72bda922ae76c07c1f3380e931f91f4a5e1deaa10fa4adfb20e6c2233a"
+      "sha256": "83a01d4de763ad14f93cdcba8b36b867d893731784105bd257354e63b4eb4c4a"
+    },
+    {
+      "path": "img/Card/権能.png",
+      "sha256": "dbbc1c22ab206f7faf158b22bc267b59fd02a768eb926ae5e9511f91fce98016"
     },
     {
       "path": "img/Chara/Alice.webp",
@@ -1634,7 +1654,7 @@
     },
     {
       "path": "img/Chara/null.webp",
-      "sha256": "1e3ae3c67cc923f678df651720ce803a1c7f45b62e77b95e5a7485978867c116"
+      "sha256": "2df97129c0706fc3c7eaebe869adfc5d12e9ead0aa5a3b2ca6e5c760ee2ee5d8"
     },
     {
       "path": "img/Chara/Patula.webp",
@@ -2727,6 +2747,110 @@
     {
       "path": "img/Chara/Yumimi.webp",
       "sha256": "f7230ede9e666b065caf63c1e41960b2517b48f933faa5df2a3430f685519612"
+    },
+    {
+      "path": "img/Enemy/CommonIcon_MonsterBoss.png",
+      "sha256": "82f9c24a1aa2a05ef0684a8b06441bd7d98c25dcb1f1ec12ef22003091467ffe"
+    },
+    {
+      "path": "img/Enemy/CommonIcon_MonsterElite.png",
+      "sha256": "d0c504187b7136ef6aa311b4d16875717de1f2cd7bdbfd0589331e5325b7a0c9"
+    },
+    {
+      "path": "img/Enemy/CommonIcon_MonsterNormal.png",
+      "sha256": "3db7e8815e1f8ef65e0659d4dc19f412d826e07cd8899cc32105c89e3452555e"
+    },
+    {
+      "path": "img/Enemy/CommonIcon_MonsterWorldBoss.png",
+      "sha256": "d57c8df09c2ba7d1d8f3a13688e29245c8ce7ccefd2e7cbe96d3b60a5e043386"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CrayonKnightCool.png",
+      "sha256": "ace1b2da6f7e4cd900f5d31f4428508df8da09fe228b9d3edebded542a8b2877"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CrayonKnightGloomy.png",
+      "sha256": "073aa76d55fb13d6f3bfe7e99ffaaae0e3c78afc1a89036358b99251256a0b05"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CrayonKnightJolly.png",
+      "sha256": "956a54293e6b959157c7ded8c4446243717e9893e2f43d1a6dd437c3333cfc6c"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CrayonKnightMad.png",
+      "sha256": "478be00cdfa519f724615579131eb08a69d920eda0e12b128bd44e2c8cb81c8b"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CrayonKnightNaive.png",
+      "sha256": "358916217b02f3a0052afd300243ec47e397cb27f4584aab429b90219cc3890b"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CurburusCool.png",
+      "sha256": "682943c0ad751d5771b700d14797f21d18d7a336e2f56a9a355aa597a09cf5d9"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CurburusGloomy.png",
+      "sha256": "254e41f71c8218fa33cd3cbceda33fd6d7d3bd3d0072287e673cddf71a848afb"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CurburusJolly.png",
+      "sha256": "6411e24233307db3f5c2765e52241e5ffdf9d00b4546e813fcd6aa4e35c25ff7"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CurburusMad.png",
+      "sha256": "98bcf2cf78f9bdd84b08520662b29f4e43c626e67ce2fea90d69c1449189c59e"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_CurburusNaive.png",
+      "sha256": "8a98aaf47a131750c9c711c92e8ae5436b71132847784eba0026f166ffa3ca42"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_Lil1liCool.png",
+      "sha256": "173ab851a5c42260142df676b971ff007c0411dcc2ed68fe79cb35d5afd28341"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_Lil1liGloomy.png",
+      "sha256": "7f68226db2e39932cf6aa8f2d7bc2f5c5bfead17fa649502fafce3af88e16bb1"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_Lil1liJolly.png",
+      "sha256": "612d52bce7f5b9fc2c55f114128644034d777340c5ed8da6b41c9aba8dc0c0df"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_Lil1liMad.png",
+      "sha256": "dec231abaf05edd276e2985366cd4ae9bd8e8b3dfdd68c4dc75a6cde7c8553da"
+    },
+    {
+      "path": "img/Enemy/DimensionCrash/Icon_Lil1liNaive.png",
+      "sha256": "56ee9046f39131ba0375c5beae4023f9f74dc0bf4e2bcf9da7c591c6ddca1658"
+    },
+    {
+      "path": "img/Enemy/EliasFrontier/Icon_CrayonKnightNone.png",
+      "sha256": "a0bfcdcd0c4f38080bc46d32e0456ce19e5776319b48c4c37123c2bc596c8af0"
+    },
+    {
+      "path": "img/Enemy/EliasFrontier/Icon_CurburusNone.png",
+      "sha256": "a03bc6b2f565bdbe708cc02e9d4a6bd6c959c0a3af47921ab0046e674429e88f"
+    },
+    {
+      "path": "img/Enemy/EliasFrontier/Icon_Lil1liNone.png",
+      "sha256": "8e96231e92bd212cf9e7ad0b909cb170ae1a063213fddb6f12454f5f328e4720"
+    },
+    {
+      "path": "img/Enemy/EliasFrontier/Icon_MEOWNone.png",
+      "sha256": "7501638f0e902074ec7617812153a1ff3133f84eb688cf98a8c72a57ac77cbbc"
+    },
+    {
+      "path": "img/Enemy/EliasFrontier/Icon_R41_RenewaNone.png",
+      "sha256": "364b8012d121eca99eb6d20ce0f5cd909e98e1aa04ccbf449211139f85a48be5"
+    },
+    {
+      "path": "img/Enemy/GTA/Icon_GoldringGloomy.png",
+      "sha256": "c88c8a0522dbfd3d287aaab612de131ec944f0e8daee18cfa0bb2a42e1f44cd6"
+    },
+    {
+      "path": "img/Enemy/GTA/Icon_GoldringJolly.png",
+      "sha256": "14b24150dd5006e71d17f9facfaf35604fddc5c94cdca84b166c03f9acba9da7"
     },
     {
       "path": "img/equipicons/Equip_Accessory0101.webp",
@@ -4013,26 +4137,6 @@
       "sha256": "616c3b2ecbb3cf7a701e492c4c951884efc7140bc23b85aa1f7cfd13e5c8491e"
     },
     {
-      "path": "img/ItemSlot_1.png",
-      "sha256": "bd063d7a9ec773179435bb03973270c1d05f14e6df7a857cf8ae25e6ebbae4e3"
-    },
-    {
-      "path": "img/ItemSlot_2.png",
-      "sha256": "c45288690ab92c212f7ec5d5488d96ada48d0033758f8835f6c763a0178a64d0"
-    },
-    {
-      "path": "img/ItemSlot_3.png",
-      "sha256": "7175308b01d72ba744d5cee8dd0cd8d6f7e41d81c56bf48c2c789dd03b1530a0"
-    },
-    {
-      "path": "img/ItemSlot_4.png",
-      "sha256": "0f909e1cedbf2fae7ec081cb549c8fa6108c8776e9fe48e609260574ce6d3fbb"
-    },
-    {
-      "path": "img/ItemSlot_5.png",
-      "sha256": "b500fbbb7d0b7b1423e0a4218d0235617a036eefb6652f7baa7da5fcae8414e2"
-    },
-    {
       "path": "img/Materials/EGOブロック.png",
       "sha256": "7297184e20b957f7d518fc4b43671539181643322052ad5a02b8fc13aca99021"
     },
@@ -4157,6 +4261,182 @@
       "sha256": "9c61a06f9788fc7a8c5f528e505954f4fa6c16b062dc5d76d0ff23fae43570da"
     },
     {
+      "path": "img/Num/02b81f1e780696e08022aac2.png",
+      "sha256": "02b81f1e780696e08022aac2f68e4ca8cf93259e117dfa671374e625fcc223e3"
+    },
+    {
+      "path": "img/Num/0667e2c972875f704b401ef4.png",
+      "sha256": "0667e2c972875f704b401ef4156693266ff8b325b6f02b3389a425599cc1c451"
+    },
+    {
+      "path": "img/Num/2b4e0726174b4732e70bc20a.png",
+      "sha256": "2b4e0726174b4732e70bc20a6a4915d58a7b5bb3eda4e111ec3719d76733f4b6"
+    },
+    {
+      "path": "img/Num/5217fcf3acda8635be4d2aa9.png",
+      "sha256": "5217fcf3acda8635be4d2aa9392b51b2e99becfe8b3363c0af662a0b9e806eb7"
+    },
+    {
+      "path": "img/Num/a955be04b33eaf331cbdc3dc.png",
+      "sha256": "a955be04b33eaf331cbdc3dc23e4f748b4dfff01f67a0be5452002955fb9e93e"
+    },
+    {
+      "path": "img/Num/c4f14fb4ab12280ae390b21d.png",
+      "sha256": "c4f14fb4ab12280ae390b21d0a7f723862b8afb091e64e8541b650fc506d747e"
+    },
+    {
+      "path": "img/Num/c9819c15ffa4f04c038540e9.png",
+      "sha256": "c9819c15ffa4f04c038540e9f889ae12d2f32645c21fb527fe90b8adab0dc4a7"
+    },
+    {
+      "path": "img/Num/d204e3d0fb5a0e93a5a3a1be.png",
+      "sha256": "d204e3d0fb5a0e93a5a3a1be469fc463732ad80fa7c7cf770b359943960feaad"
+    },
+    {
+      "path": "img/Num/d30a63a3b96c040a401df444.png",
+      "sha256": "d30a63a3b96c040a401df444de8a039fc6c6badcdc066f0af1fedc5eea6422e4"
+    },
+    {
+      "path": "img/Num/ff2ab91a474ea18f2b42cc9a.png",
+      "sha256": "ff2ab91a474ea18f2b42cc9a66c7d46940db026ecac20d256d301293e5314551"
+    },
+    {
+      "path": "img/Slot/ItemSlot_1.png",
+      "sha256": "bd063d7a9ec773179435bb03973270c1d05f14e6df7a857cf8ae25e6ebbae4e3"
+    },
+    {
+      "path": "img/Slot/ItemSlot_2.png",
+      "sha256": "c45288690ab92c212f7ec5d5488d96ada48d0033758f8835f6c763a0178a64d0"
+    },
+    {
+      "path": "img/Slot/ItemSlot_3.png",
+      "sha256": "7175308b01d72ba744d5cee8dd0cd8d6f7e41d81c56bf48c2c789dd03b1530a0"
+    },
+    {
+      "path": "img/Slot/ItemSlot_4.png",
+      "sha256": "0f909e1cedbf2fae7ec081cb549c8fa6108c8776e9fe48e609260574ce6d3fbb"
+    },
+    {
+      "path": "img/Slot/ItemSlot_5.png",
+      "sha256": "b500fbbb7d0b7b1423e0a4218d0235617a036eefb6652f7baa7da5fcae8414e2"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Authority.png",
+      "sha256": "0abeea23db30f2590dfb4968a21ed8db7085670f4ec42079a58811be43beeb9e"
+    },
+    {
+      "path": "img/Slot/ItemSlot_BattleGem.png",
+      "sha256": "ce8bd4f596bf66dd7cf1b63aa0d4147a360279e0de9edabc9cda45136b5c4329"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Blue.png",
+      "sha256": "c6811d281bf7896ac0bae70b95b9a2fce88c9b3c7764225ce475efca6cedc82f"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Border_8080.png",
+      "sha256": "6826bad20717144fdb93ace3fd023c5ca364733b1bf5a16c857f26847720f50e"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Border_First.png",
+      "sha256": "73a4d02ac3a29e8f287ebb415dfe4bc5423ba4ae2c9b00d8cea9f45d33099d2d"
+    },
+    {
+      "path": "img/Slot/ItemSlot_CardPet_1.png",
+      "sha256": "fe9fe6f41c6375c7cbe1942447b0fb704c73f2c54b15bdfc82c22edacb715cc7"
+    },
+    {
+      "path": "img/Slot/ItemSlot_CardPet_2.png",
+      "sha256": "6da61d6f89be7565ca94590291ac62dff1e34c2c4384e37118a8b37e04d14b8c"
+    },
+    {
+      "path": "img/Slot/ItemSlot_CardPet_3.png",
+      "sha256": "b945b9c3b734f8d8027c36988a079771f06256a24e534ab2152a22b624416107"
+    },
+    {
+      "path": "img/Slot/ItemSlot_CardPet_4.png",
+      "sha256": "58c59a85aaef85fac1caf46ab288b1738162c15b6542b362a5c090f151d9540b"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Empty.png",
+      "sha256": "a70d580561e4abce6babeb7078ddb788aea6ae8a25faa9e640c322e737c0dde9"
+    },
+    {
+      "path": "img/Slot/ItemSlot_First.png",
+      "sha256": "13e4df04b892c06c0e6b340552ef3a244eeddb6ff9e7678a4f5e5dccdd9ffbd3"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Gold.png",
+      "sha256": "6029775650fb793c1ed646a3026710d129953bbcc11e626c3fb081899d265703"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Gray.png",
+      "sha256": "6e9db800f85c032053d8e642e27cbdfcdfb88875ed0a062639fe12adf2c95abb"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Green.png",
+      "sha256": "796b52bfae9965a43121e8f4d2f49b23801056de55221911639f2b2d1440713c"
+    },
+    {
+      "path": "img/Slot/ItemSlot_LightGreen.png",
+      "sha256": "a0ef046670fed9e11b919ad3206a4e97c07aab9c873162234d483c789b2f0c85"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Mint.png",
+      "sha256": "6db13e32994becfdb18eaa25eb648736184002bcdeffe1d8e9ecaf5dddd5189c"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Orange.png",
+      "sha256": "003901efb1568cf62f0ec98572e6bfb6f821e19fa7232014fb58e93ebcb0b9f4"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Pink.png",
+      "sha256": "a1ae270cd2cacfec5c0dbe5588b9a5bcdf4a005c47b29d0fd1e03c50edb6c0c1"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Purple.png",
+      "sha256": "f2db7902ba555d116653a8fca968a627205a9e65612f084bb65715829104322f"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Red.png",
+      "sha256": "80bfc80fa120feb2f7fe2803ac8f72f273f1c88dc6bd2e438b32597ea0e3a399"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Turquoise.png",
+      "sha256": "25cb5613dbc890251982bbff006400b1659eeecb3e694651a04dcc4a44cbd437"
+    },
+    {
+      "path": "img/Slot/ItemSlot_ValueBase.png",
+      "sha256": "554dff3261652852b5df51f793cf97868b71454b98a9e5d1463ce82f4f9efd36"
+    },
+    {
+      "path": "img/Slot/ItemSlot_White.png",
+      "sha256": "edf0ab68904c1b160df574987b3221cb04e72f3094840ba2ef1c7eb68e76a46a"
+    },
+    {
+      "path": "img/Slot/ItemSlot_Yellow.png",
+      "sha256": "3dad86987ead7e03519ba9999c0d81c92fad842a2b0f915fa8027259d7357a9f"
+    },
+    {
+      "path": "img/Slot/ItemSlotLock.png",
+      "sha256": "952f17e9949f72644eca6f14ca520dce2274b8f373d939bb386d703f05d0c7f7"
+    },
+    {
+      "path": "img/Slot/SelectPet_ItemSlotBg.png",
+      "sha256": "7e86e5d28c51b16534b624d2c425d42324263c838c25fb711aab0b29eaf8de00"
+    },
+    {
+      "path": "img/Slot/SelectPet_ItemSlotDeco.png",
+      "sha256": "6796f7cdccfd0824f7c5e51764b3cbd60e3a8218c84d028a5b2adbbb108f7d8b"
+    },
+    {
+      "path": "img/Slot/SelectSkin_ItemSlotBg.png",
+      "sha256": "8e44d6019724d39d847e3b1006076df81d8e9cfa6977a33463e7bba0631ed579"
+    },
+    {
+      "path": "img/Slot/SelectSkin_ItemSlotDeco.png",
+      "sha256": "aa2a66d6a46a8c52eaff6e58a7b2eab16f6d791cb0f358b864f77eba3f15272d"
+    },
+    {
       "path": "img/SP.webp",
       "sha256": "b5cdaeac563bedeb120f93dc3bea73b0d5df5ec201a6a9fd3eb49dc41689d2ab"
     },
@@ -4179,6 +4459,10 @@
     {
       "path": "img/Tab_Equip.webp",
       "sha256": "102096eeeb4595367e83c0ab5a8f5e451a62397d5fe59a2510c6fccd3ce241da"
+    },
+    {
+      "path": "img/Tab_Level.png",
+      "sha256": "74c0f4d022fe7035edbfd33a650e3f8f417ea025a00bc1313b8a2df4b0f14fb8"
     },
     {
       "path": "img/Tab_Save.png",
@@ -4223,6 +4507,10 @@
     {
       "path": "img/遺物bg_4.png",
       "sha256": "378ddfcef344ca1ce58d4b2ade2feec089db87ee4b01f1f27ca80bcb14a3b8bd"
+    },
+    {
+      "path": "img/遺物bg_5.png",
+      "sha256": "1f5c0ebb2d7f4011f6dd8881afc928f6756381578494aded6951b6461e6d61cd"
     },
     {
       "path": "img/下級くれよん.webp",
@@ -4281,6 +4569,10 @@
       "sha256": "c7bb6ca784220e079f238c15157e9565e21b5254ba763bbee377c8669d7bc864"
     },
     {
+      "path": "img/種族_ミスティック.webp",
+      "sha256": "a14694d29de098d5e91f12edee0e1cb6d778a6aba21b966f7fb5f780bdb579b1"
+    },
+    {
       "path": "img/種族_獣人.webp",
       "sha256": "42f8b7b18744d1c97431f0b83df1254dc4479d239a1b68c9758fc141df14ae05"
     },
@@ -4310,7 +4602,7 @@
     },
     {
       "path": "img/性格_なし.webp",
-      "sha256": "22a60b0e6a3201f995af5941683fe9e806b2d93f61308d8d9d5caac33dd5d67d"
+      "sha256": "15104d1d77d56a1bbdbdf487f6cbb80ad349eea40438c8f7ff426cb717068523"
     },
     {
       "path": "img/性格_活発.webp",
@@ -4339,6 +4631,14 @@
     {
       "path": "img/性格_冷静.webp",
       "sha256": "7eeeb9e603a74b9b25ffc4b258cc414c39424082f85c755f9d62824cb10b668f"
+    },
+    {
+      "path": "img/性格相性LD.png",
+      "sha256": "68c3dd40974b08ed8c4edd40d2b4f74d9098d595411ba94385d42210e9633123"
+    },
+    {
+      "path": "img/性格相性RGB.png",
+      "sha256": "c58804b00e0ee8b0e4e8b7f61ff647361dc8745d6d436c889e79365ffb5694a6"
     },
     {
       "path": "img/中級くれよん.webp",
@@ -4371,6 +4671,10 @@
     {
       "path": "img/物理防御力.webp",
       "sha256": "b7841fd15f9898bc2bcb77dd673f22b5fc409a379c06909d09057f062fa0268f"
+    },
+    {
+      "path": "img/防御力_両.webp",
+      "sha256": "a7d2b7d754c15d7a06d40f8ec67582c849687ae62dd6e6a7406e3fc6596c3eb3"
     },
     {
       "path": "img/魔法攻撃力.webp",
@@ -4406,7 +4710,7 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "07d4b81c3c7ea07453ab4e9dc0a14d86c3cd3b92f8d49a60039e10022231ce6a"
+      "sha256": "507cc0ddce4e3ee813151686d921d7c4fcb9822c663328bbee1cb767fdee8439"
     },
     {
       "path": "public-site-runtime.js",
@@ -4418,11 +4722,11 @@
     },
     {
       "path": "public/apostle-data.html",
-      "sha256": "ec209763e167b7becc1c76d463e8f8cb5b27f6cf64e98e50cd9c536466af0c79"
+      "sha256": "4cc4d29d77e403d79d9182b125300da5581865be550ed7f4115d9f0e308f7629"
     },
     {
       "path": "public/apostle-data.js",
-      "sha256": "981db605c56afd439292e12de0d3ade1072d1597a6161d8ac1068ea7f2a1e7d9"
+      "sha256": "c48a918b977146078f000846a2c60c55068d6442950ec724955620be990cef6b"
     },
     {
       "path": "public/board-layout-preview.css",
@@ -4430,11 +4734,11 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "d57c1a4e309e9aafa9bbd426713fd5154dc9558f057fff4e37d69140db534d4c"
+      "sha256": "11c825910c805f9ca80284399aed93871bac20c450a38a6aefa4559f10fde4e6"
     },
     {
       "path": "public/board-layout-preview.js",
-      "sha256": "fca7d0f98dcf462099882d0d977eab049e3d63e711c11cfee63b8f3f3f186b44"
+      "sha256": "a5ea6942adfd3419b67a0bba01f2c3a0dad0e6b3066109f5ba4149d85caab644"
     },
     {
       "path": "recovery/index.html",
@@ -4446,7 +4750,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "b9c95aeb0a1e265acf8a26fac60ed5065c574c7d9ed0b929f9e01b593e09a449"
+      "sha256": "cd920893f718f227323123b6605519b87536be68acf5261667bd9935b53003b8"
     },
     {
       "path": "share/index.html",
@@ -4470,7 +4774,7 @@
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "216c7fa36fd55ac889b194670f1135db46355eb82bd500fc5d2eedc4d18f4e4d"
+      "sha256": "031a62e6e7b1f80dd1257ea10c49a7a365d1a5a8bce04fc0b6063481427fefd9"
     },
     {
       "path": "stat-dashboard.js",
@@ -4486,11 +4790,11 @@
     },
     {
       "path": "stat-prototype.js",
-      "sha256": "c2365dc1ea592e9516ce85a4294e3adc471ad90b62d74f10e710d237768ddceb"
+      "sha256": "e6ac23c88310cb5d84fcdca70507e1dc7257166fe8807d0414c4aff9afe6a513"
     },
     {
       "path": "statData.js",
-      "sha256": "eeb89a644bf5a8fc5d4bb638a344c5f971012653bcf9fed6924ac1c9a5b4ca92"
+      "sha256": "0a87e679f7fab6db5a02c5c9367ee20543732593fa07fed50c3e99c05aad3436"
     },
     {
       "path": "storage-backup.js",
@@ -4502,7 +4806,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "5a323c9614f1040ff865108eaade1252c9eef57698dcbd87b272e1d73ad95174"
+      "sha256": "b4d588c2ec94c22ef5b0cd2dc7f7443944bf2eaa1b12db3fc39d9040abd14256"
     },
     {
       "path": "storage-registry.js",
@@ -4518,7 +4822,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "ec3c5b6c9b261e3cb0ae9c94977443406fa1705ce119d11ca029d5b4bd475527"
+      "sha256": "00dd4f482cb9281d29565587fefd35d86d81463c85c4263ca54c8bf7b99520c5"
     },
     {
       "path": "storage-transfer.js",
@@ -4530,7 +4834,7 @@
     },
     {
       "path": "synergy.js",
-      "sha256": "5bdfd0cf1ff77c24176d9e2d609f135d8c558768be23f0ce72eeb226a6c8d1ce"
+      "sha256": "c78ecc5c8bcb1fd99a810b94e3a3bf58f0145221e0051940e4d9af0f4fa8aa6c"
     },
     {
       "path": "transfer/index.html",

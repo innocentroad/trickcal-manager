@@ -166,13 +166,73 @@ const RACE_SYNERGIES = [
     },
     {
         id: "unknown",
-        name: "？？？",
+        name: "ミスティック",
         icon: "img/種族_？？？.webp",
         effectsByCount: {
             1: { atkP: 2 }
         }
     }
 ];
+
+// 「？？？」は種族名として使われていた旧表記のみを互換扱いにする。
+// 共有・保存IDは変更せず、種族フィールド以外の同じ文字列には触れない。
+const SPECIES_NAME_ALIASES = Object.freeze({ "？？？": "ミスティック" });
+const SPECIES_ICON_PATHS = new Map(RACE_SYNERGIES.map(item => [item.name, item.icon]));
+
+function normalizeSpeciesName(value) {
+    return typeof value === "string" ? (SPECIES_NAME_ALIASES[value] || value) : value;
+}
+
+function getSpeciesIconPath(value) {
+    return SPECIES_ICON_PATHS.get(normalizeSpeciesName(value)) || "";
+}
+
+function normalizeSpeciesRecords(records) {
+    const rows = Array.isArray(records)
+        ? records
+        : records && typeof records === "object"
+            ? Object.values(records)
+            : [];
+    rows.forEach(row => {
+        if (!row || typeof row !== "object") return;
+        if (Object.prototype.hasOwnProperty.call(row, "種族")) {
+            row.種族 = normalizeSpeciesName(row.種族);
+        }
+        if (Object.prototype.hasOwnProperty.call(row, "race")) {
+            row.race = normalizeSpeciesName(row.race);
+        }
+        if (row.basic && typeof row.basic === "object") {
+            if (Object.prototype.hasOwnProperty.call(row.basic, "種族")) {
+                row.basic.種族 = normalizeSpeciesName(row.basic.種族);
+            }
+            if (Object.prototype.hasOwnProperty.call(row.basic, "race")) {
+                row.basic.race = normalizeSpeciesName(row.basic.race);
+            }
+        }
+    });
+}
+
+function normalizeSpeciesData(data) {
+    if (!data || typeof data !== "object") return data;
+    const sheets = data.sheets;
+    if (sheets && typeof sheets === "object") {
+        normalizeSpeciesRecords(sheets.basicInfo);
+        normalizeSpeciesRecords(sheets.research);
+    } else {
+        normalizeSpeciesRecords(data);
+    }
+    return data;
+}
+
+window.TRICKCAL_SPECIES = Object.freeze({
+    normalizeName: normalizeSpeciesName,
+    iconPath: getSpeciesIconPath,
+    normalizeData: normalizeSpeciesData
+});
+
+// Generated data is loaded before this catalog on manager, calculator, and data pages.
+normalizeSpeciesData(window.TRICKCAL_STAT_DATA);
+if (typeof APOSTLE_LIBRARY !== "undefined") normalizeSpeciesData(APOSTLE_LIBRARY);
 
 window.PERSONALITY_SYNERGIES = PERSONALITY_SYNERGIES;
 window.RACE_SYNERGIES = RACE_SYNERGIES;

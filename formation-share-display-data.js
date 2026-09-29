@@ -1025,7 +1025,7 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "signature": true,
       "favoriteCharacter": "ジョアン",
       "kind": "spell",
-      "imagePath": "img/Card/Spell/SpellCardIcon_58.webp?v=e2343b9cd372e43a"
+      "imagePath": "img/Card/Spell/ジョアンの祈りの権能.webp?v=e2343b9cd372e43a"
     },
     "spell_fatal_charm": {
       "name": "美しいって罪ね",
@@ -1256,32 +1256,32 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "masterpower_punishment": {
       "name": "マジ天罰",
       "cost": 30,
-      "imagePath": "img/Card/権能_マジ天罰.webp?v=1d6bfe8948fae17c"
+      "imagePath": "img/Card/権能_マジ天罰.webp?v=3c2eadf7c050de3a"
     },
     "masterpower_shield": {
       "name": "ヌルゲーシールド",
       "cost": 30,
-      "imagePath": "img/Card/権能_ヌルゲーシールド.webp?v=e8e89b040e36c2c4"
+      "imagePath": "img/Card/権能_ヌルゲーシールド.webp?v=cb2311ea06d84846"
     },
     "masterpower_acceleration": {
       "name": "急発進",
       "cost": 30,
-      "imagePath": "img/Card/権能_急発進.webp?v=79093e72bda922ae"
+      "imagePath": "img/Card/権能_急発進.webp?v=83a01d4de763ad14"
     },
     "masterpower_blanket": {
       "name": "安心毛布",
       "cost": 30,
-      "imagePath": "img/Card/権能_安心毛布.webp?v=ab5c1a327b94d5fa"
+      "imagePath": "img/Card/権能_安心毛布.webp?v=8b3798349aacad72"
     },
     "masterpower_poppin": {
       "name": "ポップピンスター",
       "cost": 30,
-      "imagePath": "img/Card/権能_ポップピンスター.webp?v=d3046bcd0f2e428f"
+      "imagePath": "img/Card/権能_ポップピンスター.webp?v=3ac257dfd9de4020"
     },
     "masterpower_strike": {
       "name": "ボディブロー",
       "cost": 30,
-      "imagePath": "img/Card/権能_ボディブロー.webp?v=830d79dddb0bb5e7"
+      "imagePath": "img/Card/権能_ボディブロー.webp?v=2f73b45413ee68d3"
     }
   },
   "assets": {
