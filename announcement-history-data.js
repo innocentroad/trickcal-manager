@@ -11,6 +11,7 @@
     schemaVersion: 1,
     source: 'user-provided-discord-announcements',
     entries: [
+      { id: '20260929-game-data-mystic-species', date: '2026-09-29', category: 'game-data', title: '種族名表記を統一', items: ['種族名「？？？」を「ミスティック」に変更しました。'] },
       { id: '20260927-feature-apostle-data', date: '2026-09-27', category: 'feature', title: '使徒データを比較しやすく改善', items: ['使徒データの表示をコンパクトにし、Rank全体効果を一覧で比較できるようにしました。', 'アサイド等級で魔法防御が表示されない問題を修正しました。'] },
       { id: '20260927-feature-research-materials', date: '2026-09-27', category: 'feature', title: '研究の段階別情報と素材計画を追加', items: ['研究の段階ごとの効果、必要素材、研究時間を確認できるようにしました。', '残りの研究に必要な素材数と製作ツリーを追加しました。', '所持素材数を登録し、不足する素材数を確認できます。'] },
       { id: '20260927-fix-stat-rounding', date: '2026-09-27', category: 'fix', title: 'ステータス計算の精度を改善', items: ['ステータス計算の小数処理と丸め処理を見直しました。従来と表示値が変わる場合があります。', '旧保存データに再計算が必要と表示された場合は、ステータス管理で該当する育成設定を確認し、必要な項目を再設定して保存してください。'] },

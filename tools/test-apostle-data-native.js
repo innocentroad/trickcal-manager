@@ -441,6 +441,26 @@ async function run() {
     assert.deepEqual(filterA11y, { tag: 'SUMMARY', controls: 'apostle-data-filter-grid', gridId: 'apostle-data-filter-grid', open: false }, 'filter開閉のDOM/ARIA接続');
     await browser.evaluate(cdp, page, 'document.querySelector("[data-apostle-filter-details]").open = true; document.querySelector("#apostle-data-search")?.focus(); document.querySelector("[data-apostle-filter-details]").open = false');
     await browser.waitFor(async () => browser.evaluate(cdp, page, 'document.activeElement?.id === "apostle-data-filter-toggle"'), { timeoutMs: 5000 });
+    await browser.clickSelector(cdp, page, '#apostle-data-filter-toggle');
+    const mysticFilter = await browser.evaluate(cdp, page, `(() => {
+      const select = document.querySelector('[data-apostle-filter="species"]');
+      const apostle = window.TRICKCAL_STAT_DATA.sheets.basicInfo.find(row => row.使徒名 === 'ヨミ');
+      return { options: [...select.options].map(option => option.value), apostleId: apostle?.id || '', apostleRace: apostle?.種族 || '' , normalizedRace: window.TRICKCAL_SPECIES.normalizeName(apostle?.種族) };
+    })()`);
+    assert.equal(mysticFilter.options.filter(value => value === 'ミスティック').length, 1, '種族filterにミスティックを1件表示');
+    assert.equal(mysticFilter.options.includes('？？？'), false, '種族filterに旧表記を表示しない');
+    assert.equal(mysticFilter.normalizedRace, 'ミスティック', '旧生成データのヨミを新名称として扱う');
+    await browser.evaluate(cdp, page, `(() => { const select = document.querySelector('[data-apostle-filter="species"]'); select.value = 'ミスティック'; select.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+    await browser.waitFor(async () => browser.evaluate(cdp, page, `document.querySelectorAll('[data-apostle-data-row]').length === 1 && document.querySelector('[data-apostle-data-row]')?.dataset.apostleDataRow === ${JSON.stringify(mysticFilter.apostleId)}`), { timeoutMs: 5000 });
+    const mysticVisible = await browser.evaluate(cdp, page, `(() => {
+      const row = document.querySelector('[data-apostle-data-row]');
+      const speciesColumn = [...document.querySelectorAll('[data-apostle-thead] th')].findIndex(cell => (cell.getAttribute('aria-label') || cell.textContent.trim()) === '種族');
+      return { name: row?.querySelector('.apostle-data-apostle-name')?.textContent.trim() || '', species: row?.children[speciesColumn]?.textContent.trim() || '' };
+    })()`);
+    assert.match(mysticVisible.name, /ヨミ/, 'ミスティック絞り込みでヨミを表示');
+    assert.equal(mysticVisible.species, 'ミスティック', '旧生成データの種族表示を統一');
+    await capture(cdp, page, `${SCREENSHOT_PREFIX}-mystic-filter-375.png`);
+    await browser.clickSelector(cdp, page, '#apostle-data-filter-clear');
     await browser.clickSelector(cdp, page, '[data-apostle-view="equipment"]');
     let current = await facts(cdp, page);
     assert.equal(current.view, '装備等級', '装備view切替');
@@ -689,7 +709,7 @@ async function run() {
     await browser.evaluate(cdp, desktop, `document.querySelector('[data-apostle-table-wrap]').scrollLeft = 0`);
     await browser.clickSelector(cdp, desktop, '[data-shared-theme-button]');
     await capture(cdp, desktop, `${SCREENSHOT_PREFIX}-1280-opposite-theme.png`);
-    console.log(JSON.stringify({ ok: true, responsive, expandedResponsive, viewGeometry, screenshots: [`tmp/${SCREENSHOT_PREFIX}-basic-filter-collapsed-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-375-opposite-theme.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-help-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-600.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-480.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-dialog-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-1280.png`, `tmp/${SCREENSHOT_PREFIX}-375.png`, `tmp/${SCREENSHOT_PREFIX}-1280.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-1280.png`, `tmp/${SCREENSHOT_PREFIX}-1280-opposite-theme.png`], fixture }, null, 2));
+    console.log(JSON.stringify({ ok: true, responsive, expandedResponsive, viewGeometry, screenshots: [`tmp/${SCREENSHOT_PREFIX}-basic-filter-collapsed-375.png`, `tmp/${SCREENSHOT_PREFIX}-mystic-filter-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-375-opposite-theme.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-help-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-600.png`, `tmp/${SCREENSHOT_PREFIX}-basic-filter-expanded-375-480.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-dialog-375.png`, `tmp/${SCREENSHOT_PREFIX}-equipment-1280.png`, `tmp/${SCREENSHOT_PREFIX}-375.png`, `tmp/${SCREENSHOT_PREFIX}-1280.png`, `tmp/${SCREENSHOT_PREFIX}-basic-right-1280.png`, `tmp/${SCREENSHOT_PREFIX}-1280-opposite-theme.png`], fixture }, null, 2));
   } finally {
     try { await cdp?.disconnect(); } catch {}
     try { chrome?.kill(); } catch {}

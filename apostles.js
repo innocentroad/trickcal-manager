@@ -25439,7 +25439,7 @@ const APOSTLE_LIBRARY = [
       "rarity": 3.0,
       "eldain": "星を望む者",
       "personality": "憂鬱",
-      "race": "？？？",
+      "race": "ミスティック",
       "role": "支援",
       "position": "中列",
       "attackType": "魔法",

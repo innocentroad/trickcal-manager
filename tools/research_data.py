@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 from pathlib import Path
+from species_names import normalize_species_name
 
 
 STAGE_RE = re.compile(r"^段階([1-9][0-9]*)$")
@@ -174,7 +175,7 @@ def normalize_vertical_research(
         orders[stage].add(order)
         if not filled(row.get("内容")) or not filled(row.get("区分")):
             fail(sheet, row_number, "区分/内容", "必須です")
-        species, stat = row.get("種族"), row.get("ステータス")
+        species, stat = normalize_species_name(row.get("種族")), row.get("ステータス")
         if filled(species) != filled(stat):
             fail(sheet, row_number, "種族/ステータス", "両方記入するか両方空欄にしてください")
         value = row.get("増加値")

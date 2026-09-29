@@ -2,6 +2,7 @@
   'use strict';
 
   const DATA = window.TRICKCAL_STAT_DATA;
+  const normalizeSpeciesName = value => window.TRICKCAL_SPECIES?.normalizeName(value) ?? value;
   const ENGINE = window.TRICKCAL_SHARED_STAT_ENGINE;
   const RESEARCH = window.TRICKCAL_RESEARCH_PROGRESS;
   if (!DATA || !ENGINE) return;
@@ -149,7 +150,7 @@
     elements.rarity.value = String(Number(basic.レア度) || 3);
     elements.attackType.value = normalizeAttackType(basic.攻撃タイプ || basic.攻撃Type);
     elements.role.value = basic.役割 || '攻撃';
-    elements.species.value = basic.種族 || '妖精';
+    elements.species.value = normalizeSpeciesName(basic.種族 || '妖精');
     elements.level.value = '1';
     elements.star.value = String(Number(basic.レア度) || 3);
     elements.grade.value = '1';
@@ -273,7 +274,7 @@
     const researchLevel = Number(context?.research?.level) || 0;
     const researchProgress = Number(context?.research?.progress) || 0;
     if (researchLevel && researchProgress) {
-      (DATA.sheets?.research || []).filter(row => row.種族 === elements.species.value && row.ステータス).forEach(row => {
+      (DATA.sheets?.research || []).filter(row => normalizeSpeciesName(row.種族) === normalizeSpeciesName(elements.species.value) && row.ステータス).forEach(row => {
         addNamedStat(totals, row.ステータス, RESEARCH.getValue(row, researchLevel, researchProgress));
       });
     }
@@ -666,7 +667,7 @@
       使徒名: elements.name.value || '候補',
       レア度: readNumber(elements.rarity.value) || 3,
       役割: elements.role.value || '攻撃',
-      種族: elements.species.value || '妖精',
+      種族: normalizeSpeciesName(elements.species.value || '妖精'),
       攻撃タイプ: elements.attackType.value || '物理',
       HPタイプ: 1,
       物理攻撃力タイプ: elements.attackType.value === '物理' ? 1 : 0,

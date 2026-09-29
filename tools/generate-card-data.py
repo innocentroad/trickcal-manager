@@ -76,7 +76,7 @@ SPECIAL_EFFECT_VALUE_CLASS_OVERRIDES = {
 }
 
 CARD_IMAGE_FILE_OVERRIDES = {
-    "spell_joanne_prayer_power": "SpellCardIcon_58.webp",
+    "spell_joanne_prayer_power": "ジョアンの祈りの権能.webp",
 }
 
 RUNTIME_EFFECT_FIELDS = {

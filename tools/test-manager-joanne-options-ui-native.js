@@ -247,7 +247,9 @@ async function run() {
       v: 2, m: 1,
       members: [{ id: 'Joanne', star: 3, asideRank: 0 }, ...Array(8).fill(null)],
       resonancePersonalities: ['冷静', ...Array(8).fill(null)],
-      relicSlots: Array(27).fill(null), spells: [], powers: [], globalPercent: null
+      relicSlots: Array(27).fill(null),
+      spells: [{ id: 'spell_joanne_prayer_power', star: 1, solder: 0, count: 1 }],
+      powers: [], globalPercent: null
     };
     const old = codec.encode(oldSnapshot, { catalog, displayData: { apostles: { Joanne: { personality: '共鳴' } } } });
     sharePage = await browser.createPage(cdp, `${origin}/formation-share.html#${old.format}.${old.payload}`);
@@ -256,6 +258,26 @@ async function run() {
       'document.querySelector("#share-content")?.textContent.includes("旧選択：冷静／現在の候補外")'), { timeoutMs: 30000 });
     const oldShareFacts = await browser.evaluate(cdp, sharePage, `(() => ({warning:document.querySelector('#share-content')?.textContent.includes('旧選択：冷静／現在の候補外'),invalidIcon:!!document.querySelector('#share-content img[src*="性格_冷静"]'),baseIcon:!!document.querySelector('#share-content img[src*="性格_裏面"]')}))()`);
     assert.deepEqual(oldShareFacts, { warning: true, invalidIcon: false, baseIcon: false });
+    await browser.waitFor(async () => browser.evaluate(cdp, sharePage, `(() => {
+      const image=document.querySelector('#spell-list .support-card img.card-art');
+      return image?.complete && image.naturalWidth > 0;
+    })()`), { timeoutMs: 15000 });
+    const sharedSpellFacts = await browser.evaluate(cdp, sharePage, `(() => {
+      const image=document.querySelector('#spell-list .support-card img.card-art');
+      const source=image?.currentSrc || image?.src || '';
+      const paths=performance.getEntriesByType('resource').map(entry=>decodeURIComponent(new URL(entry.name).pathname));
+      return {
+        name:image?.alt || '', source,
+        naturalWidth:image?.naturalWidth || 0,
+        requestedOldName:paths.some(url=>url.endsWith('/SpellCardIcon_58.webp')),
+        requestedNewName:paths.some(url=>url.endsWith('/ジョアンの祈りの権能.webp'))
+      };
+    })()`);
+    assert.equal(sharedSpellFacts.name, 'ジョアンの祈りの権能');
+    assert.ok(decodeURIComponent(new URL(sharedSpellFacts.source).pathname).endsWith('/img/Card/Spell/ジョアンの祈りの権能.webp'));
+    assert.ok(sharedSpellFacts.naturalWidth > 0);
+    assert.equal(sharedSpellFacts.requestedOldName, false);
+    assert.equal(sharedSpellFacts.requestedNewName, true);
     await browser.evaluate(cdp, sharePage, `(() => { const create=URL.createObjectURL; URL.createObjectURL=function(blob) { if(blob.type==='image/png') window.__shareImageBlob=blob; return create.call(this,blob); }; })()`);
     await browser.clickSelector(cdp, sharePage, '#share-image-generate');
     await browser.waitFor(async () => browser.evaluate(cdp, sharePage,

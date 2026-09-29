@@ -419,6 +419,26 @@ async function run() {
     // Preserve established preview behavior while the lower bar is present.
     await navigate(cdp, page, origin, BOARD_ROUTE, 720, 844);
     const themeToggle = await checkThemeToggle(cdp, page, '720px');
+    const mysticOptions = await browser.evaluate(cdp, page, `(() => [...document.querySelector('#board-preview-species').options].map(option => option.value))()`);
+    assert.equal(mysticOptions.filter(value => value === 'ミスティック').length, 1, 'ボード種族選択にミスティックを1件表示');
+    assert.equal(mysticOptions.includes('？？？'), false, 'ボード種族選択に旧表記を表示しない');
+    const mysticApostleId = await browser.evaluate(cdp, page, `([...document.querySelector('#board-preview-apostle').options].find(option => option.textContent.trim() === 'ヨミ') || {}).value || ''`);
+    assert.ok(mysticApostleId, '旧生成データのヨミをボード選択肢に保持');
+    await dispatchChange(cdp, page, '#board-preview-apostle', mysticApostleId);
+    await browser.waitFor(async () => browser.evaluate(cdp, page, `(() => {
+      const image = document.querySelector('#board-preview-apostle-image');
+      return image?.complete && image.naturalWidth > 0 && document.querySelector('#board-preview-species').value === 'ミスティック';
+    })()`), { timeoutMs: 10000 });
+    const mysticBoardState = await browser.evaluate(cdp, page, `({ apostle: document.querySelector('#board-preview-apostle').value, species: document.querySelector('#board-preview-species').value })`);
+    assert.deepEqual(mysticBoardState, { apostle: mysticApostleId, species: 'ミスティック' }, '旧生成データのヨミをボード上でミスティックとして表示');
+    await browser.clickSelector(cdp, page, '#board-preview-detail-toggle');
+    await waitBarSynced(cdp, page);
+    await browser.evaluate(cdp, page, `document.querySelector('#board-preview-species').scrollIntoView({block:'nearest',behavior:'instant'})`);
+    const screenshotMystic = await capture(cdp, page, `${SCREENSHOT_PREFIX}-mystic-720.png`);
+    await browser.clickSelector(cdp, page, '#board-preview-detail-toggle');
+    await waitBarSynced(cdp, page);
+    await dispatchChange(cdp, page, '#board-preview-apostle', 'Amelia');
+    await browser.waitFor(async () => browser.evaluate(cdp, page, `document.querySelector('#board-preview-species').value === 'エルフ'`), { timeoutMs: 5000 });
     const startScroll = await browser.evaluate(cdp, page, `(() => {
       const viewport = document.querySelector('#board-preview-viewport');
       viewport.scrollLeft = 260;
@@ -480,7 +500,7 @@ async function run() {
         collapsed721x480: summarize(collapsed), expanded375x480: summarize(mobileLow), collapsed375x480: summarize(mobileClosed)
       },
       responsive, headings, themeToggle, profileManagerLink,
-      screenshots: [screenshot721, screenshot375, screenshotMobile, screenshotDesktop]
+      screenshots: [screenshot721, screenshot375, screenshotMystic, screenshotMobile, screenshotDesktop]
     }, null, 2));
   } finally {
     try { cdp?.close(); } catch (_) {}

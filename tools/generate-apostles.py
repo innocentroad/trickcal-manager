@@ -11,6 +11,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 from personality_options import normalize_personality_options
+from species_names import normalize_species_name
 
 
 SHEETS = {
@@ -257,6 +258,8 @@ def read_sheet_rows(
                     else KEY_MAP.get(raw_key, raw_key)
                 )
             value = clean_value(raw_value)
+            if key == "race":
+                value = normalize_species_name(value)
             if key == "effectStack" and value is False:
                 continue
             if has_value(value):

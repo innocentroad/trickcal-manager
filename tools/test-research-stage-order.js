@@ -5,6 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const research = require('../research-progress.js');
+const speciesRuntime = { window: {} };
+vm.runInNewContext(fs.readFileSync(require.resolve('../synergy.js'), 'utf8'), speciesRuntime);
+const normalizeSpeciesName = speciesRuntime.window.TRICKCAL_SPECIES.normalizeName;
 
 const fixture = [
   { id: 7, 種族: '妖精', ステータス: '物理攻撃力', 段階1: 5, 段階2: 10,
@@ -48,6 +51,7 @@ const fdcContext = {
   getEnemyBoardPresetStatKey: name => name === '物理攻撃力' ? 'patk' : '',
   TRICKCAL_STAT_DATA: { sheets: { research: fixture } },
   view: { enemyResearchPreset: { level: 12, progress: 7 } },
+  normalizeSpeciesName,
   researchProgress: research,
   researchLimits: research.getLimits(fixture)
 };
@@ -58,6 +62,20 @@ fdcContext.view.enemyResearchPreset = { level: 11, progress: 6 };
 assert.equal(fdcContext.calculate({ enemyMember: { race: '妖精' } }).patk, 15);
 fdcContext.view.enemyResearchPreset = { level: 0, progress: 0 };
 assert.equal(fdcContext.calculate({ enemyMember: { race: '妖精' } }).patk, 0);
+
+const mysticResearch = [
+  { 研究ID: 1, 段階: 1, 取得順: 1, 種族: '？？？', ステータス: '物理攻撃力', 増加値: 2 },
+  { 研究ID: 2, 段階: 1, 取得順: 2, 種族: 'ミスティック', ステータス: '物理攻撃力', 増加値: 3 },
+  { 研究ID: 3, 段階: 1, 取得順: 3, 種族: '未登録種族', ステータス: '物理攻撃力', 増加値: 100 }
+];
+fdcContext.TRICKCAL_STAT_DATA.sheets.research = mysticResearch;
+fdcContext.researchLimits = research.getLimits(mysticResearch);
+fdcContext.view.enemyResearchPreset = { level: 1, progress: 3 };
+const oldNamePreset = fdcContext.calculate({ enemyMember: { race: '？？？' } }).patk;
+const newNamePreset = fdcContext.calculate({ enemyMember: { race: 'ミスティック' } }).patk;
+assert.equal(oldNamePreset, 5, '旧名と新名は同じ種族研究を集計');
+assert.equal(newNamePreset, oldNamePreset, '新名称データでも旧名称と同じ研究結果');
+assert.equal(fdcContext.calculate({ enemyMember: { race: '未登録種族' } }).patk, 100, '別の未知種族名をミスティックへ変換しない');
 
 // Once standard generation has run, check the real stage totals against known game values.
 const generated = { window: {} };

@@ -14,6 +14,7 @@ from pathlib import Path
 from personality_options import normalize_personality_options
 from research_data import normalize_vertical_research
 from equipment_data import normalize_equipment_values
+from species_names import normalize_species_name
 
 MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -226,6 +227,8 @@ def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object
     normalized: list[dict[str, object]] = []
     for row in rows:
         item = dict(row)
+        if "種族" in item:
+            item["種族"] = normalize_species_name(item["種族"])
         normalize_personality_options(item)
         renames = {
             "配置列": "配列",

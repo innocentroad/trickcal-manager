@@ -11,6 +11,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 GENERATOR_PATH = Path(__file__).with_name("generate-card-data.py")
+JOANNE_SPELL_ID = "spell_joanne_prayer_power"
+JOANNE_SPELL_NAME = "ジョアンの祈りの権能"
+JOANNE_SPELL_IMAGE = f"{JOANNE_SPELL_NAME}.webp"
 SPEC = importlib.util.spec_from_file_location("generate_card_data", GENERATOR_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("カード生成器を読み込めません")
@@ -27,14 +30,17 @@ def load_generated_object(path: Path, prefix: str, suffix: str) -> dict:
 
 
 fixture_rows = [{
-    "id": "spell_joanne_prayer_power",
+    "id": JOANNE_SPELL_ID,
     "種別": "スペル",
     "レア度": "伝説",
-    "カード名": "ジョアンの祈りの権能",
+    "カード名": JOANNE_SPELL_NAME,
     "Cost_Star1": 30,
 }]
 fixture_cards, _ = GENERATOR.build_cards(fixture_rows, [], {}, {})
-assert fixture_cards["spells"][0]["imageFile"] == "SpellCardIcon_58.webp"
+fixture_spell = fixture_cards["spells"][0]
+assert fixture_spell["id"] == JOANNE_SPELL_ID
+assert fixture_spell["name"] == JOANNE_SPELL_NAME
+assert fixture_spell["imageFile"] == JOANNE_SPELL_IMAGE
 
 generated_cards = load_generated_object(
     ROOT / "cards.js",
@@ -43,10 +49,11 @@ generated_cards = load_generated_object(
 )
 card = next(
     item for item in generated_cards["spells"]
-    if item.get("id") == "spell_joanne_prayer_power"
+    if item.get("id") == JOANNE_SPELL_ID
 )
-assert card["imageFile"] == "SpellCardIcon_58.webp"
-assert (ROOT / "img" / "Card" / "Spell" / card["imageFile"]).is_file()
+assert card["name"] == JOANNE_SPELL_NAME
+assert card["imageFile"] == JOANNE_SPELL_IMAGE
+assert (ROOT / "img" / "Card" / "Spell" / JOANNE_SPELL_IMAGE).is_file()
 assert "hpP" in json.dumps(card.get("bonusesByStar", []), ensure_ascii=False)
 assert "defP" in json.dumps(card.get("bonusesByStar", []), ensure_ascii=False)
 shield = next(
@@ -62,7 +69,9 @@ display_data = load_generated_object(
     "const FORMATION_SHARE_DISPLAY_DATA = ",
     ";\n\nif (typeof globalThis",
 )
-share_card = display_data["spells"]["spell_joanne_prayer_power"]
-assert share_card["imagePath"].startswith("img/Card/Spell/SpellCardIcon_58.webp?v=")
+share_card = display_data["spells"][JOANNE_SPELL_ID]
+assert share_card["name"] == JOANNE_SPELL_NAME
+assert share_card["imagePath"].startswith(f"img/Card/Spell/{JOANNE_SPELL_IMAGE}?v=")
+assert "SpellCardIcon_58.webp" not in share_card["imagePath"]
 
 print("Joanne card image/normal stat/shield mapping checks passed.")

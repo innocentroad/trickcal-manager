@@ -3891,7 +3891,7 @@ const CARD_LIBRARY = {
             "kind": "spell",
             "rarity": "伝説",
             "name": "ジョアンの祈りの権能",
-            "imageFile": "SpellCardIcon_58.webp",
+            "imageFile": "ジョアンの祈りの権能.webp",
             "signature": true,
             "favoriteCharacter": "ジョアン",
             "cost": 30,

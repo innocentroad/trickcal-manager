@@ -89,6 +89,17 @@ async function run() {
       'document.querySelector(`[data-formation-personality-row="0"][data-formation-personality-line="1"] img`)?.getAttribute("src") || ""'), /性格_憂鬱/);
     await browser.clickSelector(cdp, page, '.bottom-apostle-button');
     await browser.waitForSelector(cdp, page, '#apostle-picker-dialog[open]');
+    const mysticPicker = await browser.evaluate(cdp, page, `(() => {
+      const badge = document.querySelector('#apostle-picker-grid [data-apostle-picker-id="Yomi"] .apostle-info-badge.species');
+      const options = [...document.querySelectorAll('#apostle-picker-filters [data-apostle-filter-group="species"]')]
+        .map(button => button.dataset.apostleFilterValue);
+      return { alt: badge?.alt || '', src: badge?.getAttribute('src') || '', loaded: !!badge?.complete && badge.naturalWidth > 0,
+        mysticCount: options.filter(value => value === 'ミスティック').length, legacyVisible: options.includes('？？？') };
+    })()`);
+    assert.deepEqual(mysticPicker, { alt: 'ミスティック', src: 'img/種族_？？？.webp', loaded: true, mysticCount: 1, legacyVisible: false }, '管理ピッカーのヨミ種族アイコン・絞り込みを新名称へ統一');
+    await browser.evaluate(cdp, page, 'document.querySelector("#apostle-picker-grid [data-apostle-picker-id=Yomi]")?.scrollIntoView({block:"center",behavior:"instant"})');
+    const mysticPickerShot = await cdp.send('Page.captureScreenshot', { format: 'png' }, page.sessionId);
+    fs.writeFileSync(path.join(root, 'tmp', 'mystic-manager-apostle-picker.png'), Buffer.from(mysticPickerShot.data, 'base64'));
     const listClassificationIcon = await browser.evaluate(cdp, page,
       'document.querySelector("#apostle-picker-grid [data-apostle-picker-id=Joanne] .apostle-info-badge.personality")?.getAttribute("src") || ""');
     assert.match(listClassificationIcon, /性格_裏面/);
@@ -220,7 +231,7 @@ async function run() {
     assert.equal(calcListDark.base, 'white');
     assert.equal(calcListLight.base, 'white');
     assert.equal(calcListDark.image, calcListLight.image);
-    console.log(JSON.stringify({ focus, drag, placementClassificationIcon, listClassificationIcon, currentClassificationIcon, profileClassificationIcon, calcListClassificationIcon, portrait, legacy, joanneDark, elenaDark, joanneLight, listDark, listLight, calcListDark, calcListLight }));
+    console.log(JSON.stringify({ focus, drag, placementClassificationIcon, listClassificationIcon, mysticPicker, mysticPickerScreenshot: 'tmp/mystic-manager-apostle-picker.png', currentClassificationIcon, profileClassificationIcon, calcListClassificationIcon, portrait, legacy, joanneDark, elenaDark, joanneLight, listDark, listLight, calcListDark, calcListLight }));
   } finally {
     if (calcPage && cdp) try { await cdp.send('Target.closeTarget', { targetId: calcPage.targetId }); } catch (_) {}
     if (page && cdp) try { await cdp.send('Target.closeTarget', { targetId: page.targetId }); } catch (_) {}
