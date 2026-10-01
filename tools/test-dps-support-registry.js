@@ -33,12 +33,14 @@ const fixtureData = {
   apostles: {
     alpha: timing('alpha', { normal: '済', aside: '暫定', favorite: '済' }),
     bravo: timing('bravo', { normal: '暫定', aside: '未', favorite: '途中' }),
+    epica: timing('epica', { normal: '暫定', aside: '暫定', favorite: '未' }, 'エピカ'),
     nostatus: timing('noStatus', done),
     notiming: undefined
   },
   supportStatuses: {
     alpha: record('alpha', { normal: '済', aside: '暫定', favorite: '済' }),
     bravo: record('bravo', { normal: '暫定', aside: '未', favorite: '途中' }),
+    epica: record('epica', { normal: '暫定', aside: '暫定', favorite: '未' }, 'エピカ'),
     notiming: record('noTiming', done)
   }
 };
@@ -83,6 +85,11 @@ assert.match(result.reason, /愛用品: 途中/);
 result = registry.evaluate(snapshot('bravo', { asideRank: 1, favorite: 1 }));
 assert.equal(result.supported, false, 'both selection checks every active component');
 assert.match(result.reason, /アサイド: 未.*愛用品: 途中/);
+assert.equal(registry.evaluate(snapshot('epica', { asideRank: 1 })).supported, true,
+  'Epica A1 remains governed by the provisional data status');
+result = registry.evaluate(snapshot('epica', { asideRank: 2 }));
+assert.equal(result.supported, false, 'Epica A2 DPS is blocked while its added-hit and proc timing is not modeled');
+assert.match(result.reason, /追加命中.*命中時効果.*発動率\+15%.*高学年CT 3秒/);
 
 assert.equal(registry.evaluate(snapshot('noStatus')).supported, false, 'status missing remains unsupported');
 assert.match(registry.evaluate(snapshot('noTiming')).reason, /タイミングデータがありません/, 'timing missing remains unsupported');
@@ -98,7 +105,7 @@ const timingData = vm.runInContext('DPS_TIMING_DATA', actualContext);
 assert.equal(timingData.version, 8, 'generated timing schema is v8');
 assert.deepEqual(JSON.parse(JSON.stringify(timingData.summary.implementationStatuses)), {
   normal: { '暫定': 15, '未': 47, '済': 13, '途中': 0 },
-  aside: { '暫定': 8, '未': 59, '済': 8, '途中': 0 },
+  aside: { '暫定': 9, '未': 58, '済': 8, '途中': 0 },
   favorite: { '暫定': 5, '未': 64, '済': 6, '途中': 0 }
 }, 'generated data carries component-specific status summary');
 assert.equal(actualRegistry.evaluate(snapshot('sylla')).supported, true, 'actual normal configuration is enabled by its normal status');
@@ -109,5 +116,10 @@ const kidianAside = actualRegistry.evaluate(snapshot('kidian', { asideRank: 3 })
 assert.equal(kidianAside.supported, true, 'Kidian aside is enabled by its updated source status');
 assert.equal(kidianAside.implementationStatuses.aside, '済', 'Kidian aside uses the source status');
 assert.equal(kidianAside.provisional, false, 'Kidian aside is no longer provisional');
+assert.equal(actualRegistry.evaluate(snapshot('epica', { asideRank: 1 })).supported, true,
+  'actual Epica A1 may use the explicitly provisional skillmotion component');
+const epicaA2 = actualRegistry.evaluate(snapshot('epica', { asideRank: 2 }));
+assert.equal(epicaA2.supported, false, 'actual Epica A2 is blocked independently of the暫定 input status');
+assert.match(epicaA2.reason, /追加命中.*命中時効果.*発動率\+15%.*高学年CT 3秒/);
 
 console.log('DPS component support registry tests passed');

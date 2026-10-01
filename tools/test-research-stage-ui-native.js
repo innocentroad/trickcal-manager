@@ -9,7 +9,7 @@ const path = require('node:path');
 const browser = require('./storage-native-browser-check.js');
 
 const root = path.resolve(__dirname, '..');
-const output = path.join(root, 'tmp', 'research-stage-ui');
+const output = path.join(root, 'tmp', 'research-item-slot-backgrounds-20260930');
 const key = 'trickcal_research_inventory_v1';
 
 async function run() {
@@ -31,6 +31,11 @@ async function run() {
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'trickcal-research-tabs-'));
   let chrome, cdp;
   const evalPage = (page, script) => browser.evaluate(cdp, page, script);
+  const setTheme = async (page, theme) => {
+    if (await evalPage(page, "document.documentElement.dataset.theme") === theme) return;
+    await browser.clickSelector(cdp, page, '[data-shared-theme-button]');
+    await browser.waitFor(async () => evalPage(page, "document.documentElement.dataset.theme") === theme);
+  };
   const capture = async (page, name) => {
     const { data } = await cdp.send('Page.captureScreenshot', { format:'png', captureBeyondViewport:false }, page.sessionId);
     fs.writeFileSync(path.join(output, name), Buffer.from(data, 'base64'));
@@ -55,10 +60,57 @@ async function run() {
       await cdp.send('Emulation.setDeviceMetricsOverride', { width, height:900, deviceScaleFactor:1, mobile:width<500 }, page.sessionId);
       await browser.waitFor(async () => evalPage(page, "document.documentElement.dataset.storageBoot==='ready'&&document.querySelector('#research-level-select')?.options.length===13"), { timeoutMs:30000 });
       await evalPage(page, "document.querySelector('#trickcal-announcements-dialog')?.close()");
-      if (await evalPage(page, "document.documentElement.dataset.theme==='light'")) {
-        await browser.clickSelector(cdp, page, '[data-shared-theme-button]');
-        await browser.waitFor(async () => evalPage(page, "document.documentElement.dataset.theme==='dark'"));
-      }
+      await evalPage(page, `(() => {
+        const level=document.querySelector('#research-level-select');level.value='12';level.dispatchEvent(new Event('change',{bubbles:true}));
+      })()`);
+      await browser.waitFor(async () => evalPage(page, "document.querySelector('#research-progress-select')?.options.length===48"));
+      await evalPage(page, `(() => {const progress=document.querySelector('#research-progress-select');progress.value='47';progress.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+      await cdp.send('Page.reload', { ignoreCache:true }, page.sessionId);
+      await browser.waitFor(async () => evalPage(page, "document.documentElement.dataset.storageBoot==='ready'&&document.querySelector('#research-progress-select')?.value==='47'"), { timeoutMs:30000 });
+      await evalPage(page, "document.querySelector('#trickcal-announcements-dialog')?.close()");
+      await browser.waitFor(async () => evalPage(page, "document.querySelector('#research-browse-stage')?.value==='12'"));
+      await evalPage(page, `(() => {const browse=document.querySelector('#research-browse-stage');browse.value='5';browse.dispatchEvent(new Event('change',{bubbles:true}));
+        const progress=document.querySelector('#research-progress-select');progress.value='46';progress.dispatchEvent(new Event('change',{bubbles:true}));})()`);
+      assert.deepEqual(await evalPage(page, `(() => ({browse:document.querySelector('#research-browse-stage').value,
+        level:document.querySelector('#research-level-select').value,progress:document.querySelector('#research-progress-select').value}))()`),
+      { browse:'5', level:'12', progress:'46' });
+      await evalPage(page, `(() => {
+        const level=document.querySelector('#research-level-select');level.value='8';level.dispatchEvent(new Event('change',{bubbles:true}));
+        const progress=document.querySelector('#research-progress-select');progress.value='10';progress.dispatchEvent(new Event('change',{bubbles:true}));
+        document.querySelector('#save-state-slot').click();document.querySelector('[data-state-slot="2"]').click();
+      })()`);
+      await browser.waitFor(async () => evalPage(page, "document.querySelector('#state-status').textContent.includes('保存しました')"), { timeoutMs:30000 });
+      await evalPage(page, `(() => {
+        const level=document.querySelector('#research-level-select');level.value='12';level.dispatchEvent(new Event('change',{bubbles:true}));
+        const progress=document.querySelector('#research-progress-select');progress.value='47';progress.dispatchEvent(new Event('change',{bubbles:true}));
+        const browse=document.querySelector('#research-browse-stage');browse.value='6';browse.dispatchEvent(new Event('change',{bubbles:true}));
+      })()`);
+      const canceledLoad = await evalPage(page, `(() => {
+        const current = () => ({ browse:document.querySelector('#research-browse-stage').value,
+          level:document.querySelector('#research-level-select').value,
+          progress:document.querySelector('#research-progress-select').value });
+        const before = current();
+        const savedBefore = ['trickcal_stat_slots_v2','trickcal_stat_prototype_v1']
+          .map(key => [key, localStorage.getItem(key)]);
+        let confirmations = 0;
+        window.confirm = () => { confirmations += 1; return false; };
+        document.querySelector('#load-state-slot').click();
+        document.querySelector('[data-state-slot="2"]').click();
+        return { before, after:current(), savedBefore,
+          savedAfter:['trickcal_stat_slots_v2','trickcal_stat_prototype_v1']
+            .map(key => [key, localStorage.getItem(key)]), confirmations };
+      })()`);
+      assert.deepEqual(canceledLoad.after, canceledLoad.before, 'cancelled slot load keeps the displayed research state');
+      assert.deepEqual(canceledLoad.savedAfter, canceledLoad.savedBefore, 'cancelled slot load leaves persisted state untouched');
+      assert.equal(canceledLoad.confirmations, 1, 'dirty slot load presents one confirmation');
+      await evalPage(page, `(() => {
+        window.confirm=()=>true;document.querySelector('#load-state-slot').click();document.querySelector('[data-state-slot="2"]').click();
+      })()`);
+      await browser.waitFor(async () => evalPage(page, "document.querySelector('#state-status').textContent.includes('読み込みました')"), { timeoutMs:30000 });
+      assert.deepEqual(await evalPage(page, `(() => ({browse:document.querySelector('#research-browse-stage').value,
+        level:document.querySelector('#research-level-select').value,progress:document.querySelector('#research-progress-select').value}))()`),
+      { browse:'8', level:'8', progress:'10' });
+      await setTheme(page, 'dark');
       const initial = await evalPage(page, `(() => ({
         tabs:[...document.querySelectorAll('[data-research-plan-tab]')].map(x=>x.textContent),
         single:!!document.querySelector('#research-single-controls'),
@@ -92,28 +144,83 @@ async function run() {
       assert.equal(alignment.overflow, false); assert.ok(!alignment.current.includes('→'));
       assert.ok(alignment.label.includes('計算方法'));
       await capture(page, `tabs-plan-${width}-dark.png`);
-      await evalPage(page, "document.querySelector('#research-plan-summary [data-research-plan-material]').click()");
+      await setTheme(page, 'light');
+      await capture(page, `tabs-plan-${width}-light.png`);
+      await setTheme(page, 'dark');
+      const reverseMaterial = await evalPage(page, `(() => {
+        const links=window.TRICKCAL_STAT_DATA.sheets.lifeJobs.resumeMaterialSlots||[];
+        const materials=new Map(window.TRICKCAL_STAT_DATA.sheets.lifeJobs.materials.map(x=>[x.id,x.name]));
+        const linkedNames=new Set(links.map(x=>materials.get(x.materialId)));
+        const chip=[...document.querySelectorAll('#research-plan-summary [data-research-plan-material]')]
+          .find(item=>linkedNames.has(item.dataset.researchPlanMaterial));
+        if (!chip) return '';
+        chip.click();return chip.dataset.researchPlanMaterial;
+      })()`);
+      assert.ok(reverseMaterial, 'アルバイト参照がある研究素材から詳細を開ける');
       assert.equal(await evalPage(page, "document.querySelector('#research-material-dialog').open"), true);
+      const reverse = await evalPage(page, `(() => ({
+        heading:document.querySelector('.research-life-job-sources h5')?.textContent,
+        link:document.querySelector('.research-life-job-detail-link')?.getAttribute('href'),
+        target:document.querySelector('.research-life-job-detail-link')?.target,
+        groups:[...document.querySelectorAll('.research-life-job-apostle-group > strong')].map(x=>x.textContent),
+        apostleLink:document.querySelector('.research-life-job-apostle')?.getAttribute('href'),
+        verboseJobs:!!document.querySelector('.research-life-job-source')
+      }))()`);
+      assert.equal(reverse.heading, '入手できる使徒');
+      assert.match(reverse.link, /life-jobs.*material=/);
+      assert.equal(reverse.target, '_blank');
+      assert.ok(reverse.groups.every(label => ['メイン','サブ','その他','区分未確認'].includes(label)));
+      assert.ok(!reverse.verboseJobs, '研究モーダルは使徒表示を簡潔に保つ');
+      assert.ok(reverse.groups.includes('区分未確認'), '根拠がない素材位置は未確認グループにする');
+      assert.match(reverse.apostleLink, /life-jobs.*view=apostle.*apostle=/);
+      assert.equal(new URL(reverse.link, 'http://localhost').searchParams.get('material'), reverseMaterial);
+      const treeLookup = await evalPage(page, `(() => {
+        const selected=document.querySelector('#research-material-dialog-detail [data-research-node]:not(.is-target)');
+        if (!selected) return null;
+        selected.click();
+        const link=document.querySelector('.research-tree-job-sources .research-life-job-sources a');
+        return {material:selected.dataset.researchNode,filter:new URL(link.href,location.href).searchParams.get('material')};
+      })()`);
+      assert.ok(treeLookup, '製作ツリーに別素材ノードがある');
+      assert.equal(treeLookup.filter, treeLookup.material, 'ツリーで選択した素材のアルバイト逆引きへ更新される');
       await capture(page, `tabs-tree-${width}-dark.png`);
+      await setTheme(page, 'light');
+      await capture(page, `tabs-tree-${width}-light.png`);
+      await setTheme(page, 'dark');
       await evalPage(page, "document.querySelector('#research-material-dialog-close').click();document.querySelector('[data-research-plan-tab=inventory]').click()");
+      await browser.waitFor(async () => evalPage(page, `(() => {
+        const image=document.querySelector('[data-research-owned="地球から来た鉛"] .research-material-image');
+        return image?.complete && image.naturalWidth>0;
+      })()`));
       const inventory = await evalPage(page, `(() => ({
         count:document.querySelectorAll('#research-inventory-list button').length,
         gold:!!document.querySelector('[data-research-owned="ゴールド"]'),
         blank:document.querySelector('[data-research-owned="地球から来た鉛"] .research-plan-count').textContent,
+        background:document.querySelector('[data-research-owned="地球から来た鉛"] .research-material-slot-background')?.dataset.researchSlotBackground,
+        imageWidth:document.querySelector('[data-research-owned="地球から来た鉛"] .research-material-image')?.naturalWidth,
         planHidden:document.querySelector('#research-plan-summary').hidden,
         progress:document.querySelector('#research-progress-select').value,
         pageWidth:document.documentElement.scrollWidth
       }))()`);
       assert.equal(inventory.count, 27); assert.equal(inventory.gold, false);
       assert.equal(inventory.blank, '—'); assert.equal(inventory.planHidden, true);
+      assert.equal(inventory.background, 'ItemSlot_2.png'); assert.ok(inventory.imageWidth>0);
       assert.equal(inventory.progress, '45');
       assert.equal(await evalPage(page, "document.querySelector('#research-inventory-updated').textContent.includes('最終更新')"), false);
       if (width===375) assert.ok(inventory.pageWidth<=width, JSON.stringify(inventory));
       await evalPage(page, "document.querySelector('#research-inventory-list').scrollIntoView({block:'center',behavior:'instant'})");
       await capture(page, `tabs-inventory-${width}-dark.png`);
+      await setTheme(page, 'light');
+      await capture(page, `tabs-inventory-${width}-light.png`);
+      await setTheme(page, 'dark');
       await evalPage(page, "document.querySelector('[data-research-owned=\"地球から来た鉛\"]').click()");
       assert.equal(await evalPage(page, "document.activeElement.id"), 'research-inventory-input');
       assert.equal(await evalPage(page, "document.querySelector('#research-inventory-dialog-title').textContent"), '所持数を変更');
+      const dialogIcon = await evalPage(page, `(() => ({
+        background:document.querySelector('#research-inventory-dialog-material .research-material-slot-background')?.dataset.researchSlotBackground,
+        image:document.querySelector('#research-inventory-dialog-material .research-material-image')?.complete && document.querySelector('#research-inventory-dialog-material .research-material-image')?.naturalWidth>0
+      }))()`);
+      assert.deepEqual(dialogIcon, { background:'ItemSlot_2.png', image:true });
       await evalPage(page, "(() => { const i=document.querySelector('#research-inventory-input');i.value='3';i.dispatchEvent(new Event('input',{bubbles:true})); })()");
       assert.equal(await evalPage(page, `localStorage.getItem('${key}')`), null);
       await capture(page, `tabs-edit-${width}-dark.png`);

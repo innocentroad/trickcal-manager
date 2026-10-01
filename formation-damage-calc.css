@@ -3748,6 +3748,62 @@ body.theme-light .fdc-field select {
   font-weight: 850;
 }
 
+.fdc-epica-a2-hit-setting {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) minmax(15rem, max-content);
+  align-items: center;
+  gap: 0.25rem 0.55rem;
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid color-mix(in srgb, #f59e0b 42%, var(--fdc-border));
+  border-radius: 10px;
+  background: color-mix(in srgb, #f59e0b 7%, var(--fdc-panel));
+  color: var(--fdc-text);
+  font-size: 0.7rem;
+  font-weight: 850;
+}
+
+.fdc-epica-a2-hit-setting label {
+  grid-row: span 2;
+}
+
+.fdc-epica-a2-hit-setting select {
+  min-width: 0;
+  min-height: 2rem;
+  border: 1px solid var(--fdc-border);
+  border-radius: 8px;
+  padding: 0.25rem 0.45rem;
+  background: var(--fdc-input);
+  color: var(--fdc-text);
+  font: inherit;
+}
+
+.fdc-epica-a2-hit-setting small {
+  grid-column: 2;
+  color: var(--fdc-muted);
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+.fdc-epica-a2-hit-note {
+  margin: 0 0 0.4rem;
+  color: var(--fdc-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+@media (max-width: 560px) {
+  .fdc-epica-a2-hit-setting {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .fdc-epica-a2-hit-setting label,
+  .fdc-epica-a2-hit-setting small {
+    grid-row: auto;
+    grid-column: 1;
+  }
+}
+
 .fdc-skill-effects {
   display: grid;
   gap: 0.42rem;

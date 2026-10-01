@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja" data-storage-boot-mode="optional">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <script src="../storage-registry.js?v=20260913a"></script>
+  <script src="../storage-runtime.js?v=20260913a"></script>
+  <script src="../storage-bootstrap.js?v=20260913a"></script>
+  <title>アルバイトデータ | Trickcal Manager</title>
+  <link rel="stylesheet" href="../shared-topbar.css">
+  <link rel="stylesheet" href="../announcements.css">
+  <link rel="stylesheet" href="life-jobs.css?v=20261001c">
+</head>
+<body class="data-detail-page life-jobs-page">
+  <section class="dashboard-top-control-bar data-detail-topbar" data-shared-topbar-page="data" data-shared-topbar-data-target="lifeJobs"
+    data-shared-topbar-manager-route="../stat-dashboard.html?view=settings"
+    data-shared-topbar-calc-route="../formation-damage-calc.html"
+    data-shared-topbar-data-route="../data/"
+    data-shared-topbar-life-jobs-route="life-jobs.html"
+    data-shared-topbar-apostles-route="apostle-data.html"
+    data-shared-topbar-enemies-route="../enemy-status.html"
+    data-shared-topbar-board-route="board-layout-preview.html" aria-label="共通操作">
+    <div class="topbar-common-row" data-shared-topbar-common></div>
+  </section>
+
+  <header class="life-jobs-heading">
+    <h1><span class="data-heading-prefix">Trickcal Manager</span><span class="data-heading-separator" aria-hidden="true"> &gt; </span>アルバイト</h1>
+  </header>
+
+  <nav class="life-jobs-tabs" role="tablist" aria-label="探し方">
+    <button id="life-jobs-tab-material" type="button" role="tab" data-life-jobs-view="material" aria-selected="true" aria-controls="life-jobs-selector">素材から探す</button>
+    <button id="life-jobs-tab-apostle" type="button" role="tab" data-life-jobs-view="apostle" aria-selected="false" aria-controls="life-jobs-selector">使徒から探す</button>
+  </nav>
+
+  <main class="life-jobs-main">
+    <aside id="life-jobs-selector" class="life-jobs-selector" aria-label="素材・使徒一覧">
+      <label class="life-jobs-search-label" for="life-jobs-search"><span id="life-jobs-search-caption">素材名で検索</span>
+        <input id="life-jobs-search" type="search" placeholder="素材名" autocomplete="off">
+      </label>
+      <p id="life-jobs-count" class="life-jobs-count" aria-live="polite"></p>
+      <div id="life-jobs-list" class="life-jobs-list" aria-label="素材一覧"></div>
+    </aside>
+    <section id="life-jobs-detail" class="life-jobs-detail" aria-live="polite">
+      <p class="life-jobs-empty">素材を選択してください。</p>
+    </section>
+  </main>
+
+  <div id="life-jobs-material-tooltip" class="life-jobs-material-tooltip" role="tooltip" hidden></div>
+
+  <script src="../statData.js"></script>
+  <script src="../shared-topbar.js"></script>
+  <script src="../announcements-release-config.js"></script>
+  <script src="../announcements-data.js"></script>
+  <script src="../announcement-history-data.js"></script>
+  <script src="../announcements.js"></script>
+  <script src="life-jobs.js?v=20261001c"></script>
+</body>
+</html>

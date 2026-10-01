@@ -15,6 +15,7 @@ from personality_options import normalize_personality_options
 from research_data import normalize_vertical_research
 from equipment_data import normalize_equipment_values
 from species_names import normalize_species_name
+from life_job_data import normalize_life_job_data
 
 MAIN_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
@@ -122,6 +123,12 @@ def read_sheet_rows(zip_file: zipfile.ZipFile, sheet_path: str, shared_strings: 
     if sheet_data is None:
         return rows
     for row in sheet_data.findall(f"{MAIN_NS}row"):
+        try:
+            physical_row = int(row.attrib.get("r", len(rows) + 1))
+        except ValueError:
+            physical_row = len(rows) + 1
+        while len(rows) < max(0, physical_row - 1):
+            rows.append([])
         values: list[object] = []
         for cell in row.findall(f"{MAIN_NS}c"):
             idx = column_index(cell.attrib.get("r", ""))
@@ -180,13 +187,13 @@ def unique_headers(raw_headers: list[object]) -> list[str]:
     return headers
 
 
-def rows_to_objects(rows: list[list[object]]) -> list[dict[str, object]]:
+def rows_to_objects(rows: list[list[object]], *, include_source_rows: bool = False) -> list[dict[str, object]]:
     first = next((i for i, row in enumerate(rows) if any(value != "" for value in row)), None)
     if first is None:
         return []
     headers = unique_headers(rows[first])
     objects: list[dict[str, object]] = []
-    for row in rows[first + 1 :]:
+    for source_index, row in enumerate(rows[first + 1 :], start=first + 2):
         if not any(value != "" for value in row):
             continue
         item: dict[str, object] = {}
@@ -195,6 +202,8 @@ def rows_to_objects(rows: list[list[object]]) -> list[dict[str, object]]:
             if header.startswith("col") and value == "":
                 continue
             item[header] = value
+        if include_source_rows:
+            item["__sourceRow"] = source_index
         objects.append(item)
     return objects
 
@@ -221,6 +230,39 @@ def read_tsv_objects(path: Path) -> list[dict[str, object]]:
             {key: parse_tsv_scalar(value or "") for key, value in row.items() if key is not None}
             for row in reader
         ]
+
+
+def read_tsv_table(path: Path) -> tuple[list[str], list[dict[str, object]]]:
+    if not path.exists():
+        raise FileNotFoundError(f"TSVがありません: {path}")
+    with path.open("r", encoding="utf-8", newline="") as file:
+        reader = csv.DictReader(file, delimiter="\t")
+        headers = list(reader.fieldnames or [])
+        rows = [
+            {key: parse_tsv_scalar(value or "") for key, value in row.items() if key is not None}
+            for row in reader
+        ]
+    return headers, rows
+
+
+def read_life_job_public_apostle_ids(path: Path) -> set[str]:
+    headers, rows = read_tsv_table(path)
+    if headers != ["使徒ID"]:
+        raise ValueError(f"アルバイト公開使徒ID: 列は「使徒ID」1列である必要があります: {path}")
+    values: set[str] = set()
+    canonical: set[str] = set()
+    for row_number, row in enumerate(rows, 2):
+        value = row.get("使徒ID", "")
+        if not isinstance(value, str) or not value or value != value.strip() or any(ord(char) < 32 for char in value):
+            raise ValueError(f"アルバイト公開使徒ID 行{row_number} 使徒ID: 空欄・前後空白・制御文字は使えません")
+        normalized = value.casefold()
+        if normalized in canonical:
+            raise ValueError(f"アルバイト公開使徒ID 行{row_number} 使徒ID: 重複しています: {value}")
+        canonical.add(normalized)
+        values.add(value)
+    if not values:
+        raise ValueError(f"アルバイト公開使徒ID: 公開使徒IDがありません: {path}")
+    return values
 
 
 def normalize_basic_info(rows: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -594,7 +636,31 @@ def generate(input_path: Path, output_path: Path) -> None:
     sheets: dict[str, list[dict[str, object]]] = {}
     ignored_sheets: list[str] = []
 
+    life_job_sheet_aliases = {
+        "アイテム基礎": ("アイテム基礎",),
+        "使徒アルバイト報酬": ("使徒アルバイト報酬",),
+    }
+    life_job_rows: dict[str, list[dict[str, object]]] = {}
+    life_job_headers: dict[str, list[str]] = {}
+    for canonical, aliases in life_job_sheet_aliases.items():
+        present = [name for name in aliases if name in workbook]
+        if len(present) != 1:
+            if not present:
+                raise ValueError(f"{canonical}: 必須シートがありません")
+            raise ValueError(f"{canonical}: 別名シートが重複しています: {present}")
+        raw_rows = workbook[present[0]]
+        first = next((i for i, row in enumerate(raw_rows) if any(value != "" for value in row)), None)
+        if first is None:
+            life_job_headers[canonical] = []
+            life_job_rows[canonical] = []
+        else:
+            life_job_headers[canonical] = unique_headers(raw_rows[first])
+            life_job_rows[canonical] = rows_to_objects(raw_rows, include_source_rows=True)
+
+    handled_life_job_sheets = {name for aliases in life_job_sheet_aliases.values() for name in aliases}
     for sheet_name, rows in workbook.items():
+        if sheet_name in handled_life_job_sheets:
+            continue
         key = SHEET_KEYS.get(sheet_name)
         if key is None:
             ignored_sheets.append(sheet_name)
@@ -611,6 +677,7 @@ def generate(input_path: Path, output_path: Path) -> None:
             rows_to_objects(workbook.get("素材製作レシピ", [])),
             rows_to_objects(workbook.get("施設強化素材", [])),
             catalog,
+            item_basics=rows_to_objects(workbook.get("アイテム基礎", [])),
         ))
 
     if "skillBasics" in sheets or "skillEffects" in sheets:
@@ -680,6 +747,25 @@ def generate(input_path: Path, output_path: Path) -> None:
             sheets["asideTiers"],
             sheets.get("basicInfo", []),
         )
+
+    life_job_image_map_path = input_path.parent / "life-job-material-image-map.tsv"
+    if not life_job_image_map_path.is_file():
+        raise FileNotFoundError(f"アルバイト素材画像対応表がありません: {life_job_image_map_path}")
+    life_job_public_apostle_ids = read_life_job_public_apostle_ids(
+        input_path.parent / "life-job-public-apostle-ids.tsv"
+    )
+    sheets.update(normalize_life_job_data(
+        life_job_rows["アイテム基礎"],
+        headers=life_job_headers,
+        material_catalog=sheets.get("researchMaterialCatalog", []),
+        life_job_material_image_map=read_tsv_objects(life_job_image_map_path),
+        resume_reward_headers=life_job_headers["使徒アルバイト報酬"],
+        resume_reward_rows=life_job_rows["使徒アルバイト報酬"],
+        basic_info=sheets.get("basicInfo", []),
+        public_apostle_ids=life_job_public_apostle_ids,
+        material_image_dir=Path(__file__).resolve().parent.parent / "img" / "Materials",
+        apostle_image_dir=Path(__file__).resolve().parent.parent / "img" / "Chara",
+    ))
 
     if "rankUpBonuses" not in sheets:
         rank_up_bonus_path = input_path.parent / "rank-up-bonus.tsv"

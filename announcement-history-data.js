@@ -11,6 +11,8 @@
     schemaVersion: 1,
     source: 'user-provided-discord-announcements',
     entries: [
+      { id: '20261002-game-data-epica-belita-aside', date: '2026-10-02', category: 'game-data', title: 'エピカ・ベリータのアサイドに対応', items: ['エピカ・ベリータのアサイド情報とステータス補正を追加しました。', 'エピカは敵が1体の場合の普通攻撃追加命中を通常ダメージ計算に反映しました。エピカのアサイドA2以上は未対応効果があるため、DPS計算結果を表示しません。'] },
+      { id: '20261002-feature-life-job-material-search', date: '2026-10-02', category: 'feature', title: 'アルバイト素材と使徒の検索を追加', items: ['素材から関連使徒、使徒から素材を探せるようになりました。', '研究素材の詳細から、関連使徒を確認できるようになりました。'] },
       { id: '20260929-game-data-mystic-species', date: '2026-09-29', category: 'game-data', title: '種族名表記を統一', items: ['種族名「？？？」を「ミスティック」に変更しました。'] },
       { id: '20260927-feature-apostle-data', date: '2026-09-27', category: 'feature', title: '使徒データを比較しやすく改善', items: ['使徒データの表示をコンパクトにし、Rank全体効果を一覧で比較できるようにしました。', 'アサイド等級で魔法防御が表示されない問題を修正しました。'] },
       { id: '20260927-feature-research-materials', date: '2026-09-27', category: 'feature', title: '研究の段階別情報と素材計画を追加', items: ['研究の段階ごとの効果、必要素材、研究時間を確認できるようにしました。', '残りの研究に必要な素材数と製作ツリーを追加しました。', '所持素材数を登録し、不足する素材数を確認できます。'] },

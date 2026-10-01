@@ -42,7 +42,7 @@
   <link rel="prefetch" href="stat-prototype.js?v=20260903a" as="script">
   <link rel="prefetch" href="stat-dashboard.js?v=20260903a" as="script">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="formation-damage-calc.css?v=20260826b">
+  <link rel="stylesheet" href="formation-damage-calc.css?v=20261001a">
   <link rel="stylesheet" href="formation-damage-dps-prototype.css?v=20260904a">
   <link rel="stylesheet" href="shared-topbar.css?v=20260918h">
   <link rel="stylesheet" href="announcements.css?v=20260919history">
@@ -889,6 +889,10 @@
 
   <div id="fdcp-bottom-bar" class="bottom-result-bar fdc-result-bar fdcp-bottom-bar" data-mode="single">
     <div class="fdcp-mode-tabs" role="tablist" aria-label="結果モード"><button type="button" role="tab" aria-selected="true" data-fdcp-mode="single">通常</button><button type="button" role="tab" aria-selected="false" aria-disabled="false" data-fdcp-mode="dps" aria-label="DPS（β版）" title="比較用DPS（β版）"><span>DPS</span><small class="fdcp-beta-mark" aria-hidden="true" title="β版">β</small></button></div>
+    <details id="fdcp-dps-unavailable-details" class="fdcp-dps-unavailable-details" hidden>
+      <summary>未対応理由</summary>
+      <p id="fdcp-dps-unavailable-reason" role="status" aria-live="polite"></p>
+    </details>
     <section id="fdcp-dps-detail-panel" class="fdc-result-detail-panel fdcp-dps-detail-panel" aria-label="比較用DPS 詳細" hidden>
       <div class="fdc-result-detail-head">
         <strong>詳細</strong>
@@ -971,11 +975,11 @@
   <script src="dps-trigger-policy.js?v=20260907c"></script>
   <script src="dps-timing-data.js?v=20260907c"></script>
   <script src="dps-simulator.js?v=20260907c"></script>
-  <script src="dps-support-registry.js?v=20260827c"></script>
+  <script src="dps-support-registry.js?v=20261001a"></script>
   <script src="formation-personality.js"></script>
   <script src="formation-placement.js"></script>
   <script src="shared-topbar.js?v=20260918i"></script>
-  <script src="formation-damage-calc.js?v=20260912a"></script>
+  <script src="formation-damage-calc.js?v=20261001a"></script>
   <script src="formation-damage-dps-prototype.js?v=20260907c"></script>
   <script src="announcements-release-config.js?v=20260915a"></script>
   <script src="announcements-data.js?v=20260915b"></script>

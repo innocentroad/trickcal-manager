@@ -1891,6 +1891,8 @@
     const singleDetailToggle = document.getElementById('fdc-result-detail-toggle');
     const dpsDetailToggle = document.getElementById('fdcp-dps-detail');
     const dpsModeToggle = document.querySelector('[data-fdcp-mode="dps"]');
+    const dpsUnavailableDetails = document.getElementById('fdcp-dps-unavailable-details');
+    const dpsUnavailableReason = document.getElementById('fdcp-dps-unavailable-reason');
     let currentMode = 'single';
     let refreshTimer = 0;
     // 通常計算側の既存click listenerが先にnative panelを開閉する。同期側から
@@ -1949,6 +1951,14 @@
       dpsModeToggle.setAttribute('aria-disabled', String(state.disabled));
       dpsModeToggle.title = state.title;
       dpsModeToggle.setAttribute('aria-label', state.ariaLabel);
+      if (dpsUnavailableDetails) {
+        const reason = state.disabled ? state.title : '';
+        if (!state.disabled || (dpsUnavailableReason && dpsUnavailableReason.textContent !== reason)) {
+          dpsUnavailableDetails.open = false;
+        }
+        dpsUnavailableDetails.hidden = !state.disabled;
+        if (dpsUnavailableReason) dpsUnavailableReason.textContent = reason;
+      }
     };
     const setMode = mode => {
       const dpsMode = mode === 'dps';

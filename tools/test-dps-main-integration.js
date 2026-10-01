@@ -37,15 +37,17 @@ assert.ok(main.indexOf('id="fdc-save-menu"') < main.indexOf('id="fdcp-dps-compar
 assert.ok(main.includes('formation-damage-dps-prototype.css?v=20260904a'), '本体は共有DPS stylesheetのcache-bustを参照する');
 assert.match(statPrototypeStyle, /\.board-global-stat-matrix tbody th > img[\s\S]*?width:\s*25px;[\s\S]*?height:\s*25px;/, '全体ボード下部の合計表アイコンを原寸表示しない');
 assert.ok(main.includes('formation-damage-dps-prototype.js?v=20260907c'), '本体は共有DPS controllerの新cache-bustを参照する');
-assert.ok(dpsPage.includes('app-cache.js?v=20260907c') && dashboard.includes('app-cache.js?v=20260907c'), 'DPS試験版・ステータス管理は最新app-cacheを参照する');
+assert.ok(dpsPage.includes('app-cache.js?v=20260913a') && dashboard.includes('app-cache.js?v=20260913a'), 'DPS試験版・ステータス管理は最新app-cacheを参照する');
 assert.ok(dashboard.includes('dps-trigger-policy.js?v=20260907c'), 'ステータス管理のpolicy prefetchも最新cache-bustを参照する');
 assert.ok(dpsPage.includes('formation-dps-calc.js?v=20260907c') && dpsPage.includes('formation-dps-calc.css?v=20260904a'), 'DPS試験版controllerとstylesheetの新cache-bustを参照する');
 assert.equal((dpsPageScript.match(/dps-simulator-worker\.js\?v=20260907c/g) || []).length, 2, 'DPS試験版の単一seed・複数seed Workerを最新cache-bustへ揃える');
-assert.ok(dpsWorker.includes("importScripts('dps-simulator.js?v=20260907c')"), 'Workerも最新DPS kernelを読み込む');
-assert.ok(main.indexOf('dps-timing-data.js?v=20260907c') < main.indexOf('formation-damage-calc.js?v=20260907c'), 'timing dataは本体controllerより先に読む');
-assert.ok(main.indexOf('dps-simulator.js?v=20260907c') < main.indexOf('formation-damage-calc.js?v=20260907c'), 'DPS simulatorは本体controllerより先に読む');
-assert.ok(main.indexOf('dps-support-registry.js?v=20260827c') < main.indexOf('formation-damage-calc.js?v=20260907c'), '対応registryは本体controllerより先に読む');
-assert.ok(main.indexOf('formation-damage-calc.js?v=20260907c') < main.indexOf('formation-damage-dps-prototype.js?v=20260907c'), '共有DPS controllerは通常計算snapshot APIの後に読む');
+assert.ok(dpsWorker.includes("new URL('dps-simulator.js', self.location.href)")
+  && dpsWorker.includes("searchParams.set('v', workerVersion)")
+  && dpsWorker.includes('importScripts(simulatorUrl.href)'), 'Workerは自身の版をDPS kernelへ引き継いで読み込む');
+assert.ok(main.indexOf('dps-timing-data.js?v=20260907c') < main.indexOf('formation-damage-calc.js?v=20261001a'), 'timing dataは本体controllerより先に読む');
+assert.ok(main.indexOf('dps-simulator.js?v=20260907c') < main.indexOf('formation-damage-calc.js?v=20261001a'), 'DPS simulatorは本体controllerより先に読む');
+assert.ok(main.indexOf('dps-support-registry.js?v=20261001a') < main.indexOf('formation-damage-calc.js?v=20261001a'), '対応registryは本体controllerより先に読む');
+assert.ok(main.indexOf('formation-damage-calc.js?v=20261001a') < main.indexOf('formation-damage-dps-prototype.js?v=20260907c'), '共有DPS controllerは通常計算snapshot APIの後に読む');
 assert.ok(main.indexOf('id="fdcp-dps-runtime-settings"') < main.indexOf('id="fdcp-dps-external-control"'), '本体DPS設定フロートは時系列効果を外部条件より先に置く');
 assert.ok(prototype.indexOf('id="fdcp-dps-runtime-settings"') < prototype.indexOf('id="fdcp-dps-external-control"'), 'prototype DPS設定フロートは時系列効果を外部条件より先に置く');
 assert.ok(dpsPage.includes('fdc-dps-runtime-schedule-panel') && dpsPage.includes('fdc-dps-runtime-schedule-event-list') && dpsPage.includes('fdc-dps-external-event-candidate-list'), 'DPS試験版も周期設定と外部条件の候補欄を分離する');
@@ -59,9 +61,9 @@ assert.match(sharedStyle, /\.fdcp-dps-settings-panel \.fdc-dps-formation-status-
 assert.ok(calcScript.includes('fdc-result-before-label') && calcScript.includes('data-compact-label'), '比較値の数値と狭幅ラベルを別要素で描画する');
 assert.ok(sharedStyle.includes('fdc-result-number') && sharedStyle.includes('content:attr(data-compact-label)'), '狭幅比較値は数値を省略せず短縮ラベルを使う');
 
-assert.match(cache, /calc: \[[\s\S]*formation-damage-dps-prototype\.css\?v=20260904a[\s\S]*dps-trigger-policy\.js\?v=20260907c[\s\S]*dps-timing-data\.js\?v=20260907c[\s\S]*dps-simulator\.js\?v=20260907c[\s\S]*dps-support-registry\.js\?v=20260827c[\s\S]*formation-damage-dps-prototype\.js\?v=20260907c[\s\S]*\]/, '通常計算routeのcache warmupへDPS依存を加える');
-assert.ok(cache.includes('formation-damage-calc.js?v=20260907c'), 'cache manifestも共有controllerのcache-bustを参照する');
-assert.match(cache, /dpsPrototype: \[[\s\S]*formation-damage-dps-prototype\.js\?v=20260907c[\s\S]*dps-trigger-policy\.js\?v=20260907c/, 'prototype routeも共有controllerとpolicyのcache-bustを揃える');
+assert.match(cache, /calc: \[[\s\S]*'formation-damage-calc\.css'[\s\S]*'dps-support-registry\.js'[\s\S]*'formation-damage-calc\.js'[\s\S]*'formation-damage-dps-prototype\.js'[\s\S]*\]/, '通常計算routeのcache warmupにDPS依存を含める');
+assert.ok(cache.includes("'formation-damage-calc.js'") && cache.includes("'dps-support-registry.js'"), 'cache warmupはasset URL解決へファイル名を渡す');
+assert.match(cache, /dps: \[[\s\S]*'formation-damage-dps-prototype\.js'[\s\S]*'dps-support-registry\.js'/, 'DPS routeも共有controllerと対応registryをwarmupする');
 assert.ok(cache.includes("classList.contains('fdcp-prototype-page')") && !cache.includes("classList.contains('fdcp-page')\n      ? 'dpsPrototype'"), '本体fdcp-pageをprototype cache routeへ誤振分けしない');
 
 console.log('DPS main integration tests passed');

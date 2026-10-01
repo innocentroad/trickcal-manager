@@ -1135,6 +1135,7 @@ function createDataIndexHtml(plan, profileName, context = null) {
     ['calc', '編成ダメージ計算'],
     ['share', '編成共有'],
     ['enemies', '敵データ'],
+    ['life-jobs', 'アルバイト'],
     ['board', 'ボードプレビュー'],
     ['dps', 'DPSプロトタイプ']
   ].filter(([id]) => routeMap.has(id)).map(([id, label]) => `<li><a href="${escapeHtml(routeMap.get(id))}">${escapeHtml(label)}</a></li>`).join('\n    ');

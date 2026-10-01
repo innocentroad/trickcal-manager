@@ -448,7 +448,8 @@
     },
     apostleSort: 'name',
     apostleBulkSearch: '',
-    researchBrowseStage: 1,
+    researchBrowseStage: null,
+    researchBrowseStageTouched: false,
     researchPlanEndStage: RESEARCH_LIMITS.maxLevel,
     researchPlanMode: 'total',
     researchPlanTab: 'remaining',
@@ -509,6 +510,7 @@
     formationSpellDetailsOpen: false
   };
   const missingResearchImages = new Set();
+  const missingResearchSlotBackgrounds = new Set();
   let stateSlotBaseRevision = Math.max(0, Number(initialWorkspaceState?.baseSlotRevision) || 0);
   let stateExternalConflict = null;
   let stateSyncChannel = null;
@@ -1829,6 +1831,7 @@
         Number(appState.research.progress) || 0,
         RESEARCH.getProgressLimit(RESEARCH_LIMITS, appState.research.level)
       );
+      if (!view.researchBrowseStageTouched) view.researchBrowseStage = null;
       saveState();
       render();
       commitHistoryAction(history);
@@ -1836,6 +1839,7 @@
 
     elements.researchBrowseStage.addEventListener('change', () => {
       view.researchBrowseStage = Number(elements.researchBrowseStage.value) || 1;
+      view.researchBrowseStageTouched = true;
       renderResearchOverview();
     });
     elements.researchGrid.addEventListener('click', event => {
@@ -1868,6 +1872,8 @@
       const button = event.target.closest('button[data-research-node]');
       if (!button) return;
       event.currentTarget.querySelector('.research-tree-selected').textContent = button.dataset.detail;
+      const sources = event.currentTarget.querySelector('.research-tree-job-sources');
+      if (sources) sources.innerHTML = renderResearchLifeJobSources(button.dataset.researchNode || '');
     };
     elements.researchMaterialDialogDetail.addEventListener('click', showResearchTreeNode);
     elements.researchMaterialDialogDetail.addEventListener('focusin', showResearchTreeNode);
@@ -1904,11 +1910,17 @@
     });
     const onResearchImageError = event => {
       const image = event.target;
+      if (image?.dataset?.researchSlotBackground) {
+        missingResearchSlotBackgrounds.add(image.dataset.researchSlotBackground);
+        image.hidden = true;
+        return;
+      }
       if (!image?.dataset?.researchImage) return;
       missingResearchImages.add(image.dataset.researchImage);
       image.hidden = true;
     };
     elements.researchGrid.addEventListener('error', onResearchImageError, true);
+    elements.researchStageCosts.addEventListener('error', onResearchImageError, true);
     elements.researchMaterialDialogDetail.addEventListener('error', onResearchImageError, true);
     elements.researchPlanSummary.addEventListener('error', onResearchImageError, true);
     elements.researchInventoryList.addEventListener('error', onResearchImageError, true);
@@ -3010,7 +3022,10 @@
     stateSlotBaseRevision = getSharedSlotRevision(safeSlot, sharedStateSlotStore);
     stateExternalConflict = null;
     setStateSlotMode('');
-    if (applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), { activeStateSlot: safeSlot }) === false) return;
+    if (applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), {
+      activeStateSlot: safeSlot,
+      resetResearchBrowseStage: true
+    }) === false) return;
     commitHistoryAction(history);
     const missingGrowth = snapshot && Number(snapshot.comparisonStats?.v) !== 2
       ? Object.entries(snapshot.apostles || {}).flatMap(([id, apostle]) => {
@@ -3233,6 +3248,10 @@
     appState.activeId = normalized.activeId;
     appState.apostles = normalized.apostles;
     appState.research = normalized.research;
+    if (options.resetResearchBrowseStage) {
+      view.researchBrowseStage = null;
+      view.researchBrowseStageTouched = false;
+    }
     appState.cards = normalized.cards;
     appState.formation = normalized.formation;
     appState.totalCombatPower = normalizeFormationCoins(normalized.totalCombatPower);
@@ -4139,7 +4158,7 @@
     appState.activeStateSlot = view.stateSlot;
     stateSlotBaseRevision = result.slotRevision;
     stateExternalConflict = null;
-    applyStateSnapshot(snapshot, { activeStateSlot: safeSlot });
+    applyStateSnapshot(snapshot, { activeStateSlot: safeSlot, resetResearchBrowseStage: true });
     return true;
   }
 
@@ -6021,6 +6040,10 @@
       elements.researchBrowseStage.innerHTML = RESEARCH_LIMITS.stages.map(stage =>
         `<option value="${stage}">${stage}段階</option>`).join('');
     }
+    if (!Number.isInteger(view.researchBrowseStage)) {
+      view.researchBrowseStage = level > 0 ? level : 1;
+    }
+    view.researchBrowseStage = Math.max(1, Math.min(RESEARCH_LIMITS.maxLevel, view.researchBrowseStage));
     elements.researchBrowseStage.value = String(view.researchBrowseStage);
   }
 
@@ -6129,10 +6152,27 @@
 
   function renderResearchMaterialImage(name, eager = false) {
     const catalog = (DATA.sheets.researchMaterialCatalog || []).find(entry => entry.name === name);
-    if (!catalog?.imageKey || missingResearchImages.has(catalog.imageKey)) return '';
-    const path = `img/Materials/${catalog.imageKey}`;
-    const url = window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
-    return `<img src="${escapeHtml(url)}" alt="" loading="${eager ? 'eager' : 'lazy'}" data-research-image="${escapeHtml(catalog.imageKey)}">`;
+    let slotBackground = '';
+    if (name === 'エリーフ') slotBackground = 'ItemSlot_Turquoise.png';
+    else if (name === 'ゴールド') slotBackground = 'ItemSlot_Gold.png';
+    else if (catalog?.itemCategory === '素材' && Number.isInteger(catalog.itemGrade) && catalog.itemGrade >= 1 && catalog.itemGrade <= 5) {
+      slotBackground = `ItemSlot_${catalog.itemGrade}.png`;
+    }
+
+    const resolveAsset = path => window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
+    const backgroundUrl = slotBackground && !missingResearchSlotBackgrounds.has(slotBackground)
+      ? resolveAsset(`img/Slot/${slotBackground}`)
+      : '';
+    const hasMaterialImage = Boolean(catalog?.imageKey && !missingResearchImages.has(catalog.imageKey));
+    if (!backgroundUrl && !hasMaterialImage) return '';
+
+    const background = backgroundUrl
+      ? `<img class="research-material-slot-background" src="${escapeHtml(backgroundUrl)}" alt="" aria-hidden="true" loading="${eager ? 'eager' : 'lazy'}" data-research-slot-background="${escapeHtml(slotBackground)}">`
+      : '';
+    const materialImage = hasMaterialImage
+      ? `<img class="research-material-image" src="${escapeHtml(resolveAsset(`img/Materials/${catalog.imageKey}`))}" alt="" aria-hidden="true" loading="${eager ? 'eager' : 'lazy'}" data-research-image="${escapeHtml(catalog.imageKey)}">`
+      : '';
+    return `<span class="research-material-icon" aria-hidden="true">${background}${materialImage}</span>`;
   }
 
   // Gold is displayed as a research fee, not as an inventory material.
@@ -6350,11 +6390,53 @@
               `${renderResearchMaterialImage(item, true)}<strong>${number.toLocaleString('ja-JP')}</strong></button>`;
           }).join('')}</div></div><div class="research-tree-selected" role="status">${view.researchPlanMode === 'shortfall' && plan.entries.get(name).missing === 0 ? '所持分で充足。製作材料は不要です。' : `${escapeHtml(name)}を選択すると詳細を表示します。`}</div>` +
         `<small>${recipe ? `レシピ${recipe.stage}段階・基礎製作時間 ${escapeHtml(formatResearchDuration(recipe.seconds))}` : '製作レシピなし'}</small>`;
+      target.insertAdjacentHTML('beforeend', `<div class="research-tree-job-sources">${renderResearchLifeJobSources(name)}</div>`);
       requestAnimationFrame(() => drawResearchTreeLinks(target));
     } catch (error) {
       target.hidden = false;
       target.textContent = `製作ツリーを計算できません：${error.message}`;
     }
+  }
+
+  function renderResearchLifeJobSources(materialName) {
+    const data = DATA.sheets.lifeJobs;
+    if (!data || !Array.isArray(data.materials)
+      || !Array.isArray(data.resumeMaterialSlots)) return '';
+    const material = data.materials.find(item => item.name === materialName);
+    const materialId = material?.id;
+    let pageHref = `public/life-jobs.html?material=${encodeURIComponent(materialName)}`;
+    try {
+      pageHref = window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('life-jobs', {
+        query: `?material=${encodeURIComponent(materialName)}`
+      }) || pageHref;
+    } catch (_) { /* source-tree local fallback */ }
+    const entries = (Array.isArray(data.resumeMaterialSlots) ? data.resumeMaterialSlots : [])
+      .filter(slot => slot.materialId === materialId);
+    const groups = [true, false].map(isBest => {
+      const matching = entries.filter(entry => entry.isBest === isBest)
+        .sort((a, b) => a.apostleName.localeCompare(b.apostleName, 'ja'));
+      if (!matching.length) return '';
+      const apostles = matching.map(entry => {
+        const name = String(entry.apostleName || '');
+        if (!name) return '';
+        let apostleHref = `public/life-jobs.html?view=apostle&apostle=${encodeURIComponent(name)}`;
+        try {
+          apostleHref = window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('life-jobs', {
+            query: `?view=apostle&apostle=${encodeURIComponent(name)}`
+          }) || apostleHref;
+        } catch (_) { /* source-tree local fallback */ }
+        const assetId = data.apostles?.find(apostle => apostle.name === name)?.assetId;
+        const image = assetId
+          ? `<img src="${escapeAttr(window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(`img/Chara/${assetId}.webp`) || `img/Chara/${assetId}.webp`)}" alt="" loading="lazy">`
+          : '';
+        return `<a class="research-life-job-apostle${isBest ? ' is-main' : ''}${image ? '' : ' name-only'}" href="${escapeAttr(apostleHref)}" target="_blank" rel="noopener" aria-label="${isBest ? 'メイン' : '履歴書素材'}の使徒：${escapeAttr(name)}">${image}<span>${escapeHtml(name)}</span></a>`;
+      }).join('');
+      return `<div class="research-life-job-apostle-group role-${isBest ? 'main' : 'normal'}"><strong>${isBest ? 'メイン' : 'その他の履歴書素材'}</strong><div>${apostles}</div></div>`;
+    }).join('');
+    const content = entries.length
+      ? groups
+      : '<p>登録済みの履歴書素材に該当なし</p>';
+    return `<section class="research-life-job-sources" aria-label="素材の履歴書登録と関連使徒"><h5>関連使徒</h5>${content}<a class="research-life-job-detail-link" href="${escapeAttr(pageHref)}" target="_blank" rel="noopener">使徒・素材を探す</a><small>使徒アルバイト報酬の登録内容です。実際の獲得は保証しません。</small></section>`;
   }
 
   function drawResearchTreeLinks(target) {

@@ -97,6 +97,7 @@ def normalize_vertical_research(
     recipes: list[dict[str, object]], facilities: list[dict[str, object]],
     catalog: list[dict[str, object]],
     image_dir: Path | None = None,
+    item_basics: list[dict[str, object]] | None = None,
 ) -> dict[str, list[dict[str, object]]]:
     """Validate the user-facing sheets and emit only the public research fields."""
     def fail(sheet: str, row: int, column: str, reason: str) -> None:
@@ -154,6 +155,30 @@ def normalize_vertical_research(
         if name in image_keys:
             fail("素材マスター", row_number, "素材名", "重複しています")
         image_keys[str(name)] = str(key) if filled(key) else ""
+
+    item_metadata: dict[str, dict[str, object]] = {}
+    for row_number, row in enumerate(item_basics or [], 2):
+        sheet = "アイテム基礎"
+        raw_name = row.get("素材名")
+        if not filled(raw_name):
+            fail(sheet, row_number, "素材名", "名称が必要です")
+        name = str(raw_name)
+        if name in item_metadata:
+            fail(sheet, row_number, "素材名", "重複しています")
+        raw_category = row.get("分類")
+        category = str(raw_category) if filled(raw_category) else None
+        raw_grade = row.get("素材等級")
+        grade: object = None
+        if filled(raw_grade):
+            if category == "通貨":
+                grade = str(raw_grade)
+                if name in {"エリーフ", "ゴールド"} and grade != name:
+                    fail(sheet, row_number, "素材等級", f"通貨「{name}」の等級表記と一致しません: {grade}")
+            else:
+                grade = integer(raw_grade, sheet, row_number, "素材等級")
+                if grade > 5:
+                    fail(sheet, row_number, "素材等級", "1〜5の範囲が必要です")
+        item_metadata[name] = {"itemCategory": category, "itemGrade": grade}
 
     def known(name: object, sheet: str, row: int, column: str) -> str:
         if not filled(name) or str(name) not in image_keys:
@@ -260,5 +285,13 @@ def normalize_vertical_research(
             known(item["name"], sheet, row_number, "材料")
         integer(row.get("必要ゴールド"), sheet, row_number, "必要ゴールド", zero=True)
 
+    output_catalog = []
+    for name, key in image_keys.items():
+        entry: dict[str, object] = {"name": name, "imageKey": key}
+        metadata = item_metadata.get(name)
+        if metadata is not None:
+            entry.update(metadata)
+        output_catalog.append(entry)
+
     return {"research": research, "researchRecipes": output_recipes,
-            "researchMaterialCatalog": [{"name": name, "imageKey": key} for name, key in image_keys.items()]}
+            "researchMaterialCatalog": output_catalog}

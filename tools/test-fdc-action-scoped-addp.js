@@ -91,7 +91,7 @@ assert.ok(
 // 変換できることと、Barong A2の状態付与・回復が構造化イベントへ届くことを確認する。
 const cardDataContext = {};
 vm.runInNewContext(
-  `${fs.readFileSync(path.resolve(__dirname, '..', 'cards.js'), 'utf8')}\nthis.library = CARD_LIBRARY;`,
+  `${fs.readFileSync(path.resolve(__dirname, '..', 'cards.js'), 'utf8')}\nthis.library = CARD_LIBRARY; this.migrateCardStateMap = migrateCardStateMap; this.resolveCardIdAlias = resolveCardIdAlias;`,
   cardDataContext
 );
 const statDataContext = { window: {} };
@@ -99,6 +99,47 @@ vm.runInNewContext(
   `${fs.readFileSync(path.resolve(__dirname, '..', 'statData.js'), 'utf8')}\nthis.data = TRICKCAL_STAT_DATA;`,
   statDataContext
 );
+const statEngineContext = { window: {} };
+vm.runInNewContext(
+  fs.readFileSync(path.resolve(__dirname, '..', 'stat-engine.js'), 'utf8'),
+  statEngineContext
+);
+const sharedStatEngine = statEngineContext.window.TRICKCAL_SHARED_STAT_ENGINE;
+const syllaTotals = {
+  hp: 1000, patk: 1000, matk: 0, pdef: 100, mdef: 100,
+  crit: 100, critDmg: 100, critRes: 100, critDmgRes: 100, spRegen: 0
+};
+const syllaSnapshotStats = {
+  hp: syllaTotals.hp, physicalAtk: syllaTotals.patk, magicAtk: syllaTotals.matk,
+  physicalDef: syllaTotals.pdef, magicDef: syllaTotals.mdef, crit: syllaTotals.crit,
+  critDmg: syllaTotals.critDmg, critRes: syllaTotals.critRes,
+  critDmgRes: syllaTotals.critDmgRes, spRegen: syllaTotals.spRegen, combatPower: null
+};
+const syllaEmptyTotals = Object.fromEntries(Object.keys(syllaTotals).map(key => [key, 0]));
+const syllaSnapshot = {
+  calculationVersion: sharedStatEngine.snapshotCalculationVersion,
+  stats: syllaSnapshotStats,
+  internalTotals: syllaTotals,
+  breakdown: {
+    ...Object.fromEntries(['base', 'rankUp', 'equipment', 'rankGlobal', 'research', 'boardBasic', 'boardAdvanced', 'bond', 'asideManifest', 'asideLevel']
+      .map(source => [source, { ...syllaEmptyTotals }])),
+    globalPercent: { ...syllaEmptyTotals }
+  },
+  globalPercentRates: {
+    hp: 0, physicalAtk: 0, magicAtk: 0, physicalDef: 0, magicDef: 0,
+    crit: 0, critDmg: 0, critRes: 0, critDmgRes: 0, spRegen: 0
+  }
+};
+assert.ok(sharedStatEngine.hasCompleteBreakdown(syllaSnapshot), 'FDC fixtureは現行計算版の完全な内部snapshotを使う');
+const syllaState = {
+  level: 1,
+  star: 1,
+  rank: 1,
+  asideRank: 2,
+  asideLevel: 1,
+  statSnapshots: { current: syllaSnapshot }
+};
+syllaState.finalStats = { ...syllaState.statSnapshots.current.stats };
 const barongDollCard = cardDataContext.library.artifacts.find(card => (
   card.id === 'artifact_barong_cursed_doll'
 ));
@@ -149,6 +190,10 @@ const fdcRuntimeSource = source
       '    getDpsDirectTimingSourceEffectId,',
       '    getFdcActionRepeatInfo,'
     ].join('\n') + '\n'
+  )
+  .replace(
+    '  window.TRICKCAL_DAMAGE_CALC = Object.freeze({',
+    "  view.targetId = 'Sylla';\n  window.TRICKCAL_DAMAGE_CALC = Object.freeze({"
   );
 const fdcInputValues = {
   'fdc-self-hp': 1000,
@@ -169,22 +214,31 @@ const fdcInputValues = {
   'fdc-self-type': 100,
   'fdc-self-other': 100
 };
+const fdcInitializationErrors = [];
 const fdcRuntimeContext = {
   APOSTLE_LIBRARY: apostleContext.library,
   CARD_LIBRARY: cardDataContext.library,
   TRICKCAL_STAT_DATA: statDataContext.data,
+  TRICKCAL_SHARED_STAT_ENGINE: sharedStatEngine,
   DPS_TIMING_DATA: timingData,
   ENEMY_PRESETS: [],
-  resolveCardIdAlias(value) { return value; },
+  resolveCardIdAlias: cardDataContext.resolveCardIdAlias,
+  migrateCardStateMap: cardDataContext.migrateCardStateMap,
   TRICKCAL_DPS_TRIGGER_POLICY: require('../dps-trigger-policy.js'),
   window: {
     TRICKCAL_DPS_TRIGGER_POLICY: require('../dps-trigger-policy.js'),
+    TRICKCAL_STORAGE_FACADE: null,
+    TRICKCAL_FORMATION_PLACEMENT: require('../formation-placement.js'),
+    TRICKCAL_FORMATION_PERSONALITY: require('../formation-personality.js'),
+    TRICKCAL_RESEARCH_PROGRESS: require('../research-progress.js'),
+    TRICKCAL_STAT_DATA: statDataContext.data,
     addEventListener() {},
     dispatchEvent() {},
     innerWidth: 1280,
     innerHeight: 720,
     scrollY: 0
   },
+  console: { error(...args) { fdcInitializationErrors.push(args.map(String).join(' ')); } },
   document: {
     documentElement: { classList: { add() {} }, style: { setProperty() {} } },
     getElementById(id) {
@@ -207,25 +261,7 @@ const fdcRuntimeContext = {
           spells: []
         },
         apostles: {
-          Sylla: {
-            level: 1,
-            star: 1,
-            rank: 1,
-            asideRank: 2,
-            asideLevel: 1,
-            finalStats: {
-              hp: 1000,
-              physicalAtk: 1000,
-              magicAtk: 1,
-              physicalDef: 100,
-              magicDef: 100,
-              crit: 100,
-              critDmg: 100,
-              critRes: 100,
-              critDmgRes: 100,
-              spRegen: 0
-            }
-          }
+          Sylla: syllaState
         },
         cards: {}
       });
@@ -234,10 +270,16 @@ const fdcRuntimeContext = {
   },
   sessionStorage: { getItem() { return null; }, setItem() {} }
 };
+fdcRuntimeContext.window.TRICKCAL_STORAGE_FACADE = {
+  localStorage: fdcRuntimeContext.localStorage,
+  sessionStorage: fdcRuntimeContext.sessionStorage
+};
 vm.runInNewContext(
-  `${fdcRuntimeSource}\nthis.api = window.TRICKCAL_DAMAGE_CALC;`,
-  fdcRuntimeContext
+  `window.TRICKCAL_STORAGE_BOOT = Promise.resolve({ ok: true });\n${fdcRuntimeSource}\nwindow.TRICKCAL_STORAGE_BOOT.then(() => { this.api = window.TRICKCAL_DAMAGE_CALC; });`,
+  fdcRuntimeContext,
+  { microtaskMode: 'afterEvaluate' }
 );
+assert.ok(fdcRuntimeContext.api, `保存Facadeの非同期初期化完了後にFDC APIを取得できる${fdcInitializationErrors.length ? `: ${fdcInitializationErrors.join('; ')}` : ''}`);
 const fdcApi = fdcRuntimeContext.api;
 const dollText = fdcApi.getEffectText(barongDollEffect);
 const dollBonuses = fdcApi.normalizeCardEffectBonuses(
@@ -1324,9 +1366,10 @@ const syllaBuiltProfiles = fdcApi.buildDpsActionProfiles({
     { key: syllaBuiltE03.key, effectId: syllaBuiltE03.effectId }
   ]
 });
+const syllaBuiltE02Expected = Number(syllaBuiltProfiles.singleActionProfiles[syllaBuiltE02.key]?.damageResult?.expected);
 assert.ok(
-  Number(syllaBuiltProfiles.singleActionProfiles[syllaBuiltE02.key]?.damageResult?.expected) > 0,
-  'FDCアクションプロファイル生成でシーラe02の期待ダメージを0にしない'
+  syllaBuiltE02Expected > 0,
+  `FDCアクションプロファイル生成でシーラe02の期待ダメージを0にしない (actual=${syllaBuiltE02Expected})`
 );
 assert.ok(
   Number(syllaBuiltProfiles.singleActionProfiles[syllaBuiltE03.key]?.damageResult?.expected) > 0,

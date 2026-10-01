@@ -17,20 +17,42 @@ objects = lambda name: generator.rows_to_objects(workbook[name])
 old = objects("研究効果_旧")
 new_raw = objects("研究効果")
 catalog = generator.read_tsv_objects(ROOT / "research-material-master.tsv")
+item_basics = objects("アイテム基礎")
 normalized = normalize_vertical_research(
     new_raw, objects("研究素材"), objects("素材製作レシピ"),
-    objects("施設強化素材"), catalog,
+    objects("施設強化素材"), catalog, item_basics=item_basics,
 )
 rows = normalized["research"]
 assert len(rows) == 544
 assert len(normalized["researchRecipes"]) == 17
 assert "researchFacilities" not in normalized, "施設費用は検証のみで公開データへ含めない"
 assert len(normalized["researchMaterialCatalog"]) == 28
+assert len(item_basics) > len(normalized["researchMaterialCatalog"]), "アイテム基礎全件を研究素材カタログへ追加しています"
+item_basics_by_name = {row["素材名"]: row for row in item_basics}
+assert len(item_basics_by_name) == len(item_basics), "アイテム基礎の素材名が重複しています"
+catalog_names = {entry["name"] for entry in normalized["researchMaterialCatalog"]}
+assert len(catalog_names) == 28
+assert all(name in item_basics_by_name for name in catalog_names), "研究素材カタログにアイテム基礎の完全一致行がありません"
+for entry in normalized["researchMaterialCatalog"]:
+    source = item_basics_by_name.get(entry["name"])
+    if source:
+        assert entry["itemCategory"] == source["分類"]
+        expected_grade = source.get("素材等級")
+        if expected_grade in (None, ""):
+            expected_grade = None
+        elif source["分類"] != "通貨":
+            expected_grade = int(float(expected_grade))
+        assert entry["itemGrade"] == expected_grade
+    else:
+        assert "itemCategory" not in entry and "itemGrade" not in entry
+assert next(entry for entry in normalized["researchMaterialCatalog"] if entry["name"] == "地球から来た鉛")["itemGrade"] == 2
+assert next(entry for entry in normalized["researchMaterialCatalog"] if entry["name"] == "ゴールド")["itemCategory"] == "通貨"
+assert next(entry for entry in normalized["researchMaterialCatalog"] if entry["name"] == "ゴールド")["itemGrade"] == "ゴールド"
 assert all("旧効果ID" not in row for row in rows)
 images = ROOT.parent / "img" / "Materials"
 mapped_names = {row["画像キー"] for row in catalog if row["画像キー"]}
 assert len(mapped_names) == 28
-assert mapped_names == {path.name for path in images.iterdir() if path.is_file()}
+assert mapped_names <= {path.name for path in images.iterdir() if path.is_file()}
 assert {Path(name).suffix for name in mapped_names} == {".png", ".webp"}
 assert next(row for row in normalized["researchMaterialCatalog"] if row["name"] == "ゴールド")["imageKey"] == "ゴールド.webp"
 assert next(row for row in normalized["researchMaterialCatalog"] if row["name"] == "地球から来た鉛")["imageKey"] == "地球から来た鉛.png"
@@ -134,7 +156,7 @@ catalog_without_image = [dict(row) for row in catalog]
 catalog_without_image[6]["画像キー"] = ""
 fallback = normalize_vertical_research(
     new_raw, objects("研究素材"), objects("素材製作レシピ"),
-    objects("施設強化素材"), catalog_without_image,
+    objects("施設強化素材"), catalog_without_image, item_basics=item_basics,
 )
 assert any(entry["name"] == "地球から来た鉛" and entry["imageKey"] == ""
            for entry in fallback["researchMaterialCatalog"])
@@ -144,5 +166,41 @@ for filename in ("../地球から来た鉛.png", "/tmp/test.png", "C:\\test.png"
     invalid_catalog = [dict(row) for row in catalog]
     invalid_catalog[6]["画像キー"] = filename
     reject("素材マスター 行8", master=invalid_catalog, column="画像キー")
+
+duplicate_item_basics = [dict(row) for row in item_basics] + [dict(item_basics[0])]
+try:
+    normalize_vertical_research(new_raw, objects("研究素材"), objects("素材製作レシピ"),
+                                objects("施設強化素材"), catalog, item_basics=duplicate_item_basics)
+except ResearchDataError as error:
+    assert "アイテム基礎 行82" in str(error) and "素材名" in str(error)
+else:
+    raise AssertionError("duplicate アイテム基礎 material name was accepted")
+
+invalid_grade_basics = [dict(row) for row in item_basics]
+next(row for row in invalid_grade_basics if row["素材名"] == "固い石")["素材等級"] = 6
+try:
+    normalize_vertical_research(new_raw, objects("研究素材"), objects("素材製作レシピ"),
+                                objects("施設強化素材"), catalog, item_basics=invalid_grade_basics)
+except ResearchDataError as error:
+    assert "アイテム基礎" in str(error) and "素材等級" in str(error)
+else:
+    raise AssertionError("out-of-range item grade was accepted")
+
+missing_item_basic = [dict(row) for row in item_basics if row["素材名"] != "地球から来た鉛"]
+missing_metadata = normalize_vertical_research(
+    new_raw, objects("研究素材"), objects("素材製作レシピ"),
+    objects("施設強化素材"), catalog, item_basics=missing_item_basic,
+)["researchMaterialCatalog"]
+missing_entry = next(entry for entry in missing_metadata if entry["name"] == "地球から来た鉛")
+assert missing_entry["imageKey"] == "地球から来た鉛.png"
+assert "itemCategory" not in missing_entry and "itemGrade" not in missing_entry
+
+blank_grade_basics = [dict(row) for row in item_basics]
+next(row for row in blank_grade_basics if row["素材名"] == "固い石")["素材等級"] = ""
+blank_metadata = normalize_vertical_research(
+    new_raw, objects("研究素材"), objects("素材製作レシピ"),
+    objects("施設強化素材"), catalog, item_basics=blank_grade_basics,
+)["researchMaterialCatalog"]
+assert next(entry for entry in blank_metadata if entry["name"] == "固い石")["itemGrade"] is None
 
 print("research 544 rows; all 12 stages and every progress match; references and errors: OK")

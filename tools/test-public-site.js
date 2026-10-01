@@ -430,11 +430,13 @@ function run(options = {}) {
       'data/index.html',
       'data/apostles/index.html',
       'data/enemies/index.html',
+      'data/life-jobs/index.html',
       'data/boards/index.html',
       'transfer/index.html',
       'recovery/index.html',
       'trickcal-manager/index.html',
       'trickcal-manager/stat-dashboard.html',
+      'trickcal-manager/public/life-jobs.html',
       'trickcal-manager/public/board-layout-preview.html',
       'public-site-build.json'
     ]) assert(files.includes(expected), `missing generated file: ${expected}`);
@@ -463,6 +465,8 @@ function run(options = {}) {
     const legacyDataHtml = readOutputText(testOutput, 'trickcal-manager/data/index.html');
     const apostleDataHtml = readOutputText(testOutput, 'data/apostles/index.html');
     const legacyApostleDataHtml = readOutputText(testOutput, 'trickcal-manager/public/apostle-data.html');
+    const lifeJobsHtml = readOutputText(testOutput, 'data/life-jobs/index.html');
+    const legacyLifeJobsHtml = readOutputText(testOutput, 'trickcal-manager/public/life-jobs.html');
     const shareHtml = readOutputText(testOutput, 'share/index.html');
     const generatedOrdinaryPages = [
       'manager/index.html',
@@ -471,6 +475,7 @@ function run(options = {}) {
       'data/index.html',
       'data/apostles/index.html',
       'data/enemies/index.html',
+      'data/life-jobs/index.html',
       'data/boards/index.html',
       'share/index.html',
       'trickcal-manager/manager/index.html',
@@ -480,6 +485,7 @@ function run(options = {}) {
       'trickcal-manager/formation-share.html',
       'trickcal-manager/data/index.html',
       'trickcal-manager/enemy-status.html',
+      'trickcal-manager/public/life-jobs.html',
       'trickcal-manager/public/apostle-data.html',
       'trickcal-manager/public/board-layout-preview.html'
     ];
@@ -495,6 +501,12 @@ function run(options = {}) {
     assert(dataHtml.includes(`src="/shared-topbar.js?v=${assetVersion}"`));
     assert(dataHtml.includes(`src="/announcements.js?v=${assetVersion}"`));
     assert(dataHtml.includes(`src="/announcement-history-data.js?v=${assetVersion}"`), 'new data入口がprofile版付き履歴dataを読む');
+    assert(dataHtml.includes('アルバイト'), 'データ入口からアルバイトページへ移動できる');
+    assert(lifeJobsHtml.includes(`src="/statData.js?v=${assetVersion}"`));
+    assert(lifeJobsHtml.includes(`src="/public/life-jobs.js?v=${assetVersion}"`));
+    assert(lifeJobsHtml.includes(`href="/public/life-jobs.css?v=${assetVersion}"`));
+    assert(legacyLifeJobsHtml.includes(`src="/trickcal-manager/statData.js?v=${assetVersion}"`));
+    assert(legacyLifeJobsHtml.includes(`src="/trickcal-manager/public/life-jobs.js?v=${assetVersion}"`));
     assert(legacyDataHtml.includes(`src="/trickcal-manager/announcement-history-data.js?v=${assetVersion}"`), 'legacy data入口がbase付き履歴dataを読む');
     const assertStorageScripts = (html, prefix, name) => {
       const tags = ['storage-registry.js', 'storage-runtime.js', 'storage-bootstrap.js']

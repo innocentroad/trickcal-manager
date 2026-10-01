@@ -320,6 +320,7 @@
     perspective: 'self',
     mobileVisibleSide: 'self',
     enemyPersonality: '',
+    epicaA2EnemyCount: 1,
     enemySourceMode: 'preset',
     pvpAffinityEnabled: false,
     pvpRank: 3001,
@@ -653,6 +654,13 @@
       if (el.formationPicker && !el.formationPicker.hidden) closeFormationPicker();
     });
     document.addEventListener('change', event => {
+      const epicaEnemyCountInput = event.target.closest('[data-fdc-epica-a2-enemy-count]');
+      if (epicaEnemyCountInput) {
+        view.epicaA2EnemyCount = normalizeEpicaA2EnemyCount(epicaEnemyCountInput.value);
+        saveCalcSettings();
+        renderResult(buildContext());
+        return;
+      }
       const cardInput = event.target.closest('[data-fdc-temp-card-field]');
       if (cardInput) {
         updateFdcTempCardState(
@@ -2531,6 +2539,7 @@
         actionCategory: savedView.selectedSkillCategory || '',
         selectedSkillCategory: savedView.selectedSkillCategory || '',
         selectedSkillOptionKey: savedView.selectedSkillOptionKey || '',
+        epicaA2EnemyCount: normalizeEpicaA2EnemyCount(savedView.epicaA2EnemyCount),
         enemySelectedSkillCategory: savedView.enemySelectedSkillCategory || '',
         enemySourceMode: savedView.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         enemyPresetKey: savedView.enemyPresetKey || '',
@@ -2613,6 +2622,7 @@
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
+        epicaA2EnemyCount: normalizeEpicaA2EnemyCount(view.epicaA2EnemyCount),
         enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
         pvpRank: normalizePvpRank(view.pvpRank),
@@ -2714,6 +2724,7 @@
       if (['current', 'planned'].includes(savedView.statMode)) view.statMode = savedView.statMode;
       if (savedView.resultMetric) view.resultMetric = normalizeResultMetric(savedView.resultMetric);
       if (['self', 'enemy'].includes(savedView.perspective)) view.perspective = savedView.perspective;
+      view.epicaA2EnemyCount = normalizeEpicaA2EnemyCount(savedView.epicaA2EnemyCount);
       if (['self', 'enemy'].includes(savedView.mobileVisibleSide)) view.mobileVisibleSide = savedView.mobileVisibleSide;
       if (typeof savedView.selectedSkillCategory === 'string') view.selectedSkillCategory = savedView.selectedSkillCategory;
       if (typeof savedView.selectedSkillOptionKey === 'string') view.selectedSkillOptionKey = savedView.selectedSkillOptionKey;
@@ -2866,6 +2877,7 @@
       if (['self', 'enemy'].includes(saved.perspective)) view.perspective = saved.perspective;
       if (['self', 'enemy'].includes(saved.mobileVisibleSide)) view.mobileVisibleSide = saved.mobileVisibleSide;
       if (typeof saved.enemyPersonality === 'string') view.enemyPersonality = saved.enemyPersonality;
+      view.epicaA2EnemyCount = normalizeEpicaA2EnemyCount(saved.epicaA2EnemyCount);
       if (['preset', 'apostle'].includes(saved.enemySourceMode)) view.enemySourceMode = saved.enemySourceMode;
       view.pvpAffinityEnabled = !!saved.pvpAffinityEnabled;
       if (saved.pvpRank != null) view.pvpRank = normalizePvpRank(saved.pvpRank);
@@ -2943,6 +2955,7 @@
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
         mobileVisibleSide: view.mobileVisibleSide === 'enemy' ? 'enemy' : 'self',
         enemyPersonality: view.enemyPersonality || '',
+        epicaA2EnemyCount: normalizeEpicaA2EnemyCount(view.epicaA2EnemyCount),
         enemySourceMode: view.enemySourceMode === 'apostle' ? 'apostle' : 'preset',
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
         pvpRank: normalizePvpRank(view.pvpRank),
@@ -4336,6 +4349,7 @@
         </button>
       `;
       }).join('')}
+      ${renderEpicaA2EnemyCountControl(context, selectedOption)}
     `;
     const optionsByKey = new Map(options.map(option => [option.key, option]));
     el.selfSkillChoices.querySelectorAll('[data-fdc-skill-value]').forEach(button => {
@@ -8143,6 +8157,22 @@
           ['基礎ダメージ係数', `${(result.defRate * 100).toFixed(2)}%`]
         ]
       },
+      ...(result.hitBreakdown ? [{
+        title: 'エピカA2 基本攻撃の命中内訳',
+        content: `<p class="fdc-epica-a2-hit-note">${result.hitBreakdown.sameEnemy
+          ? '敵1体の条件により、追加命中を同じ敵への合計へ反映しています。'
+          : '敵が複数のため、ランダムな追加対象は選択中の敵への結果に加算していません。'}</p>`,
+        rows: [
+          ['基本攻撃1発分（通常）', formatNumber(result.hitBreakdown.oneHit.normal)],
+          ['基本攻撃1発分（期待値）', formatNumber(result.hitBreakdown.oneHit.expected)],
+          ['基本攻撃1発分（会心）', formatNumber(result.hitBreakdown.oneHit.crit)],
+          ['追加命中', result.hitBreakdown.sameEnemy
+            ? `${result.hitBreakdown.appliedAdditionalHitCount}発を同じ敵へ加算`
+            : `${result.hitBreakdown.extraHitCount}体分は選択対象に加算しない`],
+          ['選択対象の合計（通常／期待値／会心）', `${formatNumber(result.normal)} / ${formatNumber(result.expected)} / ${formatNumber(result.crit)}`],
+          ['行動回数・攻撃間隔', '変更しない（単発ダメージ計算）']
+        ]
+      }] : []),
       {
         title: '基礎ステータス',
         rows: [
@@ -8291,6 +8321,7 @@
     const attacker = getAttackMods(isEnemyAttack ? 'enemy' : 'self');
     const defender = getDefenseMods(isEnemyAttack ? 'self' : 'enemy');
     const selectedSkillOption = isEnemyAttack ? null : context.selectedSkillOption || resolveSelectedSelfSkillOption(context);
+    const epicaAdditionalHit = getEpicaA2AdditionalHitInfo(context, selectedSkillOption, isEnemyAttack);
     const selectedSkillValue = Number(selectedSkillOption?.value);
     const statusDamageActionCategory = [
       selectedSkillOption?.category,
@@ -8383,15 +8414,31 @@
     const other = Math.max(0, attacker.other) / 100;
     const damageReference = selectedSkillOption?.damageReference || '';
     const damageSource = damageReference === 'enemyMaxHp' ? finalHp : finalAtk;
-    const normal = damageSource * defRate * skill * addRate * type * special * other;
+    const oneHitNormal = damageSource * defRate * skill * addRate * type * special * other;
     const baseCritRate = calcCritRate(finalCrit, finalCritRes);
     const rawCritRate = baseCritRate + attacker.critRateP / 100 - defender.critResAddP / 100;
     const critRate = selectedSkillOption?.guaranteedCrit ? 1 : clamp(rawCritRate, 0.05, 0.75);
     const baseCritMult = calcCritMultiplier(finalCritDmg, finalCritDmgRes);
     const rawCritMult = baseCritMult + attacker.critDmgAddP / 100 - defender.critDmgResAddP / 100;
     const critMult = clamp(rawCritMult, 1.2, 2.5);
-    const crit = normal * critMult;
-    const expected = normal * (1 - critRate) + crit * critRate;
+    const oneHitCrit = oneHitNormal * critMult;
+    const oneHitExpected = oneHitNormal * (1 - critRate) + oneHitCrit * critRate;
+    const applyEpicaAdditionalHit = !!epicaAdditionalHit && epicaAdditionalHit.enemyCount === 1;
+    const appliedAdditionalHitCount = applyEpicaAdditionalHit ? epicaAdditionalHit.extraHitCount : 0;
+    const hitCount = 1 + appliedAdditionalHitCount;
+    const normal = oneHitNormal * hitCount;
+    const crit = oneHitCrit * hitCount;
+    const expected = oneHitExpected * hitCount;
+    const hitBreakdown = epicaAdditionalHit ? {
+      asideRank: epicaAdditionalHit.asideRank,
+      enemyCount: epicaAdditionalHit.enemyCount,
+      extraHitCount: epicaAdditionalHit.extraHitCount,
+      appliedAdditionalHitCount,
+      hitCount,
+      sameEnemy: applyEpicaAdditionalHit,
+      oneHit: { normal: oneHitNormal, crit: oneHitCrit, expected: oneHitExpected },
+      total: { normal, crit, expected }
+    } : null;
     return {
       hp: finalHp,
       normal,
@@ -8400,6 +8447,7 @@
       critRate,
       guaranteedCrit: !!selectedSkillOption?.guaranteedCrit,
       defRate,
+      hitBreakdown,
       summary,
       detail: {
         stats: {
@@ -8588,6 +8636,60 @@
     return view.selectedSkillCategory
       ? options.find(item => item.category === view.selectedSkillCategory) || null
       : null;
+  }
+
+  function normalizeEpicaA2EnemyCount(value) {
+    return Number(value) === 2 ? 2 : 1;
+  }
+
+  function getEpicaA2AdditionalHitInfo(context, selectedSkillOption, isEnemyAttack = false) {
+    const target = context?.target;
+    if (!target || String(target.id || '').toLowerCase() !== 'epica' || isEnemyAttack) return null;
+    if (!isPublicAsideEnabled(target)) return null;
+    const asideRank = Math.max(0, Math.floor(Number(getFdcEffectiveSkillLevels(target)?.asideRank) || 0));
+    if (asideRank < 2) return null;
+
+    const selectedActions = [
+      context.actionCategory,
+      selectedSkillOption?.category,
+      selectedSkillOption?.sourceCategory,
+      selectedSkillOption?.attackCategory
+    ].filter(Boolean);
+    const categories = [...new Set(selectedActions.flatMap(action => getFdcActionCategories(action)))];
+    // The current source names only 普通攻撃. Do not infer that this includes
+    // the distinct 強化攻撃 action until the source explicitly confirms it.
+    if (!categories.includes('基本攻撃') || categories.includes('強化攻撃')) return null;
+
+    const effect = (window.TRICKCAL_STAT_DATA?.sheets?.asideSpecialEffects || [])
+      .find(row => row?.effectId === 'Epica_aside_2_e01');
+    if (!effect
+      || effect.値の種類 !== '普通攻撃対象追加'
+      || effect.効果タイプ !== 'スキル変更'
+      || String(effect.対象スキル || '').trim() !== '普通攻撃') return null;
+    const condition = String(effect.condition || '').replace(/[\r\n\s　]+/g, '');
+    if (!/敵が1体/.test(condition) || !/同じ敵/.test(condition) || !/追加分.*命中/.test(condition)) return null;
+    const extraHitCount = Number(effect.固定値);
+    if (!Number.isSafeInteger(extraHitCount) || extraHitCount < 1) return null;
+    return {
+      asideRank,
+      extraHitCount,
+      enemyCount: normalizeEpicaA2EnemyCount(view.epicaA2EnemyCount)
+    };
+  }
+
+  function renderEpicaA2EnemyCountControl(context, selectedSkillOption) {
+    const info = getEpicaA2AdditionalHitInfo(context, selectedSkillOption, false);
+    if (!info) return '';
+    return `
+      <div class="fdc-epica-a2-hit-setting">
+        <label for="fdc-epica-a2-enemy-count">エピカA2・基本攻撃の敵数</label>
+        <select id="fdc-epica-a2-enemy-count" data-fdc-epica-a2-enemy-count aria-label="エピカA2基本攻撃の敵数">
+          <option value="1" ${info.enemyCount === 1 ? 'selected' : ''}>1体（追加分も同じ敵に命中）</option>
+          <option value="2" ${info.enemyCount === 2 ? 'selected' : ''}>2体以上（追加対象は選択敵へ加算しない）</option>
+        </select>
+        <small>追加命中はこの単発計算の合計へ反映します。行動回数・攻撃間隔は変えません。</small>
+      </div>
+    `;
   }
 
   function getDebuffDamageP(side) {
@@ -9096,7 +9198,8 @@
       pvpRank: view.pvpRank,
       enemySelectedSkillCategory: view.enemySelectedSkillCategory,
       selectedSkillCategory: view.selectedSkillCategory,
-      selectedSkillOptionKey: view.selectedSkillOptionKey
+      selectedSkillOptionKey: view.selectedSkillOptionKey,
+      epicaA2EnemyCount: view.epicaA2EnemyCount
     };
     const savedInputs = snapshotSelfStatInputs();
     try {
@@ -9143,6 +9246,7 @@
       view.enemySelectedSkillCategory = battleConditions.enemySelectedSkillCategory || '';
       view.selectedSkillCategory = battleConditions.selectedSkillCategory || battleConditions.actionCategory || '';
       view.selectedSkillOptionKey = battleConditions.selectedSkillOptionKey || '';
+      view.epicaA2EnemyCount = normalizeEpicaA2EnemyCount(battleConditions.epicaA2EnemyCount);
       const context = buildContext({ detached: true });
       if (!context.target || context.target.id !== targetId) {
         return { error: '選択した比較元の編成に現在の使徒がいません' };
@@ -12803,6 +12907,7 @@
         enemyPhaseIndex: Number(view.enemyPhaseIndex) || 0,
         enemySkillIndex: Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1,
         enemyPersonality: view.enemyPersonality || '',
+        epicaA2EnemyCount: normalizeEpicaA2EnemyCount(view.epicaA2EnemyCount),
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
         pvpRank: normalizePvpRank(view.pvpRank),
         inputs: readDamageCalculationInputs()

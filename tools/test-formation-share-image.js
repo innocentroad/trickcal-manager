@@ -67,7 +67,7 @@ assert.match(dashboardCss, /formation-share-preview-wrap iframe\[hidden\]/);
 assert.match(dashboardCss, /#formation-share-image-preview\[hidden\]/);
 assert.match(dashboardCss, /\.formation-share-action-row/);
 assert.match(dashboardCss, /\.formation-share-link-actions/);
-assert.match(dashboard, /stat-dashboard\.css\?v=20260912i/);
+assert.match(dashboard, /stat-dashboard\.css\?v=20261001c/);
 for (const className of [
   'formation-share-button-image-copy',
   'formation-share-button-image-save',

@@ -583,11 +583,15 @@ async function run() {
         if (actual.join('|') !== [expectedTier,expectedBase,expectedGrowth].join('|')) mismatches.push({id:row.dataset.apostleDataRow,actual,expected:[expectedTier,expectedBase,expectedGrowth]});
       }
       const amelia = document.querySelector('[data-apostle-data-row="Amelia"]');
+      const epica = document.querySelector('[data-apostle-data-row="Epica"]');
+      const belita = document.querySelector('[data-apostle-data-row="Belita"]');
       const missing = rows.filter(row => !byId.has(row.dataset.apostleDataRow));
       const fixture = window.__TRICKCAL_APOSTLE_DATA_TESTING__;
       const column = {key:'magicDefense',type:'魔法防御力',value:'魔法防御力'};
       const basic = {id:'Amelia'};
       return { registered:source.length, missing:missing.length, mismatches:mismatches.slice(0,5),
+        newAsideApostles:{epica:{present:!!epica,physical:cell(epica,'physicalAttack')?.textContent.trim()||'',magic:cell(epica,'magicAttack')?.textContent.trim()||''},
+          belita:{present:!!belita,physical:cell(belita,'physicalAttack')?.textContent.trim()||'',magic:cell(belita,'magicAttack')?.textContent.trim()||''}},
         amelia:[cell(amelia,'magicDefense')?.textContent.trim(),cell(amelia,'magicDefense-manifest')?.textContent.trim(),cell(amelia,'magicDefense-growth')?.textContent.trim()],
         noUnregisteredText:rows.every(row => [...row.querySelectorAll('td')].every(td => !td.textContent.includes('未登録'))),
         missingBlank:missing.every(row => [...row.querySelectorAll('td')].every(td => td.textContent.trim()==='')),
@@ -595,8 +599,12 @@ async function run() {
         icon:document.querySelector('[data-apostle-thead] [data-apostle-column="magicDefense"] img')?.getAttribute('src'),
         help:document.querySelector('[data-apostle-thead] [data-apostle-column="magicDefense"] [data-apostle-header-help]')?.dataset.apostleHeaderHelp };
     })()`);
-    assert.equal(asideFacts.registered, 40, '登録済み行数');
+    assert.equal(asideFacts.registered, 42, 'エピカ・ベリータを含む登録済み行数');
     assert.deepEqual(asideFacts.mismatches, [], '全登録済み行の魔法防御等級・基礎・成長を元データと照合');
+    assert.deepEqual(asideFacts.newAsideApostles, {
+      epica:{present:true,physical:'等級4',magic:'対象外'},
+      belita:{present:true,physical:'対象外',magic:'等級4'}
+    }, 'エピカは物理、ベリータは魔法の本人攻撃等級を表示');
     assert.deepEqual(asideFacts.amelia, ['等級1','324','45'], 'アメリアの原値');
     assert.equal(asideFacts.noUnregisteredText && asideFacts.missingBlank, true, 'アサイド欠損セルは空欄');
     assert.equal(asideFacts.fixture.none.blank && asideFacts.fixture.partial.blank, true, '未登録全体と項目欠損を区別');

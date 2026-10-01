@@ -8,6 +8,7 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const preloadSource = fs.readFileSync(path.join(root, 'image-preload.js'), 'utf8');
+const skillImageData = require(path.join(root, 'apostle-skill-image-data.js'));
 
 function createFixture({ data: suppliedData, asideTiers = [], asideStatEffects = [], asideSpecialEffects = [], allowed = true, activeId = 'Epica', publicRelease = 'enabled' } = {}) {
   const values = new Map([
@@ -30,6 +31,7 @@ function createFixture({ data: suppliedData, asideTiers = [], asideStatEffects =
   };
   const window = {
     TRICKCAL_STAT_DATA: data,
+    TRICKCAL_APOSTLE_SKILL_IMAGE_DATA: skillImageData,
     TRICKCAL_STORAGE_BOOT: { then(callback) { callback({ ok: true }); } },
     TRICKCAL_STORAGE_FACADE: {
       localStorage: { getItem: key => values.get(key) || null }

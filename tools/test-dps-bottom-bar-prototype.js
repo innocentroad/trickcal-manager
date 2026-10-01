@@ -188,18 +188,22 @@ assert.ok(html.includes('formation-damage-dps-prototype.js?v=20260907c'), 'proto
 assert.ok(!html.includes('formation-damage-dps-prototype.js?v=20260827al') && !html.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'prototype HTMLに旧controller queryを残さない');
 assert.ok(html.includes('formation-damage-dps-prototype.css?v=20260904a'), 'prototype stylesheetは最新cache-bustを参照する');
 assert.ok(!html.includes('formation-damage-dps-prototype.css?v=20260827w'), 'prototype HTMLに旧stylesheet queryを残さない');
-assert.ok(appCache.includes('formation-damage-dps-prototype.js?v=20260907c'), 'cache manifestも最新controller queryを参照する');
-assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=20260827al') && !appCache.includes('formation-damage-dps-prototype.js?v=20260827ak'), 'cache manifestに旧controller queryを残さない');
-assert.ok(html.includes('dps-simulator.js?v=20260907c') && appCache.includes('dps-simulator.js?v=20260907c'), 'DPS kernelのcache-bustをHTMLとmanifestで揃える');
-assert.ok(script.includes("dps-simulator-worker.js?v=20260907c") && appCache.includes('dps-simulator-worker.js?v=20260907c'), 'Workerのcache-bustを起動側とmanifestで揃える');
-assert.ok(appCache.includes('formation-damage-dps-prototype.css?v=20260904a'), 'cache manifestも最新stylesheet queryを参照する');
-assert.ok(!appCache.includes('formation-damage-dps-prototype.css?v=20260827w'), 'cache manifestに旧stylesheet queryを残さない');
-assert.ok(html.includes('app-cache.js?v=20260907c'), 'app-cache更新時はprototype HTMLのscript queryも更新する');
+assert.ok(appCache.includes("'formation-damage-dps-prototype.js'") && appCache.includes("'formation-damage-dps-prototype.css'"), 'cache manifestはprototype資材を論理パスで列挙する');
+assert.ok(appCache.includes("'dps-simulator.js'") && appCache.includes("'dps-simulator-worker.js'"), 'cache manifestはDPS kernelとWorkerを論理パスで列挙する');
+assert.ok(appCache.includes('publicSite?.assetUrl?.(asset)') && appCache.includes('const resolved = asset === page ? page : assetPath(asset);'), 'キャッシュ先読みはprofile-aware URL resolverで論理パスを解決する');
+assert.ok(!appCache.includes('formation-damage-dps-prototype.js?v=') && !appCache.includes('formation-damage-dps-prototype.css?v=') && !appCache.includes('dps-simulator.js?v=') && !appCache.includes('dps-simulator-worker.js?v='), 'cache manifestへ固定query URLを重複保持しない');
+assert.ok(html.includes('dps-simulator.js?v=20260907c'), 'DPS kernelのscript URLはHTML側のcache-bustを維持する');
+assert.ok(script.includes("dps-simulator-worker.js?v=20260907c"), 'Workerのscript URLは起動側のcache-bustを維持する');
+assert.match(html, /<script src="app-cache\.js\?v=[^\"]+"><\/script>/, 'prototype HTMLはcache-bust付きでapp-cacheを読み込む');
 
 const context = {
   window: {
     setTimeout(callback) { callback(); return 1; },
     TRICKCAL_DPS_TRIGGER_POLICY: triggerPolicy,
+    TRICKCAL_STORAGE_FACADE: {
+      localStorage: { getItem() { return null; }, setItem() {} },
+      sessionStorage: { getItem() { return null; }, setItem() {} }
+    },
     TRICKCAL_DPS_SIMULATOR: {
       simulate: (_config, workerOptions) => ({ mode: 'single', workerOptions }),
       simulateMany: (_config, workerOptions) => ({
@@ -213,9 +217,15 @@ const context = {
   },
   location: { protocol: 'file:' }
 };
-vm.createContext(context);
-vm.runInContext(script, context, { filename: 'formation-damage-dps-prototype.js' });
-const testing = context.window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING;
+vm.createContext(context, { microtaskMode: 'afterEvaluate' });
+vm.runInContext('window.TRICKCAL_STORAGE_BOOT = Promise.resolve({ ok: true });', context);
+vm.runInContext(
+  `${script}\nwindow.TRICKCAL_STORAGE_BOOT.then(() => { window.__DPS_TESTING_READY = window.TRICKCAL_DPS_BOTTOM_BAR_PROTOTYPE_TESTING; });`,
+  context,
+  { filename: 'formation-damage-dps-prototype.js' }
+);
+const testing = context.window.__DPS_TESTING_READY;
+assert.ok(testing, '保存ブート完了後にDPS下バーの検証APIを取得できる');
 const measuredStateRuntimeEvent = {
   id: 'tig-favorite-overdrive',
   label: 'オーバードラ火ブ',
