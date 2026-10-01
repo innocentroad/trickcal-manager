@@ -86,6 +86,14 @@ class LifeJobDataTests(unittest.TestCase):
                                     resume_reward_headers=["使徒名", "素材名", "表示順", "メイン", "入手元"],
                                     resume_reward_rows=[])
 
+    def test_portrait_uses_actual_filename_case(self):
+        (self.apostle_dir / "A1.webp").unlink()
+        (self.apostle_dir / "a1.webp").write_bytes(b"fixture")
+        data = self.build()
+        self.assertEqual(data["apostles"][0]["assetId"], "a1")
+        self.assertTrue(any(image.name == data["apostles"][0]["assetId"] + ".webp"
+                            for image in self.apostle_dir.iterdir()))
+
 
 if __name__ == "__main__":
     unittest.main()

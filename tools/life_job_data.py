@@ -214,10 +214,19 @@ def normalize_life_job_data(
 
     apostle_asset_by_name: dict[str, str] = {}
     apostle_names = public_apostle_names
+    portrait_files: dict[str, Path] = {}
+    for image in apostle_image_dir.glob("*.webp"):
+        key = image.stem.casefold()
+        if key in portrait_files:
+            raise LifeJobDataError(f"使徒画像の大文字小文字が曖昧です: {portrait_files[key].name} / {image.name}")
+        portrait_files[key] = image
     for apostle_name, row in public_rows_by_name.items():
         apostle_id = str(row["id"]).strip()
-        if (apostle_image_dir / f"{apostle_id}.webp").is_file():
-            apostle_asset_by_name[apostle_name] = apostle_id
+        image = portrait_files.get(apostle_id.casefold())
+        if image is not None and image.is_file():
+            # Windows accepts ED.webp for Ed.webp; public HTTP paths do not.
+            # Preserve the actual filename rather than the data ID's casing.
+            apostle_asset_by_name[apostle_name] = image.stem
 
     material_id_by_name = {entry["name"]: entry["id"] for entry in materials}
     public_resume_slots = [
