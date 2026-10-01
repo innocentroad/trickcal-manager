@@ -56,7 +56,7 @@
     'img/Tab_Board.webp',
     'img/Tab_Skill.webp',
     'img/Tab_Aside.webp',
-    'img/Tab_Save.png',
+    'img/Tab_Save.webp',
     'img/Card/cost.webp',
     'img/Card/ef_coin.webp',
     'img/Card/sunshine_token.webp',

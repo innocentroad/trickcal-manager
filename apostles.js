@@ -4717,7 +4717,206 @@ const APOSTLE_LIBRARY = [
       }
     },
     "aside": {
-      "levels": {}
+      "name": "エピカン",
+      "levels": {
+        "1": {
+          "name": "助手エピコン",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Epica_aside_1",
+              "effectId": "Epica_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Epica_aside_1",
+              "effectId": "Epica_aside_1_e02",
+              "valueKind": "物理攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Epica_aside_1",
+              "effectId": "Epica_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Epica_aside_1",
+              "effectId": "Epica_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "エピコンの分身術",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e01",
+              "valueKind": "普通攻撃対象追加",
+              "valueClass": "対象数",
+              "effectType": "スキル変更",
+              "condition": "ランダムな敵を目標対象に追加。敵が1体の場合は同じ敵に追加分も命中する。",
+              "effectTarget": "自身",
+              "targetSkill": "普通攻撃",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e02",
+              "valueKind": "強化攻撃発動確率増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "targetSkill": "強化攻撃",
+              "fixedValue": 15.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e03",
+              "valueKind": "自分現在高学年クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "triggerType": "強化攻撃発動時",
+              "triggerSourceId": "強化攻撃",
+              "condition": "強化攻撃を発動するたび",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 3.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e04",
+              "processGroupId": "Epica_aside_2_proc01",
+              "processOrder": 1.0,
+              "valueKind": "保護",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "低学年スキル使用時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル使用後、1回のみ発動",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル"
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e05",
+              "processGroupId": "Epica_aside_2_proc01",
+              "processOrder": 2.0,
+              "valueKind": "保護",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "triggerType": "低学年スキル使用時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル使用後、1回のみ発動",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 8.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e06",
+              "processGroupId": "Epica_aside_2_proc01",
+              "processOrder": 3.0,
+              "valueKind": "保護発動回数",
+              "valueClass": "回数",
+              "effectType": "バフ",
+              "triggerType": "低学年スキル使用時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル使用後、1回のみ発動",
+              "effectTarget": "自身",
+              "targetSkill": "低学年スキル",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e07",
+              "processGroupId": "Epica_aside_2_proc02",
+              "processOrder": 1.0,
+              "valueKind": "シールド",
+              "valueClass": "倍率",
+              "effectType": "シールド",
+              "conditionType": "状態保有",
+              "conditionValue": "保護",
+              "condition": "直接ダメージによって戦闘不能になった時",
+              "effectTarget": "自身",
+              "reference": "最大HP",
+              "fixedValue": 46.0
+            },
+            {
+              "skillId": "Epica_aside_2",
+              "effectId": "Epica_aside_2_e08",
+              "processGroupId": "Epica_aside_2_proc02",
+              "processOrder": 2.0,
+              "valueKind": "シールド",
+              "valueClass": "持続時間",
+              "effectType": "シールド",
+              "conditionType": "状態保有",
+              "conditionValue": "保護",
+              "condition": "直接ダメージによって戦闘不能になった時",
+              "effectTarget": "自身",
+              "fixedValue": 8.0
+            }
+          ],
+          "description": "普通攻撃の目標対象にランダムな敵が追加される。\n強化攻撃の発動確率が増加し、強化攻撃を発動するたびに現在の高学年スキルのクールタイムが即時減少する。\n低学年スキルを使用すると、自身に保護を付与する。この効果は低学年スキル使用後、1回のみ発動する。"
+        },
+        "3": {
+          "name": "味方に捧げます",
+          "stats": [
+            {
+              "skillId": "Epica_aside_3_global",
+              "effectId": "Epica_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "物理攻撃力",
+              "increaseP": 4.0
+            },
+            {
+              "skillId": "Epica_aside_3_global",
+              "effectId": "Epica_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "物理防御力",
+              "increaseP": 4.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Epica_aside_3_battle",
+              "effectId": "Epica_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/中列",
+              "fixedValue": 19.5
+            },
+            {
+              "skillId": "Epica_aside_3_battle",
+              "effectId": "Epica_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/中列",
+              "fixedValue": 8.8
+            }
+          ],
+          "description": "中列の味方の敵への与ダメージ量を増加させ、中列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -22497,7 +22696,136 @@ const APOSTLE_LIBRARY = [
     ],
     "favoriteCard": {},
     "aside": {
-      "levels": {}
+      "name": "わらわの心の中の妹",
+      "levels": {
+        "1": {
+          "name": "わらわの妹エルフィン",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Belita_aside_1",
+              "effectId": "Belita_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Belita_aside_1",
+              "effectId": "Belita_aside_1_e02",
+              "valueKind": "魔法攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Belita_aside_1",
+              "effectId": "Belita_aside_1_e03",
+              "valueKind": "会心増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Belita_aside_1",
+              "effectId": "Belita_aside_1_e04",
+              "valueKind": "会心ダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "そなたを裁く",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Belita_aside_2",
+              "effectId": "Belita_aside_2_e01",
+              "valueKind": "自分現在高学年クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "triggerType": "普通攻撃命中時",
+              "triggerSourceId": "普通攻撃",
+              "condition": "普通攻撃命中時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "Belita_aside_2",
+              "effectId": "Belita_aside_2_e02",
+              "valueKind": "自分現在高学年クールタイム減少",
+              "valueClass": "クールタイム",
+              "effectType": "クールタイム",
+              "triggerType": "低学年スキル命中時",
+              "triggerSourceId": "低学年スキル",
+              "condition": "低学年スキル命中時",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 2.0
+            },
+            {
+              "skillId": "Belita_aside_2",
+              "effectId": "Belita_aside_2_e03",
+              "valueKind": "高学年スキル追加使用",
+              "valueClass": "回数",
+              "effectType": "スキル変更",
+              "condition": "高学年スキルを2回使用する",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 1.0
+            }
+          ],
+          "description": "普通攻撃、低学年スキル命中時、現在の高学年スキルのクールタイムが即時減少する。高学年スキルを2回使用する。"
+        },
+        "3": {
+          "name": "ユーリアスの守護者たち",
+          "stats": [
+            {
+              "skillId": "Belita_aside_3_global",
+              "effectId": "Belita_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Belita_aside_3_global",
+              "effectId": "Belita_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ抵抗",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Belita_aside_3_battle",
+              "effectId": "Belita_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/後列",
+              "fixedValue": 13.6
+            },
+            {
+              "skillId": "Belita_aside_3_battle",
+              "effectId": "Belita_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方/後列",
+              "fixedValue": 5.9
+            }
+          ],
+          "description": "後列の味方の敵への与ダメージ量を増加させ、後列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },

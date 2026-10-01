@@ -17,6 +17,7 @@
   });
   const DATA_MENU_ITEMS = Object.freeze([
     Object.freeze({ key: 'apostles', label: '使徒データ', fallback: 'public/apostle-data.html' }),
+    Object.freeze({ key: 'lifeJobs', route: 'life-jobs', label: 'アルバイト', fallback: 'public/life-jobs.html', fallbackFromPublic: 'life-jobs.html' }),
     Object.freeze({ key: 'enemies', label: '敵データ', fallback: 'enemy-status.html' }),
     Object.freeze({ key: 'board', label: 'ボードプレビュー', fallback: 'public/board-layout-preview.html' })
   ]);
@@ -140,11 +141,14 @@
 
   function dataMenuHref(bar, page, item) {
     const dataKey = `sharedTopbar${item.key[0].toUpperCase()}${item.key.slice(1)}Href`;
-    const configured = publicRoute(item.key);
+    const configured = publicRoute(item.route || item.key);
     if (configured) return stripLegacyRecoveryQuery(configured);
     if (bar.dataset[dataKey]) return stripLegacyRecoveryQuery(bar.dataset[dataKey]);
     const routeKey = `sharedTopbar${item.key[0].toUpperCase()}${item.key.slice(1)}Route`;
     if (bar.dataset[routeKey]) return stripLegacyRecoveryQuery(bar.dataset[routeKey]);
+    if (item.fallbackFromPublic && /\/public\/[^/]+$/.test(window.location.pathname)) {
+      return stripLegacyRecoveryQuery(item.fallbackFromPublic);
+    }
     if (page === PAGE_KEYS.data) {
       return stripLegacyRecoveryQuery(item.key === 'data' ? './' : `../${item.fallback}`);
     }

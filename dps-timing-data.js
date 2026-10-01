@@ -39,8 +39,8 @@ const DPS_TIMING_DATA = {
         "途中": 0
       },
       "aside": {
-        "暫定": 8,
-        "未": 59,
+        "暫定": 9,
+        "未": 58,
         "済": 8,
         "途中": 0
       },
@@ -4297,7 +4297,7 @@ const DPS_TIMING_DATA = {
       },
       "implementationStatuses": {
         "normal": "暫定",
-        "aside": "未",
+        "aside": "暫定",
         "favorite": "暫定"
       },
       "implementationNote": ""
@@ -12826,7 +12826,7 @@ const DPS_TIMING_DATA = {
       "name": "エピカ",
       "statuses": {
         "normal": "暫定",
-        "aside": "未",
+        "aside": "暫定",
         "favorite": "暫定"
       },
       "note": "",

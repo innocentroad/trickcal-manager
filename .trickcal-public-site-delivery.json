@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "c33c9bbcb783238c",
-  "sourceCommit": "7c35dd59d6fe568b3a6cba7279680da6144d47db",
+  "candidateId": "133b277386a95908",
+  "sourceCommit": "6b9f61f110d48d5d5e5fcf25f33b354465d6307d",
   "profile": "legacy",
-  "contentDigest": "6d4a5a77a268190724eb7c0d5a6259d36ab20215b1319c3cafe1b3911cf6ac4d",
-  "outputDigest": "42434bbc1baf38a8",
+  "contentDigest": "4533d4edbe27a4a169a478d03af7a8ee877a406b2d480ae118aedd9d3c3f6e9e",
+  "outputDigest": "02d7989ca4f04956",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
       "path": "announcement-history-data.js",
-      "sha256": "7e64503031f8525d9c2e4129127366da4dd2b5f8bc69b3db7bbd7f67abfbfd23"
+      "sha256": "40a28b46b3d75c77930fdf3be1e884f1f7f72b57c21ead36630788c1ecfe8154"
     },
     {
       "path": "announcements-data.js",
@@ -34,7 +34,7 @@
     },
     {
       "path": "apostles.js",
-      "sha256": "ff2fd38fc438260befd3bfd4d48e950a27ad1995e6b39304fde945120590c2c8"
+      "sha256": "2cf62651d4d8a60fd5bddb1ad04bd1d47936027ce5df0ab575d4229207bfa717"
     },
     {
       "path": "app-cache.js",
@@ -70,7 +70,11 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "2d2689e006b61a433a52e6829c1c1d1589951f205a02e5267f3a1c12edde870d"
+      "sha256": "d555af6d39733a48cbbc81860307e912fe211fa7795130e1e8e34e62426c55d5"
+    },
+    {
+      "path": "data/life-jobs/index.html",
+      "sha256": "63589e409631e2ba3d32ce3646e49a074272f69d7cfabfedc54094f73a7c150e"
     },
     {
       "path": "dps-simulator-worker.js",
@@ -82,11 +86,11 @@
     },
     {
       "path": "dps-support-registry.js",
-      "sha256": "e6d68ee87ceaa3b32e31f0236e152296038c3b3f010b61986998f4a858edf093"
+      "sha256": "4e0f5b95fa9abc5aca0ae0e55dab5d027a434e85c5a5590e570d2402083ba2df"
     },
     {
       "path": "dps-timing-data.js",
-      "sha256": "7b684d0cee80266370efdeb1d7bae18755830d9e9b0e322a814a8db6a42533ae"
+      "sha256": "9da441ca752456499fcf777c98047ab2b0f3845a3072b27b9c6d228bccc808e1"
     },
     {
       "path": "dps-trigger-policy.js",
@@ -102,7 +106,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "d2871a30a4e51303be4d1f941a049a1d0068033c1ea35d4fe57dad72d5f14399"
+      "sha256": "f43c6add20c9b22e46dd33e5b145376cba5b4619671ffbe9aa9a897e6c994177"
     },
     {
       "path": "enemy-status.js",
@@ -110,27 +114,27 @@
     },
     {
       "path": "formation-damage-calc.css",
-      "sha256": "a9fe2e924d753b20200850efc8a7a1ae914c7143c12c4cea43b13dafec0b0c28"
+      "sha256": "3b2b8e20f7ab6aebdb5caf6b828314f0badc6ef13e45c0cd5866868d055e2ffe"
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "eb2c43346d47db2d8c96f204ea12ea61051d79ec30e725c7a2cbee83287d7e0c"
+      "sha256": "d2d06700f6b43232edd6b6c53befd15a5c05c6f23367198a1b908ead9647887e"
     },
     {
       "path": "formation-damage-calc.js",
-      "sha256": "353e99158190d072d398c94e7fd354ba5bb7c709716daf03796c867aacb0ef74"
+      "sha256": "04a79525bb01644c2f2d6b0f5e80dcb237cd86692355bf234f840e72f628ae45"
     },
     {
       "path": "formation-damage-dps-prototype.css",
-      "sha256": "4b25de6403a415c8ca15eace7975f7e4faa1a30115c927c6b25ce5a9a3be51a4"
+      "sha256": "386a03525aa1bb976c15ae65cfc96877c251848b2f44820766e9944d6a94b955"
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "021c336ce77245f2924c53042285888baea5b0ee6471bdf7404cd3f03d49b30b"
+      "sha256": "ac86ed00e17d6027f2b169eb488659eb1094d40359c837d7782a4affe9b9b225"
     },
     {
       "path": "formation-damage-dps-prototype.js",
-      "sha256": "d9348daaaf647aba5f8e1f0fd095993608caab09d7273f278552199c8e42bf3f"
+      "sha256": "3624c6127bce6bc5a31af5edb3958d1438844d07d183e69ec5f32e94045b92a0"
     },
     {
       "path": "formation-personality.js",
@@ -170,7 +174,7 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "e7122af9f6f0df4a018243f3818adb9e1575a409a24d55f2bdc8839b3e9866c8"
+      "sha256": "2e61bd79a527b3244e6648415ede0cc90e73d322b1e08d43ddb41ba0c79e6c58"
     },
     {
       "path": "formation-share.js",
@@ -182,7 +186,7 @@
     },
     {
       "path": "image-preload.js",
-      "sha256": "8168473160df96f15e23c13021f193feffbc803be58a746321274a5aa3612321"
+      "sha256": "5a6928ffa6b506ed5e0e84ac52e24c31e027ff526c865807bcecbc26a321e560"
     },
     {
       "path": "img/★1共同教団証.webp",
@@ -865,6 +869,18 @@
       "sha256": "1de79b5e3e1d1ab05c6a47313281e83cc5fc9a0af08ddea43ddff5d08a2aadfa"
     },
     {
+      "path": "img/Chara/Aside/Aside_Skill_Belita_1.webp",
+      "sha256": "d6ac7a24353a7a756865562cf3c83ade352341ed3c543b0da4cbdbd3f348a706"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Belita_2.webp",
+      "sha256": "02f3a5c91f7be1a8590191cfdd98162583e9662eecadb3b0bcf1ebea1c038322"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Belita_3.webp",
+      "sha256": "d11d95dcc03d6843e6b5898114e3e3b6c83c65ee9398eaf99918146f7726a07c"
+    },
+    {
       "path": "img/Chara/Aside/Aside_Skill_Blanchet_1.webp",
       "sha256": "d147f0a5d86996b14235f0d4bea3e9cc43de2bdce54a55af24f506f2a6a32025"
     },
@@ -935,6 +951,18 @@
     {
       "path": "img/Chara/Aside/Aside_Skill_Ed_3.webp",
       "sha256": "09fdd31091b25dbea2f12e770a808232c8c17fe434963192399abc6ec2c0fc45"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Epica_1.webp",
+      "sha256": "3ed4b3b82c8a3d2e3e6ca832a8614451c6fb1373a5fbc704767dd7080b4dc629"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Epica_2.webp",
+      "sha256": "5c729698a32dc1d4a91451a490c50fe25c34862864bfee81a86a0b77f00137b5"
+    },
+    {
+      "path": "img/Chara/Aside/Aside_Skill_Epica_3.webp",
+      "sha256": "55ac3e9d95329b5c82de87a17514822a9d8ce17686c18a8ede1a2dcf8132539a"
     },
     {
       "path": "img/Chara/Aside/Aside_Skill_Erpin_1.webp",
@@ -1325,6 +1353,10 @@
       "sha256": "289657c8b60011b026c8e6b5540173a36d227621da045df13340013945606b0e"
     },
     {
+      "path": "img/Chara/Aside/AsideIcon_Belita.webp",
+      "sha256": "b6fef59ca8ced3c8bd57cffe392f25dfecff9822e578d0d50c6e29ba54e051ea"
+    },
+    {
       "path": "img/Chara/Aside/AsideIcon_Blanchet.webp",
       "sha256": "429575af2f4f8463d4d598b74a84fa08112dc4a67fdef112f70c485df529e894"
     },
@@ -1347,6 +1379,10 @@
     {
       "path": "img/Chara/Aside/AsideIcon_Ed.webp",
       "sha256": "f8a444019019d0e03f9cf156dbdc5d5668a556ce1e4eaa16a475562ca1b1cead"
+    },
+    {
+      "path": "img/Chara/Aside/AsideIcon_Epica.webp",
+      "sha256": "63bbd46bbaca7cb4eb171e9fc091b041fc6df70a0b1b255f8cab117bb157b817"
     },
     {
       "path": "img/Chara/Aside/AsideIcon_Erpin.webp",
@@ -4137,24 +4173,68 @@
       "sha256": "616c3b2ecbb3cf7a701e492c4c951884efc7140bc23b85aa1f7cfd13e5c8491e"
     },
     {
+      "path": "img/Materials/15cmの定規.webp",
+      "sha256": "89a27b2a50cd0f0435a01e4b05277b94ecccc86bfcbf34a65ce0b5d1d418797f"
+    },
+    {
+      "path": "img/Materials/3W光沢剤.webp",
+      "sha256": "6259e4b2dbe02cae440af71d5a827f6778a8c97b7dbee3cc496a13af71968df6"
+    },
+    {
       "path": "img/Materials/EGOブロック.png",
       "sha256": "7297184e20b957f7d518fc4b43671539181643322052ad5a02b8fc13aca99021"
+    },
+    {
+      "path": "img/Materials/EGOブロック.webp",
+      "sha256": "e5e13871adb3ac8350cc865fe0813729e55c79cfa56e7fa3080e46329ddbe46d"
     },
     {
       "path": "img/Materials/LED電球.png",
       "sha256": "611a3199534ef09bce8236a4b3ce6a1665ac8ae814ab946d7f8a8b6be655dc88"
     },
     {
+      "path": "img/Materials/LED電球.webp",
+      "sha256": "1d5e79c417d1695b659e7710f9ed0baef61fb2a3acdc2357b8b99f87bcbe8b56"
+    },
+    {
       "path": "img/Materials/MUSIMチップ.png",
       "sha256": "7b5fc091f0f759f137b90699ab086c66506e203057d273a455364856a5096868"
+    },
+    {
+      "path": "img/Materials/MUSIMチップ.webp",
+      "sha256": "cab65d49403aaadc8591dd7e9c4c800993d7b30dbe7c9067129f22b21498ff34"
     },
     {
       "path": "img/Materials/S電子半導体.png",
       "sha256": "e0bdd2fd1b45beab5443ad2f872a0fcd391f4f44d41b19af03eedab2f3240cb5"
     },
     {
+      "path": "img/Materials/S電子半導体.webp",
+      "sha256": "4b99c3dcb250265861d0032d42df25c12fc9560e049b7fba686bfcbe650da780"
+    },
+    {
+      "path": "img/Materials/ウィンクウィンク.webp",
+      "sha256": "f90df82f59ba738fad3620f9a9fd95baaa54f8ebdede5c2c0922248f10b0f67d"
+    },
+    {
+      "path": "img/Materials/エリーフ.webp",
+      "sha256": "f26bbadaff26b7751bb3551a1e7942539ca9285b62acb1225d1bd06f608218c5"
+    },
+    {
+      "path": "img/Materials/カエデの樹液.webp",
+      "sha256": "72a89c3196fef72df2c7e2b6397955dfeed13dd129519fef0e34257a659775ec"
+    },
+    {
       "path": "img/Materials/キャラのハンコ.png",
       "sha256": "886dec17e6fd682380c9dbeafa536dc021c7eb87c8ec47d2582d9e63ed76dddc"
+    },
+    {
+      "path": "img/Materials/キャラのハンコ.webp",
+      "sha256": "fd13458f8692263caa1aa56684991a09f875aac4c99cbe6435e48b1f60d6f26f"
+    },
+    {
+      "path": "img/Materials/キラキラのガラス.webp",
+      "sha256": "805d0f8a84e9d28d57da39ed994556b048fbac6e5bb1ee4409502972b784cd6b"
     },
     {
       "path": "img/Materials/ゴールド.webp",
@@ -4165,88 +4245,360 @@
       "sha256": "d27ea6664d859ee115b1b49f8cf9875d7d6551ed64bb9ab9161206847bf9affd"
     },
     {
+      "path": "img/Materials/こねこね粘土.webp",
+      "sha256": "c24b71e105da34e647a2b22939fa435ae79919bf77c268bf479535318cbf52ef"
+    },
+    {
+      "path": "img/Materials/コミッション使用権.webp",
+      "sha256": "c396da167b27d37b0378c6e1bf5712eda90b86138ebf9839252fbca1a55cce68"
+    },
+    {
+      "path": "img/Materials/ごわごわの布切れ.webp",
+      "sha256": "a9602cbc930d01cfbf9a519db5850147bb09ba8f091512a089262c56bb7c8dc2"
+    },
+    {
       "path": "img/Materials/サラサラの鉄粉.png",
       "sha256": "4e9c031b43578f3e9ec7d68f4af02853404e5dbbe916e8fb234fed8b740c4e78"
+    },
+    {
+      "path": "img/Materials/サラサラの鉄粉.webp",
+      "sha256": "99e2be3fe2ab43f7f011a569fad8c9f0ecfb838b123d4353d47afb2019874c7d"
+    },
+    {
+      "path": "img/Materials/スプリンクル.webp",
+      "sha256": "9da48f563a07058042ab3f8cd64038d974ca20bf8e1e0ea062a3c0bbbd10aa50"
+    },
+    {
+      "path": "img/Materials/ゼラチン.webp",
+      "sha256": "fa78d4155697273e07c55ba6bcc6d01728e4d8eaadef0c2016441036c466dc49"
+    },
+    {
+      "path": "img/Materials/チーズ.webp",
+      "sha256": "81196748312a7caf806b07eeedaeb666d3181c8cd19c968c7710e36fd61338c8"
+    },
+    {
+      "path": "img/Materials/チョコ.webp",
+      "sha256": "d9e4854244bdf6697763ef4f8052beddb7d46c265d48587f3d86cd651e14e095"
     },
     {
       "path": "img/Materials/つんつんゼンマイ.png",
       "sha256": "087c5b393bfb1eeb6bc88cf8219aa72b98a6d93631002b0a91b516111bc1af0e"
     },
     {
+      "path": "img/Materials/つんつんゼンマイ.webp",
+      "sha256": "1d70da7acb1a51945efd038895ebae2693eaf4b83e81e31f0e9481df543c9c5b"
+    },
+    {
+      "path": "img/Materials/ナッツ盛り合わせ.webp",
+      "sha256": "819559d37824b4f1dcd2b5a0c1eedc6c2012936124adf350a518af17ef8ba6ef"
+    },
+    {
+      "path": "img/Materials/ネオンサイン.webp",
+      "sha256": "b5a80e154397373bd960e4abe288b740bf324ff70ac45a00c7c755e533975827"
+    },
+    {
       "path": "img/Materials/バッテリーパック.png",
       "sha256": "88fb71337540a3d9cd81734d41c5dbd2b98e9ee700295db7ad30e5aaaa57ad6c"
+    },
+    {
+      "path": "img/Materials/バッテリーパック.webp",
+      "sha256": "756fc6a06cc1505beffba902f8ecb939d602e27aba48075b6195f4bc49d67c58"
     },
     {
       "path": "img/Materials/バラバラの基板.png",
       "sha256": "3ab394d5173df8590d0f13935962e8b7a9c70fbb913bf9942c12c7abeb75b28e"
     },
     {
+      "path": "img/Materials/バラバラの基盤.webp",
+      "sha256": "85a42841f093454f0d7a17ad570bbedb728d144e8438a82bb2503381563a9ce8"
+    },
+    {
       "path": "img/Materials/パリパリの金箔.png",
       "sha256": "fd9db9b4b588d964a9e710d21aae43775030e2cb4ac95fc70cd7e15358aa1ef2"
+    },
+    {
+      "path": "img/Materials/パリパリの金箔.webp",
+      "sha256": "b0d88ae8c605d08248fa1ddb2ba3c2de5987f1249ab0db5a33f18c42a8424c5b"
+    },
+    {
+      "path": "img/Materials/ひらひらレース.webp",
+      "sha256": "4506d3ebe9af0651d28758d09d1d114e7390155a8fe6bddcd04a7a3c5dad3785"
+    },
+    {
+      "path": "img/Materials/ふわふわ綿.webp",
+      "sha256": "fae4d73dca5297b68a3dfac0191f044d9a5e816b17415268e7b064d9c84dc420"
+    },
+    {
+      "path": "img/Materials/ポイント装飾.webp",
+      "sha256": "357d0a3388c533d40e016875bc64d65e3d7cc1d97055ea608bbf83fc5a7b7c8a"
+    },
+    {
+      "path": "img/Materials/まるまるボタン.webp",
+      "sha256": "cd77254fd00e02e1fb9b8f43009191cf75aea559e961a671221309b7ed3615d8"
+    },
+    {
+      "path": "img/Materials/メープルシロップ.webp",
+      "sha256": "a3d00d0355af81abaecf8c936dc2f3b896130b2ffd66e01c1d94ae7dc894fcae"
+    },
+    {
+      "path": "img/Materials/メジャー.webp",
+      "sha256": "dcab1b121cf5e48cbe58a875e623be5befc1f495e635065583ad7a20d1b49b66"
+    },
+    {
+      "path": "img/Materials/モカ綿.webp",
+      "sha256": "77a8dd61544700406b8cdfdb5fa7e8c17bb6f86e5184930cd2e017865656a62e"
+    },
+    {
+      "path": "img/Materials/ヤクレト.webp",
+      "sha256": "454cb21dd8ff11d93cca77bfdc8b6aeee1b2d240e887c0acc07a265bd4fbef57"
     },
     {
       "path": "img/Materials/やわらか粘土.png",
       "sha256": "05dc6a20412c3b4639d27d346b2193f99937e6931c9250dd531e6667ed1c9f07"
     },
     {
+      "path": "img/Materials/やわらか粘土.webp",
+      "sha256": "618e3cdaa9eb39c138c451d2490deea2ccf14850bb41ff1e7a03a4b8a91f3301"
+    },
+    {
+      "path": "img/Materials/やわらか布.webp",
+      "sha256": "b39cd34e79f3a594c56c93eb3364ea0fd1cd5c3e58894ea7f24127d38a356613"
+    },
+    {
+      "path": "img/Materials/よくできました.webp",
+      "sha256": "b598035872158d9f46a6856fc1f0574d1d52f7fb9df36f27aafaf69e54035d61"
+    },
+    {
+      "path": "img/Materials/レザーウッドの葉.webp",
+      "sha256": "b83abfd31c91f3ebd7ec935dd5b944175e9b263a17896bd84cf10afa5de2078b"
+    },
+    {
+      "path": "img/Materials/安全な釘.webp",
+      "sha256": "f69a92a1cbdda8ee29edf3a319f8f8a2be8183253c8a4288bcbfceae9cf35da6"
+    },
+    {
       "path": "img/Materials/加工しやすい木.png",
       "sha256": "161dc6ebe9df881cfe70111fe0c39ab0cb6b0fe620538c59084d0135f004b439"
+    },
+    {
+      "path": "img/Materials/加工しやすい木.webp",
+      "sha256": "931d7ac54a2abed6a9e10dbce6a1a65e3ecf47ef46bb9e77d01eb1c1c53cd279"
+    },
+    {
+      "path": "img/Materials/果物.webp",
+      "sha256": "5e6a0dc18e12de0e4406c8bb4a8d234921f1f2847e0920fafc20ab94b74d6360"
     },
     {
       "path": "img/Materials/感性コア.png",
       "sha256": "8baf3e617918267184c088b8dc4a679f68af0aa8e14c9ac14445774d16f8b1e3"
     },
     {
+      "path": "img/Materials/感性コア.webp",
+      "sha256": "3d258873045957313341fa7cd0f621466a888b72c84c31aebb53514fc92eb4cf"
+    },
+    {
+      "path": "img/Materials/牛肉.webp",
+      "sha256": "9b4abd7ca587baf7abefc50e585adba58f958d2cc3ca33620938e700cdb5795f"
+    },
+    {
+      "path": "img/Materials/牛乳.webp",
+      "sha256": "6fc230d6eb95d34560230884fee8836edd985db995a94ec27049704d016c65e0"
+    },
+    {
+      "path": "img/Materials/魚.webp",
+      "sha256": "a49ad5b356a8dd51fcd49cc110982b6200e77c0e5017f8bb5f3cbbd7632a9843"
+    },
+    {
       "path": "img/Materials/曲がったもの.png",
       "sha256": "6602d86a2c2524e34434d4b566b3b422489a23ea4b25d7c992abe1ed8ffa1ecd"
+    },
+    {
+      "path": "img/Materials/曲がったもの.webp",
+      "sha256": "691d28d13d78764cb25fa36475dcf31f40537002233b38df76c86381254e66a3"
     },
     {
       "path": "img/Materials/曲がった針金.png",
       "sha256": "87b782f8cdc4f2fb8aa1e96ee51bec0b95f0f50df5948662bde0201b06498ea0"
     },
     {
+      "path": "img/Materials/曲がった針金.webp",
+      "sha256": "6812bfcc8db2f3808c973b565959c25e6b0858e4b716758d6389ce296605266f"
+    },
+    {
       "path": "img/Materials/金の匙.png",
       "sha256": "2f7886eee5c53b1e3fa77cbbf3e2d24aefdccaed273e66898e7acc4f33864b13"
+    },
+    {
+      "path": "img/Materials/金の匙.webp",
+      "sha256": "61bdf35df025d4c4fc11fc36133a4f4df28cd966f6936947f0b33e210c89ab92"
+    },
+    {
+      "path": "img/Materials/鶏肉.webp",
+      "sha256": "7796d27ad06523a1f372f12ebb804d85ee7daf04b3699ab02f2fd1689dbc43c5"
     },
     {
       "path": "img/Materials/固い石.png",
       "sha256": "c6f042924044f97d66d7f9c1638f08d2ef0ce5be06ec824b25fd3a1b77e89ff7"
     },
     {
+      "path": "img/Materials/固い石.webp",
+      "sha256": "5a92f6cf740829b56b6270afda8aea1653454cacc034c39b7e693c8821465178"
+    },
+    {
+      "path": "img/Materials/光沢紙.webp",
+      "sha256": "87c19f02e298674ef2b205974c5de9e35cea3fd84273393d9514bc39e34908e4"
+    },
+    {
+      "path": "img/Materials/高画質イラスト.webp",
+      "sha256": "cded93931cfcd7cad9087ca713029f7379990d6c406bcb2a6bb2b6351642f20b"
+    },
+    {
+      "path": "img/Materials/黒くて硬い実.webp",
+      "sha256": "be7acc85d48c6a56c0b813b5f02144ae3f7fa0cdb6ae03085f0723b02a643746"
+    },
+    {
+      "path": "img/Materials/砂糖.webp",
+      "sha256": "dd96722b0c6279ef589eea2cfd12fe246acaf818900e228dd3d40751d362014c"
+    },
+    {
       "path": "img/Materials/再生プラスチック.png",
       "sha256": "bc441af06df7c725b8112ae0c8794a8b2c86d40b706e1cc11d84efde7bdf0c4d"
+    },
+    {
+      "path": "img/Materials/再生プラスチック.webp",
+      "sha256": "6edc93274031d79a864298afbc9c9391935fb58744b14bb7e9ee5271aca03583"
+    },
+    {
+      "path": "img/Materials/雑穀.webp",
+      "sha256": "2d65f755601ab8cafab2b8bdf54877157d4e19a78d0bbf02a61ebcd4abca8930"
+    },
+    {
+      "path": "img/Materials/湿っぽい紙の原材.webp",
+      "sha256": "8486b0704b1da11caa11e3f6bdcab502b91af4f96d3a67326c86d044ccc5c00b"
     },
     {
       "path": "img/Materials/手形.png",
       "sha256": "8453674fa5ce2c4091ca0e2d2c7d88f217342de9df7d54141d215d71de6e25fd"
     },
     {
+      "path": "img/Materials/手形.webp",
+      "sha256": "0dbef2f0873a4d6bd67519f7ce02e22b62bd915770db4adb0a434cda6cea2f57"
+    },
+    {
       "path": "img/Materials/柔らか金属.png",
       "sha256": "be7f18b03bdcb2d73fcd785a41d220b37a18e38f067ddc94c41685fd53529ce0"
+    },
+    {
+      "path": "img/Materials/柔らか金属.webp",
+      "sha256": "3ec2c5c9969fd86c6bb0a834de9d9147dbf80990bec06463848127855afb4985"
+    },
+    {
+      "path": "img/Materials/小麦粉.webp",
+      "sha256": "7049d6a6fbba67f665e4c023e7e15c9aa9070078bec1c2072100dc846cffcf13"
     },
     {
       "path": "img/Materials/睡眠アイマスク.png",
       "sha256": "40b94c99c3d3dbcb249be929f7afad053bf87c25c5e8590f910211254dc40431"
     },
     {
+      "path": "img/Materials/睡眠アイマスク.webp",
+      "sha256": "44f0ebb08d1fef27af9a242f04918ebd4b6bca3f8a7510db871421f500110afa"
+    },
+    {
       "path": "img/Materials/尖った針.png",
       "sha256": "33328aa3eff8ab640efad9fd0c8db17cedffa3b79c6bf86fd8100b18161c7941"
+    },
+    {
+      "path": "img/Materials/尖った針.webp",
+      "sha256": "fc29da9b20c75ddb28e09ad8798c5a0b0dafc68247dc02e7620fe07d8a3e6a95"
     },
     {
       "path": "img/Materials/尖った釘.png",
       "sha256": "7d12fa0dd68824347e000769976d06e9a31a7972d8e3269709a28c50f8182a4d"
     },
     {
+      "path": "img/Materials/尖った釘.webp",
+      "sha256": "7417a934685eb77d7a6715904b5a2ed72f7edfa88239e52816abdb5e6677ec48"
+    },
+    {
+      "path": "img/Materials/弾性バネ.webp",
+      "sha256": "74033373bcd52a6cd52b028f807ded7596a49e335786ae5968880a94a91e2704"
+    },
+    {
       "path": "img/Materials/地球から来た鉛.png",
       "sha256": "37d6f26a0f1eb432f1b856a676e951faadf93becbf0f331a3726a0ac020ba3d8"
+    },
+    {
+      "path": "img/Materials/地球から来た鉛.webp",
+      "sha256": "ef8c07a397f4d8d09954824e0a701269146c7c11f1aa9d919820865e9c5a0a94"
+    },
+    {
+      "path": "img/Materials/致命的なレース.webp",
+      "sha256": "41e740584e016d5e76d6ecd18a8d0f95551b6aafdc4bb43d1239ff8641a56684"
     },
     {
       "path": "img/Materials/徹夜アイマスク.png",
       "sha256": "0b4bd6d29a5fad5f3c2d307534b93bf7c629abf282ddfe225a1ec29e52917e98"
     },
     {
+      "path": "img/Materials/徹夜アイマスク.webp",
+      "sha256": "cc437e4d9c84fcdcaa2e58039a442ee1d37b0d2c5e57a5cf31085270af1e4295"
+    },
+    {
       "path": "img/Materials/銅の匙.png",
       "sha256": "3fc34e3164d3698c3c00bbc9232682466c1686fabd8dc4933e3c83ede0a9a779"
+    },
+    {
+      "path": "img/Materials/銅の匙.webp",
+      "sha256": "a9206d94d5d7974d5cf3114c2d099ec802f72a51f7c2a08897b6de20d0cacbb8"
+    },
+    {
+      "path": "img/Materials/虹のキノコ.webp",
+      "sha256": "fe43c1603d7b1724a5d21c691dcb39ae6ecc4fcc2ef07bf584e40119b676de88"
+    },
+    {
+      "path": "img/Materials/虹の花の汁.webp",
+      "sha256": "aa2089f8c3d7d75ce58644c53b791ee6b9e38c629247ac09cb845d2b4341da62"
+    },
+    {
+      "path": "img/Materials/米.webp",
+      "sha256": "a45a88f06c10cac7d0130c6af911de7968decaf0a425a902ee35f75eb04830f8"
+    },
+    {
+      "path": "img/Materials/宝石のボタン.webp",
+      "sha256": "303214a8cf9187f1178ebf9a5ed8bdc375a0df7ed06807099ecb19c87e72f6a2"
+    },
+    {
+      "path": "img/Materials/宝石の欠片.webp",
+      "sha256": "5466c3dcc6c7cb4b93971a96742fa6948dac0348bcb3c4f2aa5d2b29fc3261d8"
+    },
+    {
+      "path": "img/Materials/本物の証.webp",
+      "sha256": "d728d8ae99833910211d04c9943d65105fd9342520e0c8055b3e59b626426a09"
+    },
+    {
+      "path": "img/Materials/万能スパイス.webp",
+      "sha256": "ed225f58612804e482b33f8fdf0dba0c4aa677a7a8e2e9708dc60e7284614ec4"
+    },
+    {
+      "path": "img/Materials/蜜.webp",
+      "sha256": "2c6b0176245e9b306f34731e8adbe4423fe2997b59b89375fda00e58f6cd9dc5"
+    },
+    {
+      "path": "img/Materials/名人の設計図.webp",
+      "sha256": "f361da97b8150a13c7cf207a725fb928ed3104112e6988a4dd6b2a8d89177d74"
+    },
+    {
+      "path": "img/Materials/木の葉.webp",
+      "sha256": "7f1e7a8d1b590136ec39f212b1a49ed9a47911bcdbdde4767b8c3dab99405df2"
+    },
+    {
+      "path": "img/Materials/野菜.webp",
+      "sha256": "618207e4dbbddfde8b302e185fe477e88fe10d00ccc05695886e01c87cfce548"
+    },
+    {
+      "path": "img/Materials/卵.webp",
+      "sha256": "f245a455ac2054cf5c250962e50ceac2b0814ac17f612d42c0b438e4448f1045"
     },
     {
       "path": "img/NetworkIcon_Elena.png",
@@ -4357,24 +4709,12 @@
       "sha256": "58c59a85aaef85fac1caf46ab288b1738162c15b6542b362a5c090f151d9540b"
     },
     {
-      "path": "img/Slot/ItemSlot_Empty.png",
-      "sha256": "a70d580561e4abce6babeb7078ddb788aea6ae8a25faa9e640c322e737c0dde9"
-    },
-    {
       "path": "img/Slot/ItemSlot_First.png",
       "sha256": "13e4df04b892c06c0e6b340552ef3a244eeddb6ff9e7678a4f5e5dccdd9ffbd3"
     },
     {
       "path": "img/Slot/ItemSlot_Gold.png",
       "sha256": "6029775650fb793c1ed646a3026710d129953bbcc11e626c3fb081899d265703"
-    },
-    {
-      "path": "img/Slot/ItemSlot_Gray.png",
-      "sha256": "6e9db800f85c032053d8e642e27cbdfcdfb88875ed0a062639fe12adf2c95abb"
-    },
-    {
-      "path": "img/Slot/ItemSlot_Green.png",
-      "sha256": "796b52bfae9965a43121e8f4d2f49b23801056de55221911639f2b2d1440713c"
     },
     {
       "path": "img/Slot/ItemSlot_LightGreen.png",
@@ -4409,12 +4749,24 @@
       "sha256": "554dff3261652852b5df51f793cf97868b71454b98a9e5d1463ce82f4f9efd36"
     },
     {
-      "path": "img/Slot/ItemSlot_White.png",
-      "sha256": "edf0ab68904c1b160df574987b3221cb04e72f3094840ba2ef1c7eb68e76a46a"
-    },
-    {
       "path": "img/Slot/ItemSlot_Yellow.png",
       "sha256": "3dad86987ead7e03519ba9999c0d81c92fad842a2b0f915fa8027259d7357a9f"
+    },
+    {
+      "path": "img/Slot/ItemSlotC_Empty.png",
+      "sha256": "a70d580561e4abce6babeb7078ddb788aea6ae8a25faa9e640c322e737c0dde9"
+    },
+    {
+      "path": "img/Slot/ItemSlotC_Gray.png",
+      "sha256": "6e9db800f85c032053d8e642e27cbdfcdfb88875ed0a062639fe12adf2c95abb"
+    },
+    {
+      "path": "img/Slot/ItemSlotC_Green.png",
+      "sha256": "796b52bfae9965a43121e8f4d2f49b23801056de55221911639f2b2d1440713c"
+    },
+    {
+      "path": "img/Slot/ItemSlotC_White.png",
+      "sha256": "edf0ab68904c1b160df574987b3221cb04e72f3094840ba2ef1c7eb68e76a46a"
     },
     {
       "path": "img/Slot/ItemSlotLock.png",
@@ -4461,16 +4813,20 @@
       "sha256": "102096eeeb4595367e83c0ab5a8f5e451a62397d5fe59a2510c6fccd3ce241da"
     },
     {
-      "path": "img/Tab_Level.png",
-      "sha256": "74c0f4d022fe7035edbfd33a650e3f8f417ea025a00bc1313b8a2df4b0f14fb8"
+      "path": "img/Tab_Level.webp",
+      "sha256": "6156acf2104ff2f1573cfa0cc70dd43e14b0440e2f5854dbc012abc0287d059c"
     },
     {
-      "path": "img/Tab_Save.png",
-      "sha256": "364e8a881d285e3e1369c2ae9ea2157f455602d6faaee3e137dd6bcec120c7e2"
+      "path": "img/Tab_Save.webp",
+      "sha256": "8bbe9f3c3edd0ed3966c75715462d6edb6978339b2c9fd4afd5d5c9948b60a10"
     },
     {
       "path": "img/Tab_Skill.webp",
       "sha256": "54e07a3837c049e983c5c4f604447d466c81d3464410696b18fb3e5d57ee0ecc"
+    },
+    {
+      "path": "img/Tab_Use.webp",
+      "sha256": "6b88aee451023816605427cd1b63beb21b930898833c8320abee26926cb21b5a"
     },
     {
       "path": "img/エリーフ.webp",
@@ -4710,11 +5066,11 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "507cc0ddce4e3ee813151686d921d7c4fcb9822c663328bbee1cb767fdee8439"
+      "sha256": "6a70beb7cb891d2940c78fdd305e9d0be2e70215199267d1af41838b01176dd1"
     },
     {
       "path": "public-site-runtime.js",
-      "sha256": "74c3e8ecf00fd3281ca3bd17888bc209ea08629bc48ace724ca845a2d0cb89f9"
+      "sha256": "551b2cadb77d752bfa00d7275c0a5a852197544e7727843bc4445c596e1fc9aa"
     },
     {
       "path": "public/apostle-data.css",
@@ -4722,7 +5078,7 @@
     },
     {
       "path": "public/apostle-data.html",
-      "sha256": "4cc4d29d77e403d79d9182b125300da5581865be550ed7f4115d9f0e308f7629"
+      "sha256": "255d8f5a3bc86f6143578d269ccca8dccbc5e171eef102beb6e3cac6bf7ee75c"
     },
     {
       "path": "public/apostle-data.js",
@@ -4734,11 +5090,23 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "11c825910c805f9ca80284399aed93871bac20c450a38a6aefa4559f10fde4e6"
+      "sha256": "2e809bde75f78e51507c211916b3d24700213d77bbd3337e526afb89821642b8"
     },
     {
       "path": "public/board-layout-preview.js",
       "sha256": "a5ea6942adfd3419b67a0bba01f2c3a0dad0e6b3066109f5ba4149d85caab644"
+    },
+    {
+      "path": "public/life-jobs.css",
+      "sha256": "92191dd1db660ee330cef316dcba1de57e6ed37d09b4670ba6b49d799041a37e"
+    },
+    {
+      "path": "public/life-jobs.html",
+      "sha256": "bcca1a85f478db903749181e4905a8bee35a8e3e9e0801dbc51cebdc759c83f4"
+    },
+    {
+      "path": "public/life-jobs.js",
+      "sha256": "ccee260c548f4076d8452be7dab5b351c0470e98eb7e2d44906c6a4a5273f1e5"
     },
     {
       "path": "recovery/index.html",
@@ -4750,7 +5118,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "cd920893f718f227323123b6605519b87536be68acf5261667bd9935b53003b8"
+      "sha256": "d14051af48a42d766b4705008b8d1075dacd4a9b139de45957d675f03b5e14cf"
     },
     {
       "path": "share/index.html",
@@ -4762,7 +5130,7 @@
     },
     {
       "path": "shared-topbar.js",
-      "sha256": "4fa63d0e158d29d01acd712be7ca5b1f7720e510ad4b9d6efa020284c28f1497"
+      "sha256": "431ca1bac6af31aaebcb72d23accfe92514d2d652c4c381d9c871049c738ffa3"
     },
     {
       "path": "sp-engine.js",
@@ -4770,11 +5138,11 @@
     },
     {
       "path": "stat-dashboard.css",
-      "sha256": "75c00cbd0c1023c5eed59062cd6bf4d68900dbd3514c23c9cf8cc2fec8d4bf33"
+      "sha256": "574939f9cba015c6ed2dfcb72528ac8a2cdd0087fc6b7481bde2cee60b55df4b"
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "031a62e6e7b1f80dd1257ea10c49a7a365d1a5a8bce04fc0b6063481427fefd9"
+      "sha256": "d958bf80b727067f85ceb800f227a849e1795c2fd65d8bbbfa48a9764c640b2c"
     },
     {
       "path": "stat-dashboard.js",
@@ -4790,11 +5158,11 @@
     },
     {
       "path": "stat-prototype.js",
-      "sha256": "e6ac23c88310cb5d84fcdca70507e1dc7257166fe8807d0414c4aff9afe6a513"
+      "sha256": "1662f53031fce09df8ab49eb833a1d5bac2e875e10a781a13d21cd5e6815a6ad"
     },
     {
       "path": "statData.js",
-      "sha256": "0a87e679f7fab6db5a02c5c9367ee20543732593fa07fed50c3e99c05aad3436"
+      "sha256": "041b5e435512349351f7d576d406105d22fa07fd6b0949505c8cfeb31ccb17ba"
     },
     {
       "path": "storage-backup.js",
@@ -4806,7 +5174,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "b4d588c2ec94c22ef5b0cd2dc7f7443944bf2eaa1b12db3fc39d9040abd14256"
+      "sha256": "37932d029ea18d15bcc2580ac7bcf500d14282cd85b201e23a8da89091798ab0"
     },
     {
       "path": "storage-registry.js",
@@ -4822,7 +5190,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "00dd4f482cb9281d29565587fefd35d86d81463c85c4263ca54c8bf7b99520c5"
+      "sha256": "1c69658713563cdc944a0a840285da0ce11abd816f35eb04e88d101143125898"
     },
     {
       "path": "storage-transfer.js",

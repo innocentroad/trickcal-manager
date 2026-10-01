@@ -76,6 +76,10 @@
       return unsupported({ id, label, asideRank, favoriteLevels, implementationStatuses: statuses, requiredComponents,
         reason: `${label}の必要な構成はDPS未対応です（${details}）。` });
     }
+    if (id === 'epica' && asideRank >= 2) {
+      return unsupported({ id, label, asideRank, favoriteLevels, implementationStatuses: statuses, requiredComponents,
+        reason: 'エピカA2以上はDPS未対応です（普通攻撃の追加命中と命中時効果、強化攻撃発動率+15%、強化攻撃発動時の高学年CT 3秒減少のタイミングが未モデル化）。' });
+    }
     const provisionalComponents = requiredComponents.filter(component => component.status === '暫定');
     const provisionalLabel = provisionalComponents.map(component => component.label).join('・');
     const statusLabel = requiredComponents.map(component => `${component.label}: ${component.status}`).join(' / ');
