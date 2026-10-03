@@ -39,6 +39,7 @@ DEFAULT_SHEETS = {
     "object_timing": "生成物タイミング",
     "end_conditions": "終了条件",
     "support_status": "対応状況",
+    "summon_actions": "召喚ユニット行動",
 }
 SUPPORT_STATUS_HEADERS = ("id", "使徒名", "通常", "アサイド", "愛用品", "備考")
 IMPLEMENTED_STATUSES = frozenset({"済", "暫定"})
@@ -276,6 +277,8 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
     movement_rows = sheet_rows(workbook, movement_sheet, required=False)
     object_base_rows = sheet_rows(workbook, sheet_names["object_base"], required=False)
     object_timing_rows = sheet_rows(workbook, sheet_names["object_timing"], required=False)
+    summon_sheet = sheet_names.get("summon_actions", DEFAULT_SHEETS["summon_actions"])
+    summon_rows = sheet_rows(workbook, summon_sheet, required=False)
     end_condition_sheet = sheet_names.get("end_conditions", DEFAULT_SHEETS["end_conditions"])
     end_condition_rows = sheet_rows(workbook, end_condition_sheet, required=False)
     support_status_sheet = sheet_names.get("support_status", DEFAULT_SHEETS["support_status"])
@@ -462,6 +465,29 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
         })
         movement_transition_count += 1
 
+    summon_actions: dict[str, list[dict]] = defaultdict(list)
+    summon_action_ids: dict[str, str] = {}
+    for row in summon_rows:
+        line = row["__line__"]
+        object_id, action_id = clean(row.get("生成物ID")), clean(row.get("行動ID"))
+        if not object_id or not action_id or action_id in summon_action_ids:
+            raise ValueError(f"{summon_sheet} {line}行: 生成物ID・一意な行動IDが必要です ({action_id})")
+        source = source_time(row.get("モーション値"), row.get("モーション単位"))
+        if clean(row.get("モーション値")) and (
+            source["gameFrames"] is None or source["gameFrames"] <= 0
+        ):
+            raise ValueError(f"{summon_sheet} {line}行: {action_id} のモーション値・単位が不正です")
+        action_type = clean(row.get("行動種別"))
+        if action_type != "通常攻撃":
+            raise ValueError(f"{summon_sheet} {line}行: 未対応の行動種別 {action_type}")
+        summon_action_ids[action_id] = object_id
+        summon_actions[object_id].append({
+            "id": action_id, "name": clean(row.get("行動名")), "actionType": action_type,
+            "motionName": clean(row.get("モーション名")), "motionFrames": source["gameFrames"],
+            "motionSource": source, "researchStatus": clean(row.get("調査状態")),
+            "note": clean(row.get("備考")), "sourceLine": line,
+        })
+
     object_events: dict[str, list[dict]] = defaultdict(list)
     for row in object_timing_rows:
         line = row["__line__"]
@@ -479,6 +505,16 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             warnings.append(f"{sheet_names['object_timing']} {line}行: 生成物IDが空です")
             continue
         timing_source = source_time(row.get("発生値"), row.get("発生単位"))
+        record_purpose = clean(row.get("記録用途")) or "実行"
+        action_id = clean(row.get("行動ID"))
+        if record_purpose not in {"実行", "観測"}:
+            raise ValueError(f"{sheet_names['object_timing']} {line}行: 記録用途が不正です")
+        if action_id and summon_action_ids.get(action_id) != object_id:
+            raise ValueError(f"{sheet_names['object_timing']} {line}行: {object_id} の行動ID {action_id} を解決できません")
+        if action_id and clean(row.get("発生値")) and (
+            timing_source["gameFrames"] is None or timing_source["gameFrames"] < 0
+        ):
+            raise ValueError(f"{sheet_names['object_timing']} {line}行: 行動発生値・単位が不正です")
         if timing_source["value"] is not None and timing_source["gameFrames"] is None and timing_source["unit"]:
             warnings.append(f"{sheet_names['object_timing']} {line}行: 発生値はありますが単位を解決できません")
         repeat_target = optional_bool(row.get("反復対象"))
@@ -499,6 +535,8 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "researchStatus": clean(row.get("発生調査状態")),
             "note": clean(row.get("備考")),
             "sourceLine": line,
+            "actionId": action_id,
+            "recordPurpose": record_purpose,
         })
 
     object_end_conditions: dict[str, list[dict]] = defaultdict(list)
@@ -554,6 +592,31 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             )
         known_object_ids.add(object_id)
         object_base_lines.setdefault(object_id, line)
+        execution_mode = clean(row.get("実行方式")) or "イベント"
+        if execution_mode not in {"イベント", "召喚ユニット"}:
+            raise ValueError(f"{sheet_names['object_base']} {line}行: 実行方式が不正です ({object_id})")
+        if execution_mode == "召喚ユニット" and not summon_actions.get(object_id):
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の召喚ユニット行動がありません")
+        if execution_mode == "イベント" and summon_actions.get(object_id):
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の行動と実行方式が一致しません")
+        attack_speed_base = optional_number(row.get("攻撃速度基礎"))
+        if clean(row.get("攻撃速度基礎")) and (
+            attack_speed_base is None or not math.isfinite(attack_speed_base) or attack_speed_base <= 0
+        ):
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の攻撃速度基礎は正の有限数が必要です")
+        if clean(row.get("攻撃速度参照")) == "生成物自身" and attack_speed_base is None:
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の生成物自身参照には攻撃速度基礎が必要です")
+        motion_name = clean(row.get("攻撃モーション名"))
+        motion_status = clean(row.get("攻撃モーション状態"))
+        motion_value = optional_number(row.get("攻撃モーション値"))
+        if clean(row.get("攻撃モーション値")) and (
+            motion_value is None or not math.isfinite(motion_value) or motion_value < 0
+        ):
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の攻撃モーション値は0以上の有限数が必要です")
+        motion_source = source_time(row.get("攻撃モーション値"), row.get("攻撃モーション単位"))
+        if motion_value is not None and motion_source["gameFrames"] is None:
+            raise ValueError(f"{sheet_names['object_base']} {line}行: {object_id} の攻撃モーション単位を解決できません")
+        has_motion = bool(motion_name or motion_status or clean(row.get("攻撃モーション単位"))) or motion_value is not None
         action_label = clean(row.get("動作名"))
         action_key = ACTION_KEYS.get(action_label)
         if not action_key:
@@ -586,6 +649,7 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
         timing_events = object_events.get(object_id, [])
         if (
             "周期" in timing_mode
+            and execution_mode == "イベント"
             and interval_source["gameFrames"] is not None
             and timing_events
             and not any(event.get("repeatTarget") is True for event in timing_events)
@@ -596,6 +660,8 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             )
         generated = {
             "id": object_id,
+            "executionMode": execution_mode,
+            "summonActions": summon_actions.get(object_id, []),
             "name": clean(row.get("生成物名")),
             "objectType": clean(row.get("生成物種別")),
             "branch": clean(row.get("分岐")),
@@ -618,6 +684,13 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "maxInstances": optional_number(row.get("最大存在数")),
             "statReference": clean(row.get("ステータス参照")),
             "attackSpeedReference": clean(row.get("攻撃速度参照")),
+            **({"attackSpeedBase": attack_speed_base} if attack_speed_base is not None else {}),
+            **({
+                "attackMotionName": motion_name,
+                "attackMotionFrames": motion_source["gameFrames"],
+                "attackMotionSource": motion_source,
+                "attackMotionStatus": motion_status,
+            } if has_motion else {}),
             "attackSpeedScope": clean(
                 row.get("攻撃速度適用範囲") or row.get("速度適用範囲")
             ),
@@ -630,12 +703,40 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "timingEvents": timing_events,
             "sourceLine": line,
         }
+        if execution_mode == "召喚ユニット":
+            issues = []
+            if clean(row.get("攻撃速度参照")) != "生成物自身":
+                issues.append("生成物自身の攻撃速度参照が必要です")
+            for item in generated["summonActions"]:
+                if item["motionFrames"] is None:
+                    issues.append(f"{item['id']}: モーション長が未確定です")
+                hits = [event for event in timing_events if event["actionId"] == item["id"]
+                        and event["recordPurpose"] == "実行" and event["timeOrigin"] == "召喚ユニット行動開始"]
+                if not hits:
+                    issues.append(f"{item['id']}: 行動内イベントがありません")
+                for event in hits:
+                    if event["frame"] is None:
+                        issues.append(f"{item['id']}: 行動内命中時刻が未確定です ({event['sourceLine']}行)")
+                    elif item["motionFrames"] is not None and event["frame"] > item["motionFrames"]:
+                        raise ValueError(f"{sheet_names['object_timing']} {event['sourceLine']}行: 行動内イベントがモーション長を超えています")
+            starts = [event for event in timing_events if event["recordPurpose"] == "実行"
+                      and event["eventType"] == "行動開始"]
+            if not starts:
+                issues.append("初回行動開始がありません")
+            for event in starts:
+                if not event["actionId"] or event["timeOrigin"] != "生成時":
+                    raise ValueError(f"{sheet_names['object_timing']} {event['sourceLine']}行: 行動開始は行動ID・生成時基準が必要です")
+                if event["frame"] is None:
+                    issues.append(f"個体{event['instanceOrder']}: 初回行動開始時刻が未確定です ({event['sourceLine']}行)")
+            generated["executionIssues"] = issues
         action["generatedObjects"].append(generated)
 
     for object_id in sorted(set(object_events) - known_object_ids):
         warnings.append(f"{sheet_names['object_timing']}: 基礎設定がない生成物ID {object_id}")
     for object_id in sorted(set(object_end_conditions) - known_object_ids):
         warnings.append(f"{end_condition_sheet}: 基礎設定がない生成物ID {object_id}")
+    for object_id in sorted(set(summon_actions) - known_object_ids):
+        raise ValueError(f"{summon_sheet}: 基礎設定がない生成物ID {object_id}")
 
     for entry in apostles.values():
         if entry.get("movementTransitions"):
@@ -696,7 +797,7 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
         else:
             usable_apostles[key] = entry
     return {
-        "version": 8,
+        "version": 9,
         "source": {
             "workbook": input_path.name,
             "sheets": sheet_names,
@@ -712,6 +813,7 @@ def build_data(input_path: Path, sheet_names: dict[str, str]) -> dict:
             "apostles": source_apostle_count,
             "usableApostles": len(usable_apostles),
             "generatedObjects": len(known_object_ids),
+            "summonActions": len(summon_action_ids),
             "endConditions": sum(len(items) for items in object_end_conditions.values()),
             "movementTransitions": movement_transition_count,
             "timingPatterns": sum(
@@ -760,6 +862,7 @@ def main() -> None:
     parser.add_argument("--object-timing-sheet", default=DEFAULT_SHEETS["object_timing"])
     parser.add_argument("--end-condition-sheet", default=DEFAULT_SHEETS["end_conditions"])
     parser.add_argument("--support-status-sheet", default=DEFAULT_SHEETS["support_status"])
+    parser.add_argument("--summon-action-sheet", default=DEFAULT_SHEETS["summon_actions"])
     parser.add_argument("--strict", action="store_true", help="警告が1件でもあれば終了コード2にする")
     args = parser.parse_args()
     sheet_names = {
@@ -770,6 +873,7 @@ def main() -> None:
         "object_timing": args.object_timing_sheet,
         "end_conditions": args.end_condition_sheet,
         "support_status": args.support_status_sheet,
+        "summon_actions": args.summon_action_sheet,
     }
     input_path = args.input.resolve()
     if not input_path.exists():

@@ -212,6 +212,8 @@ const context = {
         evaluatedTrials: workerOptions.trials,
         trialSeeds: Array.from({ length: workerOptions.trials }, (_, index) => workerOptions.seed + index)
       }),
+      simulateAsync(config, workerOptions) { return Promise.resolve(this.simulate(config, workerOptions)); },
+      simulateManyAsync(config, workerOptions) { return Promise.resolve(this.simulateMany(config, workerOptions)); },
       createDpsPublicTimeline: simulator.createDpsPublicTimeline
     }
   },
@@ -1066,14 +1068,26 @@ assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSecon
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'supportEstimate', formationHighSkillMode: 'disabled' }), false, '編成行動推定モードが異なる結果は同じ比較軸として扱わない');
 assert.equal(testing.axesMatch({ targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'disabled' }, { targetId: 'chloe', enemy: 'same', durationSeconds: 90, highSkillMode: 'disabled', initialActionDelayFrames: 60, seed: 1, trials: 16, formationTimelineMode: 'off', formationHighSkillMode: 'auto' }), false, '編成高学年設定が異なる結果は同じ比較軸として扱わない');
 
-testing.runSimulationWorker({}, { trials: 256, seed: 1, exactTrials: true }, 'aggregate', null, note => {
-  assert.match(note, /file:\/\/環境のため同期計算（256 seed）/, 'file protocolでも指定統計試行数を同期集計することを通知する');
+let fallbackChecked = false;
+const fallbackCheck = testing.runSimulationWorker({}, { trials: 256, seed: 1, exactTrials: true }, 'aggregate', null, note => {
+  assert.match(note, /file:\/\/環境のため分割計算（256 seed）/, 'file protocolでも指定統計試行数を分割集計することを通知する');
 }).then(result => {
-  assert.equal(result.mode, 'many', 'file protocolではWorkerを作らず同期fallbackで集計する');
+  assert.equal(result.mode, 'many', 'file protocolではWorkerを作らず分割fallbackで集計する');
   assert.equal(result.workerOptions.trials, 256, 'file fallbackでも指定した統計試行数をそのまま実行値として渡す');
   assert.equal(result.workerOptions.exactTrials, true, 'file fallbackでも実行するseed数を収束短縮しない');
   assert.equal(result.trials, 256, 'file fallbackのaggregate試行数は指定値と一致する');
   assert.equal(result.evaluatedTrials, 256, 'file fallbackのaggregate実行試行数は指定値と一致する');
   assert.equal(new Set(result.trialSeeds).size, 256, 'file fallbackでも各trialは異なるseedを使う');
+  fallbackChecked = true;
   console.log('DPS bottom-bar prototype static fixture passed');
-}).catch(error => { throw error; });
+});
+// Async callbacks in the isolated VM need their own microtask queue drained.
+// Do not let Node exit before the fallback assertions have actually executed.
+(async () => {
+  for (let attempt = 0; attempt < 20 && !fallbackChecked; attempt++) {
+    vm.runInContext('', context);
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  await fallbackCheck;
+  assert.ok(fallbackChecked, '分割fallbackの非同期assertionまで完了する');
+})().catch(error => { console.error(error); process.exitCode = 1; });

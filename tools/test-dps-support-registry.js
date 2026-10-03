@@ -46,7 +46,7 @@ const fixtureData = {
 };
 const registry = makeRegistry(fixtureData);
 assert.ok(registry, 'support registry is exported');
-assert.equal(registry.version, 3, 'manual configuration override registry is removed');
+assert.equal(registry.version, 4);
 
 let result = registry.evaluate(snapshot('alpha'));
 assert.equal(result.supported, true, 'normal-only requires normal only');
@@ -88,8 +88,12 @@ assert.match(result.reason, /アサイド: 未.*愛用品: 途中/);
 assert.equal(registry.evaluate(snapshot('epica', { asideRank: 1 })).supported, true,
   'Epica A1 remains governed by the provisional data status');
 result = registry.evaluate(snapshot('epica', { asideRank: 2 }));
-assert.equal(result.supported, false, 'Epica A2 DPS is blocked while its added-hit and proc timing is not modeled');
-assert.match(result.reason, /追加命中.*命中時効果.*発動率\+15%.*高学年CT 3秒/);
+assert.equal(result.supported, true, 'Epica A2 is provisionally supported for a single enemy with high skill off');
+assert.equal(registry.evaluate(snapshot('epica', { asideRank: 2 }), { highSkillMode: 'auto' }).supported, true);
+assert.match(registry.evaluate({ ...snapshot('epica', { asideRank: 2 }),
+  scenario: { battleConditions: { epicaA2EnemyCount: 2 } } }).reason, /敵1体/);
+assert.match(registry.evaluate({ ...snapshot('epica', { asideRank: 2 }),
+  runtimeEffects: { spRecoveryEffects: [{ mode: 'actionHit', triggerActionKeys: ['basicAttack'] }] } }).reason, /外部命中時効果/);
 
 assert.equal(registry.evaluate(snapshot('noStatus')).supported, false, 'status missing remains unsupported');
 assert.match(registry.evaluate(snapshot('noTiming')).reason, /タイミングデータがありません/, 'timing missing remains unsupported');
@@ -102,7 +106,12 @@ vm.runInContext(timingSource, actualContext, { filename: 'dps-timing-data.js' })
 vm.runInContext(source, actualContext, { filename: 'dps-support-registry.js' });
 const actualRegistry = actualContext.window.TRICKCAL_DPS_SUPPORT_REGISTRY;
 const timingData = vm.runInContext('DPS_TIMING_DATA', actualContext);
-assert.equal(timingData.version, 8, 'generated timing schema is v8');
+assert.equal(timingData.version, 9, 'generated timing schema is v9');
+const momoSummon = actualRegistry.evaluate(snapshot('momo'));
+assert.equal(momoSummon.supported, false, 'unknown summon inputs cannot use an owner-profile fallback');
+assert.match(momoSummon.reason, /召喚ユニット.*実装待ち/);
+assert.match(momoSummon.reason, /能力・状態継承.*未接続/);
+assert.doesNotMatch(momoSummon.reason, /未確定|入力待ち/);
 assert.deepEqual(JSON.parse(JSON.stringify(timingData.summary.implementationStatuses)), {
   normal: { '暫定': 15, '未': 47, '済': 13, '途中': 0 },
   aside: { '暫定': 9, '未': 58, '済': 8, '途中': 0 },
@@ -119,7 +128,7 @@ assert.equal(kidianAside.provisional, false, 'Kidian aside is no longer provisio
 assert.equal(actualRegistry.evaluate(snapshot('epica', { asideRank: 1 })).supported, true,
   'actual Epica A1 may use the explicitly provisional skillmotion component');
 const epicaA2 = actualRegistry.evaluate(snapshot('epica', { asideRank: 2 }));
-assert.equal(epicaA2.supported, false, 'actual Epica A2 is blocked independently of the暫定 input status');
-assert.match(epicaA2.reason, /追加命中.*命中時効果.*発動率\+15%.*高学年CT 3秒/);
+assert.equal(epicaA2.supported, true, 'actual Epica A2 is available within the provisional timing boundary');
+assert.equal(epicaA2.provisional, true);
 
 console.log('DPS component support registry tests passed');

@@ -4772,7 +4772,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "普通攻撃対象追加",
               "valueClass": "対象数",
               "effectType": "スキル変更",
-              "condition": "ランダムな敵を目標対象に追加。敵が1体の場合は同じ敵に追加分も命中する。",
+              "condition": "基本攻撃・強化攻撃の発射から追加効果を開始する。対象はランダムに再選択し、敵1体で適格性を維持する場合は同じ敵に命中する。強化の追加弾は範囲攻撃。",
               "effectTarget": "自身",
               "targetSkill": "普通攻撃",
               "fixedValue": 1.0

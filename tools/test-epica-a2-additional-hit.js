@@ -27,7 +27,7 @@ assert.equal(sourceEffect.値の種類, '普通攻撃対象追加');
 assert.equal(sourceEffect.効果タイプ, 'スキル変更');
 assert.equal(sourceEffect.対象スキル, '普通攻撃');
 assert.equal(Number(sourceEffect.固定値), 1);
-assert.match(String(sourceEffect.condition || ''), /敵が1体.*同じ敵.*追加分.*命中/);
+assert.match(String(sourceEffect.condition || ''), /敵(?:が)?1体.*同じ敵.*命中/);
 
 const inputs = {
   atk: { value: '1000' }, crit: { value: '100' }, 'crit-dmg': { value: '100' },
@@ -38,6 +38,7 @@ const inputs = {
   'self-crit-dmg-res-base': { value: '100' }, 'self-hp': { value: '10000' }
 };
 const context = {
+  TRICKCAL_DPS_SIMULATOR: require('../dps-simulator.js'),
   window: { TRICKCAL_STAT_DATA: statContext.window.TRICKCAL_STAT_DATA },
   view: { perspective: 'self', epicaA2EnemyCount: 1, enemySelectedSkillCategory: '' },
   el: { inputs },
@@ -65,6 +66,8 @@ const context = {
   getEnemyPresetBreakDebuffTakenDmgP() { return 0; },
   getEnemyPresetStatusDamageWeaknessOtherP() { return 0; },
   getWeaknessDamageP() { return 0; },
+  getDebuffDamageP() { return 0; },
+  getEnemyPresetFuryTakenDamageP() { return 0; },
   applyEffectSummaryToDamageMods() {},
   resolveEnemyDamageType() { return 'physical'; },
   getActiveHpBonusP() { return 0; },
@@ -99,6 +102,21 @@ function calc(input) { return context.api.calculateDamage(input); }
 context.api.view.perspective = 'self';
 context.api.view.epicaA2EnemyCount = 1;
 const a1 = calc(baseContext(1));
+assert.equal(a1.rounding.calculationMode, 'normal-hit-v1');
+const multiHit = calc({ ...baseContext(1), selectedSkillOption: {
+  value: 300.15, category: '基本攻撃', roundingHitCount: 3, perHitCoefficientP: 100.05, perHitDefinition: true
+} });
+assert.equal(multiHit.normal, 2727, '3 hits are individually truncated, not trunc(2728.636...)');
+assert.equal(multiHit.crit, 5457, 'critical raw input is truncated independently for each hit');
+assert.equal(multiHit.expected, 4092);
+const uncertainTotal = calc({ ...baseContext(1), selectedSkillOption: {
+  value: 300.15, category: '基本攻撃', kind: '総物理ダメージ', key: 'unknown-total'
+} });
+assert.equal(uncertainTotal.rounding.calculationMode, 'legacy-continuous');
+assert.ok(uncertainTotal.rounding.reason);
+assert.equal(calc({ ...baseContext(1), selectedSkillOption: {
+  value: Number.MAX_VALUE, category: '基本攻撃'
+} }).unavailable, 'hit-calculation-unavailable', 'FDC refuses unsafe magnitudes rather than displaying successful zero');
 const a2Single = calc(baseContext(2));
 assert.equal(a1.hitBreakdown, null, 'A1 has no extra hit');
 assert.match(context.api.renderEpicaA2EnemyCountControl(baseContext(2), baseContext(2).selectedSkillOption),
@@ -128,7 +146,11 @@ context.asideEnabled = false;
 assert.equal(calc(baseContext(2)).normal, a1.normal, 'disabled/publicly unavailable aside has no added hit');
 context.asideEnabled = true;
 
-for (const category of ['強化攻撃', '低学年スキル', '高学年スキル']) {
+const enhanced = calc(baseContext(2, '強化攻撃'));
+assert.equal(enhanced.normal, a1.normal * 2, 'enhanced attack also has its own additional impact');
+assert.equal(calc({ ...baseContext(2), excludeNormalCalculationOnlyEffects: true }).normal, a1.normal,
+  'DPS profiles remain one hit; the simulator owns the additional impact');
+for (const category of ['低学年スキル', '高学年スキル']) {
   const unaffected = calc(baseContext(2, category));
   assert.equal(unaffected.hitBreakdown, null, `${category} is outside the confirmed basic-attack scope`);
   assert.equal(unaffected.normal, a1.normal, `${category} is not multiplied`);

@@ -311,14 +311,14 @@
     },
     {
       "entryId": "calc.resultSaves",
-      "successBehavior": "有効な計算snapshotを保存日時順の配列へ追加・更新し、最大50件へ切り詰めて保存する。",
+      "successBehavior": "設定のみのsnapshot v5を追加・更新する。既存v4も読み込む。50件超過は拒否し、無警告の切り詰めはしない。旧保存の軽量化は確認後に一括書込する。",
       "readFailure": "JSON解析例外はwarnして空配列へfallbackする。配列以外は警告なしで空配列、不正itemはfilterで除外する。",
-      "writeFailure": "例外をwarnにして握りつぶし、成功結果を返さない。",
-      "deleteFailure": "削除後の配列全体書込に失敗すると、メモリ上の一覧と永続値が不一致になり得る。",
-      "callerOutcome": "saveCurrentDamageCalculationはwrite後に保存メニューを閉じるため、書込失敗でもUI上は完了に見え得る。",
+        "writeFailure": "例外をwarnにしてfalseを返す。成功時はtrueを返す。",
+      "deleteFailure": "書込失敗を通知し、削除成功として画面を閉じない。永続値は維持する。",
+        "callerOutcome": "保存・取り込みは書込結果を確認し、失敗を通知する。取り込みは新規追加のみで、現在の計算やDPS専用設定は変更しない。",
       "startupWrites": false,
       "accessSites": [
-        { "file": "formation-damage-calc.js", "function": "loadDamageCalculationSaves/writeDamageCalculationSaves", "operations": ["getItem", "setItem"], "keyResolution": "CALC_RESULT_SAVES_KEY定数", "evidence": "formation-damage-calc.js:2176-2199" }
+        { "file": "formation-damage-calc.js", "function": "loadDamageCalculationSaves/writeDamageCalculationSaves/compactDamageCalculationSaves", "operations": ["getItem", "setItem"], "keyResolution": "CALC_RESULT_SAVES_KEY定数", "evidence": "formation-damage-calc.js:2386-2455" }
       ]
     },
     {
@@ -611,8 +611,8 @@
       "readers": ["formation-damage-calc.js"],
       "writers": ["formation-damage-calc.js"],
       "operations": ["read", "write", "delete"],
-      "payload": "id、name、savedAt、snapshotの配列。snapshot version=4で計算結果、view、inputs、referenceState、DPS snapshotを含む。最大50件へ切り詰める。",
-      "writeTriggers": ["計算結果の明示保存／上書き", "計算結果の明示削除"],
+        "payload": "id、name、任意note、savedAt、snapshotの配列。snapshot v5はview、inputs、referenceState（育成内訳を含む）のみ。旧v4を読込可能。計算結果・DPS詳細・DPS専用設定は新規保存しない。最大50件。",
+        "writeTriggers": ["計算設定の明示保存／上書き", "計算設定の明示削除", "計算設定JSONの確認後取り込み", "旧保存の確認後軽量化"],
       "crossTab": "独自の排他・storage event同期は確認できない。",
       "migrationDisposition": "名前付き計算保存としてgateBで完全バックアップ対象かを確定。結果の再計算可否も定義する。",
       "evidence": ["formation-damage-calc.js:6", "formation-damage-calc.js:2176", "formation-damage-calc.js:2194", "formation-damage-calc.js:2433"]

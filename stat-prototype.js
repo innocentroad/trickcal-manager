@@ -8178,8 +8178,8 @@
       && !!basic
       && String(artifact.favoriteCharacter || '') === String(basic.使徒名 || '');
     return `
-      <button type="button" class="formation-artifact-slot ${artifact ? 'is-filled' : ''} ${artifact ? getCardManagerRarityClass(artifact) : ''} ${isFavoriteEquipped ? 'is-favorite-equipped' : ''}" data-formation-artifact-row="${rowIndex}" data-formation-artifact-line="${lineIndex}" data-formation-artifact-slot="${artifactSlot}" title="${escapeAttr(artifact?.name || '遺物を選択')}">
-        <img class="formation-slot-bg" src="${escapeAttr(getFormationArtifactBg(artifact))}" alt="">
+      <button type="button" class="formation-artifact-slot ${artifact ? 'is-filled' : ''} ${artifact ? getCardManagerRarityClass(artifact) : ''}" data-formation-artifact-row="${rowIndex}" data-formation-artifact-line="${lineIndex}" data-formation-artifact-slot="${artifactSlot}" title="${escapeAttr(artifact?.name || '遺物を選択')}">
+        <img class="formation-slot-bg" src="${escapeAttr(isFavoriteEquipped ? 'img/遺物bg_5.png' : getFormationArtifactBg(artifact))}" alt="">
         ${artifact ? `<img class="formation-artifact-img" src="${escapeAttr(getCardManagerImagePath(artifact))}" alt="${escapeAttr(artifact.name)}">` : '<span class="formation-empty-icon">+</span>'}
       </button>
     `;
@@ -13447,6 +13447,27 @@
     }
   }
 
+  // Only omit an exact cache duplicate. Historical or inconsistent fallback
+  // values must remain readable until the normal snapshot migration handles them.
+  function omitDuplicateFinalStats(snapshot) {
+    Object.values(snapshot.apostles || {}).forEach(state => {
+      const stats = state?.statSnapshots?.current?.stats;
+      if (!stats || !state.finalStats) return;
+      if (stableStringify(stats) === stableStringify(state.finalStats)) delete state.finalStats;
+    });
+    return snapshot;
+  }
+
+  function restoreOmittedFinalStats(snapshot) {
+    Object.values(snapshot.apostles || {}).forEach(state => {
+      const stats = state?.statSnapshots?.current?.stats;
+      if (stats && !Object.prototype.hasOwnProperty.call(state, 'finalStats')) {
+        state.finalStats = cloneJson(stats);
+      }
+    });
+    return snapshot;
+  }
+
   function publishLiveState() {
     let previousRevision = 0;
     let raw;
@@ -13466,6 +13487,7 @@
     }
     const revision = previousRevision + 1;
     const snapshot = createStateWorkspaceDraft();
+    omitDuplicateFinalStats(snapshot);
     const liveState = {
       schemaVersion: 2,
       revision,
@@ -13641,6 +13663,7 @@
     const parsed = initialWorkspaceState?.draft && typeof initialWorkspaceState.draft === 'object'
       ? initialWorkspaceState.draft
       : legacy;
+    restoreOmittedFinalStats(parsed);
     const activeStateSlot = normalizeStateSlot(
       initialWorkspaceState?.activeSlot ?? parsed.activeStateSlot ?? legacy.activeStateSlot
     );

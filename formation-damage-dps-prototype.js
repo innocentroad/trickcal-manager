@@ -885,7 +885,7 @@
         };
       }
       const registry = window.TRICKCAL_DPS_SUPPORT_REGISTRY;
-      return registry?.evaluate?.(snapshot) || { supported: false, reason: 'DPS対応リストを読み込めませんでした。' };
+      return registry?.evaluate?.(snapshot, this.getOptions()) || { supported: false, reason: 'DPS対応リストを読み込めませんでした。' };
     }
 
     setRecalculationIndicator({ visible = false, running = false } = {}) {
@@ -1561,6 +1561,7 @@
             recordDamageSeries: true,
             externalEvents: snapshot.externalEvents || [],
             damageProfiles: snapshot.actionDamageProfiles || {},
+            summonCalculationInput: snapshot.summonCalculationInput || null,
             statusDamageProfiles: snapshot.statusDamageProfiles || {}
           };
           const aggregateOptions = {
@@ -1569,6 +1570,7 @@
             recordDamageSeries: false,
             externalEvents: snapshot.externalEvents || [],
             damageProfiles: snapshot.actionDamageProfiles || {},
+            summonCalculationInput: snapshot.summonCalculationInput || null,
             statusDamageProfiles: snapshot.statusDamageProfiles || {}
           };
           const single = await runSimulationWorker(config, singleOptions, 'single', null, noteFallback, cancellation);
@@ -2331,6 +2333,7 @@
   function createDpsInputProjection(snapshot = {}) {
     const scenario = snapshot.scenario || {};
     return {
+      simulatorVersion: Number(window.TRICKCAL_DPS_SIMULATOR?.version) || 0,
       targetId: snapshot.targetId || '',
       skillLevels: snapshot.skillLevels || {},
       damageType: snapshot.damageType || '',
@@ -2341,6 +2344,7 @@
       dpsTimingBranches: snapshot.dpsTimingBranches || {},
       selectedSkillOptions: snapshot.selectedSkillOptions || [],
       actionDamageProfiles: snapshot.actionDamageProfiles || {},
+      summonCalculationInput: snapshot.summonCalculationInput || null,
       additionalDamageComponents: snapshot.additionalDamageComponents || [],
       statusDamageProfiles: snapshot.statusDamageProfiles || {},
       runtimeEffects: snapshot.runtimeEffects || {},
@@ -2963,7 +2967,12 @@
     const effectLabel = String(event.effectValueKind || '').trim();
     const statusReaction = event.statusTakenDmgP ? ` / 状態反応 +${formatNumber(event.statusTakenDmgP)}%` : '';
     const statusDamageWeakness = event.statusDamageP ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%` : '';
-    const hitEvaluation = event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001 ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）` : '';
+    const hitEvaluation = event.damageEvaluation?.calculationMode === 'normal-hit-v1'
+      ? ' / 命中別再計算・二段整数化'
+      : event.damageEvaluation?.calculationMode === 'legacy-continuous'
+        ? ` / 旧互換・丸め未対応（${event.damageEvaluation.roundingReason}）`
+        : event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001
+          ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）` : '';
     const runtimeBuffValue = formatDpsRuntimeBuffModifiers(event.modifiers) || (event.attackPPerStack ? `物理攻撃力 +${formatNumber(event.attackPPerStack)}%` : '補正適用');
     const cooldownDeltaFrames = Math.abs((Number(event.beforeFrames) || 0) - (Number(event.afterFrames) || 0));
     const cooldownChange = event.operation === 'multiply'
@@ -3068,7 +3077,10 @@
     const omitted = omittedCount
       ? `<p class="fdc-dps-empty">記録上限により計${formatNumber(Number(timelineStats.total) || timeline.length + omittedCount)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`
       : '';
-    return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary><div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}${omitted}</div></details>`;
+    const calculation = single.damage?.calculation;
+    const calculationNote = calculation
+      ? `<p class="fdc-dps-empty">命中別二段整数化 ${formatNumber(calculation.roundedEvents)}イベント / 旧互換・丸め未対応 ${formatNumber(calculation.legacyEvents)}イベント${calculation.legacyEvents ? `：${escapeHtml(calculation.legacyReasons.join(' / '))}` : ''}</p>` : '';
+    return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary>${calculationNote}<div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}${omitted}</div></details>`;
   }
   function createDpsDetailComparisonRows(comparison = {}) {
     const rows = [
@@ -3228,11 +3240,11 @@
     const runFallback = reason => {
       const requestedTrials = Math.max(1, Math.floor(Number(options.trials) || 16));
       // file:// でも統計試行数は結果の定義そのもの。Workerが使えない場合も
-      // 指定seed数を省略せず、同期実行として同じ集計結果を返す。
+      // 指定seed数を省略せず、同じ計算内核を分割実行する。
       const executedTrials = mode === 'single' ? 1 : requestedTrials;
       const safeOptions = { ...options, trials: executedTrials, exactTrials: true, adaptiveTrials: false };
       if (mode !== 'single') {
-        onFallback?.(`${reason}のため同期計算（${executedTrials} seed）`);
+        onFallback?.(`${reason}のため分割計算（${executedTrials} seed）`);
       }
       return new Promise((resolve, reject) => {
         let finished = false;
@@ -3243,13 +3255,28 @@
           window.clearTimeout(timer);
           reject(createRunCancelledError());
         });
-        timer = window.setTimeout(() => {
+        timer = window.setTimeout(async () => {
           if (finished) return;
-          finished = true;
-          cleanupCancellation?.();
-          if (cancellation?.cancelled) { reject(createRunCancelledError()); return; }
-        const simulator = window.TRICKCAL_DPS_SIMULATOR;
-          resolve(mode === 'single' ? simulator.simulate(config, safeOptions) : simulator.simulateMany(config, safeOptions));
+          try {
+            if (cancellation?.cancelled) throw createRunCancelledError();
+            const simulator = window.TRICKCAL_DPS_SIMULATOR;
+            const control = { isCancelled: () => !!cancellation?.cancelled };
+            const result = mode === 'single'
+              ? await simulator.simulateAsync(config, safeOptions, control)
+              : await simulator.simulateManyAsync(config, {
+                ...safeOptions,
+                onProgress: progress => { if (!finished && !cancellation?.cancelled) onProgress?.(progress); }
+              }, control);
+            if (!finished) {
+              finished = true;
+              if (cancellation?.cancelled) reject(createRunCancelledError());
+              else resolve(result);
+            }
+          } catch (error) {
+            if (!finished) { finished = true; reject(error); }
+          } finally {
+            cleanupCancellation?.();
+          }
         }, 0);
       });
     };

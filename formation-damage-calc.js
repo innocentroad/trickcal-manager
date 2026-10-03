@@ -13,6 +13,12 @@
   const STAT_SLOT_STORAGE_KEY = 'trickcal_stat_slots_v2';
   const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1';
   const CALC_RESULT_SAVES_KEY = 'trickcal_formation_damage_result_saves_v1';
+  const CALC_SAVE_LIMIT = 50;
+  let damageSaveWriteMessage = '';
+  const DAMAGE_CALCULATION_VERSION = 1;
+  function isCurrentDamageCalculation(source = {}) {
+    return Number(source.damageCalculationVersion) === DAMAGE_CALCULATION_VERSION;
+  }
   const CUSTOM_ENEMY_PRESETS_KEY = 'trickcal_formation_damage_enemy_presets_v1';
   const THEME_KEY = 'trickcal_theme';
   const LEGACY_THEME_KEY = 'trickcal_damage_calc_theme';
@@ -153,6 +159,7 @@
     selfBreakField: document.getElementById('fdc-self-break-field'),
     selfBreakLabel: document.getElementById('fdc-self-break-label'),
     enemyAngerField: document.getElementById('fdc-enemy-anger-field'),
+    enemyFuryField: document.getElementById('fdc-enemy-fury-field'),
     enemyFinalStats: document.getElementById('fdc-enemy-final-stats'),
     enemyFinalStatsHeading: document.getElementById('fdc-enemy-final-stats-heading'),
     enemyIndividualSettings: document.getElementById('fdc-enemy-individual-settings'),
@@ -277,6 +284,7 @@
       enemyPoisonStack: document.getElementById('fdc-enemy-poison-stack'),
       enemyNoise: document.getElementById('fdc-enemy-noise'),
       enemyAngerStack: document.getElementById('fdc-enemy-anger-stack'),
+      enemyFuryPlus: document.getElementById('fdc-enemy-fury-plus'),
       enemyWeaknessP: document.getElementById('fdc-enemy-weakness-p'),
       enemyStatusTakenDamageWeakness: document.getElementById('fdc-enemy-status-taken-damage-weakness'),
       enemyCritRateP: document.getElementById('fdc-enemy-crit-rate-p'),
@@ -488,9 +496,28 @@
     });
     el.saveActionButtons.forEach(button => button.addEventListener('click', () => {
       const action = button.dataset.fdcSaveAction || '';
+      if (action === 'compact') {
+        compactDamageCalculationSaves();
+        return;
+      }
+      if (action === 'import') {
+        document.getElementById('fdc-save-import-file')?.click();
+        return;
+      }
       view.damageSaveAction = view.damageSaveAction === action ? '' : action;
       renderDamageSaveActionPanel();
     }));
+    document.getElementById('fdc-save-import-file')?.addEventListener('change', async event => {
+      const file = event.target.files?.[0];
+      event.target.value = '';
+      if (!file) return;
+      try {
+        if (file.size > 5 * 1024 * 1024) throw new Error('ファイルは5MB以下にしてください。');
+        importDamageCalculationFile(await file.text());
+      } catch (error) {
+        window.alert(`取り込みできませんでした。${error.message}`);
+      }
+    });
     el.result.detailToggle?.addEventListener('click', () => {
       const open = el.result.detailPanel?.hidden !== false;
       setResultDetailOpen(open);
@@ -1625,6 +1652,7 @@
   }
 
   function syncEnemyPresetBuffFields(preset = getSelectedEnemyPreset()) {
+    syncEnemyPresetFuryField(preset);
     const anger = getEnemyPresetAngerConfig(preset);
     const showAnger = !!anger && view.perspective === 'enemy';
     if (el.enemyPresetBuffLabel) el.enemyPresetBuffLabel.hidden = !showAnger;
@@ -1643,6 +1671,39 @@
       })
     ].join('');
     el.inputs.enemyAngerStack.value = String(current);
+  }
+
+  function getEnemyPresetFuryConfig(preset = getSelectedEnemyPreset()) {
+    // v7 EF overkill: 初回20・各5・上限10は条件付きモデル。
+    // 照合済みの麻辣2（stage8）、通常phaseの最終0/5だけに限定する。
+    if (preset?.content?.type !== 'eliasFrontier' || Number(preset.content.stage) !== 8
+      || !Array.isArray(preset.phases) || preset.phases.length !== 6
+      || Number(view.enemyPhaseIndex) !== 5) return null;
+    return { initial: 20, perStack: 5, maxStacks: 10 };
+  }
+
+  function normalizeEnemyFuryPlus(value) {
+    if (value == null || String(value).trim() === '') return -1;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? clamp(Math.floor(number), 0, 10) : -1;
+  }
+
+  function syncEnemyPresetFuryField(preset = getSelectedEnemyPreset()) {
+    const fury = getEnemyPresetFuryConfig(preset);
+    if (el.enemyFuryField) el.enemyFuryField.hidden = !fury || view.perspective === 'enemy';
+    const input = el.inputs.enemyFuryPlus;
+    if (!input) return;
+    const value = normalizeEnemyFuryPlus(input.value);
+    input.innerHTML = ['<option value="-1">なし</option>',
+      ...Array.from({ length: 11 }, (_, index) => `<option value="${index}">＋${index}${index === 10 ? '以上' : ''} / 被ダメージ減少 ${20 + 5 * index}pt</option>`)
+    ].join('');
+    input.value = String(value);
+  }
+
+  function getEnemyPresetFuryTakenDamageP() {
+    const fury = getEnemyPresetFuryConfig();
+    const plus = normalizeEnemyFuryPlus(el.inputs.enemyFuryPlus?.value ?? -1);
+    return fury && plus >= 0 ? fury.initial + fury.perStack * plus : 0;
   }
 
   function getEnemyPresetWeaknessAdd(preset, damageType = '') {
@@ -1810,11 +1871,13 @@
     if (el.selfBuffCategory) el.selfBuffCategory.hidden = !selfIsAttacker && !enemyBreakDebuffConfig;
     const enemyHasRelevantDefenseEffect = enemyWeaknessInfo.hasAny
       || enemyStatusDamageWeaknessInfo.hasAny
-      || enemyStatusTakenDamageWeaknessInfo.hasAny;
+      || enemyStatusTakenDamageWeaknessInfo.hasAny
+      || !!getEnemyPresetFuryConfig();
     if (el.enemyBuffCategory) el.enemyBuffCategory.hidden = !enemyIsAttacker && !enemyHasRelevantDefenseEffect;
     const showAnger = enemyIsAttacker && !!getEnemyPresetAngerConfig();
     if (el.enemyPresetBuffLabel) el.enemyPresetBuffLabel.hidden = !showAnger;
     if (el.enemyAngerField) el.enemyAngerField.hidden = !showAnger;
+    if (el.enemyFuryField) el.enemyFuryField.hidden = enemyIsAttacker || !getEnemyPresetFuryConfig();
   }
 
   function getSelectedEnemyPreset() {
@@ -2334,6 +2397,7 @@
         .map(item => ({
           id: String(item.id),
           name: String(item.name || '無題の計算'),
+          note: typeof item.note === 'string' ? item.note.slice(0, 2000) : '',
           savedAt: Number(item.savedAt) || 0,
           snapshot: item.snapshot
         }))
@@ -2345,19 +2409,65 @@
   }
 
   function writeDamageCalculationSaves(items) {
+    damageSaveWriteMessage = '';
     try {
       const normalized = (Array.isArray(items) ? items : [])
-        .filter(item => item && item.id && item.snapshot)
-        .slice(0, 50);
+        .filter(item => item && item.id && item.snapshot);
+      if (normalized.length > CALC_SAVE_LIMIT) {
+        damageSaveWriteMessage = `保存は${CALC_SAVE_LIMIT}件までです。不要な保存を削除するか、既存の保存に上書きしてください。`;
+        return false;
+      }
       storageLocal.setItem(CALC_RESULT_SAVES_KEY, JSON.stringify(normalized));
+      return true;
     } catch (error) {
       console.warn('Failed to save damage calculation saves', error);
+      damageSaveWriteMessage = error?.result?.code === 'quota' || error?.name === 'QuotaExceededError'
+        ? 'ブラウザの保存容量が不足しています。旧保存を軽量化するか、必要な保存を書き出してから不要な保存を削除してください。'
+        : '保存に失敗しました。既存データは変更していません。';
+      return false;
     }
+  }
+
+  function toSettingsOnlyDamageSnapshot(snapshot = {}) {
+    if (![4, 5].includes(snapshot.version) || !snapshot.view || !snapshot.inputs || !snapshot.referenceState) {
+      throw new Error('この保存形式は軽量化できません。読み込み・再保存してください。');
+    }
+    // Keep the saved growth breakdowns: shared research/board effects cannot
+    // safely be reconstructed from the selected apostle's settings alone.
+    return clonePlain({ version: 5, savedAt: snapshot.savedAt,
+      damageCalculationVersion: snapshot.damageCalculationVersion,
+      statCalculationVersion: snapshot.statCalculationVersion,
+      view: snapshot.view, inputs: snapshot.inputs, referenceState: snapshot.referenceState });
+  }
+
+  function compactDamageCalculationSaves() {
+    const saves = loadDamageCalculationSaves();
+    try {
+      const originalRaw = storageLocal.getItem(CALC_RESULT_SAVES_KEY);
+      const original = JSON.parse(originalRaw || '[]');
+      if (!Array.isArray(original) || original.length !== saves.length) {
+        throw new Error('不正な保存行が含まれるため、まとめて変換できません。');
+      }
+      const compacted = saves.map(item => ({ ...item, snapshot: toSettingsOnlyDamageSnapshot(item.snapshot) }));
+      const before = JSON.stringify(saves).length;
+      const after = JSON.stringify(compacted).length;
+      if (after >= before) { window.alert('軽量化できる旧保存はありません。'); return; }
+      if (!window.confirm(`保存${saves.length}件の計算結果・DPS詳細を除いて軽量化しますか？\n設定・育成内訳・名前・メモは保持します。比較は再計算します。\nデータの文字数：約${before.toLocaleString()} → ${after.toLocaleString()}\n過去の計算結果を残したい場合は、先に書き出してください。`)) return;
+      if (storageLocal.getItem(CALC_RESULT_SAVES_KEY) !== originalRaw) {
+        window.alert('別の画面で保存が更新されました。確認し直してから軽量化してください。'); return;
+      }
+      if (!writeDamageCalculationSaves(compacted)) { window.alert(damageSaveWriteMessage); return; }
+      renderDamageSaveActionPanel();
+      if (view.loadedDamageSaveId) renderLoadedDamageSaveLabel(getDamageSaveById(view.loadedDamageSaveId));
+      window.alert('旧保存を軽量化しました。設定・育成内訳は保持しています。');
+    } catch (error) { window.alert(`軽量化できませんでした。${error.message}`); }
   }
 
   function renderDamageSaveActionPanel() {
     const action = view.damageSaveAction;
     const saves = loadDamageCalculationSaves();
+    const capacity = document.getElementById('fdc-save-capacity');
+    if (capacity) capacity.textContent = `保存 ${saves.length}/${CALC_SAVE_LIMIT}件（ブラウザの容量によっては上限前に保存できない場合があります）`;
     el.saveActionButtons.forEach(button => {
       button.setAttribute('aria-pressed', String(button.dataset.fdcSaveAction === action));
     });
@@ -2374,7 +2484,7 @@
       items.push('<button type="button" class="fdc-save-list-item is-new" data-fdc-save-id=""><strong>新規保存</strong><span>新しい保存データを作成</span></button>');
     }
     saves.forEach(item => {
-      items.push(`<button type="button" class="fdc-save-list-item" data-fdc-save-id="${escapeAttr(item.id)}"><strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${escapeHtml(formatDamageSaveOptionLabel(item, false))}</span></button>`);
+      items.push(`<button type="button" class="fdc-save-list-item" data-fdc-save-id="${escapeAttr(item.id)}"><strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${escapeHtml(formatDamageSaveOptionLabel(item, false))}</span>${item.note ? `<span>${escapeHtml(item.note)}</span>` : ''}</button>`);
     });
     if (!items.length) {
       el.saveList.innerHTML = '<p class="fdc-save-list-empty">保存データはありません</p>';
@@ -2391,6 +2501,71 @@
     if (action === 'load') loadSelectedDamageCalculation(id);
     if (action === 'compare') compareSelectedDamageCalculation(id);
     if (action === 'delete') deleteSelectedDamageCalculation(id);
+    if (action === 'export') exportDamageCalculationFile(id);
+  }
+
+  function parseDamageCalculationFile(text) {
+    if (typeof text !== 'string' || text.length > 5 * 1024 * 1024) throw new Error('ファイルが大きすぎます。');
+    const data = JSON.parse(text.replace(/^\uFEFF/, ''), (key, value) => {
+      if (['__proto__', 'prototype', 'constructor'].includes(key)) throw new Error('不正なキーが含まれています。');
+      return value;
+    });
+    const isObject = value => !!value && typeof value === 'object' && !Array.isArray(value);
+    if (data?.format !== 'trickcal-damage-calculation' || data.version !== 1 || !isObject(data.calculation)) {
+      throw new Error('計算設定の書き出しファイルではありません。');
+    }
+    const item = data.calculation;
+    const snapshot = item.snapshot;
+    if (typeof item.name !== 'string' || !item.name.trim() || item.name.length > 200
+      || (item.note !== undefined && (typeof item.note !== 'string' || item.note.length > 2000))
+      || !isObject(snapshot) || ![4, 5].includes(snapshot.version)
+      || !isObject(snapshot.view) || typeof snapshot.view.targetId !== 'string'
+      || !isObject(snapshot.inputs) || !isObject(snapshot.referenceState)
+      || !isObject(snapshot.referenceState.apostles) || !isObject(snapshot.referenceState.cards)
+      || !isObject(snapshot.referenceState.formation)
+      || !isObject(snapshot.referenceState.research)
+      || !Array.isArray(snapshot.referenceState.savedFormations)
+      || Object.values(snapshot.inputs).some(value => typeof value !== 'string' && (typeof value !== 'number' || !Number.isFinite(value)))) {
+      throw new Error('保存計算の形式が不正、または未対応です。');
+    }
+    return { name: item.name.trim(), note: item.note || '', snapshot };
+  }
+
+  function exportDamageCalculationFile(id) {
+    const item = getDamageSaveById(id);
+    if (!item) return;
+    const data = { format: 'trickcal-damage-calculation', version: 1,
+      calculation: { name: item.name, note: item.note || '', snapshot: item.snapshot } };
+    try {
+      parseDamageCalculationFile(JSON.stringify(data));
+    } catch {
+      window.alert('この保存計算は書き出せません。読み込み・再保存してから書き出してください。');
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `trickcal-calc-${item.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 80)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    closeDamageSaveMenu();
+  }
+
+  function importDamageCalculationFile(text) {
+    const item = parseDamageCalculationFile(text);
+    if (!window.confirm(`「${item.name}」を保存一覧へ追加しますか？\n現在の計算・DPS設定は変更しません。${item.note ? `\nメモ：${item.note}` : ''}`)) return false;
+    const saves = loadDamageCalculationSaves();
+    if (saves.length >= CALC_SAVE_LIMIT) throw new Error(`保存は${CALC_SAVE_LIMIT}件までです。不要な保存を削除するか、既存の保存に上書きしてください。`);
+    item.snapshot = toSettingsOnlyDamageSnapshot(item.snapshot);
+    const now = Date.now();
+    item.id = `calc:${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    item.savedAt = now;
+    if (!writeDamageCalculationSaves([item, ...saves])) throw new Error(damageSaveWriteMessage);
+    view.damageSaveAction = 'load';
+    renderDamageSaveActionPanel();
+    return true;
   }
 
   function formatDamageSaveOptionLabel(item, includeName = true) {
@@ -2399,9 +2574,9 @@
       ? `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
       : '';
     const expected = Number(item.snapshot?.result?.expected);
-    const oldResult = Number(item.snapshot?.statCalculationVersion)
+    const oldResult = !isCurrentDamageCalculation(item.snapshot) || Number(item.snapshot?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
-    const expectedText = oldResult ? '計算値の再確認が必要'
+    const expectedText = item.snapshot?.version === 5 ? '設定のみ・比較時に再計算' : oldResult ? '計算値の再確認が必要'
       : Number.isFinite(expected) && expected > 0 ? `期待値 ${formatCompactDamage(expected)}` : '';
     return [includeName ? item.name || '無題の計算' : '', expectedText, stamp].filter(Boolean).join(' / ');
   }
@@ -2420,6 +2595,10 @@
   function saveCurrentDamageCalculation(selectedId = '') {
     const saves = loadDamageCalculationSaves();
     const existing = saves.find(item => item.id === selectedId) || null;
+    if (!existing && saves.length >= CALC_SAVE_LIMIT) {
+      window.alert(`保存は${CALC_SAVE_LIMIT}件までです。不要な保存を削除するか、既存の保存に上書きしてください。`);
+      return;
+    }
     const context = buildContext();
     if (context.statRecalculationRequired) {
       window.alert(context.statRecalculationMessage);
@@ -2428,14 +2607,24 @@
     const defaultName = existing?.name || createDamageSaveDefaultName(context);
     const enteredName = window.prompt(existing ? '保存名を変更して上書き' : '保存名', defaultName);
     if (enteredName === null) return;
+    const note = window.prompt('メモ（任意・2000文字まで）：DPSの高学年設定など', existing?.note || '');
+    if (note === null) return;
+    if (enteredName.trim().length > 200 || note.length > 2000) {
+      window.alert('保存名は200文字、メモは2000文字以内にしてください。');
+      return;
+    }
     const now = Date.now();
     const item = {
       id: existing?.id || `calc:${now.toString(36)}_${Math.random().toString(36).slice(2, 7)}`,
       name: enteredName.trim() || defaultName,
+      note,
       savedAt: now,
       snapshot: createDamageCalculationSnapshot(context)
     };
-    writeDamageCalculationSaves([item, ...saves.filter(saved => saved.id !== item.id)]);
+    if (!writeDamageCalculationSaves([item, ...saves.filter(saved => saved.id !== item.id)])) {
+      window.alert(damageSaveWriteMessage);
+      return;
+    }
     closeDamageSaveMenu();
   }
 
@@ -2454,19 +2643,18 @@
     const scenarioApi = getCombatScenarioApi();
     if (!selected || !scenarioApi?.savePinnedComparison) return;
     const scenario = createCombatScenarioFromDamageSave(selected);
-    const oldResult = Number(selected.snapshot?.statCalculationVersion)
-      !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
-    const evaluation = oldResult ? evaluateComparisonScenario(scenario) : null;
+    const evaluation = evaluateComparisonScenario(scenario);
     if (evaluation?.error) {
       if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
       return;
     }
     scenario.sourceMeta = { ...(scenario.sourceMeta || {}),
+      damageCalculationVersion: DAMAGE_CALCULATION_VERSION,
       statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion };
-    const dpsSnapshot = oldResult ? evaluation.dpsSnapshot : selected.snapshot?.comparison?.dpsSnapshot || {};
+    const dpsSnapshot = evaluation.dpsSnapshot;
     const session = scenarioApi.savePinnedComparison({
       scenario,
-      singleActionResult: oldResult ? evaluation.result : selected.snapshot?.result || {},
+      singleActionResult: evaluation.result,
       dpsSnapshot,
       singleActionInputFingerprint: createPinnedSingleActionInputFingerprint(scenario),
       dpsInputFingerprint: createPinnedDpsInputFingerprint(scenario, dpsSnapshot)
@@ -2499,7 +2687,8 @@
         type: 'damageSave',
         id: item.id || '',
         name: item.name || '無題の計算',
-        calculatorVersion: Number(snapshot.version) || 0
+        calculatorVersion: Number(snapshot.version) || 0,
+        damageCalculationVersion: snapshot.damageCalculationVersion
       },
       actors: {
         self: { id: targetId, name: targetBasic.使徒名 || targetId },
@@ -2548,7 +2737,10 @@
         enemyPersonality: savedView.enemyPersonality || '',
         pvpAffinityEnabled: !!savedView.pvpAffinityEnabled,
         pvpRank: normalizePvpRank(savedView.pvpRank),
-        inputs: clonePlain(snapshot.inputs || {})
+        inputs: clonePlain(snapshot.inputs || {}),
+        statDirty: !!savedView.statDirty,
+        enemyStatDirty: !!savedView.enemyStatDirty,
+        enemyGlobalPercentDirty: !!savedView.enemyGlobalPercentDirty
       },
       effectAssumptions: {
         effectSources: pickBooleanMap(savedView.effectSources || {}),
@@ -2573,7 +2765,9 @@
     const selected = getDamageSaveById(id);
     if (!selected) return;
     if (!window.confirm(`「${selected.name || '無題の計算'}」を削除しますか？`)) return;
-    writeDamageCalculationSaves(loadDamageCalculationSaves().filter(item => item.id !== selected.id));
+    if (!writeDamageCalculationSaves(loadDamageCalculationSaves().filter(item => item.id !== selected.id))) {
+      window.alert(damageSaveWriteMessage); return;
+    }
     if (view.loadedDamageSaveId === selected.id) {
       view.loadedDamageSaveId = '';
       renderLoadedDamageSaveLabel(null);
@@ -2590,10 +2784,10 @@
       return;
     }
     const result = item.snapshot?.result || {};
-    const oldResult = Number(item.snapshot?.statCalculationVersion)
+    const oldResult = !isCurrentDamageCalculation(item.snapshot) || Number(item.snapshot?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
-    el.loadedSaveLabel.innerHTML = `<strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${oldResult ? '計算値の再確認が必要' : `期待値 ${escapeHtml(formatCompactDamage(Number(result.expected) || 0))}`}</span>`;
-    el.loadedSaveLabel.title = formatDamageSaveOptionLabel(item);
+    el.loadedSaveLabel.innerHTML = `<strong>${escapeHtml(item.name || '無題の計算')}</strong><span>${item.snapshot?.version === 5 ? '設定のみ・比較時に再計算' : oldResult ? '計算値の再確認が必要' : `期待値 ${escapeHtml(formatCompactDamage(Number(result.expected) || 0))}`}</span>${item.note ? `<span>${escapeHtml(item.note)}</span>` : ''}`;
+    el.loadedSaveLabel.title = [formatDamageSaveOptionLabel(item), item.note].filter(Boolean).join('\n');
   }
   function createDamageSaveDefaultName(context = buildContext()) {
     const target = context.target?.name || '使徒未選択';
@@ -2605,10 +2799,9 @@
   }
 
   function createDamageCalculationSnapshot(context = buildContext()) {
-    const result = calculateDamage(context);
-    const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
     return {
-      version: 4,
+      version: 5,
+      damageCalculationVersion: DAMAGE_CALCULATION_VERSION,
       statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
       savedAt: Date.now(),
       view: clonePlain({
@@ -2660,18 +2853,7 @@
         spellDetailsOpen: !!view.spellDetailsOpen
       }),
       inputs: readDamageCalculationInputs(),
-      referenceState: createReferenceStateSnapshot(context),
-      comparison: {
-        dpsSnapshot
-      },
-      result: {
-        normal: Math.round(Number(result.normal) || 0),
-        crit: Math.round(Number(result.crit) || 0),
-        expected: Math.round(Number(result.expected) || 0),
-        hp: Math.round(Number(result.hp) || 0),
-        critRate: Number(result.critRate) || 0,
-        defRate: Number(result.defRate) || 0
-      }
+      referenceState: createReferenceStateSnapshot(context)
     };
   }
 
@@ -2786,7 +2968,11 @@
   }
 
   function writeDamageCalculationInputs(values = {}, options = { settings: true, enemy: true }) {
+    if (options.enemy && el.inputs.enemyFuryPlus) {
+      el.inputs.enemyFuryPlus.value = String(normalizeEnemyFuryPlus(values.enemyFuryPlus ?? -1));
+    }
     Object.entries(values || {}).forEach(([key, value]) => {
+      if (key === 'enemyFuryPlus') return;
       const input = el.inputs?.[key];
       if (!input || !('value' in input)) return;
       const enemyInput = isEnemyDamageInputKey(key);
@@ -2896,6 +3082,8 @@
       if (hasCurrentEnemyCorrectionSchema && saved.enemyResearchPreset && typeof saved.enemyResearchPreset === 'object') view.enemyResearchPreset = { level: Number(saved.enemyResearchPreset.level) || 0, progress: Number(saved.enemyResearchPreset.progress) || 0, dirty: !!saved.enemyResearchPreset.dirty };
       if (typeof saved.enemyPresetKey === 'string') view.enemyPresetKey = saved.enemyPresetKey;
       if (Number.isFinite(Number(saved.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(saved.enemyPhaseIndex));
+      syncEnemyPresetFuryField();
+      if (el.inputs.enemyFuryPlus) el.inputs.enemyFuryPlus.value = String(normalizeEnemyFuryPlus(saved.enemyFuryPlus ?? -1));
       if (Number.isFinite(Number(saved.enemySkillIndex))) view.enemySkillIndex = Number(saved.enemySkillIndex);
       if (typeof saved.selectedSkillCategory === 'string') view.selectedSkillCategory = saved.selectedSkillCategory;
       if (typeof saved.selectedSkillOptionKey === 'string') view.selectedSkillOptionKey = saved.selectedSkillOptionKey;
@@ -2988,7 +3176,8 @@
         tempUnplacedResonancePersonality: clonePlain(view.tempUnplacedResonancePersonality || null),
         tempSpells: Array.isArray(view.tempSpells) ? view.tempSpells.slice() : null,
         tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
-        extraCrayon: readExtraCrayonInputs()
+        extraCrayon: readExtraCrayonInputs(),
+        enemyFuryPlus: normalizeEnemyFuryPlus(el.inputs.enemyFuryPlus?.value ?? -1)
       }));
     } catch (error) {
       console.warn('Failed to save formation damage settings', error);
@@ -7878,6 +8067,18 @@
     }
     const result = calculateDamage(context);
     const pinnedComparison = getPinnedSingleComparison(context);
+    if (result.unavailable === 'hit-calculation-unavailable') {
+      [el.result.normal, el.result.crit, el.result.expected, el.result.critRate].forEach(element => {
+        if (element) { element.textContent = '—'; element.classList.remove('is-compare'); }
+      });
+      Object.values(el.result.hpRates || {}).forEach(element => { if (element) element.hidden = true; });
+      if (el.result.detailNote) el.result.detailNote.textContent = result.rounding?.reason || '命中計算の入力を確認してください。';
+      if (el.result.detailGrid) el.result.detailGrid.innerHTML = '';
+      window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
+        detail: { targetId: context.target?.id || '', hitCalculationUnavailable: true }
+      }));
+      return;
+    }
     syncPinnedComparisonUi(context);
     const currentResult = pinnedComparison?.result || (view.statMode === 'planned' && context.target?.hasPlannedSnapshot
       ? calculateDamageWithStatMode(context, 'current')
@@ -7925,8 +8126,9 @@
     if (el.result.detailGrid) el.result.detailGrid.innerHTML = `<p class="fdc-result-placement-required">${message}</p>`;
     if (el.pinnedCompareNote) {
       const session = getPinnedComparisonSession();
-      const oldBaseline = session && Number(session.baseline?.scenario?.sourceMeta?.statCalculationVersion)
-        !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
+      const oldBaseline = session && (!isCurrentDamageCalculation(session.baseline?.scenario?.sourceMeta)
+        || Number(session.baseline?.scenario?.sourceMeta?.statCalculationVersion)
+          !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion);
       el.pinnedCompareNote.textContent = oldBaseline
         ? '旧形式の比較基準です。現在の設定で基準を更新してください。'
         : '現在のステータスを再計算するまで比較を停止します。';
@@ -8151,6 +8353,10 @@
           ['通常ダメージ', formatNumber(result.normal)],
           ['期待ダメージ', formatNumber(result.expected)],
           ['会心時ダメージ', formatNumber(result.crit)],
+          ['命中計算', result.rounding?.calculationMode === 'normal-hit-v1'
+            ? '命中別・二段整数化（旧native通常枝）' : '旧互換・丸め未対応'],
+          ...(result.rounding?.calculationMode === 'legacy-continuous'
+            ? [['丸め未対応の理由', result.rounding.reason]] : []),
           createSideDetailRow('HP', formatNumber(result.hp), defenderIsEnemy),
           ['会心率', `${(result.critRate * 100).toFixed(1)}%`],
           ['会心ダメージ量', `${formatPlainNumber((Number(stat.critMult) || 0) * 100)}%`],
@@ -8341,7 +8547,8 @@
       attacker.addP += conditionalTakenDmgP;
     }
     if (isEnemyAttack) attacker.addP += targetDebuffTakenDmgP;
-    attacker.addP += getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
+    const weaknessDamageP = getWeaknessDamageP(isEnemyAttack ? 'self' : 'enemy', context.damageType);
+    attacker.addP += weaknessDamageP;
     // 「無分類」は分類欠落ではなく、普通攻撃・スキル・状態異常のどれにも
     // 属さないことを明示する値。発生元カテゴリを連結すると、愛用品内の
     // 独立ダメージへスキル専用の行動倍率が逆流するため、明示値だけを使う。
@@ -8414,18 +8621,61 @@
     const other = Math.max(0, attacker.other) / 100;
     const damageReference = selectedSkillOption?.damageReference || '';
     const damageSource = damageReference === 'enemyMaxHp' ? finalHp : finalAtk;
-    const oneHitNormal = damageSource * defRate * skill * addRate * type * special * other;
+    let oneHitNormal = damageSource * defRate * skill * addRate * type * special * other;
     const baseCritRate = calcCritRate(finalCrit, finalCritRes);
     const rawCritRate = baseCritRate + attacker.critRateP / 100 - defender.critResAddP / 100;
     const critRate = selectedSkillOption?.guaranteedCrit ? 1 : clamp(rawCritRate, 0.05, 0.75);
     const baseCritMult = calcCritMultiplier(finalCritDmg, finalCritDmgRes);
     const rawCritMult = baseCritMult + attacker.critDmgAddP / 100 - defender.critDmgResAddP / 100;
     const critMult = clamp(rawCritMult, 1.2, 2.5);
-    const oneHitCrit = oneHitNormal * critMult;
-    const oneHitExpected = oneHitNormal * (1 - critRate) + oneHitCrit * critRate;
+    let oneHitCrit = oneHitNormal * critMult;
+    let oneHitExpected = oneHitNormal * (1 - critRate) + oneHitCrit * critRate;
+    const legacyExpectedDamage = oneHitExpected;
+    const hitEngine = typeof TRICKCAL_DPS_SIMULATOR !== 'undefined' ? TRICKCAL_DPS_SIMULATOR : null;
+    const category = selectedSkillOption?.attackCategory || selectedSkillOption?.category || context.actionCategory || '';
+    const repeatCount = selectedSkillOption?.roundingHitCount ?? 1;
+    const allocationKnown = !/総.*ダメージ/.test(selectedSkillOption?.kind || '') && (
+      selectedSkillOption?.roundingHitCount != null
+      || (!selectedSkillOption?.key && (!selectedSkillOption?.actionRepeatCount || selectedSkillOption.actionRepeatCount === 1)));
+    const reasons = [];
+    if (!['基本攻撃', '強化攻撃', '低学年スキル', '高学年スキル'].includes(category)
+      || damageReference || /固定/.test(selectedSkillOption?.kind || '')) reasons.push('通常hit以外の経路');
+    if (isEnemyAttack || weaknessDamageP || conditionalTakenDmgP || targetDebuffTakenDmgP
+      || getDebuffDamageP(isEnemyAttack ? 'enemy' : 'self')
+      || getEnemyPresetFuryTakenDamageP()) reasons.push('敵・弱点・状態補正の供給位置が未確定');
+    if (attacker.special !== 100 || attacker.other !== 100 || actionMultiplierBonusP) reasons.push('特殊・その他・行動倍率補正の供給位置が未確定');
+    if (['normalAttackAddP', 'basicAddP', 'enhancedAddP', 'lowSkillAddP', 'highSkillAddP', 'skillAddP']
+      .some(key => Number(summary[key]) || Number(context.enemySummary?.[key]))) reasons.push('行動別与ダメージのstat／effect指定率の分類が未確定');
+    if (selectedSkillOption?.coefficientRange) reasons.push('係数抽選範囲の期待値は未対応');
+    const sourceSupported = reasons.length === 0 && !!hitEngine?.evaluateSingleHitDamage;
+    const hitInput = sourceSupported ? {
+      baseDamage: damageSource * defRate,
+      coefficientP: finalActionMultiplierP,
+      perHitCoefficientP: selectedSkillOption?.perHitCoefficientP ?? finalActionMultiplierP,
+      perHitDefinition: !!selectedSkillOption?.perHitDefinition,
+      singleHitDefinition: allocationKnown && repeatCount === 1,
+      effectDamage: 1, personalityRate: type,
+      damageRate: hitEngine.roundDamageRateToEven(rawAddRate), endCorrection: 0, critRate, critMult
+    } : null;
+    let rounding = { calculationMode: 'legacy-continuous',
+      reason: reasons.join(' / ') || (!hitEngine ? '共通命中計算を読み込めません' : '命中数・係数配分が未確定'), hitInput };
+    if (hitInput && allocationKnown && Number.isSafeInteger(repeatCount) && repeatCount > 0) {
+      const rounded = hitEngine.evaluateSingleHitDamage({ ...hitInput,
+        coefficientP: selectedSkillOption?.perHitCoefficientP ?? finalActionMultiplierP });
+      if (!rounded.supported || !Number.isSafeInteger(rounded.normal * repeatCount) || !Number.isSafeInteger(rounded.crit * repeatCount)) {
+        return { ...createPlacementRequiredDamageResult(), unavailable: 'hit-calculation-unavailable',
+          rounding: { ...rounded, reason: rounded.reason || '命中合計が安全整数範囲を超えています' } };
+      }
+      oneHitNormal = rounded.normal * repeatCount;
+      oneHitCrit = rounded.crit * repeatCount;
+      oneHitExpected = rounded.expected * repeatCount;
+      rounding = { ...rounded, hitInput, hitCount: repeatCount };
+      addRate = Math.max(Math.fround(0.2), hitInput.damageRate);
+    }
     const applyEpicaAdditionalHit = !!epicaAdditionalHit && epicaAdditionalHit.enemyCount === 1;
     const appliedAdditionalHitCount = applyEpicaAdditionalHit ? epicaAdditionalHit.extraHitCount : 0;
     const hitCount = 1 + appliedAdditionalHitCount;
+    rounding.legacyExpectedDamage = legacyExpectedDamage * hitCount;
     const normal = oneHitNormal * hitCount;
     const crit = oneHitCrit * hitCount;
     const expected = oneHitExpected * hitCount;
@@ -8448,6 +8698,7 @@
       guaranteedCrit: !!selectedSkillOption?.guaranteedCrit,
       defRate,
       hitBreakdown,
+      rounding,
       summary,
       detail: {
         stats: {
@@ -8643,6 +8894,8 @@
   }
 
   function getEpicaA2AdditionalHitInfo(context, selectedSkillOption, isEnemyAttack = false) {
+    // DPS schedules each projectile separately; its profile must remain one hit.
+    if (context?.excludeNormalCalculationOnlyEffects) return null;
     const target = context?.target;
     if (!target || String(target.id || '').toLowerCase() !== 'epica' || isEnemyAttack) return null;
     if (!isPublicAsideEnabled(target)) return null;
@@ -8656,9 +8909,7 @@
       selectedSkillOption?.attackCategory
     ].filter(Boolean);
     const categories = [...new Set(selectedActions.flatMap(action => getFdcActionCategories(action)))];
-    // The current source names only 普通攻撃. Do not infer that this includes
-    // the distinct 強化攻撃 action until the source explicitly confirms it.
-    if (!categories.includes('基本攻撃') || categories.includes('強化攻撃')) return null;
+    if (!categories.includes('基本攻撃') && !categories.includes('強化攻撃')) return null;
 
     const effect = (window.TRICKCAL_STAT_DATA?.sheets?.asideSpecialEffects || [])
       .find(row => row?.effectId === 'Epica_aside_2_e01');
@@ -8667,7 +8918,7 @@
       || effect.効果タイプ !== 'スキル変更'
       || String(effect.対象スキル || '').trim() !== '普通攻撃') return null;
     const condition = String(effect.condition || '').replace(/[\r\n\s　]+/g, '');
-    if (!/敵が1体/.test(condition) || !/同じ敵/.test(condition) || !/追加分.*命中/.test(condition)) return null;
+    if (!/敵(?:が)?1体/.test(condition) || !/同じ敵.*命中/.test(condition)) return null;
     const extraHitCount = Number(effect.固定値);
     if (!Number.isSafeInteger(extraHitCount) || extraHitCount < 1) return null;
     return {
@@ -8682,8 +8933,8 @@
     if (!info) return '';
     return `
       <div class="fdc-epica-a2-hit-setting">
-        <label for="fdc-epica-a2-enemy-count">エピカA2・基本攻撃の敵数</label>
-        <select id="fdc-epica-a2-enemy-count" data-fdc-epica-a2-enemy-count aria-label="エピカA2基本攻撃の敵数">
+        <label for="fdc-epica-a2-enemy-count">エピカA2・普通攻撃の敵数</label>
+        <select id="fdc-epica-a2-enemy-count" data-fdc-epica-a2-enemy-count aria-label="エピカA2普通攻撃の敵数">
           <option value="1" ${info.enemyCount === 1 ? 'selected' : ''}>1体（追加分も同じ敵に命中）</option>
           <option value="2" ${info.enemyCount === 2 ? 'selected' : ''}>2体以上（追加対象は選択敵へ加算しない）</option>
         </select>
@@ -8735,7 +8986,7 @@
     return {
       defP: readNumber(el.inputs.enemyDefP),
       defDownP: readNumber(el.inputs.enemyDefDownP),
-      takenDmgP: readNumber(el.inputs.enemyTakenDmgP),
+      takenDmgP: readNumber(el.inputs.enemyTakenDmgP) + getEnemyPresetFuryTakenDamageP(),
       critResP: readNumber(el.inputs.enemyCritResP),
       critResDownP: readNumber(el.inputs.enemyCritResDownP),
       critResAddP: 0,
@@ -9170,38 +9421,8 @@
   }
 
   function evaluateComparisonScenario(scenario = {}) {
-    const savedView = {
-      targetId: view.targetId,
-      formationPresetId: view.formationPresetId,
-      statMode: view.statMode,
-      gradeOverride: view.gradeOverride,
-      statDirty: view.statDirty,
-      referenceState: view.referenceState,
-      referenceOptions: view.referenceOptions,
-      tempMembers: view.tempMembers,
-      tempResonancePersonalities: view.tempResonancePersonalities,
-      tempUnplacedResonancePersonality: view.tempUnplacedResonancePersonality,
-      tempArtifacts: view.tempArtifacts,
-      tempSpells: view.tempSpells,
-      tempCardStates: view.tempCardStates,
-      skillLevelOverrides: view.skillLevelOverrides,
-      perspective: view.perspective,
-      damageType: view.damageType,
-      enemyDamageType: view.enemyDamageType,
-      enemySourceMode: view.enemySourceMode,
-      enemyApostleId: view.enemyApostleId,
-      enemyPresetKey: view.enemyPresetKey,
-      enemyPhaseIndex: view.enemyPhaseIndex,
-      enemySkillIndex: view.enemySkillIndex,
-      enemyPersonality: view.enemyPersonality,
-      pvpAffinityEnabled: view.pvpAffinityEnabled,
-      pvpRank: view.pvpRank,
-      enemySelectedSkillCategory: view.enemySelectedSkillCategory,
-      selectedSkillCategory: view.selectedSkillCategory,
-      selectedSkillOptionKey: view.selectedSkillOptionKey,
-      epicaA2EnemyCount: view.epicaA2EnemyCount
-    };
-    const savedInputs = snapshotSelfStatInputs();
+    const savedView = { ...view };
+    const savedInputs = readDamageCalculationInputs();
     try {
       const targetId = scenario.actors?.self?.id || scenario.characterState?.targetId || view.targetId;
       if (!scenario.characterState?.apostles?.[targetId]) {
@@ -9230,6 +9451,12 @@
       view.tempCardStates = sanitizeFdcTempCardStates(scenario.cardState?.tempCardStates);
       view.skillLevelOverrides = sanitizeSkillLevelOverrides(scenario.effectAssumptions?.skillLevelOverrides || {});
       const battleConditions = scenario.battleConditions || {};
+      const assumptions = scenario.effectAssumptions || {};
+      for (const key of ['effectSources', 'selfSkillEffectEnabled', 'conditionalEffectEnabled',
+        'conditionalEffectStackCounts', 'enemyGlobalPercentEnabled', 'enemyGlobalAdditiveEnabled',
+        'enemyBoardPresetSelections', 'enemyIndividualOverrides', 'enemyRankPreset', 'enemyResearchPreset']) {
+        if (Object.prototype.hasOwnProperty.call(assumptions, key)) view[key] = clonePlain(assumptions[key]);
+      }
       view.perspective = battleConditions.perspective === 'enemy' ? 'enemy' : 'self';
       view.damageType = battleConditions.damageType || 'auto';
       view.enemyDamageType = battleConditions.enemyDamageType || 'auto';
@@ -9247,6 +9474,10 @@
       view.selectedSkillCategory = battleConditions.selectedSkillCategory || battleConditions.actionCategory || '';
       view.selectedSkillOptionKey = battleConditions.selectedSkillOptionKey || '';
       view.epicaA2EnemyCount = normalizeEpicaA2EnemyCount(battleConditions.epicaA2EnemyCount);
+      view.statDirty = !!battleConditions.statDirty;
+      view.enemyStatDirty = !!battleConditions.enemyStatDirty;
+      view.enemyGlobalPercentDirty = !!battleConditions.enemyGlobalPercentDirty;
+      writeDamageCalculationInputs(battleConditions.inputs || {});
       const context = buildContext({ detached: true });
       if (!context.target || context.target.id !== targetId) {
         return { error: '選択した比較元の編成に現在の使徒がいません' };
@@ -9254,13 +9485,14 @@
       if (context.statRecalculationRequired) {
       return { error: context.statRecalculationMessage };
       }
-      writeSelfStatInputsForStats(context, context.target.stats || {});
+      if (!view.statDirty) writeSelfStatInputsForStats(context, context.target.stats || {});
       const result = calculateDamage(context);
       const dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput(context));
       return { result, dpsSnapshot };
     } finally {
+      Object.keys(view).forEach(key => { if (!Object.hasOwn(savedView, key)) delete view[key]; });
       Object.assign(view, savedView);
-      restoreSelfStatInputs(savedInputs);
+      writeDamageCalculationInputs(savedInputs);
     }
   }
 
@@ -9282,20 +9514,13 @@
     let dpsSnapshot = createPinnedDpsSnapshot(createDpsEvaluationInput());
     if (source?.type === 'calc') {
       scenario = createCombatScenarioFromDamageSave(source.data);
-      const oldResult = Number(source.data.snapshot?.statCalculationVersion)
-        !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion;
-      if (oldResult) {
-        const evaluation = evaluateComparisonScenario(scenario);
-        if (evaluation.error) {
-          if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
-          return;
-        }
-        result = evaluation.result;
-        dpsSnapshot = evaluation.dpsSnapshot;
-      } else {
-        result = source.data.snapshot?.result || {};
-        dpsSnapshot = source.data.snapshot?.comparison?.dpsSnapshot || {};
+      const evaluation = evaluateComparisonScenario(scenario);
+      if (evaluation.error) {
+        if (el.pinnedCompareNote) el.pinnedCompareNote.textContent = evaluation.error;
+        return;
       }
+      result = evaluation.result;
+      dpsSnapshot = evaluation.dpsSnapshot;
     } else if (source?.type === 'slot' || source?.type === 'formation') {
       const scopes = getSelectedComparisonScopes();
       if (!scopes.length) {
@@ -9335,6 +9560,7 @@
       if (api.fingerprint) scenario.sourceMeta.fingerprint = api.fingerprint(scenario);
     }
     scenario.sourceMeta = { ...(scenario.sourceMeta || {}),
+      damageCalculationVersion: DAMAGE_CALCULATION_VERSION,
       statCalculationVersion: TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion };
     const singleActionInputFingerprint = createPinnedSingleActionInputFingerprint(scenario);
     const dpsInputFingerprint = createPinnedDpsInputFingerprint(scenario, dpsSnapshot);
@@ -9413,6 +9639,7 @@
       }))
       : [];
     return api.evaluationFingerprint('dps', scenario, {
+      simulatorVersion: Number(window.TRICKCAL_DPS_SIMULATOR?.version) || 0,
       targetId: dpsSnapshot.targetId || '',
       skillLevels: dpsSnapshot.skillLevels || {},
       dpsSkillOverrides: dpsSnapshot.dpsSkillOverrides || {},
@@ -9429,6 +9656,7 @@
   // キャッシュとして分離している。旧v2セッションの読み込み時も、正規化API
   // が互換キャッシュへ移してくれるため、画面側はこのアクセサだけを使う。
   function getPinnedSingleActionCache(session = null) {
+    if (!isCurrentDamageCalculation(session?.baseline?.scenario?.sourceMeta)) return null;
     if (Number(session?.baseline?.scenario?.sourceMeta?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) return null;
     const cache = session?.caches?.singleAction;
@@ -9442,6 +9670,7 @@
   }
 
   function getPinnedDpsCache(session = null) {
+    if (!isCurrentDamageCalculation(session?.baseline?.scenario?.sourceMeta)) return null;
     if (Number(session?.baseline?.scenario?.sourceMeta?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) return null;
     const cache = session?.caches?.dps;
@@ -9561,7 +9790,7 @@
       return;
     }
     const scenario = session.baseline.scenario || {};
-    if (Number(scenario.sourceMeta?.statCalculationVersion)
+    if (!isCurrentDamageCalculation(scenario.sourceMeta) || Number(scenario.sourceMeta?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) {
       el.pinnedCompareNote.textContent = '旧形式の比較基準です。現在の設定で基準を更新してください。';
       el.pinnedCompareNote.title = el.pinnedCompareNote.textContent;
@@ -9881,7 +10110,7 @@
 
   function pushConditionalCardEffects(result, row, target, source, damageType, actionCategory = '', formation = null) {
     const card = getCard(row.id);
-    (card?.conditionalEffects || []).forEach(effect => {
+    getCalculatedCardEffects(card).forEach(effect => {
       const text = getEffectText(effect);
       if (isMaxStackThresholdEffect(text) || isStackMetadataEffect(effect)) return;
       const stackMeta = getCardEffectStackMeta(card, effect, row.star);
@@ -9912,6 +10141,7 @@
         cardId: row.id,
         effectId: effect.id || '',
         effectText: text,
+        randomSpRecovery: getDpsCardRandomSpRecovery({ cardId: row.id, cardStar: row.star, effectId: effect.id }),
         cardName: row.name,
         ownerLabel: source === '装備遺物' ? '本人' : '',
         ownerId: source === '装備遺物' ? (target?.id || '') : '',
@@ -9928,6 +10158,11 @@
         nonStackingSameApostle: isNonStackingSameApostleEffect(effect, text),
         damageModifierCategory: normalizeFdcDamageModifierCategory(effect.damageModifierCategory),
         ...getFdcRuntimeEffectMetadata(effect),
+        ...(effect.sharedPermanentStatStack ? {
+          sharedPermanentStatStack: true,
+          runtimeBonuses: scaleEffectBonusMap(normalizedBaseBonuses, row.qty, effect, text, 1),
+          maxStackModifiers: scaleEffectBonusMap(getCardMaxStackBonusMap(card, row.star, damageType), row.qty, effect, text)
+        } : {}),
         ...(stackMeta || {})
       };
       if (isSkillChangeEffect(text, effect)) {
@@ -9946,7 +10181,9 @@
         pushConditionalEffectCandidate(result, item, false, true);
         return;
       }
-      const actionMatch = judgeActionCondition(text, actionCategory);
+      const actionMatch = effect.sharedPermanentStatStack
+        ? { matched: true, hasActionCondition: false, reason: '低/高学年で共有する能力値スタック' }
+        : judgeActionCondition(text, actionCategory);
       if (!actionMatch.matched) {
         item.reason = actionMatch.reason;
         pushConditionalEffectCandidate(result, item, false);
@@ -10281,12 +10518,11 @@
   }
 
   function matchesCardEffectTargetDamageType(effect, damageType, target = null) {
-    // 攻撃力そのものを上げる効果は、選択中の攻撃の属性ではなく、
-    // 効果を受ける使徒本来の攻撃タイプで対象を判定する。
-    const targetDamageType = isCardAttackPowerStatEffect(effect)
-      ? resolveDamageType('auto', target)
-      : damageType;
-    return matchesEffectDamageType(effect, targetDamageType, target);
+    // 攻撃力の属性指定は供給する能力値の指定。物理使徒の魔法攻撃にも
+    // 魔法攻撃力のバフは有効であり、使徒の本来の属性で除外しない。
+    // 「魔法攻撃使徒」等の受け手制限は judgeTargetText で別途判定する。
+    if (isCardAttackPowerStatEffect(effect)) return true;
+    return matchesEffectDamageType(effect, damageType, target);
   }
 
   function isCardAttackPowerStatEffect(effect = null) {
@@ -10318,8 +10554,8 @@
     if (/アタッカー|攻撃ロール|攻撃役割/.test(text)) checks.push(['役割', normalizeRole(target.role) === '攻撃', '攻撃']);
     if (/ガード|守備|防御ロール|防御役割/.test(text)) checks.push(['役割', normalizeRole(target.role) === '守備', '守備']);
     if (/サポート|支援|補助/.test(text)) checks.push(['役割', normalizeRole(target.role) === '支援', '支援']);
-    if (/魔法攻撃/.test(text)) checks.push(['攻撃種別', resolvedType === 'magic', '魔法']);
-    if (/物理攻撃/.test(text)) checks.push(['攻撃種別', resolvedType === 'physical', '物理']);
+    if (/魔法攻撃(?!力)/.test(text)) checks.push(['攻撃種別', resolvedType === 'magic', '魔法']);
+    if (/物理攻撃(?!力)/.test(text)) checks.push(['攻撃種別', resolvedType === 'physical', '物理']);
     ['純粋', '冷静', '狂気', '活発', '憂鬱'].forEach(personality => {
       const allyPersonalityPattern = new RegExp(`${personality}(?:性格)?(?:の)?味方|味方[\\/／ ]?${personality}`);
       if (allyPersonalityPattern.test(text)) {
@@ -10498,10 +10734,10 @@
     const next = { ...bonuses };
     if (next.atkP != null) {
       if (damageType === 'physical') {
-        next.physicalAtkP = next.atkP;
+        next.physicalAtkP = (Number(next.physicalAtkP) || 0) + Number(next.atkP);
         delete next.atkP;
       } else if (damageType === 'magic') {
-        next.magicAtkP = next.atkP;
+        next.magicAtkP = (Number(next.magicAtkP) || 0) + Number(next.atkP);
         delete next.atkP;
       }
     }
@@ -10590,7 +10826,7 @@
   }
 
   function isMaxStackThresholdEffect(text) {
-    return /(?:最大スタック時|スタック最大時)/.test(String(text || ''));
+    return /(?:最大スタック時|スタック最大時|最大\s*\d+\s*スタック(?:に)?到達)/.test(String(text || ''));
   }
 
   function mergeBonusMaps(...maps) {
@@ -10617,20 +10853,34 @@
         )
       ), {});
   }
+  function getCalculatedCardEffects(card) {
+    // 更新nativeで同じAttackPercentUp親を供給する2表示行。元データの
+    // 行を消さず、計算だけ共通1枠へ接続する。汎用の類似文面推定はしない。
+    return normalizeArray(card?.conditionalEffects)
+      .filter(effect => effect.id !== 'artifact_sherum_parchment_scroll_e02')
+      .map(effect => effect.id === 'artifact_sherum_parchment_scroll_e01' ? {
+        ...effect,
+        label: '低学年・高学年の直接ダメージ命中時 攻撃力増加',
+        condition: '低学年・高学年の直接ダメージ命中時',
+        triggerType: 'スキル命中時',
+        triggerSourceId: '',
+        sharedPermanentStatStack: true
+      } : effect);
+  }
   function getCardEffectStackMeta(card, effect, star = 1) {
     const ownBonus = effect?.bonusesByStar?.[Math.max(0, Number(star) - 1)] || {};
-    const ownMax = Number(ownBonus.maxStack);
+    const ownMax = Number(effect?.maxStack ?? ownBonus.maxStack);
     const ownCount = Number(ownBonus.stackCount);
     const text = getEffectText(effect);
     // 「最大スタック時」は到達判定用の効果であり、スタック数入力の対象ではない。
     if (isMaxStackThresholdEffect(text)) return null;
     const siblingMax = normalizeArray(card?.conditionalEffects).reduce((max, candidate) => {
-      const value = Number(candidate?.bonusesByStar?.[Math.max(0, Number(star) - 1)]?.maxStack);
+      const value = Number(candidate?.maxStack ?? candidate?.bonusesByStar?.[Math.max(0, Number(star) - 1)]?.maxStack);
       return Number.isFinite(value) ? Math.max(max, value) : max;
     }, 0);
     // カード特殊効果では最大スタック数を別行で定義する。効果本文に「スタック」が
     // 含まれない場合（ブランセの花束など）も、そのカードの実効果に適用する。
-    const hasExplicitStack = Number.isFinite(ownCount) || /スタック|stack/i.test(text) || siblingMax > 1;
+    const hasExplicitStack = effect?.effectStack === true || Number.isFinite(ownCount) || /スタック|stack/i.test(text) || siblingMax > 1;
     if (!hasExplicitStack) return null;
     const maxStack = Math.max(1, ownMax || siblingMax || 1);
     if (maxStack <= 1) return null;
@@ -11643,6 +11893,15 @@
           );
         const repeatScale = getFdcActionRepeatScale(effect, repeatInfo);
         const calcValue = baseCalcValue * repeatScale;
+        const directTimingKey = ({ '基本攻撃': 'basicAttack', '強化攻撃': 'enhancedAttack',
+          '低学年スキル': 'lowSkill', '高学年スキル': 'highSkill' })[category];
+        const directTiming = typeof DPS_TIMING_DATA !== 'undefined'
+          ? DPS_TIMING_DATA.apostles?.[String(apostle.id || target.id).toLowerCase()]?.actions?.[directTimingKey] : null;
+        const directHits = normalizeFdcArray(directTiming?.timingEvents).filter(row => row.effectId === effect.effectId);
+        const singleDeclaredHit = repeatScale === 1 && directHits.length === 1 && !directHits[0].branch
+          && directHits[0].frame != null && Number(directHits[0].hitCount ?? 1) === 1
+          && (directHits[0].lv1PerHitMultiplier == null
+            || Number(directHits[0].lv1PerHitMultiplier) === Number(getFdcEffectLevelInfo(effect, 1)?.value));
         const dpsBaseValue = repeatInfo.mode === 'additive' && isFdcPerHitDamageEffect(effect)
           ? String(baseCalcValue)
           : '';
@@ -11683,6 +11942,11 @@
           kind,
           baseValue: String(baseCalcValue),
           dpsBaseValue,
+          perHitDefinition: isFdcPerHitDamageEffect(effect),
+          perHitCoefficientP: isFdcPerHitDamageEffect(effect) ? baseCalcValue : null,
+          roundingHitCount: isFdcPerHitDamageEffect(effect) && Number.isSafeInteger(repeatScale)
+            ? repeatScale : singleDeclaredHit ? 1 : null,
+          coefficientRange: levelInfo.isRange && !randomMaxLock,
           actionRepeatCount: repeatInfo.count,
           actionRepeatMode: repeatInfo.mode || '',
           damageReference,
@@ -12847,6 +13111,7 @@
       sourceMeta: {
         type: 'live',
         calculatorVersion: 4,
+        damageCalculationVersion: DAMAGE_CALCULATION_VERSION,
         managerSyncRevision: Math.max(0, Number(context.state?.syncRevision) || 0)
       },
       actors: {
@@ -12910,7 +13175,10 @@
         epicaA2EnemyCount: normalizeEpicaA2EnemyCount(view.epicaA2EnemyCount),
         pvpAffinityEnabled: !!view.pvpAffinityEnabled,
         pvpRank: normalizePvpRank(view.pvpRank),
-        inputs: readDamageCalculationInputs()
+        inputs: readDamageCalculationInputs(),
+        statDirty: !!view.statDirty,
+        enemyStatDirty: !!view.enemyStatDirty,
+        enemyGlobalPercentDirty: !!view.enemyGlobalPercentDirty
       },
       effectAssumptions: {
         effectSources: pickBooleanMap(view.effectSources),
@@ -13120,8 +13388,156 @@
       actionEffectAudit: actionDamageData.audit,
       effectOwnership: actionDamageData.effectOwnership,
       runtimeEffects,
-      formationEventCandidates
+      formationEventCandidates,
+      summonCalculationInput: createDpsSummonCalculationInput(target, dpsTiming, actionDamageData.audit,
+        getDpsSummonGrowthBase(target, context), { profiles: actionDamageData.singleActionProfiles,
+          skillLevels: target ? getFdcEffectiveSkillLevels(target) : {} })
     };
+  }
+
+  function getDpsSummonGrowthBase(target, context) {
+    if (!Object.values(context?.target ? (typeof DPS_TIMING_DATA === 'undefined' ? {} :
+      DPS_TIMING_DATA?.apostles?.[String(target?.id || '').toLowerCase()]?.actions || {}) : {})
+      .some(action => (action.generatedObjects || []).some(item => item.executionMode === '召喚ユニット'))) return null;
+    const state = context?.state?.apostles?.[target?.id];
+    if (!state) return null;
+    const snapshot = getGradeAdjustedSnapshot(state, getApostle(target.id), getEffectiveGradeOverride(), view.statMode);
+    const totals = snapshot?.internalTotals;
+    const keys = { physicalAtk: 'patk', magicAtk: 'matk', physicalDef: 'pdef', magicDef: 'mdef',
+      crit: 'crit', critDmg: 'critDmg', critRes: 'critRes', critDmgRes: 'critDmgRes' };
+    if (!snapshot?.breakdown || typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined'
+      || snapshot.calculationVersion !== TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion
+      || !Object.values(keys).every(key => typeof totals?.[key] === 'number'
+      && Number.isFinite(totals[key]))) return null;
+    const sourceAudit = TRICKCAL_SHARED_STAT_ENGINE.auditSummonGrowthSnapshot?.(
+      TRICKCAL_STAT_DATA, getApostle(target.id), state, snapshot);
+    if (!sourceAudit) return null;
+    // Do not fold an unclassified manual board correction into the owner's H.
+    // Preserve it separately until its native supply path has been resolved.
+    const siteAdjustments = Object.entries(getExtraCrayonRates()).filter(([, value]) => Number(value) !== 0);
+    return { ...sourceAudit, siteAdjustments: Object.fromEntries(siteAdjustments) };
+  }
+
+  function createDpsSummonCalculationInput(target, timing, audit, growthBase = null, options = {}) {
+    const definitions = Object.values(timing?.actions || {}).flatMap(action => (
+      (action.generatedObjects || []).filter(item => item.executionMode === '召喚ユニット')
+    ));
+    if (!definitions.length) return null;
+    const contributions = new Map();
+    Object.values(audit || {}).forEach(action => normalizeArray(action.rows).forEach(row => {
+      if (row.sourceDisabled || row.manualDisabled || row.perspective === 'defense'
+        || !Object.values(row.bonuses || {}).some(value => typeof value === 'number' && value !== 0)) return;
+      const key = `${row.ownerId || target?.id || ''}:${row.sourceId || ''}:${row.effectId || row.key || ''}`;
+      if (contributions.has(key)) return;
+      contributions.set(key, { id: key, effectId: row.effectId || '', sourceId: row.sourceId || '',
+        ownerId: row.ownerId || target?.id || '', source: row.source || '',
+        bonuses: { ...(row.bonuses || {}) }, inheritance: 'unknown' });
+    }));
+    // Bind only the two researched Momo units. Do not silently reuse their
+    // coefficients for another summon or use the owner's battle-final stats.
+    const preparedDefinitions = {};
+    const candidate = growthBase?.nativeBaseCandidate;
+    const abilityKeys = ['physicalAtk', 'magicAtk', 'physicalDef', 'magicDef',
+      'crit', 'critDmg', 'critRes', 'critDmgRes'];
+    if (candidate?.inputStage === 'growth-composed-base-candidate'
+      && abilityKeys.every(key => typeof candidate.stats?.[key] === 'number' && Number.isFinite(candidate.stats[key]))) {
+      definitions.filter(definition => ['Momo_low_clone', 'Momo_high_clone'].includes(definition.id)).forEach(definition => {
+        preparedDefinitions[definition.id] = {
+          assemblyMode: 'momo-abilities-v2',
+          // Retain the candidate stage: the simulator must reject an incomplete
+          // supply even if somebody accidentally drops the unresolved list.
+          abilityAssembly: { inputStage: candidate.inputStage, ownerBaseStats: { ...candidate.stats },
+            multipliers: Object.fromEntries(abilityKeys.map(key => [key, 1])),
+            hpFixed: 3, attackSpeedBase: 150,
+            attackSpeedLowerFactor: Math.fround(.2), attackSpeedUpperFactor: 10 },
+          sourceBoundary: { completeness: candidate.completeness,
+            commonFlatEntryProvenance: candidate.commonFlatEntryProvenance,
+            missingSources: [...(candidate.missingSources || [])] },
+          hitContexts: Object.fromEntries((definition.timingEvents || [])
+            .filter(event => event.recordPurpose !== '観測' && /ダメージ/.test(event.effectKind || ''))
+            .map(event => [event.effectId, { actionKind: event.eventType === '自爆' ? 'autoTrigger' : 'normalAttack',
+              attackType: 'magic' }]))
+        };
+      });
+    }
+    // Enemy hit input and selected-effect inheritance are separate adapters.
+    const input = { schemaVersion: 1, policyVersion: 2, ownerBaseStats: growthBase,
+      definitions: preparedDefinitions, contributions: [...contributions.values()], unresolved: [
+        { reason: growthBase
+          ? '育成snapshotとnative保存基礎の入力段階照合、および分身命中への接続が必要です'
+          : '分身へ渡す育成合成済み基礎8能力の小数内訳が不足しています' },
+        { reason: '分身の敵能力・独立命中入力と、選択効果の原値継承adapterの接続が必要です' },
+        ...(growthBase?.unresolved || []).map(reason => ({ reason })),
+        ...(Object.keys(growthBase?.siteAdjustments || {}).length
+          ? [{ reason: '追加クレヨン補正の供給先・分身継承区分が未確認です' }] : []),
+        ...(contributions.size ? [{ reason: `選択中の補正${contributions.size}件について継承区分・条件・寿命の照合が必要です` }] : [])
+      ] };
+    if (String(target?.id || '').toLowerCase() !== 'momo' || !options.profiles
+      || definitions.some(definition => !preparedDefinitions[definition.id])) return input;
+    const profiles = Object.values(options.profiles);
+    const assumptions = [
+      'モモ分身暫定: 育成snapshotの既知成分を基礎能力として採用。未収録の収集・モード固有補正は再現しません。',
+      '静的補正は単発計算の入力値を流用し、戦闘中バフは生成時の集計値を保持します。原値・除外分類の完全再現ではありません。',
+      '分身は単体・静止敵、被弾なしで12秒生存。主人は生存すると仮定し、スペル値・敵能力は入力時点で固定します。',
+      '会心は期待値。個体弾倉と外部命中procは未再現。攻撃イベント発生＝命中、初動は生成物タイミングの行動開始値、生成間隔0.2秒を採用。',
+      'リニュア加速は共通時計へ追従。攻速バフは生成時に保持。存在上限は種類ごと10体で新規生成を抑止する暫定モデルです。'
+    ];
+    for (const definition of definitions) {
+      const prepared = preparedDefinitions[definition.id];
+      const events = (definition.timingEvents || []).filter(event => event.recordPurpose !== '観測'
+        && /ダメージ/.test(event.effectKind || ''));
+      const bindings = events.map(event => ({ event,
+        profile: profiles.find(profile => profile.effectId === (definition.id === 'Momo_high_clone'
+          ? event.eventType === '自爆' ? 'Momo_high_e05' : 'Momo_high_e04' : event.effectId))?.damageResult?.runtimeBase }));
+      const normal = bindings.find(binding => binding.event.eventType !== '自爆')?.profile;
+      if (!normal || bindings.some(({ profile }) => !profile
+        || !['baseAtk', 'baseCrit', 'baseCritDmg', 'attackP', 'critP', 'critDmgP', 'finalDef', 'finalCritRes', 'finalCritDmgRes',
+          'finalActionMultiplierP', 'rawAddRate', 'personalityRate', 'specialP', 'otherP',
+          'critRateP', 'critResAddP', 'critDmgAddP', 'critDmgResAddP']
+          .every(key => typeof profile[key] === 'number' && Number.isFinite(profile[key])))) return input;
+      prepared.abilityAssembly.inputStage = 'growth-composed-base';
+      // Explicit calculator inputs are PRE-battle values (not finalAtk/expected).
+      // Respect user overrides or site modifiers missing from the growth audit.
+      // Keep the audited fraction when the displayed integer agrees.
+      const preBattleOverrides = {};
+      for (const [key, field] of [['magicAtk', 'baseAtk'], ['crit', 'baseCrit'], ['critDmg', 'baseCritDmg']]) {
+        if (Math.trunc(prepared.abilityAssembly.ownerBaseStats[key]) !== normal[field]) {
+          preBattleOverrides[key] = { candidate: prepared.abilityAssembly.ownerBaseStats[key], input: normal[field] };
+          prepared.abilityAssembly.ownerBaseStats[key] = normal[field];
+        }
+      }
+      prepared.abilityAssembly.rateP = { magicAtk: normal.attackP, crit: normal.critP, critDmg: normal.critDmgP };
+      prepared.sourceBoundary.inferencePolicy = 'user-approved-site-components-v1';
+      prepared.sourceBoundary.preBattleOverrides = preBattleOverrides;
+      if (Object.keys(preBattleOverrides).length && !assumptions.some(text => /戦闘前入力を優先/.test(text))) {
+        assumptions.push('育成内訳候補と計算欄が異なる能力は、計算欄の戦闘前入力を優先して暫定補正します。主人の戦闘中最終値・期待ダメージはコピーしません。');
+      }
+      prepared.speed = { attackSpeedP: 0, selfSpeed: 1, otherSpeed: 1 };
+      prepared.enemyTimeline = [{ startFrame: 0, stats: { magicDef: normal.finalDef,
+        critRes: normal.finalCritRes, critDmgRes: normal.finalCritDmgRes } }];
+      prepared.hitInputs = Object.fromEntries(bindings.map(({ event, profile }) => [event.effectId, {
+        coefficientP: profile.hitInput?.perHitCoefficientP ?? profile.finalActionMultiplierP,
+        effectDamage: profile.specialP / 100 * (profile.otherP / 100),
+        personalityRate: profile.personalityRate, damageRate: profile.rawAddRate,
+        endCorrection: profile.hitInput?.endCorrection ?? 0, additionalCoefficient: 0
+      }]));
+      prepared.hitAdjustments = Object.fromEntries(bindings.map(({ event, profile }) => [event.effectId, {
+        critRateP: profile.critRateP - profile.critResAddP,
+        critDmgAddP: profile.critDmgAddP - profile.critDmgResAddP
+      }]));
+      prepared.contributions = [];
+      prepared.executionRules = { generationIntervalSeconds: .2,
+        generationClock: 'unityScaledSeconds', gamePlaySpeed: 1.3,
+        deathOwnerSpRequest: Number(options.skillLevels?.asideRank) >= 2 ? 10 : 0,
+        ownerSpRecoveryMultiplier: 1, maxInstances: 10, overflowPolicy: 'skip' };
+      prepared.provisionalModel = 'momo-site-snapshot-v1';
+    }
+    input.unresolved = [];
+    input.provisionalModel = 'momo-site-snapshot-v1';
+    input.assumptions = assumptions;
+    input.ownerAliveIntervals = [{ startFrame: 0, endFrame: null }];
+    input.sharedValues = {};
+    return input;
   }
 
   function normalizeDpsFormationActionTriggerType(triggerType = '', category = '') {
@@ -13734,10 +14150,11 @@
       actionContext.ignoreEnemyStatusTakenDamageWeakness = true;
       actionContext.ignoreEnemyStatusDamageWeakness = true;
       const profileOption = option.dpsBaseValue !== '' && option.dpsBaseValue != null
-        ? { ...option, value: option.dpsBaseValue }
+        ? { ...option, value: option.dpsBaseValue, roundingHitCount: 1 }
         : option;
       actionContext.selectedSkillOption = profileOption;
       const damage = calculateDamage(createDpsRuntimeSafeActionContext(actionContext));
+      if (damage.unavailable === 'hit-calculation-unavailable') throw new RangeError(damage.rounding?.reason || '命中計算が未対応です');
       if (option.key) {
         singleActionProfiles[option.key] = {
           optionKey: option.key,
@@ -14120,6 +14537,9 @@
   // 効果だけを、発動binding単位へ分ける。基本／強化の共有は状態を
   // またぐリフレッシュ意味があるため、ここでは分割しない。
   function splitDpsRuntimeEffectByActionBinding(effect = {}) {
+    // 巻物は低/高が同じ永続能力値スタックを供給する。イベントbindingを
+    // 分割すると、それぞれ20枠・最大到達ボーナスを持ってしまう。
+    if (effect.stopAtMaxStacks) return [effect];
     const grade = getDpsStructuredTriggerGrade(effect);
     if (grade !== 'mixed') return [effect];
     const baseBindingKey = String(effect.bindingKey || getDpsRuntimeEffectBindingKey(effect)).trim();
@@ -14756,6 +15176,17 @@
     return ownerId ? `${effectId}:owner:${ownerId}` : effectId;
   }
 
+  function getDpsCardRandomSpRecovery(row = {}) {
+    const effect = getCard(row.cardId)?.conditionalEffects?.find(item => item.id === row.effectId);
+    if (!effect?.randomId || !/SP回復/.test(String(effect.shortLabel || effect.label || ''))) return null;
+    const definition = typeof CARD_RANDOM_DEFINITIONS === 'undefined' ? null : CARD_RANDOM_DEFINITIONS[effect.randomId];
+    const stage = definition?.stages?.[String(row.cardStar || 1)];
+    if (definition?.mode !== '一様' || definition.valueType !== '整数'
+      || !stage || stage.step !== 1 || stage.endpoint !== '両端含む'
+      || !Number.isInteger(stage.min) || !Number.isInteger(stage.max) || stage.min < 0 || stage.max < stage.min) return null;
+    return { min: stage.min, max: stage.max, researchStatus: definition.researchStatus || '' };
+  }
+
   function createDpsRuntimeEffects(audit = {}, options = {}) {
     const actionEntries = Object.entries(audit || {});
     const isSupersededRow = row => isDpsBaseSkillSourceSuperseded(
@@ -14915,14 +15346,11 @@
         ...(kind === 'acceleration'
           ? {
             curve: effect.effectId === 'Renewa_high_e01' ? 'linearHold' : 'constant',
-            maxAccelerationP: effect.effectId === 'Renewa_high_e01'
-              ? effect.accelerationP * 3
-              : effect.accelerationP,
-            maxActionSpeedP: 100 + (effect.effectId === 'Renewa_high_e01'
-              ? effect.accelerationP * 3
-              : effect.accelerationP),
-            rampFrames: effect.effectId === 'Renewa_high_e01' ? 8.5 * 60 : 0,
-            holdFrames: effect.effectId === 'Renewa_high_e01' ? 1.5 * 60 : effect.durationFrames
+            maxAccelerationP: effect.accelerationP,
+            maxActionSpeedP: 100 + effect.accelerationP,
+            rampFrames: effect.effectId === 'Renewa_high_e01' ? 7 * 60 : 0,
+            holdFrames: effect.effectId === 'Renewa_high_e01' ? 3 * 60 : effect.durationFrames,
+            ...(effect.effectId === 'Renewa_high_e01' ? { durationFrames: 10 * 60 } : {})
           }
           : {})
       };
@@ -14979,6 +15407,7 @@
           && /(?:通常|普通|基本|強化|スキル|与)?ダメージ(?:量)?減少/.test(text)) return;
         const isDebuff = /デバフ/.test(String(row.effectType || ''));
         const allowDebuffAddP = /被ダメージ(?:量)?増加|受けるダメージ(?:量)?増加/.test(text);
+        const maxStackModifiers = row.sharedPermanentStatStack ? row.maxStackModifiers || {} : {};
         const modifiers = Object.fromEntries(Object.entries(row.runtimeBonuses || row.bonuses || {})
           .filter(([key, value]) => (
             damageBuffKeys.has(key)
@@ -14987,7 +15416,8 @@
           ))
           .map(([key, value]) => [key, Number(value)]));
         const baselineModifiers = Object.fromEntries(Object.entries(row.bonuses || {})
-          .filter(([key, value]) => Object.prototype.hasOwnProperty.call(modifiers, key) && Number(value))
+          .filter(([key, value]) => (Object.prototype.hasOwnProperty.call(modifiers, key)
+            || Object.prototype.hasOwnProperty.call(maxStackModifiers, key)) && Number(value))
           .map(([key, value]) => [key, Number(value)]));
         if (!Object.keys(modifiers).length) return;
         const statusCondition = getDpsStructuredStatusCondition(row);
@@ -15011,7 +15441,7 @@
         const durationFrames = Math.max(0, Number(row.durationSeconds) || 0) * 60;
         // 終了条件がない効果は永続・状態切替・記載漏れを区別できないため、
         // 現段階では静的評価のままにして時限バフへ推測変換しない。
-        if (!statusCondition && !(durationFrames > 0)) return;
+        if (!statusCondition && !(durationFrames > 0) && !row.sharedPermanentStatStack) return;
         const triggerActionKeys = [...structuredActionKeys];
         if (actionTrigger && !triggerActionKeys.length && /低学年/.test(row.category || '')) triggerActionKeys.push('lowSkill');
         if (actionTrigger && !triggerActionKeys.length && /高学年/.test(row.category || '')) triggerActionKeys.push('highSkill');
@@ -15064,6 +15494,8 @@
               : 'actionTimed'
           ),
           modifiers: {},
+          maxStackModifiers,
+          stopAtMaxStacks: !!row.sharedPermanentStatStack,
           baselineModifiersByAction: {}
         };
         effect.externalActionRequired ||= !!row.externalActionRequired;
@@ -15117,7 +15549,7 @@
         if (row.unsupportedRuntimeTrigger) return;
         const hasSp = ['initialSp', 'initialSpP', 'spRegen', 'spRegenP', 'spRecovery', 'spRecoveryP']
           .some(key => Number(row?.bonuses?.[key]));
-        if (!hasSp || row.sourceDisabled) return;
+        if ((!hasSp && !row.randomSpRecovery) || row.sourceDisabled) return;
         const runtimeText = [row.rawText, row.condition, row.reason, row.label, row.category]
           .filter(Boolean).join(' ');
         if (isDpsUnsupportedRuntimeTrigger(row, runtimeText)) return;
@@ -15179,7 +15611,7 @@
     }));
 
     const rawSpRecoveryEffects = acceptedSpRows.filter(row => (
-      Number(row?.bonuses?.spRecovery) || Number(row?.bonuses?.spRecoveryP)
+      Number(row?.bonuses?.spRecovery) || Number(row?.bonuses?.spRecoveryP) || row.randomSpRecovery
     )).map(row => {
       const text = [row.rawText, row.condition, row.reason, row.label, row.category]
         .filter(Boolean).join(' ');
@@ -15240,9 +15672,17 @@
         randomBound: /ランダム最低値/.test(text) ? 'min' : (/ランダム最大値/.test(text) ? 'max' : ''),
         randomGroupKey: /ランダム(?:最低値|最大値)/.test(text)
           ? [row.sourceId || row.cardId || row.source || '', interval || 0, 'spRecovery'].join(':')
-          : ''
+          : '',
+        ...(row.randomSpRecovery ? {
+          randomBound: 'range', randomGroupKey: '',
+          fixedMin: row.randomSpRecovery.min, fixedMax: row.randomSpRecovery.max,
+          percentMin: 0, percentMax: 0,
+          copies: Math.max(1, Math.floor(Number(row.overlapCount) || 1))
+        } : {})
       };
-    }).filter(Boolean);
+    }).filter(Boolean).flatMap(effect => effect.copies
+      ? Array.from({ length: effect.copies }, (_, index) => ({ ...effect, id: `${effect.id}:copy:${index + 1}` }))
+      : [effect]);
 
     const randomSpGroups = new Map();
     const spRecoveryEffects = [];
@@ -15474,6 +15914,9 @@
       defRate: Number(result.defRate) || 0,
       critMult: Number(result.detail?.stats?.critMult) || 0,
       runtimeBase: {
+        hitInput: result.rounding?.hitInput || null,
+        roundingReason: result.rounding?.reason || '',
+        legacyExpectedDamage: result.rounding?.legacyExpectedDamage ?? result.expected,
         baseAtk: Number(result.detail?.stats?.baseAtk) || 0,
         baseDef: Number(result.detail?.stats?.baseDef) || 1,
         finalAtk: Number(result.detail?.stats?.finalAtk) || 0,
@@ -15483,6 +15926,7 @@
         attackP: Number(result.detail?.mods?.attackP) || 0,
         defenseP: Number(result.detail?.mods?.defenseP) || 0,
         rawAddRate: Number(result.detail?.mods?.rawAddRate) || Number(result.detail?.mods?.addRate) || 1,
+        personalityRate: Number(result.detail?.mods?.typeP) / 100,
         addRate: Number(result.detail?.mods?.addRate) || 1,
         baseActionMultiplierP: Number(result.detail?.mods?.baseActionMultiplierP) || Number(result.detail?.mods?.skillP) || 100,
         actionMultiplierBonusP: Number(result.detail?.mods?.actionMultiplierBonusP) || 0,
@@ -15707,6 +16151,7 @@
         key,
         cardId: row.cardId || '',
         effectId: row.effectId || '',
+        randomSpRecovery: row.randomSpRecovery || null,
         sourceId: row.cardId || row.source || '',
         ownerId: row.ownerId || context.target?.id || '',
         ownerName: row.ownerName || context.target?.name || '',
@@ -15726,8 +16171,8 @@
         effectTarget: row.effectTarget || row.scopeLabel || '',
         durationSeconds: Math.max(0, Number(row.durationSeconds ?? row.duration) || 0),
         actionScoped: false,
-        stackMax: Math.max(1, Number(row.maxStack) || Number(row.bonuses?.maxStack) || 1),
-        stackable: Number(row.maxStack) > 1 || Number(row.bonuses?.maxStack) > 1,
+        stackMax: Math.max(1, Number(row.stackMax) || Number(row.maxStack) || Number(row.bonuses?.maxStack) || 1),
+        stackable: Number(row.stackMax) > 1 || Number(row.maxStack) > 1 || Number(row.bonuses?.maxStack) > 1,
         overlapStackKey: row.overlapStackKey || '',
         overlapCount: Math.max(1, Number(row.overlapCount) || 1),
         nonStackingSameEffect: !!row.nonStackingSameEffect,
@@ -15736,6 +16181,9 @@
           .filter(Boolean).join(' '),
         value: formatBonusMap(bonuses),
         bonuses,
+        runtimeBonuses: row.runtimeBonuses || bonuses,
+        sharedPermanentStatStack: !!row.sharedPermanentStatStack,
+        maxStackModifiers: row.maxStackModifiers || {},
         enabled,
         sourceDisabled: !sourceEnabled,
         singleManualDisabled: row.canToggle && !toggleEnabled,

@@ -411,7 +411,7 @@ function inspectStorageProject({ root, sourceOverrides = new Map() } = {}) {
     ['formation-damage-calc.js', /const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1'/, '計算設定キーが変わっています'],
     ['formation-damage-calc.js', /const CALC_RESULT_SAVES_KEY = 'trickcal_formation_damage_result_saves_v1'/, '計算保存キーが変わっています'],
     ['formation-damage-calc.js', /const CUSTOM_ENEMY_PRESETS_KEY = 'trickcal_formation_damage_enemy_presets_v1'/, '敵プリセットキーが変わっています'],
-    ['formation-damage-calc.js', /\.slice\(0, 50\)/, '計算保存の最大50件制限が変わっています'],
+    ['formation-damage-calc.js', /const CALC_SAVE_LIMIT = 50;/, '計算保存の最大50件制限が変わっています'],
     ['formation-damage-calc.js', /enemyCorrectionSchema: 6/, '敵補正schemaの基準が変わっています'],
     ['formation-damage-dps-prototype.js', /const DPS_SETTINGS_SCHEMA_VERSION = 2/, 'DPS設定schemaが変わっています'],
     ['formation-damage-dps-prototype.js', /highSkillMode: 'disabled',[\s\S]*formationTimelineMode: 'supportEstimate'/, 'DPS設定の初期値が変わっています'],

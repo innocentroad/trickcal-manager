@@ -277,6 +277,73 @@
           && Object.values(INTERNAL_TO_SNAPSHOT).every(key => hasNumber(snapshot.stats[key]))));
   }
 
+  function auditSummonGrowthSnapshot(data, basic, apostleState, snapshot) {
+    // A valid site snapshot is not yet proof of native GetBaseStat equivalence.
+    // Keep the eight pre-battle values and their source boundary explicit.
+    if (!data || !basic || !apostleState || !hasCompleteBreakdown(snapshot)
+      || snapshot.calculationVersion !== SNAPSHOT_CALCULATION_VERSION) return null;
+    const state = normalizeApostleOverrideState(basic, snapshot.overrideState || apostleState);
+    const keys = TOTAL_KEYS.filter(key => key !== 'hp' && key !== 'spRegen');
+    const finite = value => typeof value === 'number' && Number.isFinite(value);
+    if (!keys.every(key => finite(snapshot.internalTotals[key])
+      && finite(snapshot.globalPercentRates[INTERNAL_TO_SNAPSHOT[key]])
+      && [...ADDITIVE_SOURCES, 'globalPercent'].every(source => finite(snapshot.breakdown[source][key])))) return null;
+    const personal = {
+      base: calculateBaseTotals(data, basic, state),
+      rankUp: calculateRankUpTotals(data, basic, state.rank),
+      equipment: calculateEquipmentTotals(data, basic, state),
+      bond: calculateBondTotals(data, basic, state.bond)
+    };
+    const same = (a, b) => Number.isFinite(a) && Number.isFinite(b)
+      && Math.abs(a - b) <= Number.EPSILON * 8 * Math.max(1, Math.abs(a), Math.abs(b));
+    if (Object.entries(personal).some(([source, values]) => !values
+      || keys.some(key => !same(values[key], snapshot.breakdown[source][key])))) return null;
+    const rebuilt = calculateFinalInternalTotals(data, basic, state, snapshot.breakdown, snapshot.globalPercentRates);
+    if (!rebuilt || keys.some(key => !same(rebuilt.totals[key], snapshot.internalTotals[key])
+      || !same(rebuilt.increases[key], snapshot.breakdown.globalPercent[key]))) return null;
+    // Rebuild the known components in GetBaseStat order, independently of
+    // the displayed/site final totals. Missing native sources are NOT assumed
+    // to be zero: this is an explicitly incomplete supply candidate.
+    const aside = calculateAsideContribution(data, basic, state);
+    const nativeCandidateStats = {};
+    keys.forEach(key => {
+      const read = source => snapshot.breakdown[source][key];
+      let value = read('base') + read('rankUp');
+      value = value + read('equipment');
+      value = value + read('boardBasic');
+      value = value + read('bond');
+      value = value + aside.total[key];
+      let commonFlat = read('research') + read('rankGlobal');
+      commonFlat = commonFlat + read('boardAdvanced');
+      value = value + commonFlat;
+      // Snapshot rates use percent. Native CommonPermille uses permille.
+      const permille = snapshot.globalPercentRates[INTERNAL_TO_SNAPSHOT[key]] * 10;
+      nativeCandidateStats[INTERNAL_TO_SNAPSHOT[key]] = value * ((1 + permille * 0.001) + followFraction(state, key));
+    });
+    if (!Object.values(nativeCandidateStats).every(finite)) return null;
+    return {
+      inputStage: 'site-growth-snapshot', calculationVersion: SNAPSHOT_CALCULATION_VERSION,
+      consistency: 'verified', nativeEquivalent: false,
+      stats: Object.fromEntries(keys.map(key => [INTERNAL_TO_SNAPSHOT[key], snapshot.internalTotals[key]])),
+      nativeBaseCandidate: {
+        inputStage: 'growth-composed-base-candidate', stats: nativeCandidateStats,
+        completeness: 'known-site-components-only',
+        // Aggregates cannot prove native truncation of each incoming entry.
+        commonFlatEntryProvenance: 'unavailable',
+        missingSources: ['gather', 'bot', 'event', 'mode-specific', 'board-supply-provenance']
+      },
+      sourceGroups: {
+        personal: ['base', 'rankUp', 'equipment', 'boardBasic', 'bond', 'asideManifest', 'asideLevel'],
+        commonFixed: ['research', 'rankGlobal', 'boardAdvanced'],
+        commonPercent: 'globalPercentRates', follow: state.follow
+      },
+      unresolved: [
+        '研究を共通固定値としてnative順の候補を組立済み。入力別整数化の元エントリーはsnapshot集計値だけでは確認できません',
+        '収集・Bot/Event・モード固有補正とボードの供給区分はsnapshotだけではnativeとの同等性を確認できません'
+      ]
+    };
+  }
+
   function canRebuildLegacySnapshot(data, basic, apostleState, snapshot, options = {}) {
     if (!data || !basic || !hasCompleteBreakdown(snapshot) || !apostleState) return false;
     // A complete vector is not proof that it belongs to these saved settings.
@@ -625,9 +692,10 @@
   }
 
   window.TRICKCAL_SHARED_STAT_ENGINE = {
-    version: 9,
+    version: 10,
     snapshotCalculationVersion: SNAPSHOT_CALCULATION_VERSION,
     hasCompleteBreakdown,
+    auditSummonGrowthSnapshot,
     canRebuildLegacySnapshot,
     requiresAsideGlobalRecalculation,
     normalizeGrade,

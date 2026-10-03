@@ -627,6 +627,12 @@
               </select>
             </label>
             <div class="fdc-status-subgroup-label">デバフ/弱点</div>
+            <label class="fdc-field fdc-defense-only" id="fdc-enemy-fury-field" hidden title="暫定：＋0で20ポイント、以後＋1ごとに5ポイント、＋10以降は70ポイント。既存の被ダメージ減少へ加算し、HPによる自動進行はしません。">
+              <span>EF phase0軽減（暫定）</span>
+              <select id="fdc-enemy-fury-plus" aria-label="EF phase0の撃破後軽減段階（暫定）">
+                <option value="-1">なし</option>
+              </select>
+            </label>
             <label class="fdc-field fdc-defense-only fdc-weakness-field" id="fdc-enemy-weakness-field" hidden>
               <span id="fdc-enemy-weakness-label">弱点(%)</span>
               <input id="fdc-enemy-weakness-p" type="number" value="0">
@@ -826,8 +832,15 @@
           <button type="button" data-fdc-save-action="save">保存</button>
           <button type="button" data-fdc-save-action="load">読込</button>
           <button type="button" data-fdc-save-action="compare">比較</button>
+          <button type="button" data-fdc-save-action="export">書き出し</button>
+          <button type="button" data-fdc-save-action="import">取り込み</button>
+          <button type="button" data-fdc-save-action="compact">旧保存を軽量化</button>
           <button type="button" data-fdc-save-action="delete" class="is-danger">削除</button>
         </div>
+        <input id="fdc-save-import-file" type="file" accept=".json,application/json" hidden>
+        <p id="fdc-save-capacity" class="fdc-save-list-empty"></p>
+        <p class="fdc-save-list-empty">設定と育成内訳を保存します。計算結果・DPS詳細は保存せず、比較時に再計算します。</p>
+        <p class="fdc-save-list-empty">DPS専用設定は含みません。読込後に高学年・計測時間などを確認してください。</p>
       </div>
     </details>
 

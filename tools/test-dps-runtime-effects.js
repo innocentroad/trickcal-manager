@@ -247,23 +247,85 @@ const accelerationEnd = accelerationResult.timeline.find(event => (
   event.type === 'actionEnd' && event.actionKey === 'basicAttack'
 ));
 assert.ok(accelerationStart && accelerationEnd, '全行動速度加速中も通常攻撃を開始・終了する');
-assert.ok(accelerationEnd.frame > 80 && accelerationEnd.frame < 90,
-  '8.5秒かけて線形加速するため、最初の100F行動は約84Fで終了する');
+assert.equal(accelerationEnd.frame, 100,
+  'リニュアの速度更新は開始済みの100F行動を伸縮しない');
 assert.equal(
   accelerationResult.timeline.find(event => event.type === 'accelerationApplied')?.maxAccelerationP,
-  228,
-  '設定76%の3倍を最大加速228%として記録する'
+  76,
+  '旧暫定入力でもリニュアの最大加速は設定76%を採用する'
 );
 assert.equal(
   accelerationResult.timeline.find(event => event.type === 'accelerationApplied')?.maxActionSpeedP,
-  328,
-  '最大速度は基準速度100%に最大加速228%を加えた328%とする'
+  176,
+  'SelfSpeedとOtherSpeedはそれぞれ最大176%となる'
 );
 assert.equal(
   accelerationResult.timeline.find(event => event.type === 'accelerationExpired')?.frame,
   600,
   '加速効果は設定した10秒後に終了する'
 );
+
+const renewaStarts = accelerationResult.timeline.filter(event => event.type === 'actionStart' && event.actionKey === 'basicAttack');
+const secondRenewa = renewaStarts[1];
+assert.equal(secondRenewa.frame, 100, '加速途中の更新で初回の次開始時刻を変更しない');
+assert.ok(Math.abs(secondRenewa.selfSpeed - (1 + .76 * 100 / 420)) < 1e-9);
+assert.ok(Math.abs(secondRenewa.motionFrames - 100 / secondRenewa.selfSpeed ** 2) < 1e-9,
+  '長い普通攻撃は開始時のSelfSpeedとOtherSpeedの両方を反映する');
+const renewaHold = renewaStarts.find(event => event.frame >= 420 && event.frame < 600);
+assert.equal(renewaHold.selfSpeed, 1.76, '7秒後は最大速度を保持する');
+const afterRenewa = renewaStarts.find(event => event.frame >= 600);
+assert.equal(afterRenewa.selfSpeed, 1, '終了後に開始する行動は等速へ戻る');
+
+const renewaEffect = { effectId: 'Renewa_high_e01', id: 'renewa', mode: 'initialTimed', accelerationP: 76 };
+const shortRenewa = createFixture({ durationSeconds: 11, includePoison: false,
+  basicMotionFrames: 30, normalAttackIntervalFrames: 180, timingEvents: [], accelerationEffects: [renewaEffect] });
+const shortHold = shortRenewa.timeline.find(event => event.type === 'actionStart' && event.frame >= 420 && event.frame < 600);
+assert.ok(Math.abs(shortHold.motionFrames - 30 / 1.76) < 1e-9);
+assert.ok(Math.abs(shortHold.normalCycleFrames - (30 / 1.76 + 180 / 1.76 - 30)) < 1e-9,
+  '短いモーションのAttackLockはSelfSpeedで割らない');
+const skillRenewa = createFixture({ durationSeconds: 10, includePoison: false,
+  highSkillMode: 'auto', highSkillCooldownSeconds: 7, accelerationEffects: [renewaEffect] });
+const skillHold = skillRenewa.timeline.find(event => event.type === 'actionStart' && event.actionKey === 'highSkill');
+assert.equal(skillHold.selfSpeed, 1.76);
+assert.ok(Math.abs(skillHold.motionFrames - 2 / 1.76) < 1e-9,
+  '高学年モーションはSelfSpeedのみを反映しOtherSpeedは掛けない');
+
+const continuousAcceleration = createFixture({ durationSeconds: 2, includePoison: false,
+  basicMotionFrames: 100, normalAttackIntervalFrames: 100, timingEvents: [],
+  accelerationEffects: [{ id: 'other-acceleration', mode: 'initialTimed', accelerationP: 100, durationFrames: 600 }] });
+assert.equal(continuousAcceleration.timeline.find(event => event.type === 'actionEnd').frame, 50,
+  'リニュア以外の加速は既存の連続進行を維持する');
+
+const delayedRenewa = createFixture({ durationSeconds: 3, includePoison: false,
+  basicMotionFrames: 100, normalAttackIntervalFrames: 100,
+  timingEvents: [{ frame: 50, order: 1, effectKind: 'ダメージ', effectId: 'damage' }],
+  accelerationEffects: [{ ...renewaEffect, mode: 'sourceEventTimed', triggerSourceId: 'damage', triggerActionKeys: ['basicAttack'] }] });
+assert.equal(delayedRenewa.timeline.find(event => event.type === 'accelerationApplied').frame, 50,
+  '加速は行動開始ではなく効果イベントから開始する');
+assert.equal(delayedRenewa.timeline.find(event => event.type === 'actionEnd').frame, 100,
+  '効果発生前から進行中の行動は終了時刻を維持する');
+const renewaWithHaste = createFixture({ durationSeconds: 3, includePoison: false,
+  basicMotionFrames: 100, normalAttackIntervalFrames: 100,
+  timingEvents: [{ frame: 50, order: 1, effectKind: 'ダメージ', effectId: 'damage' }],
+  accelerationEffects: [renewaEffect],
+  attackSpeedEffects: [{ id: 'hit-haste', mode: 'sourceEventTimed', triggerSourceId: 'damage',
+    triggerActionKeys: ['basicAttack'], hasteP: 100, durationFrames: 600 }] });
+const hasteStarts = renewaWithHaste.timeline.filter(event => event.type === 'actionStart' && event.actionKey === 'basicAttack');
+assert.equal(hasteStarts[1].frame, 100, '途中で攻速が変わっても保存した開始予約は維持する');
+assert.equal(hasteStarts[1].normalAttackIntervalFrames, 50, '次の開始で新しい攻速を取り込む');
+const expiryAction = renewaStarts.filter(event => event.frame < 600).at(-1);
+const expiryEnd = accelerationResult.timeline.find(event => event.type === 'actionEnd' && event.frame > expiryAction.frame);
+assert.ok(Math.abs(expiryEnd.frame - expiryAction.frame - expiryAction.motionFrames) < .11,
+  '加速終了をまたぐ行動も開始時の速度を保持する');
+const slowAcceleration = createFixture({ durationSeconds: 11, includePoison: false,
+  basicMotionFrames: 100, normalAttackIntervalFrames: 100, timingEvents: [],
+  accelerationEffects: [renewaEffect], enableFastForward: false });
+assert.deepEqual(slowAcceleration.timeline.filter(event => ['actionStart', 'actionEnd'].includes(event.type)),
+  accelerationResult.timeline.filter(event => ['actionStart', 'actionEnd'].includes(event.type)),
+  '高速待機を無効にしてもリニュアの行動時刻は変わらない');
+const overlapRenewa = createFixture({ includePoison: false,
+  accelerationEffects: [renewaEffect, { ...renewaEffect, id: 'renewa-2' }] });
+assert.ok(overlapRenewa.warnings.some(warning => warning.includes('書込順が未確認')));
 
 const reducedCooldownResult = createFixture({
   durationSeconds: 2,

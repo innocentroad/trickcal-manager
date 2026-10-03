@@ -227,6 +227,11 @@ class RecordingStorage {
 }
 
 function loadFunctions(source, names, contextValues = {}) {
+  if (source.includes('function omitDuplicateFinalStats(')
+    && (names.includes('publishLiveState') || names.includes('loadState'))) {
+    names = [...new Set([...names, 'stableStringify', 'stableValue',
+      'omitDuplicateFinalStats', 'restoreOmittedFinalStats'])];
+  }
   const context = {
     console,
     isStorageRuntimeError(error) {
@@ -1308,14 +1313,18 @@ function testCalculationSaveBehavior() {
   const storage = new RecordingStorage();
   const loaded = loadFunctions(readSource('formation-damage-calc.js'), ['writeDamageCalculationSaves'], {
     localStorage: storage,
-    CALC_RESULT_SAVES_KEY: key
+    CALC_RESULT_SAVES_KEY: key,
+    CALC_SAVE_LIMIT: 50,
+    damageSaveWriteMessage: ''
   });
   const items = Array.from({ length: 55 }, (_, index) => ({ id: `save-${index}`, snapshot: { index } }));
-  loaded.functions.writeDamageCalculationSaves(items);
+  assert.equal(loaded.functions.writeDamageCalculationSaves(items), false, '上限超過を切り詰めず拒否します');
+  assert.equal(storage.raw(key), null);
+  assert.equal(loaded.functions.writeDamageCalculationSaves(items.slice(0, 50)), true);
   assert.equal(JSON.parse(storage.raw(key)).length, 50, '計算保存の50件上限が変わっています');
   storage.failMethods.add('setItem');
   assert.doesNotThrow(
-    () => loaded.functions.writeDamageCalculationSaves(items),
+    () => loaded.functions.writeDamageCalculationSaves(items.slice(0, 50)),
     '計算保存失敗が現行の握りつぶし境界を越えました'
   );
   assert.equal(storage.raw(key), JSON.stringify(items.slice(0, 50)), '計算保存失敗で永続値が変わりました');
@@ -1340,7 +1349,9 @@ function testCalculationSaveBehavior() {
   ], {
     localStorage: deleteStorage,
     CALC_RESULT_SAVES_KEY: key,
-    window: { confirm() { return true; } },
+    CALC_SAVE_LIMIT: 50,
+    damageSaveWriteMessage: '',
+    window: { confirm() { return true; }, alert() { deleteCalls.push(['alert']); } },
     view: { loadedDamageSaveId: 'calc:one' },
     renderLoadedDamageSaveLabel(value) { deleteCalls.push(['label', value]); },
     closeDamageSaveMenu() { deleteCalls.push(['close']); }
@@ -1348,8 +1359,8 @@ function testCalculationSaveBehavior() {
   deleteStorage.failMethods.add('setItem');
   assert.doesNotThrow(() => deleteLoaded.functions.deleteSelectedDamageCalculation('calc:one'), '計算保存削除失敗がcatch境界を越えました');
   assert.ok(deleteStorage.raw(key).includes('calc:one'), '計算保存削除失敗で永続値が消えました');
-  assert.equal(deleteLoaded.context.view.loadedDamageSaveId, '', '計算保存削除失敗時のメモリ状態が変わりました');
-  assert.deepEqual(deleteCalls, [['label', null], ['close']], '計算保存削除失敗時のUI結果が変わりました');
+  assert.equal(deleteLoaded.context.view.loadedDamageSaveId, 'calc:one', '削除失敗時も読込中ラベルを保持します');
+  assert.deepEqual(deleteCalls, [['alert']], '削除失敗を通知し、成功として閉じません');
 
   const enemyKey = 'trickcal_formation_damage_enemy_presets_v1';
   const enemyStorage = new RecordingStorage({

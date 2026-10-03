@@ -63,7 +63,7 @@ with tempfile.TemporaryDirectory() as directory:
 
 workbook_path = ROOT / "trickcal_skillmotion.xlsx"
 data = MODULE.build_data(workbook_path, dict(MODULE.DEFAULT_SHEETS))
-assert data["version"] == 8
+assert data["version"] == 9
 assert data["supportStatuses"]["chloe"]["statuses"].keys() == {"normal", "aside", "favorite"}
 assert data["apostles"]["chloe"]["implementationStatuses"].keys() == {"normal", "aside", "favorite"}
 summary = data["summary"]["implementationStatuses"]

@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 
-  // DPS対応可否は skillmotion の「対応状況」シートだけから判定する。
+  // 構成の対応状況に加え、実行に必要な入力・供給処理の不足を判定する。
   // 通常は常に必須、アサイド・愛用品は選択時だけ必須に加える。
   const IMPLEMENTED_STATUSES = Object.freeze(['済', '暫定']);
   const COMPONENTS = Object.freeze({
@@ -46,7 +46,7 @@
       provisional: false, provisionalComponents: [], provisionalLabel: '', statusLabel: '', reason
     });
   }
-  function evaluate(snapshot = {}) {
+  function evaluate(snapshot = {}, options = {}) {
     const id = normalizeId(snapshot.targetId);
     const asideRank = Math.max(0, Math.floor(Number(snapshot.skillLevels?.asideRank) || 0));
     const favoriteLevels = getFavoriteLevels(snapshot);
@@ -76,11 +76,40 @@
       return unsupported({ id, label, asideRank, favoriteLevels, implementationStatuses: statuses, requiredComponents,
         reason: `${label}の必要な構成はDPS未対応です（${details}）。` });
     }
+    const summonDefinitions = Object.values(timing.actions || {}).flatMap(action => (
+      (action.generatedObjects || []).filter(item => item.executionMode === '召喚ユニット')
+    ));
+    if (summonDefinitions.length) {
+      const issues = [...new Set(summonDefinitions.flatMap(item => item.executionIssues || []))];
+      const validate = globalThis.TRICKCAL_DPS_SIMULATOR?.getSummonCalculationIssues;
+      const calculationIssues = snapshot.summonCalculationInput && typeof validate === 'function'
+        ? validate(snapshot.summonCalculationInput, summonDefinitions) : [
+          '分身自身の能力・状態継承と命中計算の供給元対応が未接続です'
+        ];
+      const provisionalMomo = id === 'momo' && snapshot.summonCalculationInput?.provisionalModel === 'momo-site-snapshot-v1'
+        && !issues.length && !calculationIssues.length;
+      if (!provisionalMomo) return unsupported({ id, label, asideRank, favoriteLevels, implementationStatuses: statuses, requiredComponents,
+        reason: `${label}の召喚ユニットDPSは${issues.length ? '入力待ち' : '実装待ち'}です。${[...issues, ...calculationIssues].slice(0, 3).join(' / ') || '実データの能力組立・終了効果の統合検証待ちです'}。` });
+    }
     if (id === 'epica' && asideRank >= 2) {
-      return unsupported({ id, label, asideRank, favoriteLevels, implementationStatuses: statuses, requiredComponents,
-        reason: 'エピカA2以上はDPS未対応です（普通攻撃の追加命中と命中時効果、強化攻撃発動率+15%、強化攻撃発動時の高学年CT 3秒減少のタイミングが未モデル化）。' });
+      const enemyCount = Number(snapshot.scenario?.battleConditions?.epicaA2EnemyCount || 1);
+      const reason = enemyCount !== 1
+        ? 'エピカA2暫定DPSは敵1体に限定しています。敵数を1体にしてください。'
+        : '';
+      if (reason) return unsupported({ id, label, asideRank, favoriteLevels,
+        implementationStatuses: statuses, requiredComponents, reason });
+      const normalActions = ['basicAttack', 'enhancedAttack'];
+      const hitConsumers = ['spRecoveryEffects', 'cooldownEffects', 'damageBuffEffects']
+        .flatMap(key => snapshot.runtimeEffects?.[key] || [])
+        .some(effect => effect.mode === 'actionHit' && effect.triggerActionKeys?.some(key => normalActions.includes(key)));
+      if (hitConsumers) return unsupported({ id, label, asideRank, favoriteLevels,
+        implementationStatuses: statuses, requiredComponents,
+        reason: 'エピカA2暫定DPSでは普通攻撃の外部命中時効果との併用は未対応です。' });
     }
     const provisionalComponents = requiredComponents.filter(component => component.status === '暫定');
+    if (id === 'momo' && snapshot.summonCalculationInput?.provisionalModel === 'momo-site-snapshot-v1') {
+      provisionalComponents.push(Object.freeze({ key: 'summon', label: '分身モデル', status: '暫定' }));
+    }
     const provisionalLabel = provisionalComponents.map(component => component.label).join('・');
     const statusLabel = requiredComponents.map(component => `${component.label}: ${component.status}`).join(' / ');
     return Object.freeze({
@@ -90,6 +119,6 @@
     });
   }
   window.TRICKCAL_DPS_SUPPORT_REGISTRY = Object.freeze({
-    version: 3, IMPLEMENTED_STATUSES, COMPONENTS, getFavoriteLevels, getRequiredComponentKeys, evaluate
+    version: 4, IMPLEMENTED_STATUSES, COMPONENTS, getFavoriteLevels, getRequiredComponentKeys, evaluate
   });
 })();

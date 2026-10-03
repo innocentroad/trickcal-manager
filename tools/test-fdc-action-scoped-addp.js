@@ -91,7 +91,7 @@ assert.ok(
 // 変換できることと、Barong A2の状態付与・回復が構造化イベントへ届くことを確認する。
 const cardDataContext = {};
 vm.runInNewContext(
-  `${fs.readFileSync(path.resolve(__dirname, '..', 'cards.js'), 'utf8')}\nthis.library = CARD_LIBRARY; this.migrateCardStateMap = migrateCardStateMap; this.resolveCardIdAlias = resolveCardIdAlias;`,
+  `${fs.readFileSync(path.resolve(__dirname, '..', 'cards.js'), 'utf8')}\nthis.library = CARD_LIBRARY; this.randomDefinitions = CARD_RANDOM_DEFINITIONS; this.migrateCardStateMap = migrateCardStateMap; this.resolveCardIdAlias = resolveCardIdAlias;`,
   cardDataContext
 );
 const statDataContext = { window: {} };
@@ -174,18 +174,23 @@ const fdcRuntimeSource = source
       '    createDpsFormationStatusCandidates,',
       '    createDpsFormationEventCandidates,',
       '    collectEffects,',
+      '    setTestCardStacks: (key, count) => { view.conditionalEffectStackCounts[key] = count; },',
       '    createDpsActionEffectAudit,',
       '    createDpsRuntimeEffects,',
+      '    getDpsCardRandomSpRecovery,',
       '    createDpsRuntimeEffectIdentity,',
       '    createDpsRuntimeEffectId,',
       '    createDpsStructuredRuntimeEvents,',
       '    buildFdcApostleSkillOptions,',
       '    createFdcSkillEffectLabel,',
       '    buildDpsActionProfiles,',
+      '    calculateDamage,',
+      '    createComparableDamageResult,',
       '    getDpsRuntimeManagedSkillEffects,',
       '    isDpsFormationExternalActionRequired,',
       '    isDpsUnsupportedRuntimeTrigger,',
       '    normalizeCardEffectBonuses,',
+      '    judgeTargetText,',
       '    getEffectText,',
       '    getDpsDirectTimingSourceEffectId,',
       '    getFdcActionRepeatInfo,'
@@ -216,8 +221,10 @@ const fdcInputValues = {
 };
 const fdcInitializationErrors = [];
 const fdcRuntimeContext = {
+  TRICKCAL_DPS_SIMULATOR: simulator,
   APOSTLE_LIBRARY: apostleContext.library,
   CARD_LIBRARY: cardDataContext.library,
+  CARD_RANDOM_DEFINITIONS: cardDataContext.randomDefinitions,
   TRICKCAL_STAT_DATA: statDataContext.data,
   TRICKCAL_SHARED_STAT_ENGINE: sharedStatEngine,
   DPS_TIMING_DATA: timingData,
@@ -281,6 +288,50 @@ vm.runInNewContext(
 );
 assert.ok(fdcRuntimeContext.api, `保存Facadeの非同期初期化完了後にFDC APIを取得できる${fdcInitializationErrors.length ? `: ${fdcInitializationErrors.join('; ')}` : ''}`);
 const fdcApi = fdcRuntimeContext.api;
+const singleHitContext = { target: { id: 'Sylla', asideRank: 0 }, actionCategory: '基本攻撃',
+  selectedSkillOption: { value: 100, category: '基本攻撃' }, summary: {}, enemySummary: {},
+  damageType: 'physical', forceSelfAttack: true, excludeNormalCalculationOnlyEffects: true };
+const singleHitResult = fdcApi.calculateDamage(singleHitContext);
+assert.equal(singleHitResult.rounding.calculationMode, 'normal-hit-v1');
+assert.ok(Number.isInteger(singleHitResult.normal) && Number.isInteger(singleHitResult.crit));
+const singleHitProfile = fdcApi.createComparableDamageResult(singleHitResult);
+assert.equal(simulator.evaluateDamageAtHit({ expectedDamage: singleHitProfile.expected,
+  actionKey: 'basicAttack', runtimeBase: singleHitProfile.runtimeBase }).expectedDamage, singleHitResult.expected,
+  '実FDC→profile→DPS再評価で同じ1命中の非会心／会心整数から期待値を作る');
+// 能力値の属性と受け手の属性を混同しない。実生成カードを収集して
+// 物理使徒の魔法攻撃へ渡る能力値を確認する（ゲーム実測ではない）。
+const yomiScopeTarget = {
+  id: 'Sylla', name: 'シーラ', position: '後列', line: 1,
+  role: '攻撃', attackType: '物理',
+  artifactIds: ['artifact_yomi_moonflower'],
+  stats: { physicalAtk: 1000, magicAtk: 100 }
+};
+const yomiScopeFormation = {
+  rows: [{ apostles: ['Sylla', '', ''], artifacts: [['artifact_yomi_moonflower', '', ''], ['', '', ''], ['', '', '']] }],
+  spells: []
+};
+const collectYomiScope = damageType => fdcApi.collectEffects({
+  target: yomiScopeTarget, formation: yomiScopeFormation,
+  cards: { artifact_yomi_moonflower: { star: 1, solder: 0 } },
+  state: { apostles: {}, cards: {} }, damageType, actionCategory: '基本攻撃'
+});
+for (const damageType of ['magic', 'physical']) {
+  const rows = collectYomiScope(damageType).applied.filter(row => row.effectId === 'artifact_yomi_moonflower_e02');
+  assert.equal(rows.length, 1, 'ヨミの同列魔攻バフを受け手の物理属性で除外しない');
+  assert.deepEqual(plain(rows[0].bonuses), { magicAtkP: 11.5 }, 'ヨミは魔攻だけへ供給し物攻へ漏らさない');
+}
+assert.deepEqual(plain(fdcApi.normalizeCardEffectBonuses(
+  { atkP: 10, magicAtkP: 5 }, 'magic', '攻撃力増加'
+)), { magicAtkP: 15 }, '共通攻撃力と属性攻撃力を上書きせず合算する');
+assert.deepEqual(plain(fdcApi.normalizeCardEffectBonuses(
+  { atkP: 10, physicalAtkP: 5 }, 'physical', '攻撃力増加'
+)), { physicalAtkP: 15 }, '物攻も共通補正と属性補正を合算する');
+assert.equal(fdcApi.judgeTargetText('魔法攻撃力増加', yomiScopeTarget, 'physical').matched, true,
+  '魔法攻撃力という能力値名を対象使徒の属性条件と誤認しない');
+assert.equal(fdcApi.judgeTargetText('魔法攻撃使徒', yomiScopeTarget, 'physical').matched, false,
+  '魔法攻撃使徒という明示的な対象制限は維持する');
+assert.equal(fdcApi.judgeTargetText('物理攻撃使徒', yomiScopeTarget, 'magic').matched, false,
+  '属性条件の既存の選択攻撃種別による判定を維持する');
 const dollText = fdcApi.getEffectText(barongDollEffect);
 const dollBonuses = fdcApi.normalizeCardEffectBonuses(
   barongDollEffect.bonusesByStar[0],
@@ -2074,10 +2125,15 @@ const gideonDpsProfiles = fdcApi.buildDpsActionProfiles({
 const gideonDpsPerHit = gideonDpsProfiles.profiles.lowSkill?.variants?.default?.effects?.Kidian_low_e01;
 const gideonDpsArtifact0 = gideonDpsProfiles.profiles.lowSkill?.variants?.['遺物装備0']?.effects?.Kidian_low_e05;
 assert.equal(
-  Number(gideonDpsPerHit?.expectedDamage) * 4,
-  Number(gideonDpsArtifact0?.expectedDamage) * 2,
-  'ギデオンA2の表示用候補をDPSの行動プロファイルへ二重計上しない'
+  Number(gideonDpsPerHit?.damageResult?.runtimeBase?.hitInput?.coefficientP),
+  300,
+  'ギデオンA2の表示用4回分候補をDPSの1命中係数へ二重計上しない'
 );
+assert.equal(Number(gideonDpsArtifact0?.damageResult?.runtimeBase?.hitInput?.coefficientP), 600,
+  '総量の遺物0分岐は600%を保持し、配分前の総量へ命中丸めを適用しない');
+assert.equal(gideonDpsPerHit.damageResult.expected, simulator.evaluateSingleHitDamage(
+  gideonDpsPerHit.damageResult.runtimeBase.hitInput).expected,
+  '1回あたり候補の実profileは共有の1命中整数結果から期待値を作る');
 assert.deepEqual(
   gideonBaseOptionValues(gideonA2Target),
   {
@@ -2138,4 +2194,131 @@ assert.equal(
   'ギデオンA2の表示用別候補をDPSプロファイルへ追加しない'
 );
 
-console.log('FDC action-scoped addP tests passed');
+// Actual card definition -> FDC runtime conversion -> simulator SP timeline.
+const aliceSp = fdcApi.getDpsCardRandomSpRecovery({ cardId: 'spell_alice_fake_magic',
+  cardStar: 1, effectId: 'spell_alice_fake_magic_e03' });
+assert.deepEqual(plain(aliceSp), { min: 1, max: 10, researchStatus: '仮定' });
+assert.equal(fdcApi.getDpsCardRandomSpRecovery({ cardId: 'spell_alice_fake_magic',
+  cardStar: 1, effectId: 'spell_alice_fake_magic_e01' }), null, 'HP recovery is not SP');
+const aliceRow = { key: 'alice-sp', cardId: 'spell_alice_fake_magic',
+  sourceId: 'spell_alice_fake_magic', effectId: 'spell_alice_fake_magic_e03',
+  triggerType: 'n秒ごと', triggerValue: 5, label: 'SP回復',
+  category: 'カード', bonuses: {}, enabled: false, overlapCount: 2,
+  randomSpRecovery: aliceSp };
+const aliceTarget = { ...piraCollectionTarget, artifactIds: [] };
+const aliceFormation = { ...piraCollectionFormation,
+  spells: ['spell_alice_fake_magic', 'spell_alice_fake_magic'],
+  rows: piraCollectionFormation.rows.map(row => ({ ...row, artifacts: [] })) };
+const aliceAudit = Object.fromEntries([
+  ['basicAttack', '基本攻撃'], ['enhancedAttack', '強化攻撃'],
+  ['lowSkill', '低学年'], ['highSkill', '高学年']
+].map(([key, actionCategory]) => {
+  const collection = { target: aliceTarget, formation: aliceFormation,
+    cards: { spell_alice_fake_magic: { star: 1, solder: 0 } },
+    damageType: 'physical', state: { apostles: {}, cards: {} }, actionCategory };
+  return [key, fdcApi.createDpsActionEffectAudit({ ...collection,
+    effects: fdcApi.collectEffects(collection), members: [], skillEffectStateOverrides: {} })];
+}));
+assert.ok(aliceAudit.basicAttack.rows.some(row => row.randomSpRecovery && row.overlapCount === 2),
+  'real spell collection and audit preserve random SP and card count');
+const aliceRuntime = fdcApi.createDpsRuntimeEffects(aliceAudit, {});
+assert.equal(aliceRuntime.spRecoveryEffects.length, 2, 'each card copy draws separately');
+assert.ok(aliceRuntime.spRecoveryEffects.every(effect => effect.mode === 'periodic'
+  && effect.intervalFrames === 300 && effect.fixedMin === 1 && effect.fixedMax === 10));
+const epica = apostleContext.library.find(item => item.id === 'epica');
+const aliceConfig = simulator.buildCombatantConfig(epica, timingData.apostles.epica,
+  { skillLevels: { asideRank: 1 }, runtimeEffects: aliceRuntime });
+aliceConfig.spRegen = 0;
+aliceConfig.initialSp = 290;
+const aliceOptions = { durationSeconds: 16, seed: 1, highSkillMode: 'disabled', recordTimeline: true };
+const aliceResult = simulator.simulate(aliceConfig, aliceOptions);
+const recoveries = aliceResult.timeline.filter(item => item.type === 'spRecoveryEvent'
+  && item.sourceId === 'spell_alice_fake_magic');
+assert.deepEqual(recoveries.map(item => item.frame), [300, 300, 600, 600, 900, 900]);
+assert.ok(recoveries.every(item => Number.isInteger(item.requestedAmount)
+  && item.requestedAmount >= 1 && item.requestedAmount <= 10 && item.sp <= 300));
+assert.ok(aliceResult.timeline.some(item => item.type === 'actionStart' && item.actionKey === 'lowSkill'),
+  'random SP fills the remaining SP and actually starts low skill');
+assert.equal(simulator.simulate({ ...aliceConfig, runtimeEffects: {
+  ...aliceConfig.runtimeEffects, spRecoveryEffects: [] } }, aliceOptions).timeline
+  .filter(item => item.type === 'actionStart' && item.actionKey === 'lowSkill').length, 0);
+assert.deepEqual(simulator.simulate(aliceConfig, aliceOptions).timeline, aliceResult.timeline,
+  'fixed seed is reproducible');
+assert.equal(fdcApi.createDpsRuntimeEffects(Object.fromEntries(Object.keys(aliceAudit)
+  .map(key => [key, { rows: [{ ...aliceRow, sourceDisabled: true }] }])), {}).spRecoveryEffects.length, 0);
+
+// 実カード収集→監査→DPS。低/高は同じ能力値スタックを増やす。
+const scrollCardId = 'artifact_sherum_parchment_scroll';
+const scrollTarget = { ...yomiScopeTarget, artifactIds: [scrollCardId] };
+const scrollFormation = { rows: [{ apostles: ['Sylla', '', ''],
+  artifacts: [[scrollCardId, '', ''], ['', '', ''], ['', '', '']] }], spells: [] };
+let scrollRuntime;
+for (let star = 1; star <= 5; star += 1) {
+  const audit = Object.fromEntries([
+    ['basicAttack', '基本攻撃'], ['enhancedAttack', '強化攻撃'],
+    ['lowSkill', '低学年スキル'], ['highSkill', '高学年スキル']
+  ].map(([key, actionCategory]) => {
+    const collection = { target: scrollTarget, formation: scrollFormation,
+      cards: { [scrollCardId]: { star, solder: 0 } }, damageType: 'physical',
+      state: { apostles: {}, cards: {} }, actionCategory };
+    const effects = fdcApi.collectEffects(collection);
+    const rows = [...effects.applied, ...effects.conditional].filter(row => /^artifact_sherum_parchment_scroll_e0[12]$/.test(row.effectId));
+    assert.equal(rows.length, 1, '通常計算も低/高2表示行を1つの共有スタックへ集約する');
+    assert.equal(rows[0].runtimeBonuses.physicalAtkP, [1, 1.2, 1.4, 1.6, 1.8][star - 1]);
+    for (const count of [19, 20]) {
+      fdcApi.setTestCardStacks(rows[0].conditionKey, count);
+      const updated = fdcApi.collectEffects(collection);
+      const shared = [...updated.applied, ...updated.conditional].find(row => row.sharedPermanentStatStack);
+      assert.ok(Math.abs(shared.bonuses.physicalAtkP - count * [1, 1.2, 1.4, 1.6, 1.8][star - 1]) < 1e-12);
+      assert.equal(shared.bonuses.skillAddP || 0, count === 20 ? 30 : 0,
+        '通常計算は19で到達ボーナスなし、20で30%を1回');
+    }
+    fdcApi.setTestCardStacks(rows[0].conditionKey, 1);
+    return [key, fdcApi.createDpsActionEffectAudit({ ...collection, effects,
+      members: [], skillEffectStateOverrides: {} })];
+  }));
+  const runtime = fdcApi.createDpsRuntimeEffects(audit, {});
+  const buffs = runtime.damageBuffEffects.filter(effect => effect.sourceId === scrollCardId);
+  assert.equal(buffs.length, 1, '4行動の監査を重ねても巻物runtimeは1枠');
+  assert.deepEqual(plain(buffs[0].triggerActionKeys).sort(), ['highSkill', 'lowSkill']);
+  assert.equal(buffs[0].maxStacks, 20);
+  assert.equal(buffs[0].stopAtMaxStacks, true);
+  assert.deepEqual(plain(buffs[0].maxStackModifiers), { skillAddP: 30 });
+  scrollRuntime = runtime;
+}
+const scrollConfig = simulator.buildCombatantConfig(apostleContext.library.find(item => item.id === 'barong'), timingData.apostles.barong,
+  { skillLevels: { asideRank: 1 }, runtimeEffects: scrollRuntime });
+scrollConfig.spRegen = 300;
+const scrollResult = simulator.simulate(scrollConfig, {
+  durationSeconds: 180, initialActionDelayFrames: 0, highSkillMode: 'auto', seed: 1,
+  recordTimeline: true,
+  damageProfiles: { basicAttack: { expectedDamage: 100 }, lowSkill: { expectedDamage: 100 }, highSkill: { expectedDamage: 100 } }
+});
+// 実装のid書式でなくsourceを確認できる状態ログも併用する。
+const scrollChanges = scrollResult.timeline.filter(event => event.type === 'effectStateChanged'
+  && event.kind === 'buff' && event.sourceId === scrollCardId && event.operation === 'apply');
+assert.equal(scrollChanges.length, 20, '20命中以降は追加・置換をしない');
+assert.deepEqual(scrollChanges.map(event => event.stackCount), Array.from({ length: 20 }, (_, i) => i + 1));
+assert.ok(scrollChanges.some(event => event.sourceActionKey === 'lowSkill'));
+assert.ok(scrollChanges.some(event => event.sourceActionKey === 'highSkill'));
+assert.equal(scrollChanges.filter(event => event.modifiers.skillAddP === 30).length, 1,
+  '20到達時に30%を1回だけ付与し40stack/60%へ倍化しない');
+const scrollStacks = scrollResult.finalState.runtimeBuffs;
+assert.ok(Math.abs(scrollStacks.reduce((sum, stack) => sum + (stack.modifiers.physicalAtkP || 0), 0) - 36) < 1e-12);
+assert.equal(scrollStacks.reduce((sum, stack) => sum + (stack.modifiers.skillAddP || 0), 0), 30);
+assert.ok(scrollStacks.every(stack => stack.remainingFrames === Infinity), '巻物スタックは戦闘内で時間切れしない');
+assert.deepEqual(simulator.simulate(scrollConfig, {
+  durationSeconds: 180, initialActionDelayFrames: 0, highSkillMode: 'auto', seed: 1,
+  recordTimeline: true, enableFastForward: false,
+  damageProfiles: { basicAttack: { expectedDamage: 100 }, lowSkill: { expectedDamage: 100 }, highSkill: { expectedDamage: 100 } }
+}).finalState.runtimeBuffs, scrollStacks, '高速化有無で共有スタックの結果が変わらない');
+const scrollLowOnly = simulator.simulate(scrollConfig, {
+  durationSeconds: 180, initialActionDelayFrames: 0, highSkillMode: 'disabled', seed: 1,
+  recordTimeline: true, damageProfiles: { lowSkill: { expectedDamage: 100 } }
+});
+const lowOnlyChanges = scrollLowOnly.timeline.filter(event => event.type === 'effectStateChanged'
+  && event.kind === 'buff' && event.sourceId === scrollCardId && event.operation === 'apply');
+assert.equal(lowOnlyChanges.length, 20, '高学年OFFでも低学年から共有20スタックへ到達する');
+assert.ok(lowOnlyChanges.every(event => event.sourceActionKey === 'lowSkill'));
+
+console.log('FDC action-scoped addP / Alice random SP / shared scroll tests passed');

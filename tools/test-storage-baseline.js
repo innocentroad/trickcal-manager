@@ -794,7 +794,7 @@ assert.match(stat, /return Promise\.resolve\(\)\.then\(task\)/, 'Navigator Lock�
 assert.match(calc, /const CALC_SETTINGS_KEY = 'trickcal_formation_damage_settings_v1'/, '計算設定キーが変わっています');
 assert.match(calc, /const CALC_RESULT_SAVES_KEY = 'trickcal_formation_damage_result_saves_v1'/, '計算保存キーが変わっています');
 assert.match(calc, /const CUSTOM_ENEMY_PRESETS_KEY = 'trickcal_formation_damage_enemy_presets_v1'/, '敵プリセットキーが変わっています');
-assert.match(calc, /\.slice\(0, 50\)/, '計算保存の最大50件制限が変わっています');
+assert.match(calc, /const CALC_SAVE_LIMIT = 50;/, '計算保存の最大50件制限が変わっています');
 assert.match(calc, /enemyCorrectionSchema: 6/, '敵補正schemaの基準が変わっています');
 
 assert.match(dps, /const DPS_SETTINGS_SCHEMA_VERSION = 2/, 'DPS設定schemaが変わっています');
