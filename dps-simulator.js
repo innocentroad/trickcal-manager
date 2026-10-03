@@ -1123,20 +1123,367 @@
     const changePolicy = String(
       generated?.attackSpeedChangePolicy || generated?.speedChangePolicy || ''
     );
+    const ownBase = reference === '生成物自身';
+    const base = generated?.attackSpeedBase;
+    if (ownBase && !(typeof base === 'number' && Number.isFinite(base) && base > 0)) {
+      throw new RangeError(`${generated.id || generated.name}: 生成物自身の攻撃速度基礎が不正です`);
+    }
     return {
       reference,
       scope,
       changePolicy,
+      base: ownBase ? base : null,
+      ownBase,
+      periodFrames: ownBase ? DEFAULT_FRAMES_PER_SECOND * 300 / base : null,
       ownerAtSpawn: reference.includes('本人') && reference.includes('生成時'),
       repeatInterval: scope.includes('反復周期')
     };
   }
 
+  function getSummonUnitIssues(definition) {
+    const issues = [...normalizeArray(definition.executionIssues)];
+    const actions = normalizeArray(definition.summonActions);
+    const rows = normalizeArray(definition.timingEvents).filter(row => row.recordPurpose !== '観測');
+    if (actions.length !== 1) issues.push('召喚ユニットの行動は現在1種類が必要です');
+    if (!(typeof definition.attackSpeedBase === 'number' && Number.isFinite(definition.attackSpeedBase) && definition.attackSpeedBase > 0)) {
+      issues.push('召喚ユニットの攻撃速度基礎が不正です');
+    }
+    actions.forEach(action => {
+      if (!(action.motionFrames > 0)) issues.push(`${action.id}: モーション長が未確定です`);
+      const hits = rows.filter(row => row.actionId === action.id && row.timeOrigin === '召喚ユニット行動開始');
+      if (!hits.length || hits.some(row => row.frame == null || !Number.isFinite(row.frame) || row.frame < 0 || row.frame > action.motionFrames)) {
+        issues.push(`${action.id}: 行動内命中時刻が未確定・不正です`);
+      }
+    });
+    const starts = rows.filter(row => row.eventType === '行動開始');
+    if (!starts.length || starts.some(row => row.frame == null || !Number.isFinite(row.frame) || row.frame < 0)) {
+      issues.push('初回行動開始時刻が未確定・不正です');
+    }
+    return [...new Set(issues)];
+  }
+
+  // This transport accepts independently assembled hit inputs, never an owner's
+  // damage profile. Unresolved native-to-app mappings remain explicit blockers.
+  const SUMMON_BASE_KEYS = Object.freeze(['physicalAtk', 'magicAtk', 'physicalDef', 'magicDef',
+    'crit', 'critDmg', 'critRes', 'critDmgRes']);
+
+  function assembleSummonAbilities(assembly, modifiers = []) {
+    const number = value => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) throw new RangeError('分身能力の有限値入力が不足しています');
+      return value;
+    };
+    if (assembly?.inputStage !== 'growth-composed-base') throw new RangeError('分身能力には育成合成済み基礎が必要です');
+    const stats = {};
+    const parts = [assembly, ...modifiers];
+    modifiers.forEach(part => {
+      if (!part || Object.keys(part).some(key => !['fixed', 'rateP', 'commonFixed', 'commonRateP',
+        'attackSpeedFixed', 'attackSpeedP'].includes(key))) throw new RangeError('分身能力補正の種類が未対応です');
+      ['fixed', 'rateP'].forEach(group => {
+        if (Object.keys(part[group] || {}).some(key => !SUMMON_BASE_KEYS.includes(key))) throw new RangeError('分身能力補正の対象が未対応です');
+      });
+      ['commonFixed', 'commonRateP'].forEach(group => {
+        if (Object.keys(part[group] || {}).some(key => !['attack', 'defense'].includes(key))) throw new RangeError('共通能力補正の対象が未対応です');
+      });
+    });
+    const sum = (group, key) => parts.reduce((total, part) => total + number(part[group]?.[key] ?? 0), 0);
+    SUMMON_BASE_KEYS.forEach(key => {
+      const base = number(assembly.ownerBaseStats?.[key]) * number(assembly.multipliers?.[key]);
+      const common = /Atk$/.test(key) ? 'attack' : /Def$/.test(key) ? 'defense' : null;
+      stats[key] = roundDamageRateToEven((base + sum('fixed', key) + (common ? sum('commonFixed', common) : 0))
+        * (1 + (sum('rateP', key) + (common ? sum('commonRateP', common) : 0)) / 100));
+      if (!Number.isFinite(stats[key])) throw new RangeError('分身能力が計算範囲外です');
+    });
+    const speedBase = number(assembly.attackSpeedBase);
+    const low = number(assembly.attackSpeedLowerFactor); const high = number(assembly.attackSpeedUpperFactor);
+    if (!(speedBase > 0 && low > 0 && high >= low)) throw new RangeError('分身攻速の上下限が不正です');
+    const speedFixed = parts.reduce((total, part) => total + number(part.attackSpeedFixed ?? 0), 0);
+    const speedP = parts.reduce((total, part) => total + number(part.attackSpeedP ?? 0), 0);
+    stats.attackSpeed = Math.max(speedBase * low, Math.min(speedBase * high,
+      roundDamageRateToEven((speedBase + speedFixed) * (1 + speedP / 100))));
+    stats.hp = Math.max(1, Math.trunc(number(assembly.hpFixed)));
+    return stats;
+  }
+
+  function getSummonCalculationIssues(input, definitions = []) {
+    const issues = [];
+    if (!input || input.schemaVersion !== 1 || ![1, 2].includes(input.policyVersion)) {
+      return ['召喚ユニットの計算入力がないか、入力版が未対応です'];
+    }
+    const visit = value => {
+      if (value === null || ['string', 'boolean'].includes(typeof value)) return;
+      if (typeof value === 'number' && Number.isFinite(value)) return;
+      if (Array.isArray(value)) { value.forEach(visit); return; }
+      if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+        Object.values(value).forEach(visit); return;
+      }
+      throw new RangeError('召喚計算入力には有限値の純データだけを指定してください');
+    };
+    try { visit(input); } catch (error) { issues.push(error.message); }
+    if (!Array.isArray(input.unresolved)) issues.push('召喚計算の未解決事項欄がありません');
+    else input.unresolved.forEach(item => issues.push(String(item?.reason || item || '未解決事項の内容がありません')));
+    const fields = ['baseDamage', 'coefficientP', 'effectDamage', 'personalityRate',
+      'damageRate', 'endCorrection', 'critMult', 'critRate', 'additionalCoefficient'];
+    definitions.forEach(definition => {
+      const prepared = input.definitions?.[definition.id];
+      if (!prepared || !['resolved-hit-v1', 'momo-abilities-v2'].includes(prepared.assemblyMode)) {
+        issues.push(`${definition.id}: 分身能力の組立式・効果対応が未解決です`); return;
+      }
+      const abilities = prepared.assemblyMode === 'momo-abilities-v2';
+      if (prepared.executionRules) {
+        const rule = prepared.executionRules;
+        if (input.policyVersion !== 2 || !['generationIntervalSeconds', 'gamePlaySpeed',
+          'deathOwnerSpRequest', 'ownerSpRecoveryMultiplier', 'maxInstances'].every(key => typeof rule[key] === 'number'
+            && Number.isFinite(rule[key]) && rule[key] >= 0)
+          || (Object.hasOwn(rule, 'initialDelayFrames') && (typeof rule.initialDelayFrames !== 'number'
+            || !Number.isFinite(rule.initialDelayFrames) || rule.initialDelayFrames < 0))
+          || rule.gamePlaySpeed <= 0 || !Number.isInteger(rule.maxInstances) || rule.maxInstances < 1
+          || rule.generationClock !== 'unityScaledSeconds' || rule.overflowPolicy !== 'skip') {
+          issues.push(`${definition.id}: 生成・初動・終了時計の入力が不正です`);
+        }
+        if (rule.deathOwnerSpRequest > 0 && (!Array.isArray(input.ownerAliveIntervals) || !input.ownerAliveIntervals.length
+          || input.ownerAliveIntervals.some(row => typeof row.startFrame !== 'number' || !Number.isFinite(row.startFrame)
+            || row.startFrame < 0 || (row.endFrame !== null && (typeof row.endFrame !== 'number'
+              || !Number.isFinite(row.endFrame) || row.endFrame <= row.startFrame))))) {
+          issues.push(`${definition.id}: 死亡時SP回復の主人生存条件が不足しています`);
+        }
+      }
+      if (abilities) {
+        try {
+          if (input.policyVersion !== 2) throw new RangeError('分身能力組立はpolicyVersion 2が必要です');
+          assembleSummonAbilities(prepared.abilityAssembly);
+          if (prepared.speed?.attackSpeedP !== 0 || prepared.abilityAssembly.attackSpeedBase !== definition.attackSpeedBase) {
+            throw new RangeError('能力組立の基礎攻速・率入力が重複または不一致です');
+          }
+          if (!Array.isArray(prepared.enemyTimeline) || !prepared.enemyTimeline.length) throw new RangeError('命中対象の能力入力がありません');
+          let previous = -1;
+          prepared.enemyTimeline.forEach(row => {
+            if (!Number.isFinite(row.startFrame) || row.startFrame < 0 || row.startFrame <= previous
+              || !['magicDef', 'critRes', 'critDmgRes'].every(key => typeof row.stats?.[key] === 'number'
+                && Number.isFinite(row.stats[key]) && row.stats[key] >= 0)) throw new RangeError('敵能力の時刻・値が不正です');
+            previous = row.startFrame;
+          });
+          if (prepared.enemyTimeline[0].startFrame !== 0) throw new RangeError('初期の敵能力がありません');
+        } catch (error) { issues.push(`${definition.id}: ${error.message}`); }
+      }
+      if (!prepared.speed || !['attackSpeedP', 'selfSpeed', 'otherSpeed'].every(key => (
+        typeof prepared.speed[key] === 'number' && Number.isFinite(prepared.speed[key])
+      )) || prepared.speed.attackSpeedP <= -100 || prepared.speed.selfSpeed <= 0 || prepared.speed.otherSpeed <= 0) {
+        issues.push(`${definition.id}: 個体速度入力が不正です`);
+      }
+      normalizeArray(definition.timingEvents).filter(event => event.recordPurpose !== '観測'
+        && /ダメージ/.test(event.effectKind || '')).forEach(event => {
+        const hit = prepared.hitInputs?.[event.effectId];
+        const required = abilities ? fields.filter(field => !['baseDamage', 'critRate', 'critMult'].includes(field)) : fields;
+        if (!hit || required.some(field => typeof hit[field] !== 'number' || !Number.isFinite(hit[field]))
+          || !evaluateSingleHitDamage(abilities ? { ...hit, baseDamage: 1, critRate: 0.05, critMult: 1.2 } : hit).supported) {
+          issues.push(`${definition.id}/${event.effectId}: 独立命中入力が不足・不正です`);
+        }
+      });
+      const ids = new Set();
+      Object.entries(prepared.hitAdjustments || {}).forEach(([id, adjustment]) => {
+        if (!prepared.hitInputs?.[id] || !adjustment || typeof adjustment !== 'object'
+          || Object.entries(adjustment).some(([key, value]) => !['critRateP', 'critDmgAddP'].includes(key)
+            || typeof value !== 'number' || !Number.isFinite(value))) issues.push(`${definition.id}/${id}: 会心補正入力が不正です`);
+      });
+      if (!Array.isArray(prepared.contributions)) issues.push(`${definition.id}: 補正内訳がありません`);
+      normalizeArray(prepared.contributions).forEach(effect => {
+        if (!effect || typeof effect !== 'object') { issues.push(`${definition.id}: 補正内訳が不正です`); return; }
+        if (!effect.id || ids.has(effect.id)) issues.push(`${definition.id}: 補正IDが不正・重複しています`);
+        ids.add(effect.id);
+        if (!['copyAtSpawn', 'excludeFromOwnerCopy', 'directToSummon'].includes(effect.inheritance)
+          || !['status', 'artifact', 'spell'].includes(effect.sourceKind)
+          || !effect.evidence || (effect.sourceKind === 'status' && !Number.isInteger(effect.nativeKind))) {
+          issues.push(`${effect.id}: 継承区分・供給元の対応根拠が未確認です`);
+        }
+        if (effect.sourceKind === 'status' && [4, 9].includes(effect.nativeKind)
+          && effect.inheritance === 'copyAtSpawn') issues.push(`${effect.id}: WorldRule/Augmentをコピーできません`);
+        if (typeof effect.startFrame !== 'number' || !Number.isFinite(effect.startFrame)
+          || effect.startFrame < 0 || (effect.endFrame !== null && (
+            typeof effect.endFrame !== 'number' || !Number.isFinite(effect.endFrame) || effect.endFrame <= effect.startFrame))) {
+          issues.push(`${effect.id}: 補正の有効時刻が未確認です`);
+        }
+        const detached = input.policyVersion === 2 && effect.lifetimePolicy === 'detachedOrigin'
+          && effect.sourceKind === 'status' && effect.inheritance === 'copyAtSpawn';
+        if ((!['permanent', 'remaining'].includes(effect.lifetimePolicy) && !detached)
+          || (effect.lifetimePolicy === 'permanent' && effect.endFrame !== null)
+          || (effect.lifetimePolicy === 'remaining' && effect.endFrame === null)
+          || effect.runtimeEffectId) issues.push(`${effect.id}: 補正寿命・動的発動経路が未対応です`);
+        if (input.policyVersion === 2 && effect.sourceKind === 'status' && effect.inheritance === 'copyAtSpawn'
+          && (!detached || effect.valueStage !== 'origin')) issues.push(`${effect.id}: 状態コピーは原値・独立保持の指定が必要です`);
+        if (effect.abilityModifiers) {
+          try { assembleSummonAbilities(prepared.abilityAssembly, [effect.abilityModifiers]); }
+          catch (error) { issues.push(`${effect.id}: ${error.message}`); }
+        }
+        if (effect.queryCondition !== undefined) {
+          const condition = effect.queryCondition;
+          const validList = (list, allowed) => Array.isArray(list) && list.length > 0
+            && list.every(value => allowed.includes(value));
+          if (input.policyVersion !== 2 || !condition || typeof condition !== 'object'
+            || Array.isArray(condition) || !Object.keys(condition).length
+            || Object.keys(condition).some(key => !['actionKinds', 'attackTypes'].includes(key))
+            || (condition.actionKinds !== undefined && !validList(condition.actionKinds, ['normalAttack', 'skill', 'autoTrigger']))
+            || (condition.attackTypes !== undefined && !validList(condition.attackTypes, ['physical', 'magic']))
+            || effect.abilityModifiers || effect.speedModifiers) {
+            issues.push(`${effect.id}: 命中条件が未対応です。条件付き能力・速度補正は未接続です`);
+          }
+          Object.keys(prepared.hitInputs || {}).forEach(id => {
+            const query = prepared.hitContexts?.[id];
+            if (!query || !['normalAttack', 'autoTrigger'].includes(query.actionKind)
+              || !['physical', 'magic'].includes(query.attackType)) {
+              issues.push(`${effect.id}: ${id}の独立した命中種別・攻撃タイプが不足しています`);
+            }
+          });
+        }
+        if (effect.requiresOwnerAlive && (!Array.isArray(input.ownerAliveIntervals)
+          || !input.ownerAliveIntervals.length || input.ownerAliveIntervals.some(row => typeof row.startFrame !== 'number'
+            || !Number.isFinite(row.startFrame) || row.startFrame < 0 || (row.endFrame !== null
+              && (typeof row.endFrame !== 'number' || !Number.isFinite(row.endFrame) || row.endFrame <= row.startFrame))))) {
+          issues.push(`${effect.id}: 主人生存条件の入力が不足しています`);
+        }
+        normalizeArray(effect.sharedHitModifiers).forEach(binding => {
+          const values = input.sharedValues?.[binding.referenceId];
+          if (input.policyVersion !== 2 || effect.sourceKind !== 'spell'
+            || !['damageRate', 'endCorrection', 'additionalCoefficient'].includes(binding.field)
+            || typeof binding.multiplier !== 'number' || !Number.isFinite(binding.multiplier)
+            || !Array.isArray(values) || !values.length || values[0].startFrame !== 0
+            || values.some((row, index) => typeof row.startFrame !== 'number' || !Number.isFinite(row.startFrame)
+              || row.startFrame < 0 || (index && row.startFrame <= values[index - 1].startFrame)
+              || typeof row.value !== 'number' || !Number.isFinite(row.value))) {
+            issues.push(`${effect.id}: スペル共有値の対応・時刻が不正です`);
+          }
+        });
+        Object.entries(effect.hitModifiers || {}).forEach(([field, value]) => {
+          if (!['damageRate', 'endCorrection', 'additionalCoefficient'].includes(field)
+            || typeof value !== 'number' || !Number.isFinite(value)) issues.push(`${effect.id}: 命中補正が未対応です`);
+        });
+        Object.entries(effect.speedModifiers || {}).forEach(([field, value]) => {
+          if (field !== 'attackSpeedP' || typeof value !== 'number' || !Number.isFinite(value)) {
+            issues.push(`${effect.id}: 速度補正が未対応です`);
+          }
+        });
+      });
+    });
+    return [...new Set(issues)];
+  }
+
+  function createSummonDataResolver(input) {
+    return ({ definition, frame, ownerModifiers = {}, ownerAttackSpeedP = 0 }) => {
+      const prepared = input.definitions[definition.id];
+      const provisional = prepared.provisionalModel === 'momo-site-snapshot-v1';
+      const copiedOwner = provisional ? { ...ownerModifiers } : {};
+      const inferredAbility = provisional ? { rateP: {
+        magicAtk: getRuntimeAttackModifierP(copiedOwner, 'magic'),
+        crit: toFiniteNumber(copiedOwner.critP), critDmg: toFiniteNumber(copiedOwner.critDmgP)
+      }, attackSpeedP: ownerAttackSpeedP } : null;
+      const activeAt = (effect, at) => effect.startFrame <= at && (effect.endFrame === null || at < effect.endFrame);
+      const copied = prepared.contributions.filter(effect => effect.inheritance === 'copyAtSpawn' && activeAt(effect, frame));
+      const direct = prepared.contributions.filter(effect => effect.inheritance === 'directToSummon');
+      const effectsAt = at => [...copied.filter(effect => effect.lifetimePolicy === 'detachedOrigin'
+        || effect.endFrame === null || at < effect.endFrame), ...direct.filter(effect => activeAt(effect, at))]
+        .filter(effect => !effect.requiresOwnerAlive || input.ownerAliveIntervals.some(row => activeAt(row, at)));
+      // Inputs are immutable for this run. Only contribution/liveness boundaries
+      // change assembled abilities; shared hit values and acceleration stay live.
+      const boundaries = [...new Set([...copied, ...direct].flatMap(effect => [effect.startFrame, effect.endFrame])
+        .concat([...copied, ...direct].some(effect => effect.requiresOwnerAlive)
+          ? input.ownerAliveIntervals.flatMap(row => [row.startFrame, row.endFrame]) : [])
+        .filter(value => typeof value === 'number' && Number.isFinite(value)))].sort((a, b) => a - b);
+      let cachedAt = -Infinity, cachedUntil = -Infinity, cachedEffects, cachedStats;
+      const activeEffectsAt = at => {
+        if (!cachedEffects || at < cachedAt || at >= cachedUntil) {
+          cachedEffects = effectsAt(at);
+          cachedStats = null;
+          cachedAt = at;
+          cachedUntil = boundaries.find(value => value > at) ?? Infinity;
+        }
+        return cachedEffects;
+      };
+      const statsAt = at => {
+        const effects = activeEffectsAt(at);
+        if (!cachedStats) cachedStats = assembleSummonAbilities(prepared.abilityAssembly,
+          [...effects.flatMap(effect => [effect.abilityModifiers, effect.speedModifiers].filter(Boolean)),
+            ...(inferredAbility ? [inferredAbility] : [])]);
+        return cachedStats;
+      };
+      const matchesHit = (effect, query) => {
+        const condition = effect.queryCondition;
+        if (!condition) return true;
+        // AutoTrigger is Skill, not the low/high skill that summoned this actor.
+        return (!condition.actionKinds || condition.actionKinds.some(kind => kind === query.actionKind
+          || (kind === 'skill' && query.actionKind === 'autoTrigger')))
+          && (!condition.attackTypes || condition.attackTypes.includes(query.attackType));
+      };
+      return {
+        getSpeed: context => {
+          const speed = { ...prepared.speed };
+          if (prepared.assemblyMode === 'momo-abilities-v2') {
+            speed.attackSpeedP = (statsAt(context.frame).attackSpeed / definition.attackSpeedBase - 1) * 100;
+          }
+          if (provisional) {
+            speed.selfSpeed = context.globalActionSpeed || 1;
+            speed.otherSpeed = context.globalActionSpeed || 1;
+          }
+          if (prepared.assemblyMode !== 'momo-abilities-v2') activeEffectsAt(context.frame).forEach(effect => {
+            Object.entries(effect.speedModifiers || {}).forEach(([key, value]) => { speed[key] += value; });
+          });
+          return speed;
+        },
+        getHitInput: context => {
+          const hit = { ...prepared.hitInputs[context.event.effectId] };
+          if (prepared.assemblyMode === 'momo-abilities-v2') {
+            const stats = statsAt(context.frame);
+            const enemy = prepared.enemyTimeline.filter(row => row.startFrame <= context.frame).at(-1).stats;
+            const atk = Math.max(0, stats.magicAtk);
+            hit.baseDamage = atk * calcRuntimeBaseDamageRate(atk, Math.max(1, enemy.magicDef));
+            const adjustment = prepared.hitAdjustments?.[context.event.effectId] || {};
+            hit.critRate = Math.max(0.05, Math.min(0.75, calcRuntimeCritRate(Math.max(0, stats.crit), Math.max(1, enemy.critRes))
+              + (toFiniteNumber(adjustment.critRateP) + toFiniteNumber(copiedOwner.critRateP)) / 100));
+            hit.critMult = Math.max(1.2, Math.min(2.5, calcRuntimeCritMultiplier(Math.max(0, stats.critDmg), Math.max(1, enemy.critDmgRes))
+              + (toFiniteNumber(adjustment.critDmgAddP) + toFiniteNumber(copiedOwner.critDmgAddP)) / 100));
+          }
+          if (provisional) {
+            const query = prepared.hitContexts?.[context.event.effectId];
+            hit.damageRate += (toFiniteNumber(copiedOwner.addP) + (query?.actionKind === 'autoTrigger'
+              ? toFiniteNumber(copiedOwner.skillAddP) : toFiniteNumber(copiedOwner.normalAttackAddP))) / 100;
+          }
+          activeEffectsAt(context.frame).filter(effect => matchesHit(effect, prepared.hitContexts?.[context.event.effectId])).forEach(effect => {
+            Object.entries(effect.hitModifiers || {}).forEach(([key, value]) => { hit[key] += value; });
+            normalizeArray(effect.sharedHitModifiers).forEach(binding => {
+              const row = input.sharedValues[binding.referenceId].filter(item => item.startFrame <= context.frame).at(-1);
+              hit[binding.field] += row.value * binding.multiplier;
+            });
+          });
+          return hit;
+        }
+      };
+    };
+  }
+
+  // Shared action timing, independent of the attacking actor and its suppliers.
+  function calculateActionSpeedTiming(periodFrames, motionFrames, selfSpeed = 1, otherSpeed = 1) {
+    if (![periodFrames, motionFrames, selfSpeed, otherSpeed].every(value => typeof value === 'number' && Number.isFinite(value) && value > 0)) {
+      throw new RangeError('行動速度に正の有限値が必要です');
+    }
+    const period = periodFrames / otherSpeed;
+    const motionScale = Math.min(1, period / motionFrames) / selfSpeed;
+    return { motionScale, motionFrames: motionFrames * motionScale,
+      waitFrames: Math.max(0, period - motionFrames) };
+  }
+
   function buildGeneratedEvents(apostle, skill, actionTiming, warnings, statusDefinitions = [], skillLevel = 1) {
     const events = [];
     normalizeArray(actionTiming?.generatedObjects).forEach(generated => {
-      const rows = normalizeArray(generated.timingEvents);
+      const summonUnit = generated.executionMode === '召喚ユニット';
+      const rows = normalizeArray(generated.timingEvents).filter(row => (
+        row.recordPurpose !== '観測' && (!summonUnit || !row.actionId)
+      ));
       const attackSpeedSettings = getGeneratedAttackSpeedSettings(generated);
+      const independentStatsUnresolved = String(generated.statReference || '').startsWith('分身自身');
+      if (!summonUnit && attackSpeedSettings.ownBase && attackSpeedSettings.repeatInterval) {
+        warnings.push(`${generated.id}: 分身基礎攻速${attackSpeedSettings.base}から補正なし周期${attackSpeedSettings.periodFrames}Fで暫定計算します。主人攻速は流用せず、分身の攻速補正・加速・専用モーションは未対応です（シート実測${generated.repeatIntervalFrames}Fは保持）`);
+      }
+      if (!summonUnit && independentStatsUnresolved) {
+        warnings.push(`${generated.id}: 分身の選択的能力継承は未対応です。ダメージは主人profileの旧互換値で、分身自身の能力・除外statusを再現していません`);
+      }
       const baseSpawnFrame = generated.spawnFrame == null ? null : toFiniteNumber(generated.spawnFrame);
       const spawnCount = resolveGeneratedSpawnCount(apostle, skill, generated, skillLevel);
       const explicitOrders = [...new Set(rows
@@ -1193,12 +1540,15 @@
             persistent: true,
             branch: generated.branch || '',
             generatedObjectId: generated.id || '',
+            summonDefinition: summonUnit ? generated : null,
             generatedObjectName: generated.name || '',
             generatedInstanceOrder: instanceOrder,
             generatedInstanceKey,
             generatedEventType: '生成',
             respawnPolicy: generated.respawnPolicy || '',
             generatedAttackSpeedReference: attackSpeedSettings.reference,
+            generatedAttackSpeedBase: attackSpeedSettings.base,
+            generatedIndependentStatsUnresolved: independentStatsUnresolved,
             generatedAttackSpeedScope: attackSpeedSettings.scope,
             generatedAttackSpeedChangePolicy: attackSpeedSettings.changePolicy,
             generatedUsesOwnerAttackSpeedAtSpawn: attackSpeedSettings.ownerAtSpawn,
@@ -1232,7 +1582,8 @@
             warnings.push(`effectIdを解決できません: ${row.effectId}`);
           }
           const repeatInterval = row.repeatTarget === true
-            ? Math.max(0, toFiniteNumber(generated.repeatIntervalFrames))
+            ? Math.max(0, toFiniteNumber(attackSpeedSettings.ownBase && attackSpeedSettings.repeatInterval
+              ? attackSpeedSettings.periodFrames : generated.repeatIntervalFrames))
             : 0;
           let repeatCount = 1;
           if (repeatInterval > 0) {
@@ -1264,6 +1615,7 @@
               persistent: generated.cancelPolicy !== '消滅',
               branch: row.branch || generated.branch || '',
               generatedObjectId: generated.id || '',
+              summonDefinition: summonUnit ? generated : null,
               generatedObjectName: generated.name || '',
               generatedInstanceOrder: instanceOrder,
               generatedInstanceKey,
@@ -1271,6 +1623,8 @@
               generatedEndFrame: endFrame,
               respawnPolicy: generated.respawnPolicy || '',
               generatedAttackSpeedReference: attackSpeedSettings.reference,
+              generatedAttackSpeedBase: attackSpeedSettings.base,
+              generatedIndependentStatsUnresolved: independentStatsUnresolved,
               generatedAttackSpeedScope: attackSpeedSettings.scope,
               generatedAttackSpeedChangePolicy: attackSpeedSettings.changePolicy,
               generatedUsesOwnerAttackSpeedAtSpawn: attackSpeedSettings.ownerAtSpawn,
@@ -1418,6 +1772,11 @@
     }
 
     statusDefinitions.filter(item => item.branch === branch).forEach(statusApplication => {
+      // A summon-owned terminal status must not be emitted by the owner's
+      // skill-end fallback (Momo's shock belongs to clone explosion).
+      if (normalizeArray(actionTiming?.generatedObjects).some(object => object.executionMode === '召喚ユニット'
+        && normalizeArray(object.timingEvents).some(row => row.recordPurpose !== '観測'
+          && row.effectId === statusApplication.applicationEffectId && row.eventType === '状態付与'))) return;
       if (events.some(event => event.statusApplication?.applicationEffectId === statusApplication.applicationEffectId)) return;
       events.push({
         frame: motionFrames,
@@ -1496,7 +1855,10 @@
       [...statusDefinitions, ...generatedStatusDefinitions],
       skillLevel
     );
-    const hasGeneratedDamage = generatedEvents.some(event => event.type === 'damage');
+    const summonUnits = normalizeArray(actionTiming.generatedObjects).filter(item => item.executionMode === '召喚ユニット');
+    // A blocked summon is not permission to turn its skill's fallback coefficient
+    // into a direct hit by the owner.
+    const hasGeneratedDamage = summonUnits.length > 0 || generatedEvents.some(event => event.type === 'damage');
     const favoriteBranchName = String(apostle?.favoriteCard?.name || '').trim();
     const favoriteOverrideActive = !!buildOptions.skillOverrides?.[actionKey];
     const isInactiveFavoriteBranch = branch => (
@@ -1729,6 +2091,7 @@
       motionFramesByVariant,
       variants,
       generatedEvents,
+      summonUnits,
       statusDefinitions,
       variantNames: actionVariantNames,
       variantLabels,
@@ -1785,7 +2148,7 @@
       enemySizeRank: buildOptions.enemySizeRank || scenarioEnemySizeRank
     };
     const enemyCount = Math.max(1, Math.floor(toFiniteNumber(
-      buildOptions.enemyCount ?? scenario?.battleConditions?.enemyCount,
+      buildOptions.enemyCount ?? scenario?.battleConditions?.epicaA2EnemyCount ?? scenario?.battleConditions?.enemyCount,
       1
     )));
     const scenarioArtifactCount = getScenarioArtifactCount(scenario, apostle?.id);
@@ -1837,6 +2200,41 @@
       });
       if (action) actions[actionKey] = action;
     });
+    const epicaA2TimingApproximation = normalizeScenarioId(apostle?.id) === 'epica' && asideRank >= 2;
+    const epicaLowEffects = normalizeScenarioId(apostle?.id) === 'epica'
+      ? normalizeArray(findSkill(apostle, 'lowSkill')?.effects) : [];
+    const epicaLowReplacementDurationFrames = epicaLowEffects.some(effect => effect.effectId === 'Epica_low_e04')
+      ? Math.max(0, toFiniteNumber(resolveEffectValue(epicaLowEffects.find(effect => effect.effectId === 'Epica_low_e05')))) * 60 : 0;
+    const unlockedAsideEffects = Object.entries(apostle?.aside?.levels || {})
+      .filter(([level]) => Number(level) > 0 && Number(level) <= asideRank)
+      .flatMap(([, data]) => normalizeArray(data?.effects));
+    // Subtype249 adds points to the same probability threshold, not a second roll.
+    // Conditional/timed effects must first be represented by their own runtime path.
+    const additionalPowerAttackRate = unlockedAsideEffects
+      .filter(effect => effect.valueKind === '強化攻撃発動確率増加'
+        && effect.effectTarget === '自身' && !effect.conditionType && !effect.condition
+        && !effect.triggerType && !effect.effectStack)
+      .reduce((sum, effect) => sum + Math.max(0, toFiniteNumber(resolveEffectValue(effect))), 0);
+    if (/^一定確率/.test(actions.enhancedAttack?.triggerType || '')) {
+      actions.enhancedAttack.triggerProbability = Math.fround(
+        Math.trunc(actions.enhancedAttack.triggerValue) + Math.fround(additionalPowerAttackRate)
+      );
+    }
+    if (epicaA2TimingApproximation) {
+      if (['basicAttack', 'enhancedAttack'].some(key => !actions[key]
+        || !Object.values(actions[key].variants).some(events => events.filter(event => event.type === 'damage').length === 2))) {
+        throw new Error('エピカA2の基本・強化追加命中タイミングを生成してください。');
+      }
+      ['basicAttack', 'enhancedAttack'].forEach(key => {
+        const action = actions[key];
+        if (!action) return;
+        action.detachedProjectileTiming = true;
+        Object.values(action.variants).forEach(events => events.forEach(event => {
+          if (event.type === 'damage') event.coefficientShare = event.coefficientShare || 1;
+        }));
+      });
+      warnings.push('エピカA2暫定: 単体・静止敵、同弾速、元命中の6ゲームF後に追加命中と仮定。高学年中はアサイドなしと同じ行動処理、CT0後は既存オートの優先順位を使用。追加命中の総SP・外部命中効果と速度変更中の着弾は未確認です。');
+    }
     const timingEffectIds = new Set();
     Object.values(actions).forEach(action => {
       Object.values(action.variants || {}).forEach(events => {
@@ -1905,21 +2303,21 @@
         mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
         triggerSourceId: String(effect?.triggerSourceId || ''),
         accelerationP: toFiniteNumber(effect?.accelerationP),
-        maxAccelerationP: Math.max(
+        maxAccelerationP: effect?.effectId === 'Renewa_high_e01' ? Math.max(0, toFiniteNumber(effect?.accelerationP)) : Math.max(
           0,
           toFiniteNumber(effect?.maxAccelerationP, toFiniteNumber(effect?.accelerationP))
         ),
-        maxActionSpeedP: Math.max(
+        maxActionSpeedP: effect?.effectId === 'Renewa_high_e01' ? 100 + Math.max(0, toFiniteNumber(effect?.accelerationP)) : Math.max(
           100,
           toFiniteNumber(effect?.maxActionSpeedP, 100 + toFiniteNumber(
             effect?.maxAccelerationP,
             toFiniteNumber(effect?.accelerationP)
           ))
         ),
-        curve: String(effect?.curve || 'constant'),
-        rampFrames: Math.max(0, toFiniteNumber(effect?.rampFrames)),
-        holdFrames: Math.max(0, toFiniteNumber(effect?.holdFrames)),
-        durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
+        curve: effect?.effectId === 'Renewa_high_e01' ? 'linearHold' : String(effect?.curve || 'constant'),
+        rampFrames: effect?.effectId === 'Renewa_high_e01' ? 420 : Math.max(0, toFiniteNumber(effect?.rampFrames)),
+        holdFrames: effect?.effectId === 'Renewa_high_e01' ? 180 : Math.max(0, toFiniteNumber(effect?.holdFrames)),
+        durationFrames: effect?.effectId === 'Renewa_high_e01' ? 600 : Math.max(0, toFiniteNumber(effect?.durationFrames)),
         intervalFrames: Math.max(0, toFiniteNumber(effect?.intervalFrames)),
         triggerEveryCount: Math.max(0, Math.floor(toFiniteNumber(effect?.triggerEveryCount))),
         triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
@@ -1991,6 +2389,19 @@
     })).filter(effect => effect.id && (
       effect.operation === 'multiply' ? effect.multiplier !== 1 : effect.amountFrames > 0
     ));
+    if (epicaA2TimingApproximation) {
+      const ctEffect = unlockedAsideEffects.find(effect => effect.effectId === 'Epica_aside_2_e03');
+      const amountFrames = Math.max(0, toFiniteNumber(resolveEffectValue(ctEffect))) * 60;
+      // The native hook is BeforeAttackLogic, not each projectile's hit.
+      const existingIndex = cooldownEffects.findIndex(effect => effect.id === 'Epica_aside_2_e03');
+      if (existingIndex >= 0) cooldownEffects.splice(existingIndex, 1);
+      if (amountFrames > 0) cooldownEffects.push({
+        id: 'Epica_aside_2_e03', sourceId: 'aside:2', label: 'エピカA2 / 強化開始前CT減少',
+        mode: 'action', triggerActionKeys: ['enhancedAttack'], triggerPhase: 'beforeStart',
+        triggerEveryCount: 0, oncePerAction: true, targetActionKey: 'highSkill',
+        operation: 'subtract', amountFrames, multiplier: 1
+      });
+    }
     const baseSpRegenOverride = Number(buildOptions.runtimeEffects?.baseSpRegen);
     const baseSpRegen = Math.max(0, Number.isFinite(baseSpRegenOverride)
       ? baseSpRegenOverride
@@ -2030,6 +2441,9 @@
       maxStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
       fixedStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.fixedStacks, 1))),
       oncePerAction: !!effect?.oncePerAction,
+      stopAtMaxStacks: !!effect?.stopAtMaxStacks,
+      maxStackModifiers: Object.fromEntries(Object.entries(effect?.maxStackModifiers || {})
+        .map(([key, value]) => [key, toFiniteNumber(value)]).filter(([, value]) => value)),
       sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'actionTimed'),
       modifiers: Object.fromEntries(Object.entries(effect?.modifiers || {})
         .map(([key, value]) => [key, toFiniteNumber(value)])
@@ -2107,6 +2521,8 @@
     })).filter(transition => transition.fromActionKey && transition.toActionKey && transition.frames > 0);
     return {
       apostleId: timing?.id || apostle?.id || '',
+      epicaA2TimingApproximation,
+      epicaLowReplacementDurationFrames,
       name: timing?.name || apostle?.name || '',
       scenarioFingerprint: String(scenario?.sourceMeta?.fingerprint || ''),
       scenarioTargetId: scenarioSelfId,
@@ -2281,24 +2697,27 @@
     return /1回あたり|1ヒットあたり|各1回|各ヒット/.test(text);
   }
 
-  function getEventExpectedDamage(current, event, damageProfiles) {
+  function getEventExpectedDamage(current, event, damageProfiles, legacy = false) {
     const variantProfile = getVariantDamageProfile(damageProfiles, current?.key, current?.variant);
     if (!variantProfile) return 0;
     const effects = Object.values(variantProfile.effects || {});
     const damageEvents = current.events.filter(candidate => candidate.type === 'damage');
+    const amount = effect => Math.max(0, toFiniteNumber(legacy
+      ? effect.damageResult?.runtimeBase?.legacyExpectedDamage ?? effect.expectedDamage : effect.expectedDamage));
     let expectedDamage = 0;
     if (damageEvents.length === 1 && effects.length > 1) {
-      expectedDamage = Math.max(0, toFiniteNumber(variantProfile.totalExpectedDamage));
+      expectedDamage = legacy ? effects.reduce((sum, effect) => sum + amount(effect), 0)
+        : Math.max(0, toFiniteNumber(variantProfile.totalExpectedDamage));
     } else {
       const effect = findEventDamageEffect(effects, variantProfile, event)
         || findEventDamageEffectAcrossVariants(damageProfiles, current, event, variantProfile);
       if (!effect) return 0;
       if (Number.isFinite(Number(event.coefficientShare)) && Number(event.coefficientShare) > 0) {
-        expectedDamage = Math.max(0, toFiniteNumber(effect.expectedDamage)) * Number(event.coefficientShare);
+        expectedDamage = amount(effect) * Number(event.coefficientShare);
       } else if (isPerHitDamageDefinition(event, effect)) {
-        expectedDamage = Math.max(0, toFiniteNumber(effect.expectedDamage));
+        expectedDamage = amount(effect);
       } else if (event.generatedObjectId) {
-        expectedDamage = Math.max(0, toFiniteNumber(effect.expectedDamage));
+        expectedDamage = amount(effect);
       } else {
         const siblingEvents = current.events.filter(candidate => {
           if (candidate.type !== 'damage') return false;
@@ -2307,7 +2726,7 @@
         });
         const totalWeight = siblingEvents.reduce((total, candidate) => total + Math.max(1, candidate.hitCount || 1), 0) || 1;
         const eventWeight = Math.max(1, event.hitCount || 1);
-        expectedDamage = Math.max(0, toFiniteNumber(effect.expectedDamage)) * eventWeight / totalWeight;
+        expectedDamage = amount(effect) * eventWeight / totalWeight;
       }
     }
     return expectedDamage * Math.max(1, toFiniteNumber(event.repeatDamageCount, 1));
@@ -2320,6 +2739,46 @@
     const effect = findEventDamageEffect(effects, variantProfile, event)
       || findEventDamageEffectAcrossVariants(damageProfiles, current, event, variantProfile);
     return effect?.damageResult?.runtimeBase || null;
+  }
+
+  function getEventHitComponents(current, event, damageProfiles) {
+    if (!Array.isArray(current?.events)) return [];
+    const profile = getVariantDamageProfile(damageProfiles, current?.key, current?.variant);
+    if (!profile) return [];
+    const effects = Object.values(profile.effects || {});
+    const events = current.events.filter(candidate => candidate.type === 'damage');
+    const repeat = event.repeatDamageCount ?? 1;
+    const count = event.hitCount || 1;
+    if (!Number.isSafeInteger(repeat) || repeat < 1 || !Number.isSafeInteger(count) || count < 1
+      || !Number.isSafeInteger(repeat * count) || event.timingQuality === 'fallbackEnd') return [];
+    const selected = events.length === 1 && effects.length > 1 ? effects : [
+      findEventDamageEffect(effects, profile, event)
+        || findEventDamageEffectAcrossVariants(damageProfiles, current, event, profile)
+    ];
+    if (selected.some(effect => !effect?.damageResult?.runtimeBase?.hitInput)) return [];
+    if (selected.length > 1 && count !== 1) return []; // no per-effect distribution evidence
+    const components = selected.map(effect => {
+      const base = effect.damageResult.runtimeBase;
+      const coefficient = base.hitInput.coefficientP;
+      if (event.coefficientShare != null && Number.isFinite(Number(event.coefficientShare))
+        && Number(event.coefficientShare) > 0) {
+        // A declared Lv1-per-hit multiplier is a coefficient share, not a share
+        // of already-rounded damage. Keep the existing event's aggregate amount.
+        if (count !== 1) return null; // share is per-hit; old multi-hit aggregate meaning is unresolved
+        return { runtimeBase: base, coefficientP: coefficient * Number(event.coefficientShare),
+          hitCount: repeat };
+      }
+      if (isPerHitDamageDefinition(event, effect) || base.hitInput.perHitDefinition) {
+        return { runtimeBase: base, coefficientP: base.hitInput.perHitCoefficientP ?? coefficient,
+          hitCount: count * repeat };
+      }
+      const siblings = events.filter(candidate => !event.effectId || candidate.effectId === event.effectId);
+      // Equal allocation inferred only from event counts remains legacy. A
+      // declared single hit is the sole unambiguous aggregate case.
+      if (siblings.length === 1 && count === 1) return { runtimeBase: base, coefficientP: coefficient, hitCount: repeat };
+      return null;
+    });
+    return components.some(component => !component) ? [] : components;
   }
 
   function getStatusReactionTakenDmgP(state, config) {
@@ -2336,8 +2795,104 @@
     }, 0);
   }
 
+  // The selected compiled-default normal-hit path. This is deliberately not
+  // used for fixed damage, DoT or reflection. All inputs are already resolved;
+  // the function neither reads combat state nor consumes random numbers.
+  function roundDamageRateToEven(value) {
+    if (!Number.isFinite(value) || Math.abs(value) >= 1e16) return value;
+    const scaled = value * 1000;
+    const lower = Math.floor(scaled);
+    const fraction = scaled - lower;
+    return (fraction > 0.5 ? lower + 1
+      : fraction < 0.5 ? lower : lower % 2 === 0 ? lower : lower + 1) / 1000;
+  }
+
+  function evaluateSingleHitDamage(input = {}) {
+    const values = {
+      baseDamage: input.baseDamage,
+      coefficientP: input.coefficientP,
+      effectDamage: input.effectDamage ?? 1,
+      personalityRate: input.personalityRate ?? 1,
+      damageRate: input.damageRate ?? 1,
+      endCorrection: input.endCorrection ?? 0,
+      critMult: input.critMult ?? 1,
+      critRate: input.critRate ?? 0,
+      additionalCoefficient: input.additionalCoefficient ?? 0
+    };
+    const unavailable = reason => ({ supported: false, calculationMode: 'unavailable', reason,
+      normal: null, crit: null, expected: null });
+    if (Object.values(values).some(value => typeof value !== 'number' || !Number.isFinite(value))) {
+      return unavailable('命中計算に非有限値または不正な入力があります');
+    }
+    if (values.baseDamage < 0 || values.coefficientP < 0 || values.personalityRate < 0
+      || values.effectDamage < 0 || values.critMult < 0 || values.critRate < 0 || values.critRate > 1) {
+      return unavailable('通常命中計算の入力範囲外です');
+    }
+    const lowerLimit = Math.fround(0.2);
+    const coefficientP = values.coefficientP + Math.fround(values.additionalCoefficient);
+    const effectDamage = Math.fround(values.effectDamage);
+    const damageRate = Math.max(lowerLimit, values.damageRate);
+    const endFactor = Math.max(lowerLimit, 1 + values.endCorrection);
+    if (!(coefficientP >= 0) || !Number.isFinite(effectDamage)) return unavailable('実効係数の範囲外です');
+    const evaluate = criticalFactor => {
+      // Preserve the native multiplication order and the two integer boundaries.
+      let pre = values.baseDamage * 0.01;
+      pre *= criticalFactor;
+      pre *= coefficientP;
+      pre *= effectDamage;
+      pre *= values.personalityRate;
+      pre = damageRate * pre;
+      const middle = Math.trunc(pre);
+      const final = Math.trunc(middle * endFactor);
+      if (!Number.isFinite(pre) || !Number.isSafeInteger(middle) || !Number.isSafeInteger(final)) return null;
+      return { pre, middle, final };
+    };
+    const normal = evaluate(1);
+    const crit = evaluate(values.critMult);
+    if (!normal || !crit) return unavailable('命中ダメージが安全整数範囲を超えています');
+    return { supported: true, calculationMode: 'normal-hit-v1', normal: normal.final, crit: crit.final,
+      expected: normal.final * (1 - values.critRate) + crit.final * values.critRate,
+      stages: { normal, crit, coefficientP, effectDamage, damageRate, endFactor } };
+  }
+
+  function evaluateResolvedHit(component, input) {
+    const base = component.runtimeBase;
+    const hit = base?.hitInput;
+    if (!hit) return null;
+    const delta = input.modifierDelta || {};
+    // These old UI buckets contain unrelated suppliers. Do not guess that they
+    // are EndDamage, or move untraced coefficient-percent effects into +128.
+    if (getRuntimeActionMultiplierModifierP(delta, input.actionKey, input.generatedEventType)
+      || toFiniteNumber(delta.specialP) || toFiniteNumber(delta.otherP)
+      || ['normalAttackAddP', 'basicAddP', 'enhancedAddP', 'lowSkillAddP', 'highSkillAddP', 'skillAddP']
+        .some(key => toFiniteNumber(delta[key]))
+      || input.heldAddP || input.statusTakenDmgP || input.statusDamageP) return null;
+    const attackP = getRuntimeAttackModifierP(delta, base.damageType);
+    const finalAtk = Math.max(0, base.baseAtk * (1 + (base.attackP + attackP) / 100));
+    const finalDef = Math.max(1, base.baseDef * (1 + (base.defenseP - toFiniteNumber(delta.enemyDefDownP)) / 100));
+    const finalCrit = Math.max(0, base.baseCrit * (1 + (base.critP + toFiniteNumber(delta.critP)) / 100));
+    const finalCritRes = Math.max(1, base.baseCritRes * (1 + (base.critResP - toFiniteNumber(delta.enemyCritResDownP)) / 100));
+    const finalCritDmg = Math.max(0, base.baseCritDmg * (1 + (base.critDmgP + toFiniteNumber(delta.critDmgP)) / 100));
+    const finalCritDmgRes = Math.max(1, base.baseCritDmgRes * (1 + (base.critDmgResP - toFiniteNumber(delta.enemyCritDmgResDownP)) / 100));
+    const critRate = base.guaranteedCrit ? 1 : Math.max(0.05, Math.min(0.75,
+      calcRuntimeCritRate(finalCrit, finalCritRes) + (base.critRateP + toFiniteNumber(delta.critRateP) - base.critResAddP) / 100));
+    const critMult = Math.max(1.2, Math.min(2.5,
+      calcRuntimeCritMultiplier(finalCritDmg, finalCritDmgRes) + (base.critDmgAddP + toFiniteNumber(delta.critDmgAddP) - base.critDmgResAddP) / 100));
+    const result = evaluateSingleHitDamage({ ...hit,
+      baseDamage: finalAtk * calcRuntimeBaseDamageRate(finalAtk, finalDef),
+      coefficientP: component.coefficientP ?? hit.coefficientP,
+      damageRate: roundDamageRateToEven(base.rawAddRate + getRuntimeAddModifierP(delta, input.actionKey) / 100),
+      critRate, critMult });
+    const count = component.hitCount ?? 1;
+    if (!Number.isSafeInteger(count) || count < 1) return { supported: false, reason: '命中数が未確定です' };
+    if (result.supported && (!Number.isSafeInteger(result.normal * count) || !Number.isSafeInteger(result.crit * count))) {
+      return { supported: false, reason: '命中合計が安全整数範囲を超えています' };
+    }
+    return { ...result, hitCount: count, expected: result.supported ? result.expected * count : null };
+  }
+
   function evaluateDamageAtHit(input = {}) {
-    const expectedDamage = Math.max(0, toFiniteNumber(input.expectedDamage));
+    let expectedDamage = Math.max(0, toFiniteNumber(input.expectedDamage));
     const actionKey = String(input.actionKey || '');
     const generatedEventType = String(input.generatedEventType || '');
     const modifierDelta = input.modifierDelta || {};
@@ -2351,6 +2906,25 @@
       modifiers: { ...(effect?.modifiers || {}) }
     }));
     const base = input.runtimeBase || null;
+    const hitComponents = input.hitComponents || (base?.hitInput ? [{ runtimeBase: base, hitCount: 1 }] : null);
+    if (hitComponents?.length) {
+      const results = hitComponents.map(component => evaluateResolvedHit(component, input));
+      if (results.every(result => result?.supported)) {
+        const resolvedExpected = results.reduce((total, result) => total + result.expected, 0);
+        return { baseExpectedDamage: expectedDamage, expectedDamage: resolvedExpected,
+          ratio: expectedDamage > 0 ? resolvedExpected / expectedDamage : 1,
+          ratios: {}, modifierDelta: { ...modifierDelta }, heldAddP, statusTakenDmgP, statusDamageP,
+          activeEffects, runtimeBaseAvailable: true, calculationMode: 'normal-hit-v1', hitResults: results };
+      }
+      const unavailable = results.find(result => result && !result.supported);
+      if (unavailable) return { baseExpectedDamage: expectedDamage, expectedDamage: NaN,
+        calculationMode: 'unavailable', reason: unavailable.reason, unavailable: true,
+        ratio: 1, ratios: {}, activeEffects, modifierDelta: { ...modifierDelta },
+        heldAddP, statusTakenDmgP, statusDamageP, runtimeBaseAvailable: true };
+    }
+    const calculationMode = 'legacy-continuous';
+    if (input.legacyExpectedDamage != null) expectedDamage = Math.max(0, toFiniteNumber(input.legacyExpectedDamage));
+    const roundingReason = input.roundingReason || base?.roundingReason || '補正の供給元または命中配分が未確定です';
     const ratios = { attackDefense: 1, actionMultiplier: 1, add: 1, special: 1, other: 1, critical: 1 };
     const attackP = getRuntimeAttackModifierP(modifierDelta, base?.damageType || '');
     const actionMultiplierP = getRuntimeActionMultiplierModifierP(modifierDelta, actionKey, generatedEventType);
@@ -2377,7 +2951,7 @@
         statusTakenDmgP,
         statusDamageP,
         activeEffects,
-        runtimeBaseAvailable: !!base
+        runtimeBaseAvailable: !!base, calculationMode, roundingReason
       };
     }
     if (!base) {
@@ -2396,7 +2970,7 @@
         statusTakenDmgP,
         statusDamageP,
         activeEffects,
-        runtimeBaseAvailable: false
+        runtimeBaseAvailable: false, calculationMode, roundingReason
       };
     }
 
@@ -2505,7 +3079,7 @@
       statusTakenDmgP,
       statusDamageP,
       activeEffects,
-      runtimeBaseAvailable: true
+      runtimeBaseAvailable: true, calculationMode, roundingReason
     };
   }
 
@@ -2553,8 +3127,15 @@
       kind: 'statusDamageWeakness',
       modifiers: { otherP: statusDamageP }
     });
-    return evaluateDamageAtHit({
+    const hitComponents = event?.generatedIndependentStatsUnresolved ? []
+      : runtimeBase?.hitInput && (runtimeBase.hitInput.perHitDefinition || runtimeBase.hitInput.singleHitDefinition)
+      ? [{ runtimeBase, coefficientP: runtimeBase.hitInput.perHitCoefficientP ?? runtimeBase.hitInput.coefficientP, hitCount: 1 }]
+      : runtimeBase || event?.type !== 'damage' ? [] : getEventHitComponents(current, event, damageProfiles);
+    const result = evaluateDamageAtHit({
       expectedDamage,
+      legacyExpectedDamage: runtimeBase ? runtimeBase.legacyExpectedDamage ?? expectedDamage
+        : event?.type === 'damage' && Array.isArray(current?.events)
+          ? getEventExpectedDamage(current, event, damageProfiles, true) : expectedDamage,
       actionKey: current?.key || '',
       generatedEventType: event?.generatedEventType || '',
       modifierDelta,
@@ -2562,8 +3143,17 @@
       statusTakenDmgP,
       statusDamageP,
       activeEffects,
+      hitComponents,
       runtimeBase: runtimeBase || getEventRuntimeBase(current, event, damageProfiles)
     });
+    if (result.unavailable) throw new RangeError(result.reason);
+    if (event?.generatedIndependentStatsUnresolved) {
+      result.roundingReason = '分身の選択的能力継承が未対応のため、主人profileによる旧互換ダメージ';
+    }
+    const calculation = state.damageCalculation || (state.damageCalculation = { roundedEvents: 0, legacyEvents: 0, reasons: new Set() });
+    if (result.calculationMode === 'normal-hit-v1') calculation.roundedEvents += 1;
+    else { calculation.legacyEvents += 1; calculation.reasons.add(result.roundingReason); }
+    return result;
   }
 
   function percentile(values, ratio) {
@@ -2576,7 +3166,7 @@
     return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
   }
 
-  function simulate(config, options = {}) {
+  function* simulateSteps(config, options = {}, cooperative = null) {
     const simulationStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now()
       : Date.now();
@@ -2600,6 +3190,54 @@
       1
     )));
     const highSkillMode = options.highSkillMode === 'auto' ? 'auto' : 'disabled';
+    const activeSummonDefinitions = Object.values(config.actions || {}).filter(action => (
+      action.key !== 'highSkill' || highSkillMode === 'auto'
+    )).flatMap(action => normalizeArray(action.summonUnits));
+    if (options.summonCalculationInput && options.resolveSummonUnit) {
+      throw new RangeError('召喚計算の純データとcallbackは同時指定できません');
+    }
+    if (activeSummonDefinitions.length && options.summonCalculationInput) {
+      const issues = getSummonCalculationIssues(options.summonCalculationInput, activeSummonDefinitions);
+      if (issues.length) throw new RangeError(issues.join(' / '));
+    }
+    const resolveSummonUnit = options.summonCalculationInput
+      ? createSummonDataResolver(options.summonCalculationInput)
+      : typeof options.resolveSummonUnit === 'function' ? options.resolveSummonUnit : null;
+    Object.values(config.actions || {}).forEach(action => {
+      if (action.key === 'highSkill' && highSkillMode !== 'auto') return;
+      normalizeArray(action.summonUnits).forEach(definition => {
+        const issues = getSummonUnitIssues(definition);
+        const spawnEvents = normalizeArray(action.generatedEvents).filter(event => (
+          event.generatedObjectId === definition.id && event.generatedEventType === '生成'
+        ));
+        if (!spawnEvents.length) issues.push('召喚発生時刻・個体数が未確定です');
+        spawnEvents.forEach(event => {
+          const starts = normalizeArray(definition.timingEvents).filter(row => row.recordPurpose !== '観測'
+            && row.eventType === '行動開始' && (row.instanceOrder == null || row.instanceOrder === event.generatedInstanceOrder));
+          if (starts.length !== 1) issues.push(`個体${event.generatedInstanceOrder}: 行動開始が一意ではありません`);
+        });
+        normalizeArray(definition.timingEvents).filter(event => event.recordPurpose !== '観測'
+          && event.timeOrigin === '終了時').forEach(event => {
+          if (event.frame !== 0) issues.push('召喚終了後に遅延する効果は未対応です');
+        });
+        normalizeArray(action.generatedEvents).filter(event => event.summonDefinition?.id === definition.id
+          && event.type === 'generatedEffect' && event.generatedEventType !== '生成').forEach(event => {
+          if (!event.statusApplication) issues.push('召喚終了時の状態効果入力が不足しています');
+          else if (event.statusApplication.dealsPeriodicDamage) issues.push('分身自身の継続ダメージ入力が未接続です');
+        });
+        if (!resolveSummonUnit) issues.push('召喚ユニット自身の能力・状態継承と命中計算の供給処理が未接続です');
+        if (issues.length) throw new RangeError(`${definition.id}: ${issues.join(' / ')}`);
+      });
+    });
+    if (config.epicaA2TimingApproximation && enemyCount !== 1) {
+      throw new Error('エピカA2暫定DPSは敵1体に限定しています。');
+    }
+    if (config.epicaA2TimingApproximation && ['spRecoveryEffects', 'cooldownEffects', 'damageBuffEffects']
+      .flatMap(key => normalizeArray(config.runtimeEffects?.[key]))
+      .some(effect => effect.mode === 'actionHit'
+        && effect.triggerActionKeys?.some(key => ['basicAttack', 'enhancedAttack'].includes(key)))) {
+      throw new Error('エピカA2暫定DPSでは普通攻撃の外部命中時効果との併用は未対応です。');
+    }
     const initialHighSkillCooldownMultiplier = Math.max(
       0,
       toFiniteNumber(options.initialHighSkillCooldownMultiplier, 1)
@@ -2625,6 +3263,7 @@
     let fastForwardCount = 0;
     let fastForwardedTickCount = 0;
     let generatedEventScheduleCount = 0;
+    const summonUnits = new Map();
     // 表示用タイムラインとは分離する。表示イベントは上限で省略されても、
     // グラフ・集計用のダメージ発生点は戦闘終了まで保持する。
     const damageSeries = [];
@@ -2676,10 +3315,12 @@
       actionSerial: 0,
       enhancedRepeatChain: null,
       normalAttackSequence: 0,
+      epicaLowEnhancedUntilTick: 0,
       lastCompletedAction: null,
       lastNormalAttackStartTick: null,
       normalAttackProgressFrames: null,
       normalAttackProgressLastTick: null,
+      normalAttackCycleFrames: null,
       runtimeAttackSpeedEffects: normalizeArray(config.runtimeEffects?.attackSpeedEffects).map(effect => ({
         ...effect,
         stackCount: effect.mode === 'fixed'
@@ -3340,11 +3981,36 @@
       return rampContribution + holdContribution;
     };
 
+    // TIME-002/007: ChronoBreak writes SelfSpeed and OtherSpeed, but does
+    // not rewrite an already-running track. Other acceleration retains its
+    // existing continuous-progress contract.
+    const isRenewaAcceleration = effect => effect.effectId === 'Renewa_high_e01';
+    const usesRenewaTiming = state.runtimeAccelerationEffects.some(isRenewaAcceleration);
+    const usesContinuousAcceleration = state.runtimeAccelerationEffects.some(effect => !isRenewaAcceleration(effect));
+    const speedModelWarnings = [];
+    if (state.runtimeAccelerationEffects.filter(isRenewaAcceleration).length > 1) {
+      speedModelWarnings.push('リニュア加速の複数発動元は書込順が未確認のため、最新の発動元で近似します（倍率を乗算しません）');
+    }
+    if (usesRenewaTiming && usesContinuousAcceleration) {
+      speedModelWarnings.push('リニュアと他の加速の併用は合成規則が未確認です。他の加速は既存の連続進行で近似します');
+    }
+    const getRenewaSpeedAtStart = () => {
+      const active = state.runtimeAccelerationEffects.filter(effect => (
+        isRenewaAcceleration(effect) && effect.active && effect.expireTick > state.tick
+      ));
+      if (!active.length) return 1;
+      // Same-source recasts reset startTick in applyAccelerationEffect.
+      // Different casters' write ordering is not established; never multiply them.
+      const effect = active.reduce((latest, next) => next.startTick >= latest.startTick ? next : latest);
+      const elapsedFrames = Math.max(0, (state.tick - effect.startTick) / ticksPerFrame);
+      return 1 + effect.maxAccelerationP / 100 * Math.min(1, elapsedFrames / effect.rampFrames);
+    };
+
     const integrateActionSpeedFrames = (fromTick, toTick) => {
       if (!(toTick > fromTick)) return 0;
       const baseFrames = (toTick - fromTick) / ticksPerFrame;
       return baseFrames + state.runtimeAccelerationEffects.reduce((total, effect) => (
-        total + getAccelerationContribution(effect, fromTick, toTick)
+        total + (isRenewaAcceleration(effect) ? 0 : getAccelerationContribution(effect, fromTick, toTick))
       ), 0);
     };
 
@@ -3376,6 +4042,7 @@
 
     const updateCurrentNormalAttackSchedule = () => {
       if (state.lastNormalAttackStartTick == null) return;
+      if (usesRenewaTiming) return; // Current track and saved lock are unchanged.
       state.nextNormalAttackTick = state.lastNormalAttackStartTick
         + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
       scheduleRuntimeStateTimer('nextNormalAttackTick');
@@ -3606,6 +4273,7 @@
         stack.kind === 'damageBuff' && stack.effectId === definition.id
       ));
       const operation = !definition.stackable && matching.length ? 'update' : 'apply';
+      if (definition.stopAtMaxStacks && matching.length >= definition.maxStacks) return;
       if (!definition.stackable) {
         matching.forEach(stack => { stack.active = false; });
         state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => (
@@ -3648,6 +4316,9 @@
           ? state.tick + toTicks(definition.durationFrames, ticksPerFrame)
           : Infinity
       };
+      if (definition.stackable && matching.length + 1 === definition.maxStacks) {
+        addModifierMap(stack.modifiers, definition.maxStackModifiers);
+      }
       state.runtimeBuffStacks.push(stack);
       scheduleRuntimeExpireTick(stack);
       logEffectStateChange({
@@ -4878,6 +5549,14 @@
     };
 
     const emitEvent = (owner, event) => {
+      if (owner.key === 'lowSkill' && event.effectId === 'Epica_low_e04'
+        && config.epicaLowReplacementDurationFrames > 0) {
+        state.epicaLowEnhancedUntilTick = state.tick + config.epicaLowReplacementDurationFrames * ticksPerFrame;
+        scheduleRuntimeStateTimer('epicaLowEnhancedUntilTick');
+        log('effectStateChanged', { kind: 'attackReplacement', operation: 'apply',
+          effectId: event.effectId, label: '低学年中の基本攻撃→強化攻撃',
+          expireTick: state.epicaLowEnhancedUntilTick, sourceActionKey: owner.key });
+      }
       // Resource changes belong to the effect's occurrence itself. In particular,
       // a magic-bullet shot consumes one bullet before that shot is evaluated.
       if (event.resourceChange) applyResourceChange(owner, event.resourceChange);
@@ -4918,6 +5597,8 @@
         generatedObjectName: event.generatedObjectName || '',
         generatedInstanceOrder: event.generatedInstanceOrder || null,
         generatedInstanceKey: event.generatedInstanceKey || '',
+        generatedAttackSpeedBase: event.generatedAttackSpeedBase ?? null,
+        generatedIndependentStatsUnresolved: event.generatedIndependentStatsUnresolved === true,
         generatedEventType: event.generatedEventType || '',
         timingQuality: event.timingQuality,
         note: event.note || ''
@@ -5075,6 +5756,129 @@
       });
     };
 
+    const summonContext = unit => ({ frame: state.tick / ticksPerFrame, definition: unit.definition,
+      instanceOrder: unit.order, sourceActionKey: unit.owner.key, state: unit.localState,
+      actionId: unit.action?.id || '', unitId: unit.id, globalActionSpeed: getRenewaSpeedAtStart() });
+    const getSummonTiming = unit => {
+      const supplied = unit.adapter.getSpeed(summonContext(unit));
+      if (!supplied || ![supplied.attackSpeedP, supplied.selfSpeed, supplied.otherSpeed].every(value => (
+        typeof value === 'number' && Number.isFinite(value)
+      )) || supplied.attackSpeedP <= -100) throw new RangeError(`${unit.definition.id}: 召喚ユニット速度が不正です`);
+      return calculateActionSpeedTiming(DEFAULT_FRAMES_PER_SECOND * 300 / unit.definition.attackSpeedBase
+        / (1 + supplied.attackSpeedP / 100), unit.action.motionFrames, supplied.selfSpeed, supplied.otherSpeed);
+    };
+    const emitSummonHit = (unit, event) => {
+      // The adapter must construct the SUMMON'S hit input. Owner damage profiles,
+      // owner statuses/resources and owner on-hit hooks are intentionally absent.
+      const hitInput = unit.adapter.getHitInput({ ...summonContext(unit), event });
+      const result = evaluateSingleHitDamage(hitInput || {});
+      if (!result.supported) throw new RangeError(`${unit.definition.id}: ${result.reason}`);
+      const expectedDamage = result.expected;
+      hits[unit.owner.key] += 1;
+      expectedDamageByAction[unit.owner.key] += expectedDamage;
+      const damageInstanceId = `${unit.id}:${unit.actionSerial}:${event.timeOrigin === '終了時' || event.generatedEventType === '自爆' ? 'end' : 'attack'}`;
+      if (!damagedActionInstances.has(damageInstanceId)) {
+        damagedActionInstances.add(damageInstanceId);
+        damagingActions[unit.owner.key] += 1;
+      }
+      if (recordDamageSeries) damageSeries.push({ frame: state.tick / ticksPerFrame,
+        expectedDamage, type: 'hit', actionKey: unit.owner.key, generatedObjectId: unit.definition.id });
+      const calculation = state.damageCalculation || (state.damageCalculation = { roundedEvents: 0, legacyEvents: 0, reasons: new Set() });
+      calculation.roundedEvents += 1;
+      log('hit', { actionKey: unit.owner.key, effectId: event.effectId || '', expectedDamage,
+        generatedObjectId: unit.definition.id, generatedInstanceKey: unit.id, generatedInstanceOrder: unit.order,
+        summonActionId: unit.action.id, summonActionSerial: unit.actionSerial, hitCount: 1,
+        generatedEventType: event.eventType || event.generatedEventType || '攻撃',
+        damageEvaluation: { ...result, expectedDamage }, timingQuality: 'provisional' });
+      if (typeof unit.adapter.onHit === 'function') unit.adapter.onHit({ ...summonContext(unit), event, result });
+    };
+    const spawnSummon = pending => {
+      const definition = pending.event.summonDefinition;
+      const id = `${pending.owner.instanceId}:${pending.event.generatedInstanceKey}`;
+      if (definition.respawnPolicy === '上書き') {
+        summonUnits.forEach((unit, key) => {
+          if (unit.definition.id === definition.id && unit.owner.instanceId !== pending.owner.instanceId) summonUnits.delete(key);
+        });
+      }
+      const execution = options.summonCalculationInput?.definitions?.[definition.id]?.executionRules;
+      const maxInstances = execution?.maxInstances ?? definition.maxInstances;
+      if (maxInstances > 0 && [...summonUnits.values()].filter(unit => unit.definition.id === definition.id).length >= maxInstances) {
+        if (execution?.overflowPolicy === 'skip') {
+          log('summonSpawnSkipped', { generatedObjectId: definition.id, reason: '生存個体上限', maxInstances }); return;
+        }
+        throw new RangeError(`${definition.id}: 最大存在数超過の終了規則が未対応です`);
+      }
+      const order = pending.event.generatedInstanceOrder;
+      const starts = normalizeArray(definition.timingEvents).filter(row => row.recordPurpose !== '観測'
+        && row.eventType === '行動開始' && (row.instanceOrder == null || row.instanceOrder === order));
+      if (starts.length !== 1) throw new RangeError(`${definition.id}: 個体${order}の行動開始を一意に解決できません`);
+      const action = definition.summonActions.find(item => item.id === starts[0].actionId);
+      if (!action) throw new RangeError(`${definition.id}: 行動IDを解決できません`);
+      const adapter = resolveSummonUnit({ definition, instanceOrder: order, frame: state.tick / ticksPerFrame,
+        sourceActionKey: pending.owner.key, ownerModifiers: getRuntimeDamageBuffDelta(state, config, 'basicAttack'),
+        ownerAttackSpeedP: getRuntimeAttackSpeedP() });
+      if (!adapter || typeof adapter.getSpeed !== 'function' || typeof adapter.getHitInput !== 'function') {
+        throw new RangeError(`${definition.id}: 召喚ユニット能力・速度・命中入力が未接続です`);
+      }
+      const endFrame = getGeneratedTimedEndFrame(definition, state.tick / ticksPerFrame);
+      if (endFrame == null) throw new RangeError(`${definition.id}: 時間終了条件が必要です`);
+      const unit = { id, definition, order, action, adapter, owner: pending.owner,
+        actionEvents: normalizeArray(definition.timingEvents).map((event, index) => ({ event, index }))
+          .filter(({ event }) => event.recordPurpose !== '観測'
+            && event.timeOrigin === '召喚ユニット行動開始' && event.actionId === action.id),
+        localState: {}, actionSerial: 0, progressFrames: null, lastTick: state.tick,
+        nextStartTick: state.tick + toTicks(execution?.initialDelayFrames ?? starts[0].frame, ticksPerFrame),
+        endTick: toTicks(endFrame, ticksPerFrame), emitted: new Set() };
+      summonUnits.set(id, unit);
+      log('summonSpawn', { unitId: id, generatedObjectId: definition.id, generatedInstanceOrder: order,
+        actionKey: pending.owner.key, endFrame, initialDelayFrames: execution?.initialDelayFrames ?? starts[0].frame });
+    };
+    const processSummonUnits = () => {
+      summonUnits.forEach((unit, id) => {
+        const startUnitAction = () => {
+          const timing = getSummonTiming(unit);
+          unit.progressFrames = 0; unit.lastTick = state.tick; unit.actionSerial += 1;
+          unit.motionScale = timing.motionScale; unit.waitFrames = timing.waitFrames; unit.emitted.clear();
+          log('summonActionStart', { unitId: id, summonActionId: unit.action.id,
+            generatedObjectId: unit.definition.id, sourceActionKey: unit.owner.key, waitFrames: unit.waitFrames });
+        };
+        const emitUnitActionEvents = () => unit.actionEvents.forEach(({ event, index }) => {
+          if (unit.emitted.has(index)
+            || unit.progressFrames + 1e-9 < event.frame) return;
+          if (!/ダメージ/.test(event.effectKind || '')) throw new RangeError(`${unit.definition.id}: 召喚ユニット行動の非ダメージ効果は未対応です`);
+          unit.emitted.add(index); emitSummonHit(unit, event);
+        });
+        // Lifetime is half-open: ordinary hits at the expiry boundary are suppressed.
+        if (state.tick >= unit.endTick) {
+          const rule = options.summonCalculationInput?.definitions?.[unit.definition.id]?.executionRules;
+          if (rule?.deathOwnerSpRequest && (options.summonCalculationInput.ownerAliveIntervals || []).some(row => (
+            row.startFrame <= state.tick / ticksPerFrame && (row.endFrame === null || state.tick / ticksPerFrame < row.endFrame)))) {
+            applySpRecoveryEffect({ id: `${id}:death-sp`, sourceId: id, label: '分身終了時SP回復',
+              fixed: rule.deathOwnerSpRequest * rule.ownerSpRecoveryMultiplier, percent: 0 }, '時間寿命終了', unit.owner);
+          }
+          summonUnits.delete(id); log('summonEnd', { unitId: id, generatedObjectId: unit.definition.id }); return;
+        }
+        if (unit.progressFrames != null) {
+          unit.progressFrames += (state.tick - unit.lastTick) / ticksPerFrame / unit.motionScale;
+          unit.lastTick = state.tick;
+          // Re-evaluate animation speed only. The wait captured at action start is
+          // NOT recomputed by a speed change during this animation.
+          unit.motionScale = getSummonTiming(unit).motionScale;
+        }
+        if (unit.progressFrames == null && state.tick >= unit.nextStartTick) {
+          startUnitAction();
+        }
+        if (unit.progressFrames == null) return;
+        emitUnitActionEvents();
+        if (unit.progressFrames + 1e-9 >= unit.action.motionFrames) {
+          unit.progressFrames = null;
+          unit.nextStartTick = state.tick + toTicks(unit.waitFrames, ticksPerFrame);
+          log('summonActionEnd', { unitId: id, summonActionId: unit.action.id });
+          if (unit.nextStartTick === state.tick) { startUnitAction(); emitUnitActionEvents(); }
+        }
+      });
+    };
+
     const emitDueGeneratedEvents = () => {
       const due = [];
       while (true) {
@@ -5169,6 +5973,21 @@
         if (pending.cancelled) return;
         if (pending.emitted || pending.absoluteTick > state.tick) return;
         pending.emitted = true;
+        if (pending.event.summonDefinition) {
+          if (pending.event.generatedEventType === '生成') { spawnSummon(pending); return; }
+          const unit = summonUnits.get(`${pending.owner.instanceId}:${pending.event.generatedInstanceKey}`);
+          if (unit && pending.event.type === 'damage') emitSummonHit(unit, pending.event);
+          else if (unit && pending.event.statusApplication) {
+            // Reaction-only statuses need no owner damage profile. Periodic damage
+            // requires a summon-specific profile and remains explicitly blocked.
+            if (pending.event.statusApplication.dealsPeriodicDamage) {
+              throw new RangeError(`${unit.definition.id}: 分身自身の継続ダメージ入力が未接続です`);
+            }
+            applyStatusApplication(unit.owner, { ...pending.event.statusApplication,
+              sourceId: unit.id, sourceSelf: false });
+          } else if (unit) throw new RangeError(`${unit.definition.id}: 召喚終了時の状態効果入力が不足しています`);
+          return;
+        }
         emitEvent(pending.owner, pending.event);
       });
       state.pendingGeneratedEvents = state.pendingGeneratedEvents.filter(pending => !pending.emitted && !pending.cancelled);
@@ -5216,11 +6035,16 @@
       const variantLabel = String(action.variantLabels?.[variant] || '').trim();
       const sourceEvents = action.variants[variant] || action.variants.default || [];
       const baseMotionFrames = action.motionFramesByVariant?.[variant] ?? action.motionFrames;
+      const selfSpeed = getRenewaSpeedAtStart();
+      const otherSpeed = selfSpeed;
+      const normalPeriodFrames = getEffectiveNormalAttackIntervalFrames() / otherSpeed;
       const motionScale = normalAttack && baseMotionFrames > 0
-        ? Math.min(1, getEffectiveNormalAttackIntervalFrames() / baseMotionFrames)
-        : 1;
+        ? calculateActionSpeedTiming(getEffectiveNormalAttackIntervalFrames(), baseMotionFrames, selfSpeed, otherSpeed).motionScale
+        : 1 / selfSpeed;
       const motionFrames = baseMotionFrames * motionScale;
+      const normalCycleFrames = motionFrames + Math.max(0, normalPeriodFrames - baseMotionFrames);
       const instanceId = ++state.actionSerial;
+      triggerCooldownEffectsForAction({ key: actionKey, label: action.label, instanceId }, 'beforeStart');
       state.currentAction = {
         key: actionKey,
         label: action.label,
@@ -5228,7 +6052,7 @@
         variantLabel,
         instanceId,
         startTick: state.tick,
-        dynamicTiming: state.runtimeAccelerationEffects.length > 0,
+        dynamicTiming: usesContinuousAcceleration,
         progressFrames: 0,
         progressLastTick: state.tick,
         motionFrames,
@@ -5242,6 +6066,16 @@
           emitted: false
         }))
       };
+      if (action.detachedProjectileTiming) {
+        // Projectile hits outlive their launch action (enhanced: motion 120F,
+        // original hit 147F, additional hit 153F). Never extend the motion.
+        const owner = { ...state.currentAction, events: state.currentAction.events };
+        state.currentAction.events = owner.events.filter(event => event.type !== 'damage');
+        owner.events.filter(event => event.type === 'damage').forEach(event => {
+          scheduleGeneratedEvent({ absoluteTick: state.tick + event.relativeTick,
+            owner, event, emitted: false });
+        });
+      }
       if (actionKey === 'enhancedAttack') {
         const chain = state.enhancedRepeatChain;
         if (isEnhancedRepeat && chain) {
@@ -5258,10 +6092,18 @@
       const generatedSourceEvents = normalizeArray(action.generatedEvents).filter(event => (
         !event.branch || event.branch === '共通' || event.branch === state.currentAction.variant
       ));
-      const generatedRuntimeEvents = generatedSourceEvents.map(event => ({
-        ...event,
-        relativeTick: toTicks(event.frame, ticksPerFrame)
-      }));
+      const generatedRuntimeEvents = generatedSourceEvents.map(event => {
+        const rule = options.summonCalculationInput?.definitions?.[event.generatedObjectId]?.executionRules;
+        let shift = 0;
+        if (rule) {
+          const spawns = generatedSourceEvents.filter(item => item.generatedObjectId === event.generatedObjectId
+            && item.generatedEventType === '生成').sort((a, b) => a.generatedInstanceOrder - b.generatedInstanceOrder);
+          const spawn = spawns.find(item => item.generatedInstanceOrder === event.generatedInstanceOrder);
+          if (spawn) shift = spawns[0].frame + (event.generatedInstanceOrder - 1)
+            * rule.generationIntervalSeconds * framesPerSecond * rule.gamePlaySpeed - spawn.frame;
+        }
+        return { ...event, relativeTick: toTicks(event.frame + shift, ticksPerFrame) };
+      });
       const generatedOwner = {
         key: actionKey,
         label: action.label,
@@ -5284,7 +6126,8 @@
         state.lastNormalAttackStartTick = state.tick;
         state.normalAttackProgressFrames = 0;
         state.normalAttackProgressLastTick = state.tick;
-        state.nextNormalAttackTick = state.tick + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
+        state.normalAttackCycleFrames = usesRenewaTiming ? normalCycleFrames : getEffectiveNormalAttackIntervalFrames();
+        state.nextNormalAttackTick = state.tick + toTicks(state.normalAttackCycleFrames, ticksPerFrame);
         scheduleRuntimeStateTimer('nextNormalAttackTick');
       } else if (actionKey === 'lowSkill') {
         state.sp = config.lowSkillSpPolicy === 'consume'
@@ -5311,6 +6154,9 @@
         normalAttackIntervalFrames: getEffectiveNormalAttackIntervalFrames(),
         motionScale,
         motionFrames,
+        selfSpeed,
+        otherSpeed,
+        normalCycleFrames: normalAttack ? state.normalAttackCycleFrames : null,
         repeatIndex,
         repeatProbabilityP,
         repeatEstimated: state.enhancedRepeatChain?.estimated === true
@@ -5319,6 +6165,7 @@
       triggerRuntimeEventEffectsForAction(state.currentAction);
       emitDueActionEvents();
       emitDueGeneratedEvents();
+      processSummonUnits();
       return true;
     };
 
@@ -5481,10 +6328,11 @@
     };
 
     const tryStartNormalAttack = () => {
-      if (state.runtimeAccelerationEffects.length > 0) {
+      if (usesContinuousAcceleration) {
         if (state.normalAttackProgressFrames == null) {
           if (state.tick < state.nextNormalAttackTick) return false;
-        } else if (state.normalAttackProgressFrames + 1e-9 < getEffectiveNormalAttackIntervalFrames()) {
+        } else if (state.normalAttackProgressFrames + 1e-9 < (usesRenewaTiming
+          ? state.normalAttackCycleFrames : getEffectiveNormalAttackIntervalFrames())) {
           return false;
         }
       } else if (state.tick < state.nextNormalAttackTick) return false;
@@ -5492,11 +6340,11 @@
       const nextNormalAttackSequence = state.normalAttackSequence + 1;
       const enhancedBlocked = normalizeArray(enhancedAction?.blockedBySelfStateIds)
         .some(stateId => isSelfStateActive(stateId));
-      const enhanced = !enhancedBlocked && !!enhancedAction && (enhancedAction.triggerStatus
+      const enhanced = !enhancedBlocked && !!enhancedAction && (state.tick < state.epicaLowEnhancedUntilTick || (enhancedAction.triggerStatus
         ? getActiveStatusStacks(enhancedAction.triggerStatus).length > 0
         : (enhancedAction.triggerEveryCount > 0
           ? nextNormalAttackSequence % enhancedAction.triggerEveryCount === 0
-          : enhancedAction.triggerProbability > 0 && random() * 100 < enhancedAction.triggerProbability));
+          : enhancedAction.triggerProbability > 0 && Math.floor(random() * 100) < enhancedAction.triggerProbability)));
       return beginActionPreparation(enhanced ? 'enhancedAttack' : 'basicAttack');
     };
 
@@ -5601,6 +6449,7 @@
 
     const fastForwardIdleTicks = () => {
       if (options.enableFastForward === false) return false;
+      if (summonUnits.size > 0) return false;
       if (hasActiveAcceleration()) return false;
       const isDue = value => Number.isFinite(Number(value)) && Number(value) <= state.tick;
       const actionPhaseActive = !!(
@@ -5630,6 +6479,9 @@
     };
 
     for (state.tick = 0; state.tick <= durationTicks; state.tick += 1) {
+      // Yield only between complete ticks, never partway through same-tick events.
+      // Wall time controls scheduling, not combat time, RNG or event ordering.
+      if (cooperative && processedTickCount % 256 === 0 && cooperative.shouldYield()) yield;
       processedTickCount += 1;
       if (fastForwardIdleTicks()) continue;
       advanceCurrentActionProgress();
@@ -5639,6 +6491,11 @@
       processRuntimeAttackSpeedStacks();
       expireRuntimeBuffs();
       expireSelfStates();
+      if (state.epicaLowEnhancedUntilTick > 0 && state.epicaLowEnhancedUntilTick <= state.tick) {
+        state.epicaLowEnhancedUntilTick = 0;
+        log('effectStateChanged', { kind: 'attackReplacement', operation: 'expire',
+          effectId: 'Epica_low_e04', label: '低学年中の基本攻撃→強化攻撃', reason: '持続時間終了' });
+      }
       processExternalEvents();
       const pausesSpRecovery = ['lowSkill', 'highSkill'].includes(state.currentAction?.key)
         || ['lowSkill', 'highSkill'].includes(state.skillTransition?.actionKey);
@@ -5663,6 +6520,7 @@
       processStatusTicks();
       emitDueActionEvents();
       emitDueGeneratedEvents();
+      processSummonUnits();
       expireStatuses();
       const currentActionComplete = state.currentAction && (
         state.currentAction.dynamicTiming
@@ -5688,7 +6546,8 @@
         if (finished.key === 'lowSkill') {
           state.nextNormalAttackTick = state.tick;
           if (state.normalAttackProgressFrames != null) {
-            state.normalAttackProgressFrames = getEffectiveNormalAttackIntervalFrames();
+            state.normalAttackProgressFrames = usesRenewaTiming
+              ? state.normalAttackCycleFrames : getEffectiveNormalAttackIntervalFrames();
             state.normalAttackProgressLastTick = state.tick;
           }
           scheduleRuntimeStateTimer('nextNormalAttackTick');
@@ -5736,6 +6595,11 @@
       hits,
       damagingActions,
       damage: {
+        calculation: {
+          roundedEvents: state.damageCalculation?.roundedEvents || 0,
+          legacyEvents: state.damageCalculation?.legacyEvents || 0,
+          legacyReasons: [...(state.damageCalculation?.reasons || [])]
+        },
         totalExpectedDamage: [expectedDamageByAction, expectedDamageByRuntimeEffect]
           .reduce((total, group) => total + Object.values(group).reduce((sum, value) => sum + value, 0), 0),
         byAction: expectedDamageByAction,
@@ -5896,11 +6760,12 @@
         })),
         lastSkillVariant: state.lastSkillVariant
       },
-      warnings: normalizeArray(config.warnings)
+      warnings: [...normalizeArray(config.warnings), ...speedModelWarnings,
+        ...normalizeArray(options.summonCalculationInput?.assumptions)]
     };
   }
 
-  function simulateMany(config, options = {}) {
+  function* simulateManySteps(config, options = {}, cooperative = null) {
     const aggregateStartedAt = typeof performance !== 'undefined' && typeof performance.now === 'function'
       ? performance.now()
       : Date.now();
@@ -5941,12 +6806,12 @@
     let adaptiveStopped = false;
     for (let index = 0; index < targetTrials; index += 1) {
       const seed = baseSeed + index;
-      const result = simulate(config, {
+      const result = yield* simulateSteps(config, {
         ...options,
         seed,
         durationSeconds,
         recordTimeline: false
-      });
+      }, cooperative);
       const totalDamage = toFiniteNumber(result.damage?.totalExpectedDamage);
       totalSimulationElapsedMs += toFiniteNumber(result.performance?.elapsedMs);
       totalProcessedTickCount += toFiniteNumber(result.performance?.processedTickCount);
@@ -6097,6 +6962,54 @@
     };
   }
 
+  function finishSimulation(steps) {
+    let next = steps.next();
+    while (!next.done) next = steps.next();
+    return next.value;
+  }
+
+  function simulate(config, options = {}) {
+    return finishSimulation(simulateSteps(config, options));
+  }
+
+  function simulateMany(config, options = {}) {
+    return finishSimulation(simulateManySteps(config, options));
+  }
+
+  async function runCooperativeSimulation(makeSteps, config, options, control = {}) {
+    const now = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const budgetMs = Math.max(1, Math.min(16, toFiniteNumber(control.budgetMs, 8)));
+    let deadline = now() + budgetMs;
+    const steps = makeSteps(config, options, { shouldYield: () => now() >= deadline });
+    const checkCancelled = () => {
+      if (!control.isCancelled?.()) return;
+      const error = new Error('DPS計算を取り消しました');
+      error.name = 'DpsRunCancelledError';
+      throw error;
+    };
+    try {
+      while (true) {
+        checkCancelled();
+        const next = steps.next();
+        checkCancelled();
+        if (next.done) return next.value;
+        // A task boundary is required for painting/input, not just a microtask.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        deadline = now() + budgetMs;
+      }
+    } finally {
+      steps.return();
+    }
+  }
+
+  function simulateAsync(config, options = {}, control = {}) {
+    return runCooperativeSimulation(simulateSteps, config, options, control);
+  }
+
+  function simulateManyAsync(config, options = {}, control = {}) {
+    return runCooperativeSimulation(simulateManySteps, config, options, control);
+  }
+
   function hasSimulationRandomness(config = {}) {
     const actions = Object.values(config.actions || {});
     if (actions.some(action => (
@@ -6120,13 +7033,21 @@
   }
 
   return Object.freeze({
-    version: 20,
+    version: 35,
+    assembleSummonAbilities,
+    getSummonCalculationIssues,
+    getSummonUnitIssues,
+    calculateActionSpeedTiming,
     buildCombatantConfig,
     createActionSkillOverride,
     createSeededRandom,
     evaluateDamageAtHit,
+    evaluateSingleHitDamage,
+    roundDamageRateToEven,
     simulate,
     simulateMany,
+    simulateAsync,
+    simulateManyAsync,
     createDpsPublicTimeline,
     selectEnemySizeVariantBranch,
     toTicks
