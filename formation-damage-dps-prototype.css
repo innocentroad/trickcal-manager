@@ -1,0 +1,498 @@
+/* Prototype-only additions. The copied ordinary result DOM stays governed by
+   formation-damage-calc.css; these rules only switch in the DPS beta view. */
+.fdcp-mode-tabs button[data-fdcp-mode="dps"] .fdcp-beta-mark { display:inline-block; margin-left:.1rem; color:#f59e0b; font-size:.52rem; font-style:normal; font-weight:950; line-height:1; vertical-align:.18em; }
+.fdcp-bottom-bar { --fdcp-mode-tabs-width:3.15rem; --fdcp-collapsed-bar-height:5.35rem; --fdcp-detail-column:clamp(2.18rem,6vw,4.6rem); --fdcp-result-card-rows:1rem minmax(0,1fr) .88rem; --fdcp-result-card-padding:3px 5px; padding-top:0; }
+/* The result-mode switch is a top-edge sticky note at every viewport width.
+   It stays outside the fixed bar's flow, so moving it above the bar does not
+   change the bar height or steal room from either result layout. */
+.fdcp-bottom-bar .fdcp-mode-tabs { position:absolute; z-index:2; top:calc(-1.7rem - 1px); right:auto; bottom:auto; left:max(.7rem,calc((100% - 1200px) / 2 + 7px)); display:flex; gap:2px; height:1.7rem; padding:0; }
+.fdcp-bottom-bar .fdcp-dps-unavailable-details { position:absolute; z-index:3; top:calc(-1.7rem - 1px); left:calc(max(.7rem,calc((100% - 1200px) / 2 + 7px)) + var(--fdcp-mode-tabs-width) + var(--fdcp-mode-tabs-width) + .35rem); font:inherit; }
+.fdcp-dps-unavailable-details summary { box-sizing:border-box; display:flex; min-height:1.7rem; align-items:center; padding:.2rem .45rem; border:1px solid var(--fdc-border); border-bottom:0; border-radius:7px 7px 0 0; color:var(--fdc-text); background:var(--fdc-panel-strong); box-shadow:0 -2px 7px rgba(15,23,42,.2); font-size:.59rem; font-weight:850; line-height:1.1; white-space:nowrap; cursor:pointer; list-style:none; }
+.fdcp-dps-unavailable-details summary::-webkit-details-marker { display:none; }
+.fdcp-dps-unavailable-details summary::marker { content:""; }
+.fdcp-dps-unavailable-details:focus-within summary { outline:2px solid var(--fdc-focus,#60a5fa); outline-offset:2px; }
+.fdcp-dps-unavailable-details[open] > p { position:fixed; z-index:120; right:.5rem; bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2rem); box-sizing:border-box; width:min(30rem,calc(100vw - 1rem)); max-height:min(28vh,10rem); overflow:auto; margin:0; padding:.55rem .7rem; border:1px solid var(--fdc-border); border-radius:8px; color:var(--fdc-text); background:var(--fdc-panel-strong); box-shadow:0 8px 24px rgba(0,0,0,.28); font:inherit; font-size:.7rem; line-height:1.4; }
+.fdcp-mode-tabs button { box-sizing:border-box; flex:0 0 var(--fdcp-mode-tabs-width); width:var(--fdcp-mode-tabs-width); height:1.7rem; border:1px solid var(--fdc-border); border-bottom:0; border-radius:7px 7px 0 0; padding:3px 6px; color:var(--fdc-text); background:#1a2744; font:inherit; font-size:.68rem; font-weight:900; line-height:1; cursor:pointer; writing-mode:horizontal-tb; text-orientation:mixed; box-shadow:0 -2px 7px rgba(15,23,42,.2); }
+body.theme-light .fdcp-mode-tabs button:not([aria-selected="true"]):not([disabled]):not([aria-disabled="true"]) { background:#fff; }
+.fdcp-mode-tabs button[aria-selected="true"] { color:#fff; background:#566fd1; border-color:#93aaff; }
+.fdcp-mode-tabs button[data-fdcp-mode="dps"][disabled],.fdcp-mode-tabs button[data-fdcp-mode="dps"][aria-disabled="true"] { color:color-mix(in srgb,var(--fdc-muted) 82%,var(--fdc-text)); background:#313d55; border-color:color-mix(in srgb,var(--fdc-border) 78%,#71717a); opacity:1; cursor:not-allowed; }
+body.theme-light .fdcp-mode-tabs button[data-fdcp-mode="dps"][disabled],body.theme-light .fdcp-mode-tabs button[data-fdcp-mode="dps"][aria-disabled="true"] { background:#e5e7eb; }
+.fdcp-bottom-bar[data-mode="single"] .fdcp-dps-detail-panel,.fdcp-bottom-bar[data-mode="single"] .fdcp-result-panel { display:none !important; }
+.fdcp-bottom-bar[data-mode="dps"] #fdc-result-detail-panel,.fdcp-bottom-bar[data-mode="dps"] .bottom-results-grid { display:none !important; }
+
+/* Native float groups keep their clearance above the fixed result bar. */
+.fdcp-page .fdc-card-cost-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+.fdcp-page .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
+.fdcp-page.fdc-result-detail-open .fdc-card-cost-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+.fdcp-page.fdc-result-detail-open .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + .45rem); }
+/* The detail control shares the bar's top edge. Keep the native calculation
+   controls above that edge so the two button groups never intercept each
+   other's clicks. */
+.fdcp-page .fdc-apply-float-controller,
+.fdcp-page.fdc-result-detail-open .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+/* `hidden` alone is not sufficient for the ordinary floating buttons: their
+   author styles set `display:inline-flex`, which wins over the UA hidden rule.
+   The bottom bar is not their ancestor, so mirror the active result mode onto
+   the prototype page and make it the final visibility gate.  This also keeps
+   native controller re-renders from revealing ordinary controls in DPS mode. */
+.fdcp-page[data-fdcp-mode="dps"] #fdc-compare-float-toggle,
+.fdcp-page[data-fdcp-mode="dps"] #fdc-apply-float-toggle,
+.fdcp-page[data-fdcp-mode="dps"] #fdc-compare-float-panel,
+.fdcp-page[data-fdcp-mode="dps"] #fdc-apply-float-panel,
+.fdcp-page[data-fdcp-mode="single"] #fdcp-dps-compare-slot,
+.fdcp-page[data-fdcp-mode="single"] #fdcp-dps-settings-slot,
+.fdcp-page[data-fdcp-mode="single"] #fdcp-dps-compare-panel,
+.fdcp-page[data-fdcp-mode="single"] #fdcp-dps-settings-panel { display:none !important; }
+/* The visible DPS-mode order is save → DPS comparison → DPS settings.  The
+   two prototype controls live in their own grid slots so their popovers are
+   positioned from the matching button instead of both using the controller's
+   far-right corner.  Normal mode keeps the original save → comparison →
+   calculation DOM and grid order. */
+.fdc-apply-float-controller { grid-template-columns:auto auto auto; }
+.fdcp-dps-float-slot { position:relative; align-self:end; }
+.fdcp-dps-compare-slot { grid-column:2; }
+.fdcp-dps-settings-slot { grid-column:3; }
+.fdcp-dps-float-slot .fdcp-dps-float-toggle,.fdcp-dps-float-slot .fdcp-dps-compare-toggle { margin-left:0; }
+.fdcp-dps-float-slot .fdcp-float-panel { right:0; }
+
+/* Both collapsed modes share one height token.  The base result bar normally lets
+   its flex cards use their natural height, so HP lines or a comparison's three
+   value lines changed the bar height (and therefore every floating control's
+   offset).  Keep the ordinary five cards in a one-row grid with a reserved third
+   line; content is clipped/ellipsized inside the card instead of resizing the bar. */
+.fdcp-bottom-bar { --fdcp-dps-panel-height:var(--fdcp-collapsed-bar-height); --fdcp-dps-row-gap:1px; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { box-sizing:border-box; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); grid-template-rows:minmax(0,1fr); gap:4px; width:min(100%,1200px); height:var(--fdcp-collapsed-bar-height); min-height:var(--fdcp-collapsed-bar-height); max-height:var(--fdcp-collapsed-bar-height); margin:0 auto; padding:2px 7px; overflow:hidden; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card { box-sizing:border-box; display:grid; grid-template-rows:var(--fdcp-result-card-rows); align-items:center; width:100%; max-width:none; min-width:0; min-height:0; height:100%; margin:0; padding:var(--fdcp-result-card-padding); overflow:hidden; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .label { grid-row:1; overflow:hidden; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value { grid-row:2; min-width:0; overflow:hidden; line-height:1.05; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .label,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value > * { min-width:0; max-width:100%; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value > * { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare { display:grid; align-content:center; min-height:0; overflow:hidden; }
+/* Comparison rows keep the damage numbers as separate, non-ellipsized items.
+   Phone widths compact only the source label; the fixed row token above keeps
+   this adjustment from changing the result-bar height. */
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-current,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-before,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-diff { overflow:visible; text-overflow:clip; white-space:nowrap; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-current,
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-before { display:inline-flex; align-items:baseline; justify-content:center; gap:.16rem; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before-label { flex:0 0 auto; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-number { display:inline-block; flex:0 0 auto; overflow:visible; text-overflow:clip; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .fdc-result-hp-rate { grid-row:3; display:flex; align-items:center; justify-content:center; min-height:.76rem; margin:0; overflow:hidden; flex-wrap:nowrap; white-space:nowrap; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .fdc-result-hp-rate[hidden] { display:flex; visibility:hidden; }
+.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .fdc-detail-toggle { min-width:0 !important; max-width:none; padding:var(--fdcp-result-card-padding) !important; }
+/* The collapsed DPS mode is one five-row table: overall card | action chips | detail.
+   It uses the same token and 1200px rail as the ordinary fixed one-row grid. */
+.fdcp-result-panel { position:relative; box-sizing:border-box; display:grid; grid-template-columns:minmax(118px,.72fr) minmax(0,2.55fr); grid-template-rows:repeat(5,minmax(0,1fr)); gap:var(--fdcp-dps-row-gap) 4px; width:min(100%,1200px); height:var(--fdcp-dps-panel-height); min-height:var(--fdcp-dps-panel-height); max-height:var(--fdcp-dps-panel-height); margin:0 auto; padding:2px 7px; overflow:hidden; }
+.fdcp-result-panel .fdcp-dps-primary { grid-column:1; grid-row:1 / -1; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden; padding:7px; border:1px solid var(--fdc-border); border-radius:7px; text-align:center; background:linear-gradient(135deg,#385ebc,#5846a4); isolation:isolate; }
+.fdcp-dps-primary::after { position:absolute; z-index:-1; inset:0; content:""; background:linear-gradient(135deg,rgba(18,28,57,.26),rgba(40,22,78,.52)); }.fdcp-dps-primary canvas { position:absolute; z-index:-2; inset:0; width:100%; height:100%; opacity:.68; }
+.fdcp-dps-primary .fdcp-provisional-badge { position:absolute; top:5px; right:5px; z-index:1; max-width:calc(100% - 10px); overflow:hidden; margin:0; padding:2px 5px; border:1px solid rgba(255,230,146,.78); border-radius:999px; color:#fff4c7; background:rgba(94,58,6,.72); font-size:.56rem; font-weight:900; line-height:1; letter-spacing:.03em; text-overflow:ellipsis; white-space:nowrap; }.fdcp-dps-primary .fdcp-provisional-badge[hidden] { display:none; }
+.fdcp-dps-primary span { position:relative; display:block; width:100%; max-width:100%; min-width:0; color:#e2eaff; font-size:.64rem; font-weight:850; line-height:1.18; }.fdcp-dps-primary strong { position:relative; display:block; width:100%; max-width:100%; min-width:0; overflow:hidden; color:#fff; font-size:clamp(1rem,2.25vw,1.38rem); text-overflow:ellipsis; text-shadow:0 1px 2px #1c2559; white-space:nowrap; }.fdcp-dps-primary .fdcp-total-delta { position:absolute; right:5px; bottom:4px; left:5px; overflow:hidden; color:#e7edff; font-size:.59rem; font-weight:900; line-height:1; text-align:center; text-overflow:ellipsis; text-shadow:0 1px 2px #26366b; white-space:nowrap; }.fdcp-dps-primary .fdcp-total-delta[data-delta-state="positive"],.fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="positive"] { color:#83f0bb; }.fdcp-dps-primary .fdcp-total-delta[data-delta-state="negative"],.fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="negative"] { color:#ffaeae; }
+/* A saved DPS baseline follows the ordinary comparison button language: the
+   toggle stays active while waiting, then the result card gains a clear active
+   outline once a same-axis difference is available. */
+.fdcp-bottom-bar[data-fdcp-comparison="waiting"] .fdcp-dps-primary { box-shadow:inset 0 0 0 2px color-mix(in srgb,#c4b5fd 72%,transparent),0 0 0 1px color-mix(in srgb,#8b5cf6 38%,transparent); }
+.fdcp-bottom-bar[data-fdcp-comparison="active"] .fdcp-dps-primary { box-shadow:inset 0 0 0 2px color-mix(in srgb,#ddd6fe 86%,transparent),0 0 0 2px color-mix(in srgb,#8b5cf6 56%,transparent); }
+/* Every row receives the same fixed five-track template.  Do not use
+   max-content here: that resolves independently for each chip and makes the
+   columns jump vertically when an action has a long value. */
+.fdcp-breakdown { --fdcp-breakdown-columns:minmax(2.7rem,.62fr) minmax(0,1.38fr) minmax(0,1.08fr) minmax(3.15rem,.54fr) minmax(2.7rem,.46fr); display:contents; }.fdcp-breakdown > div { box-sizing:border-box; display:grid; grid-column:2; grid-template-columns:var(--fdcp-breakdown-columns); justify-content:start; align-items:center; gap:5px; min-width:0; min-height:0; padding:0 5px; border:1px solid color-mix(in srgb,var(--fdc-border) 86%,transparent); border-radius:999px; background:color-mix(in srgb,var(--fdc-input) 90%,transparent); box-shadow:inset 0 1px 0 color-mix(in srgb,#fff 6%,transparent); }.fdcp-breakdown > div[data-fdcp-breakdown="basicAttack"] { background:color-mix(in srgb,#64748b 13%,var(--fdc-input)); border-color:color-mix(in srgb,#64748b 38%,var(--fdc-border)); }.fdcp-breakdown > div[data-fdcp-breakdown="enhancedAttack"] { background:color-mix(in srgb,#f97316 13%,var(--fdc-input)); border-color:color-mix(in srgb,#f97316 38%,var(--fdc-border)); }.fdcp-breakdown > div[data-fdcp-breakdown="lowSkill"] { background:color-mix(in srgb,#22c55e 13%,var(--fdc-input)); border-color:color-mix(in srgb,#22c55e 38%,var(--fdc-border)); }.fdcp-breakdown > div[data-fdcp-breakdown="highSkill"] { background:color-mix(in srgb,#3b82f6 13%,var(--fdc-input)); border-color:color-mix(in srgb,#3b82f6 38%,var(--fdc-border)); }.fdcp-breakdown > div[data-fdcp-breakdown="other"] { background:color-mix(in srgb,#14b8a6 13%,var(--fdc-input)); border-color:color-mix(in srgb,#14b8a6 38%,var(--fdc-border)); }.fdcp-breakdown > div:nth-child(1) { grid-row:1; }.fdcp-breakdown > div:nth-child(2) { grid-row:2; }.fdcp-breakdown > div:nth-child(3) { grid-row:3; }.fdcp-breakdown > div:nth-child(4) { grid-row:4; }.fdcp-breakdown > div:nth-child(5) { grid-row:5; }
+.fdcp-breakdown [data-fdcp-column] { display:block; overflow:hidden; line-height:1; text-align:left; text-overflow:ellipsis; white-space:nowrap; }.fdcp-breakdown [data-fdcp-column="action"] { color:var(--fdc-text); font-size:.66rem; font-weight:900; }.fdcp-breakdown [data-fdcp-column="dps"] { color:var(--fdc-text); font-size:clamp(.76rem,1.18vw,.82rem); font-weight:950; }.fdcp-breakdown [data-fdcp-column="delta"] { color:color-mix(in srgb,var(--fdc-text) 90%,var(--fdc-muted)); font-size:.68rem; font-weight:900; }.fdcp-breakdown [data-fdcp-column="share"],.fdcp-breakdown [data-fdcp-column="count"] { color:color-mix(in srgb,var(--fdc-text) 84%,var(--fdc-muted)); font-size:.69rem; font-weight:850; }
+/* Light is intentionally specified separately: dark keeps the original deep
+   blue/purple surface while light uses pale cards and dark, readable ink. */
+body.theme-light .fdcp-result-panel { background:linear-gradient(180deg,#fff,#f8f8ff); }
+body.theme-light .fdcp-result-panel .fdcp-dps-primary { border-color:#c7d2fe; background:linear-gradient(135deg,#fcfdff,#f1f0ff); box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(99,102,241,.08); }
+body.theme-light .fdcp-dps-primary::after { background:linear-gradient(135deg,rgba(255,255,255,.2),rgba(196,181,253,.08)); }
+body.theme-light .fdcp-dps-primary canvas { opacity:.15; }
+body.theme-light .fdcp-dps-primary span { color:#334155; }
+body.theme-light .fdcp-dps-primary strong { color:#172554; text-shadow:none; }
+body.theme-light .fdcp-dps-primary .fdcp-total-delta { color:#334155; text-shadow:none; }
+body.theme-light .fdcp-dps-primary .fdcp-total-delta[data-delta-state="positive"],body.theme-light .fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="positive"] { color:#047857; }
+body.theme-light .fdcp-dps-primary .fdcp-total-delta[data-delta-state="negative"],body.theme-light .fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="negative"] { color:#b91c1c; }
+body.theme-light .fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="zero"] { color:#475569; }
+body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="basicAttack"] { background:#eff6ff; border-color:#bfdbfe; }
+body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="enhancedAttack"] { background:#fff7ed; border-color:#fed7aa; }
+body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="lowSkill"] { background:#f0fdf4; border-color:#bbf7d0; }
+body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="highSkill"] { background:#eef2ff; border-color:#c7d2fe; }
+body.theme-light .fdcp-breakdown > div[data-fdcp-breakdown="other"] { background:#f0fdfa; border-color:#99f6e4; }
+body.theme-light .fdcp-bottom-bar[data-fdcp-comparison="waiting"] .fdcp-dps-primary { box-shadow:inset 0 0 0 2px #a78bfa,0 0 0 1px rgba(124,58,237,.2); }
+body.theme-light .fdcp-bottom-bar[data-fdcp-comparison="active"] .fdcp-dps-primary { box-shadow:inset 0 0 0 2px #7c3aed,0 0 0 2px rgba(109,40,217,.24); }
+body.theme-dark .fdcp-result-panel .fdcp-dps-primary { background:linear-gradient(135deg,#385ebc,#5846a4); }
+body.theme-dark .fdcp-dps-primary .fdcp-total-delta[data-delta-state="positive"],body.theme-dark .fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="positive"] { color:#83f0bb; }
+body.theme-dark .fdcp-dps-primary .fdcp-total-delta[data-delta-state="negative"],body.theme-dark .fdcp-breakdown [data-fdcp-column="delta"][data-delta-state="negative"] { color:#ffaeae; }
+/* Keep the five-row DPS placement, but make the detail card itself use the
+   identical box, label row, and chevron row as the ordinary result bar. */
+.fdcp-bottom-bar .fdc-detail-toggle { box-sizing:border-box; display:grid; grid-template-rows:var(--fdcp-result-card-rows); align-items:center; min-width:0 !important; min-height:0; height:100%; margin:0; padding:var(--fdcp-result-card-padding) !important; overflow:hidden; }
+.fdcp-bottom-bar .fdc-detail-toggle .label { grid-row:1; overflow:hidden; line-height:1; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-bottom-bar .fdc-detail-toggle .value { grid-row:2; min-width:0; overflow:hidden; line-height:1.05; text-align:center; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-detail-controls { position:absolute; z-index:3; top:calc(-1.7rem - 1px); right:max(.7rem,calc((100% - 1200px) / 2 + 7px)); display:flex; gap:.45rem; height:1.7rem; }
+.fdcp-high-mode-note { box-sizing:border-box; display:flex; flex:0 0 auto; align-items:center; justify-content:center; gap:.22rem; min-width:5.1rem; height:1.7rem; margin:0; padding:3px 7px; overflow:hidden; border:1px solid var(--fdc-border); border-bottom:0; border-radius:7px 7px 0 0; color:var(--fdc-text); background:#1a2744; font:inherit; font-size:.62rem; font-weight:850; line-height:1; cursor:pointer; box-shadow:0 -2px 7px rgba(15,23,42,.2); }
+body.theme-light .fdcp-high-mode-note:not([data-fdcp-high-mode="auto"]) { background:#fff; }
+.fdcp-high-mode-note .label { overflow:hidden; color:var(--fdc-muted); text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-high-mode-note strong { color:var(--fdc-text); font-size:.66rem; font-weight:950; letter-spacing:.02em; line-height:1; }
+.fdcp-high-mode-note[data-fdcp-high-mode="auto"] { color:#fff; background:#566fd1; border-color:#93aaff; }
+.fdcp-high-mode-note[data-fdcp-high-mode="auto"] .label,.fdcp-high-mode-note[data-fdcp-high-mode="auto"] strong { color:#fff; }
+.fdcp-master-power-note[data-fdcp-master-power-mode="assumed"],
+.fdcp-master-power-note[data-fdcp-master-power-mode="manual"] { background:#725323; border-color:#ffc463; }
+.fdcp-master-power-note[data-fdcp-master-power-mode="assumed"] .label,
+.fdcp-master-power-note[data-fdcp-master-power-mode="assumed"] strong,
+.fdcp-master-power-note[data-fdcp-master-power-mode="manual"] .label,
+.fdcp-master-power-note[data-fdcp-master-power-mode="manual"] strong { color:#fff; }
+.fdcp-bottom-bar[data-mode="single"] .fdcp-high-mode-note { display:none !important; }
+.fdcp-detail-controls .fdc-detail-toggle { box-sizing:border-box; display:flex; flex:0 0 var(--fdcp-detail-column); align-items:center; justify-content:center; width:var(--fdcp-detail-column); min-width:var(--fdcp-detail-column) !important; max-width:none; min-height:1.7rem; height:1.7rem; margin:0; padding:3px 6px !important; gap:.25rem; overflow:visible; border-radius:7px 7px 0 0; border-bottom:0; }
+.fdcp-detail-controls .fdc-detail-toggle .label { grid-row:auto; overflow:visible; line-height:1; text-overflow:clip; white-space:nowrap; }
+.fdcp-detail-controls .fdc-detail-toggle .value { grid-row:auto; flex:0 0 auto; width:.9rem !important; height:.9rem; min-width:0; margin:0; }
+.fdcp-detail-controls .fdc-detail-toggle.is-open .fdc-detail-toggle-icon { transform:rotate(180deg); }
+/* Closed sticky notes are solid so result text never shows through them. */
+.fdcp-detail-controls .fdc-detail-toggle:not(.is-open) { background:#1a2744 !important; }
+body.theme-light .fdcp-detail-controls .fdc-detail-toggle:not(.is-open) { background:#fff !important; }
+.fdcp-bottom-bar[data-mode="single"] #fdcp-dps-detail,
+.fdcp-bottom-bar[data-mode="dps"] #fdc-result-detail-toggle { display:none !important; }
+
+/* DPS details use the ordinary result-detail sheet.  The audit source is
+   presented as user-facing action/effect status; internal IDs are never shown. */
+.fdcp-bottom-bar[data-mode="dps"] .fdcp-dps-detail-panel:not([hidden]) { display:block; }
+
+/* Keep the detailed audit/timeline layout aligned with the original standalone
+   DPS page: an effect-by-action matrix followed by a typed single-seed
+   timeline.  The shared controller only changes the data source to the
+   current main-page snapshot. */
+.fdcp-dps-detail-panel .fdc-dps-effect-audit-panel { margin:0; border:1px solid color-mix(in srgb,var(--fdc-border) 82%,transparent); border-radius:10px; background:color-mix(in srgb,var(--fdc-panel) 78%,transparent); }
+.fdcp-dps-detail-panel .fdc-dps-effect-audit-panel > summary { padding:.5rem .62rem; color:var(--fdc-text); font-size:.72rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-detail-panel .fdc-dps-effect-audit-panel > summary span { margin-left:.35rem; color:var(--fdc-muted); font-size:.61rem; font-weight:750; }
+.fdcp-dps-detail-panel .fdc-dps-effect-audit-panel > p { margin:.1rem .62rem .45rem; color:var(--fdc-muted); font-size:.62rem; line-height:1.35; }
+/* The ordinary detail sheet gives every descendant div a flex row.  These
+   containers are the standalone DPS page's vertical sections, so restore
+   their own layout context inside the bottom-bar detail sheet. */
+.fdcp-dps-detail-panel .fdc-dps-runtime-settings,
+.fdcp-dps-detail-panel .fdc-dps-effect-matrix,
+.fdcp-dps-detail-panel .fdc-dps-timeline { display:block; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-settings { margin:0 .52rem .52rem; padding:.48rem; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:8px; background:color-mix(in srgb,#dbeafe 44%,var(--fdc-input)); }
+.fdcp-dps-detail-panel .fdc-dps-runtime-settings-head { display:flex; align-items:baseline; justify-content:space-between; gap:.45rem; margin-bottom:.35rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-settings-head strong { color:var(--fdc-text); font-size:.62rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-settings-head small { color:var(--fdc-muted); font-size:.52rem; text-align:right; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-settings-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting { display:grid; grid-template-columns:minmax(0,1fr) 3.55rem auto; align-items:center; gap:.26rem; min-width:0; padding:.3rem .34rem; border:1px solid color-mix(in srgb,var(--fdc-border) 66%,transparent); border-radius:6px; background:color-mix(in srgb,var(--fdc-panel) 76%,transparent); }.fdcp-dps-detail-panel .fdc-dps-runtime-setting.is-fixed { border-color:color-mix(in srgb,#38bdf8 46%,var(--fdc-border)); }.fdcp-dps-detail-panel .fdc-dps-runtime-setting.is-off { opacity:.66; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting > span:first-child { display:grid; min-width:0; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting strong,.fdcp-dps-detail-panel .fdc-dps-runtime-setting small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting strong { color:var(--fdc-text); font-size:.56rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting small { color:var(--fdc-muted); font-size:.5rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-setting select,.fdcp-dps-detail-panel .fdc-dps-runtime-setting input { min-height:1.45rem; border:1px solid color-mix(in srgb,#60a5fa 42%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.55rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-stack { display:flex; align-items:center; gap:1px; color:var(--fdc-muted); font-size:.48rem; }.fdcp-dps-detail-panel .fdc-dps-runtime-stack input { width:2.2rem; padding:0 .18rem; text-align:center; }.fdcp-dps-detail-panel .fdc-dps-runtime-stack.is-disabled { display:none; }
+.fdcp-dps-detail-panel .fdc-dps-effect-matrix { min-width:0; margin:0 .52rem .52rem; overflow:hidden; border:1px solid color-mix(in srgb,var(--fdc-border) 70%,transparent); border-radius:8px; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head,.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row { display:grid; grid-template-columns:minmax(0,2fr) repeat(var(--fdc-effect-column-count,4),minmax(3.6rem,.7fr)); align-items:center; min-width:0; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head { color:var(--fdc-muted); background:color-mix(in srgb,#bfdbfe 38%,var(--fdc-input)); font-size:.56rem; font-weight:850; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head span,.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row > * { min-width:0; padding:.34rem .28rem; text-align:center; overflow:hidden; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head span:first-child,.fdcp-dps-detail-panel .fdc-dps-effect-name { text-align:left; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head .is-additional { display:grid; place-content:center; gap:1px; border-left:1px solid color-mix(in srgb,#a78bfa 38%,var(--fdc-border)); background:color-mix(in srgb,#ddd6fe 30%,transparent); color:#5b3a85; line-height:1.1; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head .is-additional b,.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head .is-additional small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head .is-additional small { color:var(--fdc-muted); font-size:.48rem; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row { border-top:1px solid color-mix(in srgb,var(--fdc-border) 48%,transparent); }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row.is-runtime-managed { background:color-mix(in srgb,#bae6fd 18%,transparent); }.fdcp-dps-detail-panel .fdc-dps-effect-name { display:grid; gap:1px; }.fdcp-dps-detail-panel .fdc-dps-effect-name strong,.fdcp-dps-detail-panel .fdc-dps-effect-name small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.fdcp-dps-detail-panel .fdc-dps-effect-name strong { color:var(--fdc-text); font-size:.57rem; }.fdcp-dps-detail-panel .fdc-dps-effect-name small { color:var(--fdc-muted); font-size:.48rem; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state { display:inline-grid; place-items:center; justify-self:center; min-width:2.15rem; min-height:1.25rem; padding:1px .34rem; border-radius:999px; font-size:.58rem; font-weight:900; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-on { border:1px solid rgba(92,210,147,.45); color:#047857; background:#ecfdf5; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-off { border:1px solid rgba(194,113,123,.35); color:#b91c1c; background:#fef2f2; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-active { border:1px solid rgba(56,189,248,.48); color:#075985; background:#e0f2fe; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-waiting { border:1px solid rgba(245,158,11,.42); color:#a16207; background:#fffbeb; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-trigger { border:1px solid rgba(167,139,250,.4); color:#6d28d9; background:#f5f3ff; }
+.fdcp-dps-detail-panel .fdc-dps-effect-state.is-none { color:var(--fdc-muted); }
+.fdcp-dps-detail-panel .fdc-dps-timeline-panel { margin:0; border-top:1px solid color-mix(in srgb,var(--fdc-border) 70%,transparent); }
+.fdcp-dps-detail-panel .fdc-dps-timeline-panel summary { padding:.48rem .1rem .3rem; color:var(--fdc-text); font-size:.7rem; font-weight:800; cursor:pointer; }
+.fdcp-dps-detail-panel .fdc-dps-timeline { max-height:16.25rem; overflow:auto; border:1px solid color-mix(in srgb,var(--fdc-border) 75%,transparent); border-radius:8px; background:color-mix(in srgb,var(--fdc-input) 75%,transparent); }
+.fdcp-dps-detail-panel .fdc-dps-timeline-row { display:flex; flex-direction:row; align-items:center; min-height:1.7rem; border-bottom:1px solid color-mix(in srgb,var(--fdc-border) 42%,transparent); color:var(--fdc-text); font-size:.61rem; content-visibility:auto; contain-intrinsic-size:auto 1.7rem; }.fdcp-dps-detail-panel .fdc-dps-timeline-row:last-child { border-bottom:0; }
+.fdcp-dps-detail-panel .fdc-dps-timeline-row time { flex:0 0 7.35rem; padding:.3rem .46rem; color:#2563eb; font-variant-numeric:tabular-nums; }.fdcp-dps-detail-panel .fdc-dps-timeline-row time small { color:var(--fdc-muted); }.fdcp-dps-detail-panel .fdc-dps-timeline-row > span { min-width:0; flex:1 1 auto; padding:.3rem .46rem; overflow-wrap:anywhere; }.fdcp-dps-detail-panel .fdc-dps-timeline-row.type-hit > span { color:#a16207; }.fdcp-dps-detail-panel .fdc-dps-timeline-row.type-lowSkillReady > span,.fdcp-dps-detail-panel .fdc-dps-timeline-row.type-spRecovery > span { color:#047857; }
+.fdcp-dps-detail-panel .fdc-dps-timeline-more { display:flex; align-items:center; justify-content:center; gap:.55rem; padding:.45rem; color:var(--fdc-muted); font-size:.6rem; }.fdcp-dps-detail-panel .fdc-dps-timeline-more button { min-height:1.65rem; padding:.2rem .45rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; cursor:pointer; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-settings { background:color-mix(in srgb,#122556 58%,var(--fdc-input)); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-matrix-head { background:rgba(44,79,125,.3); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-matrix-head .is-additional { background:rgba(117,73,180,.18); color:#cbb7f4; } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-state.is-on { color:#82e6ae; background:rgba(30,121,76,.28); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-state.is-off { color:#fda4af; background:rgba(108,42,53,.2); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-active { color:#7dd3fc; background:rgba(14,116,144,.28); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-waiting { color:#f8c96b; background:rgba(120,74,12,.2); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-effect-state.is-runtime-trigger { color:#c4b5fd; background:rgba(91,57,148,.22); } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-timeline-row time { color:#78baff; } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-timeline-row.type-hit > span { color:#ffd27d; } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-timeline-row.type-lowSkillReady > span,body.theme-dark .fdcp-dps-detail-panel .fdc-dps-timeline-row.type-spRecovery > span { color:#92e2ad; } body.theme-dark .fdcp-dps-detail-panel .fdc-dps-timeline-more button { color:#dceaff; background:rgba(47,105,172,.24); }
+
+/* DPS settings and comparison are the only prototype popovers. */
+.fdcp-float-panel { position:absolute; z-index:130; right:0; bottom:calc(100% + 7px); display:grid; gap:7px; min-width:188px; padding:10px; border:1px solid var(--fdc-border); border-radius:9px; color:var(--fdc-text); background:var(--fdc-panel-strong); box-shadow:0 10px 30px color-mix(in srgb,var(--fdc-shadow) 55%,transparent); }.fdcp-float-panel[hidden] { display:none; }.fdcp-float-panel strong { font-size:.76rem; }.fdcp-float-panel label { display:flex; justify-content:space-between; align-items:center; gap:8px; color:var(--fdc-muted); font-size:.7rem; font-weight:800; }.fdcp-float-panel select,.fdcp-float-panel input { max-width:94px; min-height:27px; color:var(--fdc-text); background:var(--fdc-input); border:1px solid var(--fdc-border); border-radius:5px; }.fdcp-float-panel button { min-height:29px; border:1px solid var(--fdc-border); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.68rem; font-weight:850; cursor:pointer; }.fdcp-dps-compare-panel { grid-template-columns:1fr auto; }.fdcp-dps-compare-panel strong,.fdcp-dps-compare-panel small { grid-column:1 / -1; }.fdcp-dps-compare-panel small { color:var(--fdc-muted); font-size:.61rem; }
+/* The expanded detail sheet moves the fixed controller upward and exposes the
+   result bar's measured height through --fdc-result-bar-height.  Keep DPS
+   popovers below their sticky-note button in that state; otherwise the
+   collapsed-mode bottom calculation is reused and the panel can leave the
+   viewport.  The fixed position also avoids the narrow mobile slot becoming
+   the containing block for a wide settings panel. */
+.fdcp-page.fdc-result-detail-open .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) { position:fixed; top:calc(100dvh - var(--fdc-result-bar-height,6.35rem) - 1.7rem); right:clamp(.75rem,3vw,1.35rem); bottom:auto; left:auto; max-height:calc(var(--fdc-result-bar-height,6.35rem) - 1rem); overflow-y:auto; }
+.fdcp-dps-usage-note { color:var(--fdc-muted); font-size:.61rem; line-height:1.35; }
+.fdcp-dps-external-control { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:7px; margin-top:2px; padding:6px; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#0b2440 30%,var(--fdc-panel)); }
+.fdcp-dps-external-control > span { display:grid; gap:2px; min-width:0; }
+.fdcp-dps-external-control > span strong { color:var(--fdc-text); font-size:.68rem; }
+.fdcp-dps-external-control > span small { overflow:hidden; color:var(--fdc-muted); font-size:.54rem; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-dps-external-control button { min-height:29px; padding:0 7px; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; font-size:.62rem; font-weight:850; cursor:pointer; }
+body.theme-dark .fdcp-dps-external-control { background:color-mix(in srgb,#071a31 56%,var(--fdc-panel)); }
+body.theme-dark .fdcp-dps-external-control button { color:#dceaff; background:rgba(47,105,172,.24); }
+.fdcp-dps-settings-panel { grid-template-columns:repeat(2,minmax(0,1fr)); width:min(48rem,calc(100vw - 1rem)); max-height:calc(100dvh - 6.5rem); overflow:auto; overscroll-behavior:contain; }
+.fdcp-dps-settings-panel > strong,
+.fdcp-dps-settings-panel > .fdcp-dps-usage-note,
+.fdcp-dps-settings-panel > .fdcp-dps-external-control,
+.fdcp-dps-settings-panel > .fdcp-dps-external-input,
+.fdcp-dps-settings-panel > .fdcp-dps-runtime-settings-host,
+.fdcp-dps-settings-panel > #fdcp-dps-run { grid-column:1 / -1; }
+.fdcp-dps-settings-panel .fdcp-dps-external-input { display:block; min-width:0; }
+#fdcp-baseline-note[data-fdcp-comparison-state="waiting"] { color:#475569; font-weight:900; }
+#fdcp-baseline-note[data-fdcp-comparison-state="active"] { color:#5b21b6; font-weight:950; }
+body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="waiting"] { color:#cbd5e1; }
+body.theme-dark #fdcp-baseline-note[data-fdcp-comparison-state="active"] { color:#ddd6fe; }
+
+/* The top-edge mode notes are outside the layout flow, so result content keeps
+   its full width at intermediate desktop/tablet widths too. */
+@media (max-width:680px) { .fdcp-bottom-bar { --fdcp-collapsed-bar-height:5.3rem; --fdcp-result-card-rows:.88rem minmax(0,1fr) .78rem; --fdcp-result-card-padding:2px 3px; }.fdcp-mode-tabs button { font-size:.64rem; }.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { padding-left:.34rem; gap:3px; }.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .fdc-result-hp-rate { min-height:.68rem; font-size:.58rem; }.fdcp-result-panel { grid-template-columns:minmax(76px,.7fr) minmax(0,2.55fr); padding:2px 3px; gap:var(--fdcp-dps-row-gap) 3px; }.fdcp-result-panel .fdcp-dps-primary { padding:4px; }.fdcp-dps-primary span { font-size:.55rem; }.fdcp-dps-primary strong { font-size:clamp(.82rem,4vw,1.04rem); }.fdcp-dps-primary .fdcp-total-delta { bottom:3px; font-size:.54rem; }.fdcp-breakdown { --fdcp-breakdown-columns:minmax(2.45rem,.59fr) minmax(0,1.16fr) minmax(0,.94fr) minmax(2.9rem,.5fr) minmax(2.45rem,.42fr); }.fdcp-breakdown > div { gap:3px; padding:0 3px; }.fdcp-breakdown [data-fdcp-column="action"] { font-size:.61rem; }.fdcp-breakdown [data-fdcp-column="dps"] { font-size:clamp(.73rem,3.2vw,.82rem); }.fdcp-breakdown [data-fdcp-column="delta"] { font-size:.64rem; }.fdcp-breakdown [data-fdcp-column="share"],.fdcp-breakdown [data-fdcp-column="count"] { font-size:.67rem; font-weight:850; }.fdcp-float-panel { right:0; min-width:175px; } }
+@media (max-width:560px) { .fdcp-dps-detail-panel .fdc-dps-runtime-settings-list { grid-template-columns:minmax(0,1fr); }.fdcp-dps-detail-panel .fdc-dps-runtime-settings-head { display:grid; }.fdcp-dps-detail-panel .fdc-dps-runtime-settings-head small { text-align:left; }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head,.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row { grid-template-columns:minmax(0,1.45fr) repeat(var(--fdc-effect-column-count,4),minmax(2.75rem,.7fr)); }.fdcp-dps-detail-panel .fdc-dps-effect-matrix-head span,.fdcp-dps-detail-panel .fdc-dps-effect-matrix-row > * { padding:.28rem .16rem; }.fdcp-dps-detail-panel .fdc-dps-effect-state { min-width:0; padding-inline:.2rem; font-size:.51rem; }.fdcp-dps-detail-panel .fdc-dps-effect-name strong { font-size:.52rem; }.fdcp-dps-detail-panel .fdc-dps-effect-name small { font-size:.45rem; } }
+@media (max-width:420px) { .fdcp-dps-detail-panel .fdc-dps-timeline-row time { flex-basis:6rem; padding-inline:.28rem; }.fdcp-dps-detail-panel .fdc-dps-timeline-row > span { padding-inline:.28rem; } }
+@media (max-width:360px) { .fdcp-bottom-bar { --fdcp-result-card-padding:2px; }.fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { padding-left:.28rem; gap:2px; }.fdcp-result-panel { grid-template-columns:minmax(68px,.64fr) minmax(0,2.55fr) var(--fdcp-detail-column); }.fdcp-breakdown { --fdcp-breakdown-columns:minmax(2.35rem,.55fr) minmax(0,1.08fr) minmax(0,.88fr) minmax(2.7rem,.46fr) minmax(2.3rem,.38fr); }.fdcp-breakdown > div { gap:2px; padding-inline:2px; }.fdcp-breakdown [data-fdcp-column="delta"],.fdcp-breakdown [data-fdcp-column="share"],.fdcp-breakdown [data-fdcp-column="count"] { font-size:.62rem; } }
+
+/* On phone widths the action name is only a category marker.  Give the
+   numeric DPS and share columns the space that the low-priority count used,
+   while retaining the full Japanese action name in the DOM/accessibility
+   label. */
+@media (max-width:420px) {
+  .fdcp-breakdown { --fdcp-breakdown-columns:minmax(1.4rem,.42fr) minmax(3.7rem,1.3fr) minmax(0,.72fr) minmax(2.75rem,.64fr); }
+  .fdcp-breakdown > div { gap:2px; padding-inline:2px; }
+  .fdcp-breakdown [data-fdcp-column="action"] { overflow:visible; font-size:0; text-align:center; text-overflow:clip; }
+  .fdcp-breakdown [data-fdcp-column="action"]::after { display:block; content:attr(data-fdcp-short-label); font-size:.66rem; font-weight:900; line-height:1; }
+  .fdcp-breakdown [data-fdcp-column="count"] { display:none; }
+  .fdcp-breakdown [data-fdcp-column="dps"] { font-size:clamp(.66rem,3.2vw,.82rem); }
+  .fdcp-dps-primary strong { overflow-wrap:normal; line-height:1.05; text-overflow:clip; white-space:nowrap; word-break:normal; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value:not(.is-compare) { overflow-wrap:anywhere; text-overflow:clip; white-space:normal; }
+}
+
+@media (max-width:340px) {
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .label { font-size:.44rem; letter-spacing:-.03em; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .fdc-result-hp-rate { font-size:.49rem; letter-spacing:-.04em; }
+  .fdcp-breakdown [data-fdcp-column="dps"] { font-size:.52rem; }
+}
+
+/* On phone widths the mode switch becomes a small sticky note on the top edge
+   of the fixed bar.  Releasing the side gutter gives both result modes their
+   full width; lift the cost coin so it does not sit underneath the note. */
+@media (max-width:680px) {
+  .fdcp-page.fdc-result-detail-open .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) { right:max(.5rem,env(safe-area-inset-right)); left:max(.5rem,env(safe-area-inset-left)); width:auto; }
+  .fdcp-bottom-bar .fdcp-mode-tabs { top:calc(-1.7rem - 1px); right:auto; bottom:auto; left:max(.34rem,env(safe-area-inset-left)); display:flex; grid-template-rows:none; gap:2px; height:1.7rem; padding:0; }
+  .fdcp-bottom-bar .fdcp-dps-unavailable-details { top:calc(-1.7rem - 1px); left:calc(max(.34rem,env(safe-area-inset-left)) + var(--fdcp-mode-tabs-width) + var(--fdcp-mode-tabs-width) + .25rem); }
+  .fdcp-dps-unavailable-details summary { min-height:1.7rem; padding:.2rem .38rem; font-size:.56rem; }
+  .fdcp-mode-tabs button { flex:0 0 3.15rem; width:3.15rem; height:1.7rem; border-left-width:1px; border-bottom:0; border-radius:7px 7px 0 0; padding:3px 6px; writing-mode:horizontal-tb; text-orientation:mixed; box-shadow:0 -2px 7px rgba(15,23,42,.2); }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { padding-left:.34rem; }
+  .fdcp-result-panel { grid-template-columns:minmax(104px,.8fr) minmax(0,2.45fr); width:100%; margin-left:0; margin-right:0; }
+  .fdcp-detail-controls { right:max(.34rem,env(safe-area-inset-right)); }
+  .fdcp-detail-controls .fdcp-high-mode-note { min-width:3.9rem; padding-inline:3px; font-size:.58rem; }
+  .fdcp-detail-controls .fdcp-high-mode-note strong { font-size:.62rem; }
+  .fdcp-detail-controls .fdc-detail-toggle { flex-basis:3.15rem; width:3.15rem; min-width:3.15rem !important; padding:3px 6px !important; }
+  .fdcp-detail-controls .fdc-detail-toggle .label { font-size:.64rem; }
+  .fdcp-detail-controls .fdc-detail-toggle .value { width:.82rem !important; height:.82rem; }
+  .fdcp-page .fdc-apply-float-controller,
+  .fdcp-page.fdc-result-detail-open .fdc-apply-float-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem); }
+  .fdcp-page .fdc-card-cost-controller,
+  .fdcp-page.fdc-result-detail-open .fdc-card-cost-controller { bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.55rem); }
+}
+
+@media (max-width:360px) {
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid { padding-left:.28rem; }
+}
+
+@media (max-width:420px) {
+  .fdcp-breakdown { --fdcp-breakdown-columns:minmax(1.4rem,.42fr) minmax(3.7rem,1.3fr) minmax(2.25rem,.42fr) minmax(2.75rem,.64fr); }
+  .fdcp-breakdown [data-fdcp-column="delta"] { font-size:.58rem; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare > .fdc-result-before { gap:.1rem; letter-spacing:-.02em; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before-label { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before::before { display:inline-block; flex:0 0 auto; content:attr(data-compact-label); font-size:inherit; font-weight:inherit; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-current .fdc-result-number { font-size:clamp(.56rem,3.05vw,.82rem); letter-spacing:-.04em; }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before .fdc-result-number { font-size:.54rem; letter-spacing:-.04em; }
+}
+
+@media (max-width:360px) {
+  .fdcp-result-panel { grid-template-columns:minmax(104px,.8fr) minmax(0,2.45fr); }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-current .fdc-result-number { font-size:clamp(.52rem,2.9vw,.78rem); }
+  .fdcp-bottom-bar[data-mode="single"] .bottom-results-grid .result-card .value.is-compare .fdc-result-before .fdc-result-number { font-size:.5rem; }
+}
+
+/* External events keep the timing controls visible and move technical/source
+   fields into an optional details block.  This keeps each event to one compact
+   row in the wide popover while preserving every value used by the simulator. */
+.fdcp-dps-settings-panel .fdc-dps-external-events { display:block; margin:0; padding:.45rem .52rem; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:9px; background:color-mix(in srgb,#0b2440 38%,var(--fdc-panel)); }
+.fdcp-dps-settings-panel .fdc-dps-external-events > summary { color:var(--fdc-text); font-size:.69rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-events > summary small { margin-left:.28rem; color:var(--fdc-muted); font-size:.55rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-events-head { display:flex; align-items:center; justify-content:space-between; gap:.45rem; margin-top:.42rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-events-head p { flex:1; margin:0; color:var(--fdc-muted); font-size:.57rem; line-height:1.35; }
+.fdcp-dps-settings-panel .fdc-dps-external-events-head button { min-height:1.7rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:6px; color:#075985; background:#eff6ff; font:inherit; font-size:.58rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-list { display:grid; gap:.32rem; margin-top:.4rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidates { display:block; margin-top:.42rem; padding:.3rem .4rem; border:1px solid color-mix(in srgb,#60a5fa 36%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#1e4b79 22%,var(--fdc-input)); }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidates > summary { color:color-mix(in srgb,#60a5fa 76%,var(--fdc-text)); font-size:.6rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidates > summary span { margin-left:.25rem; color:var(--fdc-muted); font-size:.54rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidates > p,
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate-list > .is-empty { margin:.3rem 0 0; color:var(--fdc-muted); font-size:.55rem; line-height:1.35; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.3rem; margin-top:.35rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate { display:flex; align-items:center; gap:.35rem; min-width:0; padding:.34rem; border-radius:6px; background:color-mix(in srgb,var(--fdc-input) 72%,transparent); }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate > div { display:grid; flex:1; gap:.12rem; min-width:0; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong,
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate span,
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate small { overflow-wrap:anywhere; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong { color:var(--fdc-text); font-size:.58rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-trigger { display:block; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-effect { display:block; color:#f5c45b; font-size:.57rem; line-height:1.25; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate span,
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate small { color:var(--fdc-muted); font-size:.5rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate .is-event-kind { color:#f59e0b; font-weight:850; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate .is-periodic-kind { color:#60a5fa; font-weight:750; }
+.fdcp-dps-settings-panel .fdc-dps-formation-event-candidate button { flex:0 0 auto; min-height:1.55rem; padding:0 .48rem; border:1px solid color-mix(in srgb,#60a5fa 56%,var(--fdc-border)); border-radius:5px; color:#075985; background:#eff6ff; font:inherit; font-size:.53rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row { display:grid; min-width:0; gap:.24rem; padding:.34rem; border:1px solid color-mix(in srgb,var(--fdc-border) 74%,transparent); border-radius:7px; background:color-mix(in srgb,var(--fdc-panel) 72%,var(--fdc-input)); }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row.is-event-driven { border-color:color-mix(in srgb,#f59e0b 48%,var(--fdc-border)); }
+.fdcp-dps-settings-panel .fdc-dps-external-event-compact { display:grid; grid-template-columns:minmax(0,2fr) 72px 72px 64px 28px; align-items:end; min-width:0; gap:.3rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity { display:grid; align-content:center; min-width:0; min-height:1.7rem; gap:.1rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong,
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > small { overflow:hidden; min-width:0; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong { color:var(--fdc-text); font-size:.6rem; line-height:1.15; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > small { color:var(--fdc-muted); font-size:.49rem; line-height:1.15; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong.is-effect { display:block; overflow:visible; color:#f5c45b; font-size:.56rem; line-height:1.25; text-overflow:clip; white-space:normal; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type { display:grid; min-width:0; gap:.12rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type > span { color:var(--fdc-muted); font-size:.49rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-identity .is-type select { width:100%; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row label { display:grid; gap:.12rem; min-width:0; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row label > span { color:var(--fdc-muted); font-size:.49rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-row input,
+.fdcp-dps-settings-panel .fdc-dps-external-event-row select { box-sizing:border-box; width:100%; min-width:0; height:1.7rem; padding:.18rem .3rem; border:1px solid color-mix(in srgb,#60a5fa 38%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.55rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-event-compact > button { width:1.7rem; min-height:1.7rem; padding:0; border:1px solid color-mix(in srgb,#ef4444 42%,var(--fdc-border)); border-radius:6px; color:#b91c1c; background:transparent; font:inherit; font-size:.72rem; font-weight:900; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced { min-width:0; margin-top:.04rem; border-top:1px solid color-mix(in srgb,var(--fdc-border) 64%,transparent); }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced > summary { padding-top:.22rem; color:var(--fdc-muted); font-size:.5rem; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.26rem; padding-top:.26rem; }
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-reason,
+.fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-status { grid-column:span 2; }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-events-head button,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate button { color:#dceaff; background:rgba(47,105,172,.24); }
+body.theme-light .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate strong.is-effect,
+body.theme-light .fdcp-dps-settings-panel .fdc-dps-external-event-identity > strong.is-effect { color:#9a6400; }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-compact > button { color:#ffaaa5; background:rgba(127,29,29,.16); }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-events { background:color-mix(in srgb,#071a31 56%,var(--fdc-panel)); }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-external-event-row { background:color-mix(in srgb,#071a31 42%,var(--fdc-panel)); }
+
+/* Runtime effect choices are calculated from the current snapshot and live
+   in the DPS settings popover.  Keep them compact and independently
+   collapsible so the popover remains usable when an apostle has many effects. */
+.fdcp-dps-settings-panel .fdcp-dps-runtime-settings-host { min-width:0; }
+.fdcp-dps-settings-panel .fdcp-dps-runtime-settings-disclosure { display:block; min-width:0; margin-top:2px; border:1px solid color-mix(in srgb,#60a5fa 34%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#0b2440 30%,var(--fdc-panel)); }
+.fdcp-dps-settings-panel .fdcp-dps-runtime-settings-disclosure > summary { padding:.42rem .48rem; color:var(--fdc-text); font-size:.65rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdcp-dps-runtime-settings-disclosure > summary small { margin-left:.28rem; color:var(--fdc-muted); font-size:.52rem; font-weight:700; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule { display:block; min-width:0; margin:0 .42rem .42rem; padding:.38rem; border:1px solid color-mix(in srgb,#62d6a3 38%,var(--fdc-border)); border-radius:7px; background:color-mix(in srgb,#0d3b34 28%,var(--fdc-input)); }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule > summary { padding:.08rem .06rem; color:var(--fdc-text); font-size:.59rem; font-weight:850; cursor:pointer; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule > summary small { margin-left:.25rem; color:#62d6a3; font-size:.5rem; font-weight:800; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule > p { margin:.28rem .06rem .35rem; color:var(--fdc-muted); font-size:.52rem; line-height:1.35; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule .fdc-dps-formation-event-candidates { margin-top:.25rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule-event-list { display:grid; gap:.3rem; margin-top:.35rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-schedule-event-list:empty { display:none; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-settings { display:block; margin:0; padding:0 .42rem .42rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-settings-head { display:flex; align-items:baseline; justify-content:space-between; gap:.4rem; margin-bottom:.32rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-settings-head strong { color:var(--fdc-text); font-size:.58rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-settings-head small { color:var(--fdc-muted); font-size:.49rem; line-height:1.3; text-align:right; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-settings-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.28rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting { display:grid; grid-template-columns:minmax(0,1fr) 3.55rem auto; align-items:center; gap:.24rem; min-width:0; padding:.28rem .3rem; border:1px solid color-mix(in srgb,var(--fdc-border) 66%,transparent); border-radius:6px; background:color-mix(in srgb,var(--fdc-panel) 76%,transparent); }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting.is-fixed { border-color:color-mix(in srgb,#38bdf8 46%,var(--fdc-border)); }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting.is-off { opacity:.66; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting > span:first-child { display:grid; min-width:0; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting strong,.fdcp-dps-settings-panel .fdc-dps-runtime-setting small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting strong { color:var(--fdc-text); font-size:.54rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting small { color:var(--fdc-muted); font-size:.48rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting > span:first-child { align-self:stretch; gap:.1rem; }
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting strong,
+.fdcp-dps-settings-panel .fdc-dps-formation-status-setting small { overflow:visible; overflow-wrap:anywhere; text-overflow:clip; white-space:normal; line-height:1.25; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting select { width:3.55rem; max-width:none; min-width:0; min-height:1.45rem; padding-inline:.2rem; border:1px solid color-mix(in srgb,#60a5fa 42%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.53rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-stack { display:flex; align-items:center; gap:1px; min-width:0; color:var(--fdc-muted); font-size:.47rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-stack input { width:2.1rem; min-height:1.45rem; padding:0 .16rem; text-align:center; border:1px solid color-mix(in srgb,#60a5fa 42%,var(--fdc-border)); border-radius:5px; color:var(--fdc-text); background:var(--fdc-input); font:inherit; font-size:.53rem; }
+.fdcp-dps-settings-panel .fdc-dps-runtime-stack.is-disabled { display:none; }
+body.theme-dark .fdcp-dps-settings-panel .fdcp-dps-runtime-settings-disclosure { background:color-mix(in srgb,#071a31 56%,var(--fdc-panel)); }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-schedule { background:color-mix(in srgb,#0a3b35 48%,var(--fdc-panel)); }
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-setting { background:color-mix(in srgb,#122556 58%,var(--fdc-input)); }
+@media (max-width:560px) {
+  .fdcp-dps-settings-panel .fdc-dps-runtime-settings-head { display:grid; }
+  .fdcp-dps-settings-panel .fdc-dps-runtime-settings-head small { text-align:left; }
+  .fdcp-dps-settings-panel .fdc-dps-runtime-settings-list { grid-template-columns:minmax(0,1fr); }
+}
+
+/* The full graph is another source-page section, rendered from the cached
+   single-seed damage model.  It never calls the simulator or rebuilds the
+   model when the sparkline or detail canvas is repainted. */
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel { display:block; margin:0; padding-top:.1rem; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel .fdc-dps-section-head { display:flex; align-items:baseline; justify-content:space-between; gap:.45rem; margin-bottom:.38rem; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel .fdc-dps-section-head > div { display:block; min-width:0; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel h3 { margin:0; color:var(--fdc-text); font-size:.72rem; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel p { margin:.12rem 0 0; color:var(--fdc-muted); font-size:.57rem; line-height:1.35; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-panel [data-fdcp-damage-graph-note] { flex:0 0 auto; color:var(--fdc-muted); font-size:.54rem; text-align:right; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-wrap { width:100%; min-height:180px; overflow:hidden; border:1px solid color-mix(in srgb,var(--fdc-border) 78%,transparent); border-radius:8px; background:color-mix(in srgb,var(--fdc-input) 70%,transparent); }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph { display:block; width:100%; height:180px; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-axis-label { display:block; margin:.1rem 0 0; color:var(--fdc-muted); font-size:.54rem; line-height:1; text-align:center; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-legend { display:flex; gap:.7rem; padding:.28rem .1rem 0; color:var(--fdc-muted); font-size:.56rem; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-legend span { display:inline-flex; align-items:center; gap:.25rem; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-legend i { display:inline-block; width:1.15rem; border-top:2px solid #72b9ff; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-legend [hidden] { display:none; }
+.fdcp-dps-detail-panel .fdc-dps-damage-graph-legend i.is-baseline { border-top-color:#aeb9c8; border-top-style:dashed; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-damage-graph-wrap { background:rgba(3,9,20,.62); }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-damage-graph-legend i.is-baseline { border-top-color:#aeb9c8; }
+
+@media (max-width:720px) {
+  .fdcp-dps-settings-panel .fdc-dps-formation-event-candidate-list { grid-template-columns:1fr; }
+  .fdcp-dps-settings-panel .fdc-dps-external-event-compact { grid-template-columns:minmax(0,1fr) 62px 62px 52px 28px; }
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-reason,
+  .fdcp-dps-settings-panel .fdc-dps-external-advanced-grid .is-status { grid-column:1 / -1; }
+}
+@media (max-width:680px) {
+  .fdcp-dps-settings-panel { position:fixed; right:max(.5rem,env(safe-area-inset-right)); bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2.15rem + 2.1rem + 7px); left:max(.5rem,env(safe-area-inset-left)); width:auto; grid-template-columns:1fr; }
+}
+@media (max-width:420px) {
+  .fdcp-dps-settings-panel .fdc-dps-external-events-head { align-items:stretch; flex-direction:column; }
+  .fdcp-dps-settings-panel .fdc-dps-external-event-compact { grid-template-columns:minmax(0,1fr) 54px 54px 48px 28px; gap:.2rem; }
+  .fdcp-dps-detail-panel .fdc-dps-damage-graph-panel .fdc-dps-section-head { display:grid; }
+  .fdcp-dps-detail-panel .fdc-dps-damage-graph-panel [data-fdcp-damage-graph-note] { text-align:left; }
+}
+
+/* Keep the last completed DPS visible while the next input is being evaluated. */
+.fdcp-dps-primary .fdcp-dps-recalc-indicator { position:absolute; top:5px; left:6px; z-index:2; display:inline-flex; align-items:center; gap:.24rem; margin:0; color:#e5edff; font-size:.54rem; font-style:normal; font-weight:900; line-height:1; text-shadow:0 1px 2px #26366b; }
+.fdcp-dps-primary .fdcp-dps-recalc-indicator[hidden] { display:none; }
+.fdcp-dps-primary .fdcp-dps-recalc-indicator em { color:inherit; font-size:inherit; font-style:normal; font-weight:inherit; line-height:inherit; }
+.fdcp-dps-primary .fdcp-dps-recalc-spinner { display:block; width:.62rem; height:.62rem; box-sizing:border-box; border:.12rem solid rgba(229,237,255,.34); border-top-color:currentColor; border-radius:50%; animation:fdcp-dps-recalc-spin .78s linear infinite; }
+body.theme-light .fdcp-dps-primary .fdcp-dps-recalc-indicator { color:#334155; text-shadow:none; }
+body.theme-light .fdcp-dps-primary .fdcp-dps-recalc-spinner { border-color:rgba(51,65,85,.2); border-top-color:currentColor; }
+@keyframes fdcp-dps-recalc-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .fdcp-dps-primary .fdcp-dps-recalc-spinner { animation-duration:1.6s; } }
+
+/* Keep the policy state visible even when a runtime effect has a compact
+   control. The badge stays inline so it does not add another row. */
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy { display:inline-flex; align-items:center; margin-left:.16rem; padding:0 .22rem; border:1px solid currentColor; border-radius:999px; font-size:.43rem; font-weight:900; line-height:1.35; vertical-align:middle; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-auto,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-auto { color:#15803d; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-estimated,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-estimated { color:#15803d; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-external,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-external { color:#b45309; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-external-active,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-external-active { color:#047857; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-opt-in,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-opt-in { color:#c2410c; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-unsupported,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-unsupported { color:#b91c1c; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-fixed,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-fixed { color:#0369a1; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-off,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-off,
+.fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-readonly,
+.fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-readonly { color:#64748b; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-setting.is-readonly,
+.fdcp-dps-settings-panel .fdc-dps-runtime-setting.is-readonly { border-style:dashed; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-readonly,
+.fdcp-dps-settings-panel .fdc-dps-runtime-readonly { display:inline-flex; align-items:center; justify-content:center; min-width:2.55rem; min-height:1.45rem; padding:0 .24rem; border:1px dashed color-mix(in srgb,var(--fdc-muted) 60%,var(--fdc-border)); border-radius:5px; color:var(--fdc-muted); font-size:.48rem; font-weight:800; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-auto,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-auto { color:#86efac; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-estimated,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-estimated { color:#86efac; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-external,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-external { color:#fbbf67; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-external-active,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-external-active { color:#86efac; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-opt-in,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-opt-in { color:#fdba74; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-unsupported,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-unsupported { color:#fda4af; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-fixed,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-fixed { color:#7dd3fc; }
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-off,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-off,
+body.theme-dark .fdcp-dps-detail-panel .fdc-dps-runtime-policy.is-policy-readonly,
+body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-readonly { color:#94a3b8; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary { display:grid; gap:.26rem; margin-top:.42rem; padding:.38rem .42rem .08rem; border-top:1px solid color-mix(in srgb,var(--fdc-border) 58%,transparent); }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary > strong,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary > strong { color:var(--fdc-text); font-size:.54rem; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary > small,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary > small { color:var(--fdc-muted); font-size:.47rem; line-height:1.3; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary-list,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list { display:grid; gap:.18rem; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary-list > div,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list > div { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:baseline; gap:.35rem; min-width:0; font-size:.49rem; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary-list span,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list span { color:var(--fdc-muted); font-weight:800; }
+.fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary-list b,
+.fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list b { min-width:0; overflow-wrap:anywhere; color:var(--fdc-text); font-weight:700; }

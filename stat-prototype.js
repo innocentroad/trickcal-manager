@@ -1,0 +1,14227 @@
+(function () {
+  'use strict';
+
+  function isStorageRuntimeError(error) {
+    return error?.name === 'StorageRuntimeError';
+  }
+
+  function createStorageRuntimeError(code, operation = 'read', id = '') {
+    const error = new Error(`storage ${code}`);
+    error.name = 'StorageRuntimeError';
+    error.result = {
+      ok: false,
+      code,
+      operation,
+      ...(id ? { id } : {}),
+      retryable: ['busy', 'read-failed', 'write-failed', 'remove-failed'].includes(code)
+    };
+    return error;
+  }
+
+  function reportStorageFailure(error) {
+    if (!isStorageRuntimeError(error)) {
+      console.error(error);
+      return;
+    }
+    const result = error.result || {};
+    const code = result.code || 'failed';
+    document.documentElement?.setAttribute('data-storage-error', code);
+    const status = document.getElementById('state-status');
+    if (status) {
+      status.textContent = '保存データを確認できませんでした。再読み込みして再試行してください。';
+      status.classList.add('is-error');
+      return;
+    }
+    if (document.body) {
+      document.body.classList.remove('is-booting');
+      document.body.removeAttribute('aria-busy');
+      document.body.innerHTML = '<main class="storage-boot-error"><h1>保存データを確認できませんでした</h1><p>このページを再読み込みして、もう一度お試しください。</p></main>';
+    }
+  }
+
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+    const storageSession = window.TRICKCAL_STORAGE_FACADE.sessionStorage;
+    const storageRuntime = window.TRICKCAL_STORAGE_RUNTIME_INSTANCE;
+    const storageBackup = window.TRICKCAL_STORAGE_BACKUP;
+    const storageTransfer = window.TRICKCAL_STORAGE_TRANSFER;
+
+  const DATA = window.TRICKCAL_STAT_DATA;
+  const RESEARCH = window.TRICKCAL_RESEARCH_PROGRESS;
+  if (!DATA) {
+    document.body.classList.remove('is-booting');
+    document.body.removeAttribute('aria-busy');
+    document.body.innerHTML = '<main class="stat-shell"><p>statData.jsを読み込めませんでした。</p></main>';
+    return;
+  }
+
+  const STORAGE_KEY = 'trickcal_stat_prototype_v1';
+  const STATE_SLOT_STORAGE_KEY = 'trickcal_stat_slots_v2';
+  const STATE_WORKSPACE_STORAGE_KEY = 'trickcal_stat_workspace_v2';
+  const STATE_LIVE_STORAGE_KEY = 'trickcal_stat_live_v2';
+  const STATE_SYNC_CHANNEL_NAME = 'trickcal-stat-sync-v2';
+  const COMMON_THEME_STORAGE_KEY = 'trickcal_theme';
+  const THEME_STORAGE_KEY = 'trickcal_stat_theme';
+  const BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY = 'trickcal_board_shortcut_off_mode';
+  const BOARD_ORIENTATION_STORAGE_KEY = 'trickcal_board_orientation';
+  const DASHBOARD_RELOAD_CONTEXT_KEY = 'trickcal_dashboard_reload_context_v1';
+  const RESEARCH_INVENTORY_KEY = 'trickcal_research_inventory_v1';
+  const EXPORT_SCHEMA = 'trickcal-stat-state';
+  const EXPORT_VERSION = 2;
+  const APOSTLE_IMAGE_FALLBACK = 'img/Chara/null.webp';
+  const BOARD_START_DIRECTION = 'Right';
+  const LEVEL_CAP_BY_STAR = {
+    1: 120,
+    2: 120,
+    3: 125,
+    4: 135,
+    5: 145
+  };
+  const APOSTLE_STAR_MAX = 5;
+  const GRADE_MAX = 6;
+  const RESEARCH_LIMITS = RESEARCH.getLimits(DATA.sheets.research || []);
+  const FORMATION_COIN_BASE = 216;
+  const FORMATION_COIN_BONUS = 30;
+  const FORMATION_COIN_CP_RATE = 0.000012;
+  const FORMATION_POINTER_DRAG_THRESHOLD = 8;
+
+  function isPublicAsideEnabled(id) {
+    const checker = window.TRICKCAL_PUBLIC_RELEASE?.isAsideEnabled;
+    return typeof checker !== 'function' || checker(id);
+  }
+
+  function isStorageTransferEnabled() {
+    return storageTransfer?.isLocalTestTransferEnabled?.() === true;
+  }
+
+  function getEffectiveAsideRank(id, rank) {
+    return isPublicAsideEnabled(id)
+      ? Math.max(0, Math.min(3, Number(rank) || 0))
+      : 0;
+  }
+
+  function shouldAutofocusTextInput() {
+    return window.innerWidth > 700
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  }
+
+  function focusDialogControl(input, fallback) {
+    const target = shouldAutofocusTextInput() ? input : fallback;
+    target?.focus({ preventScroll: true });
+  }
+
+  const STAT_GROUPS = [
+    { key: 'HP', label: 'HP', total: 'hp', tone: 'hp' },
+    { key: '物理攻撃', lookup: '物理攻撃力', label: '物攻', total: 'patk', tone: 'attack' },
+    { key: '魔法攻撃', lookup: '魔法攻撃力', label: '魔攻', total: 'matk', tone: 'attack' },
+    { key: '物理防御', lookup: '物理防御力', label: '物防', total: 'pdef', tone: 'defense' },
+    { key: '魔法防御', lookup: '魔法防御力', label: '魔防', total: 'mdef', tone: 'defense' },
+    { key: '会心/会心DMG', label: '会心/会心DMG', total: 'critPair', tone: 'crit' },
+    { key: '会心抵抗/会心DMG抵抗', label: '会心抵抗/会心DMG抵抗', total: 'critResPair', tone: 'crit-res' }
+  ];
+
+  const TOTAL_LABELS = [
+    { key: 'hp', label: 'HP', tone: 'hp', icon: 'HP.webp' },
+    { key: 'patk', label: '物理攻撃', tone: 'attack', icon: '物理攻撃力.webp' },
+    { key: 'matk', label: '魔法攻撃', tone: 'attack', icon: '魔法攻撃力.webp' },
+    { key: 'pdef', label: '物理防御', tone: 'defense', icon: '物理防御力.webp' },
+    { key: 'mdef', label: '魔法防御', tone: 'defense', icon: '魔法防御力.webp' },
+    { key: 'crit', label: '会心', tone: 'crit', icon: '会心.webp' },
+    { key: 'critDmg', label: '会心DMG', tone: 'crit', icon: '会心ダメージ.webp' },
+    { key: 'critRes', label: '会心抵抗', tone: 'crit-res', icon: '会心抵抗.webp' },
+    { key: 'critDmgRes', label: '会心DMG抵抗', tone: 'crit-res', icon: '会心DMG抵抗.webp' },
+    { key: 'spRegen', label: '毎秒SP回復', tone: 'sp', icon: 'SP回復.webp' }
+  ];
+
+  const BOARD_GLOBAL_STAT_GROUPS = [
+    { key: 'hp', label: 'HP', stats: ['hp'], icon: 'Tile_Hp_On.webp' },
+    { key: 'attack', label: '攻撃', stats: ['patk', 'matk'], icon: 'Tile_AtkBoth_On.webp', parts: ['物', '魔'] },
+    { key: 'defense', label: '防御', stats: ['pdef', 'mdef'], icon: 'Tile_DefBoth_On.webp', parts: ['物', '魔'] },
+    { key: 'crit', label: '会心系', stats: ['crit', 'critDmg'], icon: 'Tile_CritBoth_On.webp', parts: ['会', 'DMG'] },
+    { key: 'critRes', label: '会心抵抗系', stats: ['critRes', 'critDmgRes'], icon: 'Tile_CritResBoth_On.webp', parts: ['抵', 'DMG'] }
+  ];
+
+  const BOARD_PROGRESS_CATEGORIES = [
+    { key: 'all', label: '全体効果マス', icon: 'Tileicon_3.webp' },
+    ...BOARD_GLOBAL_STAT_GROUPS
+  ];
+
+  const BREAKDOWN_SOURCES = [
+    { key: 'base', label: '基礎' },
+    { key: 'rankUp', label: 'Rank補正' },
+    { key: 'equipment', label: '装備' },
+    { key: 'rankGlobal', label: 'Rank全体' },
+    { key: 'research', label: '研究' },
+    { key: 'boardBasic', label: 'ボード下級' },
+    { key: 'boardAdvanced', label: 'ボード上級' },
+    { key: 'globalPercent', label: '全体補正' },
+    { key: 'bond', label: '好感度' },
+    { key: 'asideManifest', label: 'アサイド発現' },
+    { key: 'asideLevel', label: 'アサイドLv' }
+  ];
+
+
+  const STAT_ALIASES = {
+    HP: 'hp',
+    '最大HP': 'hp',
+    '物理攻撃力': 'patk',
+    '魔法攻撃力': 'matk',
+    '攻撃力': 'attackAll',
+    '攻撃': 'attackAll',
+    '全体攻撃力': 'attackAll',
+    '全体攻撃': 'attackAll',
+    '物理防御力': 'pdef',
+    '魔法防御力': 'mdef',
+    '防御力': 'defenseAll',
+    '防御': 'defenseAll',
+    '全体防御力': 'defenseAll',
+    '全体防御': 'defenseAll',
+    '会心': 'crit',
+    '会心ダメージ': 'critDmg',
+    '会心DMG': 'critDmg',
+    '会心抵抗': 'critRes',
+    '会心DMG抵抗': 'critDmgRes',
+    '会心ダメージ抵抗': 'critDmgRes',
+    '毎秒SP回復量': 'spRegen',
+    '毎秒SP回復': 'spRegen',
+    '全体会心': 'crit',
+    '全体会心DMG': 'critDmg',
+    '全体会心ダメージ': 'critDmg',
+    '全体会心抵抗': 'critRes',
+    '全体会心DMG抵抗': 'critDmgRes',
+    '全体会心ダメージ抵抗': 'critDmgRes',
+    '全体HP': 'hp'
+  };
+
+  const elements = {
+    themeToggle: document.getElementById('theme-toggle'),
+    themeToggles: Array.from(document.querySelectorAll('#theme-toggle, [data-dashboard-theme-toggle]')),
+    topReload: document.getElementById('dashboard-top-reload'),
+    apostleSelect: document.getElementById('apostle-select'),
+    apostlePickerButton: document.getElementById('apostle-picker-button'),
+    apostlePickerCurrent: document.getElementById('apostle-picker-current'),
+    apostlePickerDialog: document.getElementById('apostle-picker-dialog'),
+    apostlePickerClose: document.getElementById('apostle-picker-close'),
+    apostlePickerSearch: document.getElementById('apostle-picker-search'),
+    apostlePickerSort: document.getElementById('apostle-picker-sort'),
+    apostleFilterCount: document.getElementById('apostle-filter-count'),
+    apostlePickerFilters: document.getElementById('apostle-picker-filters'),
+    apostlePickerGrid: document.getElementById('apostle-picker-grid'),
+    rankSelect: document.getElementById('rank-select'),
+    levelSelect: document.getElementById('level-select'),
+    starSelect: document.getElementById('star-select'),
+    bondSelect: document.getElementById('bond-select'),
+    asideRankSelect: document.getElementById('aside-rank-select'),
+    asideLevelSelect: document.getElementById('aside-level-select'),
+    followToggle: document.getElementById('follow-toggle'),
+    lowSkillLevelSelect: document.getElementById('low-skill-level-select'),
+    highSkillLevelSelect: document.getElementById('high-skill-level-select'),
+    passiveSkillLevelSelect: document.getElementById('passive-skill-level-select'),
+    lowSkillLevelOutput: document.getElementById('low-skill-level-output'),
+    highSkillLevelOutput: document.getElementById('high-skill-level-output'),
+    passiveSkillLevelOutput: document.getElementById('passive-skill-level-output'),
+    skillLevelCapNote: document.getElementById('skill-level-cap-note'),
+    skillInfoList: document.getElementById('skill-info-list'),
+    apostleFavoriteCard: document.getElementById('apostle-favorite-card'),
+    asideInfoList: document.getElementById('aside-info-list'),
+    asideTierList: document.getElementById('aside-tier-list'),
+    stateSlotList: document.getElementById('state-slot-list'),
+    stateSlotSection: document.getElementById('state-slot-list')?.closest('.bottom-save-section'),
+    stateSlotSectionTitle: document.getElementById('state-slot-section-title'),
+    stateSlotButtons: Array.from(document.querySelectorAll('[data-state-slot]')),
+    saveStateSlot: document.getElementById('save-state-slot'),
+    loadStateSlot: document.getElementById('load-state-slot'),
+    deleteStateSlot: document.getElementById('delete-state-slot'),
+    stateSlotCancel: document.getElementById('state-slot-cancel'),
+    stateSaveNameWrap: document.getElementById('state-save-name-wrap'),
+    stateSaveName: document.getElementById('state-save-name'),
+    exportState: document.getElementById('export-state'),
+    importState: document.getElementById('import-state'),
+    importStateFile: document.getElementById('import-state-file'),
+    backupSourceMode: document.getElementById('backup-source-mode'),
+    backupSourceDescription: document.getElementById('backup-source-description'),
+    backupExport: document.getElementById('backup-export'),
+    backupTransfer: document.getElementById('backup-transfer'),
+    backupTransferSave: document.getElementById('backup-transfer-save'),
+    backupImport: document.getElementById('backup-import'),
+    backupImportFile: document.getElementById('backup-import-file'),
+    backupRescue: document.getElementById('backup-rescue'),
+    backupPreview: document.getElementById('backup-preview'),
+    backupPreviewSummary: document.getElementById('backup-preview-summary'),
+    backupPreviewDatasets: document.getElementById('backup-preview-datasets'),
+    backupIncludeDisplay: document.getElementById('backup-include-display'),
+    backupAllowAuxiliaryExcludeWrap: document.getElementById('backup-allow-auxiliary-exclude-wrap'),
+    backupAllowAuxiliaryExclude: document.getElementById('backup-allow-auxiliary-exclude'),
+    backupAuxiliaryExcludeNote: document.getElementById('backup-auxiliary-exclude-note'),
+    backupRestorePlan: document.getElementById('backup-restore-plan'),
+    backupRestorePlanSummary: document.getElementById('backup-restore-plan-summary'),
+    backupRestorePlanDatasets: document.getElementById('backup-restore-plan-datasets'),
+    backupPrepareRestore: document.getElementById('backup-prepare-restore'),
+    backupApplyRestore: document.getElementById('backup-apply-restore'),
+    backupRetryRecovery: document.getElementById('backup-retry-recovery'),
+    backupReload: document.getElementById('backup-reload'),
+    backupRecoveryLink: document.getElementById('backup-recovery-link'),
+    backupCancel: document.getElementById('backup-cancel'),
+    backupStatus: document.getElementById('backup-status'),
+    stateSlotIndicator: document.getElementById('state-slot-indicator'),
+    stateCurrentSlot: document.getElementById('state-current-slot'),
+    stateStatus: document.getElementById('state-status'),
+    historyUndo: null,
+    historyRedo: null,
+    image: document.getElementById('apostle-image'),
+    profileAsideIcon: document.getElementById('profile-aside-icon'),
+    profileAsideFallback: document.getElementById('profile-aside-fallback'),
+    profileFavoriteButton: document.getElementById('profile-favorite-button'),
+    profileFavoriteImage: document.getElementById('profile-favorite-image'),
+    profileFavoriteDialog: document.getElementById('profile-favorite-dialog'),
+    profileFavoriteDialogClose: document.getElementById('profile-favorite-dialog-close'),
+    profileFavoriteDetail: document.getElementById('profile-favorite-detail'),
+    name: document.getElementById('apostle-name'),
+    meta: document.getElementById('apostle-meta'),
+    profileChipRow: document.getElementById('profile-chip-row'),
+    profileCard: document.querySelector('.dashboard-persistent-profile'),
+    dashboardViewButtons: Array.from(document.querySelectorAll('[data-dashboard-view]')),
+    dashboardPanels: Array.from(document.querySelectorAll('[data-dashboard-panel]')),
+    totals: document.getElementById('stat-total-grid'),
+    breakdown: document.getElementById('stat-breakdown-table'),
+    activeEffects: document.getElementById('active-effect-list'),
+    equipment: document.getElementById('equipment-grid'),
+    equipAllOn: document.getElementById('equip-all-on'),
+    equipAllOff: document.getElementById('equip-all-off'),
+    equipBulkEnhance: document.getElementById('equip-bulk-enhance'),
+    equipApplyEnhance: document.getElementById('equip-apply-enhance'),
+    baseTypes: document.getElementById('base-type-list'),
+    rankBonuses: document.getElementById('rank-bonus-list'),
+    globalSettingTabs: Array.from(document.querySelectorAll('#global-setting-tabs button')),
+    globalSettingPanels: Array.from(document.querySelectorAll('[data-setting-panel]')),
+    cardManagerTabs: Array.from(document.querySelectorAll('#card-manager-tabs button')),
+    cardManagerSearch: document.getElementById('card-manager-search'),
+    cardManagerRarity: document.getElementById('card-manager-rarity'),
+    cardManagerEffect: document.getElementById('card-manager-effect'),
+    cardManagerOwnedOnly: document.getElementById('card-manager-owned-only'),
+    cardManagerOwnVisible: document.getElementById('card-manager-own-visible'),
+    cardManagerBulkMenu: document.getElementById('card-manager-bulk-menu'),
+    cardManagerBulkStar: document.getElementById('card-manager-bulk-star'),
+    cardManagerBulkSolder: document.getElementById('card-manager-bulk-solder'),
+    cardManagerSummary: document.getElementById('card-manager-summary'),
+    cardManagerGrid: document.getElementById('card-manager-grid'),
+    formationBoard: document.getElementById('formation-board'),
+    formationSynergySummary: document.getElementById('formation-synergy-summary'),
+    formationClear: document.getElementById('formation-clear'),
+    formationSaveName: document.getElementById('formation-save-name'),
+    formationSaveTags: document.getElementById('formation-save-tags'),
+    formationTagPresets: Array.from(document.querySelectorAll('[data-formation-tag-preset]')),
+    formationSaveCurrent: document.getElementById('formation-save-current'),
+    formationSaveEditor: document.getElementById('formation-save-editor'),
+    formationSaveConfirm: document.getElementById('formation-save-confirm'),
+    formationSaveCancel: document.getElementById('formation-save-cancel'),
+    formationOverwriteCurrent: document.getElementById('formation-overwrite-current'),
+    formationActivePreset: document.getElementById('formation-active-preset'),
+    formationSaveList: document.getElementById('formation-save-list'),
+    formationPickerDialog: document.getElementById('formation-picker-dialog'),
+    formationPickerTitle: document.getElementById('formation-picker-title'),
+    formationPickerClose: document.getElementById('formation-picker-close'),
+    formationPickerSearch: document.getElementById('formation-picker-search'),
+    formationPickerSort: document.getElementById('formation-picker-sort'),
+    formationPickerSortWrap: document.getElementById('formation-picker-sort-wrap'),
+    formationFilterDetails: document.getElementById('formation-filter-details'),
+    formationFilterCount: document.getElementById('formation-filter-count'),
+    formationPickerFilters: document.getElementById('formation-picker-filters'),
+    formationPickerGrid: document.getElementById('formation-picker-grid'),
+    formationCostSummary: document.getElementById('formation-cost-summary'),
+    formationMemberSummary: document.getElementById('formation-member-summary'),
+    formationSpellList: document.getElementById('formation-spell-list'),
+    formationMasterPower: document.getElementById('formation-master-power'),
+    researchProgressSelect: document.getElementById('research-progress-select'),
+    researchLevelSelect: document.getElementById('research-level-select'),
+    researchBrowseStage: document.getElementById('research-browse-stage'),
+    researchStageCosts: document.getElementById('research-stage-costs'),
+    researchMaterialDialog: document.getElementById('research-material-dialog'),
+    researchMaterialDialogDetail: document.getElementById('research-material-dialog-detail'),
+    researchPlanEndStage: document.getElementById('research-plan-end-stage'),
+    researchPlanMode: document.getElementById('research-plan-mode'),
+    researchPlanSummary: document.getElementById('research-plan-summary'),
+    researchInventoryList: document.getElementById('research-inventory-list'),
+    researchInventoryStatus: document.getElementById('research-inventory-status'),
+    researchInventoryPanel: document.getElementById('research-inventory-panel'),
+    researchInventoryDialog: document.getElementById('research-inventory-dialog'),
+    researchInventoryInput: document.getElementById('research-inventory-input'),
+    researchInventoryDialogStatus: document.getElementById('research-inventory-dialog-status'),
+    researchInventoryUpdated: document.getElementById('research-inventory-updated'),
+    researchInventorySearch: document.getElementById('research-inventory-search'),
+    researchGrid: document.getElementById('research-grid'),
+    researchOverviewSummary: document.getElementById('research-overview-summary'),
+    activeResearch: document.getElementById('active-research-list'),
+    apostleBulkSearch: document.getElementById('apostle-bulk-search'),
+    apostleBulkSort: document.getElementById('apostle-bulk-sort'),
+    apostleBulkCount: document.getElementById('apostle-bulk-count'),
+    apostleBulkFilters: document.getElementById('apostle-bulk-filters'),
+    apostleBulkFilterCount: document.getElementById('apostle-bulk-filter-count'),
+    apostleBulkList: document.getElementById('apostle-bulk-list'),
+    rankOverviewSummary: document.getElementById('rank-overview-summary'),
+    rankOverviewGrid: document.getElementById('rank-overview-grid'),
+    rankOverviewSort: document.getElementById('rank-overview-sort'),
+    rankOverviewFilters: document.getElementById('rank-overview-filters'),
+    rankFilterCount: document.getElementById('rank-filter-count'),
+    bondOverviewSummary: document.getElementById('bond-overview-summary'),
+    bondOverviewGrid: document.getElementById('bond-overview-grid'),
+    bondOverviewSort: document.getElementById('bond-overview-sort'),
+    bondOverviewFilters: document.getElementById('bond-overview-filters'),
+    bondFilterCount: document.getElementById('bond-filter-count'),
+    asideOverviewSummary: document.getElementById('aside-overview-summary'),
+    asideOverviewGrid: document.getElementById('aside-overview-grid'),
+    asideOverviewSort: document.getElementById('aside-overview-sort'),
+    asideOverviewFilters: document.getElementById('aside-overview-filters'),
+    asideFilterCount: document.getElementById('aside-filter-count'),
+    boardGlobalOverviewSummary: document.getElementById('board-global-overview-summary'),
+    boardGlobalOverviewList: document.getElementById('board-global-overview-list'),
+    boardGlobalBottomSummary: document.getElementById('board-global-bottom-summary'),
+    boardGlobalModeCurrent: document.getElementById('board-global-mode-current'),
+    boardGlobalModePlan: document.getElementById('board-global-mode-plan'),
+    boardGlobalSearch: document.getElementById('board-global-search'),
+    boardGlobalSort: document.getElementById('board-global-sort'),
+    boardGlobalProgressSummary: document.getElementById('board-global-progress-summary'),
+    boardProgressDialog: document.getElementById('board-progress-dialog'),
+    boardProgressClose: document.getElementById('board-progress-close'),
+    boardProgressDialogBody: document.getElementById('board-progress-dialog-body'),
+    boardGlobalFilters: document.getElementById('board-global-filters'),
+    boardGlobalFilterCount: document.getElementById('board-global-filter-count'),
+    boardGlobalCancel: document.getElementById('board-global-cancel'),
+    boardGlobalSavePlan: document.getElementById('board-global-save-plan'),
+    boardGlobalConfirm: document.getElementById('board-global-confirm'),
+    boardGlobalDiscardPlan: document.getElementById('board-global-discard-plan'),
+    boardTabs: Array.from(document.querySelectorAll('#board-tabs button')),
+    boardOrientationButtons: Array.from(document.querySelectorAll('#board-orientation-switch button')),
+    boardStage: document.getElementById('board-stage'),
+    fillBoard: document.getElementById('fill-board'),
+    clearBoard: document.getElementById('clear-board'),
+    confirmBoardDraft: document.getElementById('confirm-board-draft'),
+    cancelBoardDraft: document.getElementById('cancel-board-draft'),
+    saveBoardPlan: document.getElementById('save-board-plan'),
+    boardModeCurrent: document.getElementById('board-mode-current'),
+    boardModePlan: document.getElementById('board-mode-plan'),
+    boardShortcutOffToggle: document.getElementById('board-shortcut-off-toggle'),
+    boardOffModeDialog: document.getElementById('board-off-mode-dialog'),
+    boardOffModeTitle: document.getElementById('board-off-mode-title'),
+    boardOffModeConfirm: document.getElementById('board-off-mode-confirm'),
+    boardOffModeCancel: document.getElementById('board-off-mode-cancel'),
+    boardOffModeOptions: Array.from(document.querySelectorAll('[data-board-off-mode-option]')),
+    boardDraftSummary: document.getElementById('board-draft-summary'),
+    boardFloatingSummary: document.getElementById('board-floating-summary'),
+    boardSelectionSummary: document.getElementById('board-selection-summary'),
+    boardSpecial: document.getElementById('board-special-list'),
+    boardGrid: document.getElementById('board-grid')
+  };
+
+  const TAB_INSTANCE_ID = createStateTabInstanceId();
+  let sharedStateSlotStore = null;
+  let initialWorkspaceState = null;
+  const appState = loadState();
+  let researchInventoryWarning = '';
+  let researchInventorySavedRaw = null;
+  let researchInventoryUpdatedAt = null;
+  let researchInventory = loadResearchInventory();
+  let researchInventoryEditing = null;
+  let researchInventorySaving = false;
+  let researchPlan = null;
+  let researchDialogOpener = null;
+  let boardDraft = null;
+  let globalBoardDrafts = {};
+  let boardWorkspaceDrafts = cloneJson(initialWorkspaceState?.boardWorkspaceDrafts || {});
+  let snapshotBoardOverride = null;
+  let snapshotBoardMode = null;
+  const view = {
+    id: '',
+    board: 1,
+    boardOrientation: loadBoardOrientation(),
+    boardEditMode: 'current',
+    stateSlot: normalizeStateSlot(appState.activeStateSlot),
+    stateSlotMode: '',
+    apostleFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
+    apostleSort: 'name',
+    apostleBulkSearch: '',
+    researchBrowseStage: null,
+    researchBrowseStageTouched: false,
+    researchPlanEndStage: RESEARCH_LIMITS.maxLevel,
+    researchPlanMode: 'total',
+    researchPlanTab: 'remaining',
+    apostleBulkSort: 'combatPower',
+    apostleBulkFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
+    rankFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
+    rankSort: 'rank',
+    bondFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
+    bondSort: 'bond',
+    asideFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set(),
+      position: new Set()
+    },
+    asideSort: 'aside',
+    boardGlobalMode: 'current',
+    boardShortcutOffMode: loadBoardShortcutOffMode(),
+    boardGlobalSort: 'name',
+    boardGlobalSortTouched: false,
+    boardGlobalFilters: {
+      layers: new Set(),
+      stats: new Set()
+    },
+    boardProgressLayer: 'all',
+    boardProgressCategory: 'all',
+    boardProgressTileTypes: new Set(['special']),
+    boardPersonalProgressLayer: 'all',
+    cardManager: {
+      kind: 'artifact',
+      search: '',
+      rarity: '',
+      effect: '',
+      ownedOnly: false
+    },
+    formationPicker: null,
+    formationSort: 'name',
+    formationFilters: {
+      personality: new Set(),
+      species: new Set(),
+      role: new Set()
+    },
+    formationSpellDetailsOpen: false
+  };
+  const missingResearchImages = new Set();
+  const missingResearchSlotBackgrounds = new Set();
+  let stateSlotBaseRevision = Math.max(0, Number(initialWorkspaceState?.baseSlotRevision) || 0);
+  let stateExternalConflict = null;
+  let stateSyncChannel = null;
+  let isLiveStatePublisher = document.visibilityState !== 'hidden' && document.hasFocus();
+  let stateStatusTimer = 0;
+  let isRefreshingStatSnapshots = false;
+  let stateSaveTimer = 0;
+  let statSnapshotRefreshTimer = 0;
+  let statSnapshotRefreshWorkTimer = 0;
+  let pendingStatSnapshotRefreshIds = new Set();
+  let stateSlotSavePending = false;
+  let stateManagerRenderTimer = 0;
+  let renderTimer = 0;
+  let pendingImportedState = null;
+  let pendingBackupPackage = null;
+  let pendingRestoreMaintenance = null;
+  let pendingRestorePlan = null;
+  let backupControllerState = {
+    phase: 'idle',
+    resultCode: null,
+    message: '',
+    downloadRequested: false,
+    sourceMode: '',
+    targetDescription: '',
+    recoveryRequired: false,
+    retryable: true
+  };
+  let backupControllerPromise = null;
+  const backupControllerListeners = new Set();
+  let backupTransferSender = null;
+  let backupTransferPackage = null;
+  let backupTransferPackageJson = '';
+  const formationCoinHistoryActions = new Map();
+  const apostleBulkLevelHistoryActions = new Map();
+  let isClosingHistoryInputs = false;
+  let statCalculationGeneration = 0;
+  let pendingExternalApostleId = '';
+  let formationPointerDragState = null;
+  let formationSuppressClickUntil = 0;
+  let formationPickerReturnFocus = null;
+  let boardProgressCountsCache = {};
+  let boardProgressRequirementCache = {};
+  const historyState = { isRestoring: false, suspended: 0, blocked: false };
+  const historyEngine = window.TRICKCAL_STAT_HISTORY.create({
+    onChange: updateHistoryControls,
+    onBoundary: message => showHistoryStatus(message, true),
+    mergeGroup: mergeHistoryGroup
+  });
+  const HISTORY_GROWTH_FIELDS = ['rank', 'level', 'star', 'grade', 'gradeConfigured', 'bond', 'asideRank', 'asideLevel', 'skillLevels', 'follow'];
+  const HISTORY_BOARD_FIELDS = ['boards', 'plannedBoards', 'plannedBoardShortcutTargets'];
+
+  init();
+
+  function init() {
+    document.addEventListener('error', handleApostleImageError, true);
+    setTheme(loadSavedTheme());
+    populateControls();
+    view.stateSlot = normalizeStateSlot(appState.activeStateSlot);
+    view.id = appState.activeId || DATA.sheets.basicInfo[0]?.id || '';
+    elements.apostleSelect.value = view.id;
+    ensureApostleState(view.id);
+    restoreSavedBoardPlan();
+    syncControlsFromState();
+    ensureHistoryControls();
+    syncBackupTransferAvailability();
+    syncBackupTargetDescription();
+    window.addEventListener('trickcal-storage-transfer-test-enabled', syncBackupTransferAvailability);
+    installBackupController();
+    bindEvents();
+    installDashboardNavigationApi();
+    setupMultiTabStateSync();
+    installStatEngineApi();
+    const storageParticipant = storageRuntime?.registerParticipant?.({
+      flush() {
+        const flushed = flushPendingStateSave();
+        isLiveStatePublisher = false;
+        return flushed
+          ? { ok: true }
+          : { ok: false, code: 'write-failed', retryable: true };
+      },
+      resume() {
+        claimLiveStatePublisher();
+        return { ok: true };
+      }
+    });
+    if (storageParticipant && !storageParticipant.ok) reportStorageFailure(storageParticipant);
+    renderStateManager();
+    render();
+    applyInitialDashboardRoute();
+    restoreDashboardReloadContext();
+    projectBoardWorkspaceDrafts();
+    render();
+    saveState({ refreshSnapshots: false });
+    scheduleDeferredInitialWork();
+    document.body.classList.remove('is-booting');
+    document.body.removeAttribute('aria-busy');
+  }
+
+  function scheduleDeferredInitialWork() {
+    const run = () => {
+      refreshAllStatSnapshots();
+      saveState({ refreshSnapshots: false });
+    };
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(run, { timeout: 800 });
+    } else {
+      window.setTimeout(run, 0);
+    }
+  }
+
+  function getCurrentTheme() {
+    return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+  }
+
+  function loadSavedTheme() {
+    const saved = storageLocal.getItem(COMMON_THEME_STORAGE_KEY)
+      || storageLocal.getItem(THEME_STORAGE_KEY)
+      || 'dark';
+    return saved === 'dark' ? 'dark' : 'light';
+  }
+
+  function setTheme(theme) {
+    const safeTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = safeTheme;
+    storageLocal.setItem(COMMON_THEME_STORAGE_KEY, safeTheme);
+    storageLocal.setItem(THEME_STORAGE_KEY, safeTheme);
+    syncThemeToggle();
+  }
+
+  function loadBoardShortcutOffMode() {
+      return storageLocal.getItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY) === 'route' ? 'route' : 'node';
+  }
+
+  function loadBoardOrientation() {
+    try {
+      return storageLocal.getItem(BOARD_ORIENTATION_STORAGE_KEY) === 'vertical' ? 'vertical' : 'horizontal';
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      return 'horizontal';
+    }
+  }
+
+  function setBoardOrientation(orientation) {
+    view.boardOrientation = orientation === 'vertical' ? 'vertical' : 'horizontal';
+    try {
+      storageLocal.setItem(BOARD_ORIENTATION_STORAGE_KEY, view.boardOrientation);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+    }
+    render();
+  }
+
+  function setBoardShortcutOffMode(mode) {
+    view.boardShortcutOffMode = mode === 'route' ? 'route' : 'node';
+    storageLocal.setItem(BOARD_SHORTCUT_OFF_MODE_STORAGE_KEY, view.boardShortcutOffMode);
+    syncBoardShortcutOffToggle();
+    renderBoardGlobalOverview();
+  }
+
+  function toggleBoardShortcutOffMode() {
+    const nextMode = view.boardShortcutOffMode === 'route' ? 'node' : 'route';
+    const currentLabel = view.boardShortcutOffMode === 'route' ? '経路整理' : 'マスのみ';
+    const nextLabel = nextMode === 'route' ? '経路整理' : 'マスのみ';
+    if (!elements.boardOffModeDialog?.showModal) {
+      const confirmed = window.confirm(
+        `特殊マスをOFFにした時の動作を「${currentLabel}」から「${nextLabel}」へ切り替えますか？\n\n`
+        + 'マスのみ：選んだ特殊マスだけ解除し、経路は残します。\n'
+        + '経路整理：特殊マスに加え、不要になった経路も自動で解除します。'
+      );
+      if (confirmed) setBoardShortcutOffMode(nextMode);
+      return;
+    }
+    elements.boardOffModeTitle.textContent = `OFF時の動作を「${nextLabel}」に切り替えますか？`;
+    elements.boardOffModeConfirm.textContent = `${nextLabel}に切り替える`;
+    elements.boardOffModeConfirm.dataset.boardOffMode = nextMode;
+    elements.boardOffModeOptions.forEach(option => {
+      const mode = option.dataset.boardOffModeOption;
+      option.classList.toggle('is-current', mode === view.boardShortcutOffMode);
+      option.classList.toggle('is-next', mode === nextMode);
+      const badge = option.querySelector('[data-board-off-mode-badge]');
+      if (badge) badge.textContent = mode === view.boardShortcutOffMode ? '現在' : '切替後';
+    });
+    elements.boardOffModeDialog.showModal();
+  }
+
+  function syncBoardShortcutOffToggle() {
+    const label = view.boardShortcutOffMode === 'route'
+      ? 'OFF時: 経路整理'
+      : 'OFF時: マスのみ';
+    document.querySelectorAll('[data-board-shortcut-off-toggle]').forEach(button => {
+      button.textContent = label;
+      button.classList.toggle('is-route', view.boardShortcutOffMode === 'route');
+      button.setAttribute('aria-pressed', String(view.boardShortcutOffMode === 'route'));
+      button.title = view.boardShortcutOffMode === 'route'
+        ? '特殊マスOFF時に不要な経路も整理します'
+        : '特殊マスOFF時に特殊マスだけ外します';
+    });
+  }
+
+  function syncThemeToggle() {
+    const isDark = getCurrentTheme() === 'dark';
+    elements.themeToggles.forEach(button => {
+      button.setAttribute('aria-pressed', String(isDark));
+      button.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
+      button.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
+    });
+  }
+
+  function populateControls() {
+    elements.apostleSelect.innerHTML = DATA.sheets.basicInfo
+      .map(row => `<option value="${escapeAttr(row.id)}">${escapeHtml(row.使徒名 || row.id)}</option>`)
+      .join('');
+
+    elements.rankSelect.innerHTML = Array.from({ length: 9 }, (_, index) => {
+      const rank = index + 1;
+      return `<option value="${rank}">Rank ${rank}</option>`;
+    }).join('');
+
+    elements.starSelect.innerHTML = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => {
+      const star = index + 1;
+      return `<option value="${star}">★${star}</option>`;
+    }).join('');
+    renderLevelOptions(1);
+
+    elements.bondSelect.innerHTML = Array.from({ length: 30 }, (_, index) => {
+      const level = index + 1;
+      return `<option value="${level}">Lv ${level}</option>`;
+    }).join('');
+
+    elements.asideRankSelect.innerHTML = [
+      ['0', '未発現'],
+      ['1', 'A1'],
+      ['2', 'A2'],
+      ['3', 'A3']
+    ].map(([value, label]) => `<option value="${value}">${label}</option>`).join('');
+    renderAsideLevelOptions(0);
+
+    elements.researchLevelSelect.innerHTML = Array.from({ length: RESEARCH_LIMITS.maxLevel + 1 }, (_, index) => {
+      const label = index === 0 ? 'OFF' : `${index}段階`;
+      return `<option value="${index}">${label}</option>`;
+    }).join('');
+    renderResearchControls();
+    renderRankOverviewControls();
+    renderBondOverviewControls();
+    renderAsideOverviewControls();
+  }
+
+  function ensureHistoryControls() {
+    let controls = document.querySelector('.history-floating-controls');
+    if (!controls) {
+      controls = document.createElement('div');
+      controls.className = 'history-floating-controls';
+      controls.setAttribute('aria-label', '履歴操作');
+      controls.innerHTML = `
+        <button type="button" id="history-undo" class="history-floating-button" aria-label="元に戻す" title="元に戻す" disabled>
+          <svg class="history-floating-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M9 14 4 9l5-5"></path>
+            <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"></path>
+          </svg>
+        </button>
+        <button type="button" id="history-redo" class="history-floating-button" aria-label="やり直す" title="やり直す" disabled>
+          <svg class="history-floating-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m15 14 5-5-5-5"></path>
+            <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"></path>
+          </svg>
+        </button>
+      `;
+      document.body.appendChild(controls);
+    }
+    elements.historyUndo = document.getElementById('history-undo');
+    elements.historyRedo = document.getElementById('history-redo');
+  }
+  function bindEvents() {
+    for (const type of ['click', 'input', 'change', 'keydown']) {
+      document.addEventListener(type, event => {
+        if ((stateSlotSavePending || historyState.suspended) && event.target?.closest?.('.dashboard-main')) {
+          event.preventDefault(); event.stopImmediatePropagation();
+        }
+      }, true);
+    }
+    bindBottomSavePopover();
+    window.addEventListener('storage', event => {
+      if (event.key !== COMMON_THEME_STORAGE_KEY || !['light', 'dark'].includes(event.newValue)) return;
+      document.documentElement.dataset.theme = event.newValue;
+      syncThemeToggle();
+    });
+    window.addEventListener('storage', event => {
+      if (event.key !== RESEARCH_INVENTORY_KEY) return;
+      if (researchInventoryEditing) {
+        if (!elements.researchInventoryDialogStatus.textContent) {
+          elements.researchInventoryDialogStatus.textContent = '別タブで所持数が更新されました。保存時に選択素材の競合を確認します。';
+        }
+        return;
+      }
+      researchInventoryWarning = '';
+      researchInventory = loadResearchInventory();
+      renderResearchPlan();
+    });
+                                                                         
+                                                                         
+    if (elements.themeToggle && elements.themeToggle.dataset.sharedThemeButton !== 'true') {
+      elements.themeToggle.addEventListener('click', () => {
+        setTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark');
+      });
+    }
+    document.addEventListener('click', event => {
+      if (!event.target?.closest?.('.dashboard-top-theme-toggle[data-shared-theme-button="true"]')) return;
+      queueMicrotask(() => setTheme(getCurrentTheme()));
+    });
+
+    elements.boardOffModeCancel?.addEventListener('click', () => {
+      elements.boardOffModeDialog.close();
+    });
+    elements.boardOffModeConfirm?.addEventListener('click', () => {
+      const nextMode = elements.boardOffModeConfirm.dataset.boardOffMode;
+      elements.boardOffModeDialog.close();
+      setBoardShortcutOffMode(nextMode);
+    });
+    elements.boardOffModeDialog?.addEventListener('click', event => {
+      if (event.target === elements.boardOffModeDialog) elements.boardOffModeDialog.close();
+    });
+
+    elements.topReload?.addEventListener('click', () => {
+      flushPendingStateSave();
+      saveDashboardReloadContext();
+      window.location.reload();
+    });
+
+    elements.apostlePickerButton.addEventListener('click', openApostlePickerDialog);
+
+    elements.image?.setAttribute('role', 'button');
+    elements.image?.setAttribute('tabindex', '0');
+    elements.image?.setAttribute('aria-label', '使徒を選択');
+    elements.image?.addEventListener('click', openApostlePickerDialog);
+    elements.image?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openApostlePickerDialog();
+    });
+    elements.apostlePickerClose.addEventListener('click', () => {
+      elements.apostlePickerDialog.close();
+    });
+
+    elements.apostlePickerDialog.addEventListener('click', event => {
+      if (event.target === elements.apostlePickerDialog) elements.apostlePickerDialog.close();
+    });
+
+    elements.apostlePickerSearch.addEventListener('input', renderApostlePicker);
+    elements.apostlePickerSort.addEventListener('change', () => {
+      view.apostleSort = elements.apostlePickerSort.value || 'name';
+      renderApostlePicker();
+    });
+
+    elements.apostlePickerFilters.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-apostle-filter-clear]');
+      if (clearButton) {
+        Object.values(view.apostleFilters).forEach(values => values.clear());
+        renderApostlePickerFilters();
+        renderApostlePicker();
+        return;
+      }
+
+      const button = event.target.closest('button[data-apostle-filter-group]');
+      if (!button) return;
+      const values = view.apostleFilters[button.dataset.apostleFilterGroup];
+      const value = button.dataset.apostleFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderApostlePickerFilters();
+      renderApostlePicker();
+    });
+
+    elements.apostlePickerGrid.addEventListener('click', event => {
+      const card = event.target.closest('button[data-apostle-picker-id]');
+      if (!card) return;
+      elements.apostleSelect.value = card.dataset.apostlePickerId;
+      elements.apostleSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      elements.apostlePickerDialog.close();
+    });
+
+    elements.stateSlotList.addEventListener('click', event => {
+      const button = event.target.closest('button[data-state-slot]');
+      if (!button) return;
+      handleStateSlotClick(Number(button.dataset.stateSlot) || 1);
+    });
+
+    elements.saveStateSlot.addEventListener('click', () => {
+      setStateSlotMode('save');
+    });
+
+    elements.loadStateSlot.addEventListener('click', () => {
+      setStateSlotMode('load');
+    });
+
+    elements.deleteStateSlot.addEventListener('click', () => {
+      setStateSlotMode('delete');
+    });
+
+    elements.stateSlotCancel?.addEventListener('click', () => {
+      pendingImportedState = null;
+      setStateSlotMode('');
+      showStateStatus('スロット操作をキャンセルしました');
+    });
+
+    elements.exportState.addEventListener('click', () => {
+      setStateSlotMode('export');
+    });
+
+    elements.importState.addEventListener('click', () => {
+      elements.importStateFile.click();
+    });
+
+    elements.importStateFile.addEventListener('change', async () => {
+      const file = elements.importStateFile.files?.[0];
+      elements.importStateFile.value = '';
+      if (!file) return;
+      try {
+        const payload = JSON.parse(await file.text());
+        pendingImportedState = parseImportedState(payload);
+        setStateSlotMode('import');
+        showStateStatus('インポート先のスロット番号を選択');
+      } catch (error) {
+        console.error(error);
+        window.alert('読み込める状態ファイルではありません。');
+        showStateStatus('インポートに失敗しました', true);
+      }
+    });
+
+    elements.historyUndo?.addEventListener('click', () => {
+      undoHistoryAction();
+    });
+
+    elements.historyRedo?.addEventListener('click', () => {
+      redoHistoryAction();
+    });
+
+    document.addEventListener('keydown', handleHistoryShortcut);
+    new MutationObserver(() => { updateHistoryControls(); tryApplyExternalApostleSelection(); })
+      .observe(document.body, { subtree: true, attributes: true, attributeFilter: ['open'] });
+    updateHistoryControls();
+    elements.apostleSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('使徒選択');
+      view.id = elements.apostleSelect.value;
+      appState.activeId = view.id;
+      ensureApostleState(view.id);
+      projectBoardWorkspaceDrafts();
+      syncControlsFromState();
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    window.addEventListener('trickcal-stat-active-apostle-sync', event => {
+      const id = getValidApostleId(event.detail?.id);
+      if (!id || id === view.id) return;
+      pendingExternalApostleId = id;
+      tryApplyExternalApostleSelection();
+    });
+    document.addEventListener('focusout', () => queueMicrotask(tryApplyExternalApostleSelection));
+
+    elements.rankSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('Rank変更');
+      currentApostleState().rank = Number(elements.rankSelect.value) || 1;
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.levelSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('Lv変更');
+      const state = currentApostleState();
+      state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderProfileQuick();
+      scheduleRender();
+      commitHistoryAction(history);
+    });
+
+    elements.starSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('星変更');
+      const state = currentApostleState();
+      state.star = normalizeApostleStar(elements.starSelect.value);
+      state.level = normalizeApostleLevel(state.level, state.star);
+      renderLevelOptions(state.star);
+      elements.levelSelect.value = String(state.level);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderProfileQuick();
+      scheduleRender();
+      commitHistoryAction(history);
+    });
+
+    elements.bondSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('好感度変更');
+      const basic = DATA.getById('basicInfo', view.id);
+      const state = currentApostleState();
+      state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
+      elements.bondSelect.value = String(state.bond);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderProfileQuick();
+      scheduleRender();
+      commitHistoryAction(history);
+    });
+
+    elements.asideRankSelect.addEventListener('change', () => {
+      if (!isPublicAsideEnabled(view.id)) return;
+      const history = beginHistoryAction('アサイドRank変更');
+      const state = currentApostleState();
+      state.asideRank = Number(elements.asideRankSelect.value) || 0;
+      state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+      state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+      ensureStarForAsideManifest(state);
+      syncAsideControlsFromState(state);
+      syncSkillLevelControlsFromState(state);
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.asideLevelSelect.addEventListener('change', () => {
+      if (!isPublicAsideEnabled(view.id)) return;
+      const history = beginHistoryAction('アサイドLv変更');
+      const state = currentApostleState();
+      state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderProfileQuick();
+      scheduleRender();
+      commitHistoryAction(history);
+    });
+
+    elements.followToggle.addEventListener('change', () => {
+      const history = beginHistoryAction('フォロー変更');
+      currentApostleState().follow = !!elements.followToggle.checked;
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderProfileQuick();
+      scheduleRender();
+      commitHistoryAction(history);
+    });
+
+    elements.profileCard?.addEventListener('click', event => {
+      const followButton = event.target.closest('#profile-follow-button');
+      if (followButton) {
+        const basic = DATA.getById('basicInfo', view.id);
+        if (isEldainApostle(basic)) return;
+        const history = beginHistoryAction('フォロー変更');
+        const state = currentApostleState();
+        state.follow = !state.follow;
+        elements.followToggle.checked = state.follow;
+        saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+        renderProfileQuick();
+        scheduleRender();
+        commitHistoryAction(history);
+        return;
+      }
+
+      const gradeButton = event.target.closest('[data-profile-grade-cycle]');
+      if (gradeButton) {
+        cycleProfileGrade();
+        return;
+      }
+
+      const starButton = event.target.closest('button[data-profile-star]');
+      if (starButton) {
+        setProfileStar(Number(starButton.dataset.profileStar) || 1);
+      }
+    });
+
+    elements.profileAsideIcon?.addEventListener('click', () => {
+      toggleProfileAsideRank();
+    });
+
+    elements.profileAsideIcon?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggleProfileAsideRank();
+    });
+
+    elements.profileAsideFallback?.addEventListener('click', () => {
+      toggleProfileAsideRank();
+    });
+
+    elements.profileAsideFallback?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      toggleProfileAsideRank();
+    });
+
+    elements.profileCard?.addEventListener('change', event => {
+      const equipmentSelect = event.target.closest('select[data-profile-equipment-key]');
+      if (equipmentSelect) {
+        updateProfileEquipment(equipmentSelect.dataset.profileEquipmentKey, equipmentSelect.value);
+        return;
+      }
+      const select = event.target.closest('select[data-profile-field]');
+      if (!select) return;
+      updateProfileField(select.dataset.profileField, select.value);
+    });
+
+    elements.dashboardViewButtons.forEach(button => {
+      button.addEventListener('click', () => activateDashboardView(button.dataset.dashboardView));
+    });
+
+    document.querySelectorAll('[data-dashboard-profile-top]').forEach(button => {
+      button.addEventListener('click', () => {
+        activateDashboardView('settings');
+        elements.profileCard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    });
+
+    document.querySelectorAll('[data-open-global]').forEach(button => {
+      button.addEventListener('click', () => {
+        closeBottomMenus(button.closest('.bottom-global-menu'));
+        openGlobalSettingPanel(button.dataset.openGlobal || 'research');
+        button.closest('.bottom-global-menu')?.removeAttribute('open');
+      });
+    });
+
+    document.querySelectorAll('[data-open-card-manager]').forEach(button => {
+      button.addEventListener('click', () => {
+        closeBottomMenus();
+        openCardManagerPanel(button.dataset.openCardManager === 'spell' ? 'spell' : 'artifact');
+      });
+    });
+
+    [elements.apostleFavoriteCard, elements.profileFavoriteDetail].forEach(container => container?.addEventListener('click', event => {
+      const openButton = event.target.closest('[data-open-apostle-favorite]');
+      if (!openButton) return;
+      if (elements.profileFavoriteDialog?.open) elements.profileFavoriteDialog.close();
+      const kind = openButton.dataset.openApostleFavoriteKind === 'spell' ? 'spell' : 'artifact';
+      openCardManagerPanel(kind, { scroll: true });
+      view.cardManager.search = openButton.dataset.openApostleFavorite || '';
+      view.cardManager.rarity = 'signature';
+      if (elements.cardManagerSearch) elements.cardManagerSearch.value = view.cardManager.search;
+      if (elements.cardManagerRarity) elements.cardManagerRarity.value = 'signature';
+      renderCardManager();
+    }));
+
+    elements.profileFavoriteButton?.addEventListener('click', () => {
+      const basic = DATA.getById('basicInfo', view.id);
+      renderApostleFavoriteCardInto(elements.profileFavoriteDetail, basic);
+      if (!elements.profileFavoriteDialog?.open) elements.profileFavoriteDialog?.showModal();
+      elements.profileFavoriteDialogClose?.focus({ preventScroll: true });
+    });
+
+    elements.profileFavoriteDialogClose?.addEventListener('click', () => elements.profileFavoriteDialog.close());
+    elements.profileFavoriteDialog?.addEventListener('click', event => {
+      if (event.target === elements.profileFavoriteDialog) elements.profileFavoriteDialog.close();
+    });
+
+    [
+      ['low', elements.lowSkillLevelSelect, elements.lowSkillLevelOutput],
+      ['high', elements.highSkillLevelSelect, elements.highSkillLevelOutput],
+      ['passive', elements.passiveSkillLevelSelect, elements.passiveSkillLevelOutput]
+    ].forEach(([group, select, output]) => {
+      const updateSkillLevelOutput = () => {
+        if (output) output.textContent = String(Number(select.value) || 1);
+      };
+      const commitSkillLevelInput = () => {
+        const history = beginHistoryAction('スキルLv変更');
+        updateSkillLevelOutput();
+        const state = currentApostleState();
+        state.skillLevels = normalizeSkillLevels({
+          ...state.skillLevels,
+          [group]: Number(select.value) || 1
+        }, state.asideRank);
+        saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+        renderSkillLevelChange();
+        scheduleRender();
+        commitHistoryAction(history);
+      };
+      select.addEventListener('input', updateSkillLevelOutput);
+      select.addEventListener('change', commitSkillLevelInput);
+    });
+
+    elements.globalSettingTabs.forEach(button => {
+      button.addEventListener('click', () => {
+        openGlobalSettingPanel(button.dataset.settingTab);
+      });
+    });
+
+    elements.cardManagerTabs.forEach(button => {
+      button.addEventListener('click', () => {
+        openCardManagerPanel(button.dataset.cardKind === 'spell' ? 'spell' : 'artifact');
+      });
+    });
+    elements.cardManagerSearch?.addEventListener('input', () => {
+      view.cardManager.search = elements.cardManagerSearch.value.trim();
+      renderCardManager();
+    });
+
+    elements.cardManagerRarity?.addEventListener('change', () => {
+      view.cardManager.rarity = elements.cardManagerRarity.value || '';
+      renderCardManager();
+    });
+
+    elements.cardManagerEffect?.addEventListener('change', () => {
+      view.cardManager.effect = elements.cardManagerEffect.value || '';
+      renderCardManager();
+    });
+
+    elements.cardManagerOwnedOnly?.addEventListener('change', () => {
+      view.cardManager.ownedOnly = !!elements.cardManagerOwnedOnly.checked;
+      renderCardManager();
+    });
+
+    elements.cardManagerOwnVisible?.addEventListener('click', () => {
+      const history = beginHistoryAction('カード所持一括変更');
+      getVisibleCardManagerCards().forEach(card => {
+        ensureCardState(card.id).owned = true;
+      });
+      persistCardManagerChange();
+      commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
+    });
+
+    elements.cardManagerBulkStar?.addEventListener('change', () => {
+      if (elements.cardManagerBulkStar.value === '') return;
+      const history = beginHistoryAction('カード星一括変更');
+      const star = normalizeCardStar(elements.cardManagerBulkStar.value);
+      getVisibleCardManagerCards().forEach(card => {
+        const entry = ensureCardState(card.id);
+        entry.star = star;
+        if (entry.star < 5) entry.solder = 0;
+      });
+      elements.cardManagerBulkStar.value = '';
+      persistCardManagerChange();
+      commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
+    });
+
+    elements.cardManagerBulkSolder?.addEventListener('change', () => {
+      if (elements.cardManagerBulkSolder.value === '') return;
+      const history = beginHistoryAction('カード合成一括変更');
+      const solder = normalizeCardSolder(elements.cardManagerBulkSolder.value);
+      getVisibleCardManagerCards().forEach(card => {
+        const entry = ensureCardState(card.id);
+        if (normalizeCardStar(entry.star) >= 5) entry.solder = solder;
+      });
+      elements.cardManagerBulkSolder.value = '';
+      persistCardManagerChange();
+      commitHistoryAction(history);
+      elements.cardManagerBulkMenu?.removeAttribute('open');
+    });
+
+    elements.cardManagerGrid?.addEventListener('change', event => {
+      const control = event.target.closest('[data-card-control]');
+      if (!control) return;
+      const cardId = control.dataset.cardId;
+      const historyLabels = { owned: 'カード所持変更', star: 'カード星変更', solder: 'カード合成変更' };
+      const history = beginHistoryAction(historyLabels[control.dataset.cardControl] || 'カード変更');
+      const entry = ensureCardState(cardId);
+      if (control.dataset.cardControl === 'owned') entry.owned = !!control.checked;
+      if (control.dataset.cardControl === 'star') {
+        entry.star = normalizeCardStar(control.value);
+        if (entry.star < 5) entry.solder = 0;
+      }
+      if (control.dataset.cardControl === 'solder' && normalizeCardStar(entry.star) >= 5) {
+        entry.solder = normalizeCardSolder(control.value);
+      }
+      persistCardManagerChange(cardId);
+      commitHistoryAction(history);
+    });
+
+    elements.cardManagerGrid?.addEventListener('click', event => {
+      const starButton = event.target.closest('[data-card-star]');
+      const solderButton = event.target.closest('[data-card-solder-overlay]');
+      const effectButton = event.target.closest('[data-card-effect-overlay]');
+      const cardElement = event.target.closest('.resource-card[data-card-id]');
+      if (!starButton && !solderButton && !effectButton && !cardElement) return;
+      const cardId = (starButton || solderButton || effectButton)?.dataset.cardId || cardElement?.dataset.cardId;
+      let entry = getCardState(cardId);
+      let history = null;
+      if (solderButton?.classList.contains('has-solder') && window.matchMedia('(max-width: 700px)').matches) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      if (starButton) {
+        event.preventDefault();
+        history = beginHistoryAction('カード星変更');
+        entry = ensureCardState(cardId);
+        entry.star = normalizeCardStar(starButton.dataset.cardStar);
+        if (entry.star < 5) entry.solder = 0;
+      } else if (solderButton) {
+        event.preventDefault();
+        if (normalizeCardStar(entry.star) < 5) return;
+        history = beginHistoryAction('カード合成変更');
+        entry = ensureCardState(cardId);
+        entry.solder = normalizeCardSolder(((Number(entry.solder) || 0) + 1) % 3);
+      } else {
+        if (effectButton) {
+          openCardManagerEffectPopover(effectButton.dataset.cardId, effectButton);
+          return;
+        }
+        if (event.target.closest('input, select, button, a')) return;
+        event.preventDefault();
+        history = beginHistoryAction('カード所持変更');
+        entry = ensureCardState(cardId);
+        entry.owned = !entry.owned;
+      }
+      persistCardManagerChange(cardId);
+      commitHistoryAction(history);
+    });
+
+    elements.formationBoard?.addEventListener('click', event => {
+      if (Date.now() < formationSuppressClickUntil) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      const clearButton = event.target.closest('[data-formation-clear-row]');
+      if (clearButton) {
+        clearFormationRow(Number(clearButton.dataset.formationClearRow) || 0);
+        return;
+      }
+
+      const moveButton = event.target.closest('[data-formation-move-row]');
+      if (moveButton) {
+        openFormationPicker('apostle-move', Number(moveButton.dataset.formationMoveRow) || 0, Number(moveButton.dataset.formationMoveLine) || 0);
+        return;
+      }
+
+      const personalityButton = event.target.closest('[data-formation-personality-row]');
+      if (personalityButton) {
+        openFormationPicker('personality', Number(personalityButton.dataset.formationPersonalityRow) || 0, Number(personalityButton.dataset.formationPersonalityLine) || 0);
+        return;
+      }
+
+      const apostleButton = event.target.closest('[data-formation-apostle-row]');
+      if (apostleButton) {
+        openFormationPicker(
+          'apostle',
+          Number(apostleButton.dataset.formationApostleRow) || 0,
+          Number(apostleButton.dataset.formationLine) || 0
+        );
+        return;
+      }
+
+      const artifactButton = event.target.closest('[data-formation-artifact-row]');
+      if (artifactButton) {
+        openFormationPicker(
+          'artifact',
+          Number(artifactButton.dataset.formationArtifactRow) || 0,
+          Number(artifactButton.dataset.formationArtifactLine) || 0,
+          Number(artifactButton.dataset.formationArtifactSlot) || 0
+        );
+      }
+    });
+
+    elements.backupExport?.addEventListener('click', () => {
+      void requestFullBackup();
+    });
+
+    elements.backupSourceMode?.addEventListener('change', () => {
+      syncBackupTargetDescription();
+    });
+
+    elements.backupTransfer?.addEventListener('click', () => {
+      void startBackupTransfer();
+    });
+
+    elements.backupTransferSave?.addEventListener('click', () => {
+      saveBackupTransferPackage();
+    });
+
+    elements.backupRescue?.addEventListener('click', () => {
+      void exportRescueBackup();
+    });
+
+    elements.backupImport?.addEventListener('click', () => {
+      elements.backupImportFile?.click();
+    });
+
+    elements.backupImportFile?.addEventListener('change', () => {
+      void inspectBackupFile();
+    });
+
+    elements.backupPrepareRestore?.addEventListener('click', () => {
+      void prepareBackupRestore();
+    });
+
+    elements.backupApplyRestore?.addEventListener('click', () => {
+      void applyBackupRestore();
+    });
+
+    elements.backupRetryRecovery?.addEventListener('click', () => {
+      void retryBackupRecovery();
+    });
+
+    elements.backupReload?.addEventListener('click', () => window.location.reload());
+
+    elements.backupCancel?.addEventListener('click', () => {
+      void cancelBackupPreview();
+    });
+
+    elements.formationBoard?.addEventListener('pointerdown', beginFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointermove', updateFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointerup', finishFormationPointerDrag);
+    elements.formationBoard?.addEventListener('pointercancel', cancelFormationPointerDrag);
+
+    elements.formationCostSummary?.addEventListener('click', event => {
+      const openButton = event.target.closest('[data-formation-coin-open]');
+      if (openButton) {
+        const popover = elements.formationCostSummary.querySelector('[data-formation-coin-popover]');
+        const expanded = openButton.getAttribute('aria-expanded') === 'true';
+        if (popover) popover.hidden = expanded;
+        openButton.setAttribute('aria-expanded', String(!expanded));
+        if (!expanded && shouldAutofocusTextInput()) {
+          popover?.querySelector('[data-formation-coin-input]')?.focus({ preventScroll: true });
+        }
+        return;
+      }
+      const autoButton = event.target.closest('[data-formation-coin-auto]');
+      if (autoButton) {
+        const history = beginHistoryAction('編成コイン変更');
+        const formation = ensureFormationState();
+        formation.coinMode = 'auto';
+        formation.coins = calculateFormationAutoCoins();
+        saveState();
+        updateFormationCoinSummary(formation);
+        renderFormationActivePreset();
+        commitHistoryAction(history);
+        return;
+      }
+      const manualButton = event.target.closest('[data-formation-coin-manual]');
+      if (manualButton) {
+        const history = beginHistoryAction('編成コイン変更');
+        const formation = ensureFormationState();
+        formation.coinMode = 'manual';
+        saveState();
+        updateFormationCoinSummary(formation);
+        commitHistoryAction(history);
+        return;
+      }
+      if (event.target.closest('[data-formation-coin-close]')) {
+        closeFormationCoinPopover();
+      }
+    });
+
+    document.addEventListener('click', event => {
+      if (!elements.formationCostSummary || elements.formationCostSummary.contains(event.target)) return;
+      closeFormationCoinPopover();
+    });
+
+    elements.formationCostSummary?.addEventListener('focusin', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input || formationCoinHistoryActions.has(input)) return;
+      formationCoinHistoryActions.set(input, beginHistoryAction('編成コイン変更'));
+    });
+
+    elements.formationCostSummary?.addEventListener('input', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input) return;
+      if (!input.value.trim() || !input.validity.valid || !Number.isFinite(Number(input.value))) return;
+      if (!formationCoinHistoryActions.has(input)) formationCoinHistoryActions.set(input, beginHistoryAction('編成コイン変更'));
+      const formation = ensureFormationState();
+      formation.coinMode = 'manual';
+      formation.coins = normalizeFormationCoins(input.value);
+      saveState();
+      updateFormationCoinSummary(formation);
+      renderFormationActivePreset();
+    });
+
+    elements.formationCostSummary?.addEventListener('change', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input) return;
+      commitFormationCoinHistory(input);
+    });
+
+    elements.formationCostSummary?.addEventListener('focusout', event => {
+      const input = event.target.closest('[data-formation-coin-input]');
+      if (!input) return;
+      commitFormationCoinHistory(input);
+    });
+
+    elements.formationSpellList?.addEventListener('click', event => {
+      const effectButton = event.target.closest('[data-formation-spell-info]');
+      if (effectButton) {
+        event.preventDefault();
+        openCardManagerEffectPopover(effectButton.dataset.cardId || '', effectButton);
+        return;
+      }
+
+      const detailsButton = event.target.closest('[data-formation-spell-details]');
+      if (detailsButton) {
+        event.preventDefault();
+        toggleFormationSpellDetailsPopover(detailsButton);
+        return;
+      }
+
+      const removeButton = event.target.closest('[data-formation-spell-remove-id]');
+      if (removeButton) {
+        removeFormationSpell(removeButton.dataset.formationSpellRemoveId || '');
+        return;
+      }
+
+      const stepButton = event.target.closest('[data-formation-spell-step]');
+      if (!stepButton) return;
+      event.preventDefault();
+      adjustFormationSpellCount(
+        stepButton.dataset.formationSpellCard || '',
+        Number(stepButton.dataset.formationSpellStep) || 0
+      );
+    });
+
+    elements.formationMasterPower?.addEventListener('click', event => {
+      const button = event.target.closest('[data-formation-master-power]');
+      if (!button) return;
+      const powerId = button.dataset.formationMasterPower || '';
+      if (!getFormationMasterPowerById(powerId)) return;
+      const history = beginHistoryAction('教主の権能変更');
+      const formation = ensureFormationState();
+      const selected = normalizeFormationMasterPowers(formation.masterPowers);
+      formation.masterPowers = selected.includes(powerId)
+        ? selected.filter(id => id !== powerId)
+        : [...selected, powerId].slice(-getFormationMasterPowerSelectionLimit());
+      saveState({ refreshSnapshots: false });
+      renderFormationMasterPowers(formation);
+      renderFormationCostSummary(formation);
+      renderFormationActivePreset();
+      renderFormationPresetList();
+      commitHistoryAction(history);
+    });
+
+    elements.formationSynergySummary?.addEventListener('click', event => {
+      const target = event.target.closest('[data-formation-synergy-kind]');
+      if (!target) return;
+      openFormationSynergyPopover(target, target.dataset.formationSynergyKind);
+    });
+
+    elements.formationSynergySummary?.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const target = event.target.closest('[data-formation-synergy-kind]');
+      if (!target) return;
+      event.preventDefault();
+      openFormationSynergyPopover(target, target.dataset.formationSynergyKind);
+    });
+
+    elements.formationSynergySummary?.addEventListener('pointermove', event => {
+      const popover = document.getElementById('formation-synergy-popover');
+      if (!popover || popover.hidden) return;
+      if (event.target.closest('[data-formation-synergy-kind]')) return;
+      popover.hidden = true;
+    });
+
+    elements.formationClear?.addEventListener('click', () => {
+      if (!window.confirm('編成をすべてクリアしますか？')) return;
+      const history = beginHistoryAction('編成クリア');
+      appState.formation = createDefaultFormation();
+      saveState();
+      renderFormation();
+      commitHistoryAction(history);
+    });
+
+    elements.formationSaveCurrent?.addEventListener('click', openFormationSaveEditor);
+    elements.formationSaveConfirm?.addEventListener('click', saveCurrentFormationPreset);
+    elements.formationSaveCancel?.addEventListener('click', closeFormationSaveEditor);
+    elements.formationOverwriteCurrent?.addEventListener('click', overwriteCurrentFormationPreset);
+
+    elements.formationTagPresets.forEach(button => {
+      button.addEventListener('click', () => addFormationTagPreset(button.dataset.formationTagPreset || button.textContent || ''));
+    });
+
+    elements.formationSaveList?.addEventListener('click', event => {
+      const loadButton = event.target.closest('[data-formation-preset-load]');
+      if (loadButton) {
+        loadFormationPreset(loadButton.dataset.formationPresetLoad || '');
+        return;
+      }
+      const favoriteButton = event.target.closest('[data-formation-preset-favorite]');
+      if (favoriteButton) {
+        toggleFormationPresetFavoritePicker(favoriteButton.dataset.formationPresetFavorite || '');
+        return;
+      }
+      const slotButton = event.target.closest('[data-formation-preset-slot]');
+      if (slotButton) {
+        setFormationPresetFavoriteSlot(
+          slotButton.dataset.formationPresetId || '',
+          slotButton.dataset.formationPresetSlot || ''
+        );
+        return;
+      }
+      const deleteButton = event.target.closest('[data-formation-preset-delete]');
+      if (deleteButton) {
+        deleteFormationPreset(deleteButton.dataset.formationPresetDelete || '');
+      }
+    });
+
+    document.addEventListener('click', event => {
+      const clickedBottomMenu = event.target.closest('.bottom-save-menu, .bottom-global-menu');
+      const clickedSavePopover = event.target.closest('.bottom-save-popover.is-portaled');
+      const clickedBottomButton = event.target.closest('.dashboard-bottom-bar button');
+      if (clickedBottomMenu || clickedSavePopover) {
+        closeBottomMenus(clickedBottomMenu || document.querySelector('.bottom-save-menu'));
+        return;
+      }
+      if (clickedBottomButton || (!clickedBottomMenu && !clickedSavePopover)) closeBottomMenus();
+    });
+
+    elements.formationPickerClose?.addEventListener('click', () => {
+      elements.formationPickerDialog.close();
+    });
+
+    elements.formationPickerDialog?.addEventListener('close', () => {
+      const picker = view.formationPicker;
+      const fallback = getFormationPickerReturnTarget(picker);
+      const target = formationPickerReturnFocus?.isConnected ? formationPickerReturnFocus : fallback;
+      formationPickerReturnFocus = null;
+      view.formationPicker = null;
+      target?.focus({ preventScroll: true });
+    });
+
+    elements.formationPickerDialog?.addEventListener('click', event => {
+      if (event.target === elements.formationPickerDialog) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      if (event.target.closest('[data-formation-picker-cancel]')) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      const effectButton = event.target.closest('[data-formation-picker-effect]');
+      if (effectButton) {
+        event.stopPropagation();
+        openCardManagerEffectPopover(effectButton.dataset.formationPickerEffect || '', effectButton);
+        return;
+      }
+      const option = event.target.closest('[data-formation-picker-value]');
+      if (!option) return;
+      applyFormationPickerValue(option.dataset.formationPickerValue || '');
+    });
+
+    elements.formationPickerSearch?.addEventListener('input', renderFormationPickerOptions);
+
+    elements.formationPickerSort?.addEventListener('change', () => {
+      view.formationSort = elements.formationPickerSort.value || 'name';
+      renderFormationPickerOptions();
+    });
+
+    elements.formationPickerFilters?.addEventListener('click', event => {
+      const clearButton = event.target.closest('[data-formation-filter-clear]');
+      if (clearButton) {
+        Object.values(view.formationFilters).forEach(values => values.clear());
+        renderFormationPickerFilters();
+        renderFormationPickerOptions();
+        return;
+      }
+      const button = event.target.closest('[data-formation-filter-group]');
+      if (!button) return;
+      const group = button.dataset.formationFilterGroup;
+      const value = button.dataset.formationFilterValue;
+      const selected = view.formationFilters[group];
+      if (!selected || !value) return;
+      if (selected.has(value)) selected.delete(value);
+      else selected.add(value);
+      renderFormationPickerFilters();
+      renderFormationPickerOptions();
+    });
+
+    elements.boardTabs.forEach(button => {
+      button.addEventListener('click', () => {
+        const history = beginHistoryAction('ボード階層変更');
+        const nextBoard = Number(button.dataset.board) || 1;
+        view.board = nextBoard;
+        render();
+        commitHistoryAction(history);
+      });
+    });
+
+    elements.boardOrientationButtons.forEach(button => {
+      button.addEventListener('click', () => setBoardOrientation(button.dataset.boardOrientation));
+    });
+
+    elements.boardSelectionSummary?.addEventListener('click', event => {
+      const button = event.target.closest('[data-board-personal-progress-layer]');
+      if (!button) return;
+      view.boardPersonalProgressLayer = button.dataset.boardPersonalProgressLayer || 'all';
+      renderBoardSelectionSummary(DATA.getById('board', view.id) || []);
+    });
+
+    elements.fillBoard.addEventListener('click', () => {
+      const history = beginHistoryAction('ボードマス一括ON');
+      beginBoardDraftForLayer(view.board);
+      const board = currentBoardState();
+      board.targets = [];
+      getCurrentBoardRows().forEach(row => board.filled[boardKey(row)] = true);
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.clearBoard.addEventListener('click', () => {
+      const history = beginHistoryAction('ボードマス一括OFF');
+      beginBoardDraftForLayer(view.board);
+      const board = currentBoardState();
+      board.filled = {};
+      board.targets = [];
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.confirmBoardDraft.addEventListener('click', () => {
+      if (!hasBoardDraft()) return;
+      const history = beginHistoryAction('ボード現在反映');
+      const state = currentApostleState();
+      const newBoards = cloneJson(boardDraft.boards);
+      const rebasedPlan = rebaseSavedBoardPlan(state, newBoards);
+      state.boards = newBoards;
+      if (rebasedPlan) {
+        state.plannedBoards = rebasedPlan.boards;
+        state.plannedBoardShortcutTargets = rebasedPlan.shortcutTargets;
+      } else {
+        delete state.plannedBoards;
+        delete state.plannedBoardShortcutTargets;
+      }
+      boardDraft = null;
+      delete globalBoardDrafts[view.id];
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.saveBoardPlan.addEventListener('click', () => {
+      if (!hasBoardDraftChanges()) return;
+      const history = beginHistoryAction('ボード予定保存');
+      const state = currentApostleState();
+      if (view.boardEditMode === 'plan') {
+        state.plannedBoards = cloneJson(boardDraft.boards);
+        state.plannedBoardShortcutTargets = cloneJson(boardDraft.shortcutTargets || {});
+      } else {
+        mergeBoardDraftIntoSavedPlan(state);
+      }
+      boardDraft = null;
+      delete globalBoardDrafts[view.id];
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.boardModeCurrent.addEventListener('click', () => switchBoardEditMode('current'));
+    elements.boardModePlan.addEventListener('click', () => switchBoardEditMode('plan'));
+    elements.boardShortcutOffToggle?.addEventListener('click', toggleBoardShortcutOffMode);
+
+    elements.cancelBoardDraft.addEventListener('click', () => {
+      const history = beginHistoryAction('ボード編集取消');
+      const state = currentApostleState();
+      if (hasBoardDraft()) {
+        boardDraft = null;
+        delete globalBoardDrafts[view.id];
+      } else if (view.boardEditMode === 'plan' && hasSavedBoardPlan()) {
+        delete state.plannedBoards;
+        delete state.plannedBoardShortcutTargets;
+      } else {
+        return;
+      }
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.boardFloatingSummary?.addEventListener('click', event => {
+      const shortcutModeButton = event.target.closest('[data-board-shortcut-off-toggle]');
+      if (shortcutModeButton) {
+        toggleBoardShortcutOffMode();
+        return;
+      }
+
+      const modeButton = event.target.closest('button[data-board-floating-mode]');
+      if (modeButton) {
+        switchBoardEditMode(modeButton.dataset.boardFloatingMode === 'plan' ? 'plan' : 'current');
+        return;
+      }
+
+      const actionButton = event.target.closest('button[data-board-floating-action]');
+      if (!actionButton || actionButton.disabled) return;
+      const action = actionButton.dataset.boardFloatingAction;
+      if (action === 'cancel') elements.cancelBoardDraft.click();
+      if (action === 'plan') elements.saveBoardPlan.click();
+      if (action === 'current') elements.confirmBoardDraft.click();
+      if (action === 'apply-plan-current') applyDisplayedBoardPlanToCurrent();
+    });
+
+    elements.equipment.addEventListener('change', event => {
+      const target = event.target;
+      const cell = target.closest('.equip-cell');
+      if (!cell) return;
+      const history = beginHistoryAction('装備変更');
+      const key = cell.dataset.equipKey;
+      const equip = currentApostleState().equipment[key] || { enabled: false, enhance: 0 };
+      if (target.matches('.equip-enabled')) equip.enabled = target.checked;
+      if (target.matches('.equip-enhance')) equip.enhance = Number(target.value) || 0;
+      currentApostleState().equipment[key] = equip;
+      saveState({ refreshSnapshotIds: [view.id] });
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.equipAllOn?.addEventListener('click', () => {
+      setCurrentEquipmentEnabled(true);
+    });
+
+    elements.equipAllOff?.addEventListener('click', () => {
+      setCurrentEquipmentEnabled(false);
+    });
+
+    elements.equipApplyEnhance?.addEventListener('click', () => {
+      setCurrentEquipmentEnhance(Number(elements.equipBulkEnhance?.value) || 0);
+    });
+
+    document.querySelector('.equipment-bulk-actions')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-equip-bulk-action]');
+      if (!button) return;
+      event.preventDefault();
+      const action = button.dataset.equipBulkAction || '';
+      if (action === 'off') setCurrentEquipmentBulk({ enabled: false });
+      if (action === 'on') setCurrentEquipmentBulk({ enabled: true });
+      if (action === 'enhance') {
+        setCurrentEquipmentBulk({
+          enabled: true,
+          enhance: Number(button.dataset.equipBulkEnhance) || 0
+        });
+      }
+      button.closest('details')?.removeAttribute('open');
+    });
+
+    elements.researchProgressSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('研究進行度変更');
+      appState.research.progress = Number(elements.researchProgressSelect.value) || 0;
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.researchLevelSelect.addEventListener('change', () => {
+      const history = beginHistoryAction('研究Lv変更');
+      appState.research.level = Number(elements.researchLevelSelect.value) || 0;
+      appState.research.progress = Math.min(
+        Number(appState.research.progress) || 0,
+        RESEARCH.getProgressLimit(RESEARCH_LIMITS, appState.research.level)
+      );
+      if (!view.researchBrowseStageTouched) view.researchBrowseStage = null;
+      saveState();
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.researchBrowseStage.addEventListener('change', () => {
+      view.researchBrowseStage = Number(elements.researchBrowseStage.value) || 1;
+      view.researchBrowseStageTouched = true;
+      renderResearchOverview();
+    });
+    elements.researchGrid.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-material]');
+      if (!button) return;
+      openResearchMaterialDialog(button.dataset.researchMaterial, Number(button.dataset.researchCount) || 1, button);
+    });
+    elements.researchStageCosts.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-material]');
+      if (button) openResearchMaterialDialog(button.dataset.researchMaterial, Number(button.dataset.researchCount) || 1, button);
+    });
+    document.querySelectorAll('[data-research-plan-tab]').forEach(button => button.addEventListener('click', () => {
+      view.researchPlanTab = button.dataset.researchPlanTab;
+      renderResearchPlan();
+    }));
+    elements.researchPlanEndStage.addEventListener('change', () => {
+      view.researchPlanEndStage = Number(elements.researchPlanEndStage.value);
+      renderResearchPlan();
+    });
+    elements.researchPlanMode.addEventListener('change', () => {
+      view.researchPlanMode = elements.researchPlanMode.value;
+      renderResearchPlan();
+    });
+    elements.researchPlanSummary.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-plan-material]');
+      if (!button) return;
+      openResearchMaterialDialog(button.dataset.researchPlanMaterial, Number(button.dataset.researchCount), button, button.dataset.researchStageBreakdown || '');
+    });
+    const showResearchTreeNode = event => {
+      const button = event.target.closest('button[data-research-node]');
+      if (!button) return;
+      event.currentTarget.querySelector('.research-tree-selected').textContent = button.dataset.detail;
+      const sources = event.currentTarget.querySelector('.research-tree-job-sources');
+      if (sources) sources.innerHTML = renderResearchLifeJobSources(button.dataset.researchNode || '');
+    };
+    elements.researchMaterialDialogDetail.addEventListener('click', showResearchTreeNode);
+    elements.researchMaterialDialogDetail.addEventListener('focusin', showResearchTreeNode);
+    document.getElementById('research-material-dialog-close').addEventListener('click', () => elements.researchMaterialDialog.close());
+    elements.researchMaterialDialog.addEventListener('close', () => {
+      if (researchDialogOpener?.isConnected) researchDialogOpener.focus();
+      researchDialogOpener = null;
+    });
+    elements.researchInventoryList.addEventListener('click', event => {
+      const button = event.target.closest('button[data-research-owned]');
+      if (button) openResearchInventoryDialog(button.dataset.researchOwned, button);
+    });
+    elements.researchInventorySearch.addEventListener('input', renderResearchInventory);
+    elements.researchInventoryInput.addEventListener('input', () => validateResearchInventoryInput());
+    document.getElementById('research-inventory-dialog-save').addEventListener('click', saveResearchInventoryItem);
+    document.getElementById('research-inventory-dialog-cancel').addEventListener('click', () => requestCloseResearchInventoryDialog());
+    document.getElementById('research-inventory-dialog-close').addEventListener('click', () => requestCloseResearchInventoryDialog());
+    elements.researchInventoryDialog.addEventListener('cancel', event => {
+      event.preventDefault();
+      requestCloseResearchInventoryDialog();
+    });
+    elements.researchInventoryDialog.addEventListener('click', event => {
+      if (event.target === elements.researchInventoryDialog) requestCloseResearchInventoryDialog();
+    });
+    elements.researchInventoryDialog.addEventListener('close', () => {
+      const edit = researchInventoryEditing;
+      researchInventoryEditing = null;
+      researchInventoryWarning = '';
+      researchInventory = loadResearchInventory();
+      renderResearchPlan();
+      const opener = [...elements.researchInventoryList.querySelectorAll('[data-research-owned]')]
+        .find(button => button.dataset.researchOwned === edit?.name) || edit?.opener;
+      opener?.focus();
+    });
+    const onResearchImageError = event => {
+      const image = event.target;
+      if (image?.dataset?.researchSlotBackground) {
+        missingResearchSlotBackgrounds.add(image.dataset.researchSlotBackground);
+        image.hidden = true;
+        return;
+      }
+      if (!image?.dataset?.researchImage) return;
+      missingResearchImages.add(image.dataset.researchImage);
+      image.hidden = true;
+    };
+    elements.researchGrid.addEventListener('error', onResearchImageError, true);
+    elements.researchStageCosts.addEventListener('error', onResearchImageError, true);
+    elements.researchMaterialDialogDetail.addEventListener('error', onResearchImageError, true);
+    elements.researchPlanSummary.addEventListener('error', onResearchImageError, true);
+    elements.researchInventoryList.addEventListener('error', onResearchImageError, true);
+    elements.researchInventoryDialog.addEventListener('error', onResearchImageError, true);
+    window.addEventListener('resize', () => {
+      if (elements.researchMaterialDialog.open) drawResearchTreeLinks(elements.researchMaterialDialogDetail);
+    });
+
+    elements.apostleBulkSearch?.addEventListener('input', () => {
+      view.apostleBulkSearch = elements.apostleBulkSearch.value.trim();
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkSort?.addEventListener('change', () => {
+      view.apostleBulkSort = elements.apostleBulkSort.value || 'name';
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkFilters?.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-bulk-filter-clear]');
+      if (clearButton) {
+        Object.values(view.apostleBulkFilters).forEach(values => values.clear());
+        renderApostleBulkSettings();
+        return;
+      }
+      const button = event.target.closest('button[data-bulk-filter-group]');
+      if (!button) return;
+      const values = view.apostleBulkFilters[button.dataset.bulkFilterGroup];
+      const value = button.dataset.bulkFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderApostleBulkSettings();
+    });
+
+    elements.apostleBulkList?.addEventListener('change', event => {
+      const control = event.target.closest('[data-apostle-bulk-id]');
+      if (!control) return;
+      if (control.dataset.apostleBulkField === 'level') {
+        commitApostleBulkLevelInput(control);
+        return;
+      }
+      updateApostleBulkSetting(control);
+    });
+
+    elements.apostleBulkList?.addEventListener('input', event => {
+      const control = event.target.closest('[data-apostle-bulk-field="level"]');
+      if (control) updateApostleBulkLevelInput(control);
+    });
+
+    elements.apostleBulkList?.addEventListener('focusout', event => {
+      const control = event.target.closest('[data-apostle-bulk-field="level"]');
+      if (control && apostleBulkLevelHistoryActions.has(control)) commitApostleBulkLevelInput(control);
+    });
+
+    elements.rankOverviewGrid.addEventListener('change', event => {
+      const target = event.target;
+      if (!target.matches('select[data-rank-apostle-id]')) return;
+      const history = beginHistoryAction('一覧Rank変更');
+      const id = target.dataset.rankApostleId;
+      ensureApostleState(id).rank = Number(target.value) || 1;
+      if (id === view.id) elements.rankSelect.value = String(ensureApostleState(id).rank);
+      saveState({ renderStateManager: false });
+      render({ skipActiveGlobal: true });
+      updateRankOverviewAfterChange(id);
+      commitHistoryAction(history);
+    });
+
+    elements.rankOverviewGrid.addEventListener('click', event => {
+      if (event.target.closest('select, button')) return;
+      const card = event.target.closest('[data-rank-card-id]');
+      if (!card) return;
+      const select = card.querySelector('select[data-rank-apostle-id]');
+      if (!select) return;
+      select.focus();
+      if (typeof select.showPicker === 'function') select.showPicker();
+    });
+
+    elements.rankOverviewSort.addEventListener('change', () => {
+      view.rankSort = elements.rankOverviewSort.value || 'name';
+      renderRankOverview();
+    });
+
+    elements.rankOverviewFilters.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-rank-filter-clear]');
+      if (clearButton) {
+        Object.values(view.rankFilters).forEach(values => values.clear());
+        renderRankOverview();
+        return;
+      }
+
+      const button = event.target.closest('button[data-rank-filter-group]');
+      if (!button) return;
+      const values = view.rankFilters[button.dataset.rankFilterGroup];
+      const value = button.dataset.rankFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderRankOverview();
+    });
+
+    elements.bondOverviewGrid.addEventListener('change', event => {
+      const target = event.target;
+      if (!target.matches('select[data-bond-apostle-id]')) return;
+      const history = beginHistoryAction('一覧好感度変更');
+      const id = target.dataset.bondApostleId;
+      const basic = DATA.getById('basicInfo', id);
+      ensureApostleState(id).bond = normalizeBondForApostle(basic, target.value);
+      if (id === view.id) elements.bondSelect.value = String(ensureApostleState(id).bond);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+      if (id === view.id) render({ skipActiveGlobal: true });
+      updateBondOverviewAfterChange(id);
+      commitHistoryAction(history);
+    });
+
+    elements.bondOverviewGrid.addEventListener('click', event => {
+      if (event.target.closest('select, button')) return;
+      const card = event.target.closest('[data-bond-card-id]');
+      if (!card) return;
+      if (card.classList.contains('is-bond-locked')) return;
+      const select = card.querySelector('select[data-bond-apostle-id]');
+      if (!select) return;
+      select.focus();
+      if (typeof select.showPicker === 'function') select.showPicker();
+    });
+
+    elements.bondOverviewSort.addEventListener('change', () => {
+      view.bondSort = elements.bondOverviewSort.value || 'name';
+      renderBondOverview();
+    });
+
+    elements.bondOverviewFilters.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-bond-filter-clear]');
+      if (clearButton) {
+        Object.values(view.bondFilters).forEach(values => values.clear());
+        renderBondOverview();
+        return;
+      }
+
+      const button = event.target.closest('button[data-bond-filter-group]');
+      if (!button) return;
+      const values = view.bondFilters[button.dataset.bondFilterGroup];
+      const value = button.dataset.bondFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderBondOverview();
+    });
+
+    elements.asideOverviewGrid.addEventListener('change', event => {
+      const target = event.target;
+      if (!target.matches('select[data-aside-apostle-id]')) return;
+      const history = beginHistoryAction('一覧アサイド変更');
+      const id = target.dataset.asideApostleId;
+      const state = ensureApostleState(id);
+      state.asideRank = Number(target.value) || 0;
+      state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+      state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+      if (id === view.id) {
+        syncAsideControlsFromState(state);
+        syncSkillLevelControlsFromState(state);
+      }
+      saveState({ renderStateManager: false });
+      render({ skipActiveGlobal: true });
+      updateAsideOverviewAfterChange(id);
+      commitHistoryAction(history);
+    });
+
+    elements.asideOverviewGrid.addEventListener('click', event => {
+      if (event.target.closest('select, button')) return;
+      const card = event.target.closest('[data-aside-card-id]');
+      if (!card) return;
+      const select = card.querySelector('select[data-aside-apostle-id]');
+      if (!select) return;
+      select.focus();
+      if (typeof select.showPicker === 'function') select.showPicker();
+    });
+
+    elements.asideOverviewSort.addEventListener('change', () => {
+      view.asideSort = elements.asideOverviewSort.value || 'name';
+      renderAsideOverview();
+    });
+
+    elements.asideOverviewFilters.addEventListener('click', event => {
+      const clearButton = event.target.closest('button[data-aside-filter-clear]');
+      if (clearButton) {
+        Object.values(view.asideFilters).forEach(values => values.clear());
+        renderAsideOverview();
+        return;
+      }
+
+      const button = event.target.closest('button[data-aside-filter-group]');
+      if (!button) return;
+      const values = view.asideFilters[button.dataset.asideFilterGroup];
+      const value = button.dataset.asideFilterValue;
+      if (!values || !value) return;
+      if (values.has(value)) values.delete(value);
+      else values.add(value);
+      renderAsideOverview();
+    });
+
+    elements.boardGlobalModeCurrent.addEventListener('click', () => switchGlobalBoardMode('current'));
+    elements.boardGlobalModePlan.addEventListener('click', () => switchGlobalBoardMode('plan'));
+
+    elements.boardGlobalProgressSummary.addEventListener('click', event => {
+      if (!event.target.closest('[data-board-progress-open]')) return;
+      openBoardProgressDialog();
+    });
+
+    elements.boardProgressClose?.addEventListener('click', () => elements.boardProgressDialog.close());
+    elements.boardProgressDialog?.addEventListener('click', event => {
+      if (event.target === elements.boardProgressDialog) {
+        elements.boardProgressDialog.close();
+        return;
+      }
+      const layerButton = event.target.closest('[data-board-progress-layer]');
+      if (layerButton) {
+        view.boardProgressLayer = layerButton.dataset.boardProgressLayer || 'all';
+        renderBoardProgressDialog();
+        return;
+      }
+      const categoryButton = event.target.closest('[data-board-progress-category]');
+      if (categoryButton) {
+        view.boardProgressCategory = categoryButton.dataset.boardProgressCategory || 'all';
+        renderBoardProgressDialog();
+        return;
+      }
+      const tileTypeButton = event.target.closest('[data-board-progress-tile-type]');
+      if (tileTypeButton) {
+        const tileType = tileTypeButton.dataset.boardProgressTileType;
+        if (!['special', 'advanced'].includes(tileType)) return;
+        if (view.boardProgressTileTypes.has(tileType)) {
+          if (view.boardProgressTileTypes.size === 1) return;
+          view.boardProgressTileTypes.delete(tileType);
+        } else {
+          view.boardProgressTileTypes.add(tileType);
+        }
+        boardProgressCountsCache = {};
+        boardProgressRequirementCache = {};
+        renderBoardProgressDialog();
+        elements.boardGlobalProgressSummary.innerHTML = renderBoardGlobalProgressSummary();
+      }
+    });
+
+    elements.boardGlobalSearch.addEventListener('input', () => {
+      renderBoardGlobalOverview();
+    });
+
+    elements.boardGlobalSort.addEventListener('change', () => {
+      view.boardGlobalSort = elements.boardGlobalSort.value || 'name';
+      view.boardGlobalSortTouched = true;
+      renderBoardGlobalOverview();
+    });
+
+    elements.boardGlobalOverviewList.addEventListener('click', event => {
+      const apostleLink = event.target.closest('[data-board-global-open-apostle]');
+      if (apostleLink) {
+        const apostleId = apostleLink.dataset.boardGlobalOpenApostle;
+        if (!apostleId) return;
+        const globalDraft = globalBoardDrafts[apostleId];
+        const history = beginHistoryAction('使徒選択');
+        view.id = apostleId;
+        appState.activeId = apostleId;
+        ensureApostleState(apostleId);
+        if (globalDraft) {
+          view.boardEditMode = globalDraft.mode || view.boardGlobalMode;
+          view.board = findGlobalBoardDraftChangedLayer(apostleId, globalDraft) || view.board;
+        }
+        projectBoardWorkspaceDrafts();
+        elements.apostleSelect.value = apostleId;
+        syncControlsFromState();
+        activateDashboardView('board', { skipHistory: true });
+        render();
+        saveState({ refreshSnapshots: false });
+        commitHistoryAction(history);
+        return;
+      }
+      const button = event.target.closest('button[data-board-global-key]');
+      if (!button) return;
+      toggleGlobalBoardSpecial(
+        button.dataset.boardGlobalApostleId,
+        Number(button.dataset.boardGlobalLayer) || 1,
+        button.dataset.boardGlobalKey
+      );
+      render();
+      const shouldFollow = view.boardGlobalSort === 'progress'
+        || (view.boardGlobalSort === 'planned' && view.boardGlobalMode === 'plan');
+      if (shouldFollow) {
+        followResortedApostle(
+          elements.boardGlobalOverviewList,
+          'data-board-global-card-id',
+          button.dataset.boardGlobalApostleId
+        );
+      }
+    });
+
+    elements.boardGlobalOverviewSummary.addEventListener('click', event => {
+      const shortcutModeButton = event.target.closest('[data-board-shortcut-off-toggle]');
+      if (shortcutModeButton) {
+        toggleBoardShortcutOffMode();
+        return;
+      }
+
+      const modeButton = event.target.closest('button[data-board-global-floating-mode]');
+      if (modeButton) {
+        switchGlobalBoardMode(modeButton.dataset.boardGlobalFloatingMode);
+        return;
+      }
+
+      const button = event.target.closest('button[data-board-global-summary-action]');
+      if (!button || button.disabled) return;
+      handleBoardGlobalAction(button.dataset.boardGlobalSummaryAction);
+    });
+
+    elements.boardGlobalFilters.addEventListener('click', event => {
+      const button = event.target.closest('button[data-board-global-filter-group]');
+      if (!button) return;
+      const group = button.dataset.boardGlobalFilterGroup;
+      const value = button.dataset.boardGlobalFilterValue;
+      const selected = view.boardGlobalFilters[group];
+      if (!selected) return;
+      if (selected.has(value)) selected.delete(value);
+      else selected.add(value);
+      renderBoardGlobalOverview();
+    });
+
+    elements.boardGlobalCancel.addEventListener('click', () => {
+      handleBoardGlobalAction('cancel');
+    });
+
+    elements.boardGlobalSavePlan.addEventListener('click', () => {
+      handleBoardGlobalAction('plan');
+    });
+
+    elements.boardGlobalConfirm.addEventListener('click', () => {
+      handleBoardGlobalAction('current');
+    });
+
+    elements.boardGlobalDiscardPlan.addEventListener('click', discardAllSavedBoardPlans);
+
+    elements.boardGrid.addEventListener('click', event => {
+      const node = event.target.closest('.board-node[data-node-key]');
+      if (!node) return;
+      const key = node.dataset.nodeKey;
+      const rows = getCurrentBoardRows();
+      const row = rows.find(item => boardKey(item) === key);
+      if (!row || row.マス_type === 'スタート') return;
+      const history = beginHistoryAction('ボードマス変更');
+      beginBoardDraftForLayer(view.board);
+      const board = currentBoardState();
+      board.targets = [];
+      if (board.filled[key]) {
+        delete board.filled[key];
+        pruneDisconnectedBoardNodes(rows, board);
+        pruneLockedBoardLayers();
+      } else {
+        const path = findBestBoardPath(rows, key);
+        path.forEach(pathKey => {
+          board.filled[pathKey] = true;
+        });
+      }
+      render();
+      commitHistoryAction(history);
+    });
+
+    elements.boardSpecial.addEventListener('click', event => {
+      const button = event.target.closest('button[data-board-shortcut-key]');
+      if (!button || button.disabled) return;
+      const layer = Number(button.dataset.boardShortcutLayer) || 1;
+      const rows = getBoardRowsForLayer(layer);
+      const key = button.dataset.boardShortcutKey;
+      const target = rows.find(row => boardKey(row) === key);
+      if (!target) return;
+      if (view.board !== layer) {
+        const navigation = beginHistoryAction('ボード階層変更');
+        view.board = layer;
+        commitHistoryAction(navigation);
+      }
+      const history = beginHistoryAction('ボード特殊マス変更');
+      beginBoardDraftForLayer(layer);
+      applyBoardShortcutFromCurrentState(layer, key);
+      render();
+      commitHistoryAction(history);
+    });
+  }
+
+  function bindBottomSavePopover() {
+    const menu = document.querySelector('.bottom-save-menu');
+    const trigger = menu?.querySelector('.bottom-save-trigger');
+    const popover = menu?.querySelector('.bottom-save-popover');
+    if (!menu || !trigger || !popover) return;
+
+    const positionPopover = () => {
+      if (!menu.open || !popover.classList.contains('is-open')) return;
+      const triggerRect = trigger.getBoundingClientRect();
+      const popoverWidth = popover.getBoundingClientRect().width || 268;
+      const margin = 2;
+      const left = Math.max(margin, Math.min(window.innerWidth - popoverWidth - margin, triggerRect.right - popoverWidth));
+      popover.style.setProperty('--bottom-save-popover-left', `${left}px`);
+    };
+
+    const syncPopover = () => {
+      trigger.setAttribute('aria-expanded', String(menu.open));
+      if (menu.open) {
+        popover.classList.add('is-open');
+        positionPopover();
+      } else {
+        popover.classList.remove('is-open');
+        popover.style.removeProperty('--bottom-save-popover-left');
+      }
+    };
+
+    document.body.appendChild(popover);
+    popover.classList.add('is-portaled');
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      const opening = !menu.open;
+      if (opening) setStateSlotMode('');
+      menu.open = opening;
+      syncPopover();
+    });
+    menu.addEventListener('toggle', syncPopover);
+    window.addEventListener('resize', positionPopover);
+  }
+  function closeBottomMenus(exceptMenu = null) {
+    document.querySelectorAll('.bottom-save-menu[open], .bottom-global-menu[open]').forEach(menu => {
+      if (exceptMenu && menu === exceptMenu) return;
+      menu.removeAttribute('open');
+    });
+  }
+
+  function syncControlsFromState() {
+    const state = currentApostleState();
+    const basic = DATA.getById('basicInfo', view.id);
+    elements.rankSelect.value = String(state.rank);
+    elements.starSelect.value = String(state.star);
+    state.level = normalizeApostleLevel(state.level, state.star);
+    renderLevelOptions(state.star);
+    elements.levelSelect.value = String(state.level);
+    state.bond = normalizeBondForApostle(basic, state.bond);
+    elements.bondSelect.value = String(state.bond);
+    elements.bondSelect.disabled = isBondLockedApostle(basic);
+    syncAsideControlsFromState(state);
+    syncSkillLevelControlsFromState(state);
+    normalizeFollowForApostle(basic);
+    elements.followToggle.checked = !!state.follow;
+    const followLabel = elements.followToggle.closest('.follow-toggle');
+    if (followLabel) followLabel.hidden = isEldainApostle(basic);
+    renderCurrentApostlePicker();
+  }
+
+  function renderApostlePicker() {
+    const query = elements.apostlePickerSearch.value.trim().toLocaleLowerCase('ja');
+    const rows = DATA.sheets.basicInfo.filter(row => {
+      const matchesQuery = !query || [row.使徒名, row.id, row.性格, row.種族, row.役割, row.配列]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase('ja').includes(query));
+      const matchesFilters = [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.apostleFilters[group];
+        return selected.size === 0 || selected.has(value);
+      });
+      return matchesQuery && matchesFilters;
+    }).sort(compareApostlePickerRows);
+    elements.apostlePickerGrid.innerHTML = rows.map(renderApostlePickerCard).join('')
+      || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function compareApostlePickerRows(a, b) {
+    return compareApostleRowsBySort(a, b, view.apostleSort);
+  }
+
+  function compareApostleRowsBySort(a, b, sortKey) {
+    const nameOrder = String(a.使徒名 || a.id).localeCompare(
+      String(b.使徒名 || b.id),
+      'ja',
+      { sensitivity: 'base' }
+    );
+    if (sortKey === 'level') {
+      const difference = ensureApostleState(b.id).level - ensureApostleState(a.id).level;
+      return difference || nameOrder;
+    }
+    if (sortKey === 'rank') {
+      const difference = ensureApostleState(b.id).rank - ensureApostleState(a.id).rank;
+      return difference || nameOrder;
+    }
+    if (sortKey === 'combatPower') {
+      const difference = getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id);
+      return difference || nameOrder;
+    }
+    return nameOrder;
+  }
+
+  function getApostleCombatPowerForSort(id) {
+    const state = ensureApostleState(id);
+    return Number(state.statSnapshots?.current?.stats?.combatPower ?? state.finalStats?.combatPower) || 0;
+  }
+
+  function formatApostleListCombatPower(value) {
+    return formatNumber(Math.max(0, Math.floor(Number(value) || 0)));
+  }
+
+  function renderApostlePickerFilters() {
+    const groups = getApostleFilterGroups();
+    const activeCount = Object.values(view.apostleFilters)
+      .reduce((total, values) => total + values.size, 0);
+    elements.apostleFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.apostlePickerFilters.innerHTML = renderApostleFilterControls(
+      groups,
+      view.apostleFilters,
+      'apostle'
+    );
+  }
+
+  function getApostleFilterGroups() {
+    return [
+      {
+        key: 'personality',
+        label: '性格',
+        values: ['純粋', '冷静', '狂気', '活発', '憂鬱'],
+        icon: value => `img/性格_${value}.webp`
+      },
+      {
+        key: 'species',
+        label: '種族',
+        values: ['妖精', '獣人', 'エルフ', '精霊', '幽霊', '竜族', '魔女', 'ミスティック'],
+        icon: value => window.TRICKCAL_SPECIES?.iconPath(value) || ''
+      },
+      {
+        key: 'role',
+        label: '役割',
+        values: ['守備', '攻撃', '支援'],
+        icon: value => `img/役割_${getRoleAssetName(value)}.webp`
+      },
+      {
+        key: 'position',
+        label: '配置',
+        values: ['前列', '中列', '後列'],
+        icon: value => `img/配置列_${value}.webp`
+      }
+    ];
+  }
+
+  function renderApostleFilterControls(groups, filters, prefix) {
+    const activeCount = Object.values(filters).reduce((total, values) => total + values.size, 0);
+    return `
+      <div class="apostle-filter-head">
+        <span>条件を複数選択できます</span>
+        <button type="button" data-${prefix}-filter-clear ${activeCount ? '' : 'disabled'}>解除</button>
+      </div>
+      ${groups.map(group => `
+        <div class="apostle-filter-row">
+          <span class="apostle-filter-label">${escapeHtml(group.label)}</span>
+          <div class="apostle-filter-options">
+            ${group.values.map(value => {
+              const active = filters[group.key].has(value);
+              const iconPath = group.icon(value);
+              return `
+                <button
+                  type="button"
+                  class="apostle-filter-button ${active ? 'is-active' : ''}"
+                  data-${prefix}-filter-group="${escapeAttr(group.key)}"
+                  data-${prefix}-filter-value="${escapeAttr(value)}"
+                  aria-label="${escapeAttr(group.label)}: ${escapeAttr(value)}"
+                  aria-pressed="${active ? 'true' : 'false'}"
+                  title="${escapeAttr(value)}"
+                >
+                  ${iconPath ? `<img src="${escapeAttr(iconPath)}" alt="">` : ''}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  function openApostlePickerDialog() {
+    elements.apostlePickerSearch.value = '';
+    renderApostlePickerFilters();
+    renderApostlePicker();
+    elements.apostlePickerDialog.showModal();
+    focusDialogControl(elements.apostlePickerSearch, elements.apostlePickerClose);
+  }
+
+  function renderCurrentApostlePicker() {
+    const basic = DATA.getById('basicInfo', view.id);
+    if (!basic) {
+      elements.apostlePickerCurrent.innerHTML = '<span>使徒を選択</span>';
+      return;
+    }
+    elements.apostlePickerCurrent.innerHTML = `
+      <span class="apostle-picker-current-image ${getFormationPersonalityResolution(basic, null).isSelectable ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)}" ${getSelectableMasterStyle(basic)}>
+        <img data-apostle-image src="${escapeAttr(getApostleImagePath(basic.id))}" alt="">
+      </span>
+      <span class="apostle-picker-current-text">
+        <strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>
+        <span class="apostle-current-badges">${renderApostleInfoBadges(basic, false)}</span>
+      </span>
+    `;
+  }
+
+  function renderApostlePickerCard(basic) {
+    const state = ensureApostleState(basic.id);
+    const selected = basic.id === view.id;
+    const sortValue = view.apostleSort === 'level'
+      ? `Lv ${state.level}`
+      : view.apostleSort === 'rank'
+        ? `Rank ${state.rank}`
+        : view.apostleSort === 'combatPower'
+          ? `CP ${formatApostleListCombatPower(getApostleCombatPowerForSort(basic.id))}`
+          : '';
+    return `
+      <button
+        type="button"
+        class="apostle-picker-card personality-${escapeAttr(basic.性格 || '')} ${getFormationPersonalityResolution(basic, null).isSelectable ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)} ${selected ? 'is-selected' : ''}" ${getSelectableMasterStyle(basic)}
+        data-apostle-picker-id="${escapeAttr(basic.id)}"
+        aria-pressed="${selected ? 'true' : 'false'}"
+      >
+        <span class="apostle-picker-art">
+          <img data-apostle-image src="${escapeAttr(getApostleImagePath(basic.id))}" alt="">
+          ${renderApostleInfoBadges(basic, true)}
+          ${state.follow ? '<img class="apostle-picker-follow-icon" src="img/フォロー.webp" alt="フォロー中" title="フォロー中">' : ''}
+        </span>
+        <span class="apostle-picker-stars" aria-label="星${escapeAttr(state.star)}">${renderStarRating(state.star, basic.レア度)}</span>
+        ${sortValue
+          ? `<strong class="has-sort-value"><span class="apostle-picker-name-text">${escapeHtml(basic.使徒名 || basic.id)}</span><span class="apostle-picker-sort-value">${escapeHtml(sortValue)}</span></strong>`
+          : `<strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>`}
+      </button>
+    `;
+  }
+
+  function renderApostleInfoBadges(basic, overlay) {
+    const personality = basic.性格 || '';
+    const species = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '') || '';
+    const speciesIcon = window.TRICKCAL_SPECIES?.iconPath(species) || '';
+    const position = basic.配列 || '';
+    const roleAsset = getRoleAssetName(basic.役割);
+    const mode = overlay ? ' overlay' : '';
+    return `
+      ${(getFormationPersonalityNames().includes(personality) || personality === '共鳴' || personality === '裏面') ? `<img class="apostle-info-badge personality${mode}" src="img/性格_${escapeAttr(personality)}.webp" alt="${escapeAttr(personality)}" title="${escapeAttr(personality)}">` : ''}
+      ${species && speciesIcon ? `<img class="apostle-info-badge species${mode}" src="${escapeAttr(speciesIcon)}" alt="${escapeAttr(species)}" title="${escapeAttr(species)}">` : ''}
+      ${roleAsset ? `<img class="apostle-info-badge role${mode}" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
+      ${position ? `<img class="apostle-info-badge position${mode}" src="img/配置列_${escapeAttr(position)}.webp" alt="${escapeAttr(position)}" title="${escapeAttr(position)}">` : ''}
+    `;
+  }
+
+  function renderStarRating(star, baseRarity) {
+    const count = normalizeApostleStar(star);
+    const onImage = Number(baseRarity) <= 2 ? 'Grade_on_1_2.webp' : 'Grade_on.webp';
+    return Array.from({ length: APOSTLE_STAR_MAX }, (_, index) =>
+      `<img src="img/${index < count ? onImage : 'Grade_off.webp'}" alt="" class="${index < count ? 'is-on' : ''}">`
+    ).join('');
+  }
+
+  function getRoleAssetName(role) {
+    if (role === '守備') return '防御';
+    if (role === '支援') return '支援';
+    if (role === '攻撃') return '攻撃';
+    return '';
+  }
+
+  function getApostleImagePath(id) {
+    return `img/Chara/${getApostleAssetId(id)}.webp`;
+  }
+
+  function getApostleAssetId(id) {
+    const aliases = {
+      ED: 'Ed',
+      Cuee: 'Kyuri',
+      Kyui: 'Kyuri',
+      Kyuui: 'Kyuri',
+      Kiwi: 'Kyuri',
+      Lazy: 'Layze',
+      Razy: 'Layze',
+      Reizy: 'Layze',
+      Selline: 'Selene',
+      Shady: 'Shaydi',
+      Rudd: 'Rude',
+      RenewaAwaken: 'Renewa',
+      Sion: 'Xion',
+      sion: 'Xion',
+      xion: 'Xion',
+      xXionx: 'Xion'
+    };
+    return aliases[id] || id;
+  }
+
+  function getApostleSkillImagePath(kind, id) {
+    const assetId = getApostleAssetId(id);
+    return window.TRICKCAL_APOSTLE_SKILL_IMAGE_DATA?.[assetId]?.[kind] || '';
+  }
+
+  function clearAsideImageFallback(image) {
+    if (!(image instanceof HTMLImageElement)) return;
+    image.hidden = false;
+    image.classList.remove('is-aside-image-missing');
+    const wrapper = image.closest('[data-aside-image-wrap]');
+    wrapper?.classList.remove('is-aside-image-fallback');
+    const label = wrapper?.querySelector('[data-aside-image-fallback-label]');
+    if (label) label.hidden = true;
+  }
+
+  function showAsideImageFallback(image) {
+    if (!(image instanceof HTMLImageElement)) return false;
+    const wrapper = image.closest('[data-aside-image-wrap]');
+    if (!wrapper) return false;
+    const labelText = String(image.dataset.asideImageFallback || 'Aside').trim() || 'Aside';
+    let label = wrapper.querySelector('[data-aside-image-fallback-label]');
+    if (!label) {
+      label = document.createElement('span');
+      label.className = 'aside-image-fallback-label';
+      label.dataset.asideImageFallbackLabel = '';
+      wrapper.appendChild(label);
+    }
+    label.textContent = labelText;
+    label.hidden = false;
+    wrapper.classList.add('is-aside-image-fallback');
+    image.classList.add('is-aside-image-missing');
+    image.hidden = true;
+    image.dataset.fallback = 'true';
+    return true;
+  }
+
+  function handleApostleImageError(event) {
+    const image = event.target;
+    if (!(image instanceof HTMLImageElement) || !image.hasAttribute('data-apostle-image')) return;
+    if (image.dataset.asideImageFallback && showAsideImageFallback(image)) return;
+    const skillAssetId = image.dataset.apostleSkillAsset || '';
+    const skillFallback = image.dataset.apostleSkillFallback || '';
+    if (skillAssetId && skillFallback === 'passive') {
+      image.dataset.apostleSkillFallback = 'portrait';
+      image.src = getApostleSkillImagePath('passive', skillAssetId) || `img/Chara/${skillAssetId}.webp`;
+      return;
+    }
+    if (skillAssetId && skillFallback === 'portrait') {
+      image.dataset.apostleSkillFallback = '';
+      image.src = `img/Chara/${skillAssetId}.webp`;
+      return;
+    }
+    if (image.dataset.fallback === 'true') return;
+    image.dataset.fallback = 'true';
+    image.onload = () => image.classList.add('is-loaded');
+    image.src = APOSTLE_IMAGE_FALLBACK;
+  }
+
+  function syncAsideControlsFromState(state) {
+    const asideRank = getEffectiveAsideRank(view.id, state.asideRank);
+    const asideLevel = normalizeAsideLevelForRank(state.asideLevel, asideRank);
+    elements.asideRankSelect.value = String(asideRank);
+    renderAsideLevelOptions(asideRank);
+    elements.asideLevelSelect.value = String(asideLevel || 0);
+  }
+
+  function renderLevelOptions(star) {
+    const cap = getLevelCapForStar(star);
+    elements.levelSelect.innerHTML = Array.from({ length: cap }, (_, index) => {
+      const level = index + 1;
+      return `<option value="${level}">Lv ${level}</option>`;
+    }).join('');
+  }
+
+  function normalizeApostleLevel(level, star) {
+    const cap = getLevelCapForStar(star);
+    const value = Number(level) || 1;
+    return Math.max(1, Math.min(cap, value));
+  }
+
+  function getLevelCapForStar(star) {
+    return LEVEL_CAP_BY_STAR[normalizeApostleStar(star)] || 120;
+  }
+
+  function normalizeApostleStar(value) {
+    return Math.max(1, Math.min(APOSTLE_STAR_MAX, Number(value) || 1));
+  }
+
+  function normalizeGrade(value) {
+    return Math.max(1, Math.min(GRADE_MAX, Number(value) || 1));
+  }
+
+  function renderAsideLevelOptions(rank) {
+    const cap = getAsideLevelCap(rank);
+    if (!cap) {
+      elements.asideLevelSelect.innerHTML = '<option value="0">-</option>';
+      elements.asideLevelSelect.disabled = true;
+      return;
+    }
+    elements.asideLevelSelect.disabled = false;
+    elements.asideLevelSelect.innerHTML = Array.from({ length: cap }, (_, index) => {
+      const level = index + 1;
+      return `<option value="${level}">Lv ${level}</option>`;
+    }).join('');
+  }
+
+  function normalizeAsideLevelForRank(level, rank) {
+    const cap = getAsideLevelCap(rank);
+    if (!cap) return 0;
+    const value = Number(level) || 0;
+    return Math.min(Math.max(value, 1), cap);
+  }
+
+  function getAsideLevelCap(rank) {
+    return [0, 30, 40, 50][Number(rank) || 0] || 0;
+  }
+
+  function syncSkillLevelControlsFromState(state) {
+    const asideRank = getEffectiveAsideRank(view.id, state.asideRank);
+    const skillLevels = normalizeSkillLevels(state.skillLevels, asideRank);
+    const maxLevel = getMaxSkillLevel(asideRank);
+    [
+      ['low', elements.lowSkillLevelSelect, elements.lowSkillLevelOutput],
+      ['high', elements.highSkillLevelSelect, elements.highSkillLevelOutput],
+      ['passive', elements.passiveSkillLevelSelect, elements.passiveSkillLevelOutput]
+    ].forEach(([group, control, output]) => {
+      if (!control) return;
+      if (control.tagName === 'SELECT') {
+        control.innerHTML = Array.from({ length: maxLevel }, (_, index) => {
+          const level = index + 1;
+          return `<option value="${level}">${level}</option>`;
+        }).join('');
+      } else {
+        control.min = '1';
+        control.max = String(maxLevel);
+        control.step = '1';
+      }
+      control.value = String(skillLevels[group]);
+      if (output) output.textContent = String(skillLevels[group]);
+    });
+    if (elements.skillLevelCapNote) elements.skillLevelCapNote.textContent = asideRank
+      ? `A${asideRank}上限: ${maxLevel}`
+      : `上限: ${maxLevel}`;
+  }
+
+  function normalizeSkillLevels(levels, asideRank) {
+    const maxLevel = getMaxSkillLevel(asideRank);
+    const source = levels && typeof levels === 'object' ? levels : {};
+    return {
+      low: clampSkillLevel(source.low, maxLevel),
+      high: clampSkillLevel(source.high, maxLevel),
+      passive: clampSkillLevel(source.passive, maxLevel)
+    };
+  }
+
+  function clampSkillLevel(level, maxLevel) {
+    const value = Number(level);
+    return Math.max(1, Math.min(maxLevel, Number.isFinite(value) && value > 0 ? value : 1));
+  }
+
+  function getMaxSkillLevel(asideRank) {
+    return 12 + Math.max(0, Math.min(3, Number(asideRank) || 0));
+  }
+
+  function normalizeBondLevel(level) {
+    const value = Number(level);
+    return Math.max(1, Math.min(30, Number.isFinite(value) && value > 0 ? value : 1));
+  }
+
+  function isBondLockedApostle(basic = null) {
+    return Number(basic?.レア度) === 1;
+  }
+
+  function normalizeBondForApostle(basic = null, level = 1) {
+    return isBondLockedApostle(basic) ? 1 : normalizeBondLevel(level);
+  }
+
+  function persistCurrentControls() {
+    if (!view.id) return;
+    const state = currentApostleState();
+    const basic = DATA.getById('basicInfo', view.id);
+    state.rank = Number(elements.rankSelect.value) || 1;
+    state.star = normalizeApostleStar(elements.starSelect.value);
+    state.level = normalizeApostleLevel(Number(elements.levelSelect.value) || 1, state.star);
+    state.bond = normalizeBondForApostle(basic, elements.bondSelect.value);
+    state.asideRank = Number(elements.asideRankSelect.value) || 0;
+    state.asideLevel = normalizeAsideLevelForRank(Number(elements.asideLevelSelect.value) || 0, state.asideRank);
+    state.skillLevels = normalizeSkillLevels({
+      low: elements.lowSkillLevelSelect.value,
+      high: elements.highSkillLevelSelect.value,
+      passive: elements.passiveSkillLevelSelect.value
+    }, state.asideRank);
+    state.follow = !!elements.followToggle.checked;
+    normalizeFollowForApostle(DATA.getById('basicInfo', view.id));
+  }
+
+  function renderStateManager() {
+    const slotKey = String(view.stateSlot);
+    const dirty = isCurrentStateDirty();
+    const hasExternalConflict = stateExternalConflict?.slot === view.stateSlot;
+    const externalConflictSlotKey = stateExternalConflict ? String(stateExternalConflict.slot) : '';
+    const mode = getStateSlotMode();
+    const modeLabels = { save: '保存先を選択', load: '読み込む状態を選択（空は新規）', delete: '削除する状態を選択', export: 'エクスポートする状態を選択', import: 'インポート先を選択' };
+    elements.stateSlotButtons.forEach(button => {
+      const key = button.dataset.stateSlot;
+      const snapshot = appState.savedStates[key];
+      const slotName = getStateSlotDisplayName(key, snapshot);
+      const savedAt = snapshot ? formatSavedAt(snapshot.savedAt) : '未保存';
+      button.classList.toggle('is-selected', key === slotKey);
+      button.classList.toggle('is-current', key === slotKey);
+      button.classList.toggle('is-dirty', key === slotKey && dirty);
+      button.classList.toggle('has-external-conflict', key === externalConflictSlotKey);
+      button.classList.toggle('has-data', !!snapshot);
+      button.disabled = stateSlotSavePending || ((mode === 'delete' || mode === 'export') && !snapshot);
+      button.innerHTML = `<span class="state-slot-number">${escapeHtml(key)}</span><span class="state-slot-main"><strong>${escapeHtml(slotName)}</strong><small>${escapeHtml(savedAt)}</small></span>`;
+      button.title = snapshot
+        ? `${key === externalConflictSlotKey ? '別タブ更新あり / ' : ''}${key === slotKey && dirty ? '未保存変更あり / ' : ''}${slotName} / ${formatSavedAt(snapshot.savedAt)}`
+        : `スロット${key}: 空${key === externalConflictSlotKey ? '（別タブで削除済み）' : ''}${mode === 'load' ? '（新規状態として読み込み）' : ''}`;
+    });
+    const saveMenu = document.querySelector('.bottom-save-menu');
+    saveMenu?.classList.toggle('is-dirty', dirty);
+    saveMenu?.classList.toggle('has-external-conflict', hasExternalConflict);
+    if (saveMenu) {
+      if (mode) saveMenu.dataset.slotMode = mode;
+      else delete saveMenu.dataset.slotMode;
+    }
+    const savePopover = document.querySelector('.bottom-save-popover');
+    if (savePopover) {
+      if (mode) savePopover.dataset.slotMode = mode;
+      else delete savePopover.dataset.slotMode;
+    }
+    if (elements.stateSlotSection) elements.stateSlotSection.hidden = !mode;
+    if (elements.stateSlotSectionTitle) elements.stateSlotSectionTitle.textContent = modeLabels[mode] || '操作を選択';
+    if (elements.stateSaveNameWrap) elements.stateSaveNameWrap.hidden = mode !== 'save';
+    if (elements.stateSaveName) {
+      const currentName = appState.savedStates[slotKey]?.slotName || '';
+      elements.stateSaveName.placeholder = currentName
+        ? `空欄なら「${currentName}」を維持`
+        : '例: 次元用 現在';
+    }
+    if (elements.stateSlotIndicator) {
+      elements.stateSlotIndicator.textContent = hasExternalConflict ? `${slotKey}!` : (dirty ? `${slotKey}*` : slotKey);
+      elements.stateSlotIndicator.title = hasExternalConflict
+        ? `スロット${slotKey}: 別タブ更新あり`
+        : (dirty ? `スロット${slotKey}: 未保存変更あり` : `スロット${slotKey}`);
+    }
+    if (elements.stateCurrentSlot) {
+      elements.stateCurrentSlot.textContent = hasExternalConflict
+        ? `別タブ更新あり: ${slotKey}`
+        : `${dirty ? '編集中' : '読み込み中'}: ${slotKey}`;
+      elements.stateCurrentSlot.classList.toggle('is-dirty', dirty || hasExternalConflict);
+    }
+    [elements.saveStateSlot, elements.loadStateSlot, elements.deleteStateSlot].forEach(button => {
+      button?.classList.toggle('is-selected', button.dataset.stateSlotMode === mode);
+      if (button) button.disabled = stateSlotSavePending;
+    });
+  }
+
+  function getStateSlotMode() {
+    return ['save', 'load', 'delete', 'export', 'import'].includes(view.stateSlotMode) ? view.stateSlotMode : '';
+  }
+
+  function setStateSlotMode(mode) {
+    view.stateSlotMode = ['save', 'load', 'delete', 'export', 'import'].includes(mode) ? mode : '';
+    if (view.stateSlotMode !== 'import') pendingImportedState = null;
+    if (view.stateSlotMode === 'save' && elements.stateSaveName) {
+      elements.stateSaveName.value = '';
+      if (shouldAutofocusTextInput()) {
+        setTimeout(() => elements.stateSaveName?.focus({ preventScroll: true }), 0);
+      }
+    }
+    renderStateManager();
+    const labels = { save: '保存する番号を選択', load: '読み込む番号を選択', delete: '削除する番号を選択', export: 'エクスポートする番号を選択', import: 'インポート先番号を選択' };
+    if (getStateSlotMode()) showStateStatus(labels[getStateSlotMode()]);
+  }
+
+  function handleStateSlotClick(targetSlot) {
+    if (stateSlotSavePending) return;
+    persistCurrentControls();
+    const mode = getStateSlotMode();
+    if (mode === 'save') {
+      void saveCurrentStateToSlot(targetSlot, elements.stateSaveName?.value || '').catch(error => {
+        reportStorageFailure(error);
+        showStateStatus('保存処理を完了できませんでした。スロットの保存状態を確認してください。', true);
+      });
+      return;
+    }
+    if (mode === 'load') {
+      if (isCurrentStateDirty() && !window.confirm(`現在のスロット${view.stateSlot}に未保存変更があります。\n保存せずにスロット${targetSlot}を読み込みますか？`)) {
+        return;
+      }
+      loadStateSlot(targetSlot);
+      return;
+    }
+    if (mode === 'delete') {
+      if (!appState.savedStates[String(targetSlot)]) {
+        showStateStatus(`スロット${targetSlot}は空です`, true);
+        return;
+      }
+      void deleteStateSlot(targetSlot).catch(reportStorageFailure);
+      return;
+    }
+    if (mode === 'export') {
+      exportStateFile(targetSlot);
+      return;
+    }
+    if (mode === 'import') {
+      void importStateToSlot(targetSlot).catch(reportStorageFailure);
+    }
+  }
+
+  async function importStateToSlot(slot) {
+    if (stateSlotSavePending) return;
+    if (!pendingImportedState) {
+      showStateStatus('インポートするファイルが選択されていません', true);
+      setStateSlotMode('');
+      return;
+    }
+    const safeSlot = normalizeStateSlot(slot);
+    const slotLabel = `スロット${safeSlot}`;
+    const overwriteNote = appState.savedStates[String(safeSlot)]
+      ? `${slotLabel}の保存内容を上書きします。`
+      : `${slotLabel}に保存します。`;
+    if (!window.confirm(`インポートした状態を読み込み、${overwriteNote}\n他の保存スロットは変更しません。`)) return;
+    historyEngine.closeGroup();
+    const imported = pendingImportedState;
+    pendingImportedState = null;
+    setStateSlotMode('');
+    stateSlotSavePending = true;
+    updateHistoryControls();
+    let applied;
+    try { applied = await applyImportedState(imported, safeSlot); }
+    finally { stateSlotSavePending = false; updateHistoryControls(); }
+    if (!applied) return;
+    clearHistory();
+    showStateStatus(`${slotLabel}にインポートしました`);
+  }
+
+  async function saveCurrentStateToSlot(slot, slotName = '') {
+    if (stateSlotSavePending) return false;
+    historyEngine.closeGroup();
+    const previousSlot = view.stateSlot;
+    stateSlotSavePending = true;
+    updateHistoryControls();
+    showStateStatus('スロットを保存中です');
+    renderStateManager();
+    try {
+    persistCurrentControls();
+    appState.activeId = view.id;
+                                                                             
+                                                         
+    if (statSnapshotRefreshTimer) {
+      window.clearTimeout(statSnapshotRefreshTimer);
+      statSnapshotRefreshTimer = 0;
+    }
+    if (statSnapshotRefreshWorkTimer) {
+      window.clearTimeout(statSnapshotRefreshWorkTimer);
+      statSnapshotRefreshWorkTimer = 0;
+    }
+    pendingStatSnapshotRefreshIds = new Set();
+    isRefreshingStatSnapshots = false;
+    refreshAllStatSnapshots();
+    const safeSlot = normalizeStateSlot(slot);
+    const previousName = appState.savedStates[String(safeSlot)]?.slotName || '';
+    const normalizedName = String(slotName || '').trim() || previousName;
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    const snapshot = {
+      ...createStateSnapshot(normalizedName),
+      activeStateSlot: safeSlot
+    };
+    if (previousSlot !== safeSlot && appState.savedStates[String(safeSlot)]
+      && !isEquivalentStateSlotSnapshot(snapshot, appState.savedStates[String(safeSlot)])
+      && !window.confirm(`スロット${safeSlot}の保存内容を上書きしますか？\nこの保存はundoでは戻せません。`)) return false;
+    let result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, expectedRevision));
+    if (result.conflict && isEquivalentStateSlotSnapshot(snapshot, result.latest?.slots?.[String(safeSlot)]?.snapshot)) {
+      syncSharedStateSlotStore(result.latest);
+      result = { ok: true, slotRevision: result.currentRevision };
+    }
+    if (result.conflict) {
+      const overwrite = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        '現在の編集内容で上書きしますか？\n\nキャンセルすると編集内容を保持します。'
+      );
+      if (!overwrite) {
+        syncSharedStateSlotStore(result.latest);
+        stateExternalConflict = { slot: safeSlot, type: 'updated', nextRevision: result.currentRevision };
+        renderStateManager();
+        showStateStatus(`スロット${safeSlot}への保存を中止しました`, true);
+        return false;
+      }
+      result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, result.currentRevision, { force: true }));
+    }
+    view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
+    stateSlotBaseRevision = result.slotRevision;
+    stateExternalConflict = null;
+    if (previousSlot !== safeSlot) clearHistory();
+    if (!saveState({ flush: true })) {
+      showStateStatus(`スロット${safeSlot}は保存しましたが、作業状態の同期に失敗しました。再読み込み前に保存状態を確認してください。`, true);
+      return false;
+    }
+    setStateSlotMode('');
+    renderStateManager();
+    const savedName = getStateSlotDisplayName(String(safeSlot), snapshot);
+    showStateStatus(`${savedName}（スロット${view.stateSlot}）に保存しました`);
+    return true;
+    } finally {
+      stateSlotSavePending = false;
+      updateHistoryControls();
+      renderStateManager();
+    }
+  }
+
+  function loadStateSlot(slot) {
+    const safeSlot = normalizeStateSlot(slot);
+    syncSharedStateSlotStore(readLatestSharedStateSlotStore());
+    const snapshot = appState.savedStates[String(safeSlot)];
+    historyEngine.closeGroup();
+    view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
+    stateSlotBaseRevision = getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    stateExternalConflict = null;
+    setStateSlotMode('');
+    if (applyStateSnapshot(snapshot || createEmptyStateSnapshot(safeSlot), {
+      activeStateSlot: safeSlot,
+      resetResearchBrowseStage: true
+    }) === false) return;
+    const missingGrowth = snapshot && Number(snapshot.comparisonStats?.v) !== 2
+      ? Object.entries(snapshot.apostles || {}).flatMap(([id, apostle]) => {
+        const required = [['level', 'Lv'], ['star', '★'], ['grade', '学年'], ['rank', 'Rank'],
+          ['bond', '好感度'], ['asideRank', 'アサイド段階']];
+        if (Number(apostle?.asideRank) > 0) required.push(['asideLevel', 'アサイドLv']);
+        const missing = required.filter(([key]) => apostle?.[key] == null || apostle[key] === '');
+        return missing.length ? [`${DATA.getById('basicInfo', id)?.使徒名 || id}：${missing.map(([, label]) => label).join('・')}`] : [];
+      }) : [];
+    showStateStatus(missingGrowth.length
+      ? `スロット${safeSlot}を読み込みました。保存時の育成条件が不足しています（${missingGrowth.join('、')}）。表示された既定値を元の設定と見なさず、確認・再設定してから再保存してください。`
+      : snapshot ? `スロット${safeSlot}を読み込みました`
+        : `空のスロット${safeSlot}を新規状態として開きました`, missingGrowth.length > 0);
+  }
+
+  function createEmptyStateSnapshot(slot) {
+    return {
+      activeId: getValidApostleId(DATA.sheets.basicInfo[0]?.id || ''),
+      activeStateSlot: normalizeStateSlot(slot),
+      apostles: {},
+      research: {},
+      cards: {},
+      formation: createDefaultFormation(),
+      totalCombatPower: 0,
+      activeFormationPresetId: '',
+      savedFormations: []
+    };
+  }
+
+  async function deleteStateSlot(slot) {
+    if (stateSlotSavePending) return;
+    const safeSlot = normalizeStateSlot(slot);
+    if (!appState.savedStates[String(safeSlot)]) return;
+    if (!window.confirm(`スロット${safeSlot}の保存内容を削除しますか？\nこの操作は元に戻せません。`)) return;
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    historyEngine.closeGroup();
+    stateSlotSavePending = true;
+    updateHistoryControls();
+    try {
+    let result = await withStateSlotStoreLock(() => removeSharedStateSlot(safeSlot, expectedRevision));
+    if (result.conflict) {
+      const removeLatest = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        '別タブの最新保存内容も削除しますか？'
+      );
+      if (!removeLatest) {
+        syncSharedStateSlotStore(result.latest);
+        renderStateManager();
+        showStateStatus(`スロット${safeSlot}の削除を中止しました`, true);
+        return;
+      }
+      result = await withStateSlotStoreLock(() => removeSharedStateSlot(safeSlot, result.currentRevision, { force: true }));
+    }
+    if (view.stateSlot === safeSlot) {
+      clearHistory();
+      stateSlotBaseRevision = 0;
+      stateExternalConflict = null;
+    }
+    if (view.stateSlot === safeSlot) appState.activeStateSlot = view.stateSlot;
+    if (!saveState({ flush: true })) return false;
+    setStateSlotMode('');
+    renderStateManager();
+    showStateStatus(`スロット${safeSlot}を削除しました`);
+    } finally { stateSlotSavePending = false; updateHistoryControls(); renderStateManager(); }
+  }
+
+  function isCurrentStateDirty() {
+    stashBoardWorkspaceDrafts();
+    if (Object.values(boardWorkspaceDrafts).some(draft => {
+      const state = appState.apostles[draft.apostleId];
+      const baseline = draft.mode === 'plan' ? state?.plannedBoards || state?.boards : state?.boards;
+      return hasBoardSnapshotDiff(baseline || {}, draft.boards || {});
+    })) return true;
+    const snapshot = appState.savedStates[String(view.stateSlot)];
+    if (!snapshot) return hasUnsavedCurrentStateWithoutSlot();
+    try {
+      return stableStringify(createComparableCurrentState()) !== stableStringify(createComparableSnapshot(snapshot, { forDirty: true }));
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function hasUnsavedCurrentStateWithoutSlot() {
+    const defaultState = {
+      apostles: {},
+      research: {},
+      cards: {},
+      formation: normalizeFormationState(createDefaultFormation()),
+      activeFormationPresetId: '',
+      savedFormations: []
+    };
+    const current = createComparableCurrentState();
+    return stableStringify(current) !== stableStringify(defaultState);
+  }
+  function createComparableCurrentState() {
+    return {
+      apostles: createComparableApostleStates(appState.apostles, { forDirty: true }),
+      research: cloneJson(appState.research),
+      cards: cloneJson(appState.cards),
+      formation: createComparableFormationState(appState.formation),
+      activeFormationPresetId: appState.activeFormationPresetId || '',
+      savedFormations: normalizeFormationPresetList(appState.savedFormations || [])
+    };
+  }
+
+  function createComparableSnapshot(snapshot, options = {}) {
+    const normalized = normalizeStateSnapshot(snapshot);
+    const comparable = {
+      apostles: createComparableApostleStates(normalized.apostles, options),
+      research: normalized.research,
+      cards: normalized.cards,
+      formation: createComparableFormationState(normalized.formation),
+      activeFormationPresetId: normalized.activeFormationPresetId || '',
+      savedFormations: normalizeFormationPresetList(normalized.savedFormations || [])
+    };
+    if (!options.forDirty) comparable.activeId = normalized.activeId;
+    if (options.includeTransient) {
+      comparable.dashboardView = normalized.dashboardView;
+      comparable.globalSettingPanel = normalized.globalSettingPanel;
+      comparable.cardManagerKind = normalized.cardManagerKind;
+    }
+    return comparable;
+  }
+
+  function createComparableFormationState(formation) {
+    const comparable = normalizeFormationState(formation || createDefaultFormation());
+                                                                             
+                                                                   
+    if (comparable.coinMode === 'auto') comparable.coins = 0;
+    return comparable;
+  }
+
+  function createComparableApostleStates(states = {}, options = {}) {
+    const comparable = cloneJson(states || {});
+    Object.entries(comparable).forEach(([id, state]) => {
+      if (!state || typeof state !== 'object') return;
+      delete state.statSnapshots;
+      delete state.finalStats;
+      if (!options.forDirty) return;
+      const defaults = createDefaultApostleState(id);
+      delete defaults.statSnapshots;
+      for (const field of Object.keys(defaults)) if (!Object.hasOwn(state, field)) state[field] = cloneJson({ value: defaults[field] }).value;
+      for (const field of ['boards', 'plannedBoards']) if (state[field]) {
+        Object.entries(state[field]).forEach(([layer, board]) => {
+          const rows = DATA.getById('board', id) || [];
+          const filled = Object.fromEntries(Object.entries(board.filled || {}).filter(([key, value]) => value
+            && !rows.some(row => String(row.ボード階層) === layer && boardKey(row) === key && row.マス_type === 'スタート')));
+          if (!Object.keys(filled).length && !(board.targets || []).length) delete state[field][layer];
+          else state[field][layer] = { ...board, filled };
+        });
+      }
+      if (window.TRICKCAL_STAT_HISTORY.same(state, defaults)) delete comparable[id];
+    });
+    return comparable;
+  }
+
+  function createComparisonStatsStore(states = {}) {
+    const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    return engine?.encodeComparisonStatSnapshots?.(states) || { v: 1, a: {} };
+  }
+
+  function applyComparisonStatsStore(apostles = {}, store = {}) {
+    const engine = typeof TRICKCAL_SHARED_STAT_ENGINE === 'undefined' ? null : TRICKCAL_SHARED_STAT_ENGINE;
+    const decoded = engine?.decodeComparisonStatSnapshots?.(store) || {};
+    Object.entries(decoded).forEach(([id, snapshots]) => {
+      const state = apostles[id];
+      if (!state || typeof state !== 'object') return;
+      state.statSnapshots = {
+        ...(state.statSnapshots && typeof state.statSnapshots === 'object' ? state.statSnapshots : {}),
+        ...cloneJson(snapshots)
+      };
+      if (state.statSnapshots.current?.stats) state.finalStats = cloneJson(state.statSnapshots.current.stats);
+    });
+    return apostles;
+  }
+
+  function normalizeStateSlot(value) {
+    const num = Number(value) || 1;
+    return Math.max(1, Math.min(6, Math.trunc(num)));
+  }
+  function stableStringify(value) {
+    return JSON.stringify(stableValue(value));
+  }
+
+  function isEquivalentStateSlotSnapshot(left, right) {
+    if (!left || !right) return false;
+    try {
+      return stableStringify(createComparableSnapshot(left)) === stableStringify(createComparableSnapshot(right));
+    } catch {
+      return false;
+    }
+  }
+
+  function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (!value || typeof value !== 'object') return value;
+    return Object.keys(value).sort().reduce((acc, key) => {
+      acc[key] = stableValue(value[key]);
+      return acc;
+    }, {});
+  }
+
+  function getStateSlotDisplayName(slot, snapshot) {
+    if (!snapshot) return `スロット${slot}`;
+    return snapshot.slotName || snapshot.apostleName || snapshot.activeId || `スロット${slot}`;
+  }
+
+  function createStateSnapshot(slotName = '', options = {}) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const snapshot = {
+      savedAt: new Date().toISOString(),
+      slotName: String(slotName || '').trim(),
+      apostleName: basic?.使徒名 || '',
+      activeId: view.id || appState.activeId || '',
+      activeStateSlot: view.stateSlot,
+      apostles: createComparableApostleStates(appState.apostles),
+      comparisonStats: createComparisonStatsStore(appState.apostles),
+      research: cloneJson(appState.research),
+      cards: cloneJson(appState.cards),
+      formation: cloneJson(appState.formation || createDefaultFormation()),
+      totalCombatPower: normalizeFormationCoins(appState.totalCombatPower),
+      activeFormationPresetId: appState.activeFormationPresetId || '',
+      savedFormations: cloneJson(appState.savedFormations || [])
+    };
+    if (options.includeTransient) {
+      snapshot.boardEditMode = view.boardEditMode || 'current';
+      snapshot.boardGlobalMode = view.boardGlobalMode || 'current';
+      snapshot.boardDraft = boardDraft ? cloneJson(boardDraft) : null;
+      snapshot.globalBoardDrafts = cloneJson(globalBoardDrafts || {});
+      snapshot.dashboardView = getActiveDashboardViewName();
+      snapshot.globalSettingPanel = getActiveGlobalSettingPanelName();
+      snapshot.cardManagerKind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
+    }
+    return snapshot;
+  }
+
+  function applyStateSnapshot(snapshot, options = {}) {
+    const normalized = normalizeStateSnapshot(snapshot);
+    clearHistory();
+    boardWorkspaceDrafts = {};
+    const targetStateSlot = options.activeStateSlot
+      ? normalizeStateSlot(options.activeStateSlot)
+      : normalized.activeStateSlot;
+    boardDraft = null;
+    appState.activeId = normalized.activeId;
+    appState.apostles = normalized.apostles;
+    appState.research = normalized.research;
+    if (options.resetResearchBrowseStage) {
+      view.researchBrowseStage = null;
+      view.researchBrowseStageTouched = false;
+    }
+    appState.cards = normalized.cards;
+    appState.formation = normalized.formation;
+    appState.totalCombatPower = normalizeFormationCoins(normalized.totalCombatPower);
+    appState.activeFormationPresetId = normalized.activeFormationPresetId || '';
+    if (Array.isArray(normalized.savedFormations)) {
+      appState.savedFormations = normalized.savedFormations;
+    }
+    view.id = getValidApostleId(appState.activeId);
+    appState.activeId = view.id;
+    if (targetStateSlot) view.stateSlot = targetStateSlot;
+    view.board = 1;
+    ensureApostleState(view.id);
+    restoreSavedBoardPlan();
+    view.boardEditMode = normalized.boardEditMode || view.boardEditMode;
+    view.boardGlobalMode = normalized.boardGlobalMode || view.boardGlobalMode;
+    boardDraft = normalized.boardDraft ? cloneJson(normalized.boardDraft) : null;
+    globalBoardDrafts = normalized.globalBoardDrafts ? cloneJson(normalized.globalBoardDrafts) : {};
+    applyDashboardViewSnapshot(normalized);
+    elements.apostleSelect.value = view.id;
+    syncControlsFromState();
+    renderResearchControls();
+    appState.activeStateSlot = view.stateSlot;
+    const persisted = saveState({ flush: true });
+    renderStateManager();
+    render({ deferFormationSpellCatalog: options.deferFormationSpellCatalog });
+    document.dispatchEvent(new CustomEvent('stat-state-applied'));
+    return persisted;
+  }
+
+  function exportStateFile(slot) {
+    const safeSlot = normalizeStateSlot(slot);
+    const latest = readLatestSharedStateSlotStore();
+    const snapshot = getSharedStateSnapshots(latest)[String(safeSlot)];
+    if (!snapshot) {
+      showStateStatus(`スロット${safeSlot}は未保存です`, true);
+      return;
+    }
+    const payload = {
+      schema: EXPORT_SCHEMA,
+      version: EXPORT_VERSION,
+      kind: 'slot',
+      exportedAt: new Date().toISOString(),
+      sourceSlot: safeSlot,
+      snapshot
+    };
+    setStateSlotMode('');
+    downloadStateJson(payload, `trickcal-stat-slot-${safeSlot}`);
+  }
+
+  function downloadStateJson(payload, filenamePrefix) {
+    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${filenamePrefix}-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showStateStatus(`書き出しました（${formatStateFileSize(blob.size)}）`);
+  }
+
+  function showBackupStatus(message, isError = false) {
+    if (!elements.backupStatus) return;
+    elements.backupStatus.textContent = message;
+    elements.backupStatus.classList.toggle('is-error', isError);
+  }
+
+  function getBackupTargetDescription(sourceMode) {
+    return sourceMode === 'stored-only' ? '保存済みデータのみ' : '現在タブ（下書きを含む）';
+  }
+
+  function syncBackupTargetDescription(sourceMode = '') {
+    if (!elements.backupSourceDescription) return;
+    const effectiveSourceMode = sourceMode
+      || (backupControllerState.phase === 'running' ? backupControllerState.sourceMode : '')
+      || elements.backupSourceMode?.value
+      || 'current-tab';
+    elements.backupSourceDescription.textContent = `対象：${getBackupTargetDescription(effectiveSourceMode)}`;
+  }
+
+  function getBackupControllerState() {
+    return { ...backupControllerState };
+  }
+
+  function syncBackupControllerUi() {
+    const retryLocked = backupControllerState.phase === 'finished' && backupControllerState.retryable === false;
+    const operationLocked = backupControllerState.phase === 'running' || retryLocked;
+    if (elements.backupExport) elements.backupExport.disabled = operationLocked;
+    if (elements.backupSourceMode) elements.backupSourceMode.disabled = operationLocked;
+    syncBackupTargetDescription(
+      backupControllerState.phase === 'running'
+        ? backupControllerState.sourceMode
+        : elements.backupSourceMode?.value || 'current-tab'
+    );
+  }
+
+  function setBackupControllerState(next) {
+    backupControllerState = { ...backupControllerState, ...next };
+    syncBackupControllerUi();
+    const snapshot = getBackupControllerState();
+    backupControllerListeners.forEach(listener => {
+      try { listener(snapshot); } catch (error) { console.error(error); }
+    });
+  }
+
+  function backupOutcome(result = {}) {
+    const recoveryRequired = result.recoveryRequired === true
+      || ['recovery-required', 'cancel-failed'].includes(result.code);
+    return {
+      ok: result.ok === true,
+      code: result.code || (result.ok === true ? 'download-requested' : 'failed'),
+      message: result.message || backupFailureMessage(result),
+      downloadRequested: result.downloadRequested === true,
+      sourceMode: result.sourceMode || backupControllerState.sourceMode,
+      targetDescription: result.targetDescription || backupControllerState.targetDescription,
+      recoveryRequired,
+      retryable: result.retryable !== false && !recoveryRequired
+    };
+  }
+
+  function backupFailureMessage(result, fallback = 'バックアップを処理できませんでした。') {
+    const messages = {
+      busy: '保存処理が競合しています。同じサイトを別のタブで開いている場合は、未保存の編集がないことを確認してから、そのタブを閉じて再試行してください。',
+      notReady: '保存機能の準備が完了していません。再読み込みして再試行してください。',
+      'not-ready': '保存機能の準備が完了していません。再読み込みして再試行してください。',
+      quota: '保存領域の上限に達しました。',
+      'read-failed': '保存データを読み取れませんでした。',
+      'write-failed': '保存データを書き込めませんでした。',
+      'remove-failed': '保存データの削除確認に失敗しました。',
+      stale: '保存データが別の画面で更新されました。もう一度確認してください。',
+      'recovery-required': '保存データの確認が必要です。通常のバックアップを作成できません。',
+      'invalid-data': 'バックアップの形式または内容を確認できません。',
+      unsupported: 'この環境ではバックアップを利用できません。'
+    };
+    return messages[result?.code] || fallback;
+  }
+
+  async function exportFullBackup(sourceMode = '') {
+    const button = elements.backupExport;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    const selectedSourceMode = sourceMode || elements.backupSourceMode?.value || 'current-tab';
+    const targetDescription = getBackupTargetDescription(selectedSourceMode);
+    let outcome = backupOutcome({
+      ok: false,
+      code: 'not-ready',
+      message: 'バックアップ機能を読み込めませんでした。',
+      sourceMode: selectedSourceMode,
+      targetDescription
+    });
+    if (!button || !storageRuntime || !api) {
+      showBackupStatus('バックアップ機能を読み込めませんでした。', true);
+      return outcome;
+    }
+    showBackupStatus('保存データを確認しています…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        outcome = backupOutcome({
+          ...begun,
+          message: backupFailureMessage(begun),
+          sourceMode: selectedSourceMode,
+          targetDescription
+        });
+      } else {
+        maintenance = begun.value;
+        const result = await maintenance.export({
+          sourceMode: selectedSourceMode,
+          sourceRelease: api.getDefaultSourceRelease?.()
+        });
+        if (!result?.ok) {
+          outcome = backupOutcome({
+            ...result,
+            message: backupFailureMessage(result),
+            sourceMode: selectedSourceMode,
+            targetDescription
+          });
+        } else {
+          const downloaded = downloadBackupPackage(result.value, {
+            statusMessage: 'ダウンロードを開始しました。ブラウザのダウンロード一覧を確認してください。'
+          });
+          outcome = backupOutcome({
+            ok: downloaded?.ok === true,
+            code: downloaded?.ok === true ? 'download-requested' : 'download-failed',
+            message: downloaded?.ok === true
+              ? 'ダウンロードを開始しました。ブラウザのダウンロード一覧を確認してください。'
+              : 'ダウンロードを開始できませんでした。',
+            downloadRequested: downloaded?.ok === true,
+            sourceMode: selectedSourceMode,
+            targetDescription,
+            retryable: true
+          });
+        }
+      }
+    } catch (error) {
+      console.error(error);
+      outcome = backupOutcome({
+        ok: false,
+        code: error?.result?.code || 'failed',
+        message: backupFailureMessage(error?.result, 'バックアップを作成できませんでした。'),
+        sourceMode: selectedSourceMode,
+        targetDescription,
+        retryable: true
+      });
+    } finally {
+      if (maintenance) {
+        let resumed;
+        try {
+          resumed = await maintenance.cancel();
+        } catch (error) {
+          resumed = { ok: false, code: 'cancel-failed', message: error?.message || 'cancel failed' };
+        }
+        if (!resumed?.ok) {
+          outcome = backupOutcome({
+            ok: false,
+            code: resumed?.code || 'cancel-failed',
+            message: `${backupFailureMessage(resumed, 'バックアップ後の後始末に失敗しました。')} 復旧処理が必要です。`,
+            downloadRequested: outcome.downloadRequested,
+            sourceMode: selectedSourceMode,
+            targetDescription,
+            recoveryRequired: true,
+            retryable: false
+          });
+        }
+      }
+    }
+    showBackupStatus(outcome.message, !outcome.ok);
+    return outcome;
+  }
+
+  function createBackupController() {
+    return Object.freeze({
+      getState() {
+        return Object.freeze(getBackupControllerState());
+      },
+      subscribe(listener) {
+        if (typeof listener !== 'function') return () => {};
+        backupControllerListeners.add(listener);
+        try { listener(getBackupControllerState()); } catch (error) { console.error(error); }
+        return () => backupControllerListeners.delete(listener);
+      },
+      request() {
+        if (backupControllerPromise) return backupControllerPromise;
+        if (backupControllerState.phase === 'finished' && backupControllerState.retryable === false) {
+          return Promise.resolve(backupOutcome(backupControllerState));
+        }
+        const sourceMode = elements.backupSourceMode?.value || 'current-tab';
+        const targetDescription = getBackupTargetDescription(sourceMode);
+        setBackupControllerState({
+          phase: 'running',
+          resultCode: null,
+          message: 'バックアップを作成しています…',
+          downloadRequested: false,
+          sourceMode,
+          targetDescription,
+          recoveryRequired: false,
+          retryable: true
+        });
+        backupControllerPromise = exportFullBackup(sourceMode)
+          .then(result => {
+            setBackupControllerState({
+              phase: 'finished',
+              resultCode: result.code,
+              message: result.message,
+              downloadRequested: result.downloadRequested,
+              sourceMode: result.sourceMode || sourceMode,
+              targetDescription: result.targetDescription || targetDescription,
+              recoveryRequired: result.recoveryRequired,
+              retryable: result.retryable
+            });
+            return result;
+          })
+          .catch(error => {
+            const result = backupOutcome({
+              ok: false,
+              code: error?.result?.code || 'failed',
+              message: backupFailureMessage(error?.result, 'バックアップを作成できませんでした。'),
+              sourceMode,
+              targetDescription,
+              downloadRequested: error?.result?.downloadRequested === true
+            });
+            setBackupControllerState({
+              phase: 'finished',
+              resultCode: result.code,
+              message: result.message,
+              downloadRequested: result.downloadRequested,
+              sourceMode: result.sourceMode || sourceMode,
+              targetDescription: result.targetDescription || targetDescription,
+              recoveryRequired: result.recoveryRequired,
+              retryable: result.retryable
+            });
+            return result;
+          })
+          .finally(() => {
+            backupControllerPromise = null;
+            syncBackupControllerUi();
+          });
+        return backupControllerPromise;
+      }
+    });
+  }
+
+  function installBackupController() {
+    if (window.TRICKCAL_BACKUP_CONTROLLER?.request) return window.TRICKCAL_BACKUP_CONTROLLER;
+    const controller = createBackupController();
+    window.TRICKCAL_BACKUP_CONTROLLER = controller;
+    window.dispatchEvent(new CustomEvent('trickcal-backup-controller-ready'));
+    return controller;
+  }
+
+  function requestFullBackup() {
+    const controller = window.TRICKCAL_BACKUP_CONTROLLER;
+    if (!controller?.request) {
+      showBackupStatus('保存機能を準備しています。少し待ってから再試行してください。', true);
+      return Promise.resolve(backupOutcome({ ok: false, code: 'not-ready', message: '保存機能を準備しています。少し待ってから再試行してください。' }));
+    }
+    return controller.request();
+  }
+
+  async function startBackupTransfer() {
+    const button = elements.backupTransfer;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    const transferApi = storageTransfer || window.TRICKCAL_STORAGE_TRANSFER;
+    if (!isStorageTransferEnabled()) {
+      showBackupStatus('新サイトへの直接転送は現在利用できません。バックアップ保存とファイル移行を利用してください。', true);
+      return;
+    }
+    if (!button || !storageRuntime || !api?.createBackupPackageFromEntries || !transferApi?.createSender) {
+      showBackupStatus('転送機能を読み込めませんでした。', true);
+      return;
+    }
+    if (backupTransferSender && ![transferApi.phases.COMPLETE, transferApi.phases.FAILED, transferApi.phases.REJECTED]
+      .includes(backupTransferSender.getState().phase)) {
+      showBackupStatus('すでに転送を開始しています。新しいタブの確認を完了してください。', true);
+      return;
+    }
+
+                                                                               
+                                                                           
+    const targetOrigin = transferApi.getConfiguredPeerOrigin?.('target') || transferApi.defaultTargetOrigin;
+    const transferPath = window.TRICKCAL_PUBLIC_SITE?.peerPageUrl?.('transfer', targetOrigin)
+      || `${targetOrigin}/storage-transfer.html`;
+    const transferWindow = window.open(transferPath, '_blank');
+    if (!transferWindow) {
+      showBackupStatus('転送先タブを開けませんでした。バックアップ保存とファイル移行を利用してください。', true);
+      return;
+    }
+
+    let resolveReady;
+    const ready = new Promise(resolve => { resolveReady = resolve; });
+    let sender = null;
+    let transferApplyStarted = false;
+    let detachTransferMessage = () => {};
+    const releaseBeforeApply = ({ closeWindow = false } = {}) => {
+      if (!sender) return false;
+      const phase = sender.getState().phase;
+      if (transferApplyStarted || [transferApi.phases.APPLYING, transferApi.phases.COMPLETE].includes(phase)) return false;
+      sender.stopHandshake?.();
+      detachTransferMessage();
+      if (backupTransferSender === sender) backupTransferSender = null;
+      if (closeWindow) transferWindow.close?.();
+      return true;
+    };
+    sender = transferApi.createSender({
+      peerWindow: transferWindow,
+      peerOrigin: targetOrigin,
+      sourceMode: elements.backupSourceMode?.value || 'current-tab',
+      listeners: {
+        ready() { resolveReady(true); },
+        timeout() {
+          resolveReady(false);
+          releaseBeforeApply();
+        },
+        preview() { showBackupStatus('新サイトで内容を確認しました。復元確認を待っています…'); },
+        applying(_, state) {
+          transferApplyStarted = true;
+        },
+        result(result, state) {
+          sender.stopHandshake?.();
+          detachTransferMessage();
+          if (backupTransferSender === sender) backupTransferSender = null;
+          if (result?.ok) showBackupStatus('新サイトへの転送と復元が完了しました。');
+          else showBackupStatus('新サイトでの復元に失敗しました。送信元の保存データは変更していません。', true);
+        },
+        reject(_, state) {
+          resolveReady(false);
+          if (!transferApplyStarted && ![transferApi.phases.APPLYING, transferApi.phases.COMPLETE].includes(state?.phase)) {
+            releaseBeforeApply();
+          }
+          showBackupStatus('転送先との通信を確認できません。ファイル移行を利用してください。', true);
+        }
+      }
+    });
+    const handleTransferMessage = event => sender.handleMessage(event);
+    detachTransferMessage = () => {
+      window.removeEventListener('message', handleTransferMessage);
+      detachTransferMessage = () => {};
+    };
+    window.addEventListener('message', handleTransferMessage);
+    backupTransferSender = sender;
+    button.disabled = true;
+    showBackupStatus('転送先を準備しています…');
+    let maintenance = null;
+    try {
+      if (!sender.startHandshake({ timeoutMs: 10000 })) {
+        showBackupStatus('転送先との接続を開始できません。ファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      maintenance = begun.value;
+      const result = await maintenance.export({
+        sourceMode: elements.backupSourceMode?.value || 'current-tab',
+        sourceRelease: api.getDefaultSourceRelease?.()
+      });
+      if (!result?.ok) {
+        showBackupStatus(backupFailureMessage(result), true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      backupTransferPackage = result.value;
+      backupTransferPackageJson = JSON.stringify(result.value);
+      syncBackupTransferAvailability();
+      const isReady = sender.getState().phase === transferApi.phases.READY
+        || await ready;
+      if (!isReady) {
+        showBackupStatus('転送先との接続に失敗しました。バックアップ保存とファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      const sent = sender.sendPayload({
+        packageJson: backupTransferPackageJson,
+        packageDigest: result.value.sha256
+      });
+      if (!sent) {
+        showBackupStatus('バックアップを転送できません。ファイル移行を利用してください。', true);
+        releaseBeforeApply({ closeWindow: true });
+        return;
+      }
+      showBackupStatus('新サイトへ送信しました。新しいタブで内容を確認して復元してください。');
+    } catch (error) {
+      console.error(error);
+      showBackupStatus('転送用バックアップを作成できませんでした。', true);
+      releaseBeforeApply({ closeWindow: true });
+    } finally {
+      if (maintenance) {
+        const resumed = await maintenance.cancel();
+        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+      }
+      button.disabled = false;
+    }
+  }
+
+  async function exportRescueBackup() {
+    const button = elements.backupRescue;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    if (!button || !storageRuntime || !api) {
+      showBackupStatus('救出機能を読み込めませんでした。', true);
+      return;
+    }
+    button.disabled = true;
+    showBackupStatus('読み取り可能な保存値を確認しています…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('backup');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        return;
+      }
+      maintenance = begun.value;
+      const result = await maintenance.rescue({ sourceRelease: api.getDefaultSourceRelease?.() });
+      if (!result?.ok) {
+        showBackupStatus(backupFailureMessage(result, '救出ファイルを作成できませんでした。'), true);
+        return;
+      }
+      downloadRescuePackage(result.value);
+    } catch (error) {
+      console.error(error);
+      showBackupStatus('救出ファイルを作成できませんでした。', true);
+    } finally {
+      if (maintenance) {
+        const resumed = await maintenance.cancel();
+        if (!resumed?.ok) showBackupStatus(backupFailureMessage(resumed), true);
+      }
+      button.disabled = false;
+    }
+  }
+
+  function syncBackupTransferAvailability() {
+    if (elements.backupTransfer) elements.backupTransfer.hidden = !isStorageTransferEnabled();
+    if (elements.backupTransferSave) {
+      elements.backupTransferSave.hidden = !backupTransferPackageJson;
+      elements.backupTransferSave.disabled = !backupTransferPackageJson;
+    }
+  }
+
+  function downloadBackupText(packageJson, filenamePrefix, statusMessage) {
+    const blob = new Blob([packageJson], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `${filenamePrefix}-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showBackupStatus(`${statusMessage}（${formatStateFileSize(blob.size)}）`);
+    return { ok: true, bytes: blob.size };
+  }
+
+  function downloadBackupPackage(packageValue, options = {}) {
+    return downloadBackupText(
+      JSON.stringify(packageValue),
+      options.filenamePrefix || 'trickcal-manager-backup',
+      options.statusMessage || 'バックアップを保存しました'
+    );
+  }
+
+  function saveBackupTransferPackage() {
+    if (!backupTransferPackage || !backupTransferPackageJson) {
+      showBackupStatus('送信時点のバックアップはまだありません。', true);
+      return;
+    }
+    downloadBackupText(
+      backupTransferPackageJson,
+      'trickcal-manager-transfer',
+      '送信時点のバックアップを保存しました'
+    );
+  }
+
+  function downloadRescuePackage(packageValue) {
+    const blob = new Blob([JSON.stringify(packageValue)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `trickcal-manager-rescue-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showBackupStatus(`救出ファイルを保存しました（${formatStateFileSize(blob.size)}）`);
+  }
+
+  async function inspectBackupFile() {
+    if (pendingRestoreMaintenance) {
+      showBackupStatus('復元処理中です。完了または取消してから別のファイルを確認してください。', true);
+      return;
+    }
+    const file = elements.backupImportFile?.files?.[0];
+    if (elements.backupImportFile) elements.backupImportFile.value = '';
+    if (!file) return;
+    const api = storageBackup || window.TRICKCAL_STORAGE_BACKUP;
+    if (!api?.decodeBackupPackage) {
+      showBackupStatus('バックアップ機能を読み込めませんでした。', true);
+      return;
+    }
+    showBackupStatus('ファイルを確認しています…');
+    try {
+      const fileText = await file.text();
+      if (api.isRescuePackage?.(fileText)) {
+        const rescue = await api.decodeRescuePackage?.(fileText);
+        pendingBackupPackage = null;
+        if (elements.backupPreview) elements.backupPreview.hidden = true;
+        showBackupStatus(
+          rescue?.ok
+            ? 'これは救出形式のファイルです。通常の復元には使用できません。'
+            : '救出形式のファイルを確認できません。',
+          true
+        );
+        return;
+      }
+      const result = await api.decodeBackupPackage(fileText);
+      if (!result?.ok) {
+        pendingBackupPackage = null;
+        pendingRestorePlan = null;
+        if (elements.backupPreview) elements.backupPreview.hidden = true;
+        showBackupStatus(backupFailureMessage(result), true);
+        return;
+      }
+      pendingBackupPackage = result.value;
+      renderBackupPreview(result.value);
+      showBackupStatus('内容を確認しました。保存データはまだ変更していません。');
+    } catch (error) {
+      console.error(error);
+      pendingBackupPackage = null;
+      pendingRestorePlan = null;
+      if (elements.backupPreview) elements.backupPreview.hidden = true;
+      showBackupStatus('バックアップファイルを確認できません。', true);
+    }
+  }
+
+  function renderBackupPreview(decoded) {
+    const summary = decoded?.summary || {};
+    const excludedDatasets = (summary.datasets || []).filter(dataset => dataset.state === 'excluded');
+    if (elements.backupPreviewSummary) {
+      const excluded = excludedDatasets.length ? `（補助設定${excludedDatasets.length}件は除外候補）` : '';
+      elements.backupPreviewSummary.textContent = `${summary.presentDatasets || 0}/${summary.totalDatasets || 0}項目に保存データがあります${excluded}`;
+    }
+    if (elements.backupPreviewDatasets) {
+      elements.backupPreviewDatasets.replaceChildren();
+      (summary.datasets || []).forEach(dataset => {
+        const item = document.createElement('li');
+        const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
+        const state = dataset.state === 'present'
+          ? 'あり'
+          : dataset.state === 'excluded' ? '除外候補' : 'なし';
+        item.textContent = `${dataset.key}: ${state}${source}`;
+        elements.backupPreviewDatasets.appendChild(item);
+      });
+    }
+    resetBackupRestoreControls();
+    if (excludedDatasets.length) {
+      if (elements.backupAllowAuxiliaryExcludeWrap) elements.backupAllowAuxiliaryExcludeWrap.hidden = false;
+      if (elements.backupAuxiliaryExcludeNote) elements.backupAuxiliaryExcludeNote.hidden = false;
+    }
+    if (elements.backupPreview) elements.backupPreview.hidden = false;
+  }
+
+  function resetBackupRestoreControls() {
+    if (elements.backupRestorePlan) elements.backupRestorePlan.hidden = true;
+    if (elements.backupRestorePlanSummary) elements.backupRestorePlanSummary.textContent = '';
+    elements.backupRestorePlanDatasets?.replaceChildren();
+    if (elements.backupPrepareRestore) {
+      elements.backupPrepareRestore.hidden = false;
+      elements.backupPrepareRestore.disabled = false;
+    }
+    if (elements.backupApplyRestore) {
+      elements.backupApplyRestore.hidden = true;
+      elements.backupApplyRestore.disabled = false;
+    }
+    if (elements.backupRetryRecovery) {
+      elements.backupRetryRecovery.hidden = true;
+      elements.backupRetryRecovery.disabled = false;
+    }
+    if (elements.backupReload) elements.backupReload.hidden = true;
+    if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = true;
+    if (elements.backupCancel) elements.backupCancel.hidden = false;
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = false;
+    if (elements.backupAllowAuxiliaryExcludeWrap) elements.backupAllowAuxiliaryExcludeWrap.hidden = true;
+    if (elements.backupAllowAuxiliaryExclude) {
+      elements.backupAllowAuxiliaryExclude.checked = false;
+      elements.backupAllowAuxiliaryExclude.disabled = false;
+    }
+    if (elements.backupAuxiliaryExcludeNote) elements.backupAuxiliaryExcludeNote.hidden = true;
+  }
+
+  function restorePendingBackupPreview() {
+    if (pendingBackupPackage) {
+      renderBackupPreview(pendingBackupPackage);
+      return;
+    }
+    resetBackupRestoreControls();
+    if (elements.backupPreview) elements.backupPreview.hidden = true;
+  }
+
+  function renderRestorePlan(plan) {
+    const summary = plan?.summary || {};
+    if (elements.backupRestorePlanSummary) {
+      const display = plan?.includeDisplaySettings ? '表示設定も復元' : '表示設定は維持';
+      const excluded = plan?.excludedAuxiliaryKeys?.length
+        ? `・補助設定${plan.excludedAuxiliaryKeys.length}件は現在値を維持`
+        : '';
+      elements.backupRestorePlanSummary.textContent = `${plan?.affectedEntryCount || 0}項目を適用（${display}）${excluded}`;
+    }
+    if (elements.backupRestorePlanDatasets) {
+      elements.backupRestorePlanDatasets.replaceChildren();
+      (summary.datasets || [])
+        .filter(dataset => plan?.datasetKeys?.includes(dataset.key))
+        .forEach(dataset => {
+           const item = document.createElement('li');
+           const source = dataset.entries?.length ? `（${dataset.entries.join('・')}）` : '';
+           const state = dataset.state === 'present'
+             ? '上書き'
+             : dataset.state === 'excluded' ? '現在値を維持（除外）' : '削除';
+           item.textContent = `${dataset.key}: ${state}${source}`;
+           elements.backupRestorePlanDatasets.appendChild(item);
+         });
+      (summary.datasets || [])
+        .filter(dataset => dataset.state === 'excluded' && plan?.excludedAuxiliaryKeys?.includes(dataset.key))
+        .forEach(dataset => {
+          const item = document.createElement('li');
+          item.textContent = `${dataset.key}: 現在値を維持（明示確認済みの除外）`;
+          elements.backupRestorePlanDatasets.appendChild(item);
+        });
+    }
+    if (elements.backupRestorePlan) elements.backupRestorePlan.hidden = false;
+    if (elements.backupPrepareRestore) elements.backupPrepareRestore.hidden = true;
+    if (elements.backupApplyRestore) {
+      elements.backupApplyRestore.hidden = false;
+      elements.backupApplyRestore.disabled = false;
+    }
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = true;
+    if (elements.backupAllowAuxiliaryExclude) elements.backupAllowAuxiliaryExclude.disabled = true;
+  }
+
+  async function prepareBackupRestore() {
+    if (!pendingBackupPackage || pendingRestoreMaintenance) return;
+    if (!storageRuntime) {
+      showBackupStatus('保存機能の準備が完了していません。', true);
+      return;
+    }
+    const button = elements.backupPrepareRestore;
+    if (button) button.disabled = true;
+    showBackupStatus('復元対象を再確認しています。編集中の下書きを保護します…');
+    let maintenance = null;
+    try {
+      const begun = await storageRuntime.beginMaintenance('restore');
+      if (!begun?.ok) {
+        showBackupStatus(backupFailureMessage(begun), true);
+        return;
+      }
+      maintenance = begun.value;
+      const planned = await maintenance.planRestore(pendingBackupPackage, {
+        includeDisplaySettings: elements.backupIncludeDisplay?.checked !== false,
+        allowAuxiliaryExclusion: elements.backupAllowAuxiliaryExclude?.checked === true
+      });
+      if (!planned?.ok) {
+        const cancelled = await maintenance.cancel();
+        if (!cancelled?.ok) showBackupStatus(backupFailureMessage(cancelled), true);
+        showBackupStatus(backupFailureMessage(planned), true);
+        return;
+      }
+      pendingRestoreMaintenance = maintenance;
+      pendingRestorePlan = planned.value;
+      renderRestorePlan(planned.value);
+      showBackupStatus('復元対象を確認しました。最終ボタンを押すまで保存データは置き換えません。');
+    } catch (error) {
+      console.error(error);
+      if (maintenance) {
+        const cancelled = await maintenance.cancel();
+        if (!cancelled?.ok) showBackupStatus(backupFailureMessage(cancelled), true);
+      }
+      showBackupStatus('復元対象を確認できませんでした。', true);
+    } finally {
+      if (button && !pendingRestoreMaintenance) button.disabled = false;
+    }
+  }
+
+  function showRecoveryControls() {
+    if (elements.backupRetryRecovery) {
+      elements.backupRetryRecovery.hidden = false;
+      elements.backupRetryRecovery.disabled = false;
+    }
+    if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = false;
+  }
+
+  async function applyBackupRestore() {
+    if (!pendingRestoreMaintenance || !pendingRestorePlan) return;
+    const button = elements.backupApplyRestore;
+    if (button) button.disabled = true;
+    if (elements.backupPrepareRestore) elements.backupPrepareRestore.disabled = true;
+    showBackupStatus('復元を適用しています。完了確認までお待ちください…');
+    try {
+      const result = await pendingRestoreMaintenance.applyRestore(pendingRestorePlan);
+      if (result?.ok) {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        if (elements.backupPrepareRestore) elements.backupPrepareRestore.hidden = true;
+        if (elements.backupApplyRestore) elements.backupApplyRestore.hidden = true;
+        if (elements.backupCancel) elements.backupCancel.hidden = true;
+    if (elements.backupIncludeDisplay) elements.backupIncludeDisplay.disabled = true;
+    if (elements.backupAllowAuxiliaryExclude) elements.backupAllowAuxiliaryExclude.disabled = true;
+        if (elements.backupReload) elements.backupReload.hidden = false;
+        showBackupStatus('復元が完了しました。再読み込みして新しい保存状態を起動してください。');
+        return;
+      }
+
+      const cancelled = await pendingRestoreMaintenance.cancel();
+      if (cancelled?.ok) {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        restorePendingBackupPreview();
+        showBackupStatus(`${backupFailureMessage(result)} 元の状態へ戻しました。`, true);
+      } else {
+        showRecoveryControls();
+        showBackupStatus(`${backupFailureMessage(result)} 復旧処理が必要です。`, true);
+      }
+    } catch (error) {
+      console.error(error);
+      showRecoveryControls();
+      showBackupStatus('復元結果を確認できません。独立復旧入口を確認してください。', true);
+    } finally {
+      if (button && pendingRestoreMaintenance) button.disabled = false;
+    }
+  }
+
+  async function retryBackupRecovery() {
+    if (!pendingRestoreMaintenance?.recover) return;
+    if (elements.backupRetryRecovery) elements.backupRetryRecovery.disabled = true;
+    showBackupStatus('復旧状態を確認しています…');
+    try {
+      const result = await pendingRestoreMaintenance.recover();
+      if (result?.ok && result.value?.phase === 'complete') {
+        pendingRestoreMaintenance = null;
+        pendingRestorePlan = null;
+        if (elements.backupCancel) elements.backupCancel.hidden = true;
+        if (elements.backupRetryRecovery) elements.backupRetryRecovery.hidden = true;
+        if (elements.backupRecoveryLink) elements.backupRecoveryLink.hidden = true;
+        if (elements.backupReload) elements.backupReload.hidden = false;
+        showBackupStatus('復元後の復旧処理が完了しました。再読み込みしてください。');
+        return;
+      }
+      if (result?.ok && result.value?.phase === 'rolled-back') {
+        const cancelled = await pendingRestoreMaintenance.cancel();
+        if (cancelled?.ok) {
+          pendingRestoreMaintenance = null;
+          pendingRestorePlan = null;
+          restorePendingBackupPreview();
+          showBackupStatus('復旧して元の状態へ戻しました。', true);
+          return;
+        }
+      }
+      showRecoveryControls();
+      showBackupStatus(backupFailureMessage(result), true);
+    } catch (error) {
+      console.error(error);
+      showRecoveryControls();
+      showBackupStatus('復旧結果を確認できません。', true);
+    } finally {
+      if (elements.backupRetryRecovery && pendingRestoreMaintenance) {
+        elements.backupRetryRecovery.disabled = false;
+      }
+    }
+  }
+
+  async function cancelBackupPreview() {
+    if (pendingRestoreMaintenance) {
+      const cancelled = await pendingRestoreMaintenance.cancel();
+      if (!cancelled?.ok) {
+        showRecoveryControls();
+        showBackupStatus('復元処理を閉じられません。独立復旧入口で確認してください。', true);
+        return;
+      }
+      pendingRestoreMaintenance = null;
+      pendingRestorePlan = null;
+    }
+    pendingBackupPackage = null;
+    pendingRestorePlan = null;
+    if (elements.backupPreview) elements.backupPreview.hidden = true;
+    if (elements.backupImportFile) elements.backupImportFile.value = '';
+    if (elements.backupCancel) elements.backupCancel.hidden = false;
+    showBackupStatus('ファイル確認を取り消しました。保存データは変更されていません。');
+  }
+
+  function formatStateFileSize(bytes) {
+    const size = Math.max(0, Number(bytes) || 0);
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+    if (size >= 1024) return `${Math.round(size / 1024)} KB`;
+    return `${size} B`;
+  }
+
+  function parseImportedState(payload) {
+    if (!payload || typeof payload !== 'object') throw new Error('Invalid payload');
+    if (payload.schema && payload.schema !== EXPORT_SCHEMA) throw new Error('Unknown schema');
+    if (Number(payload.version || 1) > EXPORT_VERSION) throw new Error('Unsupported version');
+    if (payload.kind && payload.kind !== 'slot') throw new Error('Unsupported export kind');
+    const source = payload.snapshot || payload.state?.current || payload.current || payload.state || payload;
+    normalizeStateSnapshot(source);
+    return { kind: 'slot', current: cloneJson(source) };
+  }
+
+  async function applyImportedState(imported, slot = view.stateSlot) {
+    const safeSlot = normalizeStateSlot(slot);
+    const basic = DATA.getById('basicInfo', imported.current.activeId);
+    const snapshot = {
+      ...cloneJson(imported.current),
+      savedAt: new Date().toISOString(),
+      slotName: String(
+        imported.current.slotName
+        || imported.current.name
+        || appState.savedStates[String(safeSlot)]?.slotName
+        || ''
+      ).trim(),
+      apostleName: basic?.使徒名 || '',
+      activeStateSlot: safeSlot
+    };
+    const expectedRevision = safeSlot === view.stateSlot
+      ? stateSlotBaseRevision
+      : getSharedSlotRevision(safeSlot, sharedStateSlotStore);
+    let result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, expectedRevision));
+    if (result.conflict) {
+      const overwrite = window.confirm(
+        `スロット${safeSlot}は別タブで更新されています。\n` +
+        'インポート内容で上書きしますか？'
+      );
+      if (!overwrite) {
+        syncSharedStateSlotStore(result.latest);
+        renderStateManager();
+        showStateStatus('インポートを中止しました', true);
+        return false;
+      }
+      result = await withStateSlotStoreLock(() => writeSharedStateSlot(safeSlot, snapshot, result.currentRevision, { force: true }));
+    }
+    view.stateSlot = safeSlot;
+    appState.activeStateSlot = view.stateSlot;
+    stateSlotBaseRevision = result.slotRevision;
+    stateExternalConflict = null;
+    applyStateSnapshot(snapshot, { activeStateSlot: safeSlot, resetResearchBrowseStage: true });
+    return true;
+  }
+
+  function normalizeStateSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') throw new Error('Invalid state');
+    const apostles = snapshot.apostles && typeof snapshot.apostles === 'object'
+      ? cloneJson(snapshot.apostles)
+      : {};
+    applyComparisonStatsStore(apostles, snapshot.comparisonStats);
+    Object.values(apostles).forEach(state => {
+      for (const mode of ['current', 'planned']) {
+        if (state?.statSnapshots?.[mode]?.stats) state.statSnapshots[mode].stats.combatPower = null;
+      }
+      if (state?.finalStats) state.finalStats.combatPower = null;
+    });
+    const research = snapshot.research && typeof snapshot.research === 'object'
+      ? cloneJson(snapshot.research)
+      : {};
+    const cards = snapshot.cards && typeof snapshot.cards === 'object'
+      ? migrateCardStateMap(cloneJson(snapshot.cards))
+      : {};
+    const formation = snapshot.formation && typeof snapshot.formation === 'object'
+      ? normalizeFormationState(snapshot.formation)
+      : createDefaultFormation();
+    if (!Object.keys(apostles).length && !snapshot.activeId) throw new Error('Empty state');
+    return {
+      slotName: snapshot.slotName || snapshot.name || '',
+      activeId: getValidApostleId(snapshot.activeId),
+      activeStateSlot: snapshot.activeStateSlot ? normalizeStateSlot(snapshot.activeStateSlot) : null,
+      boardEditMode: snapshot.boardEditMode === 'plan' ? 'plan' : 'current',
+      boardGlobalMode: snapshot.boardGlobalMode === 'plan' ? 'plan' : 'current',
+      boardDraft: snapshot.boardDraft && typeof snapshot.boardDraft === 'object' ? cloneJson(snapshot.boardDraft) : null,
+      globalBoardDrafts: snapshot.globalBoardDrafts && typeof snapshot.globalBoardDrafts === 'object' ? cloneJson(snapshot.globalBoardDrafts) : {},
+      dashboardView: normalizeDashboardViewName(snapshot.dashboardView),
+      globalSettingPanel: normalizeGlobalSettingPanelName(snapshot.globalSettingPanel),
+      cardManagerKind: snapshot.cardManagerKind === 'spell' ? 'spell' : 'artifact',
+      apostles,
+      research,
+      cards,
+      formation,
+      totalCombatPower: 0,                                                                               
+      activeFormationPresetId: snapshot.activeFormationPresetId || '',
+      savedFormations: Array.isArray(snapshot.savedFormations)
+        ? normalizeFormationPresetList(snapshot.savedFormations)
+        : null
+    };
+  }
+
+  function normalizeFormationPresetList(value) {
+    if (!Array.isArray(value)) return [];
+    const usedLegacySlots = new Set();
+    return value
+      .filter(item => item && typeof item === 'object' && item.formation)
+      .map(item => {
+        let favoriteSlot = normalizeFavoriteSlot(item.favoriteSlot);
+        if (!favoriteSlot && item.favorite) {
+          favoriteSlot = createNumberOptions(1, 6).find(option => !usedLegacySlots.has(option.value))?.value || 0;
+        }
+        if (favoriteSlot) usedLegacySlots.add(favoriteSlot);
+        return {
+          id: item.id || `formation_${Math.random().toString(36).slice(2, 9)}`,
+          name: item.name || '無題の編成',
+          tags: Array.isArray(item.tags) ? item.tags.filter(Boolean) : parseFormationTags(item.tags || ''),
+          favoriteSlot,
+          savedAt: item.savedAt || '',
+          formation: normalizeFormationState(item.formation)
+        };
+      });
+  }
+
+  function normalizeFavoriteSlot(value) {
+    const num = Number(value);
+    if (!Number.isInteger(num) || num < 1 || num > 6) return 0;
+    return num;
+  }
+
+  function getValidApostleId(id) {
+    return DATA.getById('basicInfo', id)?.id || DATA.sheets.basicInfo[0]?.id || '';
+  }
+
+  function cloneJson(value) {
+    return JSON.parse(JSON.stringify(value || {}));
+  }
+
+  function formatSavedAt(value) {
+    if (!value) return '日時不明';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '日時不明';
+    return date.toLocaleString('ja-JP');
+  }
+
+  function historyLocator() {
+    return { activeId: view.id, dashboardView: getActiveDashboardViewName(),
+      globalSettingPanel: getActiveGlobalSettingPanelName(), cardManagerKind: view.cardManager.kind,
+      board: view.board, boardEditMode: view.boardEditMode, boardGlobalMode: view.boardGlobalMode };
+  }
+
+  function boardDraftKey(id, mode) { return `${id}:${mode === 'plan' ? 'plan' : 'current'}`; }
+
+  function projectedBoardDraftKeys() {
+    const keys = Object.entries(globalBoardDrafts).map(([id, draft]) => boardDraftKey(id, draft.mode));
+    if (boardDraft?.apostleId) keys.push(boardDraftKey(boardDraft.apostleId, boardDraft.mode));
+    return [...new Set(keys)];
+  }
+
+  function stashBoardWorkspaceDrafts(removed = []) {
+    removed.forEach(key => { delete boardWorkspaceDrafts[key]; });
+    Object.entries(globalBoardDrafts).forEach(([id, draft]) => {
+      boardWorkspaceDrafts[boardDraftKey(id, draft.mode)] = cloneJson({ ...draft, apostleId: id });
+    });
+    if (boardDraft?.apostleId) boardWorkspaceDrafts[boardDraftKey(boardDraft.apostleId, boardDraft.mode)] = cloneJson(boardDraft);
+  }
+
+  function projectBoardWorkspaceDrafts() {
+    globalBoardDrafts = {};
+    Object.values(boardWorkspaceDrafts).forEach(draft => {
+      if (draft.mode === view.boardGlobalMode) globalBoardDrafts[draft.apostleId] = draft;
+    });
+    boardDraft = boardWorkspaceDrafts[boardDraftKey(view.id, view.boardEditMode)]
+      ? boardWorkspaceDrafts[boardDraftKey(view.id, view.boardEditMode)] : null;
+  }
+
+  function historyScope(label) {
+    if (['使徒選択', '画面遷移', 'ボード階層変更', 'ボードモード変更', '全体ボードモード変更'].includes(label)) return 'navigation';
+    if (['編成保存', '編成上書き', '編成お気に入り変更', '編成削除'].includes(label)) return 'boundary';
+    if (label.includes('ボード')) return 'board';
+    if (label.includes('研究')) return 'research';
+    if (label.startsWith('カード')) return 'cards';
+    if (label.includes('編成') || label.includes('性格') || label.includes('教主')) return 'formation';
+    if (label.includes('装備')) return 'equipment';
+    return 'growth';
+  }
+
+  function captureHistoryScope(scope) {
+    if (scope === 'navigation') return historyLocator();
+    if (scope === 'formation') return { formation: cloneJson(appState.formation), activeFormationPresetId: appState.activeFormationPresetId || '' };
+    if (scope === 'research') return { research: cloneJson(appState.research) };
+    if (scope === 'cards') return { cards: cloneJson(appState.cards) };
+    const fields = scope === 'board' ? HISTORY_BOARD_FIELDS : scope === 'equipment' ? ['equipment'] : HISTORY_GROWTH_FIELDS;
+    const apostles = Object.fromEntries((DATA.sheets.basicInfo || []).map(basic => {
+      const id = basic.id;
+      const state = { ...createDefaultApostleState(id), ...(appState.apostles[id] || {}) };
+      const input = Object.fromEntries(fields.filter(field => Object.hasOwn(state, field))
+        .map(field => [field, cloneJson({ value: state[field] }).value]));
+      if (scope === 'board') for (const field of ['boards', 'plannedBoards']) if (input[field]) {
+        const rows = DATA.getById('board', id) || [];
+        Object.entries(input[field]).forEach(([layer, board]) => {
+          board.filled = Object.fromEntries(Object.entries(board.filled || {}).filter(([key, value]) => value
+            && !rows.some(row => String(row.ボード階層) === layer && boardKey(row) === key && row.マス_type === 'スタート')));
+          if (!Object.keys(board.filled).length && !(board.targets || []).length) delete input[field][layer];
+        });
+      }
+      return [id, input];
+    }));
+    if (scope !== 'board') return { apostles };
+    stashBoardWorkspaceDrafts();
+    const drafts = Object.fromEntries(Object.entries(boardWorkspaceDrafts).filter(([, draft]) => {
+      const state = appState.apostles[draft.apostleId];
+      const baseline = draft.mode === 'plan' ? state?.plannedBoards || state?.boards : state?.boards;
+      return hasBoardSnapshotDiff(baseline || {}, draft.boards || {});
+    }));
+    return { apostles, drafts: cloneJson(drafts) };
+  }
+
+  function historyChangedValues(before, after) {
+    const left = {}, right = {};
+    for (const key of Object.keys(before)) {
+      if (['apostles', 'cards', 'drafts'].includes(key)) {
+        const changedIds = [...new Set([...Object.keys(before[key] || {}), ...Object.keys(after[key] || {})])]
+          .filter(id => !window.TRICKCAL_STAT_HISTORY.same(before[key]?.[id] ?? null, after[key]?.[id] ?? null));
+        if (changedIds.length) {
+          left[key] = Object.fromEntries(changedIds.map(id => [id, before[key]?.[id] ?? null]));
+          right[key] = Object.fromEntries(changedIds.map(id => [id, after[key]?.[id] ?? null]));
+        }
+      } else if (!window.TRICKCAL_STAT_HISTORY.same(before[key], after[key])) {
+        left[key] = before[key]; right[key] = after[key];
+      }
+    }
+    return [left, right];
+  }
+
+  function mergeHistoryGroup(open, entry) {
+    const merged = cloneJson(open);
+    for (const key of ['apostles', 'cards', 'drafts']) {
+      if (!entry.before[key] && !entry.after[key]) continue;
+      merged.before[key] ||= {}; merged.after[key] ||= {};
+      for (const id of Object.keys(entry.before[key] || {})) {
+        if (!Object.hasOwn(merged.before[key], id)) merged.before[key][id] = entry.before[key][id];
+        merged.after[key][id] = entry.after[key][id];
+      }
+    }
+    return merged;
+  }
+
+  function beginHistoryAction(label) {
+    if (historyState.isRestoring || historyState.suspended || historyState.blocked) return null;
+    closeHistoryInputs();
+    cancelObsoleteStatCalculation();
+    const scope = historyScope(label || '変更');
+    const grouped = ['ボードマス変更', 'ボード特殊マス変更', '全体ボード特殊マス変更'].includes(label);
+    if (!grouped) historyEngine.closeGroup();
+    stashBoardWorkspaceDrafts();
+    return { label: label || '変更', scope, context: historyLocator(), before: scope === 'boundary'
+      ? stableStringify({ savedFormations: appState.savedFormations, activeFormationPresetId: appState.activeFormationPresetId }) : captureHistoryScope(scope),
+      projectedDraftKeys: projectedBoardDraftKeys(), grouped };
+  }
+
+  function commitHistoryAction(action) {
+    if (!action || historyState.isRestoring || historyState.suspended) return;
+    if (action.scope === 'boundary') {
+      if (action.before === stableStringify({ savedFormations: appState.savedFormations, activeFormationPresetId: appState.activeFormationPresetId })) return;
+      const persisted = saveState({ flush: true, refreshSnapshots: false });
+      clearHistory();
+      if (!persisted) showHistoryStatus('保存編成の変更は反映しましたが、自動保存に失敗しました。再読込前にバックアップを確認してください。', true);
+      return;
+    }
+    if (action.scope === 'board') {
+      const remaining = projectedBoardDraftKeys();
+      stashBoardWorkspaceDrafts(action.projectedDraftKeys.filter(key => !remaining.includes(key)));
+    }
+    const after = captureHistoryScope(action.scope);
+    const [beforeValues, afterValues] = action.scope === 'navigation'
+      ? [action.before, after] : historyChangedValues(action.before, after);
+    const groupKey = action.grouped ? `${action.scope}:${stableStringify(action.context)}:${action.groupTarget || ''}` : '';
+    historyEngine.record({ kind: action.scope === 'navigation' ? 'navigation' : 'edit', scope: action.scope,
+      label: action.label, context: action.context, before: beforeValues, after: afterValues }, groupKey);
+    if (action.scope === 'board') saveState({ refreshSnapshots: false });
+  }
+
+  function commitFormationCoinHistory(input) {
+    const action = formationCoinHistoryActions.get(input);
+    if (!action) return;
+    formationCoinHistoryActions.delete(input);
+    commitHistoryAction(action);
+  }
+
+  function clearHistory() {
+    historyState.blocked = false;
+    formationCoinHistoryActions.clear(); apostleBulkLevelHistoryActions.clear();
+    cancelObsoleteStatCalculation();
+    historyEngine.reset();
+  }
+
+  function closeHistoryInputs() {
+    if (isClosingHistoryInputs) return;
+    isClosingHistoryInputs = true;
+    try {
+      [...formationCoinHistoryActions.keys()].forEach(commitFormationCoinHistory);
+      [...apostleBulkLevelHistoryActions.keys()].forEach(commitApostleBulkLevelInput);
+    } finally { isClosingHistoryInputs = false; }
+  }
+
+  function cancelObsoleteStatCalculation() {
+    statCalculationGeneration += 1;
+    if (statSnapshotRefreshWorkTimer) window.clearTimeout(statSnapshotRefreshWorkTimer);
+    statSnapshotRefreshWorkTimer = 0;
+    isRefreshingStatSnapshots = false;
+  }
+
+  function tryApplyExternalApostleSelection() {
+    if (!pendingExternalApostleId || historyInteractionBlocked()
+      || document.activeElement?.matches?.('input, textarea, select')
+      || document.activeElement?.isContentEditable) return;
+    closeHistoryInputs();
+    stashBoardWorkspaceDrafts();
+    clearHistory();
+    view.id = pendingExternalApostleId; pendingExternalApostleId = '';
+    appState.activeId = view.id;
+    ensureApostleState(view.id); projectBoardWorkspaceDrafts();
+    elements.apostleSelect.value = view.id;
+    syncControlsFromState(); render(); saveState({ refreshSnapshots: false });
+    document.dispatchEvent(new CustomEvent('stat-state-applied'));
+    showHistoryStatus('別画面の使徒選択を反映しました。取り消し履歴をリセットしました。');
+  }
+
+  function undoHistoryAction() {
+    runHistoryRestore('undo');
+  }
+
+  function redoHistoryAction() {
+    runHistoryRestore('redo');
+  }
+
+  function historyInteractionBlocked() {
+    return historyState.blocked || stateSlotSavePending || historyState.suspended > 0
+      || !!document.querySelector('dialog[open]') || !document.querySelector('.dashboard-main');
+  }
+
+  function applyHistoryValues(scope, values) {
+    validateHistoryValues(scope, values);
+    if (values.apostles) {
+      const fields = scope === 'board' ? HISTORY_BOARD_FIELDS : scope === 'equipment' ? ['equipment'] : HISTORY_GROWTH_FIELDS;
+      Object.entries(values.apostles).forEach(([id, data]) => {
+        const state = ensureApostleState(id);
+        fields.forEach(field => { delete state[field]; });
+        if (data) Object.assign(state, cloneJson(data));
+        delete state.statSnapshots; delete state.finalStats;
+        ensureApostleState(id);
+      });
+    }
+    for (const key of ['cards', 'drafts']) if (values[key]) {
+      const destination = key === 'cards' ? appState.cards : boardWorkspaceDrafts;
+      Object.entries(values[key]).forEach(([id, data]) => {
+        if (data === null) delete destination[id]; else destination[id] = cloneJson(data);
+      });
+    }
+    if (Object.hasOwn(values, 'research')) appState.research = cloneJson(values.research);
+    if (Object.hasOwn(values, 'formation')) appState.formation = cloneJson(values.formation);
+    if (Object.hasOwn(values, 'activeFormationPresetId')) appState.activeFormationPresetId = values.activeFormationPresetId;
+    if (scope === 'board') projectBoardWorkspaceDrafts();
+  }
+
+  function applyHistoryNavigation(locator) {
+    stashBoardWorkspaceDrafts();
+    view.id = locator.activeId; appState.activeId = view.id;
+    view.board = locator.board; view.boardEditMode = locator.boardEditMode; view.boardGlobalMode = locator.boardGlobalMode;
+    projectBoardWorkspaceDrafts();
+    applyDashboardViewSnapshot(locator);
+    elements.apostleSelect.value = view.id;
+  }
+
+  function validateHistoryValues(scope, values) {
+    const permitted = scope === 'board' ? ['apostles', 'drafts'] : scope === 'cards' ? ['cards']
+      : scope === 'formation' ? ['formation', 'activeFormationPresetId'] : scope === 'research' ? ['research'] : ['apostles'];
+    if (!values || typeof values !== 'object' || Object.keys(values).some(key => !permitted.includes(key))) throw new Error('Invalid history scope');
+    const finite = value => {
+      if (typeof value === 'number' && !Number.isFinite(value)) throw new Error('Invalid history number');
+      if (value && typeof value === 'object') Object.values(value).forEach(finite);
+    };
+    finite(values);
+    const fields = scope === 'board' ? HISTORY_BOARD_FIELDS : scope === 'equipment' ? ['equipment'] : HISTORY_GROWTH_FIELDS;
+    Object.entries(values.apostles || {}).forEach(([id, data]) => {
+      if (!DATA.getById('basicInfo', id) || (data && Object.keys(data).some(key => !fields.includes(key)))) throw new Error('Invalid history apostle');
+    });
+    Object.entries(values.drafts || {}).forEach(([key, draft]) => {
+      if (draft && (!DATA.getById('basicInfo', draft.apostleId)
+        || !['current', 'plan'].includes(draft.mode) || boardDraftKey(draft.apostleId, draft.mode) !== key)) throw new Error('Invalid history draft');
+    });
+  }
+
+  function runHistoryRestore(direction) {
+    if (historyInteractionBlocked()) return;
+    closeHistoryInputs();
+    cancelObsoleteStatCalculation();
+    historyState.isRestoring = true;
+    try {
+      const result = historyEngine[direction]((action, operation) => {
+        const expected = operation === 'undo' ? action.after : action.before;
+        const next = operation === 'undo' ? action.before : action.after;
+        if (action.kind === 'navigation') {
+          if (!window.TRICKCAL_STAT_HISTORY.same(historyLocator(), expected)) return { applied: false, reason: 'context' };
+          applyHistoryNavigation(next);
+        } else {
+          if (!window.TRICKCAL_STAT_HISTORY.same(historyLocator(), action.context)) return { applied: false, reason: 'context' };
+          const current = captureHistoryScope(action.scope);
+          const projected = {};
+          for (const key of Object.keys(expected)) {
+            projected[key] = ['apostles', 'cards', 'drafts'].includes(key)
+              ? Object.fromEntries(Object.keys(expected[key]).map(id => [id, current[key]?.[id] ?? null])) : current[key];
+          }
+          if (!window.TRICKCAL_STAT_HISTORY.same(projected, expected)) return { applied: false, reason: 'stale' };
+          try { validateHistoryValues(action.scope, next); }
+          catch (_) { return { applied: false, reason: 'validation' }; }
+          applyHistoryValues(action.scope, next);
+        }
+        syncControlsFromState(); renderResearchControls(); render();
+        if (action.kind === 'navigation') document.dispatchEvent(new CustomEvent('stat-state-applied'));
+        return { applied: true };
+      });
+      if (result.applied) {
+        const persisted = saveState({ flush: true });
+        showHistoryStatus(persisted ? `${result.label}を${direction === 'undo' ? '元に戻しました' : 'やり直しました'}`
+          : '編集は反映しましたが、自動保存に失敗しました。再読込前に保存状態を確認してください。', !persisted);
+      } else if (!['empty', 'busy'].includes(result.reason)) showHistoryStatus('表示や編集内容が変わっているため、この履歴は戻せません。', true);
+    } catch (error) {
+      historyState.blocked = true;
+      console.error('history restore failed', error);
+      showHistoryStatus('取り消し処理を完了できませんでした。編集内容を確認し、バックアップを保存してください。', true);
+    } finally {
+      historyState.isRestoring = false;
+      updateHistoryControls();
+    }
+  }
+
+  function showHistoryStatus(message, isError = false) {
+    let status = document.getElementById('history-status');
+    if (!status) {
+      status = document.createElement('div'); status.id = 'history-status';
+      status.className = 'history-status'; status.setAttribute('role', 'status');
+      status.setAttribute('aria-live', 'polite'); document.body.appendChild(status);
+    }
+    status.textContent = message; status.classList.toggle('is-error', isError);
+    if (!isError) window.setTimeout(() => { if (status.textContent === message) status.textContent = ''; }, 3200);
+  }
+
+  function updateHistoryControls() {
+    const status = historyEngine.status();
+    const undoLabel = status.undoLabel;
+    const redoLabel = status.redoLabel;
+    if (elements.historyUndo) {
+      elements.historyUndo.disabled = !status.canUndo || historyInteractionBlocked();
+      elements.historyUndo.title = undoLabel ? `元に戻す: ${undoLabel}` : '元に戻す';
+      elements.historyUndo.setAttribute('aria-label', elements.historyUndo.title);
+    }
+    if (elements.historyRedo) {
+      elements.historyRedo.disabled = !status.canRedo || historyInteractionBlocked();
+      elements.historyRedo.title = redoLabel ? `やり直す: ${redoLabel}` : 'やり直す';
+      elements.historyRedo.setAttribute('aria-label', elements.historyRedo.title);
+    }
+  }
+
+  function isHistoryShortcutTarget(event) {
+    if (!event.ctrlKey && !event.metaKey) return false;
+    if (event.altKey) return false;
+    const key = String(event.key || '').toLowerCase();
+    return key === 'z' || key === 'y';
+  }
+
+  function shouldIgnoreHistoryShortcut(event) {
+    const target = event.target;
+    if (!(target instanceof Element)) return false;
+    if (target.isContentEditable || target.closest('input, textarea, select')) return true;
+    return false;
+  }
+
+  function handleHistoryShortcut(event) {
+    if (event.repeat || event.isComposing || historyInteractionBlocked() || !isHistoryShortcutTarget(event) || shouldIgnoreHistoryShortcut(event)) return;
+    const key = String(event.key || '').toLowerCase();
+    event.preventDefault();
+    if (key === 'y' || (key === 'z' && event.shiftKey)) redoHistoryAction();
+    else undoHistoryAction();
+  }
+  function showStateStatus(message, isError = false) {
+    window.clearTimeout(stateStatusTimer);
+    elements.stateStatus.textContent = message;
+    elements.stateStatus.classList.toggle('is-error', isError);
+    stateStatusTimer = window.setTimeout(() => {
+      if (stateSlotSavePending) return;
+      elements.stateStatus.textContent = '';
+      elements.stateStatus.classList.remove('is-error');
+    }, 3200);
+  }
+
+  function render(options = {}) {
+    if (renderTimer) {
+      window.clearTimeout(renderTimer);
+      renderTimer = 0;
+    }
+    const basic = DATA.getById('basicInfo', view.id);
+    const equipment = DATA.getById('equipment', view.id);
+    const rankBonus = DATA.getById('rankGlobalBonuses', view.id);
+    const boardRows = DATA.getById('board', view.id) || [];
+    const totals = createEmptyTotals();
+    const breakdown = createBreakdownTotals();
+    const globalPercentBonuses = createEmptyTotals();
+    const globalPercentRates = createEmptyTotals();
+    const activeEffects = [];
+    normalizeFollowForApostle(basic);
+
+    elements.boardTabs.forEach(button => {
+      const board = Number(button.dataset.board) || 1;
+      const unlocked = isBoardLayerUnlocked(board);
+      button.classList.toggle('is-active', board === view.board);
+      button.classList.toggle('is-locked', !unlocked);
+      button.disabled = false;
+      button.title = unlocked ? `ボード${board}` : `ボード${board}（未解放・閲覧のみ）`;
+    });
+    elements.boardStage.classList.remove('board-layer-1', 'board-layer-2', 'board-layer-3');
+    elements.boardStage.classList.add(`board-layer-${view.board}`);
+    elements.boardStage.classList.toggle('is-vertical', view.boardOrientation === 'vertical');
+    elements.boardStage.classList.toggle('is-plan-mode', view.boardEditMode === 'plan');
+    elements.boardStage.classList.toggle('is-preview', !isBoardLayerUnlocked(view.board));
+    elements.boardOrientationButtons.forEach(button => {
+      const active = button.dataset.boardOrientation === view.boardOrientation;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', String(active));
+    });
+    elements.fillBoard.disabled = false;
+    elements.clearBoard.disabled = false;
+    const draftChanged = hasBoardDraftChanges();
+    const planMode = view.boardEditMode === 'plan';
+    elements.boardModeCurrent.classList.toggle('is-active', !planMode);
+    elements.boardModePlan.classList.toggle('is-active', planMode);
+    elements.confirmBoardDraft.hidden = planMode;
+    elements.confirmBoardDraft.disabled = planMode || !draftChanged;
+    elements.saveBoardPlan.disabled = !draftChanged;
+    elements.saveBoardPlan.textContent = planMode ? '予定を保存' : (hasSavedBoardPlan() ? '予定に追加保存' : '予定として保存');
+    elements.cancelBoardDraft.disabled = !hasBoardDraft() && !(planMode && hasSavedBoardPlan());
+    elements.cancelBoardDraft.textContent = hasBoardDraft() ? '編集を取消' : '予定を削除';
+    syncBoardShortcutOffToggle();
+
+    renderProfile(basic);
+    renderApostleFavoriteCard(basic);
+    renderSkillInfoList(basic);
+    renderAsideInfoList(basic);
+    renderAsideTierList(basic);
+    applyBaseStats(basic, totals, activeEffects, breakdown);
+    applyRankUpBonuses(basic, totals, activeEffects, breakdown);
+    renderEquipment(equipment, totals, breakdown);
+    applyBondBonus(totals, currentApostleState().bond, activeEffects, breakdown);
+    applyAsideManifestBonus(basic, totals, activeEffects, breakdown);
+    renderBaseTypes(basic);
+    renderRankBonuses(rankBonus);
+    applyAllRankGlobalBonuses(totals, activeEffects, breakdown);
+    renderActiveResearch(basic, totals, activeEffects, breakdown);
+    if (!options.skipActiveGlobal && isDashboardPanelActive('global')) renderActiveGlobalSettingPanel();
+    if (isDashboardPanelActive('formation')) renderFormation({ deferSpellCatalog: options.deferFormationSpellCatalog });
+    if (isDashboardPanelActive('board')) {
+      renderBoardSpecial(boardRows);
+      renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
+    }
+    collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
+    collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
+    collectFollowGlobalPercent(activeEffects);
+    applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
+    updateStatSnapshots(basic, totals, breakdown, globalPercentRates);
+    renderTotals(totals, activeEffects);
+    renderStatBreakdown(breakdown, totals, globalPercentRates);
+  }
+
+
+  function scheduleRender(delay = 80) {
+    if (renderTimer) window.clearTimeout(renderTimer);
+    renderTimer = window.setTimeout(() => {
+      renderTimer = 0;
+      render();
+    }, Math.max(0, Number(delay) || 0));
+  }
+
+  function renderProfileQuick() {
+    const basic = DATA.getById('basicInfo', view.id);
+    renderProfile(basic);
+  }
+
+  function renderSkillLevelChange() {
+    const basic = DATA.getById('basicInfo', view.id);
+    renderProfile(basic);
+    renderSkillInfoList(basic);
+    renderApostleFavoriteCard(basic);
+  }
+
+  function persistCardManagerChange(cardId = '') {
+    saveState({ refreshSnapshots: false });
+    renderApostleFavoriteCard(DATA.getById('basicInfo', view.id));
+    if (cardId && updateCardManagerCardInPlace(cardId)) return;
+    renderCardManager();
+  }
+
+  function updateCardManagerCardInPlace(cardId) {
+    const kind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
+    if (view.cardManager.ownedOnly) return false;
+    const grid = elements.cardManagerGrid?.querySelector(`[data-card-manager-kind-grid="${kind}"]`);
+    const cardElement = Array.from(grid?.querySelectorAll('.resource-card[data-card-id]') || [])
+      .find(element => element.dataset.cardId === cardId);
+    const cards = getCardManagerCards(kind);
+    const rows = getVisibleCardManagerCards(kind);
+    const card = rows.find(item => item.id === cardId);
+    if (!grid || !cardElement || !card) return false;
+    const index = rows.findIndex(item => item.id === cardId);
+    const anchorTop = cardElement.getBoundingClientRect().top;
+    cardElement.outerHTML = renderCardManagerCard(card, Math.max(0, index));
+    grid.dataset.renderKey = getCardManagerRenderKey(kind, rows);
+    renderCardManagerSummary(kind, cards, rows);
+    requestAnimationFrame(() => {
+      const nextCard = Array.from(grid.querySelectorAll('.resource-card[data-card-id]') || [])
+        .find(element => element.dataset.cardId === cardId);
+      if (!nextCard) return;
+      const nextTop = nextCard.getBoundingClientRect().top;
+      if (!Number.isFinite(nextTop)) return;
+      window.scrollBy(0, nextTop - anchorTop);
+    });
+    return true;
+  }
+
+  function renderProfile(basic) {
+    if (!basic) return;
+    const eldain = String(basic.エルダイン || '').trim();
+    const state = currentApostleState();
+    elements.name.innerHTML = `
+      <span class="profile-name-stack">
+        <button type="button" class="profile-grade-name-row" data-profile-grade-cycle aria-label="学年 ${escapeAttr(normalizeGrade(state.grade))}年生。クリックで変更" title="学年 ${escapeAttr(normalizeGrade(state.grade))}年生">
+          ${renderGradeIcons(state.grade)}
+        </button>
+        <span class="profile-name-line">
+          <span>${escapeHtml(basic.使徒名 || basic.id)}</span>
+          ${eldain ? `<span class="apostle-name-tag">${escapeHtml(eldain)}</span>` : ''}
+        </span>
+      </span>
+    `;
+    setProfileVisualClasses(basic, state);
+    elements.meta.innerHTML = `
+      <span class="profile-meta-main">
+        <span class="profile-meta-icons">
+          ${renderApostleInfoBadges(basic, false)}
+          ${basic.攻撃タイプ ? `<img class="apostle-info-badge attack-type" src="img/Attack_${basic.攻撃タイプ === '物理' ? 'phys' : 'mag'}.webp" alt="${escapeAttr(basic.攻撃タイプ)}攻撃" title="${escapeAttr(basic.攻撃タイプ)}攻撃">` : ''}
+        </span>
+        <span class="profile-star-follow-row">
+          <span class="profile-stars profile-stars-editable" aria-label="星${escapeAttr(state.star)}">${renderProfileStarButtons(state.star, basic.レア度)}</span>
+          ${renderProfileFollowButton(basic, state)}
+        </span>
+      </span>
+    `;
+    const chipHtml = `<span class="profile-meta-bottomline">${renderProfileMetaChips(state)}</span>`;
+    if (elements.profileChipRow) {
+      elements.profileChipRow.innerHTML = chipHtml;
+    } else {
+      elements.meta.insertAdjacentHTML('beforeend', chipHtml);
+    }
+
+    renderProfilePortraitCombatPower(currentApostleCombatPower());
+
+    const imagePath = getApostleImagePath(basic.id);
+    if (elements.image.getAttribute('src') !== imagePath) {
+      elements.image.dataset.fallback = 'false';
+      elements.image.src = imagePath;
+    }
+    elements.image.alt = basic.使徒名 || basic.id;
+    renderProfileFollowIcon(basic, state);
+    renderProfileAsideIcon(basic, state);
+  }
+
+  function setProfileVisualClasses(basic, state) {
+    const personalityClasses = ['純粋', '冷静', '狂気', '活発', '憂鬱'].map(name => `personality-${name}`);
+    const equipmentPanel = elements.equipment?.closest('[data-dashboard-panel="equipment"]');
+    elements.profileCard?.classList.remove(...personalityClasses);
+    elements.profileCard?.classList.toggle('is-resonance', getFormationPersonalityResolution(basic, null).isSelectable);
+    const masterOptions = getFormationPersonalityResolution(basic, null).personalityOptions;
+    elements.profileCard?.classList.toggle('has-personality-options', masterOptions.length >= 2 && masterOptions.length < 5);
+    elements.profileCard?.classList.toggle('is-two-tone', masterOptions.length === 2);
+    if (masterOptions.length >= 2 && masterOptions.length < 5) {
+      elements.profileCard?.style.setProperty('--personality-options-bg', window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionGradient(masterOptions));
+      if (masterOptions.length === 2) elements.profileCard?.style.setProperty('--personality-options-frame', window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionFrameGradient(masterOptions));
+      else elements.profileCard?.style.removeProperty('--personality-options-frame');
+    } else {
+      elements.profileCard?.style.removeProperty('--personality-options-bg');
+      elements.profileCard?.style.removeProperty('--personality-options-frame');
+    }
+    if (basic?.性格) elements.profileCard?.classList.add(`personality-${basic.性格}`);
+    if (!equipmentPanel) return;
+    const rankClasses = ['rank-gray', 'rank-green', 'rank-blue', 'rank-purple', 'rank-gold'];
+    equipmentPanel.classList.remove(...personalityClasses, ...rankClasses);
+    if (basic?.性格) equipmentPanel.classList.add(`personality-${basic.性格}`);
+    const rank = Number(state?.rank) || 1;
+    const rankTone = rank >= 9
+      ? 'rank-gold'
+      : rank >= 7
+        ? 'rank-purple'
+        : rank >= 5
+          ? 'rank-blue'
+          : rank >= 3
+            ? 'rank-green'
+            : 'rank-gray';
+    equipmentPanel.classList.add(rankTone);
+  }
+
+  function renderProfileFollowButton(basic, state) {
+    if (isEldainApostle(basic)) return '';
+    const enabled = !!state.follow;
+    return `
+      <button type="button" id="profile-follow-button" class="profile-follow-button ${enabled ? 'is-active' : ''}" aria-pressed="${enabled ? 'true' : 'false'}" title="${enabled ? 'フォロー中: クリックで解除' : 'フォローなし: クリックで適用'}">
+        <img id="profile-follow-icon" src="img/フォロー.webp" alt="">
+        <span>フォロー</span>
+      </button>
+    `;
+  }
+
+  function renderProfileMetaChips(state) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const bondLocked = isBondLockedApostle(basic);
+    const asideRank = getEffectiveAsideRank(basic?.id, state.asideRank);
+    const skills = normalizeSkillLevels(state.skillLevels, asideRank);
+    const chips = [
+      renderProfileMetaSelectChip('Lv', 'level', state.level, createNumberOptions(1, getLevelCapForStar(state.star)), 'level'),
+      renderProfileMetaSelectChip('Rank', 'rank', state.rank, createNumberOptions(1, 9), 'rank'),
+      renderProfileMetaSelectChip('好感度Lv', 'bond', state.bond, createNumberOptions(1, 30), 'bond', bondLocked)
+    ];
+    if (hasAsideEffects(basic?.id)) {
+      chips.push(renderProfileMetaSelectChip('アサイド', 'asideRank', asideRank, [
+        { value: 0, label: '未' },
+        { value: 1, label: 'A1' },
+        { value: 2, label: 'A2' },
+        { value: 3, label: 'A3' }
+      ], 'aside'));
+      if (asideRank) {
+        chips.push(renderProfileMetaSelectChip(
+          'アサイドLv',
+          'asideLevel',
+          normalizeAsideLevelForRank(state.asideLevel, asideRank),
+          createNumberOptions(1, getAsideLevelCap(asideRank)),
+          'aside-level'
+        ));
+      }
+    }
+    chips.push(`
+      <span class="profile-meta-chip profile-meta-chip-skill">
+        <small>SLv</small>
+        <strong class="profile-skill-levels">
+          ${renderProfileMiniSelect('低', 'skillLow', skills.low ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
+          ${renderProfileMiniSelect('高', 'skillHigh', skills.high ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
+          ${renderProfileMiniSelect('P', 'skillPassive', skills.passive ?? 1, createNumberOptions(1, getMaxSkillLevel(asideRank)))}
+        </strong>
+      </span>
+    `);
+    chips.push(renderProfileEquipmentChips(basic, state));
+    return `<span class="profile-meta-values">${chips.join('')}</span>`;
+  }
+
+  function renderProfileEquipmentChips(basic, state) {
+    const equipment = DATA.getById('equipment', basic?.id);
+    if (!equipment) return '';
+    const rank = Number(state.rank) || 1;
+    const attackKey = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
+    const definitions = [
+      { key: 'HP', label: 'HP', title: 'HP' },
+      { key: attackKey, label: attackKey === '物理攻撃' ? '物攻' : '魔攻', title: attackKey },
+      { key: '物理防御', label: '物防', title: '物理防御' },
+      { key: '魔法防御', label: '魔防', title: '魔法防御' },
+      { key: '会心/会心DMG', label: '会心', title: '会心・会心DMG' },
+      { key: '会心抵抗/会心DMG抵抗', label: '抵抗', title: '会心抵抗・会心DMG抵抗' }
+    ];
+    const chips = definitions.map(item => {
+      const tier = Number(equipment[`Equip_Rank${rank}_${item.key}`]);
+      const saved = state.equipment?.[item.key] || { enabled: false, enhance: 0 };
+      const available = Number.isFinite(tier);
+      const selected = available && saved.enabled
+        ? Math.max(0, Math.min(5, Number(saved.enhance) || 0))
+        : 'off';
+      const options = [
+        { value: 'off', label: 'なし' },
+        ...Array.from({ length: 6 }, (_, enhance) => ({ value: enhance, label: `+${enhance}` }))
+      ];
+      return `
+        <label class="profile-equipment-chip ${selected === 'off' ? 'is-empty' : 'is-equipped'}" title="${escapeAttr(item.title)}">
+          <small>${escapeHtml(item.label)}</small>
+          <select data-profile-equipment-key="${escapeAttr(item.key)}" aria-label="${escapeAttr(`${item.title} 装備強化値`)}" ${available ? '' : 'disabled'}>
+            ${renderOptions(options, selected)}
+          </select>
+        </label>
+      `;
+    }).join('');
+    return `
+      <span class="profile-meta-chip profile-meta-chip-equipment" aria-label="装備設定">
+        <small>装備</small>
+        <strong class="profile-equipment-chips">${chips}</strong>
+      </span>
+    `;
+  }
+
+  function updateProfileEquipment(key, rawValue) {
+    if (!key) return;
+    const history = beginHistoryAction('装備変更');
+    const state = currentApostleState();
+    const equipment = state.equipment[key] || { enabled: false, enhance: 0 };
+    equipment.enabled = rawValue !== 'off';
+    if (equipment.enabled) equipment.enhance = Math.max(0, Math.min(5, Number(rawValue) || 0));
+    state.equipment[key] = equipment;
+    saveState({ refreshSnapshotIds: [view.id] });
+    render();
+    commitHistoryAction(history);
+  }
+
+  function renderProfileMetaSelectChip(label, field, value, options, tone = '', disabled = false) {
+    return `
+      <span class="profile-meta-chip${tone ? ` profile-meta-chip-${escapeAttr(tone)}` : ''}${disabled ? ' is-disabled' : ''}">
+        <small>${escapeHtml(disabled ? `${label}固定` : label)}</small>
+        <select class="profile-meta-select" data-profile-field="${escapeAttr(field)}" aria-label="${escapeAttr(label)}" ${disabled ? 'disabled' : ''}>
+          ${renderOptions(options, value)}
+        </select>
+      </span>
+    `;
+  }
+
+  function renderProfileGradeChip(value) {
+    const grade = normalizeGrade(value);
+    return `
+      <span class="profile-meta-chip profile-meta-chip-grade">
+        <small>学年</small>
+        <span class="profile-grade-icons" aria-hidden="true">${renderGradeIcons(grade)}</span>
+        <select class="profile-meta-select" data-profile-field="grade" aria-label="学年">
+          ${renderOptions(createGradeOptions(), grade)}
+        </select>
+      </span>
+    `;
+  }
+
+  function cycleProfileGrade() {
+    const history = beginHistoryAction('学年変更');
+    const state = currentApostleState();
+    state.grade = normalizeGrade((Number(state.grade) || 1) + 1 > GRADE_MAX ? 1 : (Number(state.grade) || 1) + 1);
+    state.gradeConfigured = true;
+    saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+    renderProfileQuick();
+    scheduleRender();
+    commitHistoryAction(history);
+  }
+
+  function renderProfileCombatPower(value) {
+    return `
+      <span class="profile-combat-power" title="戦闘力">
+        <img src="img/c_pow.webp" alt="戦闘力">
+        <strong data-profile-combat-power-value>${value == null ? '未計算' : escapeHtml(formatNumber(value))}</strong>
+      </span>
+    `;
+  }
+
+  function renderProfilePortraitCombatPower(value = currentApostleCombatPower()) {
+    const portrait = elements.image?.closest('.dashboard-portrait');
+    if (!portrait) return;
+    const html = renderProfileCombatPower(value);
+    const current = portrait.querySelector('.profile-combat-power');
+    if (current) current.outerHTML = html;
+    else elements.image.insertAdjacentHTML('afterend', html);
+  }
+
+  function updateProfileCombatPowerDisplay(value = currentApostleCombatPower()) {
+    elements.profileCard?.querySelectorAll('[data-profile-combat-power-value]')
+      .forEach(node => { node.textContent = value == null ? '未計算' : formatNumber(value); });
+  }
+
+  function renderGradeIcons(value) {
+    const grade = normalizeGrade(value);
+    const image = grade >= 6 ? '学年_2.webp' : '学年_1.webp';
+    return `<span class="grade-icon-set ${grade >= 6 ? 'is-grade-max' : ''}">${Array.from({ length: grade }, () => `<img src="img/${image}" alt="">`).join('')}</span>`;
+  }
+
+  function renderProfileMiniSelect(label, field, value, options) {
+    return `
+      <label>
+        <span>${escapeHtml(label)}</span>
+        <select data-profile-field="${escapeAttr(field)}" aria-label="SLv ${escapeAttr(label)}">
+          ${renderOptions(options, value)}
+        </select>
+      </label>
+    `;
+  }
+
+  function createNumberOptions(start, end) {
+    const first = Number(start) || 0;
+    const last = Math.max(first, Number(end) || first);
+    return Array.from({ length: last - first + 1 }, (_, index) => {
+      const value = first + index;
+      return { value, label: String(value) };
+    });
+  }
+
+  function createGradeOptions() {
+    return Array.from({ length: GRADE_MAX }, (_, index) => {
+      const grade = index + 1;
+      return { value: grade, label: `${grade}年生` };
+    });
+  }
+
+  function renderOptions(options, selectedValue) {
+    return (options || []).map(option => {
+      const value = typeof option === 'object' ? option.value : option;
+      const label = typeof option === 'object' ? option.label : option;
+      return `<option value="${escapeAttr(value)}" ${String(value) === String(selectedValue) ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+    }).join('');
+  }
+
+  function renderProfileStarButtons(star, baseRarity) {
+    const count = normalizeApostleStar(star);
+    const onImage = Number(baseRarity) <= 2 ? 'Grade_on_1_2.webp' : 'Grade_on.webp';
+    return Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => {
+      const value = index + 1;
+      return `
+        <button type="button" data-profile-star="${value}" aria-label="★${value}に変更" aria-pressed="${value <= count ? 'true' : 'false'}">
+          <img src="img/${index < count ? onImage : 'Grade_off.webp'}" alt="" class="${index < count ? 'is-on' : ''}">
+        </button>
+      `;
+    }).join('');
+  }
+
+  function setProfileStar(star) {
+    const history = beginHistoryAction('星変更');
+    const state = currentApostleState();
+    state.star = normalizeApostleStar(star);
+    state.level = normalizeApostleLevel(state.level, state.star);
+    renderLevelOptions(state.star);
+    elements.starSelect.value = String(state.star);
+    elements.levelSelect.value = String(state.level);
+    saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+    renderProfileQuick();
+    scheduleRender();
+    commitHistoryAction(history);
+  }
+
+  function ensureStarForAsideManifest(state) {
+    if (!state || !isPublicAsideEnabled(view.id) || !(Number(state.asideRank) || 0)) return;
+    if (normalizeApostleStar(state.star) >= APOSTLE_STAR_MAX) return;
+    state.star = APOSTLE_STAR_MAX;
+    state.level = normalizeApostleLevel(state.level, state.star);
+    renderLevelOptions(state.star);
+    elements.starSelect.value = String(state.star);
+    elements.levelSelect.value = String(state.level);
+  }
+
+  function updateProfileField(field, rawValue) {
+    if (['asideRank', 'asideLevel'].includes(field) && !isPublicAsideEnabled(view.id)) return;
+    const historyLabels = {
+      level: 'Lv変更',
+      grade: '学年変更',
+      rank: 'Rank変更',
+      bond: '好感度変更',
+      asideRank: 'アサイドRank変更',
+      asideLevel: 'アサイドLv変更',
+      skillLow: 'スキルLv変更',
+      skillHigh: 'スキルLv変更',
+      skillPassive: 'スキルLv変更'
+    };
+    const history = beginHistoryAction(historyLabels[field] || 'ステータス変更');
+    const state = currentApostleState();
+    const value = Number(rawValue) || 0;
+    if (field === 'level') {
+      state.level = normalizeApostleLevel(value, state.star);
+      elements.levelSelect.value = String(state.level);
+    } else if (field === 'grade') {
+      state.grade = normalizeGrade(value);
+      state.gradeConfigured = true;
+    } else if (field === 'rank') {
+      state.rank = Math.max(1, Math.min(9, value));
+      elements.rankSelect.value = String(state.rank);
+    } else if (field === 'bond') {
+      state.bond = normalizeBondForApostle(DATA.getById('basicInfo', view.id), value);
+      elements.bondSelect.value = String(state.bond);
+    } else if (field === 'asideRank') {
+      state.asideRank = Math.max(0, Math.min(3, value));
+      state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+      state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+      ensureStarForAsideManifest(state);
+      syncAsideControlsFromState(state);
+      syncSkillLevelControlsFromState(state);
+    } else if (field === 'asideLevel') {
+      state.asideLevel = normalizeAsideLevelForRank(value, state.asideRank);
+      elements.asideLevelSelect.value = String(state.asideLevel || 0);
+    } else if (field === 'skillLow' || field === 'skillHigh' || field === 'skillPassive') {
+      const key = field === 'skillLow' ? 'low' : field === 'skillHigh' ? 'high' : 'passive';
+      state.skillLevels = normalizeSkillLevels({
+        ...state.skillLevels,
+        [key]: value
+      }, state.asideRank);
+      syncSkillLevelControlsFromState(state);
+      saveState({ renderStateManager: false, refreshSnapshotIds: [view.id] });
+      renderSkillLevelChange();
+      scheduleRender();
+      commitHistoryAction(history);
+      return;
+    } else {
+      return;
+    }
+    const refreshOptions = field === 'rank' || field === 'asideRank' ? {} : { refreshSnapshotIds: [view.id] };
+    saveState({ renderStateManager: false, ...refreshOptions });
+    renderProfileQuick();
+    scheduleRender();
+    commitHistoryAction(history);
+  }
+
+  function toggleProfileAsideRank() {
+    const basic = DATA.getById('basicInfo', view.id);
+    if (!basic || !hasAsideEffects(basic.id)) return;
+    const state = currentApostleState();
+    const history = beginHistoryAction('アサイド切替');
+    if (Number(state.asideRank) || 0) {
+      if (!window.confirm('アサイド発現をOFFにしますか？\nアサイドLvは0に戻ります。')) return;
+      state.asideRank = 0;
+      state.asideLevel = 0;
+    } else {
+      state.asideRank = 1;
+      state.asideLevel = Math.max(1, normalizeAsideLevelForRank(state.asideLevel, state.asideRank));
+      ensureStarForAsideManifest(state);
+    }
+    state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+    syncAsideControlsFromState(state);
+    syncSkillLevelControlsFromState(state);
+    saveState();
+    render();
+    commitHistoryAction(history);
+  }
+
+  function getActiveDashboardViewName() {
+    return elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
+  }
+
+  function installDashboardNavigationApi() {
+    window.TRICKCAL_DASHBOARD_NAV = Object.freeze({
+      version: 1,
+      activateView: (name, options = {}) => activateDashboardView(name, options),
+      openGlobal: (tab = 'research', options = {}) => openGlobalSettingPanel(tab, options),
+      openCardManager: (kind = 'artifact', options = {}) => openCardManagerPanel(kind, options),
+      getState: () => ({
+        view: getActiveDashboardViewName(),
+        global: getActiveGlobalSettingPanelName(),
+        card: view.cardManager.kind
+      })
+    });
+  }
+
+  function getActiveGlobalSettingPanelName() {
+    return elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
+  }
+
+  function normalizeDashboardViewName(name) {
+    const value = String(name || 'settings');
+    return elements.dashboardPanels.some(panel => panel.dataset.dashboardPanel === value) ? value : 'settings';
+  }
+
+  function normalizeGlobalSettingPanelName(name) {
+    const value = String(name || '');
+    return elements.globalSettingPanels.some(panel => panel.dataset.settingPanel === value) ? value : '';
+  }
+
+  function applyDashboardViewSnapshot(snapshot) {
+    const viewName = normalizeDashboardViewName(snapshot.dashboardView);
+    const globalPanel = normalizeGlobalSettingPanelName(snapshot.globalSettingPanel);
+    view.cardManager.kind = snapshot.cardManagerKind === 'spell' ? 'spell' : 'artifact';
+    elements.dashboardViewButtons.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.dashboardView === viewName);
+    });
+    elements.dashboardPanels.forEach(panel => {
+      panel.classList.toggle('is-active', panel.dataset.dashboardPanel === viewName);
+    });
+    elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item.dataset.settingTab === globalPanel));
+    elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === globalPanel));
+    elements.cardManagerTabs.forEach(item => item.classList.toggle('is-active', item.dataset.cardKind === view.cardManager.kind));
+    updateGlobalOpenActiveButton(viewName === 'global' && globalPanel !== 'cards' ? globalPanel : '');
+    updateCardManagerQuickButtons(viewName === 'global' && globalPanel === 'cards' ? view.cardManager.kind : '');
+    syncDashboardRouteToUrl();
+  }
+  function activateDashboardView(name, options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
+    const viewName = name || 'settings';
+    stashBoardWorkspaceDrafts();
+    projectBoardWorkspaceDrafts();
+    elements.dashboardViewButtons.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.dashboardView === viewName);
+    });
+    elements.dashboardPanels.forEach(panel => {
+      panel.classList.toggle('is-active', panel.dataset.dashboardPanel === viewName);
+    });
+    if (viewName !== 'global') {
+      updateGlobalOpenActiveButton('');
+      updateCardManagerQuickButtons('');
+    }
+    if (viewName === 'settings') render();
+    if (viewName === 'formation') renderFormation();
+    if (viewName === 'board') render();
+    if (viewName === 'global' && options.render !== false) renderActiveGlobalSettingPanel();
+    syncDashboardRouteToUrl();
+    commitHistoryAction(history);
+  }
+
+  function openGlobalSettingPanel(tab = 'research', options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
+    syncBoardDraftToGlobalDraft();
+    activateDashboardView('global', { render: false, skipHistory: true });
+    elements.globalSettingTabs.forEach(item => item.classList.toggle('is-active', item.dataset.settingTab === tab));
+    elements.globalSettingPanels.forEach(panel => panel.classList.toggle('is-active', panel.dataset.settingPanel === tab));
+    updateGlobalOpenActiveButton(tab);
+    renderActiveGlobalSettingPanel();
+    syncDashboardRouteToUrl();
+    if (options.scroll !== false) scrollGlobalSettingIntoView(tab);
+    commitHistoryAction(history);
+  }
+
+  function openCardManagerPanel(kind = 'artifact', options = {}) {
+    const history = options.skipHistory ? null : beginHistoryAction('画面遷移');
+    const safeKind = kind === 'spell' ? 'spell' : 'artifact';
+    view.cardManager.kind = safeKind;
+    elements.cardManagerTabs.forEach(item => item.classList.toggle('is-active', item.dataset.cardKind === safeKind));
+    openGlobalSettingPanel('cards', { scroll: false, skipHistory: true });
+    updateGlobalOpenActiveButton('');
+    updateCardManagerQuickButtons(safeKind);
+    renderCardManager();
+    syncDashboardRouteToUrl();
+    if (options.scroll !== false) scrollGlobalSettingIntoView('cards');
+    commitHistoryAction(history);
+  }
+
+  function syncDashboardRouteToUrl() {
+    if (!window.history?.replaceState) return;
+    const viewName = getActiveDashboardViewName();
+    const globalPanel = getActiveGlobalSettingPanelName();
+    const params = new URLSearchParams(window.location.search);
+    params.delete('view');
+    params.delete('global');
+    params.delete('card');
+
+    if (viewName === 'global') {
+      if (globalPanel === 'cards') {
+        params.set('card', view.cardManager.kind === 'spell' ? 'spell' : 'artifact');
+      } else {
+        params.set('global', globalPanel || 'research');
+      }
+    } else {
+      params.set('view', normalizeDashboardViewName(viewName));
+    }
+
+    const search = params.toString();
+    const nextUrl = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+    const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, '', nextUrl);
+  }
+
+  function applyInitialDashboardRoute() {
+    const params = new URLSearchParams(window.location.search);
+    const card = params.get('card');
+    const global = params.get('global');
+    const targetView = params.get('view');
+    if (card) {
+      openCardManagerPanel(card, { scroll: true, skipHistory: true });
+    } else if (global) {
+      openGlobalSettingPanel(global, { scroll: true, skipHistory: true });
+    } else if (targetView) {
+      activateDashboardView(targetView, { skipHistory: true });
+      if (targetView === 'formation') {
+        document.querySelector('[data-dashboard-panel="formation"]')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
+      }
+    }
+    syncDashboardRouteToUrl();
+  }
+
+  function saveDashboardReloadContext() {
+    const activeView = elements.dashboardPanels.find(panel => panel.classList.contains('is-active'))?.dataset.dashboardPanel || 'settings';
+    const activeGlobalPanel = elements.globalSettingPanels.find(panel => panel.classList.contains('is-active'))?.dataset.settingPanel || '';
+    try {
+      storageSession.setItem(DASHBOARD_RELOAD_CONTEXT_KEY, JSON.stringify({
+        path: window.location.pathname,
+        activeView,
+        activeGlobalPanel,
+        scrollX: window.scrollX,
+        scrollY: window.scrollY
+      }));
+    } catch (_) {
+                                               
+    }
+  }
+
+  function restoreDashboardReloadContext() {
+    let context;
+    try {
+      context = JSON.parse(storageSession.getItem(DASHBOARD_RELOAD_CONTEXT_KEY) || 'null');
+      storageSession.removeItem(DASHBOARD_RELOAD_CONTEXT_KEY);
+    } catch (_) {
+      return;
+    }
+    if (!context || context.path !== window.location.pathname) return;
+
+                                                           
+    window.requestAnimationFrame(() => {
+      if (context.activeView === 'global' && context.activeGlobalPanel) {
+        openGlobalSettingPanel(context.activeGlobalPanel, { scroll: false, skipHistory: true });
+      } else {
+        activateDashboardView(context.activeView, { skipHistory: true });
+      }
+      window.requestAnimationFrame(() => {
+        window.scrollTo({ left: Number(context.scrollX) || 0, top: Number(context.scrollY) || 0, behavior: 'auto' });
+      });
+    });
+  }
+  function isDashboardPanelActive(name) {
+    return !!document.querySelector(`[data-dashboard-panel="${name}"]`)?.classList.contains('is-active');
+  }
+
+  function isGlobalSettingPanelActive(name) {
+    return !!document.querySelector(`[data-setting-panel="${name}"]`)?.classList.contains('is-active');
+  }
+
+  function renderActiveGlobalSettingPanel() {
+    if (!isDashboardPanelActive('global')) return;
+    if (isGlobalSettingPanelActive('apostles')) renderApostleBulkSettings();
+    if (isGlobalSettingPanelActive('rank')) renderRankOverview();
+    if (isGlobalSettingPanelActive('bond')) renderBondOverview();
+    if (isGlobalSettingPanelActive('aside')) renderAsideOverview();
+    if (isGlobalSettingPanelActive('board-global')) renderBoardGlobalOverview();
+    if (isGlobalSettingPanelActive('cards')) renderCardManager();
+  }
+
+
+  function updateGlobalOpenActiveButton(tab) {
+    document.querySelectorAll('[data-open-global]').forEach(button => {
+      button.classList.toggle('is-active', !!tab && button.dataset.openGlobal === tab);
+    });
+    document.querySelectorAll('[data-topbar-menu="bulk"]').forEach(menu => {
+      menu.classList.toggle('is-active', ['apostles', 'rank', 'bond', 'aside', 'research'].includes(tab));
+      if (!menu.classList.contains('is-active')) menu.removeAttribute('open');
+    });
+    document.querySelectorAll('.bottom-global-menu').forEach(menu => {
+      menu.classList.toggle('is-active', ['apostles', 'rank', 'bond', 'aside', 'research'].includes(tab));
+    });
+    if (tab !== 'cards') updateCardManagerQuickButtons('');
+  }
+
+  function updateCardManagerQuickButtons(kind = '') {
+    document.querySelectorAll('[data-open-card-manager]').forEach(button => {
+      button.classList.toggle('is-active', !!kind && button.dataset.openCardManager === kind && isDashboardPanelActive('global'));
+    });
+  }
+
+  function scrollGlobalSettingIntoView(tab, options = {}) {
+    const panel = elements.globalSettingPanels.find(item => item.dataset.settingPanel === tab)
+      || document.querySelector('.global-settings-panel');
+    if (!panel) return;
+    window.requestAnimationFrame(() => {
+      panel.scrollIntoView({
+        block: options.block || 'start',
+        inline: 'nearest',
+        behavior: 'smooth'
+      });
+    });
+  }
+
+  function renderProfileFollowIcon(basic, state) {
+    const followButton = elements.meta?.querySelector('#profile-follow-button');
+    if (!followButton || isEldainApostle(basic)) return;
+    const enabled = !!state.follow;
+    followButton.classList.toggle('is-active', enabled);
+    followButton.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    followButton.title = enabled ? 'フォロー中: クリックで解除' : 'フォローなし: クリックで適用';
+  }
+
+  function renderProfileAsideIcon(basic, state) {
+    if (!elements.profileAsideIcon || !basic) return;
+    const hasAside = hasAsideEffects(basic.id);
+    clearAsideImageFallback(elements.profileAsideIcon);
+    elements.profileAsideIcon.hidden = !hasAside;
+    if (elements.profileAsideFallback) {
+      elements.profileAsideFallback.hidden = true;
+      elements.profileAsideFallback.textContent = 'Aside';
+      elements.profileAsideFallback.classList.remove('is-inactive');
+      elements.profileAsideFallback.setAttribute('aria-pressed', state.asideRank ? 'true' : 'false');
+      elements.profileAsideFallback.title = state.asideRank
+        ? `A${state.asideRank} 発現中: クリックでOFF`
+        : 'アサイド未発現: クリックでA1発現';
+    }
+    if (!hasAside) return;
+    const src = `img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(basic.id))}.webp`;
+    elements.profileAsideIcon.classList.remove('is-loaded');
+    elements.profileAsideIcon.onload = () => {
+      clearAsideImageFallback(elements.profileAsideIcon);
+      elements.profileAsideIcon.classList.add('is-loaded');
+    };
+    elements.profileAsideIcon.dataset.fallback = 'false';
+    elements.profileAsideIcon.src = src;
+    if (elements.profileAsideIcon.complete && elements.profileAsideIcon.naturalWidth) {
+      elements.profileAsideIcon.classList.add('is-loaded');
+    }
+    elements.profileAsideIcon.alt = `${basic.使徒名 || basic.id} アサイド`;
+    elements.profileAsideIcon.tabIndex = 0;
+    elements.profileAsideIcon.setAttribute('role', 'button');
+    elements.profileAsideIcon.setAttribute('aria-pressed', state.asideRank ? 'true' : 'false');
+    elements.profileAsideIcon.classList.toggle('is-inactive', !(Number(state.asideRank) || 0));
+    elements.profileAsideFallback?.classList.toggle('is-inactive', !(Number(state.asideRank) || 0));
+    elements.profileAsideIcon.title = state.asideRank
+      ? `A${state.asideRank} 発現中: クリックでOFF`
+      : 'アサイド未発現: クリックでA1発現';
+  }
+
+  function normalizeFollowForApostle(basic) {
+    if (!basic || !isEldainApostle(basic)) return;
+    currentApostleState().follow = false;
+  }
+
+  function isEldainApostle(basic) {
+    return !!String(basic?.エルダイン || '').trim();
+  }
+
+  function renderApostleFavoriteCard(basic) {
+    if (!basic) return;
+    renderApostleFavoriteCardInto(elements.apostleFavoriteCard, basic);
+    renderProfileFavoriteIcon(basic);
+    if (elements.profileFavoriteDialog?.open) {
+      renderApostleFavoriteCardInto(elements.profileFavoriteDetail, basic);
+    }
+  }
+
+  function renderApostleFavoriteCardInto(container, basic) {
+    if (!container || !basic) return;
+    const favoriteRows = DATA.getById('favoriteCards', basic.id) || [];
+    const favoriteName = String(favoriteRows[0]?.カード名 || '').trim();
+    const cards = getCardManagerCards('artifact').concat(getCardManagerCards('spell'));
+    const card = cards.find(item => (
+      item.signature
+      && (
+        String(item.favoriteCharacter || '').trim() === String(basic.使徒名 || '').trim()
+        || (favoriteName && String(item.name || '').trim() === favoriteName)
+      )
+    ));
+    if (!card && !favoriteRows.length) {
+      container.classList.add('is-empty');
+      container.innerHTML = '<p class="muted-line">この使徒の愛用品データはありません。</p>';
+      return;
+    }
+
+    const cardState = card ? getCardState(card.id) : { owned: false, star: 1, solder: 0 };
+    const star = normalizeCardStar(cardState.star);
+    const cardKind = card?.kind === 'spell' || favoriteRows[0]?.カード種別 === 'スペル' ? 'spell' : 'artifact';
+    const cardName = card?.name || favoriteName || '愛用品';
+    const levelGroups = Array.from(groupRowsBy(favoriteRows, row => Number(row.解放Lv) || 1).entries())
+      .sort(([a], [b]) => Number(a) - Number(b));
+    const apostleState = currentApostleState();
+    container.classList.remove('is-empty');
+    container.innerHTML = `
+      <div class="apostle-favorite-media is-${cardKind} ${cardState.owned ? 'is-owned' : 'is-unowned'}">
+        <div class="apostle-favorite-image-wrap">
+          ${card && cardKind === 'artifact' ? `<img class="apostle-favorite-frame" src="${escapeAttr(getCardManagerRarityFrame(card))}" alt="">` : ''}
+          ${card
+            ? `<img class="apostle-favorite-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(cardName)}">`
+            : `<span class="apostle-favorite-image-placeholder">${escapeHtml(cardName[0] || '愛')}</span>`}
+        </div>
+      </div>
+      <div class="apostle-favorite-body">
+        <div class="apostle-favorite-title">
+          <div>
+            <strong>${escapeHtml(cardName)}</strong>
+            <span>${escapeHtml(card?.favoriteCharacter || basic.使徒名 || '')}専用</span>
+          </div>
+          <div class="apostle-favorite-state" aria-label="現在のカード育成状態">
+            <span class="${cardState.owned ? 'is-owned' : 'is-unowned'}">${cardState.owned ? '所持' : '未所持'}</span>
+            <span>★${star}</span>
+            ${card ? `<span class="apostle-favorite-cost"><img src="img/Card/cost.webp" alt="コスト">${escapeHtml(getCardManagerCost(card, star))}</span>` : ''}
+          </div>
+        </div>
+        <div class="apostle-favorite-levels">
+          ${levelGroups.length
+            ? levelGroups.map(([level, rows]) => renderApostleFavoriteLevel(level, rows, cardState, star, apostleState)).join('')
+            : '<p class="muted-line">愛用効果データがありません。</p>'}
+        </div>
+        ${card ? `<button type="button" class="apostle-favorite-manage" data-open-apostle-favorite="${escapeAttr(cardName)}" data-open-apostle-favorite-kind="${cardKind}">カード設定を開く</button>` : ''}
+      </div>
+    `;
+  }
+
+  function renderProfileFavoriteIcon(basic) {
+    if (!elements.profileFavoriteButton || !elements.profileFavoriteImage || !basic) return;
+    const favoriteRows = DATA.getById('favoriteCards', basic.id) || [];
+    const favoriteName = String(favoriteRows[0]?.カード名 || '').trim();
+    const card = getCardManagerCards('artifact').concat(getCardManagerCards('spell')).find(item => (
+      item.signature
+      && (
+        String(item.favoriteCharacter || '').trim() === String(basic.使徒名 || '').trim()
+        || (favoriteName && String(item.name || '').trim() === favoriteName)
+      )
+    ));
+    const visible = !!card;
+    elements.profileFavoriteButton.hidden = !visible;
+    if (!visible) {
+      elements.profileFavoriteImage.removeAttribute('src');
+      elements.profileFavoriteImage.alt = '';
+      return;
+    }
+    const cardState = getCardState(card.id);
+    elements.profileFavoriteButton.classList.toggle('is-spell', card.kind === 'spell');
+    elements.profileFavoriteButton.classList.toggle('is-unowned', !cardState.owned);
+    elements.profileFavoriteButton.title = `${card.name}の愛用効果を表示`;
+    elements.profileFavoriteButton.setAttribute('aria-label', `${card.name}の愛用効果を表示`);
+    elements.profileFavoriteImage.src = getCardManagerImagePath(card);
+    elements.profileFavoriteImage.alt = card.name;
+  }
+
+  function renderApostleFavoriteLevel(level, rows, cardState, star, apostleState) {
+    const unlockLevel = Number(level) || 1;
+    const unlocked = !!cardState.owned && star >= unlockLevel;
+    const first = rows[0] || {};
+    const description = first.Lv1_説明 || first.説明 || '';
+    const targetLabels = Array.from(new Set(rows.map(row => {
+      const targetKind = String(row.対象スキル || '').trim();
+      const targetName = String(row.対象スキル名 || '').trim();
+      const skillLevel = getSkillLevelForKind(targetKind, apostleState);
+      if (!targetKind && !targetName) return '常時効果';
+      if (!targetKind && targetName === '愛用カード効果') return 'カード効果';
+      return [targetKind, targetName && targetName !== targetKind ? `「${targetName}」` : '', skillLevel ? `SLv${skillLevel}` : '']
+        .filter(Boolean)
+        .join(' ');
+    }).filter(Boolean)));
+    const effectRows = rows.map(row => {
+      const skillLevel = getSkillLevelForKind(row.対象スキル || '', apostleState);
+      const summary = formatFavoriteEffectSummary(row, skillLevel);
+      const scope = Array.from(new Set([row.condition || row.条件, row.効果対象].filter(Boolean))).join(' / ');
+      return summary ? `${summary}${scope ? ` (${scope})` : ''}` : '';
+    }).filter(Boolean);
+    const unlockLabel = unlocked ? '解放済' : !cardState.owned ? 'カード未所持' : `★${unlockLevel}で解放`;
+    return `
+      <article class="apostle-favorite-level ${unlocked ? 'is-unlocked' : 'is-locked'}">
+        <div class="apostle-favorite-level-head">
+          <strong>愛用Lv${escapeHtml(unlockLevel)}</strong>
+          <span>${escapeHtml(unlockLabel)}</span>
+          ${targetLabels.length ? `<em>${targetLabels.map(escapeHtml).join(' / ')}</em>` : ''}
+        </div>
+        ${description ? `<p class="apostle-favorite-description">${escapeHtml(description)}</p>` : ''}
+        ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+      </article>
+    `;
+  }
+
+  function formatFavoriteEffectSummary(row, level = 0) {
+    const valueClass = String(row.値分類 || '');
+    const rawLabel = String(row.値の種類 || row.ステ能力値 || '').trim();
+    const label = valueClass.includes('持続時間') && /^(バフ|デバフ)$/.test(rawLabel) ? '持続時間' : rawLabel;
+    if (!label) return '';
+    const value = formatEffectValue(row, level);
+    const effectType = String(row.効果タイプ || row.ステ適用 || '').trim();
+    return formatCompactEffectSummary(label, value, { effectType, rawLabel });
+  }
+
+  function renderSkillInfoList(basic) {
+    if (!elements.skillInfoList || !basic) return;
+    const rows = DATA.getById('skills', basic.id) || [];
+    if (!rows.length) {
+      elements.skillInfoList.innerHTML = '<p class="muted-line">スキル情報がありません。</p>';
+      return;
+    }
+
+    const state = currentApostleState();
+    const grouped = groupRowsBy(rows, row => `${row.スキル種別 || 'その他'}\u0001${row.スキル名 || ''}`);
+    const entries = Array.from(grouped.entries()).sort(([a], [b]) => getSkillKindOrder(a) - getSkillKindOrder(b));
+    elements.skillInfoList.innerHTML = entries.map(([key, items]) => {
+      const [kind, name] = key.split('\u0001');
+      const first = items[0] || {};
+      const level = getSkillLevelForKind(kind, state);
+      const label = getSkillKindLabel(kind);
+      const cooldownSeconds = getSkillInfoCooldownSeconds(kind, first);
+      const triggerProbability = getSkillTriggerProbabilityLabel(first);
+      const iconHtml = getSkillInfoIconHtml(kind, basic);
+      const effectRows = items
+        .map(row => formatEffectSummary(row, level))
+        .filter(Boolean)
+        .slice(0, 4);
+      return `
+        <article class="skill-info-card">
+          <div class="skill-info-icon">${iconHtml}</div>
+          <div class="skill-info-body">
+            <div class="skill-info-title">
+              <strong>${escapeHtml(label || 'スキル')}</strong>
+              ${name && name !== label ? `<span>${escapeHtml(name)}</span>` : ''}
+              ${level || cooldownSeconds || triggerProbability ? `<em>${escapeHtml([triggerProbability, cooldownSeconds ? `CT ${formatNumber(cooldownSeconds)}秒` : '', level ? `SLv ${level}` : ''].filter(Boolean).join(' / '))}</em>` : ''}
+            </div>
+            ${first.説明 ? `<p>${escapeHtml(first.説明)}</p>` : ''}
+            ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+          </div>
+        </article>
+      `;
+    }).join('');
+  }
+
+  function getSkillTriggerProbabilityLabel(skill = {}) {
+    const triggerType = String(skill.triggerType || skill['スキル発動条件種別'] || skill['発動条件種別'] || '').trim();
+    const rawValue = skill.triggerValue ?? skill['スキル発動条件値'] ?? skill['発動条件値'];
+    if (!/一定確率/.test(triggerType) || rawValue === '' || rawValue == null) return '';
+    const value = Number(rawValue);
+    return Number.isFinite(value) ? `発動率 ${formatNumber(value)}%` : '';
+  }
+
+  function renderAsideInfoList(basic) {
+    if (!elements.asideInfoList || !basic) return;
+    if (!isPublicAsideEnabled(basic.id)) {
+      elements.asideInfoList.innerHTML = '<p class="muted-line">アサイド情報がありません。</p>';
+      return;
+    }
+    const statRows = DATA.getById('asideStatEffects', basic.id) || [];
+    const specialRows = DATA.getById('asideSpecialEffects', basic.id) || [];
+    const rows = [...statRows, ...specialRows];
+    if (!rows.length) {
+      elements.asideInfoList.innerHTML = '<p class="muted-line">アサイド情報がありません。</p>';
+      return;
+    }
+
+    const asideName = rows.find(row => row.アサイド名)?.アサイド名 || 'アサイド';
+    const assetId = getApostleAssetId(basic.id);
+    const grouped = groupRowsBy(rows, row => String(row.SLv ?? row.Lv ?? ''));
+    elements.asideInfoList.innerHTML = `
+      <article class="aside-info-card aside-info-overview">
+        <div class="aside-info-icon" data-aside-image-wrap>
+          <img data-apostle-image data-aside-image-fallback="Aside" src="img/Chara/Aside/AsideIcon_${escapeAttr(assetId)}.webp" alt="">
+          <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
+        </div>
+        <div class="aside-info-body">
+          <strong>${escapeHtml(asideName)}</strong>
+          <span>${escapeHtml(basic.使徒名 || basic.id)}のアサイド情報</span>
+        </div>
+      </article>
+      ${[1, 2, 3].map(rank => renderAsideRankInfoCard(rank, grouped.get(String(rank)) || [], assetId)).join('')}
+    `;
+  }
+
+  function renderAsideRankInfoCard(rank, rows, assetId) {
+    const iconHtml = `
+      <div class="aside-info-icon aside-rank-icon" data-aside-image-wrap>
+        <img data-apostle-image data-aside-image-fallback="A${rank}" src="img/Chara/Aside/Aside_Skill_${escapeAttr(assetId)}_${rank}.webp" alt="">
+        <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>A${rank}</span>
+        <span class="aside-rank-label">A${rank}</span>
+      </div>
+    `;
+    if (!rows.length) {
+      return `
+        <article class="aside-info-card is-empty">
+          ${iconHtml}
+          <div class="aside-info-body"><strong>A${rank}</strong><span>情報なし</span></div>
+        </article>
+      `;
+    }
+    const first = rows[0] || {};
+    const effectRows = rows
+      .map(row => formatEffectSummary(row))
+      .filter(Boolean)
+      .slice(0, 4);
+    return `
+      <article class="aside-info-card">
+        ${iconHtml}
+        <div class="aside-info-body">
+          <strong>${escapeHtml(first.Lv内名前 || `A${rank}`)}</strong>
+          ${first.効果説明 ? `<p>${escapeHtml(first.効果説明)}</p>` : ''}
+          ${effectRows.length ? `<div class="skill-info-effects">${effectRows.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>` : ''}
+        </div>
+      </article>
+    `;
+  }
+
+  function renderAsideTierList(basic) {
+    if (!elements.asideTierList) return;
+    if (!basic || !hasAsideEffects(basic.id)) {
+      elements.asideTierList.innerHTML = '<p class="empty-note">アサイド情報なし</p>';
+      return;
+    }
+
+    const tier = DATA.getById('asideTiers', basic.id);
+    if (!tier) {
+      elements.asideTierList.innerHTML = '<p class="empty-note">アサイドTier未設定</p>';
+      return;
+    }
+
+    const state = currentApostleState();
+    const rank = getEffectiveAsideRank(basic.id, state.asideRank);
+    const level = normalizeAsideLevelForRank(state.asideLevel, rank);
+    const attackType = String(basic.攻撃タイプ || basic['攻撃Type'] || '').trim();
+    const attackLabel = attackType === '魔法' ? '魔法攻撃' : '物理攻撃';
+    const attackFields = getAsideAttackFieldNames(basic);
+    if (rank && !TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state)) {
+      elements.asideTierList.innerHTML = '<p class="empty-note">解放済みアサイドの基礎値・成長値が未登録です。</p>';
+      return;
+    }
+    const manifest = getAsideManifestBonus(basic) || {};
+    const levelBonus = calculateAsideLevelBonus(basic, level, rank) || {};
+    const rows = [
+      ['HP', getFirstRowValue(tier, ['HPタイプ', 'HPTier', 'HP AsideTier', 'HP\nAsideTier']), manifest.hp, levelBonus.hp],
+      [attackLabel, getFirstRowValue(tier, [attackFields.tier, '攻撃力タイプ', 'ATKTier', 'ATK AsideTier', 'ATK\nAsideTier']), manifest.attack, levelBonus.attack],
+      ['物理防御', getFirstRowValue(tier, ['物理防御力タイプ', 'DEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.pdef, levelBonus.pdef],
+      ['魔法防御', getFirstRowValue(tier, ['魔法防御力タイプ', 'MDEFTier', 'DEF AsideTier', 'DEF\nAsideTier']), manifest.mdef, levelBonus.mdef]
+    ];
+
+    elements.asideTierList.innerHTML = `
+      <table class="compact-table aside-tier-table">
+        <thead><tr><th>ステータス</th><th>Tier</th><th>発現</th><th>Lv</th><th>合計</th></tr></thead>
+        <tbody>
+          ${rows.map(([label, value, manifestAdd, levelAdd]) => {
+            const manifestValue = Number(manifestAdd) || 0;
+            const levelValue = Number(levelAdd) || 0;
+            const total = rank ? manifestValue + levelValue : 0;
+            return `
+              <tr>
+                <th>${escapeHtml(label)}</th>
+                <td>${value ? escapeHtml(value) : '-'}</td>
+                <td>${rank && manifestValue ? `+${escapeHtml(formatNumber(manifestValue))}` : '-'}</td>
+                <td>${rank && levelValue ? `+${escapeHtml(formatNumber(levelValue))}` : '-'}</td>
+                <td>${total ? `+${escapeHtml(formatNumber(total))}` : '-'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+      <p class="aside-tier-source">現在: A${escapeHtml(rank)} / Lv${escapeHtml(level || '-')} ${manifest.source ? `・発現値: ${escapeHtml(manifest.source)}` : ''}</p>
+    `;
+  }
+
+  function getFirstRowValue(row, keys) {
+    for (const key of keys) {
+      const value = row?.[key];
+      if (value !== undefined && value !== null && value !== '') return value;
+    }
+    const entries = Object.entries(row || {});
+    for (const [key, value] of entries) {
+      if (value === undefined || value === null || value === '') continue;
+      const normalized = key.replace(/\s+/g, '').toLowerCase();
+      if (keys.some(candidate => normalized === String(candidate).replace(/\s+/g, '').toLowerCase())) return value;
+    }
+    return '';
+  }
+
+  function getSkillIconCode(kind) {
+    if (String(kind).includes('低学年')) return 'F';
+    if (String(kind).includes('高学年')) return 'S';
+    if (String(kind).includes('パッシブ')) return 'P';
+    return '';
+  }
+
+  function getSkillInfoIconHtml(kind, basic) {
+    const iconCode = getSkillIconCode(kind);
+    if (iconCode) {
+      const imageKind = iconCode === 'P' ? 'passive' : iconCode === 'F' ? 'low' : 'high';
+      const imagePath = getApostleSkillImagePath(imageKind, basic.id);
+      if (imagePath) return `<img data-apostle-image src="${escapeAttr(imagePath)}" alt="">`;
+      return '<span class="skill-info-icon-placeholder" aria-hidden="true">—</span>';
+    }
+    if (String(kind).includes('普通攻撃')) {
+      const attackAsset = basic.攻撃タイプ === '物理' ? 'Physic' : 'Magic';
+      return `<img src="img/NormalAttack_${attackAsset}.webp" alt="${escapeAttr(basic.攻撃タイプ || '')}通常攻撃">`;
+    }
+    return `<span class="skill-info-icon-placeholder">${escapeHtml(String(kind || ''))[0] || '?'}</span>`;
+  }
+
+  function getSkillKindLabel(kind) {
+    const value = String(kind || '');
+    if (value.includes('普通攻撃_基本')) return '基本';
+    if (value.includes('普通攻撃_強化')) return '強化';
+    if (value.includes('低学年')) return '低学年';
+    if (value.includes('高学年')) return '高学年';
+    if (value.includes('パッシブ')) return 'パッシブ';
+    return value;
+  }
+
+  function getSkillKindOrder(key) {
+    const kind = String(key || '');
+    if (kind.includes('普通攻撃_基本')) return 10;
+    if (kind.includes('普通攻撃_強化')) return 20;
+    if (kind.includes('低学年')) return 30;
+    if (kind.includes('高学年')) return 40;
+    if (kind.includes('パッシブ')) return 50;
+    return 90;
+  }
+
+  function getSkillLevelForKind(kind, state) {
+    const value = String(kind || '');
+    if (value.includes('低学年')) return Number(state.skillLevels?.low) || 1;
+    if (value.includes('高学年')) return Number(state.skillLevels?.high) || 1;
+    if (value.includes('パッシブ')) return Number(state.skillLevels?.passive) || 1;
+    return 0;
+  }
+
+  function groupRowsBy(rows, keyGetter) {
+    return rows.reduce((map, row) => {
+      const key = keyGetter(row);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(row);
+      return map;
+    }, new Map());
+  }
+
+  function formatEffectSummary(row, level = 0) {
+    const label = row.値の種類 || row.ステ能力値 || '';
+    if (!label) return '';
+    const value = formatEffectValue(row, level);
+    const valueClass = String(row.値分類 || '').trim();
+    const effectType = String(row.効果タイプ || row.ステ適用 || '').trim();
+    return formatCompactEffectSummary(label, value, { valueClass, effectType });
+  }
+
+  function formatCompactEffectSummary(label, value, options = {}) {
+    const rawLabel = String(label || '').trim();
+    if (!rawLabel) return '';
+    const parts = [rawLabel, value].filter(Boolean);
+    const valueClass = String(options.valueClass || '').trim();
+    const effectType = String(options.effectType || '').trim();
+    const classification = valueClass && valueClass !== '倍率' && valueClass !== rawLabel
+      ? valueClass
+      : '';
+    if (classification) parts.push(classification);
+    if (effectType
+      && effectType !== rawLabel
+      && effectType !== valueClass
+      && effectType !== classification
+      && effectType !== String(options.rawLabel || '').trim()) {
+      parts.push(effectType);
+    }
+    return parts.join(' ');
+  }
+
+  function formatEffectValue(row, level = 0) {
+    const fixed = row.固定値;
+    if (fixed !== '' && fixed != null) return formatEffectValueUnit(row, Number(fixed) || 0);
+    if (row['上昇%'] !== '' && row['上昇%'] != null) return `+${formatBoardSummaryValue(Number(row['上昇%']) || 0)}%`;
+    if (level) {
+      const current = Number(row[`Lv${level}`]);
+      if (Number.isFinite(current) && current) return formatEffectValueUnit(row, current);
+    }
+    const lvValues = Array.from({ length: 15 }, (_, index) => row[`Lv${index + 1}`])
+      .map(value => Number(value))
+      .filter(value => Number.isFinite(value) && value);
+    if (!lvValues.length) return '';
+    return `${formatEffectValueUnit(row, lvValues[0])}→${formatEffectValueUnit(row, lvValues[lvValues.length - 1])}`;
+  }
+
+  function formatEffectValueUnit(row, value) {
+    const formatted = formatBoardSummaryValue(value);
+    const kind = String(row.値分類 || '');
+    const name = String(row.値の種類 || row.ステ能力値 || '');
+    if (kind.includes('持続時間') || kind.includes('クールタイム')) return `${formatted}秒`;
+    if (kind.includes('倍率') || name.includes('ダメージ量') || name.includes('回復量') || name.includes('確率') || name.includes('率') || name.includes('割合')) {
+      return `${formatted}%`;
+    }
+    if (kind.includes('ヒット数') || kind.includes('対象数') || kind.includes('回数')) return `${formatted}`;
+    return formatted;
+  }
+
+  function renderEquipment(equipment, totals, breakdown) {
+    if (!equipment) {
+      elements.equipment.innerHTML = '<p class="muted-line">装備情報がありません。</p>';
+      return;
+    }
+
+    const rank = currentApostleState().rank;
+    const state = currentApostleState();
+    const visibleGroups = STAT_GROUPS.filter(group => hasEquipmentTier(equipment, rank, group.key));
+    const equipmentItems = visibleGroups.map(group => {
+      const tier = equipment[`Equip_Rank${rank}_${group.key}`];
+      const normalizedTier = Number(tier);
+      const lookupGroup = group.lookup || group.key;
+      const key = group.key;
+      const saved = state.equipment[key] || { enabled: false, enhance: 0 };
+      state.equipment[key] = saved;
+      const empty = !Number.isFinite(normalizedTier);
+      const equipValue = !empty ? findEquipmentValue(rank, lookupGroup, normalizedTier, saved.enhance) : null;
+      if (!empty && saved.enabled && equipValue) {
+        addStatValue(totals, group.total, equipValue.value);
+        addSourceStat(breakdown, 'equipment', group.total, equipValue.value);
+      }
+      const iconPath = !empty ? getEquipmentIconPath(rank, lookupGroup, normalizedTier) : '';
+
+      return { group, normalizedTier, key, saved, empty, equipValue, iconPath };
+    });
+
+    if (document.body.classList.contains('dashboard-page')) {
+      renderDashboardEquipment(equipmentItems, rank);
+      return;
+    }
+
+    elements.equipment.innerHTML = equipmentItems.map(item => {
+      const { group, normalizedTier, key, saved, empty, equipValue, iconPath } = item;
+      return `
+        <div class="equip-cell ${empty ? 'is-empty' : ''} ${saved.enabled ? '' : 'is-disabled'}" data-equip-key="${escapeAttr(key)}">
+          ${iconPath ? `<img class="equip-icon" src="${escapeAttr(iconPath)}" alt="">` : ''}
+          <div class="kind">${escapeHtml(group.label)}</div>
+          <div class="tier">${empty ? '-' : `tier ${normalizedTier}`}</div>
+          <div class="name">${equipValue ? `${escapeHtml(equipValue.name)} / ${formatNumber(equipValue.value)}` : '未装備'}</div>
+          <div class="equip-controls">
+            <label><input type="checkbox" class="equip-enabled" ${saved.enabled ? 'checked' : ''} ${empty ? 'disabled' : ''}> 装備</label>
+            <select class="equip-enhance" ${empty ? 'disabled' : ''}>
+              ${Array.from({ length: 6 }, (_, index) => `<option value="${index}" ${saved.enhance === index ? 'selected' : ''}>+${index}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderDashboardEquipment(items, rank) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const slotPositions = {
+      HP: 1,
+      '物理防御': 2,
+      '物理攻撃': 3,
+      '魔法攻撃': 3,
+      '会心/会心DMG': 4,
+      '会心抵抗/会心DMG抵抗': 5,
+      '魔法防御': 6
+    };
+    const slots = items.map((item, index) => {
+      const { group, normalizedTier, key, saved, empty, iconPath } = item;
+      const slotPosition = slotPositions[group.key] || index + 1;
+      const slotLabel = group.key === '会心/会心DMG'
+        ? '会心'
+        : group.key === '会心抵抗/会心DMG抵抗'
+          ? '会心抵抗'
+          : group.label;
+      return `
+        <div class="equip-cell equipment-orbit-slot slot-${slotPosition} ${empty ? 'is-empty' : ''} ${saved.enabled ? '' : 'is-disabled'}"
+          data-equip-key="${escapeAttr(key)}">
+          <span class="kind">${escapeHtml(slotLabel)}</span>
+          ${iconPath ? `<img class="equip-icon" src="${escapeAttr(iconPath)}" alt="${escapeAttr(group.label)}">` : ''}
+          <span class="tier">T${empty ? '-' : normalizedTier}</span>
+          <div class="equip-controls">
+            <label class="equip-toggle" title="装備の着脱">
+              <input type="checkbox" class="equip-enabled" ${saved.enabled ? 'checked' : ''} ${empty ? 'disabled' : ''}>
+              <span>装備</span>
+            </label>
+            <select class="equip-enhance" aria-label="${escapeAttr(group.label)} 強化値" ${empty ? 'disabled' : ''}>
+              ${Array.from({ length: 6 }, (_, enhance) => `<option value="${enhance}" ${Number(saved.enhance) === enhance ? 'selected' : ''}>+${enhance}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    const rows = items.map(item => {
+      const { group, normalizedTier, saved, empty, equipValue } = item;
+      return `
+        <tr class="${saved.enabled ? '' : 'is-disabled'}">
+          <th>${escapeHtml(group.label)}</th>
+          <td>${empty ? '-' : `T${normalizedTier}`}</td>
+          <td>${empty ? '-' : `+${Number(saved.enhance) || 0}`}</td>
+          <td class="value">${equipValue ? formatNumber(equipValue.value) : '-'}</td>
+          <td>${empty ? 'なし' : saved.enabled ? '装備中' : '解除'}</td>
+        </tr>
+      `;
+    }).join('');
+
+    elements.equipment.innerHTML = `
+      <div class="equipment-orbit">
+        <div class="equipment-center-apostle">
+          <div class="equipment-center-portrait">
+            <img data-apostle-image src="${escapeAttr(getApostleImagePath(view.id))}" alt="${escapeAttr(basic?.使徒名 || view.id)}">
+          </div>
+          <strong>${escapeHtml(basic?.使徒名 || view.id)}</strong>
+          <span>Rank ${rank}</span>
+        </div>
+        ${slots}
+      </div>
+      <div class="equipment-value-table">
+        <table>
+          <thead><tr><th>部位</th><th>tier</th><th>強化</th><th>上昇値</th><th>状態</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function getVisibleEquipmentKeys() {
+    const equipment = DATA.getById('equipment', view.id);
+    if (!equipment) return [];
+    const rank = currentApostleState().rank;
+    return STAT_GROUPS
+      .filter(group => hasEquipmentTier(equipment, rank, group.key))
+      .map(group => group.key);
+  }
+
+  function setCurrentEquipmentEnabled(enabled) {
+    setCurrentEquipmentBulk({ enabled });
+  }
+
+  function setCurrentEquipmentEnhance(enhance) {
+    setCurrentEquipmentBulk({ enhance });
+  }
+
+  function setCurrentEquipmentBulk({ enabled = null, enhance = null } = {}) {
+    const history = beginHistoryAction('装備一括変更');
+    const normalizedEnhance = enhance === null ? null : Math.max(0, Math.min(5, Number(enhance) || 0));
+    const state = currentApostleState();
+    getVisibleEquipmentKeys().forEach(key => {
+      const saved = state.equipment[key] || { enabled: false, enhance: 0 };
+      state.equipment[key] = {
+        ...saved,
+        ...(enabled === null ? {} : { enabled: !!enabled }),
+        ...(normalizedEnhance === null ? {} : { enhance: normalizedEnhance })
+      };
+    });
+    saveState({ refreshSnapshotIds: [view.id] });
+    render();
+    commitHistoryAction(history);
+  }
+
+  function getSkillInfoCooldownSeconds(kind, row = {}) {
+    if (!String(kind || '').includes('高学年')) return 0;
+    const value = Number(row['高学年クールタイム秒'] ?? row['クールタイム秒'] ?? row.cooldownSeconds);
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  }
+
+  function applyBaseStats(basic, totals, activeEffects, breakdown, state = currentApostleState()) {
+    if (!basic) return;
+    const level = Number(state.level) || 1;
+    const star = normalizeApostleStar(state.star || basic.レア度 || 1);
+    const grade = normalizeGrade(state.grade || 1);
+    const entries = [
+      ['hp', basic.HPタイプ, 'hp'],
+      ['patk', basic.物理攻撃力タイプ, 'attack'],
+      ['matk', basic.魔法攻撃力タイプ, 'attack'],
+      ['pdef', basic.物理防御力タイプ, 'defense'],
+      ['mdef', basic.魔法防御力タイプ, 'defense'],
+      ['crit', basic.会心タイプ, 'crit'],
+      ['critDmg', basic.会心DMGタイプ, 'crit'],
+      ['critRes', basic.会心抵抗タイプ, 'crit'],
+      ['critDmgRes', basic.会心DMG抵抗タイプ, 'crit'],
+      ['spRegen', basic.毎秒SP回復量 ? 'spRegen' : 0, 'sp']
+    ];
+    entries.forEach(([totalKey, tier, group]) => {
+      const base = totalKey === 'spRegen'
+        ? { base: basic.毎秒SP回復量, coeff: 0 }
+        : findBaseStatValue(tier, group);
+      if (!base) return;
+      const value = calculateBaseStat(base.base, base.coeff, level, star, grade, totalKey, basic);
+      totals[totalKey] += value;
+      addSourceStat(breakdown, 'base', totalKey, value);
+    });
+    activeEffects.push(`基礎ステ Lv${level} ★${star} / ${grade}年生 / ${formatGradeBonusSummary(grade, basic)}`);
+  }
+
+  function calculateBaseStat(base, coeff, level, star, grade, statKey = '', basic = null) {
+    const baseValue = Number(base) || 0;
+    const coeffValue = Number(coeff) || 0;
+    const levelValue = Math.max(1, Number(level) || 1);
+    const starValue = normalizeApostleStar(star);
+    const gradeRate = getGradeStatBonusRate(grade, statKey, basic);
+    const starRate = statKey === 'spRegen' ? 0 : 0.2 * (starValue - 1);
+    const levelStat = baseValue + coeffValue * (levelValue - 1);
+    return (levelStat * (1 + starRate)) * (1 + gradeRate);
+  }
+
+  function getGradeStatBonusRate(star, statKey = '', basic = null) {
+    const row = findGradeBonusRow(star);
+    if (!row) return 0.2 * (normalizeGrade(star) - 1);
+    const role = String(basic?.役割 || '');
+    const key = (() => {
+      if (role === '守備' && statKey === 'hp') return '守備タイプHP補正';
+      if (role === '攻撃' && (statKey === 'patk' || statKey === 'matk')) return '攻撃タイプ攻撃力補正';
+      if (role === '支援' && statKey === 'spRegen') return '支援タイプ毎秒SP回復量補正';
+      if (statKey === 'spRegen') return '毎秒SP回復量補正';
+      return '基本ステータス補正';
+    })();
+    const value = normalizeGradeBonusValue(row[key]);
+    if (value !== null) return value;
+    return normalizeGradeBonusValue(row.基本ステータス補正) ?? 0;
+  }
+
+  function formatGradeBonusSummary(star, basic = null) {
+    const baseRate = getGradeStatBonusRate(star, 'hp', basic ? { ...basic, 役割: '' } : { 役割: '' });
+    const role = String(basic?.役割 || '');
+    const roleItems = [];
+    if (role === '守備') {
+      const rate = getGradeStatBonusRate(star, 'hp', basic);
+      if (rate !== baseRate) roleItems.push(`HP+${formatPercentValue(rate)}%`);
+    } else if (role === '攻撃') {
+      const attackType = String(basic?.攻撃タイプ || '');
+      const rate = getGradeStatBonusRate(star, attackType === '魔法' ? 'matk' : 'patk', basic);
+      if (rate !== baseRate) roleItems.push(`攻撃+${formatPercentValue(rate)}%`);
+    } else if (role === '支援') {
+      const rate = getGradeStatBonusRate(star, 'spRegen', basic);
+      if (rate) roleItems.push(`毎秒SP+${formatPercentValue(rate)}%`);
+    }
+    return `学年補正+${formatPercentValue(baseRate)}%${roleItems.length ? `（${roleItems.join(' / ')}）` : ''}`;
+  }
+
+  function findGradeBonusRow(star) {
+    const grade = normalizeGrade(star);
+    const rows = DATA.sheets.gradeBonuses || [];
+    return rows.find(row => extractGradeNumber(row.学年 ?? row.grade ?? row.star ?? row['★']) === grade) || null;
+  }
+
+  function extractGradeNumber(value) {
+    if (typeof value === 'number') return value;
+    const text = String(value || '').trim();
+    if (!text) return 0;
+    const starCount = (text.match(/★/g) || []).length;
+    if (starCount) return starCount;
+    const match = text.match(/\d+/);
+    return match ? Number(match[0]) : 0;
+  }
+
+  function normalizeGradeBonusValue(value) {
+    if (value === '' || value === null || value === undefined) return null;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return null;
+    return numeric > 2 ? numeric / 100 : numeric;
+  }
+
+  function formatPercentValue(value) {
+    const percent = (Number(value) || 0) * 100;
+    return Number.isInteger(percent) ? String(percent) : percent.toFixed(1).replace(/\.0$/, '');
+  }
+
+  function applyRankUpBonuses(basic, totals, activeEffects, breakdown) {
+    if (!basic || !DATA.sheets.rankUpBonuses?.length) return;
+    const rank = Math.max(1, Number(currentApostleState().rank) || 1);
+    if (rank <= 1) return;
+
+    const attackType = String(basic.攻撃タイプ || '');
+    const attackKey = attackType === '物理' ? 'patk' : 'matk';
+    const attackTier = attackType === '物理' ? basic.物理攻撃力タイプ : basic.魔法攻撃力タイプ;
+    const steps = Array.from({ length: rank - 1 }, (_, index) => index + 1);
+
+    steps.forEach(rankFrom => {
+      addRankUpValue(totals, breakdown, rankFrom, basic.HPタイプ, 'HP', 'hp');
+      addRankUpValue(totals, breakdown, rankFrom, attackTier, '攻撃力', attackKey);
+      addRankUpValue(totals, breakdown, rankFrom, basic.物理防御力タイプ, '防御力', 'pdef');
+      addRankUpValue(totals, breakdown, rankFrom, basic.魔法防御力タイプ, '防御力', 'mdef');
+      addRankUpValue(totals, breakdown, rankFrom, basic.会心タイプ, '会心系', 'crit');
+      addRankUpValue(totals, breakdown, rankFrom, basic.会心DMGタイプ, '会心系', 'critDmg');
+      addRankUpValue(totals, breakdown, rankFrom, basic.会心抵抗タイプ, '会心系', 'critRes');
+      addRankUpValue(totals, breakdown, rankFrom, basic.会心DMG抵抗タイプ, '会心系', 'critDmgRes');
+    });
+
+    activeEffects.push(`Rankアップ補正 Rank${rank}`);
+  }
+
+  function renderTotals(totals, activeEffects) {
+    elements.totals.innerHTML = TOTAL_LABELS.map(item => `
+      <div class="stat-inline ${item.tone}" title="${escapeAttr(item.label)}">
+        <img src="img/${escapeAttr(item.icon)}" alt="">
+        <span class="label">${escapeHtml(item.label)}</span>
+        <strong class="value">${formatMainStatValue(totals[item.key])}</strong>
+      </div>
+    `).join('');
+    elements.activeEffects.innerHTML = activeEffects.length
+      ? renderCompactTable(['適用中の効果'], activeEffects.map(effect => [effect]), { firstColumnHeader: true })
+      : '<p class="empty-note">全体効果なし</p>';
+  }
+
+  function renderStatBreakdown(breakdown, totals, globalPercentRates = createEmptyTotals()) {
+    const additiveSources = BREAKDOWN_SOURCES.filter(source => source.key !== 'globalPercent');
+    const head = `
+      <thead>
+        <tr>
+          <th>ステータス</th>
+          ${additiveSources.map(source => `<th>${escapeHtml(source.label)}</th>`).join('')}
+          <th>加算合計</th>
+          <th>全体%補正</th>
+          <th>最終</th>
+        </tr>
+      </thead>
+    `;
+    const body = TOTAL_LABELS.map(item => {
+      const globalIncrease = Number(breakdown.globalPercent?.[item.key]) || 0;
+      const globalPercent = Number(globalPercentRates[item.key]) || 0;
+      const additiveTotal = (Number(totals[item.key]) || 0) - globalIncrease;
+      return `
+        <tr class="${item.tone}">
+          <th>${escapeHtml(item.label)}</th>
+          ${additiveSources.map(source => `<td>${formatBreakdownValue(breakdown[source.key]?.[item.key])}</td>`).join('')}
+          <td class="total">${formatBreakdownValue(additiveTotal)}</td>
+          <td>${formatGlobalPercentBreakdownValue(globalIncrease, globalPercent,
+            item.key !== 'spRegen' && currentApostleState().follow)}</td>
+          <td class="total">${formatMainStatValue(totals[item.key])}</td>
+        </tr>
+      `;
+    }).join('');
+    elements.breakdown.innerHTML = `<table>${head}<tbody>${body}</tbody></table>`;
+  }
+
+  function renderBaseTypes(basic) {
+    if (!basic) return;
+    const rows = [
+      ['HP', basic.HPタイプ, 'hp'],
+      ['物攻', basic.物理攻撃力タイプ, 'attack'],
+      ['魔攻', basic.魔法攻撃力タイプ, 'attack'],
+      ['物防', basic.物理防御力タイプ, 'defense'],
+      ['魔防', basic.魔法防御力タイプ, 'defense'],
+      ['会心', basic.会心タイプ, 'crit'],
+      ['会心DMG', basic.会心DMGタイプ, 'crit'],
+      ['会心抵抗', basic.会心抵抗タイプ, 'crit'],
+      ['会心DMG抵抗', basic.会心DMG抵抗タイプ, 'crit']
+    ];
+    elements.baseTypes.innerHTML = renderCompactTable(
+      ['項目', 'tier', '基礎', '係数'],
+      rows.map(([label, value, group]) => {
+      const base = findBaseStatValue(value, group);
+        return [label, value || '-', base?.base ?? '-', base?.coeff ?? '-'];
+      })
+    );
+  }
+
+  function renderRankBonuses(rankBonus) {
+    if (!rankBonus) {
+      elements.rankBonuses.innerHTML = '<p class="empty-note">Rank効果なし</p>';
+      return;
+    }
+    const rankTotals = createEmptyTotals();
+    const rankLimit = Math.min(currentApostleState().rank - 1, 9);
+    for (let rank = 1; rank <= rankLimit; rank++) {
+      for (let index = 1; index <= 2; index++) {
+        const type = rankBonus[`Rank${rank}to${rank + 1}_type${index}`];
+        const value = Number(rankBonus[`Rank${rank}to${rank + 1}_value${index}`]) || 0;
+        if (!type || !value) continue;
+        addNamedStat(rankTotals, type, value);
+      }
+    }
+    elements.rankBonuses.innerHTML = renderStatTotalsTable(rankTotals, '現在Rankでは未適用');
+  }
+
+  function applyAllRankGlobalBonuses(totals, activeEffects, breakdown) {
+    const effects = createEmptyTotals();
+    DATA.sheets.rankGlobalBonuses.forEach(row => {
+      const state = ensureApostleState(row.id);
+      applyRankBonusToTotals(row, state.rank, effects, true);
+    });
+    TOTAL_LABELS.forEach(item => {
+      const value = Number(effects[item.key]) || 0;
+      if (!value) return;
+      addStatValue(totals, item.key, value);
+      addSourceStat(breakdown, 'rankGlobal', item.key, value);
+    });
+    const summary = formatStatSummary(effects, '');
+    if (summary) activeEffects.push(`Rank全体効果 ${summary}`);
+  }
+
+  function applyRankBonusToTotals(rankBonus, rankValue, totals, commonFlat = false) {
+    if (!rankBonus) return;
+    const rankLimit = Math.min(Number(rankValue) - 1, 9);
+    for (let rank = 1; rank <= rankLimit; rank++) {
+      for (let index = 1; index <= 2; index++) {
+        const type = rankBonus[`Rank${rank}to${rank + 1}_type${index}`];
+        const value = Number(rankBonus[`Rank${rank}to${rank + 1}_value${index}`]) || 0;
+        if (!type || !value) continue;
+        addNamedStat(totals, type, commonFlat ? TRICKCAL_SHARED_STAT_ENGINE.commonFlatValue(value) : value);
+      }
+    }
+  }
+
+  function renderResearchControls() {
+    const { level, progress } = RESEARCH.normalizeState(appState.research, RESEARCH_LIMITS);
+    const limit = RESEARCH.getProgressLimit(RESEARCH_LIMITS, level);
+    if (elements.researchProgressSelect.options.length !== limit + 1) {
+      elements.researchProgressSelect.innerHTML = Array.from({ length: limit + 1 }, (_, index) =>
+        `<option value="${index}">${index ? `${index}回目` : 'OFF'}</option>`).join('');
+    }
+    elements.researchLevelSelect.value = String(level);
+    elements.researchProgressSelect.value = String(progress);
+    if (elements.researchBrowseStage.options.length !== RESEARCH_LIMITS.maxLevel) {
+      elements.researchBrowseStage.innerHTML = RESEARCH_LIMITS.stages.map(stage =>
+        `<option value="${stage}">${stage}段階</option>`).join('');
+    }
+    if (!Number.isInteger(view.researchBrowseStage)) {
+      view.researchBrowseStage = level > 0 ? level : 1;
+    }
+    view.researchBrowseStage = Math.max(1, Math.min(RESEARCH_LIMITS.maxLevel, view.researchBrowseStage));
+    elements.researchBrowseStage.value = String(view.researchBrowseStage);
+  }
+
+  function renderActiveResearch(basic, totals, activeEffects, breakdown) {
+    if (!basic) {
+      renderResearchControls();
+      document.getElementById('research-active-heading').textContent = '選択使徒に適用中の研究効果';
+      elements.activeResearch.textContent = '使徒を選択すると適用中の研究を表示します';
+      renderResearchOverview();
+      return;
+    }
+    const progress = Number(appState.research.progress) || 0;
+    const level = Number(appState.research.level) || 0;
+    renderResearchControls();
+    document.getElementById('research-active-heading').textContent = `${basic.使徒名 || basic.名前 || '選択使徒'}に適用中の研究効果`;
+
+    const selectedSpecies = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '');
+    const rows = getActiveResearchRows().filter(row =>
+      window.TRICKCAL_SPECIES?.normalizeName(row.種族 || '') === selectedSpecies
+    );
+    const entries = [];
+    rows.forEach(row => {
+      const value = getResearchValue(row, level, progress);
+      if (!value) return;
+      addNamedStat(totals, row.ステータス, value);
+      addSourceNamedStat(breakdown, 'research', row.ステータス, value);
+      activeEffects.push(`研究${level}段階${progress}回目 ${row.ステータス}+${value}`);
+      entries.push({
+        count: RESEARCH.getCurrentOrder(row, level, progress) ?? '—',
+        stage: getResearchAppliedStage(row, level, progress),
+        species: row.種族,
+        stat: row.ステータス,
+        value
+      });
+    });
+    elements.activeResearch.innerHTML = renderResearchTable(entries, '選択使徒に適用中の研究なし', false);
+    renderResearchOverview();
+  }
+
+  function getActiveResearchRows() {
+    const progress = Number(appState.research.progress) || 0;
+    const level = Number(appState.research.level) || 0;
+    if (!progress || !level) return [];
+    return DATA.sheets.research.filter(isResearchStatRow);
+  }
+
+  function isResearchStatRow(row) {
+    return Boolean(row?.種族 && row?.ステータス);
+  }
+
+  function renderResearchOverview() {
+    const level = Number(appState.research.level) || 0;
+    const progress = Number(appState.research.progress) || 0;
+    renderResearchOverviewSummary(level, progress);
+    const stage = view.researchBrowseStage;
+    const rows = (DATA.sheets.research || []).filter(row => Number(row.段階) === stage)
+      .sort((left, right) => Number(left.取得順) - Number(right.取得順));
+    if (!rows.length) {
+      elements.researchGrid.innerHTML = '<p class="empty-note">この段階の研究はありません</p>';
+      elements.researchStageCosts.textContent = '';
+      renderResearchPlan();
+      return;
+    }
+    const acquired = row => level > 0 && progress > 0 &&
+      (stage < level || (stage === level && Number(row.取得順) <= progress));
+    const totalGold = rows.reduce((sum, row) => sum + Number(row.必要ゴールド), 0);
+    const remainingGold = rows.reduce((sum, row) => sum + (acquired(row) ? 0 : Number(row.必要ゴールド)), 0);
+    const totalSeconds = rows.reduce((sum, row) => sum + Number(row.研究時間), 0);
+    const remainingSeconds = rows.reduce((sum, row) => sum + (acquired(row) ? 0 : Number(row.研究時間)), 0);
+    const materialTotals = new Map();
+    const remainingMaterials = new Map();
+    rows.forEach(row => (row.素材 || []).forEach(item => {
+      materialTotals.set(item.name, (materialTotals.get(item.name) || 0) + Number(item.count));
+      if (!acquired(row)) remainingMaterials.set(item.name, (remainingMaterials.get(item.name) || 0) + Number(item.count));
+    }));
+    const listCosts = totals => [...totals].map(([name, count]) =>
+      `<button type="button" class="research-material-button" data-research-material="${escapeHtml(name)}" data-research-count="${count}" aria-label="${escapeHtml(name)}の製作ツリーを表示">${renderResearchMaterialImage(name)}${escapeHtml(name)}×${count.toLocaleString('ja-JP')}</button>`).join('') || 'なし';
+    elements.researchStageCosts.innerHTML = `<strong>未取得分：${remainingGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(remainingSeconds))}</strong>` +
+      `<details class="research-overview-details"><summary>素材内訳</summary><div>段階合計：${totalGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(totalSeconds))}・${listCosts(materialTotals)}</div>` +
+      `<div>未取得分：${remainingGold.toLocaleString('ja-JP')}G・${escapeHtml(formatResearchDuration(remainingSeconds))}・${listCosts(remainingMaterials)}</div></details>`;
+    elements.researchGrid.innerHTML = `<table class="research-table research-detail-table">
+      <thead><tr><th scope="col">順・取得</th><th scope="col">効果</th><th scope="col">直接素材</th><th scope="col">ゴールド</th><th scope="col">時間</th></tr></thead>
+      <tbody>${rows.map(row => {
+        const effect = row.ステータス ? `${row.種族} ${row.ステータス} +${row.増加値}` :
+          (row.非ステータス効果原値 || row.内容);
+        const materialHtml = (row.素材 || []).map(item => {
+          const image = renderResearchMaterialImage(item.name);
+          const contents = `${image}<span>${escapeHtml(item.name)}×${Number(item.count).toLocaleString('ja-JP')}</span>`;
+          return `<button type="button" class="research-material-button" data-research-material="${escapeHtml(item.name)}" data-research-count="${Number(item.count)}" aria-label="${escapeHtml(item.name)}の製作ツリーを表示">${contents}</button>`;
+        }).join('') || '—';
+        return `<tr><th scope="row" class="research-order-cell"><span class="research-order-group">${row.取得順}<span class="research-acquired-mark${acquired(row) ? ' is-acquired' : ''}" role="img" aria-label="${acquired(row) ? '取得済み' : '未取得'}">${acquired(row) ? '✓' : ''}</span></span></th><td class="research-effect-cell"><strong>${escapeHtml(effect)}</strong>${effect !== row.内容 ? `<small>${escapeHtml(row.内容)}</small>` : ''}</td>` +
+          `<td class="research-material-cell">${materialHtml}</td><td class="research-gold-cell">${Number(row.必要ゴールド).toLocaleString('ja-JP')}</td>` +
+          `<td class="research-time-cell">${escapeHtml(formatResearchDuration(row.研究時間))}</td></tr>`;
+      }).join('')}</tbody></table>`;
+    renderResearchPlan();
+  }
+
+  function formatResearchDuration(seconds) {
+    const value = Number(seconds);
+    if (!Number.isFinite(value) || value < 0) return '不明';
+    const hours = Math.floor(value / 3600);
+    const minutes = Math.floor((value % 3600) / 60);
+    const remainder = value % 60;
+    return `${hours ? `${hours}時間` : ''}${minutes ? `${minutes}分` : ''}${remainder || (!hours && !minutes) ? `${remainder}秒` : ''}`;
+  }
+
+  function renderResearchMaterialImage(name, eager = false) {
+    const catalog = (DATA.sheets.researchMaterialCatalog || []).find(entry => entry.name === name);
+    let slotBackground = '';
+    if (name === 'エリーフ') slotBackground = 'ItemSlot_Turquoise.png';
+    else if (name === 'ゴールド') slotBackground = 'ItemSlot_Gold.png';
+    else if (catalog?.itemCategory === '素材' && Number.isInteger(catalog.itemGrade) && catalog.itemGrade >= 1 && catalog.itemGrade <= 5) {
+      slotBackground = `ItemSlot_${catalog.itemGrade}.png`;
+    }
+
+    const resolveAsset = path => window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
+    const backgroundUrl = slotBackground && !missingResearchSlotBackgrounds.has(slotBackground)
+      ? resolveAsset(`img/Slot/${slotBackground}`)
+      : '';
+    const hasMaterialImage = Boolean(catalog?.imageKey && !missingResearchImages.has(catalog.imageKey));
+    if (!backgroundUrl && !hasMaterialImage) return '';
+
+    const background = backgroundUrl
+      ? `<img class="research-material-slot-background" src="${escapeHtml(backgroundUrl)}" alt="" aria-hidden="true" loading="${eager ? 'eager' : 'lazy'}" data-research-slot-background="${escapeHtml(slotBackground)}">`
+      : '';
+    const materialImage = hasMaterialImage
+      ? `<img class="research-material-image" src="${escapeHtml(resolveAsset(`img/Materials/${catalog.imageKey}`))}" alt="" aria-hidden="true" loading="${eager ? 'eager' : 'lazy'}" data-research-image="${escapeHtml(catalog.imageKey)}">`
+      : '';
+    return `<span class="research-material-icon" aria-hidden="true">${background}${materialImage}</span>`;
+  }
+
+                                                                       
+  function researchInventoryMaterials() {
+    return (DATA.sheets.researchMaterialCatalog || []).filter(item => item.name !== 'ゴールド');
+  }
+
+  function parseResearchInventory(raw) {
+      if (!raw) return { items: {}, updatedAt: null };
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('invalid inventory');
+      const items = parsed.version === 2 ? parsed.items : parsed;
+      if (!items || typeof items !== 'object' || Array.isArray(items)) throw new Error('invalid inventory items');
+      if (parsed.version === 2 && parsed.updatedAt != null && (typeof parsed.updatedAt !== 'string' || !Number.isFinite(Date.parse(parsed.updatedAt)))) throw new Error('invalid updatedAt');
+      const names = new Set((DATA.sheets.researchMaterialCatalog || []).map(item => item.name));
+      const safe = {};
+      Object.entries(items).forEach(([name, count]) => {
+        if (!names.has(name)) return;
+        if (!Number.isSafeInteger(count) || count < 0) throw new Error('invalid inventory count');
+        safe[name] = count;
+      });
+      return { items: safe, updatedAt: parsed.version === 2 ? parsed.updatedAt || null : null };
+  }
+
+  function loadResearchInventory() {
+    try {
+      const raw = storageLocal.getItem(RESEARCH_INVENTORY_KEY);
+      researchInventorySavedRaw = raw;
+      const parsed = parseResearchInventory(raw);
+      researchInventoryUpdatedAt = parsed.updatedAt;
+      return parsed.items;
+    } catch (error) {
+      researchInventoryWarning = '所持数の保存データを読めません。元の保存は変更せず、計画上は0として表示しています。';
+      return {};
+    }
+  }
+
+  function validateResearchInventoryInput() {
+    const input = elements.researchInventoryInput;
+    const value = input.value;
+    const valid = value === '' || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)));
+    input.setAttribute('aria-invalid', String(!valid));
+    elements.researchInventoryDialogStatus.textContent = valid ? '' : '0以上の整数で入力してください';
+    return valid;
+  }
+
+  function renderResearchInventory() {
+    const search = elements.researchInventorySearch.value.trim();
+    const shown = researchInventoryMaterials().filter(item => !search || item.name.includes(search));
+    const unentered = researchInventoryMaterials().filter(item => !Object.hasOwn(researchInventory, item.name)).length;
+    elements.researchInventoryUpdated.textContent = `${researchInventorySavedRaw == null ? '' : `最終更新：${researchInventoryUpdatedAt ? new Date(researchInventoryUpdatedAt).toLocaleString('ja-JP') : '更新日時不明'}・`}未入力${unentered}件`;
+    elements.researchInventoryStatus.textContent = researchInventoryWarning;
+    elements.researchInventoryList.innerHTML = shown.map(item => {
+      const count = researchInventory[item.name];
+      const spoken = Object.hasOwn(researchInventory, item.name) ? `${count.toLocaleString('ja-JP')}` : '未入力';
+      return `<button type="button" class="research-inventory-chip" data-research-owned="${escapeHtml(item.name)}" title="${escapeHtml(item.name)}：${spoken}" aria-label="${escapeHtml(item.name)}、所持数${spoken}を編集">${renderResearchMaterialImage(item.name) || '<span aria-hidden="true">?</span>'}<strong class="research-plan-count">${count == null ? '—' : count.toLocaleString('ja-JP')}</strong></button>`;
+    }).join('') || '<p>該当する素材はありません</p>';
+  }
+
+  function openResearchInventoryDialog(name, opener) {
+    if (!researchInventoryMaterials().some(item => item.name === name)) return;
+    researchInventoryWarning = '';
+    researchInventory = loadResearchInventory();
+    renderResearchInventory();
+    const original = Object.hasOwn(researchInventory, name) ? String(researchInventory[name]) : '';
+    researchInventoryEditing = { name, original, opener };
+    document.getElementById('research-inventory-dialog-title').textContent = '所持数を変更';
+    document.getElementById('research-inventory-dialog-material').innerHTML = `${renderResearchMaterialImage(name, true)}<strong>${escapeHtml(name)}</strong>`;
+    elements.researchInventoryInput.value = original;
+    elements.researchInventoryInput.setAttribute('aria-invalid', 'false');
+    elements.researchInventoryDialogStatus.textContent = researchInventoryWarning;
+    elements.researchInventoryDialog.showModal();
+    elements.researchInventoryInput.focus();
+  }
+
+  function requestCloseResearchInventoryDialog() {
+    if (researchInventorySaving) {
+      elements.researchInventoryDialogStatus.textContent = '保存処理中です。完了後に操作してください。';
+      return;
+    }
+    if (researchInventoryEditing && elements.researchInventoryInput.value !== researchInventoryEditing.original &&
+        !window.confirm('未保存の所持数を破棄しますか？')) return;
+    elements.researchInventoryDialog.close();
+  }
+
+  async function saveResearchInventoryItem() {
+    if (researchInventorySaving) return;
+    const edit = researchInventoryEditing;
+    if (!edit || !validateResearchInventoryInput()) { elements.researchInventoryInput.focus(); return; }
+    if (researchInventoryWarning) {
+      elements.researchInventoryDialogStatus.textContent = researchInventoryWarning + ' 元データを保全するため保存できません。';
+      return;
+    }
+    if (!navigator.locks?.request) {
+      elements.researchInventoryDialogStatus.textContent = '排他機能を利用できないため保存できません。この入力は残しています。対応ブラウザで再試行してください。';
+      return;
+    }
+    const name = edit.name;
+    const original = edit.original;
+    const entered = elements.researchInventoryInput.value;
+    const controls = [elements.researchInventoryInput, ...elements.researchInventoryDialog.querySelectorAll('button')];
+    researchInventorySaving = true;
+    elements.researchInventoryDialog.setAttribute('aria-busy', 'true');
+    controls.forEach(control => { control.disabled = true; });
+    elements.researchInventoryDialogStatus.textContent = '保存中です…';
+    try {
+      const result = await navigator.locks.request('trickcal-research-inventory-v1', { mode: 'exclusive' }, function saveResearchInventoryLocked() {
+        const latest = parseResearchInventory(storageLocal.getItem(RESEARCH_INVENTORY_KEY));
+        const latestValue = Object.hasOwn(latest.items, name) ? String(latest.items[name]) : '';
+        if (latestValue !== original) return { conflict: true };
+        const next = { ...latest.items };
+        if (entered === '') delete next[name];
+        else next[name] = Number(entered);
+        const updatedAt = new Date().toISOString();
+        const raw = JSON.stringify({ version: 2, items: next, updatedAt });
+        storageLocal.setItem(RESEARCH_INVENTORY_KEY, raw);
+        return { raw, updatedAt, next };
+      });
+      if (result.conflict) {
+        elements.researchInventoryDialogStatus.textContent = '別タブでこの素材が更新されました。取消して最新の値を確認してください。';
+        return;
+      }
+      researchInventorySavedRaw = result.raw;
+      researchInventoryUpdatedAt = result.updatedAt;
+      researchInventory = result.next;
+      researchInventoryEditing.original = entered;
+      elements.researchInventoryDialog.close();
+    } catch (error) {
+      elements.researchInventoryDialogStatus.textContent = '所持数を保存できませんでした。入力は残しています。保存領域を確認して再試行してください。';
+    } finally {
+      researchInventorySaving = false;
+      elements.researchInventoryDialog.removeAttribute('aria-busy');
+      controls.forEach(control => { control.disabled = false; });
+    }
+  }
+
+  function renderResearchPlan() {
+    if (!elements.researchPlanEndStage.options.length) {
+      elements.researchPlanEndStage.innerHTML = RESEARCH_LIMITS.stages.map(stage =>
+        `<option value="${stage}">${stage}段階の最後まで</option>`).join('');
+    }
+    elements.researchPlanEndStage.value = String(view.researchPlanEndStage);
+    elements.researchPlanMode.value = view.researchPlanMode;
+    document.getElementById('research-plan-current').textContent = `現在：${Number(appState.research.level) || 0}段階・${Number(appState.research.progress) || 0}件取得`;
+    document.getElementById('research-plan-controls').hidden = view.researchPlanTab !== 'remaining';
+    document.querySelectorAll('[data-research-plan-tab]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.researchPlanTab === view.researchPlanTab)));
+    elements.researchPlanSummary.hidden = view.researchPlanTab !== 'remaining';
+    elements.researchInventoryPanel.hidden = view.researchPlanTab !== 'inventory';
+    try {
+      const plan = RESEARCH.planRemainingResearch(DATA.sheets.research, DATA.sheets.researchRecipes,
+        DATA.sheets.researchMaterialCatalog, appState.research, view.researchPlanEndStage,
+        researchInventory, view.researchPlanMode);
+      researchPlan = plan;
+      const chip = (name, count, stage = '') => `<button type="button" class="research-material-label research-plan-chip" data-research-plan-material="${escapeHtml(name)}" data-research-count="${Number(count)}" data-research-stage-breakdown="${escapeHtml(stage)}" title="${escapeHtml(name)}${stage ? `（${escapeHtml(stage)}）` : ''}" aria-label="${escapeHtml(name)} ${Number(count).toLocaleString('ja-JP')}${stage ? `、研究で直接使う総数：${escapeHtml(stage)}` : ''}">${renderResearchMaterialImage(name) || '<span aria-hidden="true">?</span>'}<strong class="research-plan-count">${Number(count).toLocaleString('ja-JP')}</strong></button>`;
+      const group = entries => entries.length ? `<div class="research-material-chip-list">${entries.join('')}</div>` : 'なし';
+      const stageText = name => [...plan.byStage].filter(([, items]) => items.has(name))
+        .map(([stage, items]) => `${stage}段階：${items.get(name)}`).join('／');
+      const direct = [...plan.direct].map(([name, count]) => chip(name, count, stageText(name)));
+      const raw = plan.ordered.filter(name => !plan.entries.get(name).recipe)
+        .map(name => chip(name, plan.entries.get(name).missing));
+      elements.researchPlanSummary.innerHTML = `<p>${view.researchPlanEndStage}段階まで：残り${plan.researchCount}件${plan.researchCount ? '' : '・必要数0'}` +
+        `／${view.researchPlanMode === 'shortfall' ? '所持数を一度だけ控除した不足分' : '所持数を考慮しない総必要数'}</p>` +
+        `<table><tbody><tr><th scope="row">研究で直接必要</th><td>${group(direct)}</td></tr>` +
+        `<tr><th scope="row">製作に必要な原材料</th><td>${group(raw)}</td></tr></tbody></table>`;
+    } catch (error) {
+      researchPlan = null;
+      elements.researchPlanSummary.textContent = `素材計画を計算できません：${error.message}`;
+    }
+    renderResearchInventory();
+  }
+
+  function openResearchMaterialDialog(name, count, opener, stageBreakdown = '') {
+    researchDialogOpener = opener;
+    document.getElementById('research-material-dialog-title').textContent = `${name}の製作ツリー`;
+    const subtitle = document.getElementById('research-material-dialog-subtitle');
+    subtitle.hidden = !stageBreakdown;
+    subtitle.textContent = stageBreakdown ? `研究で直接使う総数：${stageBreakdown}（所持数控除前）` : '';
+    elements.researchMaterialDialog.showModal();
+    renderResearchMaterialDetail(elements.researchMaterialDialogDetail, name, count);
+    elements.researchMaterialDialogDetail.querySelector('.research-tree-scroll')?.scrollTo({ left: 0 });
+    document.getElementById('research-material-dialog-close').focus();
+  }
+
+  function renderResearchMaterialDetail(target, name, count) {
+    if (!name) {
+      target.hidden = true;
+      target.textContent = '';
+      return;
+    }
+    try {
+      const planner = RESEARCH.createMaterialPlanner(DATA.sheets.researchRecipes, DATA.sheets.researchMaterialCatalog);
+      const plan = planner.expand(new Map([[name, count]]), researchInventory, view.researchPlanMode);
+      const recipe = planner.recipes.get(name);
+      const visible = new Set(plan.ordered.filter(item => item === name || plan.entries.get(item).demand > 0));
+      const positions = new Map();
+      let leaf = 0;
+      const place = item => {
+        if (positions.has(item)) return positions.get(item);
+        const entry = plan.entries.get(item);
+        const children = (entry.recipe?.materials || []).map(part => part.name).filter(child => visible.has(child));
+        const x = children.length ? children.reduce((sum, child) => sum + place(child), 0) / children.length : leaf++ * 92 + 46;
+        positions.set(item, x);
+        return x;
+      };
+      place(name);
+      const width = Math.max(92, leaf * 92);
+      const height = (plan.entries.get(name).depth + 1) * 94;
+      const markerId = 'research-dialog-tree-arrow';
+      target.hidden = false;
+      target.innerHTML = `<div class="research-tree-scroll"><div class="research-tree-canvas" style="width:${width}px;height:${height}px"><svg class="research-tree-lines" data-arrow-id="${markerId}" aria-hidden="true"><defs><marker id="${markerId}" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 Z" fill="currentColor"/></marker></defs></svg>${plan.ordered.filter(item => visible.has(item)).map(item => {
+            const entry = plan.entries.get(item);
+            const number = view.researchPlanMode === 'shortfall' ? entry.missing : entry.demand;
+            const detail = `${item}：${view.researchPlanMode === 'shortfall' ? '不足' : '必要'}${number}、所持${entry.owned}、${entry.recipe ? `${entry.batches}回製作・余り${entry.surplus}` : '原材料'}`;
+            return `<button type="button" class="research-tree-node${item === name ? ' is-target' : ''}" data-research-node="${escapeHtml(item)}" data-detail="${escapeHtml(detail)}" style="left:${positions.get(item) - 42}px;top:${entry.depth * 94}px" aria-label="${escapeHtml(detail)}">` +
+              `${renderResearchMaterialImage(item, true)}<strong>${number.toLocaleString('ja-JP')}</strong></button>`;
+          }).join('')}</div></div><div class="research-tree-selected" role="status">${view.researchPlanMode === 'shortfall' && plan.entries.get(name).missing === 0 ? '所持分で充足。製作材料は不要です。' : `${escapeHtml(name)}を選択すると詳細を表示します。`}</div>` +
+        `<small>${recipe ? `レシピ${recipe.stage}段階・基礎製作時間 ${escapeHtml(formatResearchDuration(recipe.seconds))}` : '製作レシピなし'}</small>`;
+      target.insertAdjacentHTML('beforeend', `<div class="research-tree-job-sources">${renderResearchLifeJobSources(name)}</div>`);
+      requestAnimationFrame(() => drawResearchTreeLinks(target));
+    } catch (error) {
+      target.hidden = false;
+      target.textContent = `製作ツリーを計算できません：${error.message}`;
+    }
+  }
+
+  function renderResearchLifeJobSources(materialName) {
+    const data = DATA.sheets.lifeJobs;
+    if (!data || !Array.isArray(data.materials)
+      || !Array.isArray(data.resumeMaterialSlots)) return '';
+    const material = data.materials.find(item => item.name === materialName);
+    const materialId = material?.id;
+    let pageHref = `public/life-jobs.html?material=${encodeURIComponent(materialName)}`;
+    try {
+      pageHref = window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('life-jobs', {
+        query: `?material=${encodeURIComponent(materialName)}`
+      }) || pageHref;
+    } catch (_) {                                  }
+    const entries = (Array.isArray(data.resumeMaterialSlots) ? data.resumeMaterialSlots : [])
+      .filter(slot => slot.materialId === materialId);
+    const groups = [true, false].map(isBest => {
+      const matching = entries.filter(entry => entry.isBest === isBest)
+        .sort((a, b) => a.apostleName.localeCompare(b.apostleName, 'ja'));
+      if (!matching.length) return '';
+      const apostles = matching.map(entry => {
+        const name = String(entry.apostleName || '');
+        if (!name) return '';
+        let apostleHref = `public/life-jobs.html?view=apostle&apostle=${encodeURIComponent(name)}`;
+        try {
+          apostleHref = window.TRICKCAL_PUBLIC_SITE?.pageUrl?.('life-jobs', {
+            query: `?view=apostle&apostle=${encodeURIComponent(name)}`
+          }) || apostleHref;
+        } catch (_) {                                  }
+        const assetId = data.apostles?.find(apostle => apostle.name === name)?.assetId;
+        const image = assetId
+          ? `<img src="${escapeAttr(window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(`img/Chara/${assetId}.webp`) || `img/Chara/${assetId}.webp`)}" alt="" loading="lazy">`
+          : '';
+        return `<a class="research-life-job-apostle${isBest ? ' is-main' : ''}${image ? '' : ' name-only'}" href="${escapeAttr(apostleHref)}" target="_blank" rel="noopener" aria-label="${isBest ? 'メイン' : '履歴書素材'}の使徒：${escapeAttr(name)}">${image}<span>${escapeHtml(name)}</span></a>`;
+      }).join('');
+      return `<div class="research-life-job-apostle-group role-${isBest ? 'main' : 'normal'}"><strong>${isBest ? 'メイン' : 'その他の履歴書素材'}</strong><div>${apostles}</div></div>`;
+    }).join('');
+    const content = entries.length
+      ? groups
+      : '<p>登録済みの履歴書素材に該当なし</p>';
+    return `<section class="research-life-job-sources" aria-label="素材の履歴書登録と関連使徒"><h5>関連使徒</h5>${content}<a class="research-life-job-detail-link" href="${escapeAttr(pageHref)}" target="_blank" rel="noopener">使徒・素材を探す</a><small>使徒アルバイト報酬の登録内容です。実際の獲得は保証しません。</small></section>`;
+  }
+
+  function drawResearchTreeLinks(target) {
+    const canvas = target.querySelector('.research-tree-canvas');
+    const svg = canvas?.querySelector('svg');
+    if (!canvas || !svg) return;
+    const origin = canvas.getBoundingClientRect();
+    svg.setAttribute('viewBox', `0 0 ${canvas.offsetWidth} ${canvas.offsetHeight}`);
+    const nodes = new Map([...canvas.querySelectorAll('[data-research-node]')].map(node => [node.dataset.researchNode, node]));
+    const lines = [];
+    (DATA.sheets.researchRecipes || []).forEach(recipe => {
+      const to = nodes.get(recipe.name);
+      if (!to) return;
+      const end = to.getBoundingClientRect();
+      recipe.materials.forEach(item => {
+        const from = nodes.get(item.name);
+        if (!from) return;
+        const start = from.getBoundingClientRect();
+        const x1 = start.left + start.width / 2 - origin.left;
+        const y1 = start.bottom - origin.top;
+        const x2 = end.left + end.width / 2 - origin.left;
+        const y2 = end.top - origin.top;
+        const middle = (y1 + y2) / 2;
+        lines.push(`<path d="M${x1} ${y1} V${middle} H${x2} V${y2 - 5}" fill="none" stroke="currentColor" stroke-width="2.5" marker-end="url(#${svg.dataset.arrowId})"/>`);
+      });
+    });
+    svg.querySelectorAll('path.research-tree-edge').forEach(path => path.remove());
+    svg.insertAdjacentHTML('beforeend', lines.join('').replace(/<path /g, '<path class="research-tree-edge" '));
+  }
+
+  function renderResearchOverviewSummary(level, progress) {
+    if (!elements.researchOverviewSummary) return;
+    const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
+    (DATA.sheets.research || [])
+      .filter(isResearchStatRow)
+      .forEach(row => {
+        addNamedStat(effects, row.ステータス, getResearchValue(row, level, progress));
+        addNamedStat(maximumEffects, row.ステータス, getResearchValue(row, RESEARCH_LIMITS.maxLevel, RESEARCH.getProgressLimit(RESEARCH_LIMITS, RESEARCH_LIMITS.maxLevel)));
+      });
+    elements.researchOverviewSummary.innerHTML = renderStatTotalsComparisonTable(
+      effects,
+      maximumEffects,
+      '研究効果なし',
+      '現在 / 全研究最大'
+    );
+  }
+
+  function renderResearchTable(entries, emptyText, showSpecies) {
+    if (!entries.length) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
+    const speciesHeader = showSpecies ? '<th>種族</th>' : '';
+    const rows = entries.map(entry => `
+      <tr>
+        <td>${entry.count === '—' ? '—' : `${escapeHtml(entry.count)}回目`}</td>
+        <td>${escapeHtml(entry.stage)}</td>
+        ${showSpecies ? `<td>${escapeHtml(entry.species || '')}</td>` : ''}
+        <td>${escapeHtml(entry.stat || '')}</td>
+        <td class="value">+${escapeHtml(entry.value)}</td>
+      </tr>
+    `).join('');
+    return `
+      <table class="research-table">
+        <thead>
+          <tr>
+            <th>回目</th>
+            <th>反映段階</th>
+            ${speciesHeader}
+            <th>ステータス</th>
+            <th>上昇値</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  function renderCompactTable(headers, rows, options = {}) {
+    if (!rows.length) return `<p class="empty-note">${escapeHtml(options.emptyText || '表示なし')}</p>`;
+    const body = rows.map(row => `
+      <tr>
+        ${row.map((cell, index) => {
+          const tag = index === 0 && options.firstColumnHeader ? 'th' : 'td';
+          const className = options.valueColumn === index ? ' class="value"' : '';
+          const content = typeof options.renderCell === 'function'
+            ? options.renderCell(cell, index)
+            : escapeHtml(cell);
+          return `<${tag}${className}>${content}</${tag}>`;
+        }).join('')}
+      </tr>
+    `).join('');
+    return `
+      <table class="compact-table">
+        <thead>
+          <tr>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    `;
+  }
+
+  function renderCurrentMaximumCell(cell, index) {
+    if (index !== 1 || !cell || typeof cell !== 'object') return escapeHtml(cell);
+    return `<span class="stat-summary-current">${escapeHtml(cell.current)}</span><span class="stat-summary-separator"> / </span><span class="stat-summary-max">${escapeHtml(cell.maximum)}</span>`;
+  }
+
+  function renderStatTotalsTable(totals, emptyText) {
+    const rows = TOTAL_LABELS.map(item => [
+      item.label,
+      totals[item.key] ? `+${formatNumber(totals[item.key])}` : '-'
+    ]);
+    const hasValue = rows.some(([, value]) => value !== '-');
+    if (!hasValue) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
+    return renderCompactTable(['ステータス', '上昇値'], rows, { firstColumnHeader: true, valueColumn: 1 });
+  }
+
+  function renderStatTotalsComparisonTable(totals, maximumTotals, emptyText, comparisonHeader) {
+    const rows = TOTAL_LABELS.map(item => {
+      const current = Number(totals[item.key]) || 0;
+      const maximum = Number(maximumTotals[item.key]) || 0;
+      const formatValue = value => value ? `+${formatNumber(value)}` : '-';
+      return [item.label, {
+        current: formatValue(current),
+        maximum: formatValue(maximum)
+      }];
+    });
+    const hasValue = rows.some(([, value]) => value.current !== '-' || value.maximum !== '-');
+    if (!hasValue) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
+    return renderCompactTable(
+      ['ステータス', comparisonHeader],
+      rows,
+      { firstColumnHeader: true, valueColumn: 1, renderCell: renderCurrentMaximumCell }
+    );
+  }
+
+  function renderStatPercentTotalsTable(totals, emptyText, maximumTotals = totals, comparisonHeader = '現在 / 全キャラ最大') {
+    const rows = TOTAL_LABELS.map(item => {
+      const current = Number(totals[item.key]) || 0;
+      const maximum = Number(maximumTotals[item.key]) || 0;
+      const formatValue = value => value ? `+${formatBoardSummaryValue(value)}%` : '-';
+      return [item.label, {
+        current: formatValue(current),
+        maximum: formatValue(maximum)
+      }];
+    });
+    const hasValue = rows.some(([, value]) => value.current !== '-' || value.maximum !== '-');
+    if (!hasValue) return `<p class="empty-note">${escapeHtml(emptyText)}</p>`;
+    return renderCompactTable(
+      ['ステータス', comparisonHeader],
+      rows,
+      { firstColumnHeader: true, valueColumn: 1, renderCell: renderCurrentMaximumCell }
+    );
+  }
+
+  function formatStatSummary(totals, suffix) {
+    return TOTAL_LABELS
+      .map(item => ({ label: item.label, value: Number(totals[item.key]) || 0 }))
+      .filter(item => item.value)
+      .map(item => `${item.label}+${formatBoardSummaryValue(item.value)}${suffix}`)
+      .join(' / ');
+  }
+
+  function getResearchAppliedStage(row, stage, count) {
+    return RESEARCH.getAppliedStages(row, stage, count).join(', ') || '-';
+  }
+
+  function getResearchValue(row, stage, count) {
+    return RESEARCH.getValue(row, stage, count);
+  }
+
+  function renderApostleBulkSettings() {
+    if (!elements.apostleBulkList) return;
+    const query = String(view.apostleBulkSearch || '').trim().toLocaleLowerCase('ja');
+    if (elements.apostleBulkSearch && elements.apostleBulkSearch.value !== view.apostleBulkSearch) {
+      elements.apostleBulkSearch.value = view.apostleBulkSearch;
+    }
+    if (elements.apostleBulkSort) elements.apostleBulkSort.value = view.apostleBulkSort;
+    const activeFilterCount = Object.values(view.apostleBulkFilters)
+      .reduce((total, values) => total + values.size, 0);
+    if (elements.apostleBulkFilterCount) {
+      elements.apostleBulkFilterCount.textContent = activeFilterCount ? `${activeFilterCount}件選択中` : '';
+    }
+    if (elements.apostleBulkFilters) {
+      elements.apostleBulkFilters.innerHTML = renderApostleFilterControls(
+        getApostleFilterGroups(),
+        view.apostleBulkFilters,
+        'bulk'
+      );
+    }
+    const rows = DATA.sheets.basicInfo
+      .filter(row => !query || [row.使徒名, row.id, row.性格, row.種族, row.役割, row.配列]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase('ja').includes(query)))
+      .filter(row => [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.apostleBulkFilters[group];
+        return selected.size === 0 || selected.has(value);
+      }))
+      .sort(compareApostleBulkRows);
+    if (elements.apostleBulkCount) {
+      elements.apostleBulkCount.textContent = `${rows.length}/${DATA.sheets.basicInfo.length}使徒`;
+    }
+    elements.apostleBulkList.innerHTML = rows.map(renderApostleBulkRow).join('')
+      || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function followResortedApostle(container, dataAttribute, id) {
+    if (!container || !id) return;
+    window.requestAnimationFrame(() => {
+      const item = Array.from(container.querySelectorAll(`[${dataAttribute}]`))
+        .find(element => element.getAttribute(dataAttribute) === String(id));
+      if (!item) return;
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      item.scrollIntoView({
+        block: 'center',
+        inline: 'nearest',
+        behavior: reduceMotion ? 'auto' : 'smooth'
+      });
+      item.classList.remove('is-sort-followed');
+      void item.offsetWidth;
+      item.classList.add('is-sort-followed');
+      window.setTimeout(() => item.classList.remove('is-sort-followed'), 2200);
+    });
+  }
+
+  function compareApostleBulkRows(a, b) {
+    const nameOrder = String(a.使徒名 || a.id).localeCompare(
+      String(b.使徒名 || b.id),
+      'ja',
+      { sensitivity: 'base' }
+    );
+    const stateA = ensureApostleState(a.id);
+    const stateB = ensureApostleState(b.id);
+    if (view.apostleBulkSort === 'combatPower') {
+      return getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id) || nameOrder;
+    }
+    if (view.apostleBulkSort === 'star') return stateB.star - stateA.star || nameOrder;
+    if (view.apostleBulkSort === 'level') return stateB.level - stateA.level || nameOrder;
+    if (view.apostleBulkSort === 'skillLevel') {
+      const total = state => ['low', 'high', 'passive']
+        .reduce((sum, key) => sum + (Number(state.skillLevels?.[key]) || 0), 0);
+      return total(stateB) - total(stateA) || nameOrder;
+    }
+    if (view.apostleBulkSort === 'equipment') {
+      const count = (basic, state) => getApostleBulkEquipmentDefinitions(basic)
+        .reduce((sum, item) => sum + Number(!!state.equipment?.[item.key]?.enabled), 0);
+      return count(b, stateB) - count(a, stateA) || nameOrder;
+    }
+    return nameOrder;
+  }
+
+  function renderApostleBulkRow(basic) {
+    const state = ensureApostleState(basic.id);
+    const isResonance = getFormationPersonalityResolution(basic, null).isSelectable;
+    const combatPower = getApostleCombatPowerForSort(basic.id);
+    const identityMeta = [basic.性格, basic.種族].filter(Boolean).join(' / ');
+    const asideRank = getEffectiveAsideRank(basic.id, state.asideRank);
+    const skillLevels = normalizeSkillLevels(state.skillLevels, asideRank);
+    const combatPowerDetail = view.apostleBulkSort === 'combatPower'
+      ? `CP ${formatApostleListCombatPower(combatPower)}`
+      : '';
+    const maxSkillLevel = getMaxSkillLevel(asideRank);
+    const starOptions = Array.from({ length: APOSTLE_STAR_MAX }, (_, index) => ({
+      value: index + 1,
+      label: String(index + 1)
+    }));
+    const skillOptions = createNumberOptions(1, maxSkillLevel);
+    const equipment = DATA.getById('equipment', basic.id);
+    const equipmentControls = getApostleBulkEquipmentDefinitions(basic).map(item => {
+      const tier = Number(equipment?.[`Equip_Rank${state.rank}_${item.key}`]);
+      const available = Number.isFinite(tier);
+      const saved = state.equipment?.[item.key] || { enabled: false, enhance: 0 };
+      const selected = available && saved.enabled
+        ? Math.max(0, Math.min(5, Number(saved.enhance) || 0))
+        : 'off';
+      const options = [
+        { value: 'off', label: 'なし' },
+        ...Array.from({ length: 6 }, (_, enhance) => ({ value: enhance, label: `+${enhance}` }))
+      ];
+      return `
+        <label class="apostle-bulk-equipment ${selected === 'off' ? 'is-off' : ''}" title="${escapeAttr(item.title)}">
+          <span>${escapeHtml(item.label)}</span>
+          <select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-equipment="${escapeAttr(item.key)}"
+            aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${item.title}`)}" ${available ? '' : 'disabled'}>
+            ${renderOptions(options, selected)}
+          </select>
+        </label>
+      `;
+    }).join('');
+    return `
+      <article class="apostle-bulk-row personality-${escapeAttr(basic.性格 || '')} ${isResonance ? 'is-resonance' : ''} ${getSelectableMasterClass(basic)}" ${getSelectableMasterStyle(basic)} data-apostle-bulk-row="${escapeAttr(basic.id)}"
+        data-apostle-bulk-combat-power="${combatPower}">
+        <div class="apostle-bulk-identity">
+          <span class="apostle-bulk-avatar">
+            <img loading="lazy" decoding="async" data-apostle-image
+              src="${escapeAttr(getApostleSkillImagePath('high', basic.id) || getApostleImagePath(basic.id))}" alt="">
+          </span>
+          <span>
+            <strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>
+            <small>${escapeHtml(identityMeta)}</small>
+            ${combatPowerDetail ? `<small class="apostle-bulk-combat-power">${escapeHtml(combatPowerDetail)}</small>` : ''}
+          </span>
+        </div>
+        <label class="apostle-bulk-field is-star"><span>★</span>
+          <select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="star" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ★`)}">
+            ${renderOptions(starOptions, state.star)}
+          </select>
+        </label>
+        <label class="apostle-bulk-field is-level"><span>Lv</span>
+          <input type="number" min="1" max="${getLevelCapForStar(state.star)}" step="1" value="${state.level}"
+            data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-field="level" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} Lv`)}">
+        </label>
+        <div class="apostle-bulk-group apostle-bulk-skills" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} SLv`)}">
+          <span class="apostle-bulk-group-title">SLv${asideRank ? `<small>A${asideRank}<br>上限${maxSkillLevel}</small>` : ''}</span>
+          ${[
+            ['low', '低'],
+            ['high', '高'],
+            ['passive', 'P']
+          ].map(([key, label]) => `
+            <label><span>${label}</span><select data-apostle-bulk-id="${escapeAttr(basic.id)}" data-apostle-bulk-skill="${key}"
+              aria-label="${escapeAttr(`${basic.使徒名 || basic.id} ${label}学年SLv`)}">${renderOptions(skillOptions, skillLevels[key])}</select></label>
+          `).join('')}
+        </div>
+        <div class="apostle-bulk-group apostle-bulk-equipments" role="group" aria-label="${escapeAttr(`${basic.使徒名 || basic.id} 装備 Rank ${state.rank}`)}">
+          <span class="apostle-bulk-group-title">装備<small>R${state.rank}</small></span>
+          ${equipmentControls}
+        </div>
+      </article>
+    `;
+  }
+
+  function getApostleBulkEquipmentDefinitions(basic) {
+    const attackKey = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
+    return [
+      { key: 'HP', label: 'HP', title: 'HP装備' },
+      { key: attackKey, label: attackKey === '物理攻撃' ? '物攻' : '魔攻', title: `${attackKey}装備` },
+      { key: '物理防御', label: '物防', title: '物理防御装備' },
+      { key: '魔法防御', label: '魔防', title: '魔法防御装備' },
+      { key: '会心/会心DMG', label: '会心', title: '会心・会心DMG装備' },
+      { key: '会心抵抗/会心DMG抵抗', label: '抵抗', title: '会心抵抗・会心DMG抵抗装備' }
+    ];
+  }
+
+  function updateApostleBulkLevelInput(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    const rawValue = Number(control.value);
+    if (!id || !basic || !Number.isFinite(rawValue) || rawValue < 1) return;
+                                                                                  
+    for (const [previous, action] of apostleBulkLevelHistoryActions) {
+      if (previous !== control && previous.dataset.apostleBulkId === id) {
+        apostleBulkLevelHistoryActions.delete(previous);
+        apostleBulkLevelHistoryActions.set(control, action);
+        break;
+      }
+    }
+    if (!apostleBulkLevelHistoryActions.has(control)) {
+      apostleBulkLevelHistoryActions.set(control, beginHistoryAction('使徒設定一覧変更'));
+    }
+    const state = ensureApostleState(id);
+    state.level = normalizeApostleLevel(rawValue, state.star);
+    if (String(state.level) !== control.value) control.value = String(state.level);
+    saveState({ renderStateManager: false, refreshSnapshotIds: [id] });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+    }
+  }
+
+  function commitApostleBulkLevelInput(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    if (!id || !basic) return;
+    const history = apostleBulkLevelHistoryActions.get(control) || beginHistoryAction('使徒設定一覧変更');
+    apostleBulkLevelHistoryActions.delete(control);
+    const state = ensureApostleState(id);
+    state.level = normalizeApostleLevel(control.value, state.star);
+    refreshSingleStatSnapshotImmediately(basic);
+    saveState({ renderStateManager: false, refreshSnapshots: false });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+    }
+    if (['level', 'combatPower'].includes(view.apostleBulkSort)) {
+      renderApostleBulkSettings();
+      followResortedApostle(elements.apostleBulkList, 'data-apostle-bulk-row', id);
+    }
+    else updateApostleBulkRow(id);
+    commitHistoryAction(history);
+  }
+
+  function updateApostleBulkSetting(control) {
+    const id = control.dataset.apostleBulkId;
+    const basic = DATA.getById('basicInfo', id);
+    if (!id || !basic) return;
+    const state = ensureApostleState(id);
+    const history = beginHistoryAction(control.dataset.apostleBulkEquipment ? '装備変更' : '使徒設定一覧変更');
+    const field = control.dataset.apostleBulkField;
+    const skill = control.dataset.apostleBulkSkill;
+    const equipmentKey = control.dataset.apostleBulkEquipment;
+
+    if (field === 'star') {
+      state.star = normalizeApostleStar(control.value);
+      state.level = normalizeApostleLevel(state.level, state.star);
+    } else if (skill && ['low', 'high', 'passive'].includes(skill)) {
+      state.skillLevels = normalizeSkillLevels({ ...state.skillLevels, [skill]: control.value }, state.asideRank);
+    } else if (equipmentKey && getApostleBulkEquipmentDefinitions(basic).some(item => item.key === equipmentKey)) {
+      const rawValue = control.value;
+      state.equipment[equipmentKey] = {
+        ...(state.equipment[equipmentKey] || {}),
+        enabled: rawValue !== 'off',
+        enhance: rawValue === 'off' ? 0 : Math.max(0, Math.min(5, Number(rawValue) || 0))
+      };
+    } else {
+      return;
+    }
+
+    refreshSingleStatSnapshotImmediately(basic);
+    saveState({ renderStateManager: false, refreshSnapshots: false });
+    if (id === view.id) {
+      syncControlsFromState();
+      renderProfileQuick();
+      renderSkillLevelChange();
+    }
+    const shouldResort = (field === 'star' && view.apostleBulkSort === 'star')
+      || (skill && view.apostleBulkSort === 'skillLevel')
+      || (equipmentKey && view.apostleBulkSort === 'equipment')
+      || view.apostleBulkSort === 'combatPower';
+    if (shouldResort) {
+      renderApostleBulkSettings();
+      followResortedApostle(elements.apostleBulkList, 'data-apostle-bulk-row', id);
+    }
+    else updateApostleBulkRow(id);
+    commitHistoryAction(history);
+  }
+
+  function updateApostleBulkRow(id) {
+    const row = Array.from(elements.apostleBulkList?.querySelectorAll('[data-apostle-bulk-row]') || [])
+      .find(element => element.dataset.apostleBulkRow === id);
+    const basic = DATA.getById('basicInfo', id);
+    if (row && basic) row.outerHTML = renderApostleBulkRow(basic);
+  }
+
+  function renderRankOverviewControls() {
+    renderRankOverviewFilters();
+    renderRankOverviewCards();
+  }
+
+  function renderRankOverview() {
+    renderRankOverviewFilters();
+    renderRankOverviewCards();
+    renderRankOverviewSummaryFromState();
+  }
+
+  function renderRankOverviewSummaryFromState() {
+    const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
+    DATA.sheets.rankGlobalBonuses.forEach(row => {
+      const state = ensureApostleState(row.id);
+      applyRankBonusToTotals(row, state.rank, effects);
+      applyRankBonusToTotals(row, 9, maximumEffects);
+    });
+    elements.rankOverviewSummary.innerHTML = renderRankOverviewSummary(effects, maximumEffects);
+  }
+
+  function renderRankOverviewFilters() {
+    const activeCount = Object.values(view.rankFilters)
+      .reduce((total, values) => total + values.size, 0);
+    elements.rankFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.rankOverviewFilters.innerHTML = renderApostleFilterControls(
+      getApostleFilterGroups(),
+      view.rankFilters,
+      'rank'
+    );
+    elements.rankOverviewSort.value = view.rankSort;
+  }
+
+  function renderRankOverviewCards() {
+    const rows = DATA.sheets.basicInfo
+      .filter(row => [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.rankFilters[group];
+        return selected.size === 0 || selected.has(value);
+      }))
+      .sort((a, b) => {
+        const nameOrder = String(a.使徒名 || a.id).localeCompare(
+          String(b.使徒名 || b.id),
+          'ja',
+          { sensitivity: 'base' }
+        );
+        if (view.rankSort === 'combatPower') {
+          return getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id) || nameOrder;
+        }
+        if (view.rankSort !== 'rank') return nameOrder;
+        return ensureApostleState(b.id).rank - ensureApostleState(a.id).rank
+          || getApostleCombatPowerForSort(b.id) - getApostleCombatPowerForSort(a.id)
+          || nameOrder;
+      });
+
+    elements.rankOverviewGrid.innerHTML = rows.map(renderRankOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderRankOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    const assetId = getApostleAssetId(row.id);
+    const rankTone = state.rank >= 9
+      ? 'rank-gold'
+      : state.rank >= 7
+        ? 'rank-purple'
+        : state.rank >= 5
+          ? 'rank-blue'
+          : state.rank >= 3
+            ? 'rank-green'
+            : 'rank-gray';
+    return `
+      <label class="rank-overview-card personality-${escapeAttr(row.性格 || '')} ${rankTone}" data-rank-card-id="${escapeAttr(row.id)}" title="${escapeAttr(row.使徒名 || row.id)}の装備Rankを変更">
+        <img data-apostle-image class="rank-overview-icon" src="${escapeAttr(getApostleSkillImagePath('high', row.id) || getApostleImagePath(row.id))}" alt="">
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value">R${state.rank}</strong>
+        <select data-rank-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 装備Rank">
+          ${Array.from({ length: 9 }, (_, index) => {
+            const rank = index + 1;
+            return `<option value="${rank}" ${state.rank === rank ? 'selected' : ''}>Rank ${rank}</option>`;
+          }).join('')}
+        </select>
+      </label>
+    `;
+  }
+
+  function updateRankOverviewAfterChange(id) {
+    renderRankOverviewSummaryFromState();
+    if (view.rankSort === 'rank' || view.rankSort === 'combatPower') {
+      renderRankOverviewCards();
+      followResortedApostle(elements.rankOverviewGrid, 'data-rank-card-id', id);
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.rankOverviewGrid.querySelectorAll('[data-rank-card-id]'))
+      .find(element => element.dataset.rankCardId === id);
+    if (basic && card) card.outerHTML = renderRankOverviewCard(basic);
+  }
+
+  function renderRankOverviewSummary(totals, maximumTotals = totals) {
+    const groups = [
+      [
+        ['HP', 'hp'],
+        ['物理攻撃', 'patk'],
+        ['魔法攻撃', 'matk'],
+        ['物理防御', 'pdef'],
+        ['魔法防御', 'mdef']
+      ],
+      [
+        ['会心', 'crit'],
+        ['会心DMG', 'critDmg'],
+        ['会心抵抗', 'critRes'],
+        ['会心DMG抵抗', 'critDmgRes']
+      ]
+    ];
+    const hasValue = groups.flat().some(([, key]) => Number(totals[key]) || Number(maximumTotals[key]));
+    if (!hasValue) return '<p class="empty-note">Rank全体効果なし</p>';
+    return `<div class="rank-summary-tables">${groups.map(rows =>
+      renderCompactTable(
+        ['ステータス', '現在 / 全キャラ最大'],
+        rows.map(([label, key]) => {
+          const current = Number(totals[key]) || 0;
+          const maximum = Number(maximumTotals[key]) || 0;
+          const formatValue = value => value ? `+${formatNumber(value)}` : '-';
+          return [label, {
+            current: formatValue(current),
+            maximum: formatValue(maximum)
+          }];
+        }),
+        {
+          firstColumnHeader: true,
+          valueColumn: 1,
+          renderCell: renderCurrentMaximumCell
+        }
+      )
+    ).join('')}</div>`;
+  }
+
+  function renderBondOverviewControls() {
+    renderBondOverviewFilters();
+    renderBondOverviewCards();
+  }
+
+  function renderBondOverview() {
+    renderBondOverviewFilters();
+    renderBondOverviewCards();
+    renderBondOverviewSummary();
+  }
+
+  function renderBondOverviewFilters() {
+    const activeCount = Object.values(view.bondFilters)
+      .reduce((total, values) => total + values.size, 0);
+    elements.bondFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.bondOverviewFilters.innerHTML = renderApostleFilterControls(
+      getApostleFilterGroups(),
+      view.bondFilters,
+      'bond'
+    );
+    elements.bondOverviewSort.value = view.bondSort;
+  }
+
+  function renderBondOverviewCards() {
+    const rows = DATA.sheets.basicInfo
+      .filter(row => [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.bondFilters[group];
+        return selected.size === 0 || selected.has(value);
+      }))
+      .sort((a, b) => {
+        const nameOrder = String(a.使徒名 || a.id).localeCompare(
+          String(b.使徒名 || b.id),
+          'ja',
+          { sensitivity: 'base' }
+        );
+        if (view.bondSort !== 'bond') return nameOrder;
+        return ensureApostleState(b.id).bond - ensureApostleState(a.id).bond || nameOrder;
+      });
+
+    elements.bondOverviewGrid.innerHTML = rows.map(renderBondOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderBondOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    state.bond = normalizeBondForApostle(row, state.bond);
+    const locked = isBondLockedApostle(row);
+    const bondTone = getBondOverviewTone(state.bond);
+    return `
+      <label class="rank-overview-card bond-overview-card personality-${escapeAttr(row.性格 || '')} ${bondTone} ${locked ? 'is-bond-locked' : ''}" data-bond-card-id="${escapeAttr(row.id)}" title="${escapeAttr(locked ? `${row.使徒名 || row.id}は好感度Lv1固定` : `${row.使徒名 || row.id}の好感度Lvを変更`)}">
+        <img data-apostle-image class="rank-overview-icon" src="${escapeAttr(getApostleSkillImagePath('high', row.id) || getApostleImagePath(row.id))}" alt="">
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value bond-overview-value"><span>❤</span> Lv.${state.bond}${locked ? '<small>固定</small>' : ''}</strong>
+        <select data-bond-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} 好感度Lv" ${locked ? 'disabled' : ''}>
+          ${Array.from({ length: 30 }, (_, index) => {
+            const level = index + 1;
+            return `<option value="${level}" ${state.bond === level ? 'selected' : ''}>Lv ${level}</option>`;
+          }).join('')}
+        </select>
+      </label>
+    `;
+  }
+
+  function updateBondOverviewAfterChange(id) {
+    renderBondOverviewSummary();
+    if (view.bondSort === 'bond') {
+      renderBondOverviewCards();
+      followResortedApostle(elements.bondOverviewGrid, 'data-bond-card-id', id);
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.bondOverviewGrid.querySelectorAll('[data-bond-card-id]'))
+      .find(element => element.dataset.bondCardId === id);
+    if (basic && card) card.outerHTML = renderBondOverviewCard(basic);
+  }
+
+  function getBondOverviewTone(level) {
+    const value = Number(level) || 1;
+    if (value >= 30) return 'bond-max';
+    if (value >= 25) return 'bond-pink';
+    if (value >= 11) return 'bond-orange';
+    if (value >= 6) return 'bond-yellow';
+    return 'bond-none';
+  }
+
+  function renderBondOverviewSummary() {
+    const states = DATA.sheets.basicInfo.map(row => ensureApostleState(row.id));
+    const levels = states.map(state => Number(state.bond) || 1);
+    const thresholds = [6, 10, 15, 20, 21, 30];
+    elements.bondOverviewSummary.innerHTML = renderCompactTable(
+      ['項目', '値'],
+      thresholds.map(level => [
+        `Lv${level}到達`,
+        `${levels.filter(value => value >= level).length} / ${levels.length}`
+      ]),
+      { firstColumnHeader: true, valueColumn: 1 }
+    );
+  }
+
+  function renderAsideOverviewControls() {
+    renderAsideOverviewFilters();
+    renderAsideOverviewCards();
+  }
+
+  function renderAsideOverview() {
+    renderAsideOverviewFilters();
+    renderAsideOverviewCards();
+    renderAsideOverviewSummaryFromState();
+  }
+
+  function renderAsideOverviewSummaryFromState() {
+    const effects = createEmptyTotals();
+    const maximumEffects = createEmptyTotals();
+    DATA.sheets.basicInfo.filter(row => hasAsideEffects(row.id)).forEach(row => {
+      const state = ensureApostleState(row.id);
+      const entries = collectAsideLevel3Entries(row.id);
+      entries.forEach(entry => {
+        addNamedStat(maximumEffects, entry.name, entry.value);
+        if ((Number(state.asideRank) || 0) >= 3) addNamedStat(effects, entry.name, entry.value);
+      });
+    });
+    elements.asideOverviewSummary.innerHTML = renderStatPercentTotalsTable(
+      effects,
+      'A3全体効果なし',
+      maximumEffects,
+      '現在A3 / 全キャラA3'
+    );
+  }
+
+  function renderAsideOverviewFilters() {
+    const activeCount = Object.values(view.asideFilters)
+      .reduce((total, values) => total + values.size, 0);
+    elements.asideFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.asideOverviewFilters.innerHTML = renderApostleFilterControls(
+      getApostleFilterGroups(),
+      view.asideFilters,
+      'aside'
+    );
+    elements.asideOverviewSort.value = view.asideSort;
+  }
+
+  function renderAsideOverviewCards() {
+    const rows = DATA.sheets.basicInfo
+      .filter(row => hasAsideEffects(row.id))
+      .filter(row => [
+        ['personality', row.性格],
+        ['species', row.種族],
+        ['role', row.役割],
+        ['position', row.配列]
+      ].every(([group, value]) => {
+        const selected = view.asideFilters[group];
+        return selected.size === 0 || selected.has(value);
+      }))
+      .sort((a, b) => {
+        const nameOrder = String(a.使徒名 || a.id).localeCompare(
+          String(b.使徒名 || b.id),
+          'ja',
+          { sensitivity: 'base' }
+        );
+        if (view.asideSort !== 'aside') return nameOrder;
+        return ensureApostleState(b.id).asideRank - ensureApostleState(a.id).asideRank || nameOrder;
+      });
+
+    elements.asideOverviewGrid.innerHTML = rows.map(renderAsideOverviewCard).join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+  }
+
+  function renderAsideOverviewCard(row) {
+    const state = ensureApostleState(row.id);
+    const asideRank = Number(state.asideRank) || 0;
+    const asideTone = asideRank >= 3
+      ? 'aside-a3'
+      : asideRank === 2
+        ? 'aside-a2'
+        : asideRank === 1
+          ? 'aside-a1'
+          : 'aside-off';
+    return `
+      <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" data-aside-image-wrap title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
+        <img data-apostle-image data-aside-image-fallback="Aside" class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
+        <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
+        <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
+        <strong class="rank-overview-value">${asideRank ? `A${asideRank}` : '未発現'}</strong>
+        <select data-aside-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} アサイド段階">
+          <option value="0" ${asideRank === 0 ? 'selected' : ''}>未発現</option>
+          <option value="1" ${asideRank === 1 ? 'selected' : ''}>A1</option>
+          <option value="2" ${asideRank === 2 ? 'selected' : ''}>A2</option>
+          <option value="3" ${asideRank === 3 ? 'selected' : ''}>A3</option>
+        </select>
+      </label>
+    `;
+  }
+
+  function updateAsideOverviewAfterChange(id) {
+    renderAsideOverviewSummaryFromState();
+    if (view.asideSort === 'aside') {
+      renderAsideOverviewCards();
+      followResortedApostle(elements.asideOverviewGrid, 'data-aside-card-id', id);
+      return;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    const card = Array.from(elements.asideOverviewGrid.querySelectorAll('[data-aside-card-id]'))
+      .find(element => element.dataset.asideCardId === id);
+    if (basic && card) card.outerHTML = renderAsideOverviewCard(basic);
+  }
+
+  function renderCardManager() {
+    if (!elements.cardManagerGrid) return;
+    const kind = view.cardManager.kind === 'spell' ? 'spell' : 'artifact';
+    const cards = getCardManagerCards(kind);
+    const rows = getVisibleCardManagerCards(kind);
+    elements.cardManagerTabs.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.cardKind === kind);
+    });
+    if (elements.cardManagerSearch && elements.cardManagerSearch.value !== view.cardManager.search) {
+      elements.cardManagerSearch.value = view.cardManager.search;
+    }
+    if (elements.cardManagerRarity && elements.cardManagerRarity.value !== view.cardManager.rarity) {
+      elements.cardManagerRarity.value = view.cardManager.rarity;
+    }
+    if (elements.cardManagerEffect && elements.cardManagerEffect.value !== view.cardManager.effect) {
+      elements.cardManagerEffect.value = view.cardManager.effect;
+    }
+    if (elements.cardManagerOwnedOnly) elements.cardManagerOwnedOnly.checked = !!view.cardManager.ownedOnly;
+    renderCardManagerSummary(kind, cards, rows);
+    warmCardManagerImages(rows);
+    const activeGrid = getCardManagerKindGrid(kind);
+    if (!activeGrid) return;
+    elements.cardManagerGrid.querySelectorAll('[data-card-manager-kind-grid]').forEach(grid => {
+      grid.hidden = grid !== activeGrid;
+    });
+    const renderKey = getCardManagerRenderKey(kind, rows);
+    if (activeGrid.dataset.renderKey === renderKey) return;
+    activeGrid.innerHTML = rows.map((card, index) => renderCardManagerCard(card, index)).join('')
+      || '<p class="empty-note">一致するカードがありません。</p>';
+    activeGrid.dataset.renderKey = renderKey;
+    revealCardManagerGridWhenReady(activeGrid);
+  }
+
+  function renderCardManagerSummary(kind, cards = getCardManagerCards(kind), rows = getVisibleCardManagerCards(kind)) {
+    if (!elements.cardManagerSummary) return;
+    const ownedCount = cards.filter(card => getCardState(card.id).owned).length;
+    elements.cardManagerSummary.innerHTML = `
+      <span>${kind === 'artifact' ? '遺物' : 'スペル'} ${ownedCount}/${cards.length} 所持</span>
+      <span>表示 ${rows.length}件</span>
+    `;
+  }
+
+  function getCardManagerKindGrid(kind) {
+    const cardKind = kind === 'spell' ? 'spell' : 'artifact';
+    let grid = elements.cardManagerGrid.querySelector(`[data-card-manager-kind-grid="${cardKind}"]`);
+    if (!grid) {
+      grid = document.createElement('div');
+      grid.className = 'card-manager-kind-grid';
+      grid.dataset.cardManagerKindGrid = cardKind;
+      elements.cardManagerGrid.appendChild(grid);
+    }
+    return grid;
+  }
+
+  function getCardManagerRenderKey(kind, rows) {
+    return stableStringify({
+      kind,
+      search: view.cardManager.search || '',
+      rarity: view.cardManager.rarity || '',
+      effect: view.cardManager.effect || '',
+      ownedOnly: !!view.cardManager.ownedOnly,
+      cards: rows.map(card => {
+        const state = getCardState(card.id);
+        return {
+          id: card.id,
+          owned: !!state.owned,
+          star: normalizeCardStar(state.star),
+          solder: normalizeCardSolder(state.solder)
+        };
+      })
+    });
+  }
+
+  function warmCardManagerImages(rows) {
+    const cache = warmCardManagerImages.cache || (warmCardManagerImages.cache = new Map());
+    const warmOne = (card, index) => {
+      const priority = getCardManagerImagePriority(index);
+      [getCardManagerRarityFrame(card), getCardManagerImagePath(card)].filter(Boolean).forEach(src => {
+        const resolvedSrc = window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(src) || src;
+        if (cache.has(resolvedSrc)) return;
+        const image = new Image();
+        image.decoding = 'async';
+        image.fetchPriority = priority.fetchPriority;
+        image.src = resolvedSrc;
+        cache.set(resolvedSrc, image);
+      });
+    };
+    rows.slice(0, 24).forEach(warmOne);
+    const rest = rows.slice(24);
+    if (!rest.length) return;
+    const warmRest = () => rest.forEach((card, offset) => warmOne(card, offset + 24));
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(warmRest, { timeout: 1200 });
+    } else {
+      window.setTimeout(warmRest, 160);
+    }
+  }
+
+  function getCardManagerImagePriority(index) {
+    const isPriority = index < 24;
+    return {
+      isPriority,
+      loading: isPriority ? 'eager' : 'lazy',
+      fetchPriority: isPriority ? 'high' : 'low'
+    };
+  }
+
+  function revealCardManagerGridWhenReady(grid) {
+    const priorityImages = Array.from(grid.querySelectorAll('img[data-card-manager-priority="true"]'));
+    const images = priorityImages.length ? priorityImages : Array.from(grid.querySelectorAll('img'));
+    if (!images.length) {
+      grid.classList.remove('is-preparing');
+      return;
+    }
+    grid.classList.add('is-preparing');
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      requestAnimationFrame(() => grid.classList.remove('is-preparing'));
+    };
+    Promise.allSettled(images.map(image => {
+      if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+      if (typeof image.decode === 'function') return image.decode().catch(() => undefined);
+      return new Promise(resolve => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    })).then(finish);
+    window.setTimeout(finish, 700);
+  }
+
+  function getVisibleCardManagerCards(kind = view.cardManager.kind) {
+    const cardKind = kind === 'spell' ? 'spell' : 'artifact';
+    const query = String(view.cardManager.search || '').toLocaleLowerCase('ja');
+    return getCardManagerCards(cardKind).filter(card => {
+      const entry = getCardState(card.id);
+      if (view.cardManager.ownedOnly && !entry.owned) return false;
+      if (!cardMatchesManagerRarity(card, view.cardManager.rarity)) return false;
+      if (!cardMatchesManagerEffect(card, view.cardManager.effect)) return false;
+      if (!query) return true;
+      return [card.name, card.favoriteCharacter, card.rarity, card.id]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase('ja').includes(query));
+    }).sort(compareCardManagerCards);
+  }
+
+  function renderCardManagerCard(card, index = 0) {
+    const entry = getCardState(card.id);
+    const star = normalizeCardStar(entry.star);
+    const solder = star >= 5 ? normalizeCardSolder(entry.solder) : 0;
+    const rarityFrame = card.kind === 'artifact' ? getCardManagerRarityFrame(card) : '';
+    const rarityClass = getCardManagerRarityClass(card);
+    const priority = getCardManagerImagePriority(index);
+    const priorityAttrs = `loading="${priority.loading}" decoding="async" fetchpriority="${priority.fetchPriority}" data-card-manager-priority="${priority.isPriority ? 'true' : 'false'}"`;
+    return `
+      <article class="resource-card ${card.kind === 'spell' ? 'resource-card-spell' : 'resource-card-artifact'} ${rarityClass} ${entry.owned ? 'is-owned' : ''}" data-card-id="${escapeAttr(card.id)}">
+        <div class="resource-card-image-wrap">
+          ${rarityFrame ? `<img class="resource-card-bg" src="${escapeAttr(rarityFrame)}" alt="" ${priorityAttrs}>` : ''}
+          <img class="resource-card-image" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" ${priorityAttrs}>
+          <span class="resource-card-cost">
+            <img src="img/Card/cost.webp" alt="" class="resource-card-cost-img">
+            <span class="resource-card-cost-value-fill">${escapeHtml(getCardManagerCost(card, star))}</span>
+            <span class="resource-card-cost-value">${escapeHtml(getCardManagerCost(card, star))}</span>
+          </span>
+          <button type="button" class="resource-effect-overlay ${getCardManagerEffectCount(card) ? 'has-effect' : ''}" data-card-id="${escapeAttr(card.id)}" data-card-effect-overlay>
+            ${getCardManagerEffectCount(card) ? '効果' : 'Info'}
+          </button>
+          <div class="resource-card-star-overlay" aria-label="★${star}">
+            ${renderCardManagerStars(card.id, star)}
+          </div>
+          <button type="button" class="resource-solder-overlay ${star >= 5 ? '' : 'is-disabled'} ${solder > 0 ? 'has-solder' : ''}" data-card-id="${escapeAttr(card.id)}" data-card-solder-overlay aria-label="はんだ+${solder}" ${star >= 5 ? '' : 'disabled'}>
+            ${renderCardManagerSolderToken(solder)}
+          </button>
+          <div class="resource-card-name-panel">
+            <span style="font-size: ${getCardManagerNameFontSize(card.name)}">${escapeHtml(card.name)}</span>
+          </div>
+        </div>
+        <div class="resource-card-mobile-controls" aria-label="${escapeAttr(`${card.name}の育成設定`)}">
+          <select data-card-id="${escapeAttr(card.id)}" data-card-control="star" aria-label="${escapeAttr(`${card.name}のスター`)}">
+            ${createNumberOptions(1, 5).map(option => `<option value="${option.value}" ${option.value === star ? 'selected' : ''}>★${option.value}</option>`).join('')}
+          </select>
+          <label class="resource-card-mobile-solder">
+            <img src="img/Card/sunshine_token.webp" alt="" aria-hidden="true">
+            <select data-card-id="${escapeAttr(card.id)}" data-card-control="solder" aria-label="${escapeAttr(`${card.name}のはんだ`)}" ${star >= 5 ? '' : 'disabled'}>
+              ${createNumberOptions(0, 2).map(option => `<option value="${option.value}" ${option.value === solder ? 'selected' : ''}>+${option.value}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCardManagerStars(cardId, star) {
+    return createNumberOptions(1, 5).map(option => `
+      <button type="button" class="resource-grade-btn" data-card-id="${escapeAttr(cardId)}" data-card-star="${option.value}" aria-label="★${option.value}">
+        <img src="img/${option.value <= star ? 'Grade_on.webp' : 'Grade_off.webp'}" alt="">
+      </button>
+    `).join('');
+  }
+
+  function renderCardManagerSolderToken(solder) {
+    const level = normalizeCardSolder(solder);
+    return `
+      <img src="img/Card/sunshine_token.webp" alt="" class="resource-solder-token-icon">
+      <span class="resource-solder-token-value-fill"><span class="resource-solder-token-plus">+</span><span class="resource-solder-token-number">${level}</span></span>
+      <span class="resource-solder-token-value"><span class="resource-solder-token-plus">+</span><span class="resource-solder-token-number">${level}</span></span>
+    `;
+  }
+
+  function openCardManagerEffectPopover(cardId, anchorEl) {
+    const card = getCardManagerCards('artifact').concat(getCardManagerCards('spell')).find(item => item.id === cardId);
+    if (!card || !anchorEl) return;
+    const popover = ensureCardManagerEffectPopover();
+    const hostDialog = anchorEl.closest('dialog[open]');
+    if (hostDialog && popover.parentElement !== hostDialog) {
+      hostDialog.appendChild(popover);
+    } else if (!hostDialog && popover.parentElement !== document.body) {
+      document.body.appendChild(popover);
+    }
+    const rect = anchorEl.getBoundingClientRect();
+    const star = normalizeCardStar(getCardState(cardId).star);
+    const solder = normalizeCardSolder(getCardState(cardId).solder);
+    popover.innerHTML = `
+      <div class="resource-effect-popover-head">
+        <strong>${escapeHtml(card.name)}</strong>
+        <button type="button" data-close-card-effect aria-label="閉じる">${renderUiIcon('close')}</button>
+      </div>
+      <div class="resource-effect-popover-body">
+        ${getCardManagerEffectSummary(card, star, solder).map(text => `<p>${escapeHtml(text)}</p>`).join('')}
+      </div>
+    `;
+    popover.querySelector('[data-close-card-effect]')?.addEventListener('click', () => {
+      popover.hidden = true;
+    });
+    popover.hidden = false;
+    const popRect = popover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - popRect.width - 12);
+    const top = Math.min(rect.bottom + 8, window.innerHeight - popRect.height - 12);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${Math.max(12, top)}px`;
+  }
+
+  function ensureCardManagerEffectPopover() {
+    let popover = document.getElementById('resource-effect-popover');
+    if (!popover) {
+      popover = document.createElement('div');
+      popover.id = 'resource-effect-popover';
+      popover.className = 'resource-effect-popover';
+      popover.hidden = true;
+      document.body.appendChild(popover);
+      document.addEventListener('click', event => {
+        if (popover.hidden) return;
+        if (popover.contains(event.target) || event.target.closest('[data-card-effect-overlay]')) return;
+        popover.hidden = true;
+      });
+    }
+    return popover;
+  }
+
+  function renderFormation(options = {}) {
+    if (!elements.formationBoard) return;
+    const formation = ensureFormationState();
+    elements.formationBoard.innerHTML = formation.rows.map((row, rowIndex) => renderFormationColumn(row, rowIndex)).join('');
+    renderFormationSpells(formation, { deferCatalog: options.deferSpellCatalog });
+    renderFormationMasterPowers(formation);
+    renderFormationCostSummary(formation);
+    renderFormationMemberSummary(formation);
+    renderFormationSynergySummary(formation);
+    renderFormationPresetList();
+    renderFormationActivePreset();
+  }
+
+  function saveCurrentFormationPreset() {
+    const history = beginHistoryAction('編成保存');
+    ensureFormationPresetStore();
+    const now = new Date();
+    const name = (elements.formationSaveName?.value || '').trim()
+      || `編成 ${now.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+    const tags = parseFormationTags(elements.formationSaveTags?.value || '');
+    const id = `formation_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+    appState.savedFormations.unshift({
+      id,
+      name,
+      tags,
+      favoriteSlot: 0,
+      savedAt: now.toISOString(),
+      formation: normalizeFormationState(ensureFormationState())
+    });
+    appState.activeFormationPresetId = id;
+    saveState();
+    closeFormationSaveEditor();
+    renderFormationActivePreset();
+    renderFormationPresetList();
+    commitHistoryAction(history);
+  }
+
+  function openFormationSaveEditor() {
+    if (!elements.formationSaveEditor) return;
+    elements.formationSaveEditor.hidden = false;
+    if (elements.formationSaveName && !elements.formationSaveName.value.trim()) {
+      const now = new Date();
+      elements.formationSaveName.value = `編成 ${now.toLocaleString('ja-JP', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}`;
+    }
+    if (shouldAutofocusTextInput()) {
+      elements.formationSaveName?.focus({ preventScroll: true });
+      elements.formationSaveName?.select();
+    }
+  }
+
+  function closeFormationSaveEditor() {
+    if (elements.formationSaveEditor) elements.formationSaveEditor.hidden = true;
+  }
+
+  function loadFormationPreset(id) {
+    const preset = ensureFormationPresetStore().find(item => item.id === id);
+    if (!preset) return;
+    const history = beginHistoryAction('編成ロード');
+    appState.formation = normalizeFormationState(preset.formation);
+    appState.activeFormationPresetId = preset.id;
+    if (elements.formationSaveName) elements.formationSaveName.value = preset.name || '';
+    if (elements.formationSaveTags) elements.formationSaveTags.value = (preset.tags || []).join(', ');
+    saveState();
+    renderFormation();
+    commitHistoryAction(history);
+  }
+
+  function overwriteCurrentFormationPreset() {
+    const presets = ensureFormationPresetStore();
+    const id = appState.activeFormationPresetId || '';
+    const preset = presets.find(item => item.id === id);
+    if (!preset) return;
+    if (!window.confirm(`編成「${preset.name}」を現在の内容で上書きしますか？\n保存済みの内容はundoでは戻せません。`)) return;
+    const history = beginHistoryAction('編成上書き');
+    const name = (elements.formationSaveName?.value || '').trim() || preset.name || '無題の編成';
+    preset.name = name;
+    preset.tags = parseFormationTags(elements.formationSaveTags?.value || '');
+    preset.savedAt = new Date().toISOString();
+    preset.formation = normalizeFormationState(ensureFormationState());
+    saveState();
+    renderFormationActivePreset();
+    renderFormationPresetList();
+    commitHistoryAction(history);
+  }
+
+  function toggleFormationPresetFavoritePicker(id) {
+    const presets = ensureFormationPresetStore();
+    const preset = presets.find(item => item.id === id);
+    if (!preset) return;
+    appState.openFormationFavoritePickerId = appState.openFormationFavoritePickerId === id ? '' : id;
+    renderFormationPresetList();
+  }
+
+  function setFormationPresetFavoriteSlot(id, slotValue) {
+    const presets = ensureFormationPresetStore();
+    const preset = presets.find(item => item.id === id);
+    if (!preset) return;
+    const history = beginHistoryAction('編成お気に入り変更');
+    const slot = normalizeFavoriteSlot(slotValue);
+    if (!slot || preset.favoriteSlot === slot) {
+      preset.favoriteSlot = 0;
+    } else {
+      presets.forEach(item => {
+        if (item.id !== id && item.favoriteSlot === slot) item.favoriteSlot = 0;
+      });
+      preset.favoriteSlot = slot;
+    }
+    appState.openFormationFavoritePickerId = '';
+    saveState();
+    renderFormationPresetList();
+    commitHistoryAction(history);
+  }
+
+  function deleteFormationPreset(id) {
+    const presets = ensureFormationPresetStore();
+    const preset = presets.find(item => item.id === id);
+    if (!preset) return;
+    if (!window.confirm(`編成「${preset.name}」を削除しますか？`)) return;
+    const history = beginHistoryAction('編成削除');
+    appState.savedFormations = presets.filter(item => item.id !== id);
+    if (appState.activeFormationPresetId === id) appState.activeFormationPresetId = '';
+    if (appState.openFormationFavoritePickerId === id) appState.openFormationFavoritePickerId = '';
+    saveState();
+    renderFormationActivePreset();
+    renderFormationPresetList();
+    commitHistoryAction(history);
+  }
+
+  function renderFormationActivePreset() {
+    if (!elements.formationActivePreset) return;
+    const preset = ensureFormationPresetStore().find(item => item.id === appState.activeFormationPresetId);
+    const isDirty = !!preset && isFormationPresetDirty(preset);
+    elements.formationActivePreset.classList.toggle('is-active', !!preset);
+    elements.formationActivePreset.classList.toggle('is-dirty', isDirty);
+    elements.formationActivePreset.innerHTML = preset
+      ? `
+        <span>${isDirty ? '変更あり' : '編集中'}</span>
+        <strong>${escapeHtml(preset.name)}</strong>
+        ${isDirty ? '<em>未保存</em>' : ''}
+        ${preset.tags?.length ? `<small>${preset.tags.map(tag => `<b>${escapeHtml(tag)}</b>`).join('')}</small>` : ''}
+      `
+      : '<span>編集中の保存編成なし</span>';
+    if (elements.formationOverwriteCurrent) {
+      elements.formationOverwriteCurrent.disabled = !preset;
+      elements.formationOverwriteCurrent.classList.toggle('is-dirty', isDirty);
+      elements.formationOverwriteCurrent.title = preset ? `「${preset.name}」へ上書き` : '保存済み編成を読み込むと上書きできます';
+    }
+  }
+
+  function isFormationPresetDirty(preset) {
+    if (!preset?.formation) return false;
+    return stableStringify(normalizeFormationStateForCompare(preset.formation)) !== stableStringify(normalizeFormationStateForCompare(ensureFormationState()));
+  }
+
+  function normalizeFormationStateForCompare(formation) {
+    const normalized = normalizeFormationState(formation);
+    normalized.spells = normalizeFormationSpells(normalized.spells).slice().sort(compareFormationSpellIdsForCompare);
+    return normalized;
+  }
+
+  function compareFormationSpellIdsForCompare(a, b) {
+    const cardA = getCardManagerCards('spell').find(card => card.id === a);
+    const cardB = getCardManagerCards('spell').find(card => card.id === b);
+    if (cardA && cardB) return compareCardManagerCards(cardA, cardB);
+    return String(a || '').localeCompare(String(b || ''), 'ja');
+  }
+
+  function renderFormationPresetList() {
+    if (!elements.formationSaveList) return;
+    const keepDetailsOpen = !!elements.formationSaveList.querySelector('.formation-preset-details[open]');
+    const presets = ensureFormationPresetStore();
+    if (!presets.length) {
+      elements.formationSaveList.innerHTML = '<p class="formation-save-empty">保存済み編成はありません</p>';
+      return;
+    }
+    const favorites = createNumberOptions(1, 6)
+      .map(option => presets.find(preset => preset.favoriteSlot === option.value) || null)
+      .filter(Boolean);
+    const favoriteHtml = favorites.length
+      ? `
+        <div class="formation-preset-shortcuts" aria-label="お気に入り編成">
+          ${favorites.map(preset => `
+            <button type="button" class="${preset.id === appState.activeFormationPresetId ? 'is-selected' : ''}" data-formation-preset-load="${escapeAttr(preset.id)}" title="${escapeAttr(preset.name)}">
+              <span>${preset.favoriteSlot}</span>
+              <strong>${escapeHtml(preset.name)}</strong>
+            </button>
+          `).join('')}
+        </div>
+      `
+      : '<p class="formation-save-empty">☆から番号を選ぶと 1-6 に表示されます</p>';
+    elements.formationSaveList.innerHTML = `
+      ${favoriteHtml}
+      <details class="formation-preset-details">
+        <summary>保存リスト <span>${presets.length}件</span></summary>
+        <div class="formation-preset-list">
+          ${presets.map(renderFormationPresetCard).join('')}
+        </div>
+      </details>
+    `;
+    const details = elements.formationSaveList.querySelector('.formation-preset-details');
+    if (details) details.open = keepDetailsOpen;
+  }
+
+  function renderFormationPresetCard(preset) {
+    const memberCount = getFormationMemberCount(preset.formation);
+    const cost = calculateFormationCost(normalizeFormationState(preset.formation));
+    return `
+      <article class="formation-preset-card ${preset.id === appState.activeFormationPresetId ? 'is-selected' : ''}">
+        <div>
+          <strong>${escapeHtml(preset.name)}</strong>
+          <span>${escapeHtml(memberCount)}人 / コスト ${escapeHtml(cost)}</span>
+          ${preset.tags?.length ? `<small>${preset.tags.map(tag => `<b>${escapeHtml(tag)}</b>`).join('')}</small>` : ''}
+        </div>
+        <div class="formation-preset-actions">
+          <button type="button" class="favorite ${preset.favoriteSlot ? 'is-on' : ''}" data-formation-preset-favorite="${escapeAttr(preset.id)}" aria-label="お気に入り番号選択">${preset.favoriteSlot ? preset.favoriteSlot : '☆'}</button>
+          <button type="button" data-formation-preset-load="${escapeAttr(preset.id)}">読込</button>
+          <button type="button" class="danger" data-formation-preset-delete="${escapeAttr(preset.id)}">削除</button>
+        </div>
+        ${appState.openFormationFavoritePickerId === preset.id ? renderFormationPresetSlotPicker(preset) : ''}
+      </article>
+    `;
+  }
+
+  function renderFormationPresetSlotPicker(preset) {
+    return `
+      <div class="formation-preset-slot-picker" aria-label="お気に入り番号">
+        ${createNumberOptions(1, 6).map(option => `
+          <button type="button" class="${preset.favoriteSlot === option.value ? 'is-selected' : ''}" data-formation-preset-id="${escapeAttr(preset.id)}" data-formation-preset-slot="${option.value}">${option.value}</button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function ensureFormationPresetStore() {
+    appState.savedFormations = normalizeFormationPresetList(appState.savedFormations);
+    return appState.savedFormations;
+  }
+
+  function parseFormationTags(value) {
+    return String(value || '')
+      .split(/[,、，\n]+/)
+      .map(tag => tag.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+
+  function addFormationTagPreset(tag) {
+    if (!elements.formationSaveTags) return;
+    const value = String(tag || '').trim();
+    if (!value) return;
+    const tags = parseFormationTags(elements.formationSaveTags.value);
+    if (!tags.includes(value)) tags.push(value);
+    elements.formationSaveTags.value = tags.slice(0, 8).join(', ');
+    if (shouldAutofocusTextInput()) {
+      elements.formationSaveTags.focus({ preventScroll: true });
+    }
+  }
+
+  function renderFormationSynergySummary(formation) {
+    if (!elements.formationSynergySummary) return;
+    const personalitySynergies = Array.isArray(window.PERSONALITY_SYNERGIES) ? window.PERSONALITY_SYNERGIES : [];
+    const raceSynergies = Array.isArray(window.RACE_SYNERGIES) ? window.RACE_SYNERGIES : [];
+    const unselectedResonanceMembers = (formation.rows || []).flatMap((row, rowIndex) =>
+      (row.apostles || []).flatMap((id, lineIndex) => {
+        const basic = id ? DATA.getById('basicInfo', id) : null;
+        const resolution = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]);
+        return resolution.needsSelection
+          ? [`${getFormationColumnPosition(rowIndex)} ${lineIndex + 1}: ${basic?.使徒名 || id}`]
+          : [];
+      })
+    );
+    const selectionNotice = unselectedResonanceMembers.length
+      ? `<p class="formation-resonance-warning" role="status">性格を選択してください。${escapeHtml(unselectedResonanceMembers.join('、'))}。下書き保存できますが、ダメージ計算は選択完了まで停止します。</p>`
+      : '';
+    if (!personalitySynergies.length && !raceSynergies.length) {
+      elements.formationSynergySummary.innerHTML = selectionNotice;
+      return;
+    }
+    const state = collectFormationSynergyState(formation);
+    elements.formationSynergySummary.innerHTML = `
+      ${selectionNotice}
+      <section class="formation-synergy-group formation-synergy-personality" aria-label="性格シナジー">
+        ${renderFormationSynergySlots('personality', personalitySynergies, state.personality, state.personalityExtras)}
+      </section>
+      <section class="formation-synergy-group formation-synergy-race" aria-label="種族シナジー">
+        ${renderFormationRaceSynergies(raceSynergies, state.race, state.raceExtras)}
+      </section>
+    `;
+  }
+
+  function getFormationMemberCount(formation = ensureFormationState()) {
+    return (formation.rows || []).reduce((total, row) =>
+      total + (row.apostles || []).filter(Boolean).length
+    , 0);
+  }
+
+  function renderFormationMemberSummary(formation) {
+    if (!elements.formationMemberSummary) return;
+    const formationCombatPower = calculateFormationCombatPower(formation);
+    const totalCombatPower = getSavedTotalCombatPower();
+    elements.formationMemberSummary.innerHTML = `
+      ${renderFormationCombatPowerMetric('編成戦闘力', formationCombatPower, 'formation')}
+      ${renderFormationCombatPowerMetric('総合戦闘力', totalCombatPower, 'total')}
+    `;
+  }
+
+  function calculateFormationCombatPower(formation = ensureFormationState()) {
+    const ids = new Set();
+    (formation.rows || []).forEach(row => {
+      (row.apostles || []).forEach(id => {
+        const basic = id ? DATA.getById('basicInfo', id) : null;
+        if (basic?.id) ids.add(basic.id);
+      });
+    });
+    return Array.from(ids).reduce((total, id) => {
+      const combatPower = Number(ensureApostleState(id).statSnapshots?.current?.stats?.combatPower) || 0;
+      return total + combatPower;
+    }, 0);
+  }
+
+  function renderFormationCombatPowerMetric(label, value, kind) {
+    return `
+      <span class="formation-combat-power formation-combat-power-${escapeAttr(kind)}" title="${escapeAttr(`${label} ${formatNumber(value)}`)}">
+        <img src="img/c_pow.webp" alt="">
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <strong>${escapeHtml(formatNumber(value))}</strong>
+        </span>
+      </span>
+    `;
+  }
+
+  function collectFormationSynergyState(formation) {
+    const state = {
+      personality: {},
+      race: {},
+      personalityExtras: {},
+      raceExtras: {}
+    };
+    const selectedBasics = [];
+    (formation.rows || []).forEach(row => {
+      (row.apostles || []).forEach((id, lineIndex) => {
+        const basic = id ? DATA.getById('basicInfo', id) : null;
+        if (!basic) return;
+        selectedBasics.push(basic);
+        const personality = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]).effectivePersonality;
+        if (personality) state.personality[personality] = (state.personality[personality] || 0) + 1;
+        const species = window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || '');
+        if (species) state.race[species] = (state.race[species] || 0) + 1;
+      });
+    });
+    applyFormationSynergyExtraCounts(state, selectedBasics, formation);
+    return state;
+  }
+
+  function applyFormationSynergyExtraCounts(state, selectedBasics, formation) {
+    const hasUi = selectedBasics.some(basic => basic.id === 'Ui' || basic.id === 'ui' || basic.使徒名 === 'ウイ');
+    if (hasUi && (Number(ensureApostleState('Ui').asideRank) || 0) >= 2) {
+      state.personality['活発'] = (state.personality['活発'] || 0) + 1;
+      state.personalityExtras['活発'] = (state.personalityExtras['活発'] || 0) + 1;
+    }
+    getFormationSpellPersonalityExtras(formation).forEach(personality => {
+      state.personality[personality] = (state.personality[personality] || 0) + 1;
+      state.personalityExtras[personality] = (state.personalityExtras[personality] || 0) + 1;
+    });
+  }
+
+  function getFormationSpellPersonalityExtras(formation = ensureFormationState()) {
+    const personalities = ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+    const selectedSpellIds = new Set(normalizeFormationSpells(formation.spells));
+    const extras = new Set();
+    getCardManagerCards('spell').forEach(card => {
+      if (!selectedSpellIds.has(card.id)) return;
+      const text = [
+        card.name,
+        ...(card.conditionalEffects || []).flatMap(effect => [
+          effect.id,
+          effect.label,
+          effect.shortLabel,
+          effect.description,
+          ...(effect.descriptionByStar || [])
+        ])
+      ].filter(Boolean).join(' ');
+      const personality = personalities.find(name => text.includes(`性格『${name}』`) || text.includes(`【${name}】`));
+      if (personality) extras.add(personality);
+    });
+    return Array.from(extras);
+  }
+
+  function renderFormationSynergySlots(type, items, counts, extras) {
+    const maxSlots = type === 'personality' ? 15 : 9;
+    const topCount = type === 'personality' ? 8 : 5;
+    const sortedItems = type === 'personality'
+      ? sortFormationPersonalitySynergies(items)
+      : items;
+    const filled = sortedItems.flatMap(item => {
+      const count = Math.max(0, Number(counts[item.name]) || 0);
+      const extraCount = Math.max(0, Number(extras[item.name]) || 0);
+      const baseCount = Math.max(0, count - extraCount);
+      return Array.from({ length: count }, (_, index) => ({
+        item,
+        isExtra: index >= baseCount,
+        count,
+        memberCount: index + 1
+      }));
+    }).slice(0, maxSlots);
+    return `
+      <div class="formation-synergy-slot-grid formation-synergy-slot-grid-${type}" data-formation-synergy-kind="${escapeAttr(type)}" role="button" tabindex="0" aria-label="${type === 'personality' ? '性格シナジー補正を表示' : '種族シナジー補正を表示'}">
+        ${Array.from({ length: maxSlots }, (_, index) => {
+          const fillOrder = index < topCount ? index * 2 + 1 : (index - topCount) * 2 + 2;
+          return renderFormationSynergySlot(type, index, topCount, filled[fillOrder - 1]);
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function sortFormationPersonalitySynergies(items) {
+    const priority = ['冷静', '憂鬱', '活発', '狂気', '純粋'];
+    return items.slice().sort((a, b) => {
+      const aIndex = priority.indexOf(a.name);
+      const bIndex = priority.indexOf(b.name);
+      const aPriority = aIndex >= 0 ? aIndex : priority.length;
+      const bPriority = bIndex >= 0 ? bIndex : priority.length;
+      return aPriority - bPriority;
+    });
+  }
+
+  function renderFormationRaceSynergies(items, counts, extras) {
+    const activeItems = items
+      .map(item => {
+        const count = Math.max(0, Number(counts[item.name]) || 0);
+        const extraCount = Math.max(0, Number(extras[item.name]) || 0);
+        const effect = getFormationSynergyEffectForCount(item, count);
+        return { item, count, extraCount, effect };
+      })
+      .filter(entry => entry.count && entry.effect);
+
+    if (!activeItems.length) {
+      return '<div class="formation-race-synergy-list is-empty" data-formation-synergy-kind="race" role="button" tabindex="0" aria-label="種族シナジー補正を表示"></div>';
+    }
+
+    return `
+      <div class="formation-race-synergy-list" data-formation-synergy-kind="race" role="button" tabindex="0" aria-label="種族シナジー補正を表示">
+        ${activeItems.map(({ item, count, extraCount, effect }) => {
+          const effectText = formatFormationSynergyEffect(effect);
+          const titleParts = [
+            item.name,
+            `判定 ${count}`,
+            extraCount ? `追加判定 +${extraCount}` : '',
+            effectText
+          ].filter(Boolean);
+          return `
+            <span class="formation-race-synergy-item" title="${escapeAttr(titleParts.join(' / '))}">
+              <img src="${escapeAttr(item.icon)}" alt="${escapeAttr(item.name)}">
+              <span class="formation-race-count">×${count}</span>
+              ${extraCount ? `<span class="formation-race-extra">+${extraCount}</span>` : ''}
+            </span>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function openFormationSynergyPopover(anchorEl, kind = '') {
+    if (!anchorEl) return;
+    const popover = ensureFormationSynergyPopover();
+    const formation = ensureFormationState();
+    const lines = getFormationSynergySummaryLines(formation, kind);
+    const title = kind === 'race' ? '種族シナジー補正' : '性格シナジー補正';
+    popover.innerHTML = `
+      <div class="resource-effect-popover-head">
+        <strong>${escapeHtml(title)}</strong>
+        <button type="button" data-close-formation-synergy aria-label="閉じる">${renderUiIcon('close')}</button>
+      </div>
+      <div class="resource-effect-popover-body formation-synergy-popover-body">
+        ${lines.length
+          ? lines.map(line => `<p><b>${escapeHtml(line.name)}</b><span>${escapeHtml(line.text)}</span></p>`).join('')
+          : '<p>発動中のシナジー補正はありません</p>'}
+      </div>
+    `;
+    popover.querySelector('[data-close-formation-synergy]')?.addEventListener('click', () => {
+      popover.hidden = true;
+    });
+    popover.hidden = false;
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - popRect.width - 12);
+    const top = Math.min(rect.bottom + 8, window.innerHeight - popRect.height - 12);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${Math.max(12, top)}px`;
+  }
+
+  function ensureFormationSynergyPopover() {
+    let popover = document.getElementById('formation-synergy-popover');
+    if (!popover) {
+      popover = document.createElement('div');
+      popover.id = 'formation-synergy-popover';
+      popover.className = 'resource-effect-popover formation-synergy-popover';
+      popover.hidden = true;
+      document.body.appendChild(popover);
+      popover.addEventListener('mouseleave', () => {
+        popover.hidden = true;
+      });
+      document.addEventListener('click', event => {
+        if (popover.hidden) return;
+        if (popover.contains(event.target) || event.target.closest('#formation-synergy-summary')) return;
+        popover.hidden = true;
+      });
+    }
+    return popover;
+  }
+
+  function getFormationSynergySummaryLines(formation, kind = '') {
+    const personalitySynergies = Array.isArray(window.PERSONALITY_SYNERGIES) ? window.PERSONALITY_SYNERGIES : [];
+    const raceSynergies = Array.isArray(window.RACE_SYNERGIES) ? window.RACE_SYNERGIES : [];
+    const state = collectFormationSynergyState(formation);
+    const personalityLines = sortFormationPersonalitySynergies(personalitySynergies).map(item => ({
+      item,
+      count: Math.max(0, Number(state.personality[item.name]) || 0),
+      extraCount: Math.max(0, Number(state.personalityExtras[item.name]) || 0)
+    }));
+    const raceLines = raceSynergies.map(item => ({
+      item,
+      count: Math.max(0, Number(state.race[item.name]) || 0),
+      extraCount: Math.max(0, Number(state.raceExtras[item.name]) || 0)
+    }));
+    const sourceLines = kind === 'race'
+      ? raceLines
+      : kind === 'personality'
+        ? personalityLines
+        : [
+          ...personalityLines,
+          ...raceLines
+        ];
+    const lines = sourceLines.map(({ item, count, extraCount }) => {
+      const effect = getFormationSynergyEffectForCount(item, count);
+      const text = effect ? formatFormationSynergyEffect(effect) : '';
+      return {
+        name: `${item.name} ${count}${extraCount ? `(+${extraCount})` : ''}`,
+        effect,
+        text
+      };
+    }).filter(line => line.text);
+    if (!lines.length) return [];
+    const totalEffect = lines.reduce((total, line) => {
+      Object.entries(line.effect || {}).forEach(([key, value]) => {
+        total[key] = (Number(total[key]) || 0) + (Number(value) || 0);
+      });
+      return total;
+    }, {});
+    return [
+      { name: '合計', text: formatFormationSynergyEffect(totalEffect) },
+      ...lines.map(({ name, text }) => ({ name, text }))
+    ];
+  }
+
+  function renderFormationSynergySlot(type, index, topCount, entry) {
+    const row = index < topCount ? 'top' : 'bottom';
+    const fillOrder = index < topCount ? index * 2 + 1 : (index - topCount) * 2 + 2;
+    const gridColumn = fillOrder;
+    if (!entry) {
+      return `
+        <span class="formation-synergy-slot" data-row="${row}" style="grid-column:${gridColumn}" title="空きスロット"></span>
+      `;
+    }
+    const { item, isExtra, count, memberCount } = entry;
+    const isEffectStep = isFormationSynergyMemberEffective(item, count, memberCount);
+    const effect = getFormationSynergyEffectForCount(item, count);
+    const effectText = effect ? formatFormationSynergyEffect(effect) : '';
+    const nextCount = getFormationSynergyNextCount(item, count);
+    const titleParts = [
+      item.name,
+      `判定 ${count}`,
+      isEffectStep ? '' : 'この枠では効果更新なし',
+      isExtra ? '追加判定' : '',
+      effectText || (nextCount ? `次: ${nextCount}` : '未発動')
+    ].filter(Boolean);
+    return `
+      <span class="formation-synergy-slot is-filled ${isEffectStep ? '' : 'is-redundant'} ${isExtra ? 'is-extra' : ''}" data-row="${row}" style="grid-column:${gridColumn}" title="${escapeAttr(titleParts.join(' / '))}">
+        <img class="formation-synergy-slot-icon" src="${escapeAttr(item.icon)}" alt="${escapeAttr(item.name)}">
+        ${isExtra ? '<span class="formation-synergy-extra">+</span>' : ''}
+      </span>
+    `;
+  }
+
+  function isFormationSynergyMemberEffective(synergy, totalCount, memberCount) {
+    const effectsByCount = synergy?.effectsByCount || {};
+    const activeThreshold = Object.keys(effectsByCount)
+      .map(key => Number.parseInt(key, 10))
+      .filter(value => Number.isFinite(value) && value <= totalCount)
+      .sort((a, b) => b - a)[0] || 0;
+    return memberCount <= activeThreshold;
+  }
+
+  function getFormationSynergyEffectForCount(synergy, count) {
+    const effectsByCount = synergy?.effectsByCount || {};
+    const direct = effectsByCount[String(count)] || effectsByCount[count];
+    if (direct) return direct;
+    const threshold = Object.keys(effectsByCount)
+      .map(key => Number.parseInt(key, 10))
+      .filter(value => Number.isFinite(value) && value <= count)
+      .sort((a, b) => b - a)[0];
+    return threshold ? (effectsByCount[String(threshold)] || effectsByCount[threshold] || null) : null;
+  }
+
+  function getFormationSynergyNextCount(synergy, count) {
+    return Object.keys(synergy?.effectsByCount || {})
+      .map(key => Number.parseInt(key, 10))
+      .filter(value => Number.isFinite(value) && value > count)
+      .sort((a, b) => a - b)[0] || 0;
+  }
+
+  function formatFormationSynergyEffect(effect = {}) {
+    const labels = [
+      ['hpP', 'HP'],
+      ['addP', '与ダメ'],
+      ['atkP', '攻撃'],
+      ['hasteP', '攻速'],
+      ['skillAddP', 'スキル'],
+      ['basicAddP', '通常'],
+      ['damageTakenDownP', '被ダメ減'],
+      ['critRateP', '会心'],
+      ['critDmgP', '会心DMG'],
+      ['critRateTakenDownP', '被会心減'],
+      ['critDmgTakenDownP', '被会心DMG減'],
+      ['spRecoveryP', 'SP回復'],
+      ['hpRecoveryP', 'HP回復']
+    ];
+    return labels
+      .filter(([key]) => Number(effect[key]) || 0)
+      .map(([key, label]) => `${label}+${formatBoardSummaryValue(Number(effect[key]) || 0)}%`)
+      .join(' / ');
+  }
+
+  function renderFormationColumn(row, rowIndex) {
+    const position = getFormationColumnPosition(rowIndex);
+    return `
+      <section class="formation-column formation-column-${rowIndex + 1}">
+        <div class="formation-column-head">
+        <button type="button" data-formation-clear-row="${rowIndex}" title="この列をクリア" aria-label="${escapeAttr(position)}をクリア">${renderUiIcon('close')}</button>
+        </div>
+        ${Array.from({ length: 3 }, (_, index) => renderFormationLine(row, rowIndex, index)).join('')}
+      </section>
+    `;
+  }
+
+  function renderFormationLine(row, rowIndex, lineIndex) {
+    const apostleId = row.apostles?.[lineIndex] || '';
+    const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+    const personalityResolution = getFormationPersonalityResolution(basic, row.resonancePersonalities?.[lineIndex]);
+    const effectivePersonality = personalityResolution.effectivePersonality || '';
+    const artifacts = Array.isArray(row.artifacts?.[lineIndex]) ? row.artifacts[lineIndex] : [];
+    const roleAsset = getRoleAssetName(basic?.役割);
+    const attackIcon = basic?.攻撃タイプ ? `img/Attack_${basic.攻撃タイプ === '物理' ? 'phys' : 'mag'}.webp` : '';
+    const canChangePlacement = basic && getAllowedFormationRows(basic).length > 1;
+    const resonanceClass = personalityResolution.isSelectable
+      ? `is-resonance ${effectivePersonality ? '' : 'is-resonance-unselected'}`
+      : '';
+    const personalityIconName = effectivePersonality || (personalityResolution.isResonance ? '共鳴' : '');
+    const invalidSelectionLabel = personalityResolution.invalidSelection
+      ? `旧選択：${personalityResolution.originalSelection}／現在の候補外。性格を再選択`
+      : '';
+    const candidateStyle = window.TRICKCAL_FORMATION_PERSONALITY?.getPersonalityOptionStyle(personalityResolution.personalityOptions) || '';
+    const candidateClass = personalityResolution.personalityOptions.length === 2 ? 'has-personality-options is-two-tone'
+      : candidateStyle ? 'has-personality-options' : '';
+    return `
+      <div class="formation-line">
+        <div class="formation-apostle-card-wrap">
+          <button type="button" class="formation-apostle-slot ${basic ? 'is-filled' : ''} ${resonanceClass} ${candidateClass} personality-${escapeAttr(effectivePersonality)}" ${candidateStyle ? `style="${escapeAttr(candidateStyle)}"` : ''} data-formation-apostle-row="${rowIndex}" data-formation-line="${lineIndex}" draggable="false" title="${escapeAttr(basic?.使徒名 || '使徒を選択')}">
+            ${basic ? '' : '<img class="formation-slot-bg" src="img/使徒bg.png" alt="">'}
+            ${basic ? `<span class="formation-apostle-clip"><img data-apostle-image class="formation-apostle-img" src="${escapeAttr(getApostleImagePath(basic.id))}" alt="${escapeAttr(basic.使徒名 || basic.id)}"></span>` : '<span class="formation-empty-icon">?</span>'}
+            ${basic && !personalityResolution.isSelectable && basic.性格 ? `<img class="formation-apostle-badge formation-personality-badge" src="img/性格_${escapeAttr(basic.性格)}.webp" alt="${escapeAttr(basic.性格)}" title="${escapeAttr(basic.性格)}">` : ''}
+            ${roleAsset ? `<img class="formation-apostle-badge formation-role-badge" src="img/役割_${escapeAttr(roleAsset)}.webp" alt="${escapeAttr(basic.役割 || '')}" title="${escapeAttr(basic.役割 || '')}">` : ''}
+            ${attackIcon ? `<img class="formation-apostle-badge formation-attack-badge" src="${escapeAttr(attackIcon)}" alt="${escapeAttr(basic.攻撃タイプ)}" title="${escapeAttr(basic.攻撃タイプ)}">` : ''}
+          </button>
+          ${personalityResolution.isSelectable ? `<button type="button" class="formation-card-icon-action formation-personality-icon-action${invalidSelectionLabel ? ' is-invalid-selection' : ''}" data-formation-personality-row="${rowIndex}" data-formation-personality-line="${lineIndex}" aria-haspopup="dialog" aria-label="${escapeAttr(invalidSelectionLabel || `${basic?.使徒名 || '使徒'}の性格を${effectivePersonality ? `変更（現在：${effectivePersonality}）` : '選択'}`)}" title="${escapeAttr(invalidSelectionLabel || (effectivePersonality ? `性格：${effectivePersonality}（変更）` : '性格を選択'))}">${personalityIconName ? `<img src="img/性格_${escapeAttr(personalityIconName)}.webp" alt="">` : invalidSelectionLabel ? '<span aria-hidden="true">!</span>' : ''}</button>` : ''}
+          ${canChangePlacement ? `<button type="button" class="formation-card-icon-action formation-placement-icon-action" data-formation-move-row="${rowIndex}" data-formation-move-line="${lineIndex}" aria-haspopup="dialog" aria-label="${escapeAttr(`${basic.使徒名 || basic.id}の配置先を変更`)}" title="配置先を変更"><img src="img/配置列_全列.webp" alt=""></button>` : ''}
+        </div>
+        <div class="formation-artifact-list">
+          ${Array.from({ length: 3 }, (_, artifactSlot) => renderFormationArtifactSlot(artifacts[artifactSlot] || '', rowIndex, lineIndex, artifactSlot)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderFormationArtifactSlot(artifactId, rowIndex, lineIndex, artifactSlot) {
+    const artifact = artifactId ? getCardManagerCards('artifact').find(card => card.id === artifactId) : null;
+    const apostleId = ensureFormationState().rows?.[rowIndex]?.apostles?.[lineIndex] || '';
+    const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+    const isFavoriteEquipped = !!artifact?.signature
+      && !!basic
+      && String(artifact.favoriteCharacter || '') === String(basic.使徒名 || '');
+    return `
+      <button type="button" class="formation-artifact-slot ${artifact ? 'is-filled' : ''} ${artifact ? getCardManagerRarityClass(artifact) : ''}" data-formation-artifact-row="${rowIndex}" data-formation-artifact-line="${lineIndex}" data-formation-artifact-slot="${artifactSlot}" title="${escapeAttr(artifact?.name || '遺物を選択')}">
+        <img class="formation-slot-bg" src="${escapeAttr(isFavoriteEquipped ? 'img/遺物bg_5.png' : getFormationArtifactBg(artifact))}" alt="">
+        ${artifact ? `<img class="formation-artifact-img" src="${escapeAttr(getCardManagerImagePath(artifact))}" alt="${escapeAttr(artifact.name)}">` : '<span class="formation-empty-icon">+</span>'}
+      </button>
+    `;
+  }
+
+  function renderFormationSpells(formation = ensureFormationState(), options = {}) {
+    if (!elements.formationSpellList) return;
+    closeFormationSpellDetailsPopover();
+    const deferCatalog = options.deferCatalog !== false;
+    const spells = normalizeFormationSpells(formation.spells);
+    const cards = getCardManagerCards('spell').slice().sort(compareCardManagerCards);
+    const cardById = new Map(cards.map(card => [card.id, card]));
+    const counts = countFormationSpellIds(spells);
+    const selectedRows = getSortedFormationSpellRows(spells, cardById);
+    elements.formationSpellList.innerHTML = `
+      <div class="formation-spell-head">
+        <span>スペル</span>
+        <div class="formation-spell-head-actions">
+          <small>${spells.length ? `${spells.length}枚選択中` : '未選択'}</small>
+          <button type="button" class="formation-spell-detail-toggle" data-formation-spell-details aria-haspopup="dialog" aria-expanded="false" ${spells.length ? '' : 'disabled'}>
+            詳細を表示
+          </button>
+        </div>
+      </div>
+      <div class="formation-spell-selected" aria-label="選択中スペル">
+        ${spells.length
+          ? selectedRows.map(row => renderFormationSelectedSpell(row.card, row.id, row.count)).join('')
+          : '<span class="formation-spell-empty">下のカードを押すと追加されます</span>'}
+      </div>
+      ${renderFormationSelectedSpellEffects(selectedRows)}
+      <div class="formation-spell-catalog" aria-label="スペル一覧">
+        ${deferCatalog ? '<span class="formation-spell-empty">スペル一覧を準備中...</span>' : cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('')}
+      </div>
+    `;
+    if (deferCatalog) scheduleFormationSpellCatalogRender(cards, counts);
+  }
+
+  function scheduleFormationSpellCatalogRender(cards, counts) {
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    scheduleFormationSpellCatalogRender.token = token;
+    const renderCatalog = () => {
+      if (scheduleFormationSpellCatalogRender.token !== token) return;
+      const catalog = elements.formationSpellList?.querySelector('.formation-spell-catalog');
+      if (!catalog) return;
+      catalog.innerHTML = cards.map((card, index) => renderFormationSpellCard(card, counts[card.id] || 0, index)).join('');
+    };
+    requestAnimationFrame(() => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(renderCatalog, { timeout: 280 });
+      } else {
+        window.setTimeout(renderCatalog, 40);
+      }
+    });
+  }
+
+  function renderFormationSelectedSpell(card, index, count = 1) {
+    if (!card) return '';
+    return `
+      <button type="button" class="formation-spell-selected-card ${getCardManagerRarityClass(card)}" data-formation-spell-remove-id="${escapeAttr(index)}" title="${escapeAttr(`${card.name}を外す`)}">
+        <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="eager" decoding="async" fetchpriority="high">
+        ${count > 1 ? `<span class="formation-spell-count">x${escapeHtml(count)}</span>` : ''}
+      </button>
+    `;
+  }
+  function getFormationSpellBaseEffects(card) {
+    const state = getCardState(card?.id);
+    const star = normalizeCardStar(state.star);
+    const baseBonus = Array.isArray(card?.bonusesByStar) ? card.bonusesByStar[star - 1] : null;
+    const summary = formatCardManagerBonuses(baseBonus);
+    const texts = summary === '補正なし' ? ['特殊効果'] : summary.split(' / ').slice(0, 2);
+    return texts.map(text => ({
+      label: String(text)
+        .replace(/[+-]?\d+(?:\.\d+)?%$/, '')
+        .replace(/会心DMG抵抗/g, '会心D抵')
+        .replace(/会心DMG/g, '会心D')
+        .replace(/会心抵抗/g, '会心抵')
+        .replace(/HP治癒/g, '治癒'),
+      tone: getFormationSpellEffectTone(text),
+      detail: summary === '補正なし' ? '基礎補正なし（特殊効果のみ）' : `★${star} ${text}`
+    }));
+  }
+
+  function renderFormationSelectedSpellEffects(rows = []) {
+    if (!rows.length) return '';
+    const bonuses = {};
+    rows.forEach(({ card, count }) => {
+      if (!card) return;
+      const state = getCardState(card.id);
+      const star = normalizeCardStar(state.star);
+      const source = Array.isArray(card.bonusesByStar) ? card.bonusesByStar[star - 1] : null;
+      if (!source || typeof source !== 'object') return;
+      Object.entries(source).forEach(([key, value]) => {
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) return;
+        bonuses[key] = Math.round(((Number(bonuses[key]) || 0) + amount * Math.max(1, Number(count) || 1)) * 1000) / 1000;
+      });
+    });
+    const summary = formatCardManagerBonuses(bonuses);
+    if (summary === '補正なし') return '';
+    const effects = summary.split(' / ').filter(Boolean);
+    return `
+      <div class="formation-spell-selected-effect-summary" aria-label="選択中スペルの基礎効果合計">
+        <span class="formation-spell-selected-effect-title">選択効果</span>
+        ${effects.map(effect => `<span class="is-${getFormationSpellEffectTone(effect)}" title="${escapeAttr(effect)}">${escapeHtml(effect)}</span>`).join('')}
+      </div>
+    `;
+  }
+
+  function getFormationSpellEffectTone(text = '') {
+    if (/回復|治癒/.test(text)) return 'recovery';
+    if (/攻撃速度|攻速/.test(text)) return 'attack-speed';
+    if (/会心.*抵抗/.test(text)) return 'crit-resist';
+    if (/会心/.test(text)) return 'crit';
+    if (/防御/.test(text)) return 'defense';
+    if (/攻撃/.test(text)) return 'attack';
+    if (/HP/.test(text)) return 'hp';
+    return 'other';
+  }
+
+  function getSortedFormationSpellRows(spells, cardById) {
+    const counts = countFormationSpellIds(spells);
+    return Object.keys(counts)
+      .map(id => ({ id, count: counts[id], card: cardById.get(id) }))
+      .filter(row => row.card)
+      .sort((a, b) => compareCardManagerCards(a.card, b.card));
+  }
+
+  function renderFormationSpellDetails(rows) {
+    return `
+      <div class="formation-spell-detail-list">
+        ${rows.map(row => {
+          const { id, card, count } = row;
+          if (!card) return '';
+          const state = getCardState(id);
+          const star = normalizeCardStar(state.star);
+          const solder = normalizeCardSolder(state.solder);
+          const lines = getCardManagerEffectSummary(card, star, solder);
+          return `
+            <section class="formation-spell-detail-card ${getCardManagerRarityClass(card)}">
+              <div class="formation-spell-detail-title">
+                <img src="${escapeAttr(getCardManagerImagePath(card))}" alt="" loading="lazy" decoding="async" fetchpriority="low">
+                <strong>${escapeHtml(card.name)}</strong>
+                <span>${escapeHtml(`x${count || 1}`)}</span>
+              </div>
+              <div class="formation-spell-detail-body">
+                ${lines.map(line => `<p>${escapeHtml(line)}</p>`).join('')}
+              </div>
+            </section>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function toggleFormationSpellDetailsPopover(anchorEl) {
+    if (!anchorEl) return;
+    const popover = ensureFormationSpellDetailsPopover();
+    if (!popover.hidden) {
+      closeFormationSpellDetailsPopover();
+      return;
+    }
+    const formation = ensureFormationState();
+    const spells = normalizeFormationSpells(formation.spells);
+    const cards = getCardManagerCards('spell');
+    const cardById = new Map(cards.map(card => [card.id, card]));
+    const rows = getSortedFormationSpellRows(spells, cardById);
+    if (!rows.length) return;
+    popover.innerHTML = `
+      <div class="resource-effect-popover-head">
+        <strong>選択中スペルの詳細</strong>
+        <button type="button" data-close-formation-spell-details aria-label="閉じる">${renderUiIcon('close')}</button>
+      </div>
+      <div class="formation-spell-summary-popover-body">
+        ${renderFormationSpellDetails(rows)}
+      </div>
+    `;
+    popover.querySelector('[data-close-formation-spell-details]')?.addEventListener('click', closeFormationSpellDetailsPopover);
+    popover.hidden = false;
+    anchorEl.setAttribute('aria-expanded', 'true');
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = popover.getBoundingClientRect();
+    const left = Math.min(Math.max(12, rect.right - popRect.width), window.innerWidth - popRect.width - 12);
+    const below = rect.bottom + 8;
+    const top = below + popRect.height <= window.innerHeight - 12
+      ? below
+      : Math.max(12, rect.top - popRect.height - 8);
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+  }
+
+  function ensureFormationSpellDetailsPopover() {
+    let popover = document.getElementById('formation-spell-summary-popover');
+    if (!popover) {
+      popover = document.createElement('div');
+      popover.id = 'formation-spell-summary-popover';
+      popover.className = 'resource-effect-popover formation-spell-summary-popover';
+      popover.hidden = true;
+      document.body.appendChild(popover);
+      document.addEventListener('click', event => {
+        if (popover.hidden) return;
+        if (popover.contains(event.target) || event.target.closest('[data-formation-spell-details]')) return;
+        closeFormationSpellDetailsPopover();
+      });
+    }
+    return popover;
+  }
+
+  function closeFormationSpellDetailsPopover() {
+    const popover = document.getElementById('formation-spell-summary-popover');
+    if (popover) popover.hidden = true;
+    elements.formationSpellList
+      ?.querySelector('[data-formation-spell-details]')
+      ?.setAttribute('aria-expanded', 'false');
+  }
+  function renderFormationSpellCard(card, count, index = 0) {
+    const priority = getCardManagerImagePriority(index);
+    return `
+      <div class="formation-spell-card ${getCardManagerRarityClass(card)} ${count ? 'is-selected' : ''}" title="${escapeAttr(card.name)}">
+        <span class="formation-spell-card-art">
+          <img class="formation-spell-img" src="${escapeAttr(getCardManagerImagePath(card))}" alt="${escapeAttr(card.name)}" loading="${priority.loading}" decoding="async" fetchpriority="${priority.fetchPriority}">
+          <span class="formation-spell-card-effects" title="${escapeAttr(`${card.name}の基礎効果`)}">
+            ${getFormationSpellBaseEffects(card).map(effect => `<span class="is-${effect.tone}" title="${escapeAttr(effect.detail)}">${escapeHtml(effect.label)}</span>`).join('')}
+          </span>
+          <button type="button" class="formation-spell-info-btn" data-formation-spell-info data-card-effect-overlay data-card-id="${escapeAttr(card.id)}" aria-label="${escapeAttr(`${card.name}の詳細を表示`)}" title="詳細">i</button>
+          ${renderFormationCostBadge(card.cost)}
+        </span>
+        <span class="formation-spell-name">${escapeHtml(card.name)}</span>
+        <span class="formation-spell-qty" aria-label="${escapeAttr(`${card.name}の選択枚数`)}">
+          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="-1" aria-label="1枚減らす" ${count ? '' : 'disabled'}>${renderUiIcon('minus')}</button>
+          <span class="formation-spell-qty-value ${count ? 'is-on' : ''}">${escapeHtml(count)}</span>
+          <button type="button" class="formation-spell-qty-btn" data-formation-spell-card="${escapeAttr(card.id)}" data-formation-spell-step="1" aria-label="1枚増やす">${renderUiIcon('plus')}</button>
+        </span>
+      </div>
+    `;
+  }
+
+  function countFormationSpellIds(spells = []) {
+    return spells.reduce((counts, id) => {
+      if (!id) return counts;
+      counts[id] = (counts[id] || 0) + 1;
+      return counts;
+    }, {});
+  }
+
+  function addFormationSpell(spellId) {
+    if (!spellId) return;
+    const history = beginHistoryAction('編成スペル変更');
+    const formation = ensureFormationState();
+    formation.spells = normalizeFormationSpells(formation.spells);
+    formation.spells.push(spellId);
+    saveState({ refreshSnapshots: false });
+    renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
+    commitHistoryAction(history);
+  }
+
+  function adjustFormationSpellCount(spellId, step) {
+    if (!spellId || !step) return;
+    if (step > 0) {
+      addFormationSpell(spellId);
+      return;
+    }
+    removeFormationSpell(spellId);
+  }
+
+  function removeFormationSpell(spellId) {
+    if (!spellId) return;
+    const formation = ensureFormationState();
+    const spells = normalizeFormationSpells(formation.spells);
+    const index = spells.indexOf(spellId);
+    if (index < 0) return;
+    const history = beginHistoryAction('編成スペル変更');
+    spells.splice(index, 1);
+    formation.spells = spells;
+    saveState({ refreshSnapshots: false });
+    renderFormationAfterSpellChange(formation, { anchorSpellId: spellId });
+    commitHistoryAction(history);
+  }
+
+  function renderFormationAfterSpellChange(formation = ensureFormationState(), options = {}) {
+    const anchorSpellId = options.anchorSpellId || '';
+    const catalogScrollTop = getFormationSpellCatalogElement()?.scrollTop ?? 0;
+    const anchorTop = anchorSpellId
+      ? getFormationSpellCatalogCardElement(anchorSpellId)?.getBoundingClientRect().top
+      : null;
+    renderFormationSpells(formation, { deferCatalog: false });
+    const nextCatalog = getFormationSpellCatalogElement();
+    if (nextCatalog) nextCatalog.scrollTop = catalogScrollTop;
+    renderFormationCostSummary(formation);
+    renderFormationSynergySummary(formation);
+    renderFormationActivePreset();
+    renderFormationPresetList();
+    requestAnimationFrame(() => {
+      const catalog = getFormationSpellCatalogElement();
+      if (catalog) catalog.scrollTop = catalogScrollTop;
+      if (anchorTop === null || anchorTop === undefined) return;
+      const anchor = getFormationSpellCatalogCardElement(anchorSpellId);
+      if (!anchor) return;
+      const nextTop = anchor.getBoundingClientRect().top;
+      if (!Number.isFinite(nextTop)) return;
+      window.scrollBy(0, nextTop - anchorTop);
+    });
+  }
+
+  function getFormationSpellCatalogElement() {
+    return elements.formationSpellList?.querySelector('.formation-spell-catalog') || null;
+  }
+
+  function getFormationSpellCatalogCardElement(spellId) {
+    if (!spellId || !elements.formationSpellList) return null;
+    return Array.from(elements.formationSpellList.querySelectorAll('.formation-spell-card')).find(card => {
+      const button = card.querySelector('[data-formation-spell-card]');
+      return button?.dataset.formationSpellCard === spellId;
+    }) || null;
+  }
+
+  function renderFormationKeepingScroll() {
+    const scrollX = window.scrollX || window.pageXOffset || 0;
+    const scrollY = window.scrollY || window.pageYOffset || 0;
+    renderFormation();
+    requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
+  }
+
+  function renderFormationCostBadge(cost) {
+    const value = Number(cost) || 0;
+    return `
+      <span class="formation-cost-badge" title="コスト ${value}">
+        <img src="img/Card/cost.webp" alt="">
+        <span class="formation-cost-text formation-cost-text-stroke">${escapeHtml(value)}</span>
+        <span class="formation-cost-text formation-cost-text-fill">${escapeHtml(value)}</span>
+      </span>
+    `;
+  }
+
+  function renderFormationCostSummary(formation) {
+    if (!elements.formationCostSummary) return;
+    const memberCount = getFormationMemberCount(formation);
+    const totalCost = calculateFormationCost(formation);
+    ensureFormationCoinState(formation);
+    const ownedCoins = normalizeFormationCoins(formation.coins);
+    const remainingCoins = ownedCoins - totalCost;
+    const totalCombatPower = getSavedTotalCombatPower();
+    const autoCoins = calculateFormationAutoCoins(totalCombatPower);
+    const isAuto = formation.coinMode === 'auto';
+    elements.formationCostSummary.innerHTML = `
+      <span class="formation-member-count formation-member-count-cost">
+        <span>編成</span>
+        <strong>${escapeHtml(memberCount)}</strong>
+      </span>
+      <div class="formation-coin-box ${remainingCoins < 0 ? 'is-short' : ''} ${isAuto ? 'is-auto' : 'is-manual'}">
+        <span class="formation-coin-owned">
+          <span>所持${isAuto ? '<em>自動</em>' : ''}</span>
+          <button type="button" class="formation-coin-input-wrap" data-formation-coin-open aria-expanded="false" title="クリックして所持コインを入力">
+            <img src="img/Card/ef_coin.webp" alt="">
+            <span class="formation-coin-display formation-coin-display-stroke" data-formation-coin-display>${escapeHtml(formatFormationCoinCount(ownedCoins))}</span>
+            <span class="formation-coin-display formation-coin-display-fill" data-formation-coin-display>${escapeHtml(formatFormationCoinCount(ownedCoins))}</span>
+          </button>
+          <span class="formation-coin-popover" data-formation-coin-popover hidden>
+            <span class="formation-coin-auto-note">総合CP ${escapeHtml(formatNumber(totalCombatPower))} → ${escapeHtml(formatNumber(autoCoins))}枚</span>
+            <label>
+              <span>所持コイン</span>
+              <input type="number" min="0" step="1" inputmode="numeric" data-formation-coin-input value="${escapeAttr(ownedCoins)}" aria-label="所持コイン数">
+            </label>
+            <button type="button" data-formation-coin-auto>自動算出を反映</button>
+            <button type="button" data-formation-coin-manual>手動入力にする</button>
+            <button type="button" data-formation-coin-close>閉じる</button>
+          </span>
+        </span>
+        <span class="formation-total-cost">
+          <span>使用</span>
+          <span class="formation-cost-badge formation-cost-badge-total" title="総コスト ${totalCost}">
+            <img src="img/Card/cost.webp" alt="">
+            <span class="formation-cost-text formation-cost-text-stroke">${escapeHtml(totalCost)}</span>
+            <span class="formation-cost-text formation-cost-text-fill">${escapeHtml(totalCost)}</span>
+          </span>
+        </span>
+        <span class="formation-coin-remain">
+          <span>残り</span>
+          <strong class="formation-metric-number ${remainingCoins < 0 ? 'is-negative' : ''}" data-formation-coin-remain aria-label="${escapeAttr(`残り${formatFormationCoinCount(remainingCoins)}`)}">
+            <span class="formation-metric-number-stroke">${escapeHtml(formatFormationCoinCount(remainingCoins))}</span>
+            <span class="formation-metric-number-fill">${escapeHtml(formatFormationCoinCount(remainingCoins))}</span>
+          </strong>
+        </span>
+      </div>
+    `;
+  }
+
+  function updateFormationCoinSummary(formation = ensureFormationState()) {
+    const box = elements.formationCostSummary?.querySelector('.formation-coin-box');
+    const remain = elements.formationCostSummary?.querySelector('[data-formation-coin-remain]');
+    const displays = elements.formationCostSummary?.querySelectorAll('[data-formation-coin-display]');
+    const input = elements.formationCostSummary?.querySelector('[data-formation-coin-input]');
+    const note = elements.formationCostSummary?.querySelector('.formation-coin-auto-note');
+    if (!box || !remain) return;
+    ensureFormationCoinState(formation);
+    const ownedCoins = normalizeFormationCoins(formation.coins);
+    const remainingCoins = ownedCoins - calculateFormationCost(formation);
+    const totalCombatPower = getSavedTotalCombatPower();
+    const autoCoins = calculateFormationAutoCoins(totalCombatPower);
+    box.classList.toggle('is-short', remainingCoins < 0);
+    box.classList.toggle('is-auto', formation.coinMode === 'auto');
+    box.classList.toggle('is-manual', formation.coinMode !== 'auto');
+    displays?.forEach(display => { display.textContent = formatFormationCoinCount(ownedCoins); });
+    if (input && document.activeElement !== input) input.value = String(ownedCoins);
+    if (note) note.textContent = `総合CP ${formatNumber(totalCombatPower)} → ${formatNumber(autoCoins)}枚`;
+    remain.classList.toggle('is-negative', remainingCoins < 0);
+    remain.setAttribute('aria-label', `残り${formatFormationCoinCount(remainingCoins)}`);
+    remain.querySelectorAll('.formation-metric-number-stroke, .formation-metric-number-fill')
+      .forEach(node => { node.textContent = formatFormationCoinCount(remainingCoins); });
+  }
+
+  function getFormationMasterPowers() {
+    return Array.isArray(DATA?.sheets?.masterPowers) ? DATA.sheets.masterPowers : [];
+  }
+
+  function getFormationMasterPowerById(id) {
+    return getFormationMasterPowers().find(power => power.id === id) || null;
+  }
+
+  function getFormationMasterPowerSelectionLimit() {
+    const limits = getFormationMasterPowers()
+      .map(power => Number(power['最大選択数']))
+      .filter(value => Number.isFinite(value) && value > 0);
+    return Math.max(1, limits.length ? Math.max(...limits) : 1);
+  }
+
+  function normalizeFormationMasterPowers(value) {
+    const source = Array.isArray(value) ? value : (value ? [value] : []);
+    const validIds = new Set(getFormationMasterPowers().map(power => power.id));
+    return Array.from(new Set(source.map(String).filter(id => validIds.has(id))))
+      .slice(0, getFormationMasterPowerSelectionLimit());
+  }
+
+  function getFormationMasterPowerImagePath(power) {
+    return `img/Card/権能_${power?.['権能名'] || ''}.webp`;
+  }
+
+  function getFormationMasterPowerImageUrl(power) {
+    const path = getFormationMasterPowerImagePath(power);
+    return window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
+  }
+
+  function formatFormationMasterPowerEffect(effect = {}) {
+    const name = effect['値の種類'] || effect.effectId || '効果';
+    const value = effect['固定値'];
+    const classification = effect['値分類'] || '';
+    const duration = Number(effect.durationSeconds || effect['持続時間秒']) || 0;
+    const valueText = value !== '' && value != null
+      ? `${value}${/倍率/.test(classification) ? '%' : ''}`
+      : '';
+    return [name, valueText, duration ? `${duration}秒` : ''].filter(Boolean).join(' ');
+  }
+
+  function renderFormationMasterPowers(formation = ensureFormationState()) {
+    if (!elements.formationMasterPower) return;
+    const powers = getFormationMasterPowers();
+    const selected = normalizeFormationMasterPowers(formation.masterPowers);
+    formation.masterPowers = selected;
+    const selectedPower = selected.length ? getFormationMasterPowerById(selected[0]) : null;
+    const limit = getFormationMasterPowerSelectionLimit();
+    elements.formationMasterPower.innerHTML = `
+      <div class="formation-master-power-head">
+        <span>教主の権能</span>
+        <small>${selected.length}/${limit} 選択中</small>
+      </div>
+      <div class="formation-master-power-grid">
+        ${powers.map(power => {
+          const isSelected = selected.includes(power.id);
+          const name = power['権能名'] || power.id;
+          return `
+            <button type="button" class="formation-master-power-card ${isSelected ? 'is-selected' : ''}" data-formation-master-power="${escapeAttr(power.id)}" aria-pressed="${isSelected}" title="${escapeAttr(power['説明'] || name)}">
+              <span class="formation-master-power-media">
+                <img src="${escapeAttr(getFormationMasterPowerImageUrl(power))}" alt="" draggable="false">
+                ${renderFormationCostBadge(power['コスト'])}
+                <span class="formation-master-power-check" aria-hidden="true">✓</span>
+              </span>
+              <strong>${escapeHtml(name)}</strong>
+              <small><span>CT ${escapeHtml(power['クールタイム秒'] ?? '-')}秒</span></small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <div class="formation-master-power-detail ${selectedPower ? 'is-selected' : ''}">
+        ${selectedPower ? `
+          <div>
+            <strong>${escapeHtml(selectedPower['権能名'] || selectedPower.id)}</strong>
+            <span>${escapeHtml(selectedPower['コンテンツ'] || '')}</span>
+          </div>
+          <p>${escapeHtml(selectedPower['説明'] || '')}</p>
+          <div class="formation-master-power-effects">
+            ${(selectedPower.effects || []).map(effect => `<span>${escapeHtml(formatFormationMasterPowerEffect(effect))}</span>`).join('')}
+          </div>
+        ` : '<p>権能を押すと編成にセットされます。現在は1つまで選択できます。</p>'}
+      </div>
+    `;
+  }
+
+  function closeFormationCoinPopover() {
+    const popover = elements.formationCostSummary?.querySelector('[data-formation-coin-popover]');
+    const button = elements.formationCostSummary?.querySelector('[data-formation-coin-open]');
+    if (popover) popover.hidden = true;
+    button?.setAttribute('aria-expanded', 'false');
+  }
+
+  function calculateFormationCost(formation = ensureFormationState()) {
+    const artifacts = getCardManagerCards('artifact');
+    const spells = getCardManagerCards('spell');
+    const artifactCost = (formation.rows || []).reduce((total, row) => {
+      const artifactIds = (row.artifacts || []).flat();
+      return total + artifactIds.reduce((sum, id) => {
+        const card = id ? artifacts.find(item => item.id === id) : null;
+        return sum + (Number(card?.cost) || 0);
+      }, 0);
+    }, 0);
+    const spellCost = (formation.spells || []).reduce((sum, id) => {
+      const card = id ? spells.find(item => item.id === id) : null;
+      return sum + (Number(card?.cost) || 0);
+    }, 0);
+    const masterPowerCost = normalizeFormationMasterPowers(formation.masterPowers || formation.masterPowerId)
+      .reduce((sum, id) => sum + (Number(getFormationMasterPowerById(id)?.['コスト']) || 0), 0);
+    return artifactCost + spellCost + masterPowerCost;
+  }
+
+  function getFormationApostleFilterGroups() {
+    return getApostleFilterGroups().filter(group => group.key !== 'position');
+  }
+
+  function renderFormationPickerFilters() {
+    if (!elements.formationPickerFilters || !elements.formationFilterCount) return;
+    const groups = getFormationApostleFilterGroups();
+    const activeCount = Object.values(view.formationFilters)
+      .reduce((total, values) => total + values.size, 0);
+    elements.formationFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.formationPickerFilters.innerHTML = renderApostleFilterControls(
+      groups,
+      view.formationFilters,
+      'formation'
+    );
+  }
+
+  function matchesFormationPickerFilters(basic) {
+    return [
+      ['personality', basic.性格],
+      ['species', basic.種族],
+      ['role', basic.役割]
+    ].every(([group, value]) => {
+      const selected = view.formationFilters[group];
+      return !selected || selected.size === 0 || selected.has(value);
+    });
+  }
+
+  function getFormationApostleSubText(basic) {
+    const state = ensureApostleState(basic.id);
+    const main = view.formationSort === 'level'
+      ? `Lv ${state.level}`
+      : view.formationSort === 'rank'
+        ? `Rank ${state.rank}`
+        : view.formationSort === 'combatPower'
+          ? `CP ${formatApostleListCombatPower(getApostleCombatPowerForSort(basic.id))}`
+        : basic.配列 || '';
+    return [main, basic.性格, basic.種族, basic.役割]
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  function getFormationPickerTitle(picker = view.formationPicker) {
+    if (!picker) return '選択';
+    if (picker.type === 'apostle-move') return '配置先を選択';
+    if (picker.type === 'personality') return picker.isNewPlacement ? '性格を選択' : '性格を選択';
+    if (picker.type === 'apostle') return `${getFormationColumnPosition(picker.rowIndex)}の使徒を選択`;
+    if (picker.type === 'spell') return 'スペルを選択';
+    return '遺物を選択';
+  }
+
+  function updateFormationPickerPresentation() {
+    const picker = view.formationPicker;
+    if (!picker || !elements.formationPickerDialog) return;
+    const type = picker.type;
+    const isApostle = type === 'apostle';
+    const isPersonality = type === 'personality';
+    const isMove = type === 'apostle-move';
+    elements.formationPickerTitle.textContent = getFormationPickerTitle(picker);
+    elements.formationPickerDialog.setAttribute('aria-labelledby', 'formation-picker-title');
+    elements.formationPickerDialog.classList.toggle('is-compact-mode', isPersonality || isMove);
+    elements.formationPickerDialog.classList.toggle('is-personality-mode', isPersonality);
+    elements.formationPickerDialog.classList.toggle('is-move-mode', isMove);
+    if (elements.formationPickerSortWrap) elements.formationPickerSortWrap.hidden = !isApostle;
+    if (elements.formationFilterDetails) elements.formationFilterDetails.hidden = !isApostle;
+    const tools = elements.formationPickerSearch?.closest('.formation-picker-tools');
+    if (tools) tools.hidden = isPersonality || isMove;
+    if (isApostle) {
+      if (elements.formationPickerSort) elements.formationPickerSort.value = view.formationSort;
+      renderFormationPickerFilters();
+    }
+    renderFormationPickerOptions();
+  }
+
+  function getFormationPickerReturnTarget(picker) {
+    if (!picker || !elements.formationBoard) return null;
+    const row = Number(picker.rowIndex) || 0;
+    const line = Number(picker.lineIndex) || 0;
+    if (picker.type === 'personality') {
+      return elements.formationBoard.querySelector(`[data-formation-personality-row="${row}"][data-formation-personality-line="${line}"]`)
+        || elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'apostle-move') {
+      return elements.formationBoard.querySelector(`[data-formation-move-row="${row}"][data-formation-move-line="${line}"]`)
+        || elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'apostle') {
+      return elements.formationBoard.querySelector(`[data-formation-apostle-row="${row}"][data-formation-line="${line}"]`);
+    }
+    if (picker.type === 'artifact') {
+      return elements.formationBoard.querySelector(`[data-formation-artifact-row="${row}"][data-formation-artifact-line="${line}"][data-formation-artifact-slot="${Number(picker.artifactSlot) || 0}"]`);
+    }
+    return null;
+  }
+
+  function focusFormationPickerInitialControl() {
+    const picker = view.formationPicker;
+    if (!picker) return;
+    if (picker.type === 'personality') {
+      const selected = elements.formationPickerGrid?.querySelector('[data-formation-picker-value].is-current');
+      const firstPersonality = elements.formationPickerGrid?.querySelector('[data-formation-picker-value]:not(.is-clear)');
+      (selected || firstPersonality || elements.formationPickerClose)?.focus({ preventScroll: true });
+      return;
+    }
+    if (picker.type === 'apostle-move') {
+      const firstTarget = elements.formationPickerGrid?.querySelector('[data-formation-picker-value]:not(:disabled)');
+      (firstTarget || elements.formationPickerClose)?.focus({ preventScroll: true });
+      return;
+    }
+    focusDialogControl(elements.formationPickerSearch, elements.formationPickerClose);
+  }
+
+  function openFormationPicker(type, rowIndex, lineIndex = 0, artifactSlot = 0) {
+    if (!elements.formationPickerDialog) return;
+    if (!elements.formationPickerDialog.open) formationPickerReturnFocus = document.activeElement;
+    view.formationPicker = { type, rowIndex, lineIndex, artifactSlot };
+    if (elements.formationPickerSearch) elements.formationPickerSearch.value = '';
+    updateFormationPickerPresentation();
+    if (!elements.formationPickerDialog.open) elements.formationPickerDialog.showModal();
+    focusFormationPickerInitialControl();
+  }
+
+  function renderFormationPickerOptions() {
+    if (!elements.formationPickerGrid || !view.formationPicker) return;
+    const query = String(elements.formationPickerSearch?.value || '').toLocaleLowerCase('ja');
+    const { type, rowIndex, lineIndex } = view.formationPicker;
+    if (type === 'apostle-move') {
+      const formation = ensureFormationState();
+      const sourceId = formation.rows?.[rowIndex]?.apostles?.[lineIndex] || '';
+      const sourceBasic = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+      elements.formationPickerGrid.innerHTML = sourceBasic ? `
+        <p class="formation-picker-move-note"><strong>${escapeHtml(sourceBasic.使徒名 || sourceBasic.id)}</strong>を移動または交換</p>
+        <div class="formation-picker-move-grid" role="group" aria-label="配置先。列は後列、中列、前列の順">
+          ${Array.from({ length: 3 }, (_, columnIndex) => `<span class="formation-picker-move-heading">${escapeHtml(getFormationColumnPosition(columnIndex))}</span>`).join('')}
+          ${Array.from({ length: 3 }, (_, targetLine) => Array.from({ length: 3 }, (_, targetRow) => {
+            const targetId = formation.rows[targetRow]?.apostles?.[targetLine] || '';
+            const targetBasic = targetId ? DATA.getById('basicInfo', targetId) : null;
+            const isSource = rowIndex === targetRow && lineIndex === targetLine;
+            const allowed = !isSource && canMoveFormationSlot(rowIndex, lineIndex, targetRow, targetLine);
+            const label = `${getFormationColumnPosition(targetRow)} ${targetLine + 1}、${targetBasic?.使徒名 || '空き枠'}${isSource ? '、移動元' : allowed ? targetBasic ? 'と交換' : 'へ移動' : '、移動不可'}`;
+            return `<button type="button" class="formation-picker-move-cell ${isSource ? 'is-source' : ''} ${targetBasic ? 'is-occupied' : 'is-empty'}" data-formation-picker-value="${targetRow}:${targetLine}" aria-label="${escapeAttr(label)}" title="${escapeAttr(label)}" ${allowed ? '' : 'disabled'}>
+              ${targetBasic ? `<img class="formation-picker-move-portrait" src="${escapeAttr(getApostleImagePath(targetBasic.id))}" alt=""><span class="formation-picker-move-name">${escapeHtml(targetBasic.使徒名 || targetBasic.id)}</span>` : '<span class="formation-picker-move-empty" aria-hidden="true">＋</span><span class="formation-picker-move-name">空き</span>'}
+              ${isSource ? '<span class="formation-picker-move-source-tag">移動元</span>' : ''}
+            </button>`;
+          }).join('')).join('')}
+        </div>
+        <div class="formation-picker-compact-actions"><button type="button" class="formation-picker-cancel" data-formation-picker-cancel>キャンセル</button></div>` : '<p class="formation-picker-empty">移動する使徒が見つかりません。</p>';
+      return;
+    }
+    if (type === 'personality') {
+      const formation = ensureFormationState();
+      const row = formation.rows?.[rowIndex];
+      const isNewPlacement = view.formationPicker.isNewPlacement === true;
+      const apostleId = isNewPlacement ? view.formationPicker.pendingApostleId : row?.apostles?.[lineIndex];
+      const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+      const resolution = getFormationPersonalityResolution(basic, isNewPlacement ? null : row?.resonancePersonalities?.[lineIndex]);
+      if (!basic || !resolution.isSelectable) {
+        elements.formationPickerGrid.innerHTML = '<p class="formation-picker-empty">性格選択対象の使徒が見つかりません。</p>';
+        return;
+      }
+      const current = isNewPlacement ? '' : resolution.effectivePersonality || '';
+      elements.formationPickerGrid.innerHTML = `<p class="formation-picker-personality-note"><strong>${escapeHtml(basic.使徒名 || basic.id)}</strong>${isNewPlacement ? 'の性格を選んで配置を確定' : 'の性格を選択'}</p>
+        <div class="formation-personality-picker-options">
+          ${resolution.personalityOptions.map(name => `<button type="button" class="formation-personality-choice personality-${escapeAttr(name)} ${current === name ? 'is-current is-selected' : ''}" data-formation-picker-value="${escapeAttr(name)}" aria-label="${escapeAttr(`${name}を選択`)}" aria-pressed="${current === name ? 'true' : 'false'}" title="${escapeAttr(name)}"><img src="img/性格_${escapeAttr(name)}.webp" alt=""><span>${escapeHtml(name)}</span></button>`).join('')}
+        </div>
+        <div class="formation-picker-compact-actions">
+          ${isNewPlacement ? '' : `<button type="button" class="formation-picker-personality-clear" data-formation-picker-value="" ${current ? '' : 'disabled'}>未選択に戻す</button>`}
+          <button type="button" class="formation-picker-cancel" data-formation-picker-cancel>キャンセル</button>
+        </div>`;
+      return;
+    }
+    const targetPosition = type === 'apostle' ? getFormationColumnPosition(rowIndex) : '';
+    const items = type === 'apostle'
+      ? DATA.sheets.basicInfo
+        .filter(basic => !targetPosition || canPlaceApostle(basic, targetPosition))
+        .filter(matchesFormationPickerFilters)
+        .sort((a, b) => compareApostleRowsBySort(a, b, view.formationSort))
+        .map(basic => ({
+          id: basic.id,
+          label: basic.使徒名 || basic.id,
+          sub: getFormationApostleSubText(basic),
+          image: getApostleImagePath(basic.id),
+          imageAttrs: 'data-apostle-image',
+          apostle: basic,
+          isResonance: getFormationPersonalityResolution(basic, null).isSelectable,
+          classificationIcon: ['共鳴', '裏面'].includes(basic.性格) ? basic.性格 : '',
+          personality: basic.性格 || '',
+          candidateClass: getSelectableMasterClass(basic),
+          candidateStyle: getSelectableMasterStyle(basic)
+        }))
+      : getCardManagerCards(type === 'spell' ? 'spell' : 'artifact').slice().sort(compareCardManagerCards).map(card => ({ id: card.id, label: card.name, sub: `${card.rarity || ''}${card.signature ? ' / 愛用' : ''}`, image: getCardManagerImagePath(card), card }));
+    const filtered = items.filter(item => !query || [item.label, item.sub, item.id]
+      .filter(Boolean)
+      .some(value => String(value).toLocaleLowerCase('ja').includes(query)));
+    elements.formationPickerGrid.innerHTML = `
+      <button type="button" class="formation-picker-option is-clear" data-formation-picker-value="">
+        <span class="formation-picker-option-empty">×</span>
+        <span><strong>未選択</strong><small>この枠を空にする</small></span>
+      </button>
+      ${filtered.map(item => `
+        <button type="button" class="formation-picker-option ${item.card ? getCardManagerRarityClass(item.card) : ''} ${item.apostle ? `personality-${escapeAttr(item.personality)} ${item.isResonance ? 'is-resonance-option' : ''} ${item.candidateClass}` : ''}" ${item.candidateStyle || ''} data-formation-picker-value="${escapeAttr(item.id)}">
+          <span class="formation-picker-option-image-wrap">
+            ${item.card && item.card.kind === 'artifact' ? `<img class="formation-picker-option-bg" src="${escapeAttr(getFormationArtifactBg(item.card))}" alt="">` : ''}
+            <img ${item.imageAttrs || ''} src="${escapeAttr(item.image)}" alt="">
+            ${item.classificationIcon ? `<span class="formation-picker-resonance-mark" aria-hidden="true"><img src="img/性格_${escapeAttr(item.classificationIcon)}.webp" alt="" draggable="false"></span>` : ''}
+            ${item.card ? renderFormationCostBadge(item.card.cost) : ''}
+            ${item.card ? `
+              <span class="formation-picker-option-tools">
+                <span class="formation-picker-effect-btn ${getCardManagerEffectCount(item.card) ? 'has-effect' : ''}" role="button" tabindex="0" data-formation-picker-effect="${escapeAttr(item.card.id)}" aria-label="${escapeAttr(`${item.card.name}の効果`)}">i</span>
+              </span>
+            ` : ''}
+          </span>
+          <span class="formation-picker-option-text">
+            <strong>${escapeHtml(item.label)}</strong>
+            <small>${escapeHtml(item.sub || '')}</small>
+          </span>
+        </button>
+      `).join('')}
+    `;
+  }
+
+  function applyFormationPickerValue(value) {
+    if (!view.formationPicker) return;
+    const formation = ensureFormationState();
+    const { type, rowIndex, lineIndex, artifactSlot } = view.formationPicker;
+    if (type === 'apostle-move') {
+      const [targetRow, targetLine] = String(value || '').split(':').map(Number);
+      if (swapFormationApostlesInRow(rowIndex, lineIndex, targetRow, targetLine)) elements.formationPickerDialog.close();
+      return;
+    }
+    if (type === 'personality') {
+      const row = formation.rows[rowIndex];
+      const isNewPlacement = view.formationPicker.isNewPlacement === true;
+      const selectedPersonality = normalizeFormationPersonalitySelection(value);
+      const apostleId = isNewPlacement ? view.formationPicker.pendingApostleId : row?.apostles?.[lineIndex];
+      const basic = apostleId ? DATA.getById('basicInfo', apostleId) : null;
+      const options = getFormationPersonalityResolution(basic, selectedPersonality);
+      if (!row || !basic || !options.isSelectable) return;
+      if (isNewPlacement) {
+        if (!selectedPersonality || !options.personalityOptions.includes(selectedPersonality)) return;
+        if (!canPlaceApostle(basic, getFormationColumnPosition(rowIndex))) return;
+        const history = beginHistoryAction('編成使徒変更');
+        row.apostles[lineIndex] = apostleId;
+        ensureFormationRowPersonalityState(row);
+        row.resonancePersonalities[lineIndex] = selectedPersonality;
+        saveState({ refreshSnapshots: false });
+        renderFormation();
+        elements.formationPickerDialog.close();
+        commitHistoryAction(history);
+        return;
+      }
+      if (value && !options.personalityOptions.includes(selectedPersonality)) return;
+      const current = row.resonancePersonalities?.[lineIndex] || null;
+      if (current === selectedPersonality) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      const history = beginHistoryAction('性格変更');
+      ensureFormationRowPersonalityState(row);
+      row.resonancePersonalities[lineIndex] = selectedPersonality;
+      saveState({ refreshSnapshots: false });
+      renderFormation();
+      elements.formationPickerDialog.close();
+      commitHistoryAction(history);
+      return;
+    }
+    let history = null;
+    if (type === 'spell') {
+      history = beginHistoryAction('編成スペル変更');
+      formation.spells = normalizeFormationSpells(formation.spells);
+      if (value) formation.spells.push(value);
+    } else if (type === 'apostle') {
+      const row = formation.rows[rowIndex];
+      if (!row) return;
+      const basic = value ? DATA.getById('basicInfo', value) : null;
+      if (value && (!basic || !canPlaceApostle(basic, getFormationColumnPosition(rowIndex)))) return;
+      const previousId = row.apostles[lineIndex] || '';
+      if (previousId === value) {
+        elements.formationPickerDialog.close();
+        return;
+      }
+      if (value && getFormationPersonalityResolution(basic, null).isSelectable) {
+        view.formationPicker = { type: 'personality', rowIndex, lineIndex, artifactSlot, pendingApostleId: value, isNewPlacement: true };
+        if (elements.formationPickerSearch) elements.formationPickerSearch.value = '';
+        updateFormationPickerPresentation();
+        focusFormationPickerInitialControl();
+        return;
+      }
+      const previousSelection = row.resonancePersonalities?.[lineIndex] || null;
+      history = beginHistoryAction('編成使徒変更');
+      row.apostles[lineIndex] = value;
+      ensureFormationRowPersonalityState(row);
+      row.resonancePersonalities[lineIndex] = previousId === value && getFormationPersonalityResolution(basic, previousSelection).isSelectable ? previousSelection : null;
+    } else {
+      const row = formation.rows[rowIndex];
+      if (!row) return;
+      history = beginHistoryAction('編成遺物変更');
+      if (!Array.isArray(row.artifacts[lineIndex])) row.artifacts[lineIndex] = ['', '', ''];
+      row.artifacts[lineIndex][artifactSlot] = value;
+    }
+    saveState({ refreshSnapshots: false });
+    renderFormation();
+    elements.formationPickerDialog.close();
+    if (history) commitHistoryAction(history);
+  }
+
+  function swapFormationApostlesInRow(sourceRow, sourceLine, targetRow, targetLine) {
+    if (![sourceRow, sourceLine, targetRow, targetLine].every(Number.isFinite)) return;
+    if (sourceRow === targetRow && sourceLine === targetLine) return false;
+    const formation = ensureFormationState();
+    const source = formation.rows[sourceRow];
+    const target = formation.rows[targetRow];
+    if (!source || !target) return false;
+    const sourceId = source.apostles?.[sourceLine] || '';
+    const targetId = target.apostles?.[targetLine] || '';
+    const sourceBasic = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+    const targetBasic = targetId ? DATA.getById('basicInfo', targetId) : null;
+    if (!sourceBasic || !canSwapFormationApostles(sourceBasic, getFormationColumnPosition(sourceRow), targetBasic, getFormationColumnPosition(targetRow))) return false;
+    const history = beginHistoryAction('編成配置変更');
+    ensureFormationRowPersonalityState(source);
+    ensureFormationRowPersonalityState(target);
+    [source.apostles[sourceLine], target.apostles[targetLine]] = [targetId, sourceId];
+    [source.artifacts[sourceLine], target.artifacts[targetLine]] = [target.artifacts[targetLine] || ['', '', ''], source.artifacts[sourceLine] || ['', '', '']];
+    [source.resonancePersonalities[sourceLine], target.resonancePersonalities[targetLine]] = [
+      targetId && getFormationPersonalityResolution(targetBasic, target.resonancePersonalities[targetLine]).isSelectable ? target.resonancePersonalities[targetLine] || null : null,
+      sourceId && getFormationPersonalityResolution(sourceBasic, source.resonancePersonalities[sourceLine]).isSelectable ? source.resonancePersonalities[sourceLine] || null : null
+    ];
+    saveState({ refreshSnapshots: false });
+    renderFormation();
+    commitHistoryAction(history);
+    return true;
+  }
+
+  function canMoveFormationSlot(sourceRow, sourceLine, targetRow, targetLine) {
+    const formation = ensureFormationState();
+    const sourceId = formation.rows?.[sourceRow]?.apostles?.[sourceLine] || '';
+    const targetId = formation.rows?.[targetRow]?.apostles?.[targetLine] || '';
+    const source = sourceId ? DATA.getById('basicInfo', sourceId) : null;
+    const target = targetId ? DATA.getById('basicInfo', targetId) : null;
+    return !!source && canSwapFormationApostles(source, getFormationColumnPosition(sourceRow), target, getFormationColumnPosition(targetRow));
+  }
+
+  function beginFormationPointerDrag(event) {
+    if (!elements.formationBoard || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return;
+    const slot = event.target.closest('[data-formation-apostle-row]');
+    if (!slot || formationPointerDragState) return;
+    formationPointerDragState = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      sourceRow: Number(slot.dataset.formationApostleRow) || 0,
+      sourceLine: Number(slot.dataset.formationLine) || 0,
+      sourceSlot: slot,
+      targetSlot: null,
+      dragging: false
+    };
+    try {
+      slot.setPointerCapture(event.pointerId);
+    } catch (_) {
+                                                         
+    }
+  }
+
+  function updateFormationPointerDrag(event) {
+    const drag = formationPointerDragState;
+    if (!drag || drag.pointerId !== event.pointerId || !elements.formationBoard) return;
+    if (!drag.dragging) {
+      const distance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+      if (distance < FORMATION_POINTER_DRAG_THRESHOLD) return;
+      drag.dragging = true;
+      formationSuppressClickUntil = Date.now() + 500;
+      elements.formationBoard.classList.add('is-dragging-apostle', 'is-pointer-dragging');
+      elements.formationBoard.dataset.dragFormationRow = String(drag.sourceRow);
+      drag.sourceSlot.classList.add('is-dragging');
+      elements.formationBoard.querySelectorAll(`[data-formation-apostle-row="${drag.sourceRow}"]`).forEach(button => {
+        if (button !== drag.sourceSlot) button.classList.add('is-drop-compatible');
+      });
+    }
+    event.preventDefault();
+    elements.formationBoard.querySelectorAll('.is-drop-target').forEach(slot => slot.classList.remove('is-drop-target'));
+    const target = document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-formation-apostle-row]');
+    const targetRow = Number(target?.dataset.formationApostleRow);
+    drag.targetSlot = target && elements.formationBoard.contains(target) && targetRow === drag.sourceRow
+      ? target
+      : null;
+    if (drag.targetSlot && drag.targetSlot !== drag.sourceSlot) drag.targetSlot.classList.add('is-drop-target');
+  }
+
+  function finishFormationPointerDrag(event) {
+    const drag = formationPointerDragState;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    formationPointerDragState = null;
+    if (!drag.dragging) return;
+    event.preventDefault();
+    formationSuppressClickUntil = Date.now() + 500;
+    const targetSlot = drag.targetSlot;
+    const targetRow = Number(targetSlot?.dataset.formationApostleRow);
+    const targetLine = Number(targetSlot?.dataset.formationLine);
+    clearFormationDragState();
+    if (!targetSlot || targetSlot === drag.sourceSlot) return;
+    swapFormationApostlesInRow(drag.sourceRow, drag.sourceLine, targetRow, targetLine);
+  }
+
+  function cancelFormationPointerDrag(event) {
+    if (!formationPointerDragState || formationPointerDragState.pointerId !== event.pointerId) return;
+    const wasDragging = formationPointerDragState.dragging;
+    formationPointerDragState = null;
+    if (wasDragging) formationSuppressClickUntil = Date.now() + 500;
+    clearFormationDragState();
+  }
+
+  function clearFormationDragState() {
+    if (!elements.formationBoard) return;
+    elements.formationBoard.classList.remove('is-dragging-apostle', 'is-pointer-dragging');
+    delete elements.formationBoard.dataset.dragFormationRow;
+    elements.formationBoard.querySelectorAll('.is-dragging, .is-drop-compatible, .is-drop-target').forEach(node => {
+      node.classList.remove('is-dragging', 'is-drop-compatible', 'is-drop-target');
+    });
+  }
+
+  function clearFormationRow(rowIndex) {
+    const formation = ensureFormationState();
+    if (!formation.rows[rowIndex]) return;
+    const history = beginHistoryAction('編成行クリア');
+    formation.rows[rowIndex] = createDefaultFormationRow();
+    saveState({ refreshSnapshots: false });
+    renderFormation();
+    commitHistoryAction(history);
+  }
+
+  function ensureFormationState() {
+    if (!appState.formation || typeof appState.formation !== 'object') appState.formation = createDefaultFormation();
+    if (!Array.isArray(appState.formation.rows)) appState.formation.rows = [];
+    while (appState.formation.rows.length < 3) appState.formation.rows.push(createDefaultFormationRow());
+    appState.formation.rows = appState.formation.rows.slice(0, 3).map(row => normalizeFormationRow(row));
+    appState.formation.spells = normalizeFormationSpells(appState.formation.spells);
+    appState.formation.masterPowers = normalizeFormationMasterPowers(appState.formation.masterPowers || appState.formation.masterPowerId);
+    delete appState.formation.masterPowerId;
+    ensureFormationCoinState(appState.formation);
+    return appState.formation;
+  }
+
+  function normalizeFormationState(formation) {
+    const normalized = {
+      cardKind: formation?.cardKind === 'spell' ? 'spell' : 'artifact',
+      rows: Array.isArray(formation?.rows) ? formation.rows.slice(0, 3).map(row => normalizeFormationRow(row)) : [],
+      spells: normalizeFormationSpells(formation?.spells),
+      masterPowers: normalizeFormationMasterPowers(formation?.masterPowers || formation?.masterPowerId),
+      coins: normalizeFormationCoins(formation?.coins),
+      coinMode: formation?.coinMode === 'auto' ? 'auto' : 'manual'
+    };
+    while (normalized.rows.length < 3) normalized.rows.push(createDefaultFormationRow());
+    return normalized;
+  }
+
+  function createDefaultFormation() {
+    return { cardKind: 'artifact', rows: Array.from({ length: 3 }, createDefaultFormationRow), spells: [], masterPowers: [], coins: 0, coinMode: 'manual' };
+  }
+
+  function createDefaultFormationRow() {
+    return { apostles: ['', '', ''], resonancePersonalities: [null, null, null], artifacts: Array.from({ length: 3 }, () => ['', '', '']) };
+  }
+
+  function normalizeFormationRow(row) {
+    const sourceArtifacts = Array.isArray(row?.artifacts) ? row.artifacts : [];
+    return {
+      apostles: Array.from({ length: 3 }, (_, index) => row?.apostles?.[index] || ''),
+      resonancePersonalities: Array.from({ length: 3 }, (_, index) => window.TRICKCAL_FORMATION_PERSONALITY.normalizeStoredSelection(row?.resonancePersonalities?.[index])),
+      artifacts: Array.from({ length: 3 }, (_, lineIndex) => {
+        const line = sourceArtifacts[lineIndex];
+        if (Array.isArray(line)) return Array.from({ length: 3 }, (_, artifactSlot) => resolveCardIdAlias(line[artifactSlot] || ''));
+        return [resolveCardIdAlias(line || ''), '', ''];
+      })
+    };
+  }
+
+  function getFormationPersonalityNames() {
+    return window.TRICKCAL_FORMATION_PERSONALITY?.PERSONALITY_NAMES
+      ? Array.from(window.TRICKCAL_FORMATION_PERSONALITY.PERSONALITY_NAMES)
+      : ['純粋', '冷静', '狂気', '活発', '憂鬱'];
+  }
+
+  function normalizeFormationPersonalitySelection(value) {
+    return window.TRICKCAL_FORMATION_PERSONALITY?.normalizeSelection
+      ? window.TRICKCAL_FORMATION_PERSONALITY.normalizeSelection(value)
+      : getFormationPersonalityNames().includes(String(value || '').trim()) ? String(value).trim() : null;
+  }
+
+  function getSelectableMasterStyle(basic) {
+    const resolution = getFormationPersonalityResolution(basic, null);
+    const style = window.TRICKCAL_FORMATION_PERSONALITY.getPersonalityOptionStyle(resolution.personalityOptions);
+    return style ? `style="${escapeAttr(style)}"` : '';
+  }
+
+  function getSelectableMasterClass(basic) {
+    const count = getFormationPersonalityResolution(basic, null).personalityOptions.length;
+    return count === 2 ? 'has-personality-options is-two-tone' : count < 5 && count > 2 ? 'has-personality-options' : '';
+  }
+
+  function getFormationPersonalityResolution(basic, selection) {
+    const resolve = window.TRICKCAL_FORMATION_PERSONALITY?.resolveFormationPersonality;
+    return resolve(basic || {}, selection);
+  }
+
+  function ensureFormationRowPersonalityState(row) {
+    if (!row) return [];
+    row.resonancePersonalities = Array.from({ length: 3 }, (_, index) => window.TRICKCAL_FORMATION_PERSONALITY.normalizeStoredSelection(row.resonancePersonalities?.[index]));
+    return row.resonancePersonalities;
+  }
+
+  function getAllowedFormationRows(source) {
+    return window.TRICKCAL_FORMATION_PLACEMENT?.getAllowedFormationRows(source)
+      || (['後列', '中列', '前列'].includes(source?.配列 || source?.配置列) ? [source?.配列 || source?.配置列] : []);
+  }
+
+  function canPlaceApostle(source, destination) {
+    const helper = window.TRICKCAL_FORMATION_PLACEMENT?.canPlaceApostle;
+    if (typeof helper === 'function') return helper(source, destination);
+    return String(source?.配列 || source?.配置列 || '') === String(destination || '');
+  }
+
+  function canSwapFormationApostles(source, sourceDestination, target, targetDestination) {
+    const helper = window.TRICKCAL_FORMATION_PLACEMENT?.canSwapFormationApostles;
+    if (typeof helper === 'function') return helper(source, sourceDestination, target, targetDestination);
+    return canPlaceApostle(source, targetDestination) && (!target || canPlaceApostle(target, sourceDestination));
+  }
+
+  function normalizeFormationSpells(spells) {
+    return Array.isArray(spells) ? spells.filter(Boolean).map(resolveCardIdAlias) : [];
+  }
+
+  function normalizeFormationCoins(value) {
+    return Math.max(0, Math.floor(Number(value) || 0));
+  }
+
+  function ensureFormationCoinState(formation = ensureFormationState()) {
+    formation.coinMode = formation.coinMode === 'auto' ? 'auto' : 'manual';
+    if (formation.coinMode === 'auto') formation.coins = calculateFormationAutoCoins();
+    else formation.coins = normalizeFormationCoins(formation.coins);
+    return formation;
+  }
+
+  function calculateFormationAutoCoins(totalCombatPower = getSavedTotalCombatPower()) {
+    return Math.floor((Number(totalCombatPower) || 0) * FORMATION_COIN_CP_RATE + FORMATION_COIN_BONUS) + FORMATION_COIN_BASE;
+  }
+
+  function currentApostleCombatPower() {
+    const value = currentApostleState()?.statSnapshots?.current?.stats?.combatPower;
+    return value == null ? null : Number(value);
+  }
+
+  function getSavedTotalCombatPower() {
+    const saved = Number(appState.totalCombatPower);
+    if (Number.isFinite(saved) && saved > 0) return Math.floor(saved);
+    return calculateTotalCombatPowerFromSnapshots();
+  }
+
+  function calculateTotalCombatPowerFromSnapshots() {
+    return (DATA.sheets.basicInfo || []).reduce((total, basic) => {
+      const state = ensureApostleState(basic.id);
+      return total + (Number(state.statSnapshots?.current?.stats?.combatPower) || 0);
+    }, 0);
+  }
+
+  function updateTotalCombatPowerFromSnapshots() {
+    appState.totalCombatPower = calculateTotalCombatPowerFromSnapshots();
+    if (appState.formation?.coinMode === 'auto') {
+      appState.formation.coins = calculateFormationAutoCoins(appState.totalCombatPower);
+    }
+    if (isDashboardPanelActive('formation')) {
+      renderFormationMemberSummary(ensureFormationState());
+    }
+  }
+
+  function getFormationColumnPosition(rowIndex) {
+    return ['後列', '中列', '前列'][Number(rowIndex) || 0] || '後列';
+  }
+
+  function getFormationArtifactBg(card) {
+    if (!card) return 'img/遺物bg_0.png';
+    if (card.signature) return 'img/遺物bg_4.png';
+    if (card.rarity === '伝説') return 'img/遺物bg_4.png';
+    if (card.rarity === '希少') return 'img/遺物bg_3.png';
+    if (card.rarity === '高級') return 'img/遺物bg_2.png';
+    return 'img/遺物bg_0.png';
+  }
+
+  function getCardManagerEffectSummary(card, star, solder) {
+    const lines = [];
+    const baseBonus = Array.isArray(card.bonusesByStar) ? card.bonusesByStar[star - 1] : null;
+    lines.push(`★${star}: ${formatCardManagerBonuses(baseBonus)}`);
+    const solderBonus = card.solderBonuses?.[solder];
+    lines.push(`はんだ+${solder}: ${solder > 0 ? formatCardManagerBonuses(solderBonus) : '追加効果なし'}`);
+    lines.push(...formatCardManagerConditionalEffectLines(card.conditionalEffects || [], star));
+    const seen = new Set();
+    const uniqueLines = lines.filter(line => {
+      const key = String(line || '').replace(/\s+/g, ' ').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return uniqueLines.length ? uniqueLines : ['効果データなし'];
+  }
+
+  function formatCardManagerConditionalEffectLines(effects, star) {
+    const consumed = new Set();
+    return effects.flatMap((effect, index) => {
+      if (consumed.has(index)) return [];
+      const bound = getRandomEffectBound(effect);
+      if (bound) {
+        const pairKey = getRandomEffectPairKey(effect);
+        const pairIndex = effects.findIndex((candidate, candidateIndex) => (
+          candidateIndex !== index
+          && !consumed.has(candidateIndex)
+          && getRandomEffectBound(candidate)
+          && getRandomEffectBound(candidate) !== bound
+          && getRandomEffectPairKey(candidate) === pairKey
+        ));
+        if (pairIndex >= 0) {
+          consumed.add(index);
+          consumed.add(pairIndex);
+          const pair = effects[pairIndex];
+          const minEffect = bound === 'min' ? effect : pair;
+          const maxEffect = bound === 'max' ? effect : pair;
+          return [formatRandomEffectRange(
+            getCardEffectDescriptionForStar(minEffect, star),
+            getCardEffectDescriptionForStar(maxEffect, star)
+          )];
+        }
+      }
+      consumed.add(index);
+      return [formatCardManagerConditionalEffectLine(effect, star)];
+    });
+  }
+
+  function formatCardManagerConditionalEffectLine(effect, star) {
+    const label = effect.label || effect.shortLabel || effect.id || '特殊効果';
+    const descText = getCardEffectDescriptionForStar(effect, star);
+    if (descText) return descText;
+    const bonus = Array.isArray(effect.bonusesByStar) ? effect.bonusesByStar[star - 1] : null;
+    const bonusText = formatCardManagerBonuses(bonus);
+    return bonusText === '補正なし' ? label : `${label}: ${bonusText}`;
+  }
+
+  function getCardEffectDescriptionForStar(effect, star) {
+    const desc = Array.isArray(effect.descriptionByStar) ? effect.descriptionByStar[star - 1] : effect.description;
+    return String(desc || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getRandomEffectBound(effect) {
+    const label = String(effect?.label || '');
+    if (label.includes('ランダム最低値')) return 'min';
+    if (label.includes('ランダム最大値')) return 'max';
+    return '';
+  }
+
+  function getRandomEffectPairKey(effect) {
+    return `${String(effect?.label || '')
+      .replace('ランダム最低値', 'ランダム値')
+      .replace('ランダム最大値', 'ランダム値')
+      .replace(/\s+/g, ' ')
+      .trim()}|${String(effect?.valueClass || '')}`;
+  }
+
+  function formatRandomEffectRange(minText, maxText) {
+    const pattern = /^(.*?)(-?\d+(?:\.\d+)?)(%?)(\s*\([^)]*\))$/;
+    const minMatch = String(minText || '').match(pattern);
+    const maxMatch = String(maxText || '').match(pattern);
+    if (minMatch && maxMatch && minMatch[1] === maxMatch[1] && minMatch[3] === maxMatch[3] && minMatch[4] === maxMatch[4]) {
+      const range = minMatch[2] === maxMatch[2] ? minMatch[2] : `${minMatch[2]}～${maxMatch[2]}`;
+      const context = minMatch[4].trim().slice(1, -1).trim();
+      return `${minMatch[1]}${range}${minMatch[3]} (${context}${context ? ' / ' : ''}ランダム)`;
+    }
+    return `ランダム最低: ${minText} / 最大: ${maxText}`;
+  }
+
+  function getCardManagerEffectCount(card) {
+    const hasBaseBonus = (card.bonusesByStar || []).some(bonus => (
+      bonus
+      && typeof bonus === 'object'
+      && Object.values(bonus).some(value => value !== undefined && value !== null && value !== '' && Number(value) !== 0)
+    ));
+    return (hasBaseBonus ? 1 : 0) + (card.conditionalEffects || []).length + (card.solderBonuses ? 1 : 0);
+  }
+
+  function getCardManagerNameFontSize(name) {
+    const length = Array.from(String(name || '')).length;
+    if (length >= 18) return '0.58rem';
+    if (length >= 14) return '0.64rem';
+    if (length >= 10) return '0.72rem';
+    return '0.82rem';
+  }
+
+  function getCardManagerCards(kind) {
+    if (typeof CARD_LIBRARY === 'undefined') return [];
+    return CARD_LIBRARY[kind === 'spell' ? 'spells' : 'artifacts'] || [];
+  }
+
+  function cardMatchesManagerRarity(card, rarity) {
+    if (!rarity) return true;
+    if (rarity === 'signature') return !!card.signature;
+    return card.rarity === rarity && !card.signature;
+  }
+
+  function cardMatchesManagerEffect(card, effect) {
+    if (!effect) return true;
+    if (effect === 'toggle') return (card.conditionalEffects || []).length > 0;
+    const statKeyGroups = {
+      hp: ['hpP'],
+      attack: ['atkP'],
+      haste: ['hasteP'],
+      crit: ['critRateP', 'critDmgP'],
+      defense: ['defP', 'critResP', 'critDmgResP'],
+      'hp-recovery': ['hpRecoveryP'],
+      healing: ['healingP']
+    };
+    if (statKeyGroups[effect]) return cardHasAnyBaseOrSolderBonusKey(card, statKeyGroups[effect]);
+    if (effect === 'sp-recovery') {
+      return cardHasAnyBonusKey(card, ['spRecoveryP', 'spRegenP', 'spP'])
+        || cardHasConditionalEffectText(card, ['SP回復', '毎秒SP', 'SP+', 'SPを']);
+    }
+    if (effect === 'damage-up') return cardHasAnyBonusKey(card, ['addP']);
+    if (effect === 'damage-taken') return cardHasAnyBonusKey(card, ['takenDmgP']);
+    return true;
+  }
+
+  function cardHasAnyBaseOrSolderBonusKey(card, keys) {
+    const hasKeys = bonus => keys.some(key => Number(bonus?.[key] || 0) !== 0);
+    if ((card.bonusesByStar || []).some(hasKeys)) return true;
+    return !!card.solderBonuses && Object.values(card.solderBonuses).some(hasKeys);
+  }
+
+  function cardHasAnyBonusKey(card, keys) {
+    const hasKeys = bonus => keys.some(key => Number(bonus?.[key] || 0) !== 0);
+    if ((card.bonusesByStar || []).some(hasKeys)) return true;
+    if (card.solderBonuses && Object.values(card.solderBonuses).some(hasKeys)) return true;
+    return (card.conditionalEffects || []).some(effect => (effect.bonusesByStar || []).some(hasKeys));
+  }
+
+  function cardHasConditionalEffectText(card, patterns) {
+    return (card.conditionalEffects || []).some(effect => {
+      const texts = [
+        effect.id,
+        effect.label,
+        effect.shortLabel,
+        effect.description,
+        ...(effect.descriptionByStar || [])
+      ].filter(Boolean);
+      return texts.some(text => patterns.some(pattern => String(text).includes(pattern)));
+    });
+  }
+
+  function compareCardManagerCards(a, b) {
+    const rarityDiff = getCardManagerRarityRank(b) - getCardManagerRarityRank(a);
+    if (rarityDiff) return rarityDiff;
+    const costDiff = Number(getCardManagerCost(b, 5) || 0) - Number(getCardManagerCost(a, 5) || 0);
+    if (costDiff) return costDiff;
+    return String(a.name || '').localeCompare(String(b.name || ''), 'ja');
+  }
+
+  function getCardManagerRarityRank(card) {
+    if (card.signature) return 5;
+    if (card.rarity === '伝説') return 4;
+    if (card.rarity === '希少') return 3;
+    if (card.rarity === '高級') return 2;
+    return 1;
+  }
+
+  function getCardManagerImagePath(card) {
+    const folder = card.kind === 'artifact' ? 'Artifact' : 'Spell';
+    return `img/Card/${folder}/${card.imageFile || `${card.name}.webp`}`;
+  }
+
+  function getCardManagerRarityFrame(card) {
+    if (card.signature) return 'img/Card/Card_Signature.webp';
+    if (card.rarity === '伝説') return 'img/Card/Card_Legendary.webp';
+    if (card.rarity === '希少') return 'img/Card/Card_Unique.webp';
+    if (card.rarity === '高級') return 'img/Card/Card_Rare.webp';
+    return '';
+  }
+
+  function getCardManagerRarityClass(card) {
+    if (card.signature) return 'rarity-signature';
+    if (card.rarity === '伝説') return 'rarity-legendary';
+    if (card.rarity === '希少') return 'rarity-unique';
+    if (card.rarity === '高級') return 'rarity-rare';
+    return '';
+  }
+
+  function getCardManagerCost(card, star) {
+    if (Array.isArray(card.costByStar) && card.costByStar.length) {
+      return card.costByStar[Math.min(Math.max(star, 1), card.costByStar.length) - 1] ?? card.costByStar[0];
+    }
+    return card.cost ?? '-';
+  }
+
+  function formatCardManagerBonuses(bonuses) {
+    if (!bonuses || typeof bonuses !== 'object') return '補正なし';
+    const labels = {
+      hpP: 'HP',
+      atkP: '攻撃',
+      defP: '防御',
+      critStatP: '会心ステ',
+      critDmgStatP: '会心DMGステ',
+      critRateP: '会心',
+      critDmgP: '会心DMG',
+      critResStatP: '会心抵抗ステ',
+      critDmgResStatP: '会心DMG抵抗ステ',
+      critResP: '会心抵抗',
+      critDmgResP: '会心DMG抵抗',
+      enemyDefDownP: '敵防御減',
+      enemyCritResDownP: '敵会心抵抗減',
+      enemyCritDmgResDownP: '敵会心DMG抵抗減',
+      hasteP: '攻速',
+      healingP: 'HP治癒',
+      hpRecoveryP: 'HP回復',
+      spRecoveryP: 'SP回復',
+      spRegenP: '毎秒SP',
+      spP: 'SP',
+      addP: '与ダメ',
+      takenDmgP: '被ダメ',
+      specialP: '特殊',
+      otherP: 'その他',
+      basicAddP: '普通攻撃ダメージ',
+      skillAddP: 'スキルダメージ',
+      coin: 'コイン',
+      cooltime: 'クールタイム',
+      debuffResistP: 'デバフ抵抗',
+      gradePlus: '学年',
+      maxStack: '最大スタック',
+      personalityMadnessPlus: '狂気性格判定',
+      personalityVivaciousPlus: '活発性格判定',
+      personalityPurePlus: '純粋性格判定',
+      personalityGloomyPlus: '憂鬱性格判定',
+      personalityCoolPlus: '冷静性格判定',
+      poisonDuration: '毒持続時間',
+      shieldEffectP: 'シールド効果',
+      shieldP: 'シールド',
+      spRecovery: 'SP回復',
+      spRegen: '毎秒SP'
+    };
+    const units = {
+      cooltime: '秒',
+      poisonDuration: '秒'
+    };
+    const fixedValueKeys = new Set([
+      'coin',
+      'cooltime',
+      'gradePlus',
+      'maxStack',
+      'personalityMadnessPlus',
+      'personalityVivaciousPlus',
+      'personalityPurePlus',
+      'personalityGloomyPlus',
+      'personalityCoolPlus',
+      'poisonDuration',
+      'spRecovery',
+      'spRegen'
+    ]);
+    const text = Object.entries(bonuses)
+      .filter(([, value]) => value !== undefined && value !== null && value !== '')
+      .map(([key, value]) => {
+        const sign = Number(value) >= 0 ? '+' : '';
+        const suffix = fixedValueKeys.has(key) ? (units[key] || '') : '%';
+        return `${labels[key] || key}${sign}${value}${suffix}`;
+      })
+      .join(' / ');
+    return text || '補正なし';
+  }
+
+  function getCardState(cardId) {
+    return appState.cards?.[cardId] || { owned: false, star: 1, solder: 0 };
+  }
+
+  function ensureCardState(cardId) {
+    if (!appState.cards || typeof appState.cards !== 'object') appState.cards = {};
+    if (!appState.cards[cardId]) appState.cards[cardId] = { owned: false, star: 1, solder: 0 };
+    appState.cards[cardId].star = normalizeCardStar(appState.cards[cardId].star);
+    appState.cards[cardId].solder = normalizeCardSolder(appState.cards[cardId].solder);
+    if (appState.cards[cardId].star < 5) appState.cards[cardId].solder = 0;
+    appState.cards[cardId].owned = !!appState.cards[cardId].owned;
+    return appState.cards[cardId];
+  }
+
+  function normalizeCardStar(value) {
+    return Math.min(5, Math.max(1, Number(value) || 1));
+  }
+
+  function normalizeCardSolder(value) {
+    return Math.min(2, Math.max(0, Number(value) || 0));
+  }
+
+  function renderBoardGlobalOverview() {
+    if (!isDashboardPanelActive('global')) syncBoardDraftToGlobalDraft();
+    const query = elements.boardGlobalSearch.value.trim().toLocaleLowerCase('ja');
+    renderBoardGlobalFilters();
+    elements.boardGlobalProgressSummary.innerHTML = renderBoardGlobalProgressSummary();
+    if (elements.boardProgressDialog?.open) renderBoardProgressDialog();
+    const rows = DATA.sheets.basicInfo
+      .filter(basic => !query || [basic.使徒名, basic.id, basic.性格, basic.種族, basic.役割]
+        .filter(Boolean)
+        .some(value => String(value).toLocaleLowerCase('ja').includes(query)))
+      .map(basic => ({
+        basic,
+        result: collectBoardGlobalEffectsForApostle(basic.id, getGlobalBoardDisplayBoards(basic.id))
+      }))
+      .filter(({ result }) => result.nodes.some(({ row }) =>
+        row.マス_type === '特殊' && matchesBoardGlobalFilters(row)
+      ))
+      .sort((a, b) => {
+        const nameOrder = String(a.basic.使徒名 || a.basic.id).localeCompare(
+          String(b.basic.使徒名 || b.basic.id),
+          'ja',
+          { sensitivity: 'base' }
+        );
+        if (view.boardGlobalSort === 'planned') {
+          const plannedOrder = Number(hasBoardGlobalPlannedChange(b.basic.id)) - Number(hasBoardGlobalPlannedChange(a.basic.id));
+          if (plannedOrder) return plannedOrder;
+          return nameOrder;
+        }
+        if (view.boardGlobalSort === 'combatPower') {
+          return getApostleCombatPowerForSort(b.basic.id) - getApostleCombatPowerForSort(a.basic.id) || nameOrder;
+        }
+        if (view.boardGlobalSort !== 'progress') return nameOrder;
+        return b.result.filledSpecialCount - a.result.filledSpecialCount || nameOrder;
+      });
+
+    const hasChanges = Object.keys(globalBoardDrafts).length > 0;
+    const planMode = view.boardGlobalMode === 'plan';
+    const savedPlanCount = getSavedBoardPlanApostleIds().length;
+    elements.boardGlobalModeCurrent.classList.toggle('is-active', !planMode);
+    elements.boardGlobalModePlan.classList.toggle('is-active', planMode);
+    elements.boardGlobalSort.value = view.boardGlobalSort;
+    elements.boardGlobalCancel.disabled = !hasChanges;
+    elements.boardGlobalSavePlan.disabled = !hasChanges;
+    elements.boardGlobalConfirm.hidden = planMode;
+    elements.boardGlobalConfirm.disabled = planMode || !hasChanges;
+    elements.boardGlobalSavePlan.textContent = planMode ? '予定を保存' : '予定として保存';
+    elements.boardGlobalDiscardPlan.hidden = !planMode;
+    elements.boardGlobalDiscardPlan.disabled = !savedPlanCount;
+    elements.boardGlobalDiscardPlan.textContent = savedPlanCount
+      ? `保存予定を破棄 (${savedPlanCount})`
+      : '保存予定を破棄';
+    elements.boardGlobalOverviewSummary.innerHTML = renderGlobalBoardChangeSummary();
+    elements.boardGlobalOverviewList.innerHTML = rows
+      .map(({ basic, result }) => renderBoardGlobalApostleCard(basic, result))
+      .join('') || '<p class="empty-note">一致する使徒がいません。</p>';
+    if (elements.boardGlobalBottomSummary) {
+      elements.boardGlobalBottomSummary.innerHTML = renderBoardGlobalBottomSummary(rows);
+    }
+  }
+
+  function hasBoardGlobalPlannedChange(id) {
+    const draft = globalBoardDrafts[id];
+    if (draft?.mode === 'plan') {
+      return hasBoardSnapshotDiff(ensureApostleState(id).boards || {}, draft.boards || {});
+    }
+    const state = ensureApostleState(id);
+    if (!state.plannedBoards || typeof state.plannedBoards !== 'object') return false;
+    return hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards || {});
+  }
+
+  function renderBoardGlobalBottomSummary(rows) {
+    if (!rows.length) return '';
+    const summary = collectBoardGlobalBottomSummary(rows);
+    const selected = summary.counts.lower + summary.counts.advanced + summary.counts.special;
+    return `
+      <section class="board-global-stat-summary">
+        <div class="board-global-stat-summary-head">
+          <strong>表示中の統計</strong>
+          <span>${formatNumber(rows.length)}使徒 / ${formatNumber(selected)}マス選択中</span>
+        </div>
+        <div class="board-global-stat-summary-counts">
+          <span><img src="img/Board/Tileicon_1.webp" alt="">通常 ${formatNumber(summary.counts.lower)}</span>
+          <span><img src="img/Board/Tileicon_2.webp" alt="">上級 ${formatNumber(summary.counts.advanced)}</span>
+          <span><img src="img/Board/Tileicon_3.webp" alt="">特殊 ${formatNumber(summary.counts.special)}</span>
+        </div>
+        <div class="summary-table-grid board-global-stat-summary-grid">
+          ${renderGlobalBoardCostSummary(summary.costs, { signed: false, emptyText: 'コストなし' })}
+          ${renderBoardDraftEffectMatrix(summary.effectGroups, { title: '合計' })}
+        </div>
+      </section>
+    `;
+  }
+
+  function collectBoardGlobalBottomSummary(rows) {
+    const costs = {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+    const effectGroups = {
+      special: new Map(),
+      advanced: new Map(),
+      lower: new Map()
+    };
+    const counts = { lower: 0, advanced: 0, special: 0 };
+    rows.forEach(({ basic }) => {
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        if (row.マス_type === 'スタート') return;
+        if (!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)]) return;
+        const tileGroup = getBoardSummaryTileGroup(row.マス_type);
+        if (tileGroup) counts[tileGroup] += 1;
+        costs.gold += Number(row.ゴールド) || 0;
+        costs.lower += Number(row.下級) || 0;
+        costs.middle += Number(row.中級) || 0;
+        costs.upper += Number(row.上級) || 0;
+        costs.special += Number(row.特級) || 0;
+        costs.sharedToken += getBoardSharedTokenCost(row, basic.id);
+        costs.apostleToken += getBoardApostleTokenCost(row, basic.id);
+        addBoardSummaryEffect(effectGroups, row.効果1_type, row.効果1_value, row.マス_type);
+        addBoardSummaryEffect(effectGroups, row.効果2_type, row.効果2_value, row.マス_type);
+      });
+    });
+    return { costs, effectGroups, counts };
+  }
+
+  function getBoardSummaryTileGroup(tileType) {
+    if (tileType === '特殊') return 'special';
+    if (tileType === '上級') return 'advanced';
+    return 'lower';
+  }
+
+  function getSavedBoardPlanApostleIds() {
+    return DATA.sheets.basicInfo
+      .map(basic => basic.id)
+      .filter(id => {
+        const state = ensureApostleState(id);
+        return state.plannedBoards
+          && typeof state.plannedBoards === 'object'
+          && hasBoardSnapshotDiff(state.boards || {}, state.plannedBoards);
+      });
+  }
+
+  function discardAllSavedBoardPlans() {
+    const savedIds = getSavedBoardPlanApostleIds();
+    if (!savedIds.length) return;
+    const draftCount = Object.values(globalBoardDrafts).filter(draft => draft?.mode === 'plan').length;
+    const editingNote = draftCount || boardDraft?.mode === 'plan'
+      ? '\n予定モードで編集中の変更も破棄されます。'
+      : '';
+    if (!window.confirm(`${savedIds.length}使徒分の保存予定をすべて破棄しますか？\n現在状態は変更されません。${editingNote}`)) return;
+    const history = beginHistoryAction('ボード予定一括破棄');
+
+    Object.values(appState.apostles || {}).forEach(state => {
+      delete state.plannedBoards;
+      delete state.plannedBoardShortcutTargets;
+    });
+    Object.keys(globalBoardDrafts).forEach(id => {
+      if (globalBoardDrafts[id]?.mode === 'plan') delete globalBoardDrafts[id];
+    });
+    if (boardDraft?.mode === 'plan') boardDraft = null;
+    saveState();
+    render();
+    commitHistoryAction(history);
+  }
+
+  function collectBoardGlobalEffectsForApostle(id, boards) {
+    const flat = createEmptyTotals();
+    const percent = createEmptyTotals();
+    const nodes = [];
+    const progress = {
+      lower: { filled: 0, total: 0 },
+      advanced: { filled: 0, total: 0 },
+      special: { filled: 0, total: 0 }
+    };
+    let count = 0;
+    (DATA.getById('board', id) || []).forEach(row => {
+      const board = boards?.[String(row.ボード階層)];
+      const filled = !!board?.filled?.[boardKey(row)];
+      const progressKey = row.マス_type === '通常'
+        ? 'lower'
+        : row.マス_type === '上級'
+          ? 'advanced'
+          : row.マス_type === '特殊'
+            ? 'special'
+            : '';
+      if (progressKey) {
+        progress[progressKey].total += 1;
+        if (filled) progress[progressKey].filled += 1;
+      }
+      if (row.マス_type !== '上級' && row.マス_type !== '特殊') return;
+      nodes.push({ row, filled });
+      if (filled) {
+        addBoardRowToSummary(row, flat, percent);
+        count += 1;
+      }
+    });
+    const specialNodes = nodes.filter(({ row }) => row.マス_type === '特殊');
+    return {
+      flat,
+      percent,
+      count,
+      nodes,
+      progress,
+      filledSpecialCount: specialNodes.filter(item => item.filled).length,
+      specialCount: specialNodes.length
+    };
+  }
+
+  function renderBoardGlobalApostleProgress(progress = {}) {
+    const rows = [
+      ['lower', '下級'],
+      ['advanced', '上級'],
+      ['special', '特殊']
+    ];
+    return `
+      <span class="board-global-apostle-progress" aria-label="ボード塗り率">
+        ${rows.map(([key, label]) => {
+          const filled = Math.max(0, Number(progress?.[key]?.filled) || 0);
+          const total = Math.max(0, Number(progress?.[key]?.total) || 0);
+          const rate = total ? Math.min(100, filled / total * 100) : 0;
+          const title = `${label} ${filled}/${total}（${formatBoardProgressPercent(rate)}）`;
+          return `<span class="board-global-apostle-progress-row is-${key}" role="progressbar"
+            aria-label="${escapeAttr(label)}" aria-valuemin="0" aria-valuemax="${escapeAttr(total)}"
+            aria-valuenow="${escapeAttr(filled)}" title="${escapeAttr(title)}">
+            <span style="--board-apostle-progress:${rate.toFixed(2)}%"></span>
+          </span>`;
+        }).join('')}
+      </span>
+    `;
+  }
+
+  function renderBoardGlobalApostleCard(basic, result) {
+    if (!result.nodes.length) return '';
+    const specialNodes = result.nodes.filter(({ row }) =>
+      row.マス_type === '特殊' && matchesBoardGlobalFilters(row)
+    );
+    if (!specialNodes.length) return '';
+    const nodes = [1, 2, 3].map(layer => {
+      const layerNodes = specialNodes.filter(({ row }) => Number(row.ボード階層) === layer);
+      if (!layerNodes.length) return '';
+      const tiles = layerNodes.map(({ row }) => renderBoardGlobalTile(basic.id, row)).join('');
+      return `
+        <div class="board-global-layer board-global-layer-${layer}">
+          <span class="board-global-layer-label">B${layer}</span>
+          <span class="board-global-layer-tiles">${tiles}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <section class="board-global-card personality-${escapeAttr(basic.性格 || '')}"
+        data-board-global-card-id="${escapeAttr(basic.id)}">
+        <div class="board-global-card-head">
+          <button
+            type="button"
+            class="board-global-apostle-link"
+            data-board-global-open-apostle="${escapeAttr(basic.id)}"
+            title="${escapeAttr(`${basic.使徒名 || basic.id}のボードを開く`)}"
+          >
+            <img data-apostle-image class="board-global-apostle-icon" src="${escapeAttr(getApostleSkillImagePath('high', basic.id) || getApostleImagePath(basic.id))}" alt="">
+            <span class="board-global-apostle-meta">
+              <span class="board-global-apostle-name">${escapeHtml(basic.使徒名 || basic.id)}</span>
+              <span class="board-global-apostle-traits">${escapeHtml(basic.性格 || '')} / ${escapeHtml(basic.種族 || '')}</span>
+              ${renderBoardGlobalApostleProgress(result.progress)}
+            </span>
+          </button>
+          <strong>${escapeHtml(result.filledSpecialCount)} / ${escapeHtml(result.specialCount)}</strong>
+        </div>
+        <div class="board-global-tiles">${nodes || '<span class="empty-note">特殊マスなし</span>'}</div>
+      </section>
+    `;
+  }
+
+  function renderBoardGlobalFilters() {
+    const layerOptions = [1, 2, 3];
+    const statOptions = BOARD_GLOBAL_STAT_GROUPS;
+    const activeCount = view.boardGlobalFilters.layers.size + view.boardGlobalFilters.stats.size;
+    elements.boardGlobalFilterCount.textContent = activeCount ? `${activeCount}件選択中` : '';
+    elements.boardGlobalFilters.innerHTML = `
+      <div class="board-global-filter-row">
+        <strong>ボード</strong>
+        ${layerOptions.map(layer => renderBoardGlobalFilterButton('layers', String(layer), `B${layer}`)).join('')}
+      </div>
+      <div class="board-global-filter-row board-global-stat-filter-row">
+        <strong>特殊マス</strong>
+        ${statOptions.map(stat => `
+          <button
+            type="button"
+            class="${view.boardGlobalFilters.stats.has(stat.key) ? 'is-active' : ''}"
+            data-board-global-filter-group="stats"
+            data-board-global-filter-value="${escapeAttr(stat.key)}"
+            title="${escapeAttr(stat.label)}"
+          >
+            <img src="img/Board/${escapeAttr(stat.icon)}" alt="">
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderBoardGlobalFilterButton(group, value, label) {
+    return `
+      <button
+        type="button"
+        class="${view.boardGlobalFilters[group].has(value) ? 'is-active' : ''}"
+        data-board-global-filter-group="${escapeAttr(group)}"
+        data-board-global-filter-value="${escapeAttr(value)}"
+      >${escapeHtml(label)}</button>
+    `;
+  }
+
+  function matchesBoardGlobalFilters(row) {
+    const layerFilters = view.boardGlobalFilters.layers;
+    const statFilters = view.boardGlobalFilters.stats;
+    if (layerFilters.size && !layerFilters.has(String(row.ボード階層))) return false;
+    if (!statFilters.size) return true;
+    return getBoardRowStatGroupKeys(row).some(key => statFilters.has(key));
+  }
+
+  function getBoardRowStatKeys(row) {
+    const flat = createEmptyTotals();
+    const percent = createEmptyTotals();
+    addBoardRowToSummary(row, flat, percent);
+    return TOTAL_LABELS
+      .filter(stat => (Number(flat[stat.key]) || 0) || (Number(percent[stat.key]) || 0))
+      .map(stat => stat.key);
+  }
+
+  function getBoardRowStatGroupKeys(row) {
+    const statKeys = new Set(getBoardRowStatKeys(row));
+    return BOARD_GLOBAL_STAT_GROUPS
+      .filter(group => group.stats.some(key => statKeys.has(key)))
+      .map(group => group.key);
+  }
+
+  function renderBoardGlobalProgressSummary() {
+    const progressTileTypes = new Set(view.boardProgressTileTypes);
+    const createLayerSummary = () => ({
+      filled: 0,
+      total: 0,
+      progressFilled: 0,
+      progressTotal: 0,
+      flat: createEmptyTotals(),
+      percent: createEmptyTotals(),
+      maxFlat: createEmptyTotals(),
+      maxPercent: createEmptyTotals(),
+      advancedCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }])),
+      specialCounts: Object.fromEntries(BOARD_GLOBAL_STAT_GROUPS.map(group => [group.key, { filled: 0, total: 0 }]))
+    });
+    const layers = {
+      1: createLayerSummary(),
+      2: createLayerSummary(),
+      3: createLayerSummary()
+    };
+    DATA.sheets.basicInfo.forEach(basic => {
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        const layer = layers[Number(row.ボード階層)];
+        if (!layer || (row.マス_type !== '上級' && row.マス_type !== '特殊')) return;
+        const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+        if (matchesBoardProgressTileType(row, progressTileTypes)) {
+          layer.progressTotal += 1;
+          if (filled) layer.progressFilled += 1;
+        }
+        if (row.マス_type === '特殊') {
+          layer.total += 1;
+          if (filled) layer.filled += 1;
+          getBoardRowStatGroupKeys(row).forEach(key => {
+            layer.specialCounts[key].total += 1;
+            if (filled) layer.specialCounts[key].filled += 1;
+          });
+        }
+        if (row.マス_type === '上級') {
+          getBoardRowStatGroupKeys(row).forEach(key => {
+            layer.advancedCounts[key].total += 1;
+            if (filled) layer.advancedCounts[key].filled += 1;
+          });
+        }
+        addBoardRowToSummary(row, layer.maxFlat, layer.maxPercent);
+        if (filled) addBoardRowToSummary(row, layer.flat, layer.percent);
+      });
+    });
+    const totalFilled = Object.values(layers).reduce((sum, layer) => sum + layer.progressFilled, 0);
+    const totalCount = Object.values(layers).reduce((sum, layer) => sum + layer.progressTotal, 0);
+    const totalPercent = totalCount ? totalFilled / totalCount * 100 : 0;
+    const targetLabel = getBoardProgressTileTypeLabel(progressTileTypes);
+    return `
+      <button type="button" class="board-progress-overview" data-board-progress-open>
+        ${renderBoardProgressTileTypeIcon(progressTileTypes, 'board-progress-overview-icons')}
+        <span class="board-progress-overview-label">
+          <small>${escapeHtml(targetLabel)}</small>
+          <strong>全体効果マス</strong>
+        </span>
+        <span class="board-progress-overview-count"><strong>${formatNumber(totalFilled)}</strong> / ${formatNumber(totalCount)}</span>
+        <span class="board-progress-overview-rate">${formatBoardProgressPercent(totalPercent)}</span>
+        <span class="board-progress-overview-detail">詳細</span>
+      </button>
+      <div class="board-global-effect-summary-heading"><strong>現在の全体効果値</strong><span>上級 / 特殊</span></div>
+      <div class="board-global-stat-matrices">
+        ${renderBoardGlobalStatMatrix('special', layers)}
+        ${renderBoardGlobalStatMatrix('advanced', layers)}
+      </div>
+    `;
+  }
+
+  function renderBoardGlobalStatMatrix(tileType, layers) {
+    const isSpecial = tileType === 'special';
+    const label = isSpecial ? '特殊マス' : '上級マス';
+    const icon = isSpecial ? 'Tileicon_3.webp' : 'Tileicon_2.webp';
+    const materialLabel = isSpecial ? '金くれよん' : '紫くれよん';
+    const materialIcon = isSpecial ? '特級くれよん.webp' : '上級くれよん.webp';
+    const suffix = isSpecial ? '%' : '';
+    const aggregateTotals = createEmptyTotals();
+    const aggregateMaxTotals = createEmptyTotals();
+    [1, 2, 3].forEach(layer => {
+      const values = isSpecial ? layers[layer].percent : layers[layer].flat;
+      const maxValues = isSpecial ? layers[layer].maxPercent : layers[layer].maxFlat;
+      Object.keys(aggregateTotals).forEach(key => {
+        aggregateTotals[key] += Number(values[key]) || 0;
+        aggregateMaxTotals[key] += Number(maxValues[key]) || 0;
+      });
+    });
+    return `
+      <table class="board-global-stat-matrix board-global-effect-type-matrix is-${escapeAttr(tileType)}">
+        <thead>
+          <tr>
+            <th scope="col">
+              <span class="board-global-effect-type-label board-global-tile-material-icon" role="img" aria-label="${escapeAttr(`${label}（${materialLabel}）`)}">
+                <img class="board-global-tile-type-icon" src="${escapeAttr(getBoardGlobalAssetUrl(`img/Board/${icon}`))}" alt="" aria-hidden="true">
+                <img class="board-global-material-icon" src="${escapeAttr(getBoardGlobalAssetUrl(`img/${materialIcon}`))}" alt="" aria-hidden="true">
+              </span>
+            </th>
+            ${[1, 2, 3].map(layer => `<th class="board-global-matrix-layer-${layer}">B${layer}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
+            <tr>
+              <th title="${escapeAttr(group.label)}">
+                <span class="board-global-stat-cell">
+                  <span class="board-global-stat-icon">
+                    <img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}">
+                  </span>
+                  <small class="board-global-stat-total" title="${escapeAttr(`${label} B1〜B3合計効果値（現在 / 最大${isSpecial ? '、%' : '、加算値'}）`)}">
+                    ${!isSpecial ? '<span class="board-global-total-unit" aria-hidden="true">＋</span>' : ''}
+                    <span class="board-global-count-current board-global-total-current">${renderBoardGlobalGroupedValue(aggregateTotals, group, suffix)}</span><span class="board-global-count-separator board-global-total-separator">/</span><span class="board-global-count-total board-global-total-max">${renderBoardGlobalGroupedValue(aggregateMaxTotals, group, suffix)}</span>
+                  </small>
+                </span>
+              </th>
+              ${[1, 2, 3].map(layer => {
+                const values = layers[layer];
+                const counts = isSpecial ? values.specialCounts[group.key] : values.advancedCounts[group.key];
+                const isComplete = counts.total > 0 && counts.filled === counts.total;
+                return `
+                  <td class="board-global-special-value board-global-matrix-count-cell board-global-matrix-layer-${layer}${isComplete ? ' is-complete' : ''}">
+                    <small class="board-global-matrix-count${isComplete ? ' is-complete' : ''}" title="${escapeAttr(`${label} B${layer}マス数${isComplete ? '（100%達成）' : ''}`)}">
+                      <span class="board-global-count-current">${counts.filled}</span><span class="board-global-count-separator">/</span><span class="board-global-count-total">${counts.total}</span>
+                    </small>
+                  </td>
+                `;
+              }).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function getBoardGlobalAssetUrl(path) {
+    return window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(path) || path;
+  }
+
+  function renderBoardGlobalGroupedValue(totals, group, suffix) {
+    const values = group.stats.map(key => Number(totals[key]) || 0);
+    if (values.length === 1 || values.every(value => value === values[0])) {
+      return `${formatNumber(values[0])}${suffix}`;
+    }
+    return values
+      .map((value, index) => `${group.parts?.[index] || ''}${formatNumber(value)}${suffix}`)
+      .join(' / ');
+  }
+
+  function renderBoardGlobalTile(apostleId, row) {
+    const state = ensureApostleState(apostleId);
+    const currentFilled = !!state.boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+    const baselineBoards = getGlobalBoardBaselineBoards(apostleId);
+    const targetBoards = getGlobalBoardDisplayBoards(apostleId);
+    const baselineFilled = !!baselineBoards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+    const filled = !!targetBoards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+    const pending = filled !== baselineFilled;
+    const pendingType = pending ? (filled ? 'is-pending-add' : 'is-pending-remove') : '';
+    const planned = view.boardGlobalMode === 'plan' && filled !== currentFilled;
+    const iconPath = getBoardIconPath(row, filled);
+    const key = boardKey(row);
+    return `
+      <button
+        type="button"
+        class="board-shortcut board-global-tile ${boardNodeClass(row)} ${filled ? 'is-filled' : 'is-locked'} ${planned ? 'is-planned' : ''} ${pending ? 'is-pending' : ''} ${pendingType}"
+        data-board-global-apostle-id="${escapeAttr(apostleId)}"
+        data-board-global-layer="${escapeAttr(row.ボード階層)}"
+        data-board-global-key="${escapeAttr(key)}"
+        title="${escapeAttr(`ボード${row.ボード階層} ${formatBoardEffect(row)}`)}"
+        style="--tile-base: url('${escapeAttr(getBoardTileBasePath(row, filled))}');"
+      >
+        ${iconPath ? `<img src="${escapeAttr(iconPath)}" alt="">` : ''}
+      </button>
+    `;
+  }
+
+  function getGlobalBoardBaselineBoards(id) {
+    const state = ensureApostleState(id);
+    if (view.boardGlobalMode === 'plan') return state.plannedBoards || state.boards || {};
+    return state.boards || {};
+  }
+
+  function getGlobalBoardDisplayBoards(id) {
+    return globalBoardDrafts[id]?.boards || getGlobalBoardBaselineBoards(id);
+  }
+
+  function findGlobalBoardDraftChangedLayer(id, draft) {
+    const baseline = getGlobalBoardBaselineBoards(id);
+    const changed = (DATA.getById('board', id) || [])
+      .filter(row => row.マス_type !== 'スタート')
+      .find(row => {
+        const layer = String(row.ボード階層);
+        const key = boardKey(row);
+        return !!baseline?.[layer]?.filled?.[key] !== !!draft.boards?.[layer]?.filled?.[key];
+      });
+    return changed ? Number(changed.ボード階層) : 0;
+  }
+
+  function switchGlobalBoardMode(mode) {
+    if (mode === view.boardGlobalMode) return;
+    const history = beginHistoryAction('全体ボードモード変更');
+    view.boardGlobalMode = mode;
+    projectBoardWorkspaceDrafts();
+    if (!view.boardGlobalSortTouched) {
+      view.boardGlobalSort = mode === 'plan' ? 'planned' : 'name';
+    }
+    render();
+    commitHistoryAction(history);
+  }
+
+  function toggleGlobalBoardSpecial(id, layer, key) {
+    const rows = DATA.getById('board', id) || [];
+    const target = rows.find(row => Number(row.ボード階層) === Number(layer) && boardKey(row) === key);
+    if (!target || target.マス_type !== '特殊') return;
+    const history = beginHistoryAction('全体ボード特殊マス変更');
+    if (history) history.groupTarget = id;
+
+    if (!globalBoardDrafts[id]) {
+      const baselineBoards = cloneJson(getGlobalBoardBaselineBoards(id));
+      globalBoardDrafts[id] = {
+        mode: view.boardGlobalMode,
+        boards: baselineBoards,
+        shortcutTargets: view.boardGlobalMode === 'plan'
+          ? mergeShortcutTargetMaps(
+            collectFilledSpecialTargetsForApostle(id, baselineBoards),
+            ensureApostleState(id).plannedBoardShortcutTargets || {}
+          )
+          : collectFilledSpecialTargetsForApostle(id, baselineBoards)
+      };
+    }
+
+    const previous = {
+      id: view.id,
+      board: view.board,
+      mode: view.boardEditMode,
+      draft: boardDraft
+    };
+    try {
+      view.id = id;
+      view.board = Number(layer);
+      view.boardEditMode = view.boardGlobalMode;
+      boardDraft = {
+        apostleId: id,
+        mode: view.boardGlobalMode,
+        boards: cloneJson(globalBoardDrafts[id].boards),
+        shortcutTargets: cloneJson(globalBoardDrafts[id].shortcutTargets || {})
+      };
+      const layerKey = String(layer);
+      const selectedTargets = new Set(boardDraft.shortcutTargets[layerKey] || []);
+      const removing = selectedTargets.has(key);
+      if (removing) {
+        selectedTargets.delete(key);
+        boardDraft.shortcutTargets[layerKey] = Array.from(selectedTargets);
+      } else {
+        selectedTargets.add(key);
+        boardDraft.shortcutTargets[layerKey] = Array.from(selectedTargets);
+      }
+      boardDraft.shortcutTargets = normalizeShortcutTargets(boardDraft.shortcutTargets);
+      rebuildBoardShortcutDraftFromTargets(
+        boardDraft.shortcutTargets,
+        removing && view.boardShortcutOffMode === 'route'
+      );
+      globalBoardDrafts[id] = {
+        mode: view.boardGlobalMode,
+        boards: cloneJson(boardDraft.boards),
+        shortcutTargets: cloneJson(boardDraft.shortcutTargets || {})
+      };
+    } finally {
+      view.id = previous.id;
+      view.board = previous.board;
+      view.boardEditMode = previous.mode;
+      boardDraft = previous.draft;
+    }
+
+    if (!hasGlobalBoardDraftChanges(id)) delete globalBoardDrafts[id];
+    if (view.id === id && view.boardEditMode === view.boardGlobalMode) {
+      const draft = globalBoardDrafts[id];
+      boardDraft = draft ? { ...draft, apostleId: id } : null;
+    }
+    commitHistoryAction(history);
+  }
+
+  function hasGlobalBoardDraftChanges(id) {
+    const draft = globalBoardDrafts[id];
+    if (!draft) return false;
+    const baseline = getGlobalBoardBaselineBoards(id);
+    return (DATA.getById('board', id) || []).some(row => {
+      if (row.マス_type === 'スタート') return false;
+      const layer = String(row.ボード階層);
+      const key = boardKey(row);
+      return !!baseline?.[layer]?.filled?.[key] !== !!draft.boards?.[layer]?.filled?.[key];
+    });
+  }
+
+  function applyGlobalBoardDrafts(destination) {
+    const appliedIds = new Set(Object.keys(globalBoardDrafts));
+    Object.entries(globalBoardDrafts).forEach(([id, draft]) => {
+      const state = ensureApostleState(id);
+      if (destination === 'plan') {
+        state.plannedBoards = cloneJson(draft.boards);
+        state.plannedBoardShortcutTargets = cloneJson(draft.shortcutTargets || {});
+        return;
+      }
+      const newBoards = cloneJson(draft.boards);
+      const previousId = view.id;
+      view.id = id;
+      const rebasedPlan = rebaseSavedBoardPlan(state, newBoards);
+      view.id = previousId;
+      state.boards = newBoards;
+      if (rebasedPlan) {
+        state.plannedBoards = rebasedPlan.boards;
+        state.plannedBoardShortcutTargets = rebasedPlan.shortcutTargets;
+      } else {
+        delete state.plannedBoards;
+        delete state.plannedBoardShortcutTargets;
+      }
+    });
+    if (boardDraft && appliedIds.has(boardDraft.apostleId)) boardDraft = null;
+    globalBoardDrafts = {};
+    saveState();
+  }
+
+  function applyDisplayedGlobalBoardPlansToCurrent() {
+    const changedIds = DATA.sheets.basicInfo
+      .map(basic => basic.id)
+      .filter(id => hasBoardSnapshotDiff(ensureApostleState(id).boards || {}, getGlobalBoardDisplayBoards(id) || {}));
+    if (!changedIds.length) return;
+    const draftCount = Object.values(globalBoardDrafts).filter(draft => draft?.mode === 'plan').length;
+    const draftNote = draftCount ? `\n予定モードで編集中の${draftCount}使徒分も現在に反映します。` : '';
+    if (!window.confirm(`${changedIds.length}使徒分の予定ボードを現在状態に反映しますか？\n反映後、対象使徒の保存予定は削除されます。${draftNote}`)) return;
+
+    changedIds.forEach(id => {
+      const state = ensureApostleState(id);
+      state.boards = cloneJson(getGlobalBoardDisplayBoards(id) || state.boards || {});
+      delete state.plannedBoards;
+      delete state.plannedBoardShortcutTargets;
+      delete globalBoardDrafts[id];
+    });
+    if (boardDraft && changedIds.includes(boardDraft.apostleId)) boardDraft = null;
+    saveState();
+  }
+
+  function handleBoardGlobalAction(action) {
+    const historyLabels = { plan: '全体ボード予定保存', current: '全体ボード現在反映', 'apply-plan-current': '全体ボード予定反映', cancel: '全体ボード編集取消' };
+    const history = historyLabels[action] ? beginHistoryAction(historyLabels[action]) : null;
+    if (action === 'cancel') {
+      globalBoardDrafts = {};
+      if (boardDraft?.mode === view.boardGlobalMode) boardDraft = null;
+      render();
+      commitHistoryAction(history);
+      return;
+    }
+    if (action === 'plan') {
+      applyGlobalBoardDrafts('plan');
+      render();
+      commitHistoryAction(history);
+      return;
+    }
+    if (action === 'current') {
+      applyGlobalBoardDrafts('current');
+      render();
+      commitHistoryAction(history);
+      return;
+    }
+    if (action === 'apply-plan-current') {
+      applyDisplayedGlobalBoardPlansToCurrent();
+      render();
+      commitHistoryAction(history);
+    }
+  }
+
+  function renderGlobalBoardChangeSummary() {
+    const costs = {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+    const flat = createEmptyTotals();
+    const percent = createEmptyTotals();
+    let changedApostles = 0;
+    let added = 0;
+    let removed = 0;
+
+    DATA.sheets.basicInfo.forEach(basic => {
+      const state = ensureApostleState(basic.id);
+      const current = state.boards || {};
+      const target = getGlobalBoardDisplayBoards(basic.id);
+      let apostleChanged = false;
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        if (row.マス_type === 'スタート') return;
+        const layer = String(row.ボード階層);
+        const key = boardKey(row);
+        const currentFilled = !!current?.[layer]?.filled?.[key];
+        const targetFilled = !!target?.[layer]?.filled?.[key];
+        if (currentFilled === targetFilled) return;
+        const direction = targetFilled ? 1 : -1;
+        apostleChanged = true;
+        if (direction > 0) added += 1;
+        else removed += 1;
+        costs.gold += (Number(row.ゴールド) || 0) * direction;
+        costs.lower += (Number(row.下級) || 0) * direction;
+        costs.middle += (Number(row.中級) || 0) * direction;
+        costs.upper += (Number(row.上級) || 0) * direction;
+        costs.special += (Number(row.特級) || 0) * direction;
+        costs.sharedToken += getBoardSharedTokenCost(row, basic.id) * direction;
+        costs.apostleToken += getBoardApostleTokenCost(row, basic.id) * direction;
+        if (row.マス_type === '上級' || row.マス_type === '特殊') {
+          addSignedBoardGlobalEffect(row, direction, flat, percent);
+        }
+      });
+      if (apostleChanged) changedApostles += 1;
+    });
+
+    if (!changedApostles) {
+      return `
+        <div class="board-global-floating-host">
+          ${renderBoardGlobalFloatingSummary(0, 0, 0, costs, flat, percent)}
+        </div>
+      `;
+    }
+
+    return `
+      <div class="board-global-floating-host">
+        ${renderBoardGlobalFloatingSummary(changedApostles, added, removed, costs, flat, percent)}
+      </div>
+    `;
+  }
+
+  function renderBoardGlobalFloatingSummary(changedApostles, added, removed, costs, flat, percent) {
+    const hasChanges = Number(changedApostles) > 0;
+    return `
+      <div class="board-global-floating-dock ${hasChanges ? 'has-changes' : 'is-empty'}">
+        <span class="board-global-floating-mode" aria-label="全体ボード編集モード">
+          <button type="button" class="${view.boardGlobalMode === 'current' ? 'is-active' : ''}" data-board-global-floating-mode="current">現在</button>
+          <button type="button" class="${view.boardGlobalMode === 'plan' ? 'is-active' : ''}" data-board-global-floating-mode="plan">予定</button>
+        </span>
+        <button type="button" class="board-shortcut-off-toggle board-global-shortcut-off-toggle ${view.boardShortcutOffMode === 'route' ? 'is-route' : ''}" data-board-shortcut-off-toggle>
+          ${view.boardShortcutOffMode === 'route' ? 'OFF時: 経路整理' : 'OFF時: マスのみ'}
+        </button>
+        <details class="board-global-floating-summary">
+          <summary title="変更内容">i</summary>
+          <div class="board-global-floating-panel">
+            ${hasChanges ? `
+              <div class="board-global-change-head">
+                <strong>${view.boardGlobalMode === 'plan' ? '変更予定' : '編集中'}</strong>
+                <span>${changedApostles}使徒 / 追加${added}マス${removed ? ` / 解除${removed}マス` : ''}</span>
+              </div>
+              <div class="rank-summary-tables">
+                ${renderGlobalBoardCostSummary(costs)}
+                ${renderGlobalBoardEffectChangeMatrix(flat, percent)}
+              </div>
+            ` : '<p class="empty-note board-global-no-change">現在状態からの変更はありません。</p>'}
+          </div>
+        </details>
+        <button type="button" class="board-floating-cancel-button" data-board-global-summary-action="cancel"
+          title="変更を取消" aria-label="変更を取消"${hasChanges ? '' : ' disabled'}>
+          ${renderUiIcon('close')}<small>取消</small>
+        </button>
+        <details class="board-global-floating-save">
+          <summary title="保存・反映" aria-label="保存・反映">${renderUiIcon('save')}</summary>
+          <div class="board-global-floating-save-panel">
+            ${renderBoardGlobalSummaryActions('floating', !hasChanges)}
+          </div>
+        </details>
+      </div>
+    `;
+  }
+
+  function renderBoardGlobalSummaryActions(placement = 'inline', disabled = false) {
+    const planMode = view.boardGlobalMode === 'plan';
+    const disabledAttr = disabled ? ' disabled' : '';
+    return `
+      <div class="board-global-summary-actions board-global-summary-actions-${escapeAttr(placement)}" aria-label="全体ボード変更操作">
+        <button type="button" class="plan" data-board-global-summary-action="plan"${disabledAttr}>${planMode ? '予定を保存' : '予定として保存'}</button>
+        ${planMode
+          ? `<button type="button" class="primary" data-board-global-summary-action="apply-plan-current"${disabledAttr}>予定を現在に反映</button>`
+          : `<button type="button" class="primary" data-board-global-summary-action="current"${disabledAttr}>現在状態に反映</button>`}
+      </div>
+    `;
+  }
+
+  function renderBoardProgressDialog() {
+    if (!elements.boardProgressDialogBody) return;
+    const layer = ['1', '2', '3'].includes(String(view.boardProgressLayer))
+      ? String(view.boardProgressLayer)
+      : 'all';
+    const category = BOARD_PROGRESS_CATEGORIES.some(item => item.key === view.boardProgressCategory)
+      ? view.boardProgressCategory
+      : 'all';
+    view.boardProgressLayer = layer;
+    view.boardProgressCategory = category;
+    const tileTypes = new Set(view.boardProgressTileTypes);
+    const tileTypeKey = Array.from(tileTypes).sort().join('+');
+    const countsKey = `${layer}:${tileTypeKey}`;
+    const counts = boardProgressCountsCache[countsKey]
+      || (boardProgressCountsCache[countsKey] = collectBoardProgressCounts(layer, tileTypes));
+    const selected = counts[category] || { filled: 0, total: 0 };
+    const requirementKey = `${view.boardGlobalMode}:${layer}:${category}:${tileTypeKey}`;
+    const requirement = boardProgressRequirementCache[requirementKey]
+      || (boardProgressRequirementCache[requirementKey] = collectBoardProgressRequirement(category, layer, tileTypes));
+    const percent = selected.total ? selected.filled / selected.total * 100 : 0;
+    const layerLabel = layer === 'all' ? '全ボード' : `ボード${layer}`;
+    const categoryLabel = BOARD_PROGRESS_CATEGORIES.find(item => item.key === category)?.label || '全体効果マス';
+    const tileTypeLabel = getBoardProgressTileTypeLabel(tileTypes);
+    const modeLabel = view.boardGlobalMode === 'plan' ? '予定状態' : '現在状態';
+    const hasDrafts = Object.keys(globalBoardDrafts).length > 0;
+
+    elements.boardProgressDialogBody.innerHTML = `
+      <div class="board-progress-context">
+        <span class="board-progress-mode ${view.boardGlobalMode === 'plan' ? 'is-plan' : ''}">${escapeHtml(modeLabel)}</span>
+        ${hasDrafts ? '<span class="board-progress-editing">未確定変更を含む</span>' : ''}
+        <span>全使徒を集計</span>
+      </div>
+      <div class="board-progress-layer-tabs" aria-label="集計ボード">
+        ${[
+          ['all', '全体'],
+          ['1', 'B1'],
+          ['2', 'B2'],
+          ['3', 'B3']
+        ].map(([value, label]) => `
+          <button type="button" class="${layer === value ? 'is-active' : ''}" data-board-progress-layer="${value}">${label}</button>
+        `).join('')}
+      </div>
+      <div class="board-progress-tile-filter" aria-label="集計する全体効果マス">
+        <span>対象マス</span>
+        <button type="button" class="${tileTypes.has('special') ? 'is-active' : ''}" data-board-progress-tile-type="special"
+          aria-pressed="${tileTypes.has('special')}">
+          <img src="img/Board/Tileicon_3.webp" alt="">特殊
+        </button>
+        <button type="button" class="${tileTypes.has('advanced') ? 'is-active' : ''}" data-board-progress-tile-type="advanced"
+          aria-pressed="${tileTypes.has('advanced')}">
+          <img src="img/Board/Tileicon_2.webp" alt="">上級
+        </button>
+      </div>
+      <div class="board-progress-category-grid">
+        ${BOARD_PROGRESS_CATEGORIES.map(item => {
+          const value = counts[item.key] || { filled: 0, total: 0 };
+          const rate = value.total ? value.filled / value.total * 100 : 0;
+          return `
+            <button type="button" class="board-progress-category ${category === item.key ? 'is-active' : ''}"
+              data-board-progress-category="${escapeAttr(item.key)}">
+              ${item.key === 'all'
+                ? renderBoardProgressTileTypeIcon(tileTypes, 'board-progress-category-target-icons')
+                : `<img src="img/Board/${escapeAttr(item.icon)}" alt="">`}
+              <span>${escapeHtml(item.label)}</span>
+              <strong>${formatBoardProgressPercent(rate)}</strong>
+              <small>${formatNumber(value.filled)} / ${formatNumber(value.total)}</small>
+            </button>
+          `;
+        }).join('')}
+      </div>
+      <section class="board-progress-resource-panel ${layer === 'all' ? '' : `board-progress-resource-layer-${escapeAttr(layer)}`}">
+        <div class="board-progress-resource-head">
+          <div>
+            <span>${escapeHtml(layerLabel)}・${escapeHtml(tileTypeLabel)}・${escapeHtml(categoryLabel)}</span>
+            <strong>100%まで</strong>
+          </div>
+        </div>
+        <div class="board-progress-resource-main">
+          <div class="board-progress-ring" style="--board-progress:${Math.max(0, Math.min(100, percent))}" aria-label="達成率 ${escapeAttr(formatBoardProgressPercent(percent))}">
+            <span><strong>${formatBoardProgressPercent(percent)}</strong><small>達成率</small></span>
+          </div>
+          <div class="board-progress-resource-detail">
+            <div class="board-progress-counts">
+              <span>未解放マス <strong>${formatNumber(requirement.targetRemaining)}</strong></span>
+              <span>経路追加マス <strong>${formatNumber(requirement.routeExtra)}</strong></span>
+              <span>解放必要マス <strong>${formatNumber(requirement.requiredCount)}</strong></span>
+            </div>
+            <div class="board-progress-resource-list">
+              ${renderGlobalBoardCostSummary(requirement.costs, {
+                signed: false,
+                emptyText: '100%達成済みです',
+                ariaLabel: '100%までに必要な素材'
+              })}
+            </div>
+          </div>
+        </div>
+        ${requirement.unreachable
+          ? `<p class="board-progress-warning">経路を特定できない対象が${formatNumber(requirement.unreachable)}マスあります。</p>`
+          : '<p class="board-progress-note">現在の解放状態から、対象マスへ到達する経路を含めて集計しています。</p>'}
+      </section>
+    `;
+  }
+
+  function openBoardProgressDialog() {
+    boardProgressCountsCache = {};
+    boardProgressRequirementCache = {};
+    elements.boardProgressDialogBody.innerHTML = `
+      <div class="board-progress-loading" role="status">
+        <span aria-hidden="true"></span>
+        <strong>ボード進捗を集計中</strong>
+      </div>
+    `;
+    elements.boardProgressDialog.showModal();
+    window.requestAnimationFrame(() => window.setTimeout(() => {
+      if (elements.boardProgressDialog.open) renderBoardProgressDialog();
+    }, 0));
+  }
+
+  function formatBoardProgressPercent(value) {
+    const rounded = Math.round((Number(value) || 0) * 10) / 10;
+    return `${rounded.toFixed(Number.isInteger(rounded) ? 0 : 1)}%`;
+  }
+
+  function collectBoardProgressCounts(layerFilter = 'all', tileTypes = new Set(['special'])) {
+    const counts = Object.fromEntries(BOARD_PROGRESS_CATEGORIES.map(item => [item.key, { filled: 0, total: 0 }]));
+    DATA.sheets.basicInfo.forEach(basic => {
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      (DATA.getById('board', basic.id) || []).forEach(row => {
+        if (!matchesBoardProgressTileType(row, tileTypes)
+          || (layerFilter !== 'all' && String(row.ボード階層) !== layerFilter)) return;
+        const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+        const categoryKeys = ['all', ...getBoardRowStatGroupKeys(row)];
+        new Set(categoryKeys).forEach(key => {
+          if (!counts[key]) return;
+          counts[key].total += 1;
+          if (filled) counts[key].filled += 1;
+        });
+      });
+    });
+    return counts;
+  }
+
+  function matchesBoardProgressTileType(row, tileTypes) {
+    if (!row) return false;
+    if (row.マス_type === '特殊') return tileTypes.has('special');
+    if (row.マス_type === '上級') return tileTypes.has('advanced');
+    return false;
+  }
+
+  function getBoardProgressTileTypeLabel(tileTypes) {
+    if (tileTypes.has('special') && tileTypes.has('advanced')) return '特殊＋上級';
+    return tileTypes.has('advanced') ? '上級' : '特殊';
+  }
+
+  function renderBoardProgressTileTypeIcon(tileTypes, className = '') {
+    const icons = [];
+    if (tileTypes.has('special')) icons.push(['Tileicon_3.webp', '特殊マス']);
+    if (tileTypes.has('advanced')) icons.push(['Tileicon_2.webp', '上級マス']);
+    return `
+      <span class="board-progress-target-icons ${escapeAttr(className)} ${icons.length > 1 ? 'is-multiple' : ''}" aria-label="${escapeAttr(getBoardProgressTileTypeLabel(tileTypes))}">
+        ${icons.map(([icon, label]) => `<img src="img/Board/${escapeAttr(icon)}" alt="${escapeAttr(label)}">`).join('')}
+      </span>
+    `;
+  }
+
+  function matchesBoardProgressCategory(row, category, tileTypes) {
+    if (!matchesBoardProgressTileType(row, tileTypes)) return false;
+    if (category === 'all') return true;
+    return getBoardRowStatGroupKeys(row).includes(category);
+  }
+
+  function createBoardProgressCosts() {
+    return {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+  }
+
+  function addBoardProgressCost(costs, row, basic) {
+    const rare1Board3Gate = Number(basic?.レア度) === 1
+      && Number(row?.ボード階層) === 2
+      && row?.マス_type === 'ゲート';
+    costs.gold += Number(row?.ゴールド) || 0;
+    costs.lower += Number(row?.下級) || 0;
+    costs.middle += Number(row?.中級) || 0;
+    costs.upper += Number(row?.上級) || 0;
+    costs.special += Number(row?.特級) || 0;
+    costs.sharedToken += rare1Board3Gate ? 5 : (Number(row?.['★1共同教団証']) || 0);
+    costs.apostleToken += rare1Board3Gate ? 0 : (Number(row?.使徒証) || 0);
+  }
+
+  function collectBoardProgressRequirement(category, layerFilter = 'all', tileTypes = new Set(['special'])) {
+    const costs = createBoardProgressCosts();
+    let targetRemaining = 0;
+    let routeExtra = 0;
+    let requiredCount = 0;
+    let unreachable = 0;
+
+    DATA.sheets.basicInfo.forEach(basic => {
+      const rows = DATA.getById('board', basic.id) || [];
+      const boards = getGlobalBoardDisplayBoards(basic.id);
+      const filledByLayer = { 1: new Set(), 2: new Set(), 3: new Set() };
+      rows.forEach(row => {
+        const layer = Number(row.ボード階層);
+        if (!filledByLayer[layer]) return;
+        if (row.マス_type === 'スタート' || boards?.[String(layer)]?.filled?.[boardKey(row)]) {
+          filledByLayer[layer].add(boardKey(row));
+        }
+      });
+
+      const targetsByLayer = { 1: new Set(), 2: new Set(), 3: new Set() };
+      const categoryTargetKeys = new Set();
+      rows.forEach(row => {
+        const layer = Number(row.ボード階層);
+        if (layerFilter !== 'all' && String(layer) !== layerFilter) return;
+        if (!matchesBoardProgressCategory(row, category, tileTypes)) return;
+        const key = boardKey(row);
+        categoryTargetKeys.add(key);
+        if (!filledByLayer[layer].has(key)) {
+          targetsByLayer[layer].add(key);
+          targetRemaining += 1;
+        }
+      });
+
+      const highestNeededLayer = [3, 2, 1].find(layer => targetsByLayer[layer].size) || 0;
+      for (let layer = 1; layer < highestNeededLayer; layer++) {
+        const gate = rows.find(row => Number(row.ボード階層) === layer && row.マス_type === 'ゲート');
+        if (gate && !filledByLayer[layer].has(boardKey(gate))) targetsByLayer[layer].add(boardKey(gate));
+      }
+
+      const requiredRows = new Map();
+      for (let layer = 1; layer <= 3; layer++) {
+        if (!targetsByLayer[layer].size) continue;
+        const layerRows = rows.filter(row => Number(row.ボード階層) === layer);
+        const previousGate = layer > 1
+          ? rows.find(row => Number(row.ボード階層) === layer - 1 && row.マス_type === 'ゲート')
+          : null;
+        const previousGateFilled = layer === 1 || !!(previousGate && filledByLayer[layer - 1].has(boardKey(previousGate)));
+        const result = fillBoardProgressTargets(
+          layerRows,
+          filledByLayer[layer],
+          targetsByLayer[layer],
+          previousGateFilled,
+          previousGate
+        );
+        result.added.forEach(key => {
+          const row = layerRows.find(item => boardKey(item) === key);
+          if (row && row.マス_type !== 'スタート') requiredRows.set(key, row);
+        });
+        unreachable += result.unreachable;
+      }
+
+      let addedTargets = 0;
+      requiredRows.forEach((row, key) => {
+        if (categoryTargetKeys.has(key)) addedTargets += 1;
+        addBoardProgressCost(costs, row, basic);
+      });
+      requiredCount += requiredRows.size;
+      routeExtra += Math.max(0, requiredRows.size - addedTargets);
+    });
+
+    return { costs, targetRemaining, routeExtra, requiredCount, unreachable };
+  }
+
+  function fillBoardProgressTargets(rows, filled, targets, previousGateFilled, previousGate) {
+    const added = new Set();
+    const remaining = Array.from(targets).filter(key => !filled.has(key));
+    let unreachable = 0;
+    while (remaining.length) {
+      const candidates = remaining
+        .map(targetKey => ({
+          targetKey,
+          path: findBoardProgressPath(rows, filled, targetKey, previousGateFilled, previousGate)
+        }))
+        .filter(item => item.path.length || filled.has(item.targetKey))
+        .sort((a, b) => scoreBoardProgressPath(rows, a.path) - scoreBoardProgressPath(rows, b.path)
+          || a.path.length - b.path.length
+          || compareBoardKeys(a.targetKey, b.targetKey));
+      const best = candidates[0];
+      if (!best) {
+        unreachable += remaining.length;
+        break;
+      }
+      best.path.forEach(key => {
+        if (!filled.has(key)) added.add(key);
+        filled.add(key);
+      });
+      const index = remaining.indexOf(best.targetKey);
+      if (index >= 0) remaining.splice(index, 1);
+    }
+    return { added, unreachable };
+  }
+
+  function scoreBoardProgressPath(rows, path) {
+    return path.reduce((sum, key) => {
+      const row = rows.find(item => boardKey(item) === key);
+      return sum + (Number(row?.ゴールド) || 0);
+    }, 0);
+  }
+
+  function findBoardProgressPath(rows, filled, targetKey, previousGateFilled, previousGate) {
+    if (filled.has(targetKey)) return [];
+    const virtualStart = '__board_progress_start__';
+    const rowKeys = new Set(rows.map(boardKey));
+    const starts = Array.from(filled).filter(key => rowKeys.has(key));
+    if (!starts.length && previousGateFilled) starts.push(virtualStart);
+    if (!starts.length) return [];
+    const best = new Map(starts.map(key => [key, { gold: 0, steps: 0 }]));
+    const previous = new Map();
+    const queue = starts.map(key => ({ key, score: { gold: 0, steps: 0 } }));
+
+    while (queue.length) {
+      queue.sort((a, b) => comparePathScore(a.score, b.score));
+      const current = queue.shift();
+      if (comparePathScore(current.score, best.get(current.key)) > 0) continue;
+      if (current.key === targetKey) break;
+      getBoardProgressNeighbors(rows, current.key, virtualStart, previousGate).forEach(next => {
+        const key = boardKey(next);
+        const score = {
+          gold: current.score.gold + (Number(next.ゴールド) || 0),
+          steps: current.score.steps + 1
+        };
+        if (best.has(key) && comparePathScore(score, best.get(key)) >= 0) return;
+        best.set(key, score);
+        previous.set(key, current.key);
+        queue.push({ key, score });
+      });
+    }
+
+    if (!best.has(targetKey)) return [];
+    const path = [];
+    let cursor = targetKey;
+    while (cursor && !starts.includes(cursor)) {
+      path.push(cursor);
+      cursor = previous.get(cursor);
+    }
+    return path.reverse();
+  }
+
+  function getBoardProgressNeighbors(rows, key, virtualStart, previousGate) {
+    if (key !== virtualStart) {
+      const row = rows.find(item => boardKey(item) === key);
+      return row ? getNeighborBoardRows(rows, row) : [];
+    }
+    const minY = Math.min(...rows.map(row => Number(row.Y_pos)).filter(Number.isFinite));
+    const candidates = rows
+      .filter(row => Number(row.Y_pos) === minY)
+      .sort((a, b) => Number(a.X_pos) - Number(b.X_pos));
+    if (!previousGate) return candidates.slice(0, 1);
+    const gateX = Number(previousGate.X_pos);
+    const entry = candidates.find(row => Number(row.X_pos) === gateX)
+      || candidates.slice().sort((a, b) => Math.abs(Number(a.X_pos) - gateX) - Math.abs(Number(b.X_pos) - gateX))[0];
+    return entry ? [entry] : [];
+  }
+
+  function renderGlobalBoardCostSummary(costs, options = {}) {
+    const signed = options.signed !== false;
+    const emptyText = options.emptyText || 'コスト変更なし';
+    const ariaLabel = options.ariaLabel || '消費アイテム差分';
+    const items = [
+      ['gold', 'ゴールド', 'img/ゴールド.webp'],
+      ['lower', '下級くれよん', 'img/下級くれよん.webp'],
+      ['middle', '中級くれよん', 'img/中級くれよん.webp'],
+      ['upper', '上級くれよん', 'img/上級くれよん.webp'],
+      ['special', '特級くれよん', 'img/特級くれよん.webp'],
+      ['sharedToken', '★1共同教団証', 'img/★1共同教団証.webp'],
+      ['apostleToken', '使徒証', 'img/使徒証.webp']
+    ].filter(([key]) => costs[key]);
+    if (!items.length) return `<p class="empty-note board-global-cost-empty">${escapeHtml(emptyText)}</p>`;
+    return `
+      <div class="board-global-cost-summary" aria-label="${escapeAttr(ariaLabel)}">
+        ${items.map(([key, label, icon]) => `
+          <span class="board-global-cost-chip ${costs[key] < 0 ? 'is-negative' : ''}" title="${escapeAttr(label)}">
+            <img src="${escapeAttr(icon)}" alt="${escapeAttr(label)}">
+            <strong>${escapeHtml(signed ? formatSignedBoardValue(costs[key]) : formatNumber(costs[key]))}</strong>
+          </span>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderGlobalBoardEffectChangeMatrix(flat, percent) {
+    const hasChange = BOARD_GLOBAL_STAT_GROUPS.some(group =>
+      group.stats.some(key => (Number(flat[key]) || 0) || (Number(percent[key]) || 0))
+    );
+    if (!hasChange) return '<p class="empty-note board-global-cost-empty">全体効果変更なし</p>';
+    return `
+      <table class="board-global-stat-matrix board-global-change-matrix">
+        <thead>
+          <tr>
+            <th>差分</th>
+            <th title="上級マス"><img src="img/Board/Tileicon_2.webp" alt="上級"></th>
+            <th title="特殊マス"><img src="img/Board/Tileicon_3.webp" alt="特殊"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
+            <tr>
+              <th title="${escapeAttr(group.label)}"><img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}"></th>
+              <td>${renderSignedBoardGlobalGroupedValue(flat, group, '')}</td>
+              <td>${renderSignedBoardGlobalGroupedValue(percent, group, '%')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function renderSignedBoardGlobalGroupedValue(totals, group, suffix) {
+    const values = group.stats.map(key => Number(totals[key]) || 0);
+    if (values.length === 1 || values.every(value => value === values[0])) {
+      return values[0] ? `${formatSignedBoardValue(values[0])}${suffix}` : '0';
+    }
+    return values
+      .map((value, index) => `${group.parts?.[index] || ''}${value ? formatSignedBoardValue(value) : '0'}${suffix}`)
+      .join(' / ');
+  }
+
+  function addSignedBoardGlobalEffect(row, direction, flatTotals, percentTotals) {
+    [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+      const type = row[typeKey];
+      const value = (Number(row[valueKey]) || 0) * direction;
+      if (!type || !value) return;
+      addNamedStat(row.マス_type === '特殊' ? percentTotals : flatTotals, type, value);
+    });
+  }
+
+  function formatSignedStatSummary(totals, suffix) {
+    return TOTAL_LABELS
+      .map(item => {
+        const value = Number(totals[item.key]) || 0;
+        return value ? `${item.label}${formatSignedBoardValue(value)}${suffix}` : '';
+      })
+      .filter(Boolean)
+      .join(' / ');
+  }
+
+  function renderBoardSpecial(rows) {
+    if (!rows?.length) {
+      elements.boardSpecial.innerHTML = '';
+      return;
+    }
+    const html = [1, 2, 3].map(layer => {
+      const unlocked = isBoardLayerUnlocked(layer);
+      const shortcuts = rows
+        .filter(row => Number(row.ボード階層) === layer)
+        .filter(row => row.マス_type === '特殊')
+        .sort((a, b) => Number(a.Y_pos) - Number(b.Y_pos) || Number(a.X_pos) - Number(b.X_pos));
+      if (!shortcuts.length) return '';
+      const buttons = shortcuts.map(row => {
+        const typeClass = boardNodeClass(row);
+        const board = getBoardStateForLayer(layer);
+        const key = boardKey(row);
+        const selected = (board.targets || []).includes(key) || !!board.filled?.[key];
+        const committed = isCommittedBoardRowFilled(row);
+        const baseline = isBoardBaselineRowFilled(row);
+        const pending = selected !== baseline;
+        const pendingType = pending ? (selected ? 'is-pending-add' : 'is-pending-remove') : '';
+        const planned = view.boardEditMode === 'plan' && isPlannedBoardRowChanged(row);
+        const iconPath = getBoardIconPath(row, selected);
+        return `
+          <button
+            type="button"
+            class="board-shortcut ${typeClass} ${selected ? 'is-filled' : 'is-locked'} ${planned ? 'is-planned' : ''} ${pending ? 'is-pending' : ''} ${pendingType} ${unlocked ? '' : 'will-unlock'}"
+            data-board-shortcut-layer="${layer}"
+            data-board-shortcut-key="${escapeAttr(key)}"
+            title="${escapeAttr(formatBoardEffect(row))}"
+            style="--tile-base: url('${escapeAttr(getBoardTileBasePath(row, selected))}');"
+          >
+            ${iconPath ? `<img src="${escapeAttr(iconPath)}" alt="">` : ''}
+          </button>
+        `;
+      }).join('');
+      return `
+        <div class="board-shortcut-group shortcut-layer-${layer}">
+          <div class="board-shortcut-title">
+            <span class="board-shortcut-layer">B${layer}</span>
+            <span class="board-shortcut-rate">効果 ${layer + 2}%</span>
+          </div>
+          <div class="board-shortcut-list">${buttons}</div>
+        </div>
+      `;
+    }).join('');
+    elements.boardSpecial.innerHTML = html || '<p class="empty-note">ボードショートカットなし</p>';
+  }
+
+  function renderBoard(rows, totals, activeEffects, breakdown, globalPercentBonuses) {
+    const filtered = getCurrentBoardRows(rows);
+    if (!filtered.length) {
+      elements.boardGrid.innerHTML = '<p class="muted-line">ボード情報がありません。</p>';
+      return;
+    }
+    const boardState = currentBoardState();
+    const xValues = rows.map(row => Number(row.X_pos)).filter(Number.isFinite);
+    const yValues = rows.map(getBoardDisplayY).filter(Number.isFinite);
+    const minX = 1;
+    const maxX = Math.max(7, ...xValues);
+    const minY = 1;
+    const maxY = Math.max(...yValues);
+    const entry = getBoardEntryRow(filtered);
+    const hasVirtualStart = Number(view.board) > 1 && entry;
+    const boardUnlocked = isBoardLayerUnlocked(view.board);
+    const byPos = new Map(filtered.map(row => [`${Number(row.X_pos)}:${getBoardDisplayY(row)}`, row]));
+    const vertical = view.boardOrientation === 'vertical';
+    const positions = [];
+    if (vertical) {
+      for (let y = maxY; y >= minY; y--) {
+        for (let x = maxX; x >= minX; x--) positions.push([x, y]);
+      }
+    } else {
+      for (let x = maxX; x >= minX; x--) {
+        for (let y = minY; y <= maxY; y++) positions.push([x, y]);
+      }
+    }
+    const nodes = [];
+    positions.forEach(([x, y]) => {
+        if (hasVirtualStart && x === Number(entry.X_pos) && y === minY) {
+          nodes.push(`
+            <div class="board-node type-gate ${boardUnlocked ? 'is-filled' : 'is-locked'} is-virtual-start" title="${boardUnlocked ? '前階層ゲート' : '前階層ゲート（未解放）'}" style="--tile-base: url('img/Board/Tile_gate.webp');">
+            </div>
+          `);
+          return;
+        }
+        const row = byPos.get(`${x}:${y}`);
+        if (!row) {
+          nodes.push('<div class="board-node is-empty"></div>');
+          return;
+        }
+        const key = boardKey(row);
+        const filled = row.マス_type === 'スタート' || !!boardState.filled[key];
+        const committed = isCommittedBoardRowFilled(row);
+        const baseline = isBoardBaselineRowFilled(row);
+        const pending = filled !== baseline;
+        const pendingType = pending ? (filled ? 'is-pending-add' : 'is-pending-remove') : '';
+        const planned = view.boardEditMode === 'plan' && isPlannedBoardRowChanged(row);
+        const text = row.表示用 || formatBoardEffect(row);
+        const displayOn = filled;
+        const baseIcon = getBoardTileBasePath(row, displayOn);
+        const icon = getBoardIconPath(row, displayOn, view.boardOrientation);
+        nodes.push(`
+          <button type="button" class="board-node ${boardNodeClass(row)} ${filled ? 'is-filled' : 'is-locked'} ${planned ? 'is-planned' : ''} ${pending ? 'is-pending' : ''} ${pendingType}" data-node-key="${escapeAttr(key)}" title="${escapeAttr(text)}" style="--tile-base: url('${escapeAttr(baseIcon)}'); ${icon ? `--tile-icon: url('${escapeAttr(icon)}');` : ''}">
+            <span class="board-node-label">${escapeHtml(shortBoardLabel(row))}</span>
+          </button>
+        `);
+    });
+    const columnCount = vertical ? maxX - minX + 1 : maxY - minY + 1;
+    const rowCount = vertical ? maxY - minY + 1 : maxX - minX + 1;
+    elements.boardGrid.style.gridTemplateColumns = `repeat(${columnCount}, var(--board-cell-size))`;
+    elements.boardGrid.style.gridTemplateRows = `repeat(${rowCount}, var(--board-cell-size))`;
+    elements.boardGrid.innerHTML = nodes.join('');
+    renderBoardDraftSummary(rows);
+    renderBoardFloatingSummary(rows);
+    renderBoardSelectionSummary(rows);
+  }
+
+  function renderBoardPersonalProgress(rows) {
+    const layer = ['1', '2', '3'].includes(String(view.boardPersonalProgressLayer))
+      ? String(view.boardPersonalProgressLayer)
+      : 'all';
+    view.boardPersonalProgressLayer = layer;
+    const boards = getBoardPersonalProgressBoards();
+    const filtered = (rows || []).filter(row => (
+      (layer === 'all' || String(row.ボード階層) === layer)
+      && ['通常', '上級', '特殊'].includes(String(row.マス_type || ''))
+    ));
+    const typeCounts = {
+      lower: { label: '下級', filled: 0, total: 0 },
+      advanced: { label: '上級', filled: 0, total: 0 },
+      special: { label: '特殊', filled: 0, total: 0 }
+    };
+    const effectCounts = new Map();
+
+    filtered.forEach(row => {
+      const filled = !!boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+      const typeKey = row.マス_type === '通常' ? 'lower' : row.マス_type === '上級' ? 'advanced' : 'special';
+      typeCounts[typeKey].total += 1;
+      if (filled) typeCounts[typeKey].filled += 1;
+      Array.from(new Set([row.効果1_type, row.効果2_type]
+        .map(value => normalizeBoardProgressEffectName(value, typeKey))
+        .filter(Boolean)))
+        .forEach(name => {
+          const effectKey = `${typeKey}:${name}`;
+          if (!effectCounts.has(effectKey)) effectCounts.set(effectKey, { name, typeKey, filled: 0, total: 0 });
+          const count = effectCounts.get(effectKey);
+          count.total += 1;
+          if (filled) count.filled += 1;
+        });
+    });
+
+    const modeLabel = hasBoardDraft()
+      ? '編集中'
+      : view.boardEditMode === 'plan' ? '予定' : '現在';
+    const effects = Array.from(effectCounts.values()).sort(compareBoardProgressEffects);
+    const effectGroups = [
+      { key: 'lower', label: '下級', note: '個別ステータス' },
+      { key: 'advanced', label: '上級', note: '全体加算' },
+      { key: 'special', label: '特殊', note: '全体％' }
+    ].map(group => ({
+      ...group,
+      effects: effects.filter(effect => effect.typeKey === group.key)
+    }));
+    return `
+      <section class="board-personal-progress" aria-label="個別ボード達成率">
+      <div class="board-personal-progress-head">
+        <div><strong>ボード達成率</strong><span>${escapeHtml(modeLabel)}</span></div>
+        <div class="board-personal-progress-tabs" role="tablist" aria-label="集計範囲">
+          ${[['all', '全体'], ['1', 'B1'], ['2', 'B2'], ['3', 'B3']].map(([value, label]) => `
+            <button type="button" role="tab" class="${layer === value ? 'is-active' : ''}"
+              aria-selected="${layer === value}" data-board-personal-progress-layer="${value}">${label}</button>
+          `).join('')}
+        </div>
+      </div>
+      <div class="board-personal-effect-progress">
+        <h3>効果別達成率</h3>
+        <div class="board-personal-progress-columns">
+          ${effectGroups.map(group => renderBoardPersonalProgressColumn(group, typeCounts[group.key])).join('')}
+        </div>
+      </div>
+      </section>
+    `;
+  }
+
+  function getBoardPersonalProgressBoards() {
+    if (snapshotBoardOverride) return snapshotBoardOverride;
+    if (hasBoardDraft()) return boardDraft.boards || {};
+    return getBoardEditBaselineBoards();
+  }
+
+  function normalizeBoardProgressEffectName(value, typeKey = 'lower') {
+    const name = String(value || '').trim().replace(/^全体/, '');
+    if (!name || ['スタート', 'ゲート'].includes(name)) return '';
+    const normalized = name.replace('会心ダメージ', '会心DMG');
+    if (typeKey !== 'lower') {
+      if (normalized === '物理攻撃力' || normalized === '魔法攻撃力') return '攻撃力';
+      if (normalized === '物理防御力' || normalized === '魔法防御力') return '防御力';
+      if (normalized === '会心' || normalized === '会心DMG') return '会心系';
+      if (normalized === '会心抵抗' || normalized === '会心DMG抵抗') return '会心抵抗系';
+    }
+    return normalized;
+  }
+
+  function compareBoardProgressEffects(a, b) {
+    const typeOrder = ['lower', 'advanced', 'special'];
+    const typeDiff = typeOrder.indexOf(a.typeKey) - typeOrder.indexOf(b.typeKey);
+    if (typeDiff) return typeDiff;
+    const order = [
+      'HP', '攻撃力', '物理攻撃力', '魔法攻撃力', '防御力', '物理防御力', '魔法防御力',
+      '会心系', '会心', '会心DMG', '会心抵抗系', '会心抵抗', '会心DMG抵抗'
+    ];
+    const aIndex = order.indexOf(a.name);
+    const bIndex = order.indexOf(b.name);
+    if (aIndex !== bIndex) {
+      if (aIndex < 0) return 1;
+      if (bIndex < 0) return -1;
+      return aIndex - bIndex;
+    }
+    return a.name.localeCompare(b.name, 'ja');
+  }
+
+  function renderBoardPersonalEffectProgressGroup(group) {
+    return `
+      <section class="board-personal-effect-progress-group is-${escapeAttr(group.key)}">
+        <div class="board-personal-effect-progress-group-head">
+          <img src="img/Board/${group.key === 'lower' ? 'Tileicon_1.webp' : group.key === 'advanced' ? 'Tileicon_2.webp' : 'Tileicon_3.webp'}" alt="">
+          <strong>${escapeHtml(group.label)}</strong>
+          <span>${escapeHtml(group.note)}</span>
+        </div>
+        <div class="board-personal-effect-progress-list">
+          ${group.effects.map(renderBoardPersonalEffectProgress).join('')}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderBoardPersonalProgressColumn(group, count) {
+    return `
+      <section class="board-personal-progress-column is-${escapeAttr(group.key)}">
+        ${renderBoardPersonalProgressRing(group.key, count)}
+        ${renderBoardPersonalEffectProgressGroup(group)}
+      </section>
+    `;
+  }
+
+  function renderBoardPersonalProgressRing(key, value) {
+    const percent = value.total ? value.filled / value.total * 100 : 0;
+    return `
+      <article class="board-personal-progress-ring-item is-${escapeAttr(key)}">
+        <div class="board-personal-progress-ring" style="--board-personal-progress:${Math.max(0, Math.min(100, percent)).toFixed(2)}"
+          role="progressbar" aria-label="${escapeAttr(value.label)}" aria-valuemin="0"
+          aria-valuemax="${escapeAttr(value.total)}" aria-valuenow="${escapeAttr(value.filled)}">
+          <span><strong>${formatBoardProgressPercent(percent)}</strong><small>${formatNumber(value.filled)}/${formatNumber(value.total)}</small></span>
+        </div>
+        <b>${escapeHtml(value.label)}</b>
+      </article>
+    `;
+  }
+
+  function renderBoardPersonalEffectProgress(value) {
+    const percent = value.total ? value.filled / value.total * 100 : 0;
+    const meta = getBoardPersonalEffectMeta(value.name);
+    return `
+      <div class="board-personal-effect-progress-row is-${escapeAttr(meta.tone)}" title="${escapeAttr(value.name)}">
+        <span class="board-personal-effect-progress-label">
+          <img src="img/Board/${escapeAttr(meta.icon)}" alt="${escapeAttr(value.name)}">
+          <strong>${escapeHtml(value.name)}</strong>
+        </span>
+        <span class="board-personal-effect-progress-track" role="progressbar" aria-label="${escapeAttr(value.name)}"
+          aria-valuemin="0" aria-valuemax="${escapeAttr(value.total)}" aria-valuenow="${escapeAttr(value.filled)}">
+          <span style="--board-personal-progress:${Math.max(0, Math.min(100, percent)).toFixed(2)}%"></span>
+        </span>
+        <span class="board-personal-effect-progress-value"><strong>${formatNumber(value.filled)}/${formatNumber(value.total)}</strong><small>${formatBoardProgressPercent(percent)}</small></span>
+      </div>
+    `;
+  }
+
+  function getBoardPersonalEffectMeta(name) {
+    const map = {
+      HP: ['hp', 'Tile_Hp_On.webp'],
+      '攻撃力': ['attack', 'Tile_AtkBoth_On.webp'],
+      '物理攻撃力': ['attack', 'Tile_AtkP_On.webp'],
+      '魔法攻撃力': ['attack', 'Tile_AtkM_On.webp'],
+      '防御力': ['defense', 'Tile_DefBoth_On.webp'],
+      '物理防御力': ['defense', 'Tile_DefP_On.webp'],
+      '魔法防御力': ['defense', 'Tile_DefM_On.webp'],
+      '会心系': ['crit', 'Tile_CritBoth_On.webp'],
+      '会心': ['crit', 'Tile_Crit_On.webp'],
+      '会心DMG': ['crit', 'Tile_CritDMG_On.webp'],
+      '会心抵抗系': ['resist', 'Tile_CritResBoth_On.webp'],
+      '会心抵抗': ['resist', 'Tile_CritiRes_On.webp'],
+      '会心DMG抵抗': ['resist', 'Tile_CritiDMGRes_On.webp']
+    };
+    const [tone, icon] = map[name] || ['other', 'Tileicon_1.webp'];
+    return { tone, icon };
+  }
+
+  function getBoardDisplayY(row) {
+    const y = Number(row?.Y_pos);
+    if (!Number.isFinite(y)) return y;
+    return y + (Number(row?.ボード階層) > 1 ? 1 : 0);
+  }
+
+  function applyBondBonus(totals, level, activeEffects, breakdown) {
+    const values = getBondBonusValues(level);
+    if (!values) return;
+    [
+      ['crit', values.crit],
+      ['critDmg', values.critDmg],
+      ['critRes', values.critRes],
+      ['critDmgRes', values.critDmgRes]
+    ].forEach(([key, value]) => {
+      addStatValue(totals, key, value);
+      addSourceStat(breakdown, 'bond', key, value);
+    });
+    activeEffects.push(`好感度Lv${level} 会心+${values.crit} / 会心DMG+${values.critDmg} / 会心抵抗+${values.critRes} / 会心DMG抵抗+${values.critDmgRes}`);
+  }
+
+  function getBondBonusValues(level) {
+    const levelValue = Number(level) || 0;
+    if (!levelValue) return null;
+    const row = DATA.sheets.bondBonuses.find(item => {
+      const rawLevel = String(item.好感度Lv || '').replace(/[^\d]/g, '');
+      return Number(rawLevel) === levelValue;
+    });
+    if (row) {
+      return {
+        crit: Number(row.会心) || 0,
+        critDmg: Number(row.会心DMG) || 0,
+        critRes: Number(row.会心抵抗) || 0,
+        critDmgRes: Number(row.会心DMG抵抗) || 0
+      };
+    }
+    const fallback = 31 * levelValue;
+    return {
+      crit: fallback,
+      critDmg: fallback,
+      critRes: fallback,
+      critDmgRes: fallback
+    };
+  }
+
+  function applyAsideManifestBonus(basic, totals, activeEffects, breakdown) {
+    if (!isPublicAsideEnabled(basic?.id)) return;
+    const state = currentApostleState();
+    const rank = Number(state.asideRank) || 0;
+    const level = Number(state.asideLevel) || 0;
+    if (!rank) return;
+    const result = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
+    if (!result) {
+      activeEffects.push(`A${rank} ステータス補正(詳細未設定)`);
+      return;
+    }
+
+    const attackKey = basic?.攻撃タイプ === '物理' ? 'patk' : 'matk';
+    ['hp', attackKey, 'pdef', 'mdef'].forEach(key => {
+      addStatValue(totals, key, result.total[key]);
+      addSourceStat(breakdown, 'asideManifest', key, result.base[key]);
+      addSourceStat(breakdown, 'asideLevel', key, result.growth[key]);
+    });
+
+    const attackLabel = basic?.攻撃タイプ === '物理' ? '物理攻撃' : '魔法攻撃';
+    activeEffects.push(`A${rank} Lv${level}(×${result.multiplier}) HP+${result.total.hp} / ${attackLabel}+${result.total[attackKey]} / 物防+${result.total.pdef} / 魔防+${result.total.mdef}`);
+  }
+
+  function getAsideManifestBonus(basic) {
+    if (!basic) return null;
+    const state = currentApostleState();
+    const contribution = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
+    if (!contribution) return null;
+    const key = basic.攻撃タイプ === '物理' ? 'patk' : 'matk';
+    return { hp: contribution.base.hp, attack: contribution.base[key], pdef: contribution.base.pdef, mdef: contribution.base.mdef };
+  }
+
+  function calculateAsideLevelBonus(basic, level, rank) {
+    if (!basic) return null;
+    const contribution = TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, { asideLevel: level, asideRank: rank });
+    if (!contribution) return null;
+    const key = basic.攻撃タイプ === '物理' ? 'patk' : 'matk';
+    return { hp: contribution.growth.hp, attack: contribution.growth[key], pdef: contribution.growth.pdef, mdef: contribution.growth.mdef, multiplier: contribution.multiplier, growthLevels: Math.max(0, level - 1) };
+  }
+
+  function getAsideStatTiers(basic) {
+    const override = DATA.getById('asideTiers', basic?.id);
+    const attackFields = getAsideAttackFieldNames(basic);
+    return {
+      hp: Number(override?.HPタイプ) || 0,
+      attack: Number(override?.[attackFields.tier]) || Number(override?.攻撃力タイプ) || 0,
+      pdef: Number(override?.物理防御力タイプ) || 0,
+      mdef: Number(override?.魔法防御力タイプ) || 0
+    };
+  }
+
+  function renderBoardDraftSummary(rows) {
+    elements.boardDraftSummary.innerHTML = getBoardDraftSummarySections(rows).join('');
+  }
+
+  function getBoardDraftSummarySections(rows) {
+    const sections = [];
+    const state = currentApostleState();
+    if (view.boardEditMode === 'plan' && hasSavedBoardPlan()) {
+      const summary = collectBoardChangeSummary(rows, state.plannedBoards, state.boards);
+      if (summary.changed.length) {
+        sections.push(renderBoardChangeSection('変更予定', '保存済み', 'saved', summary));
+      }
+    }
+    if (hasBoardDraft()) {
+      const summary = collectBoardChangeSummary(rows, boardDraft.boards, getBoardEditBaselineBoards());
+      if (summary.changed.length) {
+        sections.push(renderBoardChangeSection('編集中', '未保存', 'editing', summary));
+      }
+    }
+    return sections;
+  }
+
+  function renderBoardFloatingSummary(rows) {
+    if (!elements.boardFloatingSummary) return;
+    const sections = getBoardDraftSummarySections(rows);
+    const draftChanged = hasBoardDraftChanges();
+    const canCancel = hasBoardDraft() || (view.boardEditMode === 'plan' && hasSavedBoardPlan());
+    const cancelLabel = hasBoardDraft()
+      ? '編集を取消'
+      : (view.boardEditMode === 'plan' && hasSavedBoardPlan() ? '予定を削除' : '変更を取消');
+    const hasChanges = sections.length > 0;
+    elements.boardFloatingSummary.innerHTML = `
+      <div class="board-global-floating-host board-floating-host">
+        <div class="board-global-floating-dock board-floating-dock ${hasChanges ? 'has-changes' : 'is-empty'}">
+          <span class="board-global-floating-mode" aria-label="ボード編集モード">
+            <button type="button" class="${view.boardEditMode === 'current' ? 'is-active' : ''}" data-board-floating-mode="current">現在</button>
+            <button type="button" class="${view.boardEditMode === 'plan' ? 'is-active' : ''}" data-board-floating-mode="plan">予定</button>
+          </span>
+          <button type="button" class="board-shortcut-off-toggle board-global-shortcut-off-toggle ${view.boardShortcutOffMode === 'route' ? 'is-route' : ''}" data-board-shortcut-off-toggle>
+            ${view.boardShortcutOffMode === 'route' ? 'OFF時: 経路整理' : 'OFF時: マスのみ'}
+          </button>
+          <details class="board-global-floating-summary">
+            <summary title="変更内容">i</summary>
+            <div class="board-global-floating-panel">
+              ${hasChanges ? sections.join('') : '<p class="empty-note board-global-no-change">現在状態からの変更はありません。</p>'}
+            </div>
+          </details>
+          <button type="button" class="board-floating-cancel-button" data-board-floating-action="cancel"
+            title="${cancelLabel}" aria-label="${cancelLabel}"${canCancel ? '' : ' disabled'}>
+            ${renderUiIcon('close')}<small>取消</small>
+          </button>
+          <details class="board-global-floating-save">
+            <summary title="保存・反映" aria-label="保存・反映">${renderUiIcon('save')}</summary>
+            <div class="board-global-floating-save-panel">
+              ${renderBoardFloatingActions({ draftChanged, canCancel })}
+            </div>
+          </details>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderBoardFloatingActions({ draftChanged, canCancel }) {
+    const planMode = view.boardEditMode === 'plan';
+    const saveDisabled = draftChanged ? '' : ' disabled';
+    const currentDisabled = !planMode && draftChanged ? '' : ' disabled';
+    const applyPlanDisabled = planMode && (draftChanged || hasSavedBoardPlan()) ? '' : ' disabled';
+    return `
+      <div class="board-global-summary-actions board-global-summary-actions-floating" aria-label="ボード変更操作">
+        <button type="button" class="plan" data-board-floating-action="plan"${saveDisabled}>${planMode ? '予定を保存' : (hasSavedBoardPlan() ? '予定に追加保存' : '予定として保存')}</button>
+        ${planMode
+          ? `<button type="button" class="primary" data-board-floating-action="apply-plan-current"${applyPlanDisabled}>予定を現在に反映</button>`
+          : `<button type="button" class="primary" data-board-floating-action="current"${currentDisabled}>現在状態に反映</button>`}
+      </div>
+    `;
+  }
+
+  function collectBoardChangeSummary(rows, targetBoards, baselineBoards = currentApostleState().boards) {
+    const changed = rows
+      .filter(row => row.マス_type !== 'スタート')
+      .map(row => {
+        const layer = String(row.ボード階層);
+        const committed = !!baselineBoards?.[layer]?.filled?.[boardKey(row)];
+        const target = !!targetBoards?.[layer]?.filled?.[boardKey(row)];
+        return committed === target ? null : { row, direction: target ? 1 : -1 };
+      })
+      .filter(Boolean);
+    const costs = {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+    const effectGroups = {
+      special: new Map(),
+      advanced: new Map(),
+      lower: new Map()
+    };
+    let added = 0;
+    let removed = 0;
+
+    changed.forEach(({ row, direction }) => {
+      if (direction > 0) added += 1;
+      else removed += 1;
+      costs.gold += (Number(row.ゴールド) || 0) * direction;
+      costs.lower += (Number(row.下級) || 0) * direction;
+      costs.middle += (Number(row.中級) || 0) * direction;
+      costs.upper += (Number(row.上級) || 0) * direction;
+      costs.special += (Number(row.特級) || 0) * direction;
+      costs.sharedToken += getBoardSharedTokenCost(row, view.id) * direction;
+      costs.apostleToken += getBoardApostleTokenCost(row, view.id) * direction;
+      addBoardSummaryEffect(effectGroups, row.効果1_type, (Number(row.効果1_value) || 0) * direction, row.マス_type);
+      addBoardSummaryEffect(effectGroups, row.効果2_type, (Number(row.効果2_value) || 0) * direction, row.マス_type);
+    });
+    return { changed, costs, effectGroups, added, removed };
+  }
+
+  function renderBoardChangeSection(title, status, type, summary) {
+    return `
+      <section class="board-change-section is-${type}">
+      <div class="board-draft-head">
+        <div class="board-draft-title">
+            <strong>${title}</strong>
+            <span class="${type === 'saved' ? 'board-plan-saved' : 'board-plan-unsaved'}">${status}</span>
+        </div>
+          <span>追加 ${summary.added}マス${summary.removed ? ` / 解除 ${summary.removed}マス` : ''}</span>
+      </div>
+      <div class="summary-table-grid">
+          ${renderBoardDraftCostSummary(summary.costs)}
+          ${renderBoardDraftEffectMatrix(summary.effectGroups)}
+      </div>
+      </section>
+    `;
+  }
+
+  function renderBoardDraftCostSummary(costs) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const apostleName = basic?.使徒名 || view.id;
+    const normalized = {
+      gold: costs.gold,
+      lower: costs.lower,
+      middle: costs.middle,
+      upper: costs.upper,
+      special: costs.special,
+      sharedToken: costs.sharedToken,
+      apostleToken: costs.apostleToken
+    };
+    const html = renderGlobalBoardCostSummary(normalized);
+    if (!costs.apostleToken) return html;
+    return html.replace('title="使徒証"', `title="使徒証（${escapeAttr(apostleName)}）"`);
+  }
+
+  function renderBoardDraftEffectMatrix(effectGroups, options = {}) {
+    const title = options.title || '差分';
+    const lower = createEmptyTotals();
+    const advanced = createEmptyTotals();
+    const special = createEmptyTotals();
+    addBoardEffectGroupToTotals(lower, effectGroups.lower);
+    addBoardEffectGroupToTotals(advanced, effectGroups.advanced);
+    addBoardEffectGroupToTotals(special, effectGroups.special);
+    const hasChange = BOARD_GLOBAL_STAT_GROUPS.some(group =>
+      group.stats.some(key => (Number(lower[key]) || 0) || (Number(advanced[key]) || 0) || (Number(special[key]) || 0))
+    );
+    if (!hasChange) return '<p class="empty-note board-global-cost-empty">ステータス変更なし</p>';
+    return `
+      <table class="board-global-stat-matrix board-global-change-matrix board-draft-change-matrix">
+        <thead>
+          <tr>
+            <th>${escapeHtml(title)}</th>
+            <th title="通常マス"><img src="img/Board/Tileicon_1.webp" alt="通常"></th>
+            <th title="上級マス"><img src="img/Board/Tileicon_2.webp" alt="上級"></th>
+            <th title="特殊マス"><img src="img/Board/Tileicon_3.webp" alt="特殊"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${BOARD_GLOBAL_STAT_GROUPS.map(group => `
+            <tr>
+              <th title="${escapeAttr(group.label)}"><img src="img/Board/${escapeAttr(group.icon)}" alt="${escapeAttr(group.label)}"></th>
+              <td>${renderSignedBoardGlobalGroupedValue(lower, group, '')}</td>
+              <td>${renderSignedBoardGlobalGroupedValue(advanced, group, '')}</td>
+              <td>${renderSignedBoardGlobalGroupedValue(special, group, '%')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function addBoardEffectGroupToTotals(totals, group) {
+    if (!group) return;
+    Array.from(group.entries()).forEach(([type, value]) => {
+      addNamedStat(totals, type, Number(value) || 0);
+    });
+  }
+
+  function renderBoardDraftCostTable(costs) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const items = [
+      ['ゴールド', costs.gold],
+      ['下級くれよん', costs.lower],
+      ['中級くれよん', costs.middle],
+      ['上級くれよん', costs.upper],
+      ['特級くれよん', costs.special],
+      ['★1共同教団証', costs.sharedToken],
+      [`使徒証（${basic?.使徒名 || view.id}）`, costs.apostleToken]
+    ].filter(([, value]) => value);
+    return renderCompactTable(
+      ['消費アイテム', '変更分'],
+      items.map(([label, value]) => [label, formatSignedBoardValue(value)]),
+      { firstColumnHeader: true, valueColumn: 1, emptyText: 'コスト変更なし' }
+    );
+  }
+
+  function renderBoardDraftEffectTable(effectGroups) {
+    const groups = [
+      { key: 'special', label: '特殊マス効果', className: 'is-special', suffix: '%' },
+      { key: 'advanced', label: '上級マス効果', className: 'is-advanced', suffix: '' },
+      { key: 'lower', label: '下級マス効果', className: 'is-lower', suffix: '' }
+    ];
+    const rows = groups.map(group => {
+      const effects = Array.from(effectGroups[group.key].entries()).filter(([, value]) => value);
+      if (!effects.length) return '';
+      return `
+        <tr class="board-effect-group ${group.className}">
+          <th colspan="2">${group.label}</th>
+        </tr>
+        ${effects.map(([type, value]) => `
+          <tr>
+            <th>${escapeHtml(type)}</th>
+            <td class="value">${formatSignedBoardValue(value)}${group.suffix}</td>
+          </tr>
+        `).join('')}
+      `;
+    }).join('');
+    return rows
+      ? `<table class="compact-table board-effect-table"><thead><tr><th>ステータス</th><th>変更分</th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<p class="empty-note">ステータス変更なし</p>';
+  }
+
+  function formatSignedBoardValue(value) {
+    const numeric = Number(value) || 0;
+    return `${numeric > 0 ? '+' : ''}${formatBoardSummaryValue(numeric)}`;
+  }
+
+  function renderBoardSelectionSummary(rows) {
+    const progressHtml = renderBoardPersonalProgress(rows);
+    const layer = String(view.boardPersonalProgressLayer || 'all');
+    const scopedRows = layer === 'all'
+      ? rows
+      : rows.filter(row => String(row.ボード階層) === layer);
+    const selected = scopedRows.filter(row => row.マス_type !== 'スタート' && isBoardRowFilled(row));
+    const scopeLabel = layer === 'all' ? 'ボード1～3 合計' : `B${layer}`;
+    if (!selected.length) {
+      elements.boardSelectionSummary.innerHTML = `${progressHtml}<p class="empty-note board-current-summary-empty">${escapeHtml(scopeLabel)} 選択中マスなし</p>`;
+      return;
+    }
+
+    const costs = {
+      gold: 0,
+      lower: 0,
+      middle: 0,
+      upper: 0,
+      special: 0,
+      sharedToken: 0,
+      apostleToken: 0
+    };
+    const effectGroups = {
+      special: new Map(),
+      advanced: new Map(),
+      lower: new Map()
+    };
+
+    selected.forEach(row => {
+      costs.gold += Number(row.ゴールド) || 0;
+      costs.lower += Number(row.下級) || 0;
+      costs.middle += Number(row.中級) || 0;
+      costs.upper += Number(row.上級) || 0;
+      costs.special += Number(row.特級) || 0;
+      costs.sharedToken += getBoardSharedTokenCost(row, view.id);
+      costs.apostleToken += getBoardApostleTokenCost(row, view.id);
+      addBoardSummaryEffect(effectGroups, row.効果1_type, row.効果1_value, row.マス_type);
+      addBoardSummaryEffect(effectGroups, row.効果2_type, row.効果2_value, row.マス_type);
+    });
+
+    elements.boardSelectionSummary.innerHTML = `
+      ${progressHtml}
+      <section class="board-current-summary">
+        <div class="summary-count">${escapeHtml(scopeLabel)} ${selected.length}マス選択中</div>
+        <div class="summary-table-grid">
+          ${renderBoardCostTable(costs)}
+          ${renderBoardEffectTable(effectGroups)}
+        </div>
+      </section>
+    `;
+  }
+
+  function renderBoardCostTable(costs) {
+    const basic = DATA.getById('basicInfo', view.id);
+    const apostleName = basic?.使徒名 || view.id;
+    const items = [
+      { label: 'ゴールド', value: costs.gold, icon: 'img/ゴールド.webp' },
+      { label: '下級くれよん', value: costs.lower, icon: 'img/下級くれよん.webp' },
+      { label: '中級くれよん', value: costs.middle, icon: 'img/中級くれよん.webp' },
+      { label: '上級くれよん', value: costs.upper, icon: 'img/上級くれよん.webp' },
+      { label: '特級くれよん', value: costs.special, icon: 'img/特級くれよん.webp' },
+      { label: '★1共同教団証', value: costs.sharedToken, icon: 'img/★1共同教団証.webp' },
+      {
+        label: `使徒証（${apostleName}）`,
+        value: costs.apostleToken,
+        apostleToken: true
+      }
+    ].filter(item => item.value);
+
+    if (!items.length) return '<p class="empty-note">コストなし</p>';
+    return `
+      <table class="compact-table board-cost-table">
+        <thead><tr><th>消費アイテム</th><th>必要数</th></tr></thead>
+        <tbody>
+          ${items.map(item => `
+            <tr>
+              <th>
+                <span class="board-cost-item">
+                  ${item.apostleToken
+                    ? `<span class="board-apostle-token" aria-hidden="true">
+                        <img class="board-apostle-token-bg" src="img/使徒証_背景.webp" alt="">
+                        <span class="board-apostle-token-photo">
+                          <img data-apostle-image class="board-apostle-token-chara" src="${escapeAttr(getApostleImagePath(view.id))}" alt="" draggable="false">
+                        </span>
+                      </span>`
+                    : `<img class="board-cost-icon" src="${escapeAttr(item.icon)}" alt="">`}
+                  <span>${escapeHtml(item.label)}</span>
+                </span>
+              </th>
+              <td class="value">${formatNumber(item.value)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+
+  function addBoardSummaryEffect(effectGroups, type, value, tileType) {
+    const numeric = Number(value) || 0;
+    if (!type || !numeric || type === 'ゲート') return;
+    const groupKey = tileType === '特殊' ? 'special' : tileType === '上級' ? 'advanced' : 'lower';
+    const effects = effectGroups[groupKey];
+    effects.set(type, (effects.get(type) || 0) + numeric);
+  }
+
+  function renderBoardEffectTable(effectGroups) {
+    const groups = [
+      { key: 'special', label: '特殊マス効果', className: 'is-special', suffix: '%' },
+      { key: 'advanced', label: '上級マス効果', className: 'is-advanced', suffix: '' },
+      { key: 'lower', label: '下級マス効果', className: 'is-lower', suffix: '' }
+    ];
+    const rows = groups.map(group => {
+      const effects = Array.from(effectGroups[group.key].entries());
+      const effectRows = effects.length
+        ? effects.map(([type, value]) => `
+            <tr>
+              <th>${escapeHtml(type)}</th>
+              <td class="value">+${formatBoardSummaryValue(value)}${group.suffix}</td>
+            </tr>
+          `).join('')
+        : `
+            <tr class="board-effect-empty">
+              <td colspan="2">効果なし</td>
+            </tr>
+          `;
+      return `
+        <tr class="board-effect-group ${group.className}">
+          <th colspan="2">${group.label}</th>
+        </tr>
+        ${effectRows}
+      `;
+    }).join('');
+
+    return `
+      <table class="compact-table board-effect-table">
+        <thead><tr><th>ステータス</th><th>上昇値</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+  }
+
+  function formatBoardSummaryValue(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  }
+
+  function applyBoardRow(totals, row, activeEffects, breakdown, globalPercentBonuses) {
+    [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+      const type = row[typeKey];
+      const value = Number(row[valueKey]) || 0;
+      if (!type || !value) return;
+      if (row.マス_type === '特殊') {
+        addNamedStat(globalPercentBonuses, type, value);
+        if (activeEffects) activeEffects.push(`ボード${row.ボード階層} ${type}+${value}%`);
+        return;
+      }
+      const flatValue = row.マス_type === '上級'
+        ? TRICKCAL_SHARED_STAT_ENGINE.commonFlatValue(value) : value;
+      addNamedStat(totals, type, flatValue);
+      addSourceNamedStat(
+        breakdown,
+        row.マス_type === '上級' ? 'boardAdvanced' : 'boardBasic',
+        type,
+        flatValue
+      );
+      if (activeEffects && (row.マス_type === '上級' || row.マス_type === '特殊')) {
+        activeEffects.push(`ボード${row.ボード階層} ${type}+${value}`);
+      }
+    });
+  }
+
+  function collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses) {
+    const otherGlobalFlat = createEmptyTotals();
+    const otherGlobalPercent = createEmptyTotals();
+    let otherCount = 0;
+    const boardMode = getBoardEffectMode();
+    DATA.sheets.basicInfo.forEach(basic => {
+      const rows = DATA.getById('board', basic.id) || [];
+      let hasOtherGlobal = false;
+      rows.forEach(row => {
+        const board = getBoardEffectStateForApostle(basic.id, row.ボード階層, boardMode);
+        const filled = row.マス_type === 'スタート' || !!board?.filled?.[boardKey(row)];
+        if (!filled) return;
+        const isCurrent = basic.id === view.id;
+        const isGlobalBoardEffect = row.マス_type === '上級' || row.マス_type === '特殊';
+        if (!isCurrent && !isGlobalBoardEffect) return;
+        applyBoardRow(totals, row, isCurrent ? activeEffects : null, breakdown, globalPercentBonuses);
+        if (!isCurrent && isGlobalBoardEffect) {
+          hasOtherGlobal = true;
+          addBoardRowToSummary(row, otherGlobalFlat, otherGlobalPercent);
+        }
+      });
+      if (hasOtherGlobal) otherCount += 1;
+    });
+
+    const flatSummary = formatStatSummary(otherGlobalFlat, '');
+    const percentSummary = formatStatSummary(otherGlobalPercent, '%');
+    const summary = [flatSummary, percentSummary].filter(Boolean).join(' / ');
+    if (summary) activeEffects.push(`他使徒ボード全体効果(${otherCount}使徒) ${summary}`);
+  }
+
+  function getBoardEffectMode() {
+    if (snapshotBoardMode) return snapshotBoardMode;
+    return isBoardGlobalPanelActive() ? view.boardGlobalMode : view.boardEditMode;
+  }
+
+  function isBoardGlobalPanelActive() {
+    const globalPanel = document.querySelector('[data-dashboard-panel="global"]');
+    const boardPanel = document.querySelector('[data-setting-panel="board-global"]');
+    return !!globalPanel?.classList.contains('is-active') && !!boardPanel?.classList.contains('is-active');
+  }
+
+  function getBoardEffectStateForApostle(id, layer, mode) {
+    const state = ensureApostleState(id);
+    const layerKey = String(layer);
+    if (id === view.id && !isBoardGlobalPanelActive()) {
+      return getBoardStateForLayer(layer);
+    }
+    if (globalBoardDrafts[id]?.mode === mode) {
+      return globalBoardDrafts[id].boards?.[layerKey];
+    }
+    const boards = mode === 'plan'
+      ? state.plannedBoards || state.boards || {}
+      : state.boards || {};
+    return boards[layerKey];
+  }
+
+  function addBoardRowToSummary(row, flatTotals, percentTotals) {
+    [['効果1_type', '効果1_value'], ['効果2_type', '効果2_value']].forEach(([typeKey, valueKey]) => {
+      const type = row[typeKey];
+      const value = Number(row[valueKey]) || 0;
+      if (!type || !value) return;
+      addNamedStat(row.マス_type === '特殊' ? percentTotals : flatTotals, type, value);
+    });
+  }
+
+  function collectFollowGlobalPercent(activeEffects) {
+    if (!currentApostleState().follow) return;
+    const followPercent = 3;
+    activeEffects.push(`フォロー 全ステータス+${followPercent}%`);
+  }
+
+  function collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects) {
+    const effectTotals = createEmptyTotals();
+    let count = 0;
+    DATA.sheets.basicInfo.forEach(basic => {
+      if (!isPublicAsideEnabled(basic.id)) return;
+      const state = ensureApostleState(basic.id);
+      if ((Number(state.asideRank) || 0) < 3) return;
+      const entries = collectAsideLevel3Entries(basic.id);
+      if (!entries.length) return;
+      count += 1;
+      entries.forEach(entry => {
+        addNamedStat(globalPercentBonuses, entry.name, entry.value);
+        addNamedStat(effectTotals, entry.name, entry.value);
+      });
+    });
+    if (!count) return;
+
+    const summary = TOTAL_LABELS
+      .map(item => ({ label: item.label, value: Number(effectTotals[item.key]) || 0 }))
+      .filter(item => item.value)
+      .map(item => `${item.label}+${formatBoardSummaryValue(item.value)}%`)
+      .join(' / ');
+    activeEffects.push(`A3全体効果(${count}使徒) ${summary}`);
+  }
+
+  function collectAsideLevel3Entries(id) {
+    const rows = DATA.getById('asideStatEffects', id) || [];
+    return rows
+      .filter(row => getAsideEffectRank(row) === 3 && String(row.ステ適用 || '').includes('全体'))
+      .map(row => ({
+        name: String(row.ステ能力値 || '').trim(),
+        value: Number(row['上昇%']) || 0
+      }))
+      .filter(entry => entry.name && entry.value);
+  }
+
+  function hasAsideEffects(id) {
+    return isPublicAsideEnabled(id)
+      && (!!(DATA.getById('asideStatEffects', id) || []).length
+        || !!(DATA.getById('asideSpecialEffects', id) || []).length);
+  }
+
+  function getAsideEffectRank(row) {
+    return Number(row.SLv ?? row.Lv) || 0;
+  }
+
+  function applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates) {
+    const entries = TOTAL_LABELS
+      .map(item => ({ key: item.key, label: item.label, percent: Number(globalPercentBonuses[item.key]) || 0 }))
+      .filter(item => item.percent);
+    entries.forEach(item => {
+      addStatValue(globalPercentRates, item.key, item.percent);
+    });
+    const basic = DATA.getById('basicInfo', view.id);
+    const combined = TRICKCAL_SHARED_STAT_ENGINE.calculateFinalInternalTotals(
+      DATA, basic, currentApostleState(), breakdown, globalPercentRates
+    );
+    if (combined) TOTAL_LABELS.forEach(item => {
+      totals[item.key] = combined.totals[item.key];
+      breakdown.globalPercent[item.key] = combined.increases[item.key];
+    });
+    if (entries.length) {
+      const summary = entries.map(item => `${item.label}+${formatBoardSummaryValue(item.percent)}%`).join(' / ');
+      activeEffects.push(`全体補正 ${summary}`);
+    }
+  }
+
+  function updateStatSnapshots(basic, totals, breakdown, globalPercentRates) {
+    if (!basic?.id) return;
+    const state = currentApostleState();
+    if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+    state.statSnapshots.current = createStatSnapshot('current', totals, breakdown, globalPercentRates);
+    const planned = createPlannedStatSnapshotIfNeeded(basic, state);
+    if (planned) state.statSnapshots.planned = planned;
+    else delete state.statSnapshots.planned;
+    state.finalStats = state.statSnapshots.current.stats;
+    updateTotalCombatPowerFromSnapshots();
+    updateProfileCombatPowerDisplay(state.statSnapshots.current.stats.combatPower);
+    updateFormationCoinSummary();
+  }
+
+  function refreshSingleStatSnapshotImmediately(basic) {
+    if (!basic?.id) return;
+    const state = ensureApostleState(basic.id);
+    const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
+    if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+    state.statSnapshots.current = current;
+    const planned = hasAnySavedBoardPlan() ? createPlannedStatSnapshot(basic, state, current) : null;
+    if (planned) state.statSnapshots.planned = planned;
+    else delete state.statSnapshots.planned;
+    state.finalStats = current.stats;
+    updateTotalCombatPowerFromSnapshots();
+    if (basic.id === view.id) {
+      updateProfileCombatPowerDisplay(current.stats.combatPower);
+    }
+    updateFormationCoinSummary();
+  }
+
+  function refreshAllStatSnapshots() {
+    if (isRefreshingStatSnapshots) return;
+    refreshStatSnapshotsForRows(DATA.sheets.basicInfo || []);
+  }
+
+  function refreshStatSnapshotsForRows(rows = []) {
+    if (!rows.length || isRefreshingStatSnapshots) return;
+    isRefreshingStatSnapshots = true;
+    const hasAnyPlan = hasAnySavedBoardPlan();
+    try {
+      rows.forEach(basic => {
+        const state = ensureApostleState(basic.id);
+        const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
+        if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+        state.statSnapshots.current = current;
+        const planned = hasAnyPlan ? createPlannedStatSnapshot(basic, state, current) : null;
+        if (planned) state.statSnapshots.planned = planned;
+        else delete state.statSnapshots.planned;
+        state.finalStats = current.stats;
+      });
+      updateTotalCombatPowerFromSnapshots();
+      const currentId = view.id;
+      if (rows.some(basic => basic.id === currentId)) {
+        updateProfileCombatPowerDisplay(ensureApostleState(currentId).statSnapshots?.current?.stats?.combatPower);
+      }
+      updateFormationCoinSummary();
+    } finally {
+      isRefreshingStatSnapshots = false;
+    }
+  }
+
+  function createPlannedStatSnapshotIfNeeded(basic, state, currentSnapshot = state.statSnapshots?.current) {
+    if (!hasAnySavedBoardPlan()) return null;
+    return createPlannedStatSnapshot(basic, state, currentSnapshot);
+  }
+
+  function createPlannedStatSnapshot(basic, state, currentSnapshot = state.statSnapshots?.current) {
+    const currentBoards = cloneJson(state.boards || {});
+    const draftBoards = cloneJson(state.plannedBoards || state.boards || {});
+    const snapshot = calculateStatSnapshotForApostle(basic, state, draftBoards, 'planned');
+    snapshot.diff = diffTotals(snapshot.stats, currentSnapshot?.stats);
+    snapshot.boardDiff = createBoardSnapshotDiff(currentBoards, draftBoards, basic.id);
+    return snapshot;
+  }
+
+  function hasAnySavedBoardPlan() {
+    return (DATA.sheets.basicInfo || []).some(basic => {
+      const state = ensureApostleState(basic.id);
+      return !!state.plannedBoards && typeof state.plannedBoards === 'object';
+    });
+  }
+
+  function calculateStatSnapshotForApostle(basic, state, boardOverride, kind, options = {}) {
+    const boardMode = kind === 'planned' ? 'plan' : kind === 'current' ? 'current' : null;
+    return withTemporaryViewId(basic.id, () => withTemporaryApostleState(basic.id, state, () => withTemporaryApostleBoards(state, boardOverride || state.boards || {}, boardMode, () => {
+      const totals = createEmptyTotals();
+      const breakdown = createBreakdownTotals();
+      const globalPercentBonuses = createEmptyTotals();
+      const globalPercentRates = createEmptyTotals();
+      const activeEffects = [];
+      const equipment = DATA.getById('equipment', basic.id);
+
+      applyBaseStats(basic, totals, activeEffects, breakdown);
+      applyRankUpBonuses(basic, totals, activeEffects, breakdown);
+      applyEquipmentStatsForSnapshot(equipment, state, totals, breakdown);
+      applyBondBonus(totals, state.bond, activeEffects, breakdown);
+      applyAsideManifestBonus(basic, totals, activeEffects, breakdown);
+      applyAllRankGlobalBonuses(totals, activeEffects, breakdown);
+      applyResearchForSnapshot(basic, totals, breakdown);
+      collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
+      collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
+      applyGlobalPercentBonuses(totals, globalPercentBonuses, activeEffects, breakdown, globalPercentRates);
+      return createStatSnapshot(kind, totals, breakdown, globalPercentRates, basic, state, {
+        ...options,
+        boardOverride: boardOverride || state.boards || {}
+      });
+    })));
+  }
+
+  function createApostleCalculationState(id, overrides = {}) {
+    const base = cloneJson(ensureApostleState(id));
+    const patch = cloneJson(overrides);
+    const state = {
+      ...base,
+      ...patch
+    };
+    if (patch.equipment && typeof patch.equipment === 'object') {
+      state.equipment = { ...(base.equipment || {}), ...patch.equipment };
+    }
+    if (patch.skillLevels && typeof patch.skillLevels === 'object') {
+      state.skillLevels = { ...(base.skillLevels || {}), ...patch.skillLevels };
+    }
+    if (patch.boards) state.boards = cloneJson(patch.boards);
+    if (patch.plannedBoards) state.plannedBoards = cloneJson(patch.plannedBoards);
+    if (Object.prototype.hasOwnProperty.call(patch, 'grade')) state.gradeConfigured = true;
+    return normalizeApostleCalculationState(id, state);
+  }
+
+  function normalizeApostleCalculationState(id, state) {
+    const basic = DATA.getById('basicInfo', id);
+    state.rank = Math.max(1, Number(state.rank) || 1);
+    state.star = normalizeApostleStar(state.star || basic?.レア度 || 1);
+    state.grade = normalizeGrade(state.grade || 1);
+    state.level = normalizeApostleLevel(state.level, state.star);
+    state.bond = normalizeBondLevel(state.bond);
+    state.asideRank = getEffectiveAsideRank(id, state.asideRank);
+    state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+    state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+    state.equipment = state.equipment && typeof state.equipment === 'object' ? state.equipment : {};
+    state.boards = state.boards && typeof state.boards === 'object' ? state.boards : {};
+    if (state.plannedBoards && typeof state.plannedBoards !== 'object') delete state.plannedBoards;
+    state.statSnapshots = state.statSnapshots && typeof state.statSnapshots === 'object' ? state.statSnapshots : {};
+    return state;
+  }
+
+  function resolveSnapshotBoardOverride(state, options = {}) {
+    if (options.boards) return options.boards;
+    if (options.boardMode === 'planned') return state.plannedBoards || state.boards || {};
+    if (options.boardMode === 'current') return state.boards || {};
+    return null;
+  }
+
+  function calculateApostleStatsForEngine(id = view.id, overrides = {}, options = {}) {
+    const safeId = getValidApostleId(id);
+    const basic = DATA.getById('basicInfo', safeId);
+    if (!basic) return null;
+    const state = createApostleCalculationState(safeId, overrides);
+    const snapshot = calculateStatSnapshotForApostle(
+      basic,
+      state,
+      resolveSnapshotBoardOverride(state, options),
+      options.kind || 'override',
+      options
+    );
+    return {
+      apostleId: safeId,
+      basic: cloneJson(basic),
+      state: cloneJson(state),
+      snapshot
+    };
+  }
+
+  function createStatSnapshot(kind, totals, breakdown, globalPercentRates, basic = DATA.getById('basicInfo', view.id), state = currentApostleState(), options = {}) {
+    const stats = mapTotalsForSnapshot(totals);
+    const combatPowerTotals = options.combatPowerTotals === true
+      ? totals
+      : (options.combatPowerTotals || createCombatPowerTotalsAtGradeOne(basic, state, options.boardOverride));
+    const asideMissing = Number(state?.asideRank) > 0
+      && !TRICKCAL_SHARED_STAT_ENGINE.calculateAsideContribution(DATA, basic, state);
+    stats.combatPower = asideMissing ? null : calculateCombatPower(basic, state, combatPowerTotals || totals);
+    const snapshot = {
+      kind,
+      calculationVersion: asideMissing ? 0 : TRICKCAL_SHARED_STAT_ENGINE.snapshotCalculationVersion,
+      stats,
+      breakdown: cloneJson(breakdown),
+      globalPercentRates: mapTotalsForSnapshot(globalPercentRates, false),
+      internalTotals: cloneJson(totals),
+      updatedAt: new Date().toISOString()
+    };
+    return snapshot;
+  }
+
+  function getAsideAttackFieldNames(basic) {
+    const physical = String(basic?.攻撃タイプ || basic?.攻撃Type || '') === '物理';
+    return { tier: physical ? '物理攻撃力タイプ' : '魔法攻撃力タイプ' };
+  }
+
+  function createCombatPowerTotalsAtGradeOne(basic, state, boardOverride = null) {
+    if (!basic?.id || !state) return null;
+    const cpState = {
+      ...cloneJson(state),
+      grade: 1,
+      gradeConfigured: true
+    };
+    const snapshot = calculateStatSnapshotForApostle(
+      basic,
+      cpState,
+      boardOverride || cpState.boards || {},
+      'combatPower',
+      { combatPowerTotals: true, captureInternalTotals: true }
+    );
+    return snapshot?.internalTotals || null;
+  }
+
+  function calculateCombatPower(basic, state, totals) {
+    return TRICKCAL_SHARED_STAT_ENGINE.calculateCombatPower(basic, state, totals);
+  }
+
+  function mapTotalsForSnapshot(totals, truncate = true) {
+    const value = key => truncate ? Math.trunc(Number(totals?.[key]) || 0) : Number(totals?.[key]) || 0;
+    return {
+      hp: value('hp'),
+      physicalAtk: value('patk'),
+      magicAtk: value('matk'),
+      physicalDef: value('pdef'),
+      magicDef: value('mdef'),
+      crit: value('crit'),
+      critDmg: value('critDmg'),
+      critRes: value('critRes'),
+      critDmgRes: value('critDmgRes'),
+      spRegen: value('spRegen')
+    };
+  }
+
+  function diffTotals(next = {}, base = {}) {
+    return Object.fromEntries(Object.keys(mapTotalsForSnapshot({})).map(key => [
+      key,
+      (Number(next?.[key]) || 0) - (Number(base?.[key]) || 0)
+    ]));
+  }
+
+  function withTemporaryApostleBoards(state, boards, mode, callback) {
+    const originalBoards = state.boards;
+    const originalSnapshotBoardOverride = snapshotBoardOverride;
+    const originalSnapshotBoardMode = snapshotBoardMode;
+    state.boards = cloneJson(boards || {});
+    snapshotBoardOverride = state.boards;
+    snapshotBoardMode = mode || null;
+    try {
+      return callback();
+    } finally {
+      state.boards = originalBoards;
+      snapshotBoardOverride = originalSnapshotBoardOverride;
+      snapshotBoardMode = originalSnapshotBoardMode;
+    }
+  }
+
+  function withTemporaryApostleState(id, state, callback) {
+    const hadOriginalState = Object.prototype.hasOwnProperty.call(appState.apostles, id);
+    const originalState = appState.apostles[id];
+    appState.apostles[id] = state;
+    try {
+      return callback();
+    } finally {
+      if (hadOriginalState) appState.apostles[id] = originalState;
+      else delete appState.apostles[id];
+    }
+  }
+
+  function withTemporaryViewId(id, callback) {
+    const originalId = view.id;
+    view.id = id;
+    try {
+      return callback();
+    } finally {
+      view.id = originalId;
+    }
+  }
+
+  function applyEquipmentStatsForSnapshot(equipment, state, totals, breakdown) {
+    if (!equipment) return;
+    const rank = Number(state.rank) || 1;
+    STAT_GROUPS.forEach(group => {
+      const tier = Number(equipment[`Equip_Rank${rank}_${group.key}`]) || 0;
+      if (!tier) return;
+      const equip = state.equipment?.[group.key] || { enabled: false, enhance: 0 };
+      if (!equip.enabled) return;
+      const equipValue = findEquipmentValue(rank, group.lookup || group.key, tier, equip.enhance || 0);
+      if (!equipValue) return;
+      if (group.total === 'critPair') {
+        addStatValue(totals, 'crit', equipValue.value);
+        addStatValue(totals, 'critDmg', equipValue.value);
+        addSourceStat(breakdown, 'equipment', 'crit', equipValue.value);
+        addSourceStat(breakdown, 'equipment', 'critDmg', equipValue.value);
+      } else if (group.total === 'critResPair') {
+        addStatValue(totals, 'critRes', equipValue.value);
+        addStatValue(totals, 'critDmgRes', equipValue.value);
+        addSourceStat(breakdown, 'equipment', 'critRes', equipValue.value);
+        addSourceStat(breakdown, 'equipment', 'critDmgRes', equipValue.value);
+      } else {
+        addStatValue(totals, group.total, equipValue.value);
+        addSourceStat(breakdown, 'equipment', group.total, equipValue.value);
+      }
+    });
+  }
+
+  function applyResearchForSnapshot(basic, totals, breakdown) {
+    const progress = Number(appState.research.progress) || 0;
+    const level = Number(appState.research.level) || 0;
+    if (!progress || !level) return;
+    (DATA.sheets.research || [])
+      .filter(row => isResearchStatRow(row)
+        && window.TRICKCAL_SPECIES?.normalizeName(row.種族 || '')
+          === window.TRICKCAL_SPECIES?.normalizeName(basic.種族 || ''))
+      .forEach(row => {
+        const value = getResearchValue(row, level, progress);
+        if (value) addSourceNamedStat(breakdown, 'research', row.ステータス, value);
+      });
+    mergeTotals(totals, breakdown.research);
+  }
+
+  function hasBoardSnapshotDiff(currentBoards = {}, plannedBoards = {}) {
+    return Object.keys(createBoardSnapshotDiff(currentBoards, plannedBoards).changed || {}).length > 0;
+  }
+
+  function createBoardSnapshotDiff(currentBoards = {}, plannedBoards = {}, id = '') {
+    const changed = {};
+    const costDiff = createEmptyBoardCostSummary();
+    const keys = new Set([...Object.keys(currentBoards || {}), ...Object.keys(plannedBoards || {})]);
+    keys.forEach(layer => {
+      const currentFilled = currentBoards?.[layer]?.filled || {};
+      const plannedFilled = plannedBoards?.[layer]?.filled || {};
+      const nodeKeys = new Set([...Object.keys(currentFilled), ...Object.keys(plannedFilled)]);
+      nodeKeys.forEach(key => {
+        const before = !!currentFilled[key];
+        const after = !!plannedFilled[key];
+        if (before === after) return;
+        changed[key] = after ? 1 : -1;
+        const row = findBoardRowByKey(id || view.id, key);
+        addBoardCostSummary(costDiff, row, after ? 1 : -1);
+      });
+    });
+    return { changed, costDiff };
+  }
+
+  function findBoardRowByKey(id, key) {
+    const [layer, x, y] = String(key).split(':');
+    return (DATA.getById('board', id) || []).find(row =>
+      String(row.ボード階層) === layer
+      && String(row.X_pos) === x
+      && String(row.Y_pos) === y
+    ) || null;
+  }
+
+  function createEmptyBoardCostSummary() {
+    return { gold: 0, low: 0, mid: 0, high: 0, special: 0, commonTicket: 0, apostleTicket: 0 };
+  }
+
+  function addBoardCostSummary(summary, row, sign) {
+    if (!row) return;
+    summary.gold += (Number(row.ゴールド) || 0) * sign;
+    summary.low += (Number(row.下級) || 0) * sign;
+    summary.mid += (Number(row.中級) || 0) * sign;
+    summary.high += (Number(row.上級) || 0) * sign;
+    summary.special += (Number(row.特級) || 0) * sign;
+    summary.commonTicket += getBoardSharedTokenCost(row) * sign;
+    summary.apostleTicket += getBoardApostleTokenCost(row) * sign;
+  }
+
+                                                
+  function getBoardApostleTokenCost(row, apostleId = row?.id) {
+    if (isRare1Board3UnlockGate(row, apostleId)) return 0;
+    return Number(row?.使徒証) || 0;
+  }
+
+  function getBoardSharedTokenCost(row, apostleId = row?.id) {
+    if (isRare1Board3UnlockGate(row, apostleId)) return 5;
+    return Number(row?.['★1共同教団証']) || 0;
+  }
+
+  function isRare1Board3UnlockGate(row, apostleId) {
+    const rarity = Number(DATA.getById('basicInfo', apostleId)?.レア度);
+    return rarity === 1 && Number(row?.ボード階層) === 2 && row?.マス_type === 'ゲート';
+  }
+
+  function findEquipmentValue(rank, statGroup, tier, enhance) {
+    const row = DATA.sheets.equipmentValues.find(item =>
+      Number(item.rank) === Number(rank)
+      && String(item.statGroup) === String(statGroup)
+      && Number(item.tier) === Number(tier)
+    );
+    if (!row) return null;
+    return {
+      name: row.equipName || `${statGroup} tier${tier}`,
+      value: Number(row[`enhance${enhance}`]) || 0
+    };
+  }
+
+  function addRankUpValue(totals, breakdown, rankFrom, tier, valueKey, totalKey) {
+    const row = DATA.sheets.rankUpBonuses.find(item =>
+      Number(item.rank_from) === Number(rankFrom)
+      && Number(item.tier) === Number(tier)
+    );
+    if (!row) return;
+    const value = Number(row[valueKey]) || 0;
+    addStatValue(totals, totalKey, value);
+    addSourceStat(breakdown, 'rankUp', totalKey, value);
+  }
+
+  function hasEquipmentTier(equipment, rank, key) {
+    const value = Number(equipment[`Equip_Rank${rank}_${key}`]);
+    return Number.isFinite(value) && value > 0;
+  }
+
+  function getEquipmentIconPath(rank, statGroup, tier) {
+    const category = statGroup === '会心/会心DMG' || statGroup === '会心抵抗/会心DMG抵抗'
+      ? 'Accessory'
+      : statGroup.includes('攻撃')
+        ? 'Weapon'
+        : 'Armor';
+    const variantBase = (() => {
+      if (statGroup === 'HP') return 0;
+      if (statGroup === '物理攻撃力') return 0;
+      if (statGroup === '魔法攻撃力') return 5;
+      if (statGroup === '物理防御力') return 5;
+      if (statGroup === '魔法防御力') return 10;
+      if (statGroup === '会心/会心DMG') return 0;
+      if (statGroup === '会心抵抗/会心DMG抵抗') return 5;
+      return 0;
+    })();
+    const variant = variantBase + (6 - Number(tier));
+    return `img/equipicons/Equip_${category}${String(rank).padStart(2, '0')}${String(variant).padStart(2, '0')}.webp`;
+  }
+
+  function findBaseStatValue(type, group) {
+    const row = DATA.sheets.baseStatValues.find(item => String(item.col1) === `tier${type}`);
+    if (!row) return null;
+    const columns = {
+      hp: ['HP基礎', 'HP係数'],
+      attack: ['攻撃系基礎', '攻撃系係数'],
+      defense: ['防御系基礎', '防御系係数'],
+      crit: ['会心系基礎', '会心系係数']
+    };
+    const [baseKey, coeffKey] = columns[group] || [];
+    return {
+      base: row[baseKey],
+      coeff: row[coeffKey]
+    };
+  }
+
+  function addNamedStat(totals, name, value) {
+    const key = STAT_ALIASES[name] || STAT_ALIASES[String(name).replace(/全体/g, '')] || '';
+    addStatValue(totals, key, value);
+  }
+
+  function addSourceNamedStat(breakdown, source, name, value) {
+    const key = STAT_ALIASES[name] || STAT_ALIASES[String(name).replace(/全体/g, '')] || '';
+    addSourceStat(breakdown, source, key, value);
+  }
+
+  function addSourceStat(breakdown, source, key, value) {
+    if (!breakdown?.[source] || !key || !value) return;
+    addStatValue(breakdown[source], key, value);
+  }
+
+  function addStatValue(totals, key, value) {
+    if (!key || !value) return;
+    if (key === 'attackAll') {
+      totals.patk += value;
+      totals.matk += value;
+      return;
+    }
+    if (key === 'defenseAll') {
+      totals.pdef += value;
+      totals.mdef += value;
+      return;
+    }
+    if (key === 'critPair') {
+      totals.crit += value;
+      totals.critDmg += value;
+      return;
+    }
+    if (key === 'critResPair') {
+      totals.critRes += value;
+      totals.critDmgRes += value;
+      return;
+    }
+    if (Object.prototype.hasOwnProperty.call(totals, key)) totals[key] += value;
+  }
+
+  function mergeTotals(target, source) {
+    TOTAL_LABELS.forEach(item => {
+      const value = Number(source?.[item.key]) || 0;
+      if (value) addStatValue(target, item.key, value);
+    });
+  }
+
+  function createEmptyTotals() {
+    return { hp: 0, patk: 0, matk: 0, pdef: 0, mdef: 0, crit: 0, critDmg: 0, critRes: 0, critDmgRes: 0, spRegen: 0 };
+  }
+
+  function createBreakdownTotals() {
+    return Object.fromEntries(BREAKDOWN_SOURCES.map(source => [source.key, createEmptyTotals()]));
+  }
+
+  function getCurrentBoardRows(rows = DATA.getById('board', view.id) || []) {
+    return rows.filter(row => Number(row.ボード階層) === view.board);
+  }
+
+  function getBoardRowsForLayer(layer) {
+    return (DATA.getById('board', view.id) || []).filter(row => Number(row.ボード階層) === Number(layer));
+  }
+
+  function beginBoardDraft() {
+    if (hasBoardDraft()) return;
+    const baselineBoards = getBoardEditBaselineBoards();
+    boardDraft = {
+      apostleId: view.id,
+      mode: view.boardEditMode,
+      boards: cloneJson(baselineBoards),
+      shortcutTargets: view.boardEditMode === 'plan'
+        ? mergeShortcutTargetMaps(
+          collectFilledSpecialTargetsByLayer(baselineBoards),
+          currentApostleState().plannedBoardShortcutTargets || {}
+        )
+        : collectFilledSpecialTargetsByLayer(baselineBoards)
+    };
+  }
+
+  function beginBoardDraftForLayer(layer) {
+    beginBoardDraft();
+    ensureBoardLayerGatePath(layer);
+  }
+
+  function syncBoardDraftToGlobalDraft() {
+    if (!hasBoardDraft()) return;
+    const draftMode = boardDraft.mode || view.boardEditMode || view.boardGlobalMode;
+    boardWorkspaceDrafts[boardDraftKey(view.id, draftMode)] = cloneJson(boardDraft);
+    if (view.boardGlobalMode !== draftMode) return;
+    globalBoardDrafts[view.id] = {
+      mode: draftMode,
+      boards: cloneJson(boardDraft.boards),
+      shortcutTargets: mergeShortcutTargetMaps(
+        collectFilledSpecialTargetsByLayer(boardDraft.boards),
+        boardDraft.shortcutTargets || {}
+      )
+    };
+  }
+
+  function syncGlobalDraftToBoardDraft(id) {
+    const draft = globalBoardDrafts[id];
+    if (!draft) return;
+    view.boardEditMode = draft.mode || view.boardGlobalMode;
+    boardDraft = {
+      apostleId: id,
+      mode: view.boardEditMode,
+      boards: cloneJson(draft.boards),
+      shortcutTargets: cloneJson(draft.shortcutTargets || {})
+    };
+  }
+
+  function ensureBoardLayerGatePath(layer) {
+    const targetLayer = Number(layer) || 1;
+    if (targetLayer <= 1) return;
+    const originalBoard = view.board;
+    try {
+      for (let currentLayer = 1; currentLayer < targetLayer; currentLayer++) {
+        view.board = currentLayer;
+        const rows = getBoardRowsForLayer(currentLayer);
+        const gate = rows.find(row => row.マス_type === 'ゲート');
+        if (!gate) continue;
+        const gateKey = boardKey(gate);
+        const board = getBoardStateForLayer(currentLayer);
+        if (board.filled?.[gateKey]) continue;
+        const path = findBestBoardPath(rows, gateKey);
+        path.forEach(pathKey => {
+          board.filled[pathKey] = true;
+        });
+        board.filled[gateKey] = true;
+      }
+    } finally {
+      view.board = originalBoard;
+    }
+  }
+
+  function restoreSavedBoardPlan() {
+    boardDraft = null;
+    view.boardEditMode = 'current';
+  }
+
+  function applyDisplayedBoardPlanToCurrent() {
+    if (view.boardEditMode !== 'plan') return;
+    const state = currentApostleState();
+    const targetBoards = hasBoardDraft()
+      ? boardDraft.boards
+      : state.plannedBoards;
+    if (!targetBoards || !hasBoardSnapshotDiff(state.boards || {}, targetBoards || {})) return;
+    const basic = DATA.getById('basicInfo', view.id);
+    const name = basic?.使徒名 || view.id;
+    const editingNote = hasBoardDraft() ? '\n予定モードで編集中の内容も現在に反映します。' : '';
+    if (!window.confirm(`${name}の予定ボードを現在状態に反映しますか？\n反映後、この使徒の保存予定は削除されます。${editingNote}`)) return;
+    const history = beginHistoryAction('ボード予定反映');
+
+    state.boards = cloneJson(targetBoards);
+    delete state.plannedBoards;
+    delete state.plannedBoardShortcutTargets;
+    boardDraft = null;
+    delete globalBoardDrafts[view.id];
+    saveState();
+    render();
+    commitHistoryAction(history);
+  }
+
+  function hasBoardDraft() {
+    return boardDraft?.apostleId === view.id && boardDraft?.mode === view.boardEditMode;
+  }
+
+  function hasSavedBoardPlan() {
+    const state = currentApostleState();
+    return !!state.plannedBoards && typeof state.plannedBoards === 'object';
+  }
+
+  function mergeBoardDraftIntoSavedPlan(state) {
+    const plannedBoards = cloneJson(state.plannedBoards || state.boards || {});
+    const rows = DATA.getById('board', view.id) || [];
+
+    rows.forEach(row => {
+      if (row.マス_type === 'スタート') return;
+      const layer = String(row.ボード階層);
+      const key = boardKey(row);
+      const committed = !!state.boards?.[layer]?.filled?.[key];
+      const draft = !!boardDraft.boards?.[layer]?.filled?.[key];
+      if (committed === draft) return;
+
+      if (!plannedBoards[layer]) plannedBoards[layer] = { filled: {}, targets: [] };
+      if (!plannedBoards[layer].filled) plannedBoards[layer].filled = {};
+      if (draft) plannedBoards[layer].filled[key] = true;
+      else delete plannedBoards[layer].filled[key];
+    });
+
+    Object.entries(boardDraft.boards || {}).forEach(([layer, board]) => {
+      if (!plannedBoards[layer]) plannedBoards[layer] = { filled: {}, targets: [] };
+      plannedBoards[layer].targets = Array.from(new Set([
+        ...(plannedBoards[layer].targets || []),
+        ...(board.targets || [])
+      ]));
+    });
+
+    const shortcutTargets = cloneJson(state.plannedBoardShortcutTargets || {});
+    Object.entries(boardDraft.shortcutTargets || {}).forEach(([layer, targets]) => {
+      shortcutTargets[layer] = Array.from(new Set([
+        ...(shortcutTargets[layer] || []),
+        ...(targets || [])
+      ]));
+    });
+
+    state.plannedBoards = plannedBoards;
+    state.plannedBoardShortcutTargets = shortcutTargets;
+  }
+
+  function rebaseSavedBoardPlan(state, newBoards) {
+    if (!state.plannedBoards || typeof state.plannedBoards !== 'object') return null;
+    const oldBoards = state.boards || {};
+    const rebasedBoards = cloneJson(newBoards);
+    const rows = DATA.getById('board', view.id) || [];
+    let hasDifference = false;
+
+    rows.forEach(row => {
+      if (row.マス_type === 'スタート') return;
+      const layer = String(row.ボード階層);
+      const key = boardKey(row);
+      const oldCommitted = !!oldBoards[layer]?.filled?.[key];
+      const planned = !!state.plannedBoards[layer]?.filled?.[key];
+      const newCommitted = !!newBoards[layer]?.filled?.[key];
+      const rebased = planned !== oldCommitted ? planned : newCommitted;
+
+      if (!rebasedBoards[layer]) rebasedBoards[layer] = { filled: {}, targets: [] };
+      if (!rebasedBoards[layer].filled) rebasedBoards[layer].filled = {};
+      if (rebased) rebasedBoards[layer].filled[key] = true;
+      else delete rebasedBoards[layer].filled[key];
+      if (rebased !== newCommitted) hasDifference = true;
+    });
+
+    if (!hasDifference) return null;
+
+    const shortcutTargets = {};
+    Object.entries(state.plannedBoardShortcutTargets || {}).forEach(([layer, targets]) => {
+      const remaining = (targets || []).filter(key => {
+        const planned = !!rebasedBoards[layer]?.filled?.[key];
+        const committed = !!newBoards[layer]?.filled?.[key];
+        return planned !== committed;
+      });
+      if (remaining.length) shortcutTargets[layer] = remaining;
+    });
+
+    return { boards: rebasedBoards, shortcutTargets };
+  }
+
+  function isPlannedBoardRowChanged(row) {
+    if (!hasSavedBoardPlan() || row.マス_type === 'スタート') return false;
+    const committed = isCommittedBoardRowFilled(row);
+    const planned = !!currentApostleState().plannedBoards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+    return committed !== planned;
+  }
+
+  function hasBoardDraftChanges() {
+    if (!hasBoardDraft()) return false;
+    const baselineBoards = getBoardEditBaselineBoards();
+    return (DATA.getById('board', view.id) || []).some(row => {
+      if (row.マス_type === 'スタート') return false;
+      const committed = !!baselineBoards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+      const draft = !!boardDraft.boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+      return committed !== draft;
+    });
+  }
+
+  function getBoardEditBaselineBoards() {
+    const state = currentApostleState();
+    if (view.boardEditMode === 'plan') return state.plannedBoards || state.boards || {};
+    return state.boards || {};
+  }
+
+  function switchBoardEditMode(mode) {
+    if (mode === view.boardEditMode) return;
+    const history = beginHistoryAction('ボードモード変更');
+    view.boardEditMode = mode;
+    projectBoardWorkspaceDrafts();
+    render();
+    commitHistoryAction(history);
+  }
+
+  function getBoardStateForLayer(layer, useDraft = true) {
+    let boards = snapshotBoardOverride;
+    if (!boards) {
+      boards = useDraft && hasBoardDraft()
+        ? boardDraft.boards
+        : getBoardEditBaselineBoards();
+    }
+    const key = String(layer);
+    if (!boards[key]) boards[key] = { filled: {}, targets: [] };
+    if (!boards[key].filled) boards[key].filled = {};
+    if (!Array.isArray(boards[key].targets)) boards[key].targets = [];
+    return boards[key];
+  }
+
+  function isCommittedBoardRowFilled(row) {
+    if (row.マス_type === 'スタート') return true;
+    return !!currentApostleState().boards?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+  }
+
+  function isBoardBaselineRowFilled(row) {
+    if (row.マス_type === 'スタート') return true;
+    return !!getBoardEditBaselineBoards()?.[String(row.ボード階層)]?.filled?.[boardKey(row)];
+  }
+
+  function applyBoardShortcutFromCurrentState(layer, key) {
+    const layerKey = String(layer);
+    const targetSet = new Set(boardDraft.shortcutTargets?.[layerKey] || []);
+    const removing = targetSet.has(key);
+    if (removing) {
+      targetSet.delete(key);
+    } else {
+      targetSet.add(key);
+    }
+    if (!boardDraft.shortcutTargets) boardDraft.shortcutTargets = {};
+    boardDraft.shortcutTargets[layerKey] = Array.from(targetSet);
+    rebuildBoardShortcutDraft(removing && view.boardShortcutOffMode === 'route');
+  }
+
+  function rebuildBoardShortcutDraft(cleanupRoutes = false) {
+    const shortcutTargets = normalizeShortcutTargets(boardDraft.shortcutTargets || {});
+    boardDraft.boards = createBoardShortcutBaseBoards(shortcutTargets, cleanupRoutes);
+    const originalBoard = view.board;
+    try {
+      for (let currentLayer = 1; currentLayer <= 3; currentLayer++) {
+        view.board = currentLayer;
+        const rows = getBoardRowsForLayer(currentLayer);
+        const board = getBoardStateForLayer(currentLayer);
+        const layerKey = String(currentLayer);
+        const selectedTargets = shortcutTargets[layerKey] || [];
+        board.targets = selectedTargets.slice();
+        const needsGate = Object.entries(shortcutTargets).some(([targetLayer, targets]) =>
+          Number(targetLayer) > currentLayer && targets.length
+        );
+        const gate = rows.find(row => row.マス_type === 'ゲート');
+        const targets = Array.from(new Set([
+          ...selectedTargets,
+          ...(needsGate && gate ? [boardKey(gate)] : [])
+        ])).filter(targetKey => rows.some(row => boardKey(row) === targetKey));
+        if (!targets.length) continue;
+        const bestKeys = findBestBoardPathSet(currentLayer, rows, targets);
+        board.filled = Object.fromEntries(bestKeys.map(pathKey => [pathKey, true]));
+      }
+    } finally {
+      view.board = originalBoard;
+    }
+    boardDraft.shortcutTargets = shortcutTargets;
+  }
+
+  function collectFilledSpecialTargetsByLayer(boards) {
+    const targetsByLayer = {};
+    (DATA.getById('board', view.id) || []).forEach(row => {
+      if (row.マス_type !== '特殊') return;
+      const layer = String(row.ボード階層);
+      const key = boardKey(row);
+      if (!boards?.[layer]?.filled?.[key]) return;
+      if (!targetsByLayer[layer]) targetsByLayer[layer] = [];
+      targetsByLayer[layer].push(key);
+    });
+    return targetsByLayer;
+  }
+
+  function collectFilledSpecialTargetsForApostle(id, boards) {
+    const previousId = view.id;
+    view.id = id;
+    try {
+      return collectFilledSpecialTargetsByLayer(boards);
+    } finally {
+      view.id = previousId;
+    }
+  }
+
+  function normalizeShortcutTargets(shortcutTargets = {}) {
+    const normalized = {};
+    for (let layer = 1; layer <= 3; layer++) {
+      const layerKey = String(layer);
+      const targets = Array.from(new Set(shortcutTargets?.[layerKey] || []));
+      if (targets.length) normalized[layerKey] = targets;
+    }
+    return normalized;
+  }
+
+  function mergeShortcutTargetMaps(...maps) {
+    const merged = {};
+    for (let layer = 1; layer <= 3; layer++) {
+      const layerKey = String(layer);
+      const targets = Array.from(new Set(maps.flatMap(map => map?.[layerKey] || [])));
+      if (targets.length) merged[layerKey] = targets;
+    }
+    return merged;
+  }
+
+  function createBoardShortcutBaseBoards(shortcutTargets = {}, cleanupRoutes = false) {
+    if (cleanupRoutes) return {};
+    const baseBoards = cloneJson(boardDraft?.boards || currentApostleState().boards || {});
+    const selectedByLayer = normalizeShortcutTargets(shortcutTargets);
+    (DATA.getById('board', view.id) || []).forEach(row => {
+      if (row.マス_type !== '特殊') return;
+      const layerKey = String(row.ボード階層);
+      const key = boardKey(row);
+      if ((selectedByLayer[layerKey] || []).includes(key)) return;
+      if (baseBoards[layerKey]?.filled) delete baseBoards[layerKey].filled[key];
+    });
+    return baseBoards;
+  }
+
+  function rebuildBoardShortcutDraftFromTargets(shortcutTargets = {}, cleanupRoutes = false) {
+    const normalizedTargets = normalizeShortcutTargets(shortcutTargets);
+    boardDraft.boards = createBoardShortcutBaseBoards(normalizedTargets, cleanupRoutes);
+    const originalBoard = view.board;
+    try {
+      for (let currentLayer = 1; currentLayer <= 3; currentLayer++) {
+        view.board = currentLayer;
+        const rows = getBoardRowsForLayer(currentLayer);
+        const board = getBoardStateForLayer(currentLayer);
+        const layerKey = String(currentLayer);
+        const selectedTargets = normalizedTargets[layerKey] || [];
+        board.targets = selectedTargets.slice();
+        const needsGate = Object.entries(normalizedTargets).some(([targetLayer, targets]) =>
+          Number(targetLayer) > currentLayer && targets.length
+        );
+        const gate = rows.find(row => row.マス_type === 'ゲート');
+        const targets = Array.from(new Set([
+          ...selectedTargets,
+          ...(needsGate && gate ? [boardKey(gate)] : [])
+        ])).filter(targetKey => rows.some(row => boardKey(row) === targetKey));
+        if (!targets.length) continue;
+        findBestBoardPathSet(currentLayer, rows, targets).forEach(pathKey => {
+          board.filled[pathKey] = true;
+        });
+      }
+    } finally {
+      view.board = originalBoard;
+    }
+    boardDraft.shortcutTargets = normalizedTargets;
+  }
+
+  function findBestBoardPathSet(layer, rows, targets) {
+    if (!targets.length) return [];
+    if (targets.length <= 7) {
+      return findBestBoardPathSetByPermutations(layer, rows, targets);
+    }
+    return findBestBoardPathSetGreedy(layer, rows, targets);
+  }
+
+  function findBestBoardPathSetByPermutations(layer, rows, targets) {
+    let best = null;
+    forEachPermutation(targets, order => {
+      const result = simulateBoardTargetOrder(layer, rows, order);
+      if (!best || comparePathScore(result.score, best.score) < 0) best = result;
+    });
+    return best?.keys || [];
+  }
+
+  function forEachPermutation(items, callback, start = 0) {
+    if (start >= items.length) {
+      callback(items.slice());
+      return;
+    }
+    for (let index = start; index < items.length; index++) {
+      [items[start], items[index]] = [items[index], items[start]];
+      forEachPermutation(items, callback, start + 1);
+      [items[start], items[index]] = [items[index], items[start]];
+    }
+  }
+
+  function simulateBoardTargetOrder(layer, rows, order) {
+    const originalBoard = view.board;
+    const board = getBoardStateForLayer(layer);
+    const savedFilled = board.filled;
+    const baseFilled = cloneJson(savedFilled);
+    const baseKeys = new Set(Object.keys(baseFilled));
+    view.board = Number(layer);
+    board.filled = cloneJson(baseFilled);
+    try {
+      let failed = false;
+      order.forEach(targetKey => {
+        const path = findBestBoardPath(rows, targetKey);
+        if (!path.length && !isBoardTargetAlreadyFilled(targetKey)) {
+          failed = true;
+          return;
+        }
+        path.forEach(pathKey => {
+          board.filled[pathKey] = true;
+        });
+      });
+      if (failed) return { keys: [], score: { gold: Number.POSITIVE_INFINITY, steps: Number.POSITIVE_INFINITY } };
+      const keys = Object.keys(board.filled);
+      return { keys, score: scoreBoardPath(keys.filter(key => !baseKeys.has(key))) };
+    } finally {
+      board.filled = savedFilled;
+      view.board = originalBoard;
+    }
+  }
+
+  function findBestBoardPathSetGreedy(layer, rows, targets) {
+    const originalBoard = view.board;
+    const board = getBoardStateForLayer(layer);
+    const savedFilled = board.filled;
+    const baseFilled = cloneJson(savedFilled);
+    view.board = Number(layer);
+    board.filled = cloneJson(baseFilled);
+    try {
+      const remaining = targets.slice();
+      while (remaining.length) {
+        const best = remaining
+          .map(targetKey => ({ targetKey, path: findBestBoardPath(rows, targetKey) }))
+          .filter(item => item.path.length || isBoardTargetAlreadyFilled(item.targetKey))
+          .sort(compareTargetPath)[0];
+        if (!best) break;
+        best.path.forEach(pathKey => {
+          board.filled[pathKey] = true;
+        });
+        const index = remaining.indexOf(best.targetKey);
+        if (index >= 0) remaining.splice(index, 1);
+      }
+      return Object.keys(board.filled);
+    } finally {
+      board.filled = savedFilled;
+      view.board = originalBoard;
+    }
+  }
+
+  function isBoardTargetAlreadyFilled(targetKey) {
+    return !!currentBoardState().filled[targetKey];
+  }
+
+  function compareTargetPath(a, b) {
+    const scoreDiff = scoreBoardPath(a.path).gold - scoreBoardPath(b.path).gold
+      || scoreBoardPath(a.path).steps - scoreBoardPath(b.path).steps;
+    return scoreDiff || compareBoardKeys(a.targetKey, b.targetKey);
+  }
+
+  function scoreBoardPath(path) {
+    const rows = getBoardRowsForLayer(view.board);
+    return path.reduce((score, key) => {
+      const row = rows.find(item => boardKey(item) === key);
+      return {
+        gold: score.gold + (Number(row?.ゴールド) || 0),
+        steps: score.steps + 1
+      };
+    }, { gold: 0, steps: 0 });
+  }
+
+  function compareBoardKeys(a, b) {
+    const [aLayer, aX, aY] = String(a).split(':').map(Number);
+    const [bLayer, bX, bY] = String(b).split(':').map(Number);
+    return aLayer - bLayer || aY - bY || aX - bX;
+  }
+
+  function pruneLockedBoardLayers() {
+    for (let layer = 2; layer <= 3; layer++) {
+      if (isBoardLayerUnlocked(layer)) continue;
+      const board = getBoardStateForLayer(layer);
+      board.filled = {};
+      board.targets = [];
+    }
+  }
+
+  function findBestBoardPath(rows, targetKey) {
+    const target = rows.find(row => boardKey(row) === targetKey);
+    if (!target) return [];
+
+    const starts = getBoardPathStartKeys(rows);
+    const best = new Map();
+    const prev = new Map();
+    const queue = starts.map(key => ({ key, score: createPathScore() }));
+    starts.forEach(key => best.set(key, createPathScore()));
+
+    while (queue.length) {
+      queue.sort(compareQueuedPath);
+      const current = queue.shift();
+      const currentBest = best.get(current.key);
+      if (!currentBest || comparePathScore(current.score, currentBest) > 0) continue;
+      if (current.key === targetKey) break;
+      getNeighborBoardRowsForKey(rows, current.key).forEach(next => {
+        const nextKey = boardKey(next);
+        const nextScore = addPathScore(current.score, next);
+        const saved = best.get(nextKey);
+        if (saved && comparePathScore(nextScore, saved) >= 0) return;
+        best.set(nextKey, nextScore);
+        prev.set(nextKey, current.key);
+        queue.push({ key: nextKey, score: nextScore });
+      });
+    }
+
+    if (!best.has(targetKey)) return [];
+    const path = [];
+    let cursor = targetKey;
+    while (cursor && !starts.includes(cursor)) {
+      path.push(cursor);
+      cursor = prev.get(cursor);
+    }
+    return path.reverse();
+  }
+
+  function createPathScore() {
+    return { gold: 0, steps: 0 };
+  }
+
+  function addPathScore(score, row) {
+    return {
+      gold: score.gold + (Number(row.ゴールド) || 0),
+      steps: score.steps + 1
+    };
+  }
+
+  function compareQueuedPath(a, b) {
+    return comparePathScore(a.score, b.score);
+  }
+
+  function comparePathScore(a, b) {
+    return a.gold - b.gold || a.steps - b.steps;
+  }
+
+  function pruneDisconnectedBoardNodes(rows, board) {
+    const connected = getConnectedFilledBoardKeys(rows);
+    Object.keys(board.filled).forEach(key => {
+      if (!connected.has(key)) delete board.filled[key];
+    });
+  }
+
+  function getConnectedFilledBoardKeys(rows) {
+    const starts = getBoardConnectionStartKeys(rows);
+    const connected = new Set(starts);
+    const queue = [...starts];
+    while (queue.length) {
+      const key = queue.shift();
+      getNeighborBoardRowsForKey(rows, key).forEach(next => {
+        const nextKey = boardKey(next);
+        if (connected.has(nextKey) || !isBoardRowFilled(next)) return;
+        connected.add(nextKey);
+        queue.push(nextKey);
+      });
+    }
+    return connected;
+  }
+
+  function getNeighborBoardRows(rows, row) {
+    const x = Number(row.X_pos);
+    const y = Number(row.Y_pos);
+    return rows.filter(item => {
+      const dx = Math.abs(Number(item.X_pos) - x);
+      const dy = Math.abs(Number(item.Y_pos) - y);
+      return dx + dy === 1;
+    });
+  }
+
+  function getNeighborBoardRowsForKey(rows, key) {
+    if (key === virtualBoardStartKey()) {
+      const entry = getBoardEntryRow(rows);
+      return entry ? [entry] : [];
+    }
+    const row = rows.find(item => boardKey(item) === key);
+    return row ? getNeighborBoardRows(rows, row) : [];
+  }
+
+  function isBoardRowFilled(row) {
+    return row.マス_type === 'スタート' || !!getBoardStateForLayer(row.ボード階層).filled[boardKey(row)];
+  }
+
+  function getBoardPathStartKeys(rows) {
+    const starts = rows.filter(row => isBoardRowFilled(row)).map(boardKey);
+    if (!starts.length && Number(view.board) > 1 && isBoardLayerUnlocked(view.board)) {
+      starts.push(virtualBoardStartKey());
+    }
+    return starts;
+  }
+
+  function getBoardConnectionStartKeys(rows) {
+    const starts = rows.filter(row => row.マス_type === 'スタート').map(boardKey);
+    if (!starts.length && Number(view.board) > 1 && isBoardLayerUnlocked(view.board)) {
+      starts.push(virtualBoardStartKey());
+    }
+    return starts;
+  }
+
+  function getBoardEntryRow(rows) {
+    const minY = Math.min(...rows.map(row => Number(row.Y_pos)).filter(Number.isFinite));
+    const candidates = rows
+      .filter(row => Number(row.Y_pos) === minY)
+      .sort((a, b) => Number(a.X_pos) - Number(b.X_pos));
+    const previousGate = getPreviousBoardGateRow();
+    if (previousGate) {
+      const gateX = Number(previousGate.X_pos);
+      return candidates.find(row => Number(row.X_pos) === gateX)
+        || candidates.slice().sort((a, b) => Math.abs(Number(a.X_pos) - gateX) - Math.abs(Number(b.X_pos) - gateX))[0]
+        || null;
+    }
+    return candidates[0] || null;
+  }
+
+  function getPreviousBoardGateRow() {
+    const previousLayer = Number(view.board) - 1;
+    if (previousLayer < 1) return null;
+    const rows = DATA.getById('board', view.id) || [];
+    return rows.find(row => Number(row.ボード階層) === previousLayer && row.マス_type === 'ゲート') || null;
+  }
+
+  function virtualBoardStartKey() {
+    return `virtual-start:${view.board}`;
+  }
+
+  function isBoardLayerUnlocked(layer) {
+    if (Number(layer) <= 1) return true;
+    return isBoardGateFilled(Number(layer) - 1);
+  }
+
+  function getMaxUnlockedBoardLayer() {
+    for (let layer = 3; layer >= 1; layer--) {
+      if (isBoardLayerUnlocked(layer)) return layer;
+    }
+    return 1;
+  }
+
+  function isBoardGateFilled(layer) {
+    const rows = DATA.getById('board', view.id) || [];
+    const gate = rows.find(row => Number(row.ボード階層) === Number(layer) && row.マス_type === 'ゲート');
+    if (!gate) return false;
+    const board = getBoardStateForLayer(layer);
+    return !!board?.filled?.[boardKey(gate)];
+  }
+
+  function currentBoardState() {
+    return getBoardStateForLayer(view.board);
+  }
+
+  function ensureBoardState(layer) {
+    const state = currentApostleState();
+    const key = String(layer);
+    if (!state.boards[key]) state.boards[key] = { filled: {}, targets: [] };
+    if (!state.boards[key].filled) state.boards[key].filled = {};
+    if (!Array.isArray(state.boards[key].targets)) state.boards[key].targets = [];
+    return state.boards[key];
+  }
+
+  function boardKey(row) {
+    return `${row.ボード階層}:${row.X_pos}:${row.Y_pos}`;
+  }
+
+  function formatBoardEffect(row) {
+    const parts = [];
+    if (row.効果1_type) parts.push(`${row.効果1_type}+${row.効果1_value}`);
+    if (row.効果2_type) parts.push(`${row.効果2_type}+${row.効果2_value}`);
+    return parts.join('\n') || row.マス_type || '';
+  }
+
+  function shortBoardLabel(row) {
+    if (row.マス_type === 'スタート') return '';
+    const suffix = row.マス_type === '特殊' ? '%' : '';
+    const value = [row.効果1_value, row.効果2_value]
+      .find(value => value !== '' && value !== null && value !== undefined);
+    return value ? `+${value}${suffix}` : '';
+  }
+
+  function getBoardTileBasePath(row, enabled = false) {
+    if (row.マス_type === 'ゲート') return 'img/Board/Tile_gate.webp';
+    if (row.マス_type === '上級') return `img/Board/Tile_2_${enabled ? 'On' : 'Off'}.webp`;
+    if (row.マス_type === '特殊') return `img/Board/Tile_3_${enabled ? 'On' : 'Off'}.webp`;
+    return `img/Board/Tile_1_${enabled ? 'On' : 'Off'}.webp`;
+  }
+
+  function getBoardIconPath(row, enabled = false, orientation = 'horizontal') {
+    const types = [row.効果1_type, row.効果2_type]
+      .filter(Boolean)
+      .map(type => String(type).replace(/^全体/, '').replace(/力$/, ''));
+    const state = enabled ? 'On' : 'Off';
+    if (row.マス_type === 'スタート') {
+      const direction = orientation === 'vertical' ? 'Up' : BOARD_START_DIRECTION;
+      return `img/Board/Tile_Start_${direction}.webp`;
+    }
+    if (row.マス_type === 'ゲート') return '';
+    if (types.includes('HP')) return `img/Board/Tile_Hp_${state}.webp`;
+    if (types.includes('物理攻撃') && types.includes('魔法攻撃')) return `img/Board/Tile_AtkBoth_${state}.webp`;
+    if (types.includes('物理攻撃')) return `img/Board/Tile_AtkP_${state}.webp`;
+    if (types.includes('魔法攻撃')) return `img/Board/Tile_AtkM_${state}.webp`;
+    if (types.includes('物理防御') && types.includes('魔法防御')) return `img/Board/Tile_DefBoth_${state}.webp`;
+    if (types.includes('物理防御')) return `img/Board/Tile_DefP_${state}.webp`;
+    if (types.includes('魔法防御')) return `img/Board/Tile_DefM_${state}.webp`;
+    if ((types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) && types.includes('会心抵抗')) return `img/Board/Tile_CritResBoth_${state}.webp`;
+    if (types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) return `img/Board/Tile_CritiDMGRes_${state}.webp`;
+    if (types.includes('会心抵抗')) return `img/Board/Tile_CritiRes_${state}.webp`;
+    if ((types.includes('会心DMG') || types.includes('会心ダメージ')) && types.includes('会心')) return `img/Board/Tile_CritBoth_${state}.webp`;
+    if (types.includes('会心DMG') || types.includes('会心ダメージ')) return `img/Board/Tile_CritDMG_${state}.webp`;
+    if (types.includes('会心')) return `img/Board/Tile_Crit_${state}.webp`;
+    if (types.includes('回復') || types.includes('治癒')) return `img/Board/Tile_Healing_${state}.webp`;
+    return '';
+  }
+
+  function boardNodeClass(row) {
+    if (row.マス_type === 'スタート') return 'type-start';
+    if (row.マス_type === 'ゲート') return 'type-gate';
+    if (row.マス_type === '上級') return 'type-advanced';
+    if (row.マス_type === '特殊') return 'type-special';
+    return '';
+  }
+
+  function ensureApostleState(id) {
+    if (!appState.apostles[id]) {
+      appState.apostles[id] = createDefaultApostleState(id);
+    }
+    const state = appState.apostles[id];
+    if (!state.star) {
+      const basic = DATA.getById('basicInfo', id);
+      state.star = Number(basic?.レア度) || 1;
+    }
+    const basic = DATA.getById('basicInfo', id);
+    state.star = normalizeApostleStar(state.star);
+    if (state.gradeConfigured !== true) {
+      state.grade = 1;
+      state.gradeConfigured = false;
+    } else {
+      state.grade = normalizeGrade(state.grade);
+    }
+    state.level = normalizeApostleLevel(state.level, state.star);
+    state.bond = normalizeBondForApostle(basic, state.bond);
+    if (state.asideRank === undefined) state.asideRank = inferAsideRankFromLevel(state.asideLevel);
+    if (state.asideLevel === undefined) state.asideLevel = 0;
+    state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+    state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
+    if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+    return appState.apostles[id];
+  }
+
+  function createDefaultApostleState(id) {
+    const basic = DATA.getById('basicInfo', id);
+    return {
+        rank: 1,
+        level: 1,
+        star: Number(basic?.レア度) || 1,
+        grade: 1,
+        gradeConfigured: false,
+        bond: 1,
+        asideRank: 0,
+        asideLevel: 0,
+        skillLevels: { low: 1, high: 1, passive: 1 },
+        follow: false,
+        equipment: {},
+        boards: {},
+        statSnapshots: {}
+    };
+  }
+
+  function inferAsideRankFromLevel(level) {
+    const value = Number(level) || 0;
+    if (!value) return 0;
+    if (value <= 30) return 1;
+    if (value <= 40) return 2;
+    return 3;
+  }
+
+  function currentApostleState() {
+    return ensureApostleState(view.id);
+  }
+
+  function getShareStateNumber(state, key, min, max) {
+    if (!state || !Object.prototype.hasOwnProperty.call(state, key) || state[key] == null) return null;
+    const value = Number(state[key]);
+    if (!Number.isInteger(value) || value < min || value > max) {
+      throw new Error('共有対象の' + key + 'が範囲外です');
+    }
+    return value;
+  }
+
+  function getShareCardState(cardId) {
+    const state = appState.cards?.[cardId];
+    return {
+      star: getShareStateNumber(state, 'star', 1, APOSTLE_STAR_MAX),
+      solder: getShareStateNumber(state, 'solder', 0, 2)
+    };
+  }
+
+  function createShareCardEntry(cardId, count = 1) {
+    if (!cardId) return null;
+    return { id: String(cardId), ...getShareCardState(cardId), count };
+  }
+
+  function aggregateShareCards(cardIds) {
+    const entries = [];
+    const indexes = new Map();
+    (cardIds || []).forEach(cardId => {
+      const entry = createShareCardEntry(cardId);
+      if (!entry) return;
+      const key = [
+        entry.id,
+        entry.star == null ? '?' : entry.star,
+        entry.solder == null ? '?' : entry.solder
+      ].join(':');
+      const existingIndex = indexes.get(key);
+      if (existingIndex === undefined) {
+        indexes.set(key, entries.length);
+        entries.push(entry);
+        return;
+      }
+      entries[existingIndex].count += 1;
+    });
+    return entries;
+  }
+
+  function getFormationShareGlobalPercent() {
+    const basic = DATA.getById('basicInfo', view.id);
+    const state = appState.apostles?.[view.id];
+    if (!basic || !state) return TOTAL_LABELS.map(() => null);
+    const calculationState = cloneJson(state);
+    calculationState.follow = false;
+    const previousSnapshotBoardMode = snapshotBoardMode;
+    snapshotBoardMode = 'current';
+    try {
+      const snapshot = calculateStatSnapshotForApostle(
+        basic,
+        calculationState,
+        null,
+        'current'
+      );
+      const rates = snapshot?.globalPercentRates || {};
+      const snapshotKeys = {
+        hp: 'hp',
+        patk: 'physicalAtk',
+        matk: 'magicAtk',
+        pdef: 'physicalDef',
+        mdef: 'magicDef',
+        crit: 'crit',
+        critDmg: 'critDmg',
+        critRes: 'critRes',
+        critDmgRes: 'critDmgRes',
+        spRegen: 'spRegen'
+      };
+      return TOTAL_LABELS.map(item => {
+        const value = rates[snapshotKeys[item.key]];
+        if (value == null || value === '') return null;
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric) || numeric < 0) {
+          throw new Error('共有対象の全体%補正（' + item.label + '）が不正です');
+        }
+        return numeric;
+      });
+    } finally {
+      snapshotBoardMode = previousSnapshotBoardMode;
+    }
+  }
+
+  function createFormationShareSnapshot(options = {}) {
+    const formation = ensureFormationState();
+    const members = [];
+    const relicSlots = [];
+    const resonancePersonalities = [];
+    (formation.rows || []).forEach(row => {
+      const apostles = Array.isArray(row?.apostles) ? row.apostles : [];
+      const artifacts = Array.isArray(row?.artifacts) ? row.artifacts : [];
+      for (let index = 0; index < 3; index += 1) {
+        const id = apostles[index] || '';
+        if (!id) {
+          members.push(null);
+          resonancePersonalities.push(null);
+        } else {
+          const state = appState.apostles?.[id];
+          const basic = DATA.getById('basicInfo', id);
+          members.push({
+            id: String(id),
+            star: getShareStateNumber(state, 'star', 1, APOSTLE_STAR_MAX),
+            asideRank: !isPublicAsideEnabled(id)
+              ? 'notApplicable'
+              : getShareStateNumber(state, 'asideRank', 0, 3)
+          });
+          resonancePersonalities.push(getFormationPersonalityResolution(basic, row?.resonancePersonalities?.[index]).isSelectable
+            ? row?.resonancePersonalities?.[index] || null
+            : null);
+        }
+        const artifactLine = Array.isArray(artifacts[index]) ? artifacts[index] : [];
+        for (let slot = 0; slot < 3; slot += 1) {
+          const cardId = artifactLine[slot] || '';
+          relicSlots.push(cardId ? {
+            id: String(cardId),
+            ...getShareCardState(cardId)
+          } : null);
+        }
+      }
+    });
+    return {
+      v: 2,
+      m: 1,
+      members,
+      resonancePersonalities,
+      relicSlots,
+      spells: aggregateShareCards(formation.spells),
+      powers: Array.isArray(formation.masterPowers)
+        ? formation.masterPowers.filter(Boolean).map(String)
+        : [],
+      globalPercent: options.includeGlobalPercent === false
+        ? null
+        : getFormationShareGlobalPercent()
+    };
+  }
+
+  function installStatEngineApi() {
+    window.TRICKCAL_STAT_ENGINE = {
+      version: 1,
+      getActiveApostleId: () => view.id,
+      getHistoryStatus: () => ({ ...historyEngine.status() }),
+      getState: () => cloneJson(appState),
+      getApostleState: (id = view.id) => cloneJson(ensureApostleState(getValidApostleId(id))),
+      getCurrentSnapshot: (id = view.id) => {
+        const safeId = getValidApostleId(id);
+        return cloneJson(ensureApostleState(safeId).statSnapshots?.current || {});
+      },
+      getPlannedSnapshot: (id = view.id) => {
+        const safeId = getValidApostleId(id);
+        return cloneJson(ensureApostleState(safeId).statSnapshots?.planned || {});
+      },
+      getSpState: (id = view.id, options = {}) => {
+        const safeId = getValidApostleId(id);
+        const basic = (DATA.sheets.basicInfo || []).find(item => item.id === safeId) || {};
+        const snapshot = ensureApostleState(safeId).statSnapshots?.current || {};
+        if (!window.TRICKCAL_SP_ENGINE) return null;
+        return window.TRICKCAL_SP_ENGINE.createApostleState(basic, snapshot, options);
+      },
+      calculateApostleStats: calculateApostleStatsForEngine,
+      refreshSnapshots: refreshAllStatSnapshots,
+      getFormationShareSnapshot: createFormationShareSnapshot
+    };
+  }
+
+  function migrateSavedStateSlots(source) {
+    if (!source || typeof source !== 'object') return {};
+    return Object.fromEntries(Object.entries(source).map(([slot, snapshot]) => {
+      const safeSlot = String(normalizeStateSlot(slot));
+      if (!snapshot || typeof snapshot !== 'object') return [safeSlot, snapshot];
+      const migrated = cloneJson(snapshot);
+      migrated.activeStateSlot = Number(safeSlot);
+      migrated.cards = migrateCardStateMap(migrated.cards);
+      if (migrated.formation && typeof migrated.formation === 'object') {
+        migrated.formation = normalizeFormationState(migrated.formation);
+      }
+      if (Array.isArray(migrated.savedFormations)) {
+        migrated.savedFormations = normalizeFormationPresetList(migrated.savedFormations);
+      }
+      return [safeSlot, migrated];
+    }));
+  }
+
+  function createStateTabInstanceId() {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+    return 'tab-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+
+  function parseStorageJson(raw, id) {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      throw createStorageRuntimeError('recovery-required', 'read', id);
+    }
+  }
+
+  function validateSharedStateSlotStorePayload(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+      || Number(value.schemaVersion) !== 2
+      || !value.slots || typeof value.slots !== 'object' || Array.isArray(value.slots)
+      || !Number.isInteger(Number(value.storeRevision)) || Number(value.storeRevision) < 0) {
+      throw createStorageRuntimeError('recovery-required', 'read', 'stat.slotStore');
+    }
+    Object.entries(value.slots).forEach(([slot, entry]) => {
+      if (!/^[1-6]$/.test(slot)
+        || !entry || typeof entry !== 'object' || Array.isArray(entry)
+        || !entry.snapshot || typeof entry.snapshot !== 'object' || Array.isArray(entry.snapshot)
+        || !Number.isInteger(Number(entry.slotRevision)) || Number(entry.slotRevision) < 1) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.slotStore');
+      }
+    });
+    return value;
+  }
+
+  function normalizeSharedStateSlotStore(source) {
+    const parsed = source && typeof source === 'object' ? source : {};
+    const slots = {};
+    Object.entries(parsed.slots || {}).forEach(([slot, entry]) => {
+      const safeSlot = String(normalizeStateSlot(slot));
+      if (!entry || typeof entry !== 'object' || !entry.snapshot) return;
+      slots[safeSlot] = {
+        slotRevision: Math.max(1, Number(entry.slotRevision) || 1),
+        savedAt: String(entry.savedAt || entry.snapshot.savedAt || ''),
+        savedBy: String(entry.savedBy || ''),
+        snapshot: migrateSavedStateSlots({ [safeSlot]: entry.snapshot })[safeSlot]
+      };
+    });
+    return {
+      schemaVersion: 2,
+      storeRevision: Math.max(0, Number(parsed.storeRevision) || 0),
+      slots
+    };
+  }
+
+  function loadSharedStateSlotStore(legacySavedStates = {}) {
+    let raw;
+    try {
+      raw = storageLocal.getItem(STATE_SLOT_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.slotStore');
+    }
+    if (raw != null) {
+      return normalizeSharedStateSlotStore(validateSharedStateSlotStorePayload(
+        parseStorageJson(raw, 'stat.slotStore')
+      ));
+    }
+    const migratedSnapshots = migrateSavedStateSlots(
+      legacySavedStates && typeof legacySavedStates === 'object' ? legacySavedStates : {}
+    );
+    const slots = Object.fromEntries(Object.entries(migratedSnapshots).map(([slot, snapshot]) => [
+      String(normalizeStateSlot(slot)),
+      {
+        slotRevision: 1,
+        savedAt: String(snapshot?.savedAt || ''),
+        savedBy: 'migration-v1',
+        snapshot
+      }
+    ]));
+    const store = {
+      schemaVersion: 2,
+      storeRevision: Object.keys(slots).length ? 1 : 0,
+      slots
+    };
+    try {
+      storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(store));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.slotStore');
+    }
+    return store;
+  }
+
+  function readLatestSharedStateSlotStore() {
+    let raw;
+    try {
+      raw = storageLocal.getItem(STATE_SLOT_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.slotStore');
+    }
+    if (raw != null) {
+      return normalizeSharedStateSlotStore(validateSharedStateSlotStorePayload(
+        parseStorageJson(raw, 'stat.slotStore')
+      ));
+    }
+    return normalizeSharedStateSlotStore(sharedStateSlotStore);
+  }
+
+  function getSharedStateSnapshots(store = sharedStateSlotStore) {
+    return Object.fromEntries(Object.entries(store?.slots || {}).map(([slot, entry]) => [
+      slot,
+      cloneJson(entry.snapshot)
+    ]));
+  }
+
+  function getSharedSlotRevision(slot, store = sharedStateSlotStore) {
+    return Math.max(0, Number(store?.slots?.[String(normalizeStateSlot(slot))]?.slotRevision) || 0);
+  }
+
+  function syncSharedStateSlotStore(store) {
+    sharedStateSlotStore = normalizeSharedStateSlotStore(store);
+    appState.savedStates = getSharedStateSnapshots(sharedStateSlotStore);
+  }
+
+  function loadStateWorkspace() {
+    let raw;
+    try {
+      raw = storageSession.getItem(STATE_WORKSPACE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.workspaceDraft');
+    }
+    if (raw == null) return null;
+    const parsed = parseStorageJson(raw, 'stat.workspaceDraft');
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)
+      || Number(parsed.workspaceVersion) !== 2
+      || !parsed.draft || typeof parsed.draft !== 'object' || Array.isArray(parsed.draft)) {
+      throw createStorageRuntimeError('recovery-required', 'read', 'stat.workspaceDraft');
+    }
+    return parsed;
+  }
+
+  function createStateWorkspaceDraft() {
+    const draft = cloneJson(appState);
+    delete draft.savedStates;
+    draft.activeStateSlot = view.stateSlot;
+    draft.activeId = view.id || draft.activeId || '';
+    return draft;
+  }
+
+  function persistStateWorkspace() {
+    try {
+      stashBoardWorkspaceDrafts();
+      storageSession.setItem(STATE_WORKSPACE_STORAGE_KEY, JSON.stringify({
+        workspaceVersion: 2,
+        workspaceId: initialWorkspaceState?.workspaceId || ('workspace-' + Date.now().toString(36)),
+        activeSlot: view.stateSlot,
+        baseSlotRevision: stateSlotBaseRevision,
+        draft: createStateWorkspaceDraft(),
+        boardWorkspaceDrafts: cloneJson(boardWorkspaceDrafts)
+      }));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.workspaceDraft');
+    }
+  }
+
+                                                                            
+                                                                                  
+  function omitDuplicateFinalStats(snapshot) {
+    Object.values(snapshot.apostles || {}).forEach(state => {
+      const stats = state?.statSnapshots?.current?.stats;
+      if (!stats || !state.finalStats) return;
+      if (stableStringify(stats) === stableStringify(state.finalStats)) delete state.finalStats;
+    });
+    return snapshot;
+  }
+
+  function restoreOmittedFinalStats(snapshot) {
+    Object.values(snapshot.apostles || {}).forEach(state => {
+      const stats = state?.statSnapshots?.current?.stats;
+      if (stats && !Object.prototype.hasOwnProperty.call(state, 'finalStats')) {
+        state.finalStats = cloneJson(stats);
+      }
+    });
+    return snapshot;
+  }
+
+  function publishLiveState() {
+    let previousRevision = 0;
+    let raw;
+    try {
+      raw = storageLocal.getItem(STATE_LIVE_STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.liveMirror');
+    }
+    if (raw != null) {
+      const previous = parseStorageJson(raw, 'stat.liveMirror');
+      if (!previous || typeof previous !== 'object' || Array.isArray(previous)
+        || !Number.isInteger(Number(previous.revision)) || Number(previous.revision) < 0) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.liveMirror');
+      }
+      previousRevision = Number(previous.revision);
+    }
+    const revision = previousRevision + 1;
+    const snapshot = createStateWorkspaceDraft();
+    omitDuplicateFinalStats(snapshot);
+    const liveState = {
+      schemaVersion: 2,
+      revision,
+      sourceTabInstanceId: TAB_INSTANCE_ID,
+      sourceSlot: String(view.stateSlot),
+      publishedAt: new Date().toISOString(),
+      snapshot
+    };
+    const legacyPayload = {
+      ...snapshot,
+      syncRevision: revision,
+      activeStateSlot: view.stateSlot
+    };
+    try {
+      storageLocal.setItem(STATE_LIVE_STORAGE_KEY, JSON.stringify(liveState));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.liveMirror');
+    }
+    try {
+      storageLocal.setItem(STORAGE_KEY, JSON.stringify(legacyPayload));
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('write-failed', 'write', 'stat.legacyCurrent');
+    }
+    postStateSyncMessage({ type: 'live-published', revision });
+  }
+
+  function postStateSyncMessage(message) {
+    try {
+      stateSyncChannel?.postMessage({
+        ...message,
+        sourceTabInstanceId: TAB_INSTANCE_ID,
+        sentAt: Date.now()
+      });
+    } catch {}
+  }
+
+  function withStateSlotStoreLock(task) {
+    if (navigator.locks?.request) {
+      return navigator.locks.request('trickcal-stat-slots-v2', { mode: 'exclusive' }, task);
+    }
+    return Promise.resolve().then(task);
+  }
+
+  function writeSharedStateSlot(slot, snapshot, expectedRevision, options = {}) {
+    const safeSlot = normalizeStateSlot(slot);
+    const key = String(safeSlot);
+    const latest = readLatestSharedStateSlotStore();
+    const currentRevision = getSharedSlotRevision(safeSlot, latest);
+    if (!options.force && currentRevision !== Math.max(0, Number(expectedRevision) || 0)) {
+      return { ok: false, conflict: true, latest, currentRevision };
+    }
+    const next = normalizeSharedStateSlotStore(latest);
+    const nextRevision = currentRevision + 1;
+    next.storeRevision = Math.max(0, Number(latest.storeRevision) || 0) + 1;
+    next.slots[key] = {
+      slotRevision: nextRevision,
+      savedAt: String(snapshot.savedAt || new Date().toISOString()),
+      savedBy: TAB_INSTANCE_ID,
+      snapshot: cloneJson(snapshot)
+    };
+    storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    syncSharedStateSlotStore(next);
+    postStateSyncMessage({ type: 'slots-changed', action: 'save', slot: safeSlot, storeRevision: next.storeRevision });
+    return { ok: true, store: next, slotRevision: nextRevision };
+  }
+
+  function removeSharedStateSlot(slot, expectedRevision, options = {}) {
+    const safeSlot = normalizeStateSlot(slot);
+    const key = String(safeSlot);
+    const latest = readLatestSharedStateSlotStore();
+    const currentRevision = getSharedSlotRevision(safeSlot, latest);
+    if (!options.force && currentRevision !== Math.max(0, Number(expectedRevision) || 0)) {
+      return { ok: false, conflict: true, latest, currentRevision };
+    }
+    const next = normalizeSharedStateSlotStore(latest);
+    next.storeRevision = Math.max(0, Number(latest.storeRevision) || 0) + 1;
+    delete next.slots[key];
+    storageLocal.setItem(STATE_SLOT_STORAGE_KEY, JSON.stringify(next));
+    syncSharedStateSlotStore(next);
+    postStateSyncMessage({ type: 'slots-changed', action: 'delete', slot: safeSlot, storeRevision: next.storeRevision });
+    return { ok: true, store: next, slotRevision: 0 };
+  }
+
+  function setupMultiTabStateSync() {
+    if ('BroadcastChannel' in window) {
+      stateSyncChannel = new BroadcastChannel(STATE_SYNC_CHANNEL_NAME);
+      stateSyncChannel.addEventListener('message', event => {
+        const message = event.data || {};
+        if (message.sourceTabInstanceId === TAB_INSTANCE_ID) return;
+        if (message.type === 'slots-changed') handleExternalStateSlotStore(readLatestSharedStateSlotStore());
+        if (message.type === 'live-published' && !document.hasFocus()) isLiveStatePublisher = false;
+      });
+    }
+    window.addEventListener('storage', event => {
+      if (event.key === STATE_SLOT_STORAGE_KEY && event.newValue) {
+        try {
+          handleExternalStateSlotStore(normalizeSharedStateSlotStore(JSON.parse(event.newValue)));
+        } catch {}
+      }
+      if (event.key === STATE_LIVE_STORAGE_KEY && event.newValue && !document.hasFocus()) {
+        try {
+          const source = JSON.parse(event.newValue)?.sourceTabInstanceId;
+          if (source && source !== TAB_INSTANCE_ID) isLiveStatePublisher = false;
+        } catch {}
+      }
+    });
+    window.addEventListener('focus', claimLiveStatePublisher);
+    window.addEventListener('blur', () => {
+      flushPendingStateSave();
+      isLiveStatePublisher = false;
+    });
+  }
+
+  function claimLiveStatePublisher() {
+    if (document.visibilityState === 'hidden') return;
+    isLiveStatePublisher = true;
+    publishLiveState();
+  }
+
+  function handleExternalStateSlotStore(nextStore) {
+    const normalized = normalizeSharedStateSlotStore(nextStore);
+    if (normalized.storeRevision <= Math.max(0, Number(sharedStateSlotStore?.storeRevision) || 0)) return;
+    const slot = normalizeStateSlot(view.stateSlot);
+    const previousRevision = getSharedSlotRevision(slot, sharedStateSlotStore);
+    const nextRevision = getSharedSlotRevision(slot, normalized);
+    const currentWasDirty = stateSlotSavePending || historyState.suspended || isCurrentStateDirty();
+    const currentSlotChanged = previousRevision !== nextRevision;
+    syncSharedStateSlotStore(normalized);
+    if (!currentSlotChanged) {
+      renderStateManager();
+      return;
+    }
+    const nextSnapshot = appState.savedStates[String(slot)];
+    if (!currentWasDirty && nextSnapshot) {
+      stateSlotBaseRevision = nextRevision;
+      stateExternalConflict = null;
+      clearHistory();
+      if (applyStateSnapshot(nextSnapshot, { activeStateSlot: slot }) === false) return;
+      showStateStatus(`別タブで更新されたスロット${slot}を反映しました`);
+      return;
+    }
+    stateExternalConflict = {
+      slot,
+      type: nextSnapshot ? 'updated' : 'deleted',
+      previousRevision,
+      nextRevision
+    };
+    persistStateWorkspace();
+    renderStateManager();
+    showStateStatus(`スロット${slot}が別タブで${nextSnapshot ? '更新' : '削除'}されました`, true);
+  }
+
+  function loadState() {
+    let legacy = {};
+    let raw;
+    try {
+      raw = storageLocal.getItem(STORAGE_KEY);
+    } catch (error) {
+      if (isStorageRuntimeError(error)) throw error;
+      throw createStorageRuntimeError('read-failed', 'read', 'stat.legacyCurrent');
+    }
+    if (raw != null) {
+      legacy = parseStorageJson(raw, 'stat.legacyCurrent');
+      if (!legacy || typeof legacy !== 'object' || Array.isArray(legacy)) {
+        throw createStorageRuntimeError('recovery-required', 'read', 'stat.legacyCurrent');
+      }
+    }
+    sharedStateSlotStore = loadSharedStateSlotStore(legacy.savedStates);
+    initialWorkspaceState = loadStateWorkspace();
+    const parsed = initialWorkspaceState?.draft && typeof initialWorkspaceState.draft === 'object'
+      ? initialWorkspaceState.draft
+      : legacy;
+    restoreOmittedFinalStats(parsed);
+    const activeStateSlot = normalizeStateSlot(
+      initialWorkspaceState?.activeSlot ?? parsed.activeStateSlot ?? legacy.activeStateSlot
+    );
+    if (!initialWorkspaceState) {
+      initialWorkspaceState = {
+        activeSlot: activeStateSlot,
+        baseSlotRevision: getSharedSlotRevision(activeStateSlot)
+      };
+    }
+    return {
+      activeId: parsed.activeId || '',
+      syncRevision: Math.max(0, Number(parsed.syncRevision) || 0),
+      apostles: parsed.apostles && typeof parsed.apostles === 'object' ? parsed.apostles : {},
+      research: parsed.research && typeof parsed.research === 'object' ? parsed.research : {},
+      cards: parsed.cards && typeof parsed.cards === 'object' ? migrateCardStateMap(parsed.cards) : {},
+      formation: parsed.formation && typeof parsed.formation === 'object' ? normalizeFormationState(parsed.formation) : createDefaultFormation(),
+      totalCombatPower: normalizeFormationCoins(parsed.totalCombatPower),
+      activeFormationPresetId: parsed.activeFormationPresetId || '',
+      savedStates: getSharedStateSnapshots(sharedStateSlotStore),
+      activeStateSlot,
+      savedFormations: normalizeFormationPresetList(parsed.savedFormations)
+    };
+  }
+
+  function saveState(options = {}) {
+    if (options.renderStateManager === false) scheduleStateManagerRender();
+    else renderStateManager();
+    const persisted = options.flush ? flushPendingStateSave() : true;
+    if (!options.flush) scheduleStateSave();
+    if (options.refreshSnapshots === false) return persisted;
+    scheduleStatSnapshotRefresh(options.refreshSnapshotIds);
+    return persisted;
+  }
+
+  function scheduleStateManagerRender() {
+    if (stateManagerRenderTimer) window.clearTimeout(stateManagerRenderTimer);
+    stateManagerRenderTimer = window.setTimeout(() => {
+      stateManagerRenderTimer = 0;
+      renderStateManager();
+    }, 120);
+  }
+
+  function scheduleStateSave() {
+    if (stateSaveTimer) window.clearTimeout(stateSaveTimer);
+    stateSaveTimer = window.setTimeout(() => {
+      stateSaveTimer = 0;
+      safePersistState();
+    }, 120);
+  }
+
+  function flushPendingStateSave() {
+    if (stateSaveTimer) {
+      window.clearTimeout(stateSaveTimer);
+      stateSaveTimer = 0;
+    }
+    return safePersistState();
+  }
+
+  function persistState() {
+    appState.syncRevision = Math.max(0, Number(appState.syncRevision) || 0) + 1;
+    let persisted = true;
+    try {
+      persistStateWorkspace();
+    } catch (error) {
+      persisted = false;
+      reportStorageFailure(error);
+    }
+    if (isLiveStatePublisher && document.visibilityState !== 'hidden') {
+      try {
+        publishLiveState();
+      } catch (error) {
+        persisted = false;
+        reportStorageFailure(error);
+      }
+    }
+    return persisted;
+  }
+
+  function safePersistState() {
+    try {
+      return persistState();
+    } catch (error) {
+      reportStorageFailure(error);
+      return false;
+    }
+  }
+
+  function scheduleStatSnapshotRefresh(ids = null) {
+    queueStatSnapshotRefreshIds(ids);
+    if (statSnapshotRefreshTimer) window.clearTimeout(statSnapshotRefreshTimer);
+    statSnapshotRefreshTimer = window.setTimeout(() => {
+      const idsToRefresh = pendingStatSnapshotRefreshIds;
+      pendingStatSnapshotRefreshIds = new Set();
+      statSnapshotRefreshTimer = 0;
+      refreshScheduledStatSnapshots(idsToRefresh);
+    }, 350);
+  }
+
+  function queueStatSnapshotRefreshIds(ids = null) {
+    if (ids == null) {
+      pendingStatSnapshotRefreshIds = null;
+      return;
+    }
+    if (pendingStatSnapshotRefreshIds === null) return;
+    Array.from(ids || []).forEach(id => {
+      const safeId = getValidApostleId(id);
+      if (safeId) pendingStatSnapshotRefreshIds.add(safeId);
+    });
+  }
+
+  function refreshScheduledStatSnapshots(idsToRefresh) {
+    if (isRefreshingStatSnapshots) {
+      queueStatSnapshotRefreshIds(idsToRefresh === null ? null : Array.from(idsToRefresh));
+      scheduleStatSnapshotRefresh(pendingStatSnapshotRefreshIds === null ? null : Array.from(pendingStatSnapshotRefreshIds));
+      return;
+    }
+    const rows = getStatSnapshotRefreshRows(idsToRefresh);
+    if (!rows.length) {
+      safePersistState();
+      return;
+    }
+    refreshStatSnapshotsForRowsChunked(rows);
+  }
+
+  function getStatSnapshotRefreshRows(idsToRefresh) {
+    if (idsToRefresh === null) return DATA.sheets.basicInfo || [];
+    const idSet = new Set(Array.from(idsToRefresh || []).map(getValidApostleId).filter(Boolean));
+    if (!idSet.size) return [];
+    return (DATA.sheets.basicInfo || []).filter(basic => idSet.has(basic.id));
+  }
+
+  function refreshStatSnapshotsForRowsChunked(rows = []) {
+    if (!rows.length || isRefreshingStatSnapshots) return;
+    if (statSnapshotRefreshWorkTimer) window.clearTimeout(statSnapshotRefreshWorkTimer);
+    isRefreshingStatSnapshots = true;
+    const generation = statCalculationGeneration;
+    const hasAnyPlan = hasAnySavedBoardPlan();
+    let index = 0;
+    const finishRefresh = () => {
+      updateTotalCombatPowerFromSnapshots();
+      const currentId = view.id;
+      if (rows.some(basic => basic.id === currentId)) {
+        updateProfileCombatPowerDisplay(ensureApostleState(currentId).statSnapshots?.current?.stats?.combatPower);
+      }
+      updateFormationCoinSummary();
+      isRefreshingStatSnapshots = false;
+      safePersistState();
+    };
+    const failRefresh = error => {
+      console.error(error);
+      isRefreshingStatSnapshots = false;
+      safePersistState();
+    };
+    const runChunk = () => {
+      if (generation !== statCalculationGeneration) return;
+      statSnapshotRefreshWorkTimer = 0;
+      try {
+        const startedAt = Date.now();
+        do {
+          const basic = rows[index];
+          const state = ensureApostleState(basic.id);
+          const current = calculateStatSnapshotForApostle(basic, state, null, 'current');
+          if (!state.statSnapshots || typeof state.statSnapshots !== 'object') state.statSnapshots = {};
+          state.statSnapshots.current = current;
+          const planned = hasAnyPlan ? createPlannedStatSnapshot(basic, state, current) : null;
+          if (planned) state.statSnapshots.planned = planned;
+          else delete state.statSnapshots.planned;
+          state.finalStats = current.stats;
+          index += 1;
+        } while (index < rows.length && Date.now() - startedAt < 8);
+
+        if (index < rows.length) {
+          statSnapshotRefreshWorkTimer = window.setTimeout(runChunk, 0);
+          return;
+        }
+
+        finishRefresh();
+      } catch (error) {
+        failRefresh(error);
+      }
+    };
+    statSnapshotRefreshWorkTimer = window.setTimeout(runChunk, 0);
+  }
+
+  function formatNumber(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '-';
+    return Math.round(num).toLocaleString();
+  }
+
+  function formatMainStatValue(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? Math.trunc(num).toLocaleString('ja-JP') : '-';
+  }
+
+  function formatFormationCoinCount(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? String(Math.round(num)) : '-';
+  }
+
+  function formatBreakdownValue(value) {
+    const num = Number(value) || 0;
+    return num ? formatNumber(num) : '';
+  }
+
+  function formatGlobalPercentBreakdownValue(increase, percent, follow = false) {
+    const increaseValue = Number(increase) || 0;
+    const percentValue = Number(percent) || 0;
+    if (!increaseValue && !percentValue && !follow) return '';
+    const percentLabel = [percentValue ? `${formatBoardSummaryValue(percentValue)}%` : '',
+      follow ? 'フォロー3%' : ''].filter(Boolean).join(' + ');
+    return increaseValue ? `${formatNumber(increaseValue)} (${percentLabel})` : `0 (${percentLabel})`;
+  }
+
+  function renderUiIcon(name, className = '') {
+    const paths = {
+      close: '<path d="M6 6l12 12M18 6 6 18"></path>',
+      minus: '<path d="M5 12h14"></path>',
+      plus: '<path d="M12 5v14M5 12h14"></path>',
+      save: '<path d="M5 3h12l2 2v16H5z"></path><path d="M8 3v6h8V3M8 21v-7h8v7"></path>'
+    };
+    const extraClass = className ? ` ${escapeAttr(className)}` : '';
+    return `<svg class="ui-icon${extraClass}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths[name] || ''}</svg>`;
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[char]));
+  }
+
+  function escapeAttr(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+  }).catch(reportStorageFailure);
+})();

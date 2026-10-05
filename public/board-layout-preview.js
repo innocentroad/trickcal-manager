@@ -1,0 +1,897 @@
+(function () {
+  'use strict';
+
+  const storageBoot = window.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
+  storageBoot.then(bootResult => {
+    if (!bootResult?.ok) return;
+    const storageFacade = window.TRICKCAL_STORAGE_FACADE;
+    if (!storageFacade) throw new Error('storage facade unavailable');
+    const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
+
+  const DATA = window.TRICKCAL_STAT_DATA;
+  const publicSite = window.TRICKCAL_PUBLIC_SITE;
+  const normalizeSpeciesName = value => window.TRICKCAL_SPECIES?.normalizeName(value) ?? value;
+
+  function boardAssetPath(relativePath) {
+    if (typeof relativePath !== 'string') return relativePath;
+    if (typeof publicSite?.assetUrl === 'function') return publicSite.assetUrl(relativePath);
+    if (/^(?:[a-z]+:|\/|data:|blob:)/i.test(relativePath)) return relativePath;
+    return `../${relativePath.replace(/^\.\//, '')}`;
+  }
+  if (!DATA) return;
+
+  const COMMON_THEME_KEY = 'trickcal_theme';
+  const LEGACY_PREVIEW_THEME_KEY = 'trickcal-board-preview-theme';
+  const PREVIEW_SCALE_KEY = 'trickcal-board-preview-scale';
+  const MIN_VIEW_SCALE = 0.6;
+  const MAX_VIEW_SCALE = 1.6;
+  const VIEW_SCALE_STEP = 0.1;
+  const BOARD_CROSS_SIZE = 7;
+  const BOARD_LAYER_PROGRESS_CELLS = [13, 13, 12];
+  const BOARD_TOTAL_PROGRESS_CELLS = BOARD_LAYER_PROGRESS_CELLS.reduce((sum, size) => sum + size, 0);
+  const APOSTLE_ASSET_ALIASES = {
+    ED: 'Ed',
+    Cuee: 'Kyuri',
+    Kyui: 'Kyuri',
+    Kyuui: 'Kyuri',
+    Kiwi: 'Kyuri',
+    Lazy: 'Layze',
+    Razy: 'Layze',
+    Reizy: 'Layze',
+    Rudd: 'Rude',
+    Selline: 'Selene',
+    Shady: 'Shaydi',
+    RenewaAwaken: 'Renewa',
+    Sion: 'Xion',
+    sion: 'Xion',
+    xion: 'Xion',
+    xXionx: 'Xion'
+  };
+
+  const BOARD_TIER_VALUES = {
+    hp: { 1: [50, 99], 2: [71, 141], 3: [92, 183], 4: [113, 225], 5: [134, 267] },
+    attack: { 1: [5, 11], 2: [5, 12], 3: [6, 13], 4: [7, 14], 5: [7, 15] },
+    defense: { 1: [11, 21], 2: [12, 24], 3: [13, 26], 4: [14, 28], 5: [15, 31] },
+    crit: { 1: [8, 16], 2: [9, 17], 3: [10, 19], 4: [11, 21], 5: [12, 22] }
+  };
+
+  const SPECIAL_TYPES = [
+    { key: 'A', signature: '2,3,2,1,1', fallbackLabel: '魔法攻撃力 / 物理防御力' },
+    { key: 'B', signature: '1,3,2,1,2', fallbackLabel: 'HP / 魔法攻撃力' },
+    { key: 'C', signature: '2,2,2,1,2', fallbackLabel: '物理防御力 / 会心抵抗' },
+    { key: 'D', signature: '2,0,1,3,3', fallbackLabel: '会心抵抗 / 会心' },
+    { key: 'E', signature: '2,1,2,3,1', fallbackLabel: '会心 / HP' }
+  ];
+  const SPECIAL_TYPE_BY_SIGNATURE = new Map(SPECIAL_TYPES.map(item => [item.signature, item.key]));
+
+  const elements = {
+    apostle: document.getElementById('board-preview-apostle'),
+    species: document.getElementById('board-preview-species'),
+    specialType: document.getElementById('board-preview-special-type'),
+    attackType: document.getElementById('board-preview-attack-type'),
+    orientationButtons: Array.from(document.querySelectorAll('[data-board-orientation]')),
+    zoomOut: document.getElementById('board-preview-zoom-out'),
+    zoomReset: document.getElementById('board-preview-zoom-reset'),
+    zoomIn: document.getElementById('board-preview-zoom-in'),
+    themeToggle: document.getElementById('board-preview-theme-toggle'),
+    tierSelects: Array.from(document.querySelectorAll('[data-board-preview-tier]')),
+    templateBar: document.querySelector('.template-config-bar'),
+    detailToggle: document.getElementById('board-preview-detail-toggle'),
+    detailSettings: document.getElementById('board-preview-detail-settings'),
+    apostleImage: document.getElementById('board-preview-apostle-image'),
+    apostleImageFallback: document.querySelector('.template-apostle-image-fallback'),
+    apostleName: document.getElementById('board-preview-apostle-name'),
+    reference: document.getElementById('board-preview-reference'),
+    status: document.getElementById('board-preview-status'),
+    viewport: document.getElementById('board-preview-viewport'),
+    canvas: document.getElementById('board-preview-canvas'),
+    specialSummary: document.getElementById('board-preview-special-summary'),
+    detail: document.getElementById('board-preview-detail'),
+    popover: document.getElementById('board-preview-popover'),
+    popoverClose: document.getElementById('board-preview-popover-close')
+  };
+  if (!elements.apostle || !elements.species || !elements.canvas) return;
+
+  const basicRows = DATA.sheets?.basicInfo || [];
+  const basicById = new Map(basicRows.map(row => [String(row.id), row]));
+  const referenceCatalog = buildReferenceCatalog();
+  let selectedNode = null;
+  let viewOrientation = 'horizontal';
+  let viewScale = 1;
+
+  initialize();
+  applyUrlState();
+  bindEvents();
+  renderPreview({ resetHorizontalScroll: true });
+
+  function initialize() {
+    elements.apostle.innerHTML = [
+      '<option value="">カスタム指定</option>',
+      ...basicRows.map(row => `<option value="${escapeHtml(row.id)}">${escapeHtml(row.使徒名)}</option>`)
+    ].join('');
+    const species = Array.from(new Set(basicRows.map(row => String(normalizeSpeciesName(row.種族 || ''))).filter(Boolean)));
+    elements.species.innerHTML = species.map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+    const tierOptions = Array.from({ length: 5 }, (_, index) => `<option value="${index + 1}">Tier ${index + 1}</option>`).join('');
+    elements.tierSelects.forEach(select => {
+      select.innerHTML = tierOptions;
+      select.value = '3';
+    });
+    updateSpecialTypeOptions();
+    syncApostleSummary();
+    syncTemplateBarHeight();
+    if (elements.templateBar && 'ResizeObserver' in window) {
+      new ResizeObserver(syncTemplateBarHeight).observe(elements.templateBar);
+    } else {
+      window.addEventListener('resize', syncTemplateBarHeight);
+    }
+    syncThemeToggle();
+    syncSharedThemeState();
+    applyViewScale(readSavedViewScale(), { persist: false, updateUrl: false });
+  }
+
+  function bindEvents() {
+    elements.apostle.addEventListener('change', syncFromApostle);
+    elements.species.addEventListener('change', () => {
+      markCustomSelection();
+      updateSpecialTypeOptions();
+      renderPreview({ resetHorizontalScroll: true });
+    });
+    elements.specialType.addEventListener('change', () => {
+      markCustomSelection();
+      renderPreview({ resetHorizontalScroll: true });
+    });
+    elements.attackType.addEventListener('change', () => {
+      markCustomSelection();
+      renderPreview({ resetHorizontalScroll: true });
+    });
+    elements.tierSelects.forEach(select => {
+      select.addEventListener('change', () => {
+        markCustomSelection();
+        renderPreview({ resetHorizontalScroll: true });
+      });
+    });
+    elements.orientationButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        viewOrientation = button.dataset.boardOrientation === 'vertical' ? 'vertical' : 'horizontal';
+        elements.orientationButtons.forEach(item => item.classList.toggle('is-active', item === button));
+        updatePreviewUrl();
+        renderPreview({ resetHorizontalScroll: viewOrientation === 'horizontal' });
+      });
+    });
+    elements.zoomOut.addEventListener('click', () => applyViewScale(viewScale - VIEW_SCALE_STEP));
+    elements.zoomReset.addEventListener('click', () => applyViewScale(1));
+    elements.zoomIn.addEventListener('click', () => applyViewScale(viewScale + VIEW_SCALE_STEP));
+    elements.themeToggle?.addEventListener('click', () => {
+      applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+    });
+    elements.detailToggle?.addEventListener('click', () => {
+      setDetailSettingsOpen(elements.detailSettings?.dataset.templateDetailsOpen !== 'true');
+    });
+    elements.apostleImage?.addEventListener('error', () => {
+      elements.apostleImage.hidden = true;
+      elements.apostleImageFallback?.removeAttribute('hidden');
+    });
+    elements.apostleImage?.addEventListener('load', () => {
+      elements.apostleImage.hidden = false;
+      elements.apostleImageFallback?.setAttribute('hidden', '');
+    });
+    window.addEventListener('storage', event => {
+      if (event.key !== COMMON_THEME_KEY || !['light', 'dark'].includes(event.newValue)) return;
+      applyTheme(event.newValue, false);
+    });
+    elements.canvas.addEventListener('click', event => {
+      const button = event.target.closest('.board-node[data-row-index]');
+      if (!button || button.classList.contains('is-virtual')) return;
+      const row = currentRows()[Number(button.dataset.rowIndex)];
+      if (!row) return;
+      elements.canvas.querySelectorAll('.board-node.is-selected').forEach(node => node.classList.remove('is-selected'));
+      button.classList.add('is-selected');
+      selectedNode = boardKey(row);
+      renderDetail(row);
+      showTilePopover(button);
+    });
+    elements.popoverClose.addEventListener('click', closeTilePopover);
+    document.addEventListener('click', event => {
+      if (elements.popover.hidden || elements.popover.contains(event.target) || event.target.closest('.board-node')) return;
+      closeTilePopover();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      if (elements.detailSettings?.dataset.templateDetailsOpen === 'true') {
+        setDetailSettingsOpen(false, { restoreFocus: true });
+        event.preventDefault();
+        return;
+      }
+      closeTilePopover();
+    });
+  }
+
+  function setDetailSettingsOpen(open, { restoreFocus = false } = {}) {
+    if (!elements.detailSettings || !elements.detailToggle) return;
+    const isOpen = !!open;
+    elements.detailSettings.dataset.templateDetailsOpen = String(isOpen);
+    elements.detailToggle.setAttribute('aria-expanded', String(isOpen));
+    if (restoreFocus || !isOpen) elements.detailToggle.focus({ preventScroll: true });
+    syncTemplateBarHeight();
+  }
+
+  function syncTemplateBarHeight() {
+    if (!elements.templateBar) return;
+    const height = Math.ceil(elements.templateBar.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--board-preview-bottom-bar-height', `${height}px`);
+  }
+
+  function syncApostleSummary() {
+    const basic = basicById.get(String(elements.apostle?.value || ''));
+    const name = String(basic?.使徒名 || 'カスタム指定');
+    if (elements.apostleName) elements.apostleName.textContent = name;
+    if (!elements.apostleImage) return;
+    if (!basic) {
+      elements.apostleImage.hidden = true;
+      elements.apostleImage.removeAttribute('src');
+      elements.apostleImage.alt = '';
+      elements.apostleImageFallback?.removeAttribute('hidden');
+      return;
+    }
+    elements.apostleImage.alt = name;
+    elements.apostleImageFallback?.setAttribute('hidden', '');
+    elements.apostleImage.src = boardAssetPath(getApostleImagePath(basic.id));
+    elements.apostleImage.hidden = false;
+  }
+
+  function syncThemeToggle() {
+    if (!elements.themeToggle) return;
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    elements.themeToggle.setAttribute('aria-pressed', String(isDark));
+    elements.themeToggle.setAttribute('aria-label', isDark ? 'ダークモード。ライトモードに切替' : 'ライトモード。ダークモードに切替');
+    elements.themeToggle.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
+  }
+  function syncSharedThemeState() {
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    document.body.classList.toggle('theme-light', !isDark);
+    document.body.classList.toggle('theme-dark', isDark);
+    document.querySelectorAll('[data-shared-theme-button], [data-dashboard-theme-toggle], #fdc-theme-toggle').forEach(button => {
+      button.setAttribute('aria-pressed', String(isDark));
+      button.setAttribute('aria-label', isDark ? 'ライトモードに切替' : 'ダークモードに切替');
+      button.title = isDark ? 'ライトモードに切替' : 'ダークモードに切替';
+    });
+  }
+  function applyTheme(theme, persist = true) {
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = nextTheme;
+    syncSharedThemeState();
+    syncThemeToggle();
+    if (!persist) return;
+    try {
+      storageLocal.setItem(COMMON_THEME_KEY, nextTheme);
+      storageLocal.setItem(LEGACY_PREVIEW_THEME_KEY, nextTheme);
+    } catch (error) {
+                                           
+    }
+  }
+  function markCustomSelection() {
+    elements.apostle.value = '';
+    syncApostleSummary();
+    updatePreviewUrl();
+  }
+
+  function applyUrlState() {
+    const params = new URLSearchParams(window.location.search);
+    const apostleId = String(params.get('apostle') || '');
+    if (basicById.has(apostleId)) {
+      elements.apostle.value = apostleId;
+      syncFromApostle({ updateUrl: false, render: false });
+    }
+    viewOrientation = params.get('orientation') === 'vertical' ? 'vertical' : 'horizontal';
+    elements.orientationButtons.forEach(button => {
+      button.classList.toggle('is-active', button.dataset.boardOrientation === viewOrientation);
+    });
+    const urlScale = Number(params.get('zoom')) / 100;
+    if (Number.isFinite(urlScale) && urlScale > 0) {
+      applyViewScale(urlScale, { persist: true, updateUrl: false });
+    }
+  }
+
+  function updatePreviewUrl() {
+    const url = new URL(window.location.href);
+    const apostleId = String(elements.apostle.value || '');
+    if (apostleId) url.searchParams.set('apostle', apostleId);
+    else url.searchParams.delete('apostle');
+    if (viewOrientation === 'vertical') url.searchParams.set('orientation', 'vertical');
+    else url.searchParams.delete('orientation');
+    if (viewScale !== 1) url.searchParams.set('zoom', String(Math.round(viewScale * 100)));
+    else url.searchParams.delete('zoom');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+  }
+
+  function readSavedViewScale() {
+    try {
+      return Number(storageLocal.getItem(PREVIEW_SCALE_KEY)) || 1;
+    } catch (error) {
+      return 1;
+    }
+  }
+
+  function applyViewScale(value, { persist = true, updateUrl = true } = {}) {
+    const nextScale = Math.round(Math.min(MAX_VIEW_SCALE, Math.max(MIN_VIEW_SCALE, Number(value) || 1)) * 10) / 10;
+    viewScale = nextScale;
+    document.documentElement.style.setProperty('--board-preview-scale', String(nextScale));
+    elements.zoomReset.textContent = `${Math.round(nextScale * 100)}%`;
+    elements.zoomOut.disabled = nextScale <= MIN_VIEW_SCALE;
+    elements.zoomIn.disabled = nextScale >= MAX_VIEW_SCALE;
+    closeTilePopover();
+    if (persist) {
+      try {
+        storageLocal.setItem(PREVIEW_SCALE_KEY, String(nextScale));
+      } catch (error) {
+                                    
+      }
+    }
+    if (updateUrl) updatePreviewUrl();
+  }
+
+  function resetBoardViewportToStart() {
+    requestAnimationFrame(() => {
+      if (!elements.viewport) return;
+      elements.viewport.scrollLeft = 0;
+    });
+  }
+
+  function syncFromApostle({ updateUrl = true, render = true } = {}) {
+    const basic = basicById.get(String(elements.apostle.value || ''));
+    syncApostleSummary();
+    if (!basic) {
+      if (updateUrl) updatePreviewUrl();
+      if (render) renderPreview({ resetHorizontalScroll: true });
+      return;
+    }
+    const rows = DATA.getById('board', basic.id) || [];
+    const specialType = inferSpecialType(rows);
+    const attackType = normalizeAttackType(basic.攻撃タイプ || basic.攻撃Type);
+    elements.species.value = String(normalizeSpeciesName(basic.種族 || elements.species.options[0]?.value || ''));
+    updateSpecialTypeOptions(specialType);
+    elements.attackType.value = attackType;
+    const tiers = inferBoardTiers(rows, attackType);
+    elements.tierSelects.forEach(select => {
+      select.value = String(tiers[select.dataset.boardPreviewTier] || 3);
+    });
+    syncApostleSummary();
+    if (updateUrl) updatePreviewUrl();
+    if (render) renderPreview({ resetHorizontalScroll: true });
+  }
+  function buildReferenceCatalog() {
+    const exact = new Map();
+    const species = new Map();
+    const specialTypes = new Map();
+    basicRows.forEach(basic => {
+      const rows = DATA.getById('board', basic.id) || [];
+      if (rows.length !== 91) return;
+      const specialType = inferSpecialType(rows);
+      const speciesName = String(normalizeSpeciesName(basic.種族 || ''));
+      if (!specialType || !speciesName) return;
+      const reference = { basic, rows, specialType };
+      const key = referenceKey(speciesName, specialType);
+      if (!exact.has(key)) exact.set(key, reference);
+      if (!species.has(speciesName)) species.set(speciesName, reference);
+      if (!specialTypes.has(specialType)) specialTypes.set(specialType, reference);
+    });
+    return { exact, species, specialTypes };
+  }
+
+  function inferSpecialType(rows) {
+    const counts = { hp: 0, attack: 0, defense: 0, crit: 0, critRes: 0 };
+    rows.filter(row => row.マス_type === '特殊').forEach(row => {
+      const group = getSpecialEffectGroup(row.効果1_type);
+      if (group) counts[group] += 1;
+    });
+    return SPECIAL_TYPE_BY_SIGNATURE.get([counts.hp, counts.attack, counts.defense, counts.crit, counts.critRes].join(',')) || '';
+  }
+
+  function getSpecialEffectGroup(type) {
+    const text = String(type || '');
+    if (text === '全体HP') return 'hp';
+    if (text.includes('攻撃力')) return 'attack';
+    if (text.includes('防御力')) return 'defense';
+    if (text === '会心抵抗') return 'critRes';
+    return text ? 'crit' : '';
+  }
+
+  function updateSpecialTypeOptions(preferred = elements.specialType.value) {
+    const species = elements.species.value;
+    elements.specialType.innerHTML = SPECIAL_TYPES.map(item => {
+      const reference = getReference(species, item.key);
+      const effects = getBoardOneSpecialEffects(reference?.rows);
+      const label = effects.length === 2 ? effects.join(' / ') : item.fallbackLabel;
+      const suffix = !reference ? ' / 生成不可' : reference.synthetic ? ' / 予測' : ` / 例: ${reference.basic.使徒名}`;
+      return `<option value="${item.key}"${reference ? '' : ' disabled'}>${escapeHtml(`${item.key}: ${label}${suffix}`)}</option>`;
+    }).join('');
+    const preferredOption = Array.from(elements.specialType.options).find(option => option.value === preferred && !option.disabled);
+    const firstEnabled = Array.from(elements.specialType.options).find(option => !option.disabled);
+    elements.specialType.value = preferredOption?.value || firstEnabled?.value || '';
+  }
+
+  function getBoardOneSpecialEffects(rows = []) {
+    return Array.from(new Set(rows
+      .filter(row => Number(row.ボード階層) === 1 && row.マス_type === '特殊')
+      .map(row => String(row.効果1_type || '').replace(/^全体/, ''))
+      .filter(Boolean)));
+  }
+
+  function getReference(species, specialType) {
+    const exact = referenceCatalog.exact.get(referenceKey(species, specialType));
+    if (exact) {
+      return { ...exact, geometryBasic: exact.basic, specialBasic: exact.basic, synthetic: false };
+    }
+    const geometry = referenceCatalog.species.get(species);
+    const special = referenceCatalog.specialTypes.get(specialType);
+    if (!geometry || !special) return null;
+    const rows = composeReferenceRows(geometry.rows, special.rows);
+    if (!rows) return null;
+    return {
+      basic: geometry.basic,
+      rows,
+      specialType,
+      geometryBasic: geometry.basic,
+      specialBasic: special.basic,
+      synthetic: true
+    };
+  }
+
+  function composeReferenceRows(geometryRows, specialRows) {
+    const payloads = specialRows.filter(row => row.マス_type === '特殊');
+    const geometrySpecials = geometryRows.filter(row => row.マス_type === '特殊');
+    if (payloads.length !== 9 || geometrySpecials.length !== payloads.length) return null;
+    if (!geometrySpecials.every((row, index) => Number(row.ボード階層) === Number(payloads[index].ボード階層))) return null;
+    let specialIndex = 0;
+    return geometryRows.map(source => {
+      if (source.マス_type !== '特殊') return { ...source };
+      const payload = payloads[specialIndex++];
+      return {
+        ...source,
+        効果1_type: payload.効果1_type ?? '',
+        効果1_value: payload.効果1_value ?? '',
+        効果2_type: payload.効果2_type ?? '',
+        効果2_value: payload.効果2_value ?? ''
+      };
+    });
+  }
+
+  function referenceKey(species, specialType) {
+    return `${normalizeSpeciesName(species)}\u0000${specialType}`;
+  }
+
+  function getSettings() {
+    return {
+      attackType: elements.attackType.value,
+      tiers: Object.fromEntries(elements.tierSelects.map(select => [
+        select.dataset.boardPreviewTier,
+        Number(select.value) || 3
+      ]))
+    };
+  }
+
+  function currentRows() {
+    return getPreviewState().rows;
+  }
+
+  function getPreviewState() {
+    const selectedBasic = basicById.get(String(elements.apostle.value || ''));
+    if (selectedBasic) {
+      const rows = DATA.getById('board', selectedBasic.id) || [];
+      if (rows.length === 91) {
+        return {
+          rows: rows.map(row => ({ ...row })),
+          label: `${selectedBasic.使徒名} / 使徒データ`,
+          status: '選択使徒のデータ'
+        };
+      }
+    }
+    const reference = getReference(elements.species.value, elements.specialType.value);
+    if (!reference) return { rows: [], label: '該当テンプレートなし', status: '表示できる基準データがありません。', error: true };
+    return {
+      rows: generatePreviewRows(reference.rows, getSettings()),
+      label: reference.synthetic
+        ? `盤面: ${reference.geometryBasic.使徒名} / 特殊: ${reference.specialBasic.使徒名} / 予測`
+        : `${reference.basic.使徒名} / 実例`,
+      status: reference.synthetic ? '予測テンプレート' : '実在テンプレート'
+    };
+  }
+
+  function generatePreviewRows(referenceRows, settings) {
+    const normalValues = collectReferenceNormalRanges(referenceRows);
+    return referenceRows.map(source => {
+      const row = { ...source };
+      if (row.マス_type !== '通常') return row;
+      const sourceType = String(row.効果1_type || '');
+      const tierKey = getTierControlKey(sourceType);
+      const tier = settings.tiers[tierKey] || 3;
+      const valueGroup = getTierValueGroup(sourceType);
+      const range = normalValues.get(sourceType) || [Number(row.効果1_value) || 0, Number(row.効果1_value) || 0];
+      const high = Number(row.効果1_value) === range[range.length - 1];
+      if (sourceType === '物理攻撃力' || sourceType === '魔法攻撃力') {
+        row.効果1_type = settings.attackType === '魔法' ? '魔法攻撃力' : '物理攻撃力';
+      }
+      row.効果1_value = BOARD_TIER_VALUES[valueGroup][tier][high ? 1 : 0];
+      return row;
+    });
+  }
+
+  function collectReferenceNormalRanges(rows) {
+    const values = new Map();
+    rows.filter(row => row.マス_type === '通常').forEach(row => {
+      const type = String(row.効果1_type || '');
+      if (!values.has(type)) values.set(type, new Set());
+      values.get(type).add(Number(row.効果1_value) || 0);
+    });
+    return new Map(Array.from(values, ([type, set]) => [type, Array.from(set).sort((a, b) => a - b)]));
+  }
+
+  function getTierControlKey(effectType) {
+    if (effectType === 'HP') return 'hp';
+    if (effectType === '物理攻撃力' || effectType === '魔法攻撃力') return 'attack';
+    if (effectType === '物理防御力') return 'physicalDefense';
+    if (effectType === '魔法防御力') return 'magicDefense';
+    if (effectType === '会心') return 'crit';
+    if (effectType === '会心DMG') return 'critDmg';
+    if (effectType === '会心抵抗') return 'critRes';
+    return 'critDmgRes';
+  }
+
+  function getTierValueGroup(effectType) {
+    if (effectType === 'HP') return 'hp';
+    if (effectType.includes('攻撃力')) return 'attack';
+    if (effectType.includes('防御力')) return 'defense';
+    return 'crit';
+  }
+
+  function inferBoardTiers(rows, attackType) {
+    const effectTypes = {
+      hp: 'HP',
+      attack: attackType === '魔法' ? '魔法攻撃力' : '物理攻撃力',
+      physicalDefense: '物理防御力',
+      magicDefense: '魔法防御力',
+      crit: '会心',
+      critDmg: '会心DMG',
+      critRes: '会心抵抗',
+      critDmgRes: '会心DMG抵抗'
+    };
+    return Object.fromEntries(Object.entries(effectTypes).map(([key, effectType]) => {
+      const values = Array.from(new Set(rows
+        .filter(row => row.マス_type === '通常' && row.効果1_type === effectType)
+        .map(row => Number(row.効果1_value) || 0)))
+        .sort((a, b) => a - b);
+      const valueGroup = getTierValueGroup(effectType);
+      const matched = Object.entries(BOARD_TIER_VALUES[valueGroup])
+        .find(([, pair]) => pair[0] === values[0] && pair[1] === values[values.length - 1]);
+      return [key, matched ? Number(matched[0]) : 3];
+    }));
+  }
+  function renderPreview({ resetHorizontalScroll = false } = {}) {
+    const preview = getPreviewState();
+    closeTilePopover();
+    elements.reference.textContent = preview.label;
+    elements.status.textContent = preview.status;
+    elements.status.classList.toggle('is-error', !!preview.error);
+    elements.canvas.classList.toggle('is-vertical', viewOrientation === 'vertical');
+    if (!preview.rows.length) {
+      elements.canvas.innerHTML = '';
+      elements.specialSummary.innerHTML = '';
+      if (resetHorizontalScroll) resetBoardViewportToStart();
+      return;
+    }
+    elements.canvas.innerHTML = renderUnifiedBoard(preview.rows, viewOrientation);
+    elements.specialSummary.innerHTML = renderSpecialSummary(preview.rows);
+    if (resetHorizontalScroll) resetBoardViewportToStart();
+  }
+
+  function renderUnifiedBoard(allRows, orientation) {
+    const layers = [1, 2, 3].map(layer => allRows.filter(row => Number(row.ボード階層) === layer));
+    const yOffsets = [0, 13, 26];
+    const xOffsets = [0, 0, 0];
+    for (let index = 1; index < layers.length; index += 1) {
+      const previousGate = layers[index - 1].find(row => row.マス_type === 'ゲート');
+      const entry = getBoardEntryRow(layers[index], previousGate);
+      const previousGateX = Number(previousGate?.X_pos) + xOffsets[index - 1];
+      xOffsets[index] = entry && Number.isFinite(previousGateX)
+        ? previousGateX - Number(entry.X_pos)
+        : xOffsets[index - 1];
+    }
+    const positioned = allRows.map((row, index) => {
+      const layerIndex = Number(row.ボード階層) - 1;
+      return {
+        row,
+        index,
+        x: Number(row.X_pos) + xOffsets[layerIndex],
+        y: Number(row.Y_pos) + yOffsets[layerIndex]
+      };
+    });
+                                                       
+    const minX = Math.min(1, ...positioned.map(item => item.x));
+    const maxX = Math.max(BOARD_CROSS_SIZE, ...positioned.map(item => item.x));
+    const maxY = BOARD_TOTAL_PROGRESS_CELLS;
+    const byPos = new Map(positioned.map(item => [`${item.x}:${item.y}`, item]));
+    const cells = [];
+    if (orientation === 'vertical') {
+      for (let y = maxY; y >= 1; y -= 1) {
+        for (let x = maxX; x >= minX; x -= 1) {
+          const item = byPos.get(`${x}:${y}`);
+          cells.push(`<div class="board-cell">${item ? renderNode(item.row, item.index) : ''}</div>`);
+        }
+      }
+    } else {
+      for (let x = maxX; x >= minX; x -= 1) {
+        for (let y = 1; y <= maxY; y += 1) {
+          const item = byPos.get(`${x}:${y}`);
+          cells.push(`<div class="board-cell">${item ? renderNode(item.row, item.index) : ''}</div>`);
+        }
+      }
+    }
+    const columnCount = orientation === 'vertical' ? maxX - minX + 1 : maxY;
+    const rowCount = orientation === 'vertical' ? maxY : maxX - minX + 1;
+    const layerBackgrounds = renderLayerBackgrounds(positioned, orientation, minX, maxX, maxY);
+    const heading = orientation === 'vertical'
+      ? '<span class="unified-board-order">上から <b class="board-heading-label board-heading-b3">B3</b>・<b class="board-heading-label board-heading-b2">B2</b>・<b class="board-heading-label board-heading-b1">B1</b></span>'
+      : '<span class="board-heading-label board-heading-b1">B1</span><span class="board-heading-label board-heading-b2">B2</span><span class="board-heading-label board-heading-b3">B3</span>';
+    return `
+      <section class="unified-board is-${orientation}">
+        <div class="unified-board-head">${heading}</div>
+        <div class="board-grid" style="width: max-content; grid-template-columns: repeat(${columnCount}, var(--cell-size)); grid-template-rows: repeat(${rowCount}, var(--cell-size));">
+          ${layerBackgrounds}
+          ${cells.join('')}
+        </div>
+      </section>
+    `;
+  }
+  function renderLayerBackgrounds(positioned, orientation, minX, maxX, maxY) {
+    const crossSize = maxX - minX + 1;
+    const expectedGateYs = [
+      BOARD_LAYER_PROGRESS_CELLS[0],
+      BOARD_LAYER_PROGRESS_CELLS[0] + BOARD_LAYER_PROGRESS_CELLS[1]
+    ];
+    const gateCenters = expectedGateYs.map((expectedY, index) => {
+      const layer = index + 1;
+      const gate = positioned.find(item => Number(item.row.ボード階層) === layer && item.row.マス_type === 'ゲート');
+      const gateY = Number(gate?.y);
+      const expectedCenter = orientation === 'vertical' ? maxY - expectedY + 0.5 : expectedY - 0.5;
+      if (!Number.isFinite(gateY)) return expectedCenter;
+      const actualCenter = orientation === 'vertical' ? maxY - gateY + 0.5 : gateY - 0.5;
+      return actualCenter >= 0 && actualCenter <= maxY ? actualCenter : expectedCenter;
+    });
+    const [firstGateCenter, secondGateCenter] = gateCenters;
+    const bounds = orientation === 'vertical'
+      ? [
+        { start: firstGateCenter, end: maxY },
+        { start: secondGateCenter, end: firstGateCenter },
+        { start: 0, end: secondGateCenter }
+      ]
+      : [
+        { start: 0, end: firstGateCenter },
+        { start: firstGateCenter, end: secondGateCenter },
+        { start: secondGateCenter, end: maxY }
+      ];
+    const crossStart = 0;
+    const crossExtent = crossSize;
+    return bounds.map(({ start, end }, index) => {
+      const layer = index + 1;
+      const boundedStart = Math.max(0, Math.min(maxY, start));
+      const boundedEnd = Math.max(boundedStart, Math.min(maxY, end));
+      const left = orientation === 'vertical' ? crossStart : boundedStart;
+      const top = orientation === 'vertical' ? boundedStart : crossStart;
+      const width = orientation === 'vertical' ? crossExtent : boundedEnd - boundedStart;
+      const height = orientation === 'vertical' ? boundedEnd - boundedStart : crossExtent;
+      const label = orientation === 'vertical'
+        ? `<span class="board-layer-label board-layer-label-b${layer}" aria-hidden="true" style="--layer-left:${left};--layer-top:${top}">B${layer}</span>`
+        : '';
+      return `<span class="board-layer-background board-layer-b${layer}" aria-hidden="true"
+        style="--layer-left:${left};--layer-top:${top};--layer-width:${width};--layer-height:${height}"></span>${label}`;
+    }).join('');
+  }
+  function formatSpecialSummaryEffect(row) {
+    return formatBoardEffect({
+      ...row,
+      効果1_type: String(row.効果1_type || '').replace(/^全体/, ''),
+      効果2_type: String(row.効果2_type || '').replace(/^全体/, '')
+    });
+  }
+  function renderSpecialSummary(rows) {
+    return [1, 2, 3].map(layer => {
+      const grouped = new Map();
+      rows.filter(row => Number(row.ボード階層) === layer && row.マス_type === '特殊').forEach(row => {
+        const effect = formatSpecialSummaryEffect(row);
+        const existing = grouped.get(effect);
+        if (existing) existing.count += 1;
+        else grouped.set(effect, { row, count: 1 });
+      });
+      const items = Array.from(grouped.values()).map(({ row, count }) => {
+        const icon = getBoardIconPath(row);
+        return `
+          <span class="special-board-item">
+            <span class="special-board-tile" style="--tile-base:url('${escapeHtml(getBoardTileBasePath(row))}');${icon ? `--tile-icon:url('${escapeHtml(icon)}')` : ''}"></span>
+            <span>${escapeHtml(formatSpecialSummaryEffect(row))}</span>
+            ${count > 1 ? `<span class="special-board-count">×${count}</span>` : ''}
+          </span>
+        `;
+      }).join('');
+      return `
+        <section class="special-board-group special-board-b${layer}">
+          <h3><span>B${layer}</span><small>特殊マス</small></h3>
+          <div class="special-board-items">${items}</div>
+        </section>
+      `;
+    }).join('');
+  }
+  function getBoardEntryRow(rows, previousGate) {
+    const minY = Math.min(...rows.map(row => Number(row.Y_pos)).filter(Number.isFinite));
+    const candidates = rows
+      .filter(row => Number(row.Y_pos) === minY)
+      .sort((a, b) => Number(a.X_pos) - Number(b.X_pos));
+    if (!previousGate) return candidates[0] || null;
+    const gateX = Number(previousGate.X_pos);
+    return candidates.find(row => Number(row.X_pos) === gateX)
+      || candidates.slice().sort((a, b) => Math.abs(Number(a.X_pos) - gateX) - Math.abs(Number(b.X_pos) - gateX))[0]
+      || null;
+  }
+
+  function renderNode(row, index) {
+    const base = getBoardTileBasePath(row);
+    const icon = getBoardIconPath(row);
+    const label = shortBoardLabel(row);
+    const title = `${row.マス_type}: ${formatBoardEffect(row)} / X${row.X_pos} Y${row.Y_pos}`;
+    return `
+      <button type="button" class="board-node ${boardNodeClass(row)}${selectedNode === boardKey(row) ? ' is-selected' : ''}"
+        data-row-index="${index}" title="${escapeHtml(title)}"
+        style="--tile-base:url('${escapeHtml(base)}');${icon ? `--tile-icon:url('${escapeHtml(icon)}')` : ''}">
+        ${label ? `<span class="board-node-label">${escapeHtml(label)}</span>` : ''}
+      </button>
+    `;
+  }
+
+  function renderDetail(row) {
+    const costs = [
+      ['ゴールド', row.ゴールド, boardAssetPath('img/ゴールド.webp')],
+      ['下級くれよん', row.下級, boardAssetPath('img/下級くれよん.webp')],
+      ['中級くれよん', row.中級, boardAssetPath('img/中級くれよん.webp')],
+      ['上級くれよん', row.上級, boardAssetPath('img/上級くれよん.webp')],
+      ['特級くれよん', row.特級, boardAssetPath('img/特級くれよん.webp')],
+      ['★1共同教団証', row['★1共同教団証'], boardAssetPath('img/★1共同教団証.webp')],
+      ['使徒証', row.使徒証, boardAssetPath('img/使徒証.webp')]
+    ].filter(([, value]) => Number(value) > 0);
+    const costsHtml = costs.length
+      ? costs.map(([label, value, src]) => `
+          <span class="detail-material" title="${escapeHtml(label)}">
+            <img src="${escapeHtml(src)}" alt="${escapeHtml(label)}">
+            <b>${escapeHtml(formatNumber(value))}</b>
+          </span>
+        `).join('')
+      : '<span class="detail-cost-empty">消費素材なし</span>';
+    const base = getBoardTileBasePath(row);
+    const icon = getBoardIconPath(row);
+    elements.detail.innerHTML = `
+      <span class="detail-tile" style="--tile-base:url('${escapeHtml(base)}');${icon ? `--tile-icon:url('${escapeHtml(icon)}')` : ''}"></span>
+      <span class="detail-copy">
+        <strong>ボード${escapeHtml(row.ボード階層)}・X${escapeHtml(row.X_pos)} Y${escapeHtml(row.Y_pos)}</strong>
+        <span>${escapeHtml(row.マス_type)}</span>
+        <span class="detail-effect">${escapeHtml(formatBoardEffect(row))}</span>
+        <span class="detail-costs">${costsHtml}</span>
+      </span>
+    `;
+  }
+
+  function showTilePopover(anchor) {
+    elements.popover.hidden = false;
+    requestAnimationFrame(() => {
+      const anchorRect = anchor.getBoundingClientRect();
+      const popoverRect = elements.popover.getBoundingClientRect();
+      const margin = 10;
+      const left = Math.min(
+        window.innerWidth - popoverRect.width - margin,
+        Math.max(margin, anchorRect.left + anchorRect.width / 2 - popoverRect.width / 2)
+      );
+      let top = anchorRect.bottom + 8;
+      if (top + popoverRect.height > window.innerHeight - margin) {
+        top = Math.max(margin, anchorRect.top - popoverRect.height - 8);
+      }
+      elements.popover.style.left = `${left}px`;
+      elements.popover.style.top = `${top}px`;
+    });
+  }
+
+  function closeTilePopover() {
+    elements.popover.hidden = true;
+    elements.canvas.querySelectorAll('.board-node.is-selected').forEach(node => node.classList.remove('is-selected'));
+    selectedNode = null;
+  }
+  function formatBoardEffect(row) {
+    if (row.マス_type === 'スタート' || row.マス_type === 'ゲート') return row.マス_type;
+    const suffix = row.マス_type === '特殊' ? '%' : '';
+    return [
+      formatEffect(row.効果1_type, row.効果1_value, suffix),
+      formatEffect(row.効果2_type, row.効果2_value, suffix)
+    ].filter(Boolean).join(' / ') || row.マス_type;
+  }
+
+  function formatEffect(type, value, suffix) {
+    if (!type) return '';
+    if (value === '' || value === null || value === undefined) return String(type);
+    return `${type}+${formatNumber(value)}${suffix}`;
+  }
+
+  function shortBoardLabel(row) {
+    if (row.マス_type === 'スタート' || row.マス_type === 'ゲート') return '';
+    const value = [row.効果1_value, row.効果2_value].find(item => item !== '' && item !== null && item !== undefined);
+    return value === undefined ? '' : `+${formatNumber(value)}${row.マス_type === '特殊' ? '%' : ''}`;
+  }
+
+  function getBoardTileBasePath(row) {
+    if (row.マス_type === 'ゲート') return boardAssetPath('img/Board/Tile_gate.webp');
+    if (row.マス_type === '上級') return boardAssetPath('img/Board/Tile_2_On.webp');
+    if (row.マス_type === '特殊') return boardAssetPath('img/Board/Tile_3_On.webp');
+    return boardAssetPath('img/Board/Tile_1_On.webp');
+  }
+
+  function getApostleImagePath(id) {
+    const assetId = APOSTLE_ASSET_ALIASES[id] || id;
+    return `img/Chara/${assetId}.webp`;
+  }
+
+  function getBoardIconPath(row) {
+    const types = [row.効果1_type, row.効果2_type]
+      .filter(Boolean)
+      .map(type => String(type).replace(/^全体/, '').replace(/力$/, ''));
+    if (row.マス_type === 'スタート') return viewOrientation === 'vertical'
+      ? boardAssetPath('img/Board/Tile_Start_Up.webp')
+      : boardAssetPath('img/Board/Tile_Start_Right.webp');
+    if (row.マス_type === 'ゲート') return '';
+    if (types.includes('HP')) return boardAssetPath('img/Board/Tile_Hp_On.webp');
+    if (types.includes('物理攻撃') && types.includes('魔法攻撃')) return boardAssetPath('img/Board/Tile_AtkBoth_On.webp');
+    if (types.includes('物理攻撃')) return boardAssetPath('img/Board/Tile_AtkP_On.webp');
+    if (types.includes('魔法攻撃')) return boardAssetPath('img/Board/Tile_AtkM_On.webp');
+    if (types.includes('物理防御') && types.includes('魔法防御')) return boardAssetPath('img/Board/Tile_DefBoth_On.webp');
+    if (types.includes('物理防御')) return boardAssetPath('img/Board/Tile_DefP_On.webp');
+    if (types.includes('魔法防御')) return boardAssetPath('img/Board/Tile_DefM_On.webp');
+    if ((types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) && types.includes('会心抵抗')) return boardAssetPath('img/Board/Tile_CritResBoth_On.webp');
+    if (types.includes('会心DMG抵抗') || types.includes('会心ダメージ抵抗')) return boardAssetPath('img/Board/Tile_CritiDMGRes_On.webp');
+    if (types.includes('会心抵抗')) return boardAssetPath('img/Board/Tile_CritiRes_On.webp');
+    if ((types.includes('会心DMG') || types.includes('会心ダメージ')) && types.includes('会心')) return boardAssetPath('img/Board/Tile_CritBoth_On.webp');
+    if (types.includes('会心DMG') || types.includes('会心ダメージ')) return boardAssetPath('img/Board/Tile_CritDMG_On.webp');
+    if (types.includes('会心')) return boardAssetPath('img/Board/Tile_Crit_On.webp');
+    return '';
+  }
+
+  function boardNodeClass(row) {
+    if (row.マス_type === 'スタート') return 'type-start';
+    if (row.マス_type === 'ゲート') return 'type-gate';
+    if (row.マス_type === '上級') return 'type-advanced';
+    if (row.マス_type === '特殊') return 'type-special';
+    return 'type-normal';
+  }
+
+  function boardKey(row) {
+    return `${row.ボード階層}:${row.X_pos}:${row.Y_pos}`;
+  }
+
+  function formatNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return String(value ?? '');
+    return Number.isInteger(number) ? String(number) : String(number).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function normalizeAttackType(value) {
+    return String(value || '').includes('魔') ? '魔法' : '物理';
+  }
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  }).catch(error => {
+    if (error?.name === 'StorageRuntimeError') {
+      document.documentElement?.setAttribute('data-storage-error', error.result?.code || 'failed');
+      return;
+    }
+    console.error(error);
+  });
+})();
