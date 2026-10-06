@@ -185,8 +185,7 @@
       : '<span class="life-jobs-no-portrait" aria-hidden="true">人</span>';
     elements.detail.innerHTML = `<header class="life-jobs-selected-heading">${portrait}<div><h2>${escapeHtml(apostle.name)}</h2><p>登録済みの履歴書素材</p></div></header>`
       + `<div class="life-jobs-results-summary">${numberFormat.format(slots.length)}素材・緑枠はメイン素材</div>`
-      + (rows || '<p class="life-jobs-empty">登録済みの履歴書素材はありません。</p>')
-      + '<p class="life-jobs-caveat">上下段はサイト側の暫定折り返しです。xlsxの表示順を維持しています。</p>';
+      + (rows || '<p class="life-jobs-empty">登録済みの履歴書素材はありません。</p>');
   }
 
   function render() {
