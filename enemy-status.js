@@ -9,7 +9,9 @@
     const storageLocal = window.TRICKCAL_STORAGE_FACADE.localStorage;
 
   const presets = typeof ENEMY_PRESETS === 'undefined' ? {} : ENEMY_PRESETS;
-  const entries = Object.entries(presets).filter(([key, preset]) => !isHiddenPreset(key, preset));
+  const entries = Object.entries(presets)
+    .filter(([key, preset]) => !isHiddenPreset(key, preset))
+    .sort(compareEnemyPresetEntries);
   const entryKeys = new Set(entries.map(([key]) => key));
   const el = {
     search: document.getElementById('enemy-status-search'),
@@ -206,6 +208,13 @@
   function scalePreset(preset, phase) {
     if (!phase) return { ...preset };
     const result = { ...preset };
+    if (phase.stats && typeof phase.stats === 'object') {
+      for (const key of ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes', 'special']) {
+        const value = phase.stats[key];
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0) result[key] = value;
+      }
+      return result;
+    }
     const multiplier = Number(phase.mult) || 1;
     (phase.scaleStats || []).forEach(key => {
       result[key] = Math.round((Number(preset[key]) || 0) * multiplier);

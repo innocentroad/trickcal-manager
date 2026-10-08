@@ -14,7 +14,8 @@
       'Haley', 'Beni', 'Belita', 'Veroo', 'Velvet', 'Posher', 'Mago', 'MaestroMK2', 'Mayo', 'Marie',
       'Mynx', 'Maison', 'Meluna', 'Momo', 'Yumimi', 'Yomi', 'Risty', 'Leets', 'Renewa', 'Rim',
       'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum',
-      'Joanne'
+      'Joanne',
+      'Lethe'
     ],
     artifacts: [
       'artifact_yomi_moonflower', 'artifact_erpin_ice_cream_cake', 'artifact_butter_yellow_card',

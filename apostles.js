@@ -1735,6 +1735,7 @@ const APOSTLE_LIBRARY = [
               "triggerValue": 12.0,
               "condition": "味方が12回直接ダメージ",
               "effectTarget": "自身",
+              "reference": "最大HP",
               "fixedValue": 25.0
             },
             {
@@ -1764,6 +1765,7 @@ const APOSTLE_LIBRARY = [
               "triggerValue": 12.0,
               "condition": "味方が12回直接ダメージ",
               "effectTarget": "自身",
+              "reference": "最大SP",
               "fixedValue": 100.0
             },
             {
@@ -2552,6 +2554,7 @@ const APOSTLE_LIBRARY = [
               "condition": "保護発動時",
               "effectTarget": "保護が発動した味方",
               "targetSkill": "保護",
+              "reference": "最大SP",
               "fixedValue": 30.0
             }
           ],
@@ -5103,7 +5106,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Erpin_enhanced_e01",
             "valueKind": "SP回復",
-            "valueClass": "倍率",
+            "valueClass": "固定値",
             "effectType": "バフ",
             "effectTarget": "自身",
             "fixedValue": 35.0
@@ -6663,8 +6666,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "倍率",
             "effectType": "バフ",
-            "effectStack": true,
-            "maxStack": 9.0,
+            "maxStack": 1.0,
             "triggerType": "スキル使用時",
             "triggerSourceId": "スキル",
             "condition": "スキル使用時",
@@ -6694,8 +6696,7 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃力増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
-            "effectStack": true,
-            "maxStack": 9.0,
+            "maxStack": 1.0,
             "triggerType": "スキル使用時",
             "triggerSourceId": "スキル",
             "condition": "スキル使用時",
@@ -8758,6 +8759,8 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Sari_low_e01",
+            "processGroupId": "Sari_low_hit",
+            "processOrder": 1.0,
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
@@ -8776,6 +8779,15 @@ const APOSTLE_LIBRARY = [
               "11": 380.0,
               "12": 400.0
             }
+          },
+          {
+            "effectId": "Sari_low_e02",
+            "processGroupId": "Sari_low_hit",
+            "processOrder": 2.0,
+            "valueKind": "確定会心",
+            "valueClass": "条件",
+            "effectType": "攻撃",
+            "effectTarget": "指定範囲内で最も遠い敵の周囲"
           }
         ],
         "skillId": "Sari_low",
@@ -17366,6 +17378,8 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Butter_enhanced_e01",
+            "processGroupId": "Butter_enhanced_critical",
+            "processOrder": 1.0,
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
@@ -17374,6 +17388,8 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Butter_enhanced_e02",
+            "processGroupId": "Butter_enhanced_critical",
+            "processOrder": 2.0,
             "valueKind": "確定会心",
             "valueClass": "条件",
             "effectType": "攻撃",
@@ -20596,6 +20612,13 @@ const APOSTLE_LIBRARY = [
             "valueClass": "解除",
             "effectType": "デバフ",
             "effectTarget": "範囲内の敵"
+          },
+          {
+            "effectId": "Festa_low_e04",
+            "valueKind": "ノイズ",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "effectTarget": "範囲内の敵"
           }
         ],
         "skillId": "Festa_low",
@@ -20614,7 +20637,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "高学年スキル",
             "condition": "高学年使用時（赤い照明）",
             "effectTarget": "自身",
-            "fixedValue": 10.0,
+            "duration": 10.0,
             "levels": {
               "1": 25.0,
               "2": 26.0,
@@ -20639,7 +20662,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "高学年スキル",
             "condition": "高学年使用時（緑の照明）",
             "effectTarget": "自身",
-            "fixedValue": 10.0,
+            "duration": 10.0,
             "levels": {
               "1": 50.0,
               "2": 52.0,
@@ -20664,7 +20687,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "高学年スキル",
             "condition": "高学年使用時（青い照明）",
             "effectTarget": "自身",
-            "fixedValue": 10.0,
+            "duration": 10.0,
             "levels": {
               "1": 30.0,
               "2": 31.0,
@@ -22484,6 +22507,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "SP回復",
             "valueClass": "固定値",
             "effectType": "パッシブ",
+            "triggerType": "被弾時",
+            "condition": "直接ダメージを受けた時",
             "effectTarget": "自身",
             "levels": {
               "1": 6.0,
@@ -24048,7 +24073,7 @@ const APOSTLE_LIBRARY = [
               "9": 213.84,
               "10": 225.72,
               "11": 237.6,
-              "12": 249.5
+              "12": 249.48
             }
           },
           {
@@ -26249,7 +26274,177 @@ const APOSTLE_LIBRARY = [
       }
     },
     "aside": {
-      "levels": {}
+      "name": "向月葵の花",
+      "levels": {
+        "1": {
+          "name": "ほのかに輝く",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Yomi_aside_1",
+              "effectId": "Yomi_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Yomi_aside_1",
+              "effectId": "Yomi_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Yomi_aside_1",
+              "effectId": "Yomi_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Yomi_aside_1",
+              "effectId": "Yomi_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Yomi_aside_1",
+              "effectId": "Yomi_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "願いを宿した花",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e01",
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "triggerType": "強化攻撃発動時",
+              "triggerSourceId": "Yomi_enhanced_e04",
+              "condition": "強化攻撃の回復効果が追加で1回発動",
+              "effectTarget": "自身",
+              "targetSkill": "強化攻撃",
+              "reference": "最大HP",
+              "fixedValue": 16.0
+            },
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e02",
+              "valueKind": "HP回復",
+              "valueClass": "倍率",
+              "effectType": "回復",
+              "triggerType": "強化攻撃発動時",
+              "triggerSourceId": "Yomi_enhanced_e05",
+              "condition": "強化攻撃の回復効果が追加で1回発動",
+              "effectTarget": "残りHP割合が最も低い味方",
+              "targetSkill": "強化攻撃",
+              "reference": "最大HP",
+              "fixedValue": 16.0
+            },
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e03",
+              "processGroupId": "Yomi_aside_2_starlight",
+              "processOrder": 1.0,
+              "valueKind": "追加魔法ダメージ",
+              "valueClass": "倍率",
+              "effectType": "攻撃",
+              "attackCategory": "強化攻撃",
+              "triggerType": "強化攻撃発動時",
+              "triggerSourceId": "Yomi_enhanced_e01",
+              "effectTarget": "敵",
+              "targetSkill": "強化攻撃",
+              "fixedValue": 160.0
+            },
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e04",
+              "processGroupId": "Yomi_aside_2_starlight",
+              "processOrder": 2.0,
+              "valueKind": "ヒット数",
+              "valueClass": "ヒット数",
+              "effectType": "攻撃",
+              "effectTarget": "敵",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e05",
+              "processGroupId": "Yomi_aside_2_starlight",
+              "processOrder": 3.0,
+              "valueKind": "防御力減少",
+              "valueClass": "倍率",
+              "effectType": "デバフ",
+              "triggerType": "攻撃命中時",
+              "triggerSourceId": "Yomi_aside_2_e03",
+              "effectTarget": "敵",
+              "fixedValue": 30.0
+            },
+            {
+              "skillId": "Yomi_aside_2",
+              "effectId": "Yomi_aside_2_e06",
+              "processGroupId": "Yomi_aside_2_starlight",
+              "processOrder": 4.0,
+              "valueKind": "防御力減少",
+              "valueClass": "持続時間",
+              "effectType": "デバフ",
+              "effectTarget": "敵",
+              "fixedValue": 3.0
+            }
+          ],
+          "description": "強化攻撃による自身および味方のHP回復効果が、1回追加で発動する。\n強化攻撃発動時、追加で神秘的な星光を6回降らせて魔法ダメージを与え、防御力を減少させる。この攻撃ダメージは強化攻撃ダメージとみなされる。"
+        },
+        "3": {
+          "name": "健気な心を込めて",
+          "stats": [
+            {
+              "skillId": "Yomi_aside_3_global",
+              "effectId": "Yomi_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "会心",
+              "increaseP": 4.0
+            },
+            {
+              "skillId": "Yomi_aside_3_global",
+              "effectId": "Yomi_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心抵抗",
+              "increaseP": 4.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Yomi_aside_3_battle",
+              "effectId": "Yomi_aside_3_battle_e01",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全員",
+              "fixedValue": 11.0
+            }
+          ],
+          "description": "味方全員の敵からの被ダメージ量を減少させる。"
+        }
+      }
     },
     "board": null
   },
@@ -27756,7 +27951,7 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "Renewa_enhanced",
               "conditionType": "対象スキル",
               "conditionValue": "強化攻撃",
-              "condition": "高学年スキル使用時",
+              "condition": "強化攻撃使用時",
               "effectTarget": "敵/中央に位置する敵",
               "targetSkill": "普通攻撃_強化",
               "fixedValue": 200.0
@@ -28729,7 +28924,8 @@ const APOSTLE_LIBRARY = [
               "valueKind": "最大HP増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "自身"
+              "effectTarget": "自身",
+              "fixedValue": 30.0
             },
             {
               "skillId": "Rudd_aside_2",
@@ -29583,6 +29779,236 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_基本",
         "skillName": "基本",
         "description": "ダガーを振るい、敵に物理ダメージを与える。"
+      }
+    ],
+    "favoriteCard": {},
+    "aside": {
+      "levels": {}
+    },
+    "board": null
+  },
+  {
+    "id": "lethe",
+    "name": "レーテー",
+    "basic": {
+      "rarity": 2.0,
+      "personality": "冷静",
+      "race": "幽霊",
+      "role": "守備",
+      "position": "前列",
+      "attackType": "物理",
+      "initialSp": 0.0,
+      "spRecoveryPerSecond": 30.0,
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.21,
+      "combatPowerLowSkillCoefficient": 0.01,
+      "combatPowerHighSkillCoefficient": 0.01,
+      "combatPowerPassiveCoefficient": 0.01,
+      "combatPowerAsideCoefficient": 0.7
+    },
+    "statTypes": {
+      "hp": 2.0,
+      "atkP": 2.0,
+      "atkM": 0.0,
+      "defP": 2.0,
+      "defM": 2.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "effectId": "Lethe_low_e01",
+            "processGroupId": "Lethe_low_heal",
+            "processOrder": 1.0,
+            "valueKind": "持続HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "triggerType": "n秒ごと",
+            "triggerValue": 1.0,
+            "condition": "低学年の回復効果中",
+            "effectTarget": "自身",
+            "reference": "最大HP",
+            "levels": {
+              "1": 4.75,
+              "2": 5.0,
+              "3": 5.25,
+              "4": 5.5,
+              "5": 5.75,
+              "6": 6.0,
+              "7": 6.25,
+              "8": 6.5,
+              "9": 6.75,
+              "10": 7.0,
+              "11": 7.25,
+              "12": 7.5,
+              "13": 7.75,
+              "14": 8.0,
+              "15": 8.25
+            }
+          },
+          {
+            "effectId": "Lethe_low_e02",
+            "processGroupId": "Lethe_low_heal",
+            "processOrder": 2.0,
+            "valueKind": "持続HP回復",
+            "valueClass": "持続時間",
+            "effectType": "回復",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 6.0,
+              "2": 6.0,
+              "3": 6.0,
+              "4": 6.0,
+              "5": 6.0,
+              "6": 6.0,
+              "7": 6.0,
+              "8": 6.0,
+              "9": 6.0,
+              "10": 6.0,
+              "11": 6.0,
+              "12": 6.0,
+              "13": 6.0,
+              "14": 6.0,
+              "15": 6.0
+            }
+          }
+        ],
+        "skillId": "Lethe_low",
+        "skillType": "低学年",
+        "skillName": "ニューラルリンク・スタート",
+        "description": "自身の口にレーザーを注入し、ダメージを受けた記憶を忘れる。一定時間、1秒ごとに自身のHPを回復する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Lethe_high_e01",
+            "processGroupId": "Lethe_high_hit",
+            "processOrder": 1.0,
+            "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "levels": {
+              "1": 200.0,
+              "2": 215.0,
+              "3": 230.0,
+              "4": 245.0,
+              "5": 260.0,
+              "6": 275.0,
+              "7": 290.0,
+              "8": 305.0,
+              "9": 320.0,
+              "10": 335.0,
+              "11": 350.0,
+              "12": 365.0,
+              "13": 380.0,
+              "14": 395.0,
+              "15": 410.0
+            }
+          },
+          {
+            "effectId": "Lethe_high_e02",
+            "processGroupId": "Lethe_high_hit",
+            "processOrder": 2.0,
+            "valueKind": "目隠し",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "triggerType": "攻撃命中時",
+            "triggerSourceId": "Lethe_high_e01",
+            "effectTarget": "敵"
+          },
+          {
+            "effectId": "Lethe_high_e03",
+            "processGroupId": "Lethe_high_hit",
+            "processOrder": 3.0,
+            "valueKind": "目隠し",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "敵",
+            "levels": {
+              "1": 6.0,
+              "2": 6.0,
+              "3": 6.0,
+              "4": 6.0,
+              "5": 6.0,
+              "6": 6.0,
+              "7": 6.0,
+              "8": 6.0,
+              "9": 6.0,
+              "10": 6.0,
+              "11": 6.0,
+              "12": 6.0,
+              "13": 6.0,
+              "14": 6.0,
+              "15": 6.0
+            }
+          }
+        ],
+        "skillId": "Lethe_high",
+        "skillType": "高学年",
+        "skillName": "奇襲フラッシュ、ピカッ！",
+        "description": "敵にフラッシュをたいて、物理ダメージを与え、目隠しを付与する。",
+        "cooldownSeconds": 24.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Lethe_passive_e01",
+            "valueKind": "物理被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 24.0,
+              "2": 26.0,
+              "3": 28.0,
+              "4": 30.0,
+              "5": 32.0,
+              "6": 34.0,
+              "7": 36.0,
+              "8": 38.0,
+              "9": 40.0,
+              "10": 42.0,
+              "11": 44.0,
+              "12": 46.0,
+              "13": 48.0,
+              "14": 50.0,
+              "15": 52.0
+            }
+          }
+        ],
+        "skillId": "Lethe_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "物理被ダメージ量が減少する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Lethe_basic_e01",
+            "valueKind": "総物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 160.0
+          },
+          {
+            "effectId": "Lethe_basic_e02",
+            "valueKind": "ヒット数",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "fixedValue": 4.0
+          }
+        ],
+        "skillId": "Lethe_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本攻撃",
+        "description": "敵にレーザーポインターを照射し、物理ダメージを4回与える。"
       }
     ],
     "favoriteCard": {},

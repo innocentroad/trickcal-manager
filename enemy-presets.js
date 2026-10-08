@@ -192,11 +192,53 @@ function formatEnemyPresetDisplayName(preset = {}, key = "") {
     return `${preset.isCustom ? "[保存] " : ""}${display}`;
 }
 
+function compareEnemyPresetEntries([keyA, presetA], [keyB, presetB]) {
+    const a = getEnemyPresetMetadata(presetA, keyA);
+    const b = getEnemyPresetMetadata(presetB, keyB);
+    const contentTypes = Object.keys(ENEMY_PRESET_CONTENTS);
+    const contentOrder = type => {
+        const index = contentTypes.indexOf(type);
+        return index >= 0 ? index : contentTypes.length;
+    };
+    const compareText = (x, y) => String(x || '').localeCompare(String(y || ''), 'ja', { numeric: true });
+    return Number(!!presetA.isCustom) - Number(!!presetB.isCustom)
+        || contentOrder(a.type) - contentOrder(b.type)
+        || compareText(a.type, b.type)
+        || compareText(a.name, b.name)
+        || compareText(a.personality, b.personality)
+        || compareText(a.mode, b.mode)
+        || compareText(a.difficulty, b.difficulty)
+        || a.world - b.world
+        || a.stage - b.stage
+        || compareText(keyA, keyB);
+}
+
 function getEnemyPresetSearchText(preset = {}, key = "") {
     const metadata = getEnemyPresetMetadata(preset, key);
     return [key, metadata.name, metadata.personality, metadata.size, metadata.sizeLabel, metadata.contentLabel, metadata.contentShortLabel, metadata.contentEnglishLabel, metadata.modeLabel, metadata.modeEnglishLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel, formatEnemyPresetDisplayName(preset, key)]
         .filter(Boolean)
         .join(" ");
+}
+
+                                                                               
+                                                                              
+function createEliasFrontierSheetStats(level, isamurayon = false) {
+    const keys = ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'];
+    const base = isamurayon
+        ? [6005, 114, 114, 313, 313, 188, 188, 125, 125]
+        : [4604, 114, 114, 209, 209, 188, 188, 157, 157];
+    const growth = isamurayon
+        ? [360, 7, 7, 19, 19, 11, 11, 8, 8]
+        : [276, 7, 7, 13, 13, 11, 11, 9, 9];
+    const hpCorrection = Math.fround(level * 0.02857);
+    const phases = Array.from({ length: 6 }, (_, index) => {
+        const factor = 1 + index / 10;
+        const stats = Object.fromEntries(keys.map((key, i) => [key, Math.round(i === 0
+            ? (base[i] + growth[i] * level * factor) * (1 + hpCorrection)
+            : base[i] + growth[i] * (level * factor - 1))]));
+        return { name: `Phase ${index + 1} (${5 - index}/5)`, stats };
+    });
+    return { ...phases[0].stats, special: (1 + level * 0.005714) * 100, phases };
 }
 
 const ENEMY_PRESETS = {
@@ -501,29 +543,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 1 },
-        hp: 401524,
-        atk_p: 1501,
-        atk_m: 1501,
-        def_p: 2795,
-        def_m: 2795,
+        ...createEliasFrontierSheetStats(200),
         dmgType: "phys",
-        crit: 2380,
-        critDmg: 2380,
-        critRes: 1945,
-        critDmgRes: 1945,
-        special: 214.286,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09230083, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.18460416, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.27690499, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.36920583, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.46150666, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -539,29 +564,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 2 },
-        hp: 2179702,
-        atk_p: 3619,
-        atk_m: 3619,
-        def_p: 6695,
-        def_m: 6695,
+        ...createEliasFrontierSheetStats(500),
         dmgType: "phys",
-        crit: 5680,
-        critDmg: 5680,
-        critRes: 4645,
-        critDmgRes: 4645,
-        special: 385.714,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09677149, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19354297, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29031446, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.38708594, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.48385743, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -577,29 +585,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 3 },
-        hp: 4745749,
-        atk_p: 5384,
-        atk_m: 5384,
-        def_p: 9945,
-        def_m: 9945,
+        ...createEliasFrontierSheetStats(750),
         dmgType: "phys",
-        crit: 8430,
-        critDmg: 8430,
-        critRes: 6895,
-        critDmgRes: 6895,
-        special: 528.571,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09782418, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19564836, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29347254, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39129693, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.48912111, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -615,29 +606,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 4 },
-        hp: 11848508,
-        atk_p: 8560,
-        atk_m: 8560,
-        def_p: 15795,
-        def_m: 15795,
+        ...createEliasFrontierSheetStats(1200),
         dmgType: "phys",
-        crit: 13380,
-        critDmg: 13380,
-        critRes: 10945,
-        critDmgRes: 10945,
-        special: 785.714,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09862904, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19725800, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29588696, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39451592, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49314488, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -653,29 +627,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 5 },
-        hp: 26286605,
-        atk_p: 12795,
-        atk_m: 12795,
-        def_p: 23595,
-        def_m: 23595,
+        ...createEliasFrontierSheetStats(1800),
         dmgType: "phys",
-        crit: 19980,
-        critDmg: 19980,
-        critRes: 16345,
-        critDmgRes: 16345,
-        special: 1128.571,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09908179, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19816359, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29724535, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39632714, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49540894, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -691,29 +648,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 6 },
-        hp: 58588935,
-        atk_p: 19148,
-        atk_m: 19148,
-        def_p: 35295,
-        def_m: 35295,
+        ...createEliasFrontierSheetStats(2700),
         dmgType: "phys",
-        crit: 29880,
-        critDmg: 29880,
-        critRes: 24445,
-        critDmgRes: 24445,
-        special: 1642.857,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09938597, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19877194, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29815792, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39754389, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49692986, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -729,29 +669,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 7 },
-        hp: 127799868,
-        atk_p: 28325,
-        atk_m: 28325,
-        def_p: 52195,
-        def_m: 52195,
+        ...createEliasFrontierSheetStats(4000),
         dmgType: "phys",
-        crit: 44180,
-        critDmg: 44180,
-        critRes: 36145,
-        critDmgRes: 36145,
-        special: 2385.714,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09958470, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19916940, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29875410, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39833881, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49792351, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "張り手", mult: 150, note: "AoE" },
@@ -767,29 +690,12 @@ const ENEMY_PRESETS = {
         name: "M.E.O.W",
         size: "extralarge",
         content: { type: "eliasFrontier", stage: 8 },
-        hp: 286321339,
-        atk_p: 42442,
-        atk_m: 42442,
-        def_p: 78195,
-        def_m: 78195,
+        ...createEliasFrontierSheetStats(6000),
         dmgType: "phys",
-        crit: 66180,
-        critDmg: 66180,
-        critRes: 54145,
-        critDmgRes: 54145,
-        special: 3528.571,
         weakness: {
             phys: { add: 75 },
             statusTakenDamage: { status: "感電", add: 30 }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09972275, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19944550, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29916825, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39889100, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49861376, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "叩きつけ", mult: 50, note: "AoE / 2段" },
             { action: "攻撃", name: "叩きつけ 2段hit", mult: 100, note: "AoE / 2段" },
@@ -813,17 +719,8 @@ const ENEMY_PRESETS = {
         name: "R41リニュア",
         size: "large",
         content: { type: "eliasFrontier", stage: 5 },
-        hp: 26286605,
-        atk_p: 12795,
-        atk_m: 12795,
-        def_p: 23595,
-        def_m: 23595,
+        ...createEliasFrontierSheetStats(1800),
         dmgType: "phys",
-        crit: 19980,
-        critDmg: 19980,
-        critRes: 16345,
-        critDmgRes: 16345,
-        special: 1128.571,
         weakness: {
             mag: { add: 75 },
             statusTakenDamage: { status: "苦痛", add: 30 }
@@ -831,14 +728,6 @@ const ENEMY_PRESETS = {
         modifiers: {
             targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09908179, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19816359, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29724535, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39632714, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49540894, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "光弾", mult: 150, note: "RNG / 3発: 50%×3" },
             { action: "攻撃", name: "薙ぎ払い", mult: 200, note: "AoE" },
@@ -859,17 +748,8 @@ const ENEMY_PRESETS = {
         name: "R41リニュア",
         size: "large",
         content: { type: "eliasFrontier", stage: 6 },
-        hp: 58588935,
-        atk_p: 19148,
-        atk_m: 19148,
-        def_p: 35295,
-        def_m: 35295,
+        ...createEliasFrontierSheetStats(2700),
         dmgType: "phys",
-        crit: 29880,
-        critDmg: 29880,
-        critRes: 24445,
-        critDmgRes: 24445,
-        special: 1642.857,
         weakness: {
             mag: { add: 75 },
             statusTakenDamage: { status: "苦痛", add: 30 }
@@ -877,14 +757,6 @@ const ENEMY_PRESETS = {
         modifiers: {
             targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09938597, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19877194, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29815792, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39754389, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49692986, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "光弾", mult: 150, note: "RNG / 3発: 50%×3" },
             { action: "攻撃", name: "薙ぎ払い", mult: 200, note: "AoE" },
@@ -905,17 +777,8 @@ const ENEMY_PRESETS = {
         name: "R41リニュア",
         size: "large",
         content: { type: "eliasFrontier", stage: 7 },
-        hp: 127799868,
-        atk_p: 28325,
-        atk_m: 28325,
-        def_p: 52195,
-        def_m: 52195,
+        ...createEliasFrontierSheetStats(4000),
         dmgType: "phys",
-        crit: 44180,
-        critDmg: 44180,
-        critRes: 36145,
-        critDmgRes: 36145,
-        special: 2385.714,
         weakness: {
             mag: { add: 75 },
             statusTakenDamage: { status: "苦痛", add: 30 }
@@ -923,14 +786,6 @@ const ENEMY_PRESETS = {
         modifiers: {
             targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09958470, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19916940, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29875410, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39833881, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49792351, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "光弾", mult: 150, note: "RNG / 3発: 50%×3" },
             { action: "攻撃", name: "薙ぎ払い", mult: 200, note: "AoE" },
@@ -951,17 +806,8 @@ const ENEMY_PRESETS = {
         name: "R41リニュア",
         size: "large",
         content: { type: "eliasFrontier", stage: 8 },
-        hp: 286321339,
-        atk_p: 42442,
-        atk_m: 42442,
-        def_p: 78195,
-        def_m: 78195,
+        ...createEliasFrontierSheetStats(6000),
         dmgType: "phys",
-        crit: 66180,
-        critDmg: 66180,
-        critRes: 54145,
-        critDmgRes: 54145,
-        special: 3528.571,
         weakness: {
             mag: { add: 75 },
             statusTakenDamage: { status: "苦痛", add: 30 }
@@ -969,14 +815,6 @@ const ENEMY_PRESETS = {
         modifiers: {
             targetDebuffs: { breakTakenDmg: { perStack: 5, maxStacks: 9 } }
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09972275, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19944550, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29916825, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39889100, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49861376, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "光弾", mult: 150, note: "RNG / 3発: 50%×3" },
             { action: "攻撃", name: "薙ぎ払い", mult: 200, note: "AoE" },
@@ -998,29 +836,12 @@ const ENEMY_PRESETS = {
         name: "イサムレヨン",
         size: "large",
         content: { type: "eliasFrontier", stage: 7 },
-        hp: 166695455,
-        atk_p: 28105,
-        atk_m: 28105,
-        def_p: 76295,
-        def_m: 76295,
+        ...createEliasFrontierSheetStats(4000, true),
         dmgType: "mag",
-        crit: 44180,
-        critDmg: 44180,
-        critRes: 32115,
-        critDmgRes: 32115,
-        special: 2385.714,
         weakness: {
         },
         modifiers: {
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09958470, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19916940, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29875410, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39833881, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49792351, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 150, note: "AoE" }
         ]
@@ -1029,29 +850,12 @@ const ENEMY_PRESETS = {
         name: "イサムレヨン",
         size: "large",
         content: { type: "eliasFrontier", stage: 8 },
-        hp: 373462578,
-        atk_p: 42105,
-        atk_m: 42105,
-        def_p: 114295,
-        def_m: 114295,
+        ...createEliasFrontierSheetStats(6000, true),
         dmgType: "mag",
-        crit: 66180,
-        critDmg: 66180,
-        critRes: 48115,
-        critDmgRes: 48115,
-        special: 3528.571,
         weakness: {
         },
         modifiers: {
         },
-        phases: [
-            { name: "Phase 1 (5/5)", mult: 1.0, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 2 (4/5)", mult: 1.09972275, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 3 (3/5)", mult: 1.19944550, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 4 (2/5)", mult: 1.29916825, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 5 (1/5)", mult: 1.39889100, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] },
-            { name: "Phase 6 (0/5)", mult: 1.49861376, scaleStats: ['hp', 'atk_p', 'atk_m', 'def_p', 'def_m', 'crit', 'critDmg', 'critRes', 'critDmgRes'] }
-        ],
         skills: [
             { action: "攻撃", name: "普通攻撃", mult: 150, note: "AoE" }
         ]
@@ -1102,3 +906,99 @@ const ENEMY_PRESETS = {
     }
 };
 
+                                                                                  
+Object.assign(ENEMY_PRESETS, {
+    "R41Renewa_ef_11": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 1 },
+        ...createEliasFrontierSheetStats(200)
+    },
+    "R41Renewa_ef_12": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 2 },
+        ...createEliasFrontierSheetStats(500)
+    },
+    "R41Renewa_ef_21": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 3 },
+        ...createEliasFrontierSheetStats(750)
+    },
+    "R41Renewa_ef_22": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 4 },
+        ...createEliasFrontierSheetStats(1200)
+    },
+    "R41Renewa_ef_51": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 9 },
+        ...createEliasFrontierSheetStats(12000)
+    },
+    "R41Renewa_ef_52": {
+        ...ENEMY_PRESETS.R41Renewa_ef_42,
+        content: { type: "eliasFrontier", stage: 10 },
+        ...createEliasFrontierSheetStats(24000)
+    },
+    "Isamurayon_ef_11": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 1 },
+        ...createEliasFrontierSheetStats(200, true)
+    },
+    "Isamurayon_ef_12": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 2 },
+        ...createEliasFrontierSheetStats(500, true)
+    },
+    "Isamurayon_ef_21": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 3 },
+        ...createEliasFrontierSheetStats(750, true)
+    },
+    "Isamurayon_ef_22": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 4 },
+        ...createEliasFrontierSheetStats(1200, true)
+    },
+    "Isamurayon_ef_31": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 5 },
+        ...createEliasFrontierSheetStats(1800, true)
+    },
+    "Isamurayon_ef_32": {
+        ...ENEMY_PRESETS.Isamurayon_ef_42,
+        content: { type: "eliasFrontier", stage: 6 },
+        ...createEliasFrontierSheetStats(2700, true)
+    }
+});
+
+                                                                                 
+                                                                             
+Object.assign(ENEMY_PRESETS, {
+    "Kérberos_d_21": {
+        ...ENEMY_PRESETS["Kérberos_d_18"],
+        content: { type: "dimensionalClash", stage: 21 },
+        hp: 10201192898,
+        atk_p: 82889,
+        atk_m: 82889,
+        def_p: 179596,
+        def_m: 179596,
+        crit: 110517,
+        critDmg: 110517,
+        critRes: 124348,
+        critDmgRes: 124348,
+        special: 7985.32
+    },
+    "Isamurayon_d_21": {
+        ...ENEMY_PRESETS["Isamurayon_d_18"],
+        content: { type: "dimensionalClash", stage: 21 },
+        hp: 15694142556,
+        atk_p: 96707,
+        atk_m: 96707,
+        def_p: 262494,
+        def_m: 262494,
+        crit: 151977,
+        critDmg: 151977,
+        critRes: 110517,
+        critDmgRes: 110517,
+        special: 7985.32
+    }
+});

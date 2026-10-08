@@ -58,7 +58,14 @@
   }
 
   function toTicks(frames, ticksPerFrame = DEFAULT_TICKS_PER_FRAME) {
-    return Math.max(0, Math.round(toFiniteNumber(frames) * ticksPerFrame));
+                                                                           
+                                                                                  
+    const scaled = toFiniteNumber(frames) * ticksPerFrame;
+    const nearest = Math.round(scaled);
+                                                                            
+                                                                               
+    const exactTick = Math.abs(scaled - nearest) <= Number.EPSILON * 8 * Math.max(1, Math.abs(scaled));
+    return Math.max(0, exactTick ? nearest : Math.ceil(scaled));
   }
 
   function createSeededRandom(seed = 1) {
@@ -76,7 +83,7 @@
   function getTimingQualityFromResearchStatus(status, fallback = 'provisional') {
     const value = String(status || '').trim();
     if (/^(?:済|完了)$/.test(value)) return 'measured';
-    if (/^(?:途中|暫定|仮定|未調査|未|要調査)$/.test(value)) return 'provisional';
+    if (/^(?:途中|暫定|解析|仮定|未調査|未|要調査)$/.test(value)) return 'provisional';
     return fallback;
   }
 
@@ -284,6 +291,19 @@
     if (override) return override;
     const skillType = ACTION_SKILL_TYPES[actionKey];
     return normalizeArray(apostle?.skills).find(skill => skill?.skillType === skillType) || null;
+  }
+
+  function resolveImplicitTimedSpEffectId(skill, row = {}) {
+    if (row.effectId || row.effectKind !== 'SP回復') return '';
+                                                                             
+                                                                           
+                                                                             
+    const candidates = normalizeArray(skill?.effects).filter(effect => (
+      ['SP回復', 'SP全回復', '持続SP回復'].includes(effect.valueKind)
+      && ['固定値', '倍率'].includes(effect.valueClass)
+      && effect.effectId
+    ));
+    return candidates.length === 1 ? String(candidates[0].effectId) : '';
   }
 
   function getBranchName(effect) {
@@ -889,27 +909,41 @@
   }
 
   function calcRuntimeBaseDamageRate(atk, def) {
-    const x = atk / Math.max(1, def);
-    const rate = x >= 0.5
-      ? 1.2 * (1 - 0.5 / (1 + (10 / 3) * (x - 0.5)))
-      : 0.6 * (1 - ((13 / 3) * (0.5 - x)) / (1 + (10 / 3) * (0.5 - x)));
-    return Math.max(0.1125, Math.min(1.2, rate));
+    const halfDefense = def * 0.5;
+    const z = ((atk - halfDefense) / (halfDefense === 0 ? 1 : halfDefense)) * 100;
+    const percent = z < 0 ? 60 + z * 78 / (60 - z) : 60 + z * 60 / (z + 60);
+    return Math.max(Math.fround(0.05), Math.min(1.5, percent * 0.01));
   }
 
   function calcRuntimeCritRate(crit, critRes) {
-    const x = crit / Math.max(1, critRes);
-    const rate = x >= 1
-      ? 0.30 + 0.50 * ((x - 1) / (x + 2))
-      : 0.05 + 0.25 * (x / (2 - x));
-    return Math.max(0.05, Math.min(0.75, rate));
+    const z = ((crit - critRes) / (critRes === 0 ? 1 : critRes)) * 100;
+                                                                             
+                                                         
+    return Math.fround(0.3) + (z < 0 ? z * 0.5 / (100 - z) : z * 0.5 / (z + 300));
   }
 
   function calcRuntimeCritMultiplier(critDmg, critDmgRes) {
-    const x = critDmg / Math.max(1, critDmgRes);
-    const multiplier = x >= 1
-      ? 1.75 + 0.85 * (x - 1) / (x + 2)
-      : 1.75 - 1.10 * (1 - x) / (2 - x);
-    return Math.max(1.2, Math.min(2.5, multiplier));
+    const z = ((critDmg - critDmgRes) / (critDmgRes === 0 ? 1 : critDmgRes)) * 100;
+    return 1 + (0.75 + (z < 0
+      ? z * Math.fround(1.1) / (100 - z)
+      : z * Math.fround(0.85) / (z + 300)));
+  }
+
+  function clampCombatCritRate(value) {
+    return Math.max(Math.fround(0.05), Math.min(0.75, value));
+  }
+
+  function clampCombatCritMultiplier(value) {
+    return 1 + Math.max(Math.fround(0.2), Math.min(1.5, value - 1));
+  }
+
+  function resolveCombatStat(base, percent = 0, minimum = 0) {
+    return Math.max(minimum, roundDamageRateToEven(base * (1 + percent / 100)));
+  }
+
+  function resolveAttackSpeed(base, percent = 0, fixed = 0) {
+    return Math.max(base * Math.fround(0.2), Math.min(base * 10,
+      roundDamageRateToEven((base + fixed) * (1 + percent / 100))));
   }
 
   function addModifierMap(target, source, factor = 1) {
@@ -1024,6 +1058,12 @@
       const explicitGroup = application.stackGroupId
         || durationEffect?.stackGroupId
         || '';
+                                                                               
+                                                                                
+                                                                             
+      const mayoPoison = status === '毒' && stackable && maxStacks === 9
+        && ({Mayo_enhanced:'Mayo_enhanced_e02',Mayo_low:'Mayo_low_e03',Mayo_high:'Mayo_high_e03'}[skill?.skillId]
+          === application.effectId);
       return {
         status,
         branch,
@@ -1033,10 +1073,12 @@
         durationFrames: durationSeconds > 0 ? durationSeconds * DEFAULT_FRAMES_PER_SECOND : null,
         stackable,
         maxStacks,
+        stackOverflowPolicy: mayoPoison ? 'reject' : 'replaceOldest',
                                                      
                                           
                                 
-        stackGroupId: explicitGroup || `${status}:${stackable ? 'stack' : 'single'}:${maxStacks}`,
+        stackGroupId: explicitGroup || (mayoPoison ? 'Mayo:poison:stack:9'
+          : `${status}:${stackable ? 'stack' : 'single'}:${maxStacks}`),
         dealsPeriodicDamage: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status),
         tickFrames: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status) ? STATUS_TICK_FRAMES : 0,
         tickMultiplier: DOT_STATUS_MULTIPLIERS[status] || 0
@@ -1075,6 +1117,15 @@
     const perHit = Number(lv1PerHitMultiplier);
     const total = getLv1Multiplier(effect);
     return Number.isFinite(perHit) && perHit > 0 && total ? perHit / total : null;
+  }
+
+  function resolveNativeCoefficient(value, integerSource = false) {
+    const integer = Math.round(value);
+                                                                             
+                                                                              
+                                                                
+    return integerSource && Number.isSafeInteger(integer)
+      && Math.abs(value - integer) <= Number.EPSILON * 64 * Math.max(1, Math.abs(value)) ? integer : value;
   }
 
   function resolveRowDamageEffect(skill, row, branch = '') {
@@ -1435,10 +1486,10 @@
             const atk = Math.max(0, stats.magicAtk);
             hit.baseDamage = atk * calcRuntimeBaseDamageRate(atk, Math.max(1, enemy.magicDef));
             const adjustment = prepared.hitAdjustments?.[context.event.effectId] || {};
-            hit.critRate = Math.max(0.05, Math.min(0.75, calcRuntimeCritRate(Math.max(0, stats.crit), Math.max(1, enemy.critRes))
-              + (toFiniteNumber(adjustment.critRateP) + toFiniteNumber(copiedOwner.critRateP)) / 100));
-            hit.critMult = Math.max(1.2, Math.min(2.5, calcRuntimeCritMultiplier(Math.max(0, stats.critDmg), Math.max(1, enemy.critDmgRes))
-              + (toFiniteNumber(adjustment.critDmgAddP) + toFiniteNumber(copiedOwner.critDmgAddP)) / 100));
+            hit.critRate = clampCombatCritRate(calcRuntimeCritRate(Math.max(0, stats.crit), Math.max(1, enemy.critRes))
+              + (toFiniteNumber(adjustment.critRateP) + toFiniteNumber(copiedOwner.critRateP)) / 100);
+            hit.critMult = clampCombatCritMultiplier(calcRuntimeCritMultiplier(Math.max(0, stats.critDmg), Math.max(1, enemy.critDmgRes))
+              + (toFiniteNumber(adjustment.critDmgAddP) + toFiniteNumber(copiedOwner.critDmgAddP)) / 100);
           }
           if (provisional) {
             const query = prepared.hitContexts?.[context.event.effectId];
@@ -1611,6 +1662,10 @@
               hitCount: damage ? 1 : 0,
               lv1PerHitMultiplier: row.lv1PerHitMultiplier ?? null,
               coefficientShare: getCoefficientShare(effect, row.lv1PerHitMultiplier),
+              nativeCoefficientScale: row.nativeLv1Coefficient == null ? null
+                : row.nativeLv1Coefficient / getLv1Multiplier(effect),
+              nativeCoefficientInteger: Number.isSafeInteger(row.nativeLv1Coefficient),
+              nativeEffectDamage: row.nativeEffectDamage ?? null,
               independentDamage: damage,
               persistent: generated.cancelPolicy !== '消滅',
               branch: row.branch || generated.branch || '',
@@ -1650,6 +1705,8 @@
   }
 
   function buildVariantEvents(apostle, skill, actionTiming, actionKey, branch, motionFrames, warnings, suppressDamageFallback = false, statusDefinitions = [], runtimeResources = [], skillLevel = 1, exactBranch = false, timingContext = {}, branchComposition = 'replacement') {
+    const usesRawTiming = actionTiming?.timingBasis === 'rawMotion'
+      && actionTiming?.timingAdoption !== '暫定採用';
     const includeCommonRows = !exactBranch || branchComposition === 'additive';
     const selectedResourceBranch = runtimeResources.map(resource => {
       const match = String(branch || '').match(new RegExp(`^${resource.name}(\\d+)$`));
@@ -1677,11 +1734,13 @@
     ));
     const seenRows = new Set();
     const rows = selectedRows.filter(row => {
+                                                                       
+      if (!selectedResourceBranch) return true;
                                                                                       
                                                                                       
                                                                
-      const keyParts = [row.frame, row.effectKind, row.effectId, row.lv1PerHitMultiplier];
-      if (!selectedResourceBranch) keyParts.push(row.note);
+      const keyParts = [row.order, row.frame, row.effectKind, row.effectId, row.lv1PerHitMultiplier,
+        row.eventClock || '', row.afterAction || '', row.timeOrigin || '動作開始'];
       const key = keyParts.join('\u0001');
       if (seenRows.has(key)) return false;
       seenRows.add(key);
@@ -1698,7 +1757,8 @@
 
     rows.forEach((row, rowIndex) => {
       const declared = String(row.effectKind || '');
-      const sourceEffect = resolveApostleEffect(apostle, skill, row.effectId);
+      const sourceEffect = resolveApostleEffect(apostle, skill,
+        row.effectId || resolveImplicitTimedSpEffectId(skill, row));
                                               
                                              
       const replacementDamageEffect = skill?.dpsReplacesBase
@@ -1716,8 +1776,12 @@
       const eventHitCount = damage
         ? Math.max(1, Math.floor(toFiniteNumber(row.hitCount, repeatDamageCount)))
         : 0;
-      if (row.effectId && !effect) warnings.push(`effectIdを解決できません: ${row.effectId}`);
+      if (row.effectId && !effect) {
+        if (usesRawTiming) throw new RangeError(`元時刻採用行動の効果を解決できません: ${row.effectId}`);
+        warnings.push(`effectIdを解決できません: ${row.effectId}`);
+      }
       if (row.frame == null) {
+        if (usesRawTiming) throw new RangeError('元時刻採用行動に未確定イベントがあります');
         if (!damage && effect) {
           events.push({
             frame: motionFrames,
@@ -1737,16 +1801,24 @@
         frame: toFiniteNumber(row.frame),
         eventOrder: row.order == null ? 1000 + rowIndex : Number(row.order),
         type: damage ? 'damage' : 'effect',
-        effectId: damageEffect?.effectId || row.effectId || (damage ? damageEffects[0]?.effectId : '') || '',
+        effectId: damageEffect?.effectId || row.effectId || effect?.effectId || (damage ? damageEffects[0]?.effectId : '') || '',
         effectType: effect?.effectType || (damage ? '攻撃' : ''),
         effectValueKind: effect?.valueKind || declared,
         hitCount: eventHitCount,
         repeatDamageCount,
         lv1PerHitMultiplier: row.lv1PerHitMultiplier ?? null,
         coefficientShare: getCoefficientShare(damageEffect, row.lv1PerHitMultiplier),
+        nativeCoefficientScale: row.nativeLv1Coefficient == null ? null
+          : row.nativeLv1Coefficient / getLv1Multiplier(damageEffect),
+        nativeCoefficientInteger: Number.isSafeInteger(row.nativeLv1Coefficient),
+        nativeEffectDamage: row.nativeEffectDamage ?? null,
         statusApplication,
         resourceChange,
-        timingQuality: getTimingQualityFromResearchStatus(row.researchStatus, 'measured'),
+        eventClock: row.eventClock,
+        afterAction: row.afterAction,
+        timeOrigin: row.timeOrigin,
+        timingQuality: row.eventClock === '従来換算（暫定）' ? 'provisional'
+          : getTimingQualityFromResearchStatus(row.researchStatus, 'measured'),
         note: row.note || ''
       });
       if (damage) observedDamageHits += eventHitCount;
@@ -1755,6 +1827,7 @@
     const researchStatuses = new Set(rows.map(row => row.researchStatus).filter(Boolean));
     const complete = researchStatuses.size > 0 && [...researchStatuses].every(status => status === '済' || status === '完了');
     if (!suppressDamageFallback && totalHitCount > observedDamageHits) {
+      if (usesRawTiming) throw new RangeError('元時刻採用行動のヒット数が不足しています。元イベントを確認してください');
       if (complete && observedDamageHits > 0) {
         warnings.push(`${skill?.skillId || skill?.skillType}: 調査済ですがヒット数が不足しています (${observedDamageHits}/${totalHitCount})`);
       }
@@ -1778,6 +1851,46 @@
         && normalizeArray(object.timingEvents).some(row => row.recordPurpose !== '観測'
           && row.effectId === statusApplication.applicationEffectId && row.eventType === '状態付与'))) return;
       if (events.some(event => event.statusApplication?.applicationEffectId === statusApplication.applicationEffectId)) return;
+                                                                            
+                                                                              
+      const application = resolveEffect(skill, statusApplication.applicationEffectId);
+      const sourceId = String(application?.triggerSourceId || '');
+      const sourceEffect = resolveEffect(skill, sourceId);
+                                                                         
+                                                                              
+                                                                          
+      const runtimeOwnsApplication = application?.triggerType === '攻撃命中時' && sourceId
+        && normalizeArray(timingContext.runtimeEventEffects).some(effect => (
+          effect.triggerType === application.triggerType
+          && (String(effect.triggerSourceId || '') === sourceId
+            || normalizeArray(effect.triggerSourceIds).includes(sourceId))
+          && normalizeArray(effect.steps).some(step => step.type === 'status'
+            && step.application?.applicationEffectId === statusApplication.applicationEffectId)
+        ));
+      if (runtimeOwnsApplication) return;
+      const linkedHits = application?.triggerType === '攻撃命中時'
+        && !application.conditionType && !application.condition && !application.triggerValue && application.processGroupId
+        && sourceEffect?.processGroupId === application.processGroupId && isDamageEffect(sourceEffect)
+        ? events.filter(event => event.type === 'damage' && event.effectId === sourceId) : [];
+      const orderedSources = new Set(linkedHits.map(event => `${event.frame}:${event.eventOrder}`));
+      if (linkedHits.length && orderedSources.size === linkedHits.length && linkedHits.every(event => (
+        Number.isFinite(event.frame) && event.frame >= 0 && !event.generatedObjectId
+        && event.timingQuality !== 'fallbackEnd' && event.eventClock !== '未確認'
+        && event.hitCount === 1 && Number(event.repeatDamageCount ?? 1) === 1
+      ))) {
+        linkedHits.forEach(sourceEvent => events.push({
+          frame: sourceEvent.frame,
+          eventOrder: toFiniteNumber(sourceEvent.eventOrder, 1000) + .25,
+          type: 'effect', effectId: statusApplication.applicationEffectId,
+          effectType: 'デバフ', hitCount: 0, statusApplication,
+          eventClock: sourceEvent.eventClock, afterAction: sourceEvent.afterAction,
+          timeOrigin: sourceEvent.timeOrigin, timingQuality: sourceEvent.timingQuality,
+          timingSourceEffectId: sourceId,
+          note: `明示した命中元 ${sourceId} に連動する状態付与`
+        }));
+        return;
+      }
+      if (usesRawTiming) throw new RangeError(`元時刻採用行動の状態付与イベントが不足しています: ${statusApplication.status}`);
       events.push({
         frame: motionFrames,
         eventOrder: 1000,
@@ -1830,6 +1943,11 @@
       actionTiming.motionFrames,
       motionVariants[0]?.gameFrames
     ));
+    const normalAttackIntervalBasis = actionTiming.normalAttackIntervalBasis === 'motion' ? 'motion' : 'normal';
+    if (normalAttackIntervalBasis === 'motion' && !(motionFrames > 0)) {
+      warnings.push(`${skill.skillId || skill.skillType}: 強化攻撃の基準モーション長が未確定です`);
+      return null;
+    }
     const hasRepeatCount = normalizeArray(skill.effects).some(effect => effect?.valueKind === '繰り返し回数');
     const hasHitCount = normalizeArray(skill.effects).some(effect => effect?.effectType === '攻撃' && effect?.valueClass === 'ヒット数');
     if (hasRepeatCount && !hasHitCount) {
@@ -1914,7 +2032,8 @@
     });
     const timingContext = {
       artifactCount: buildOptions.artifactCount,
-      skillCountModifiers: buildOptions.skillCountModifiers
+      skillCountModifiers: buildOptions.skillCountModifiers,
+      runtimeEventEffects: buildOptions.runtimeEffects?.eventEffects
     };
                                       
                                    
@@ -2081,8 +2200,37 @@
         .map(effect => String(effect?.conditionValue || '').trim())
         .filter(Boolean))]
       : [];
+                                                                              
+                                                                            
+    if (skill.skillId === 'Allet_high' || skill.skillId === 'Vivi_low') {
+      const allet = skill.skillId === 'Allet_high';
+      const shield = skill.effects.find(effect => effect.effectId === (allet ? 'Allet_high_e01' : 'Vivi_low_e01'));
+      const lifetime = skill.effects.find(effect => effect.effectId === (allet ? 'Allet_high_e02' : 'Vivi_low_e02'));
+      const attack = allet ? skill.effects.find(effect => effect.effectId === 'Allet_high_e03') : null;
+      const durationFrames = resolveEffectValue(lifetime, buildOptions.skillLevels?.[allet ? 'high' : 'low'] || 1) * 60;
+      if (shield?.effectTarget !== '自身' || !(durationFrames > 0) || (allet && attack?.effectType !== '攻撃')) {
+        throw new Error(`${apostle.name || skill.skillId}のシールド終了効果の入力が不足しています`);
+      }
+      Object.values(variants).forEach(events => {
+        const sources = events.filter(event => event.type === 'effect'
+          && (event.effectId === shield.effectId || (!event.effectId && event.effectValueKind === 'シールド')));
+        if (sources.length !== 1 || (attack && events.some(event => event.effectId === attack.effectId))) {
+          throw new Error(`${apostle.name || skill.skillId}のシールド生成・終了イベントを一意に解決できません`);
+        }
+        sources[0].effectId = shield.effectId;
+        sources[0].selfStateApplication = {
+          stateId: shield.effectId, status: 'シールド', kind: 'shield', durationFrames,
+          endEvent: attack ? { type: 'damage', effectId: attack.effectId, effectType: '攻撃',
+            effectValueKind: attack.valueKind, hitCount: 1, coefficientShare: 1,
+            isFinalHit: true, timingQuality: sources[0].timingQuality,
+            note: '本人のシールド破壊または持続時間終了時の1命中' } : null
+        };
+      });
+    }
     return {
       key: actionKey,
+      eventTimingContractVersion: actionTiming.eventTimingContractVersion || 0,
+      normalAttackIntervalBasis,
       label: skill?.dpsActionName
         ? `${ACTION_LABELS[actionKey]}（${skill.dpsActionName}）`
         : ACTION_LABELS[actionKey],
@@ -2187,6 +2335,7 @@
     });
     const runtimeResources = Array.from(runtimeResourceMap.values());
     const intervalValues = [...new Set(normalizeArray(timing?.normalAttackIntervalVariants)
+      .filter(item => timing?.actions?.[item?.actionKey]?.normalAttackIntervalBasis !== 'motion')
       .map(item => Number(item?.gameFrames))
       .filter(Number.isFinite))];
     if (intervalValues.length > 1) {
@@ -2210,11 +2359,17 @@
       .flatMap(([, data]) => normalizeArray(data?.effects));
                                                                                    
                                                                                      
-    const additionalPowerAttackRate = unlockedAsideEffects
-      .filter(effect => effect.valueKind === '強化攻撃発動確率増加'
+    const passiveProbabilityEffects = normalizeArray(apostle?.skills)
+      .filter(skill => skill.skillType === 'パッシブ')
+      .flatMap(skill => normalizeArray(skill.effects).map(effect => ({
+        ...effect, probabilityLevel: getSkillLevel(skill, buildOptions.skillLevels || {})
+      })));
+    const additionalPowerAttackRate = [...passiveProbabilityEffects, ...unlockedAsideEffects]
+      .filter(effect => ['強化攻撃発動確率増加', '強化攻撃確率増加'].includes(effect.valueKind)
         && effect.effectTarget === '自身' && !effect.conditionType && !effect.condition
-        && !effect.triggerType && !effect.effectStack)
-      .reduce((sum, effect) => sum + Math.max(0, toFiniteNumber(resolveEffectValue(effect))), 0);
+        && !effect.triggerType && !effect.effectStack
+        && !effect.duration && !effect.durationSeconds && !effect.durationFrames)
+      .reduce((sum, effect) => sum + Math.max(0, toFiniteNumber(resolveEffectValue(effect, effect.probabilityLevel))), 0);
     if (/^一定確率/.test(actions.enhancedAttack?.triggerType || '')) {
       actions.enhancedAttack.triggerProbability = Math.fround(
         Math.trunc(actions.enhancedAttack.triggerValue) + Math.fround(additionalPowerAttackRate)
@@ -2235,7 +2390,29 @@
       });
       warnings.push('エピカA2暫定: 単体・静止敵、同弾速、元命中の6ゲームF後に追加命中と仮定。高学年中はアサイドなしと同じ行動処理、CT0後は既存オートの優先順位を使用。追加命中の総SP・外部命中効果と速度変更中の着弾は未確認です。');
     }
+    Object.values(actions).forEach(action => {
+      Object.entries(action.variants || {}).forEach(([variant, events]) => {
+        const end = action.motionFramesByVariant?.[variant] ?? action.motionFrames;
+        events.forEach(event => {
+          const legacyProjectile = action.detachedProjectileTiming && event.type === 'damage'
+            && event.afterAction == null;
+          if (event.afterAction === '継続') {
+            if (!['ゲーム時間', '従来換算（暫定）'].includes(event.eventClock)
+              || event.timeOrigin !== '動作開始') throw new RangeError(`${action.label}: 継続イベントの時計・時間基準が未対応です`);
+          } else if (event.eventClock === 'ゲーム時間' && event.afterAction === '終了') {
+                                                                                   
+            if (event.timeOrigin !== '動作開始') throw new RangeError(`${action.label}: ゲーム時間イベントの時間基準が未対応です`);
+          } else if (!legacyProjectile && event.frame > end
+            && (action.eventTimingContractVersion || event.afterAction != null)) {
+            throw new RangeError(`${action.label}: 行動終了後の発生時刻があります。スキルタイミングのイベント時計・行動終了後を確認してください（${event.frame}F / 終了${end}F）`);
+          }
+        });
+      });
+    });
     const timingEffectIds = new Set();
+    if (normalizeScenarioId(apostle?.id) === 'vivi') {
+      warnings.push('ヴィヴィ通常暫定: 固定単体敵を低学年の盾終了効果の範囲内として扱います。被弾による早期破壊は外部イベントで指定し、高学年の盾から防御低下は発動しません。');
+    }
     Object.values(actions).forEach(action => {
       Object.values(action.variants || {}).forEach(events => {
         normalizeArray(events).forEach(event => {
@@ -2357,6 +2534,7 @@
       fixed: toFiniteNumber(effect?.fixed),
       percent: toFiniteNumber(effect?.percent),
       fixedMin: toFiniteNumber(effect?.fixedMin, effect?.fixed),
+      amountModifierP: toFiniteNumber(effect?.amountModifierP),
       fixedMax: toFiniteNumber(effect?.fixedMax, effect?.fixed),
       percentMin: toFiniteNumber(effect?.percentMin, effect?.percent),
       percentMax: toFiniteNumber(effect?.percentMax, effect?.percent),
@@ -2431,11 +2609,13 @@
     })).filter(reaction => reaction.status && reaction.takenDmgP);
     const damageBuffEffects = normalizeArray(buildOptions.runtimeEffects?.damageBuffEffects).map((effect, index) => ({
       id: String(effect?.id || `damageBuff:${index}`),
+      runtimeBaseEffectId: String(effect?.runtimeBaseEffectId || ''),
       sourceId: String(effect?.sourceId || ''),
       externalSourceId: String(effect?.externalSourceId || ''),
       externalTriggerType: String(effect?.externalTriggerType || ''),
       label: String(effect?.label || effect?.id || '時限ダメージバフ'),
       externalBindingKey: String(effect?.externalBindingKey || ''),
+      selfShieldSourceId: String(effect?.selfShieldSourceId || ''),
       stacksPerApplication: Math.max(1, Math.min(8, Math.floor(toFiniteNumber(effect?.stacksPerApplication, 1)))),
       mode: resolveSourceEventMode(effect, 'sourceEventTimed', 'actionTimed'),
       triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String),
@@ -2522,6 +2702,8 @@
       });
     }
     const normalAttackIntervalFrames = Math.max(1, toFiniteNumber(timing?.normalAttackIntervalFrames, 60));
+    const normalAttackSpeedBase = timing?.attackSpeedBase > 0
+      ? toFiniteNumber(timing.attackSpeedBase) : toFiniteNumber(apostle?.basic?.baseAttackSpeed);
     const movementTransitions = normalizeArray(timing?.movementTransitions).map((transition, index) => ({
       id: String(transition?.id || `movement:${index}`),
       fromActionKey: String(transition?.fromActionKey || ''),
@@ -2542,8 +2724,13 @@
       personality,
       initialActionDelayFrames: Math.max(0, toFiniteNumber(timing?.initialActionDelayFrames, 60)),
       normalAttackIntervalFrames,
+                                                                           
+                                                                                
+      normalAttackSpeedBase,
       initialAttackSpeedP,
-      initialNormalAttackIntervalFrames: normalAttackIntervalFrames / (1 + initialAttackSpeedP / 100),
+      initialNormalAttackIntervalFrames: normalAttackSpeedBase > 0
+        ? normalAttackIntervalFrames * normalAttackSpeedBase / resolveAttackSpeed(normalAttackSpeedBase, initialAttackSpeedP)
+        : normalAttackIntervalFrames / (1 + initialAttackSpeedP / 100),
       movementTransitions,
       initialSp: Math.max(0, toFiniteNumber(apostle?.basic?.initialSp)),
       spRegen: Math.max(0, baseSpRegen * (1 + spRegenPercent / 100) + spRegenFixed),
@@ -2780,6 +2967,14 @@
     const components = selected.map(effect => {
       const base = effect.damageResult.runtimeBase;
       const coefficient = base.hitInput.coefficientP;
+      if (event.nativeCoefficientScale != null || event.nativeEffectDamage != null) {
+        if (count !== 1 || !Number.isFinite(event.nativeCoefficientScale)
+          || event.nativeCoefficientScale <= 0 || !Number.isFinite(event.nativeEffectDamage)
+          || event.nativeEffectDamage < 0) throw new RangeError('命中の元倍率または効果倍率が不正です');
+        return { runtimeBase: base, coefficientP: resolveNativeCoefficient(coefficient * event.nativeCoefficientScale,
+          event.nativeCoefficientInteger === true),
+          effectDamage: event.nativeEffectDamage, hitCount: repeat };
+      }
       if (event.coefficientShare != null && Number.isFinite(Number(event.coefficientShare))
         && Number(event.coefficientShare) > 0) {
                                                                                 
@@ -2818,13 +3013,34 @@
                                                                             
                                                                                
                                                                          
-  function roundDamageRateToEven(value) {
+  function roundNativeToEven(value, digits = 3) {
+    if (!Number.isInteger(digits) || digits < 0 || digits > 15) throw new RangeError('Invalid rounding digits');
     if (!Number.isFinite(value) || Math.abs(value) >= 1e16) return value;
-    const scaled = value * 1000;
-    const lower = Math.floor(scaled);
-    const fraction = scaled - lower;
-    return (fraction > 0.5 ? lower + 1
-      : fraction < 0.5 ? lower : lower % 2 === 0 ? lower : lower + 1) / 1000;
+    const scale = 10 ** digits;
+    const scaled = value * scale;
+    const integral = Math.trunc(scaled);
+    const fraction = scaled - integral;
+                                                                         
+                                                                            
+    const rounded = Math.abs(fraction) === 0.5
+      ? (integral % 2 === 0 ? integral : integral + Math.sign(scaled))
+      : scaled >= 0 ? Math.floor(scaled + 0.5) : Math.ceil(scaled - 0.5);
+    return rounded / scale;
+  }
+
+  function roundDamageRateToEven(value) {
+    return roundNativeToEven(value, 3);
+  }
+
+                                                                             
+                                                                              
+  function resolveNormalDamageRate(fixed, percent, additional = 0) {
+    return Math.max(Math.fround(0.2), roundDamageRateToEven(fixed * percent) + additional);
+  }
+
+  function resolveDirectCritRate(curve, attackerPoints, defenderPoints) {
+    return clampCombatCritRate(curve +
+      (roundDamageRateToEven(attackerPoints) + roundDamageRateToEven(-defenderPoints)) * 0.01);
   }
 
   function evaluateSingleHitDamage(input = {}) {
@@ -2879,29 +3095,32 @@
     const base = component.runtimeBase;
     const hit = base?.hitInput;
     if (!hit) return null;
+    input = { ...input, actionKey: base.runtimeActionKey ?? input.actionKey };
     const delta = input.modifierDelta || {};
                                                                                
                                                                              
     if (getRuntimeActionMultiplierModifierP(delta, input.actionKey, input.generatedEventType)
       || toFiniteNumber(delta.specialP) || toFiniteNumber(delta.otherP)
       || ['normalAttackAddP', 'basicAddP', 'enhancedAddP', 'lowSkillAddP', 'highSkillAddP', 'skillAddP']
-        .some(key => toFiniteNumber(delta[key]))
+        .some(key => toFiniteNumber(delta[key])
+          && !(base.runtimeActionKey === 'passive' && input.actionKey === 'passive'))
       || input.heldAddP || input.statusTakenDmgP || input.statusDamageP) return null;
     const attackP = getRuntimeAttackModifierP(delta, base.damageType);
-    const finalAtk = Math.max(0, base.baseAtk * (1 + (base.attackP + attackP) / 100));
-    const finalDef = Math.max(1, base.baseDef * (1 + (base.defenseP - toFiniteNumber(delta.enemyDefDownP)) / 100));
-    const finalCrit = Math.max(0, base.baseCrit * (1 + (base.critP + toFiniteNumber(delta.critP)) / 100));
-    const finalCritRes = Math.max(1, base.baseCritRes * (1 + (base.critResP - toFiniteNumber(delta.enemyCritResDownP)) / 100));
-    const finalCritDmg = Math.max(0, base.baseCritDmg * (1 + (base.critDmgP + toFiniteNumber(delta.critDmgP)) / 100));
-    const finalCritDmgRes = Math.max(1, base.baseCritDmgRes * (1 + (base.critDmgResP - toFiniteNumber(delta.enemyCritDmgResDownP)) / 100));
-    const critRate = base.guaranteedCrit ? 1 : Math.max(0.05, Math.min(0.75,
-      calcRuntimeCritRate(finalCrit, finalCritRes) + (base.critRateP + toFiniteNumber(delta.critRateP) - base.critResAddP) / 100));
-    const critMult = Math.max(1.2, Math.min(2.5,
-      calcRuntimeCritMultiplier(finalCritDmg, finalCritDmgRes) + (base.critDmgAddP + toFiniteNumber(delta.critDmgAddP) - base.critDmgResAddP) / 100));
+    const finalAtk = resolveCombatStat(base.baseAtk, base.attackP + attackP);
+    const finalDef = resolveCombatStat(base.baseDef, base.defenseP - toFiniteNumber(delta.enemyDefDownP), 1);
+    const finalCrit = resolveCombatStat(base.baseCrit, base.critP + toFiniteNumber(delta.critP));
+    const finalCritRes = resolveCombatStat(base.baseCritRes, base.critResP - toFiniteNumber(delta.enemyCritResDownP), 1);
+    const finalCritDmg = resolveCombatStat(base.baseCritDmg, base.critDmgP + toFiniteNumber(delta.critDmgP));
+    const finalCritDmgRes = resolveCombatStat(base.baseCritDmgRes, base.critDmgResP - toFiniteNumber(delta.enemyCritDmgResDownP), 1);
+    const critRate = base.guaranteedCrit ? 1 : resolveDirectCritRate(
+      calcRuntimeCritRate(finalCrit, finalCritRes), base.critRateP + toFiniteNumber(delta.critRateP), base.critResAddP);
+    const critMult = clampCombatCritMultiplier(
+      calcRuntimeCritMultiplier(finalCritDmg, finalCritDmgRes) + (base.critDmgAddP + toFiniteNumber(delta.critDmgAddP) - base.critDmgResAddP) / 100);
     const result = evaluateSingleHitDamage({ ...hit,
       baseDamage: finalAtk * calcRuntimeBaseDamageRate(finalAtk, finalDef),
       coefficientP: component.coefficientP ?? hit.coefficientP,
-      damageRate: roundDamageRateToEven(base.rawAddRate + getRuntimeAddModifierP(delta, input.actionKey) / 100),
+      effectDamage: component.effectDamage ?? hit.effectDamage,
+      damageRate: resolveNormalDamageRate(1, base.rawAddRate + getRuntimeAddModifierP(delta, input.actionKey) / 100),
       critRate, critMult });
     const count = component.hitCount ?? 1;
     if (!Number.isSafeInteger(count) || count < 1) return { supported: false, reason: '命中数が未確定です' };
@@ -2909,6 +3128,72 @@
       return { supported: false, reason: '命中合計が安全整数範囲を超えています' };
     }
     return { ...result, hitCount: count, expected: result.supported ? result.expected * count : null };
+  }
+
+                                                                           
+                                                                              
+  function evaluateDotDamage(input = {}) {
+    const { baseDamage, coefficientP, personalityRate, damageRate, endCorrection,
+      disorderCorrection, critRate, critMult } = input;
+    const unavailable = reason => ({ supported: false, calculationMode: 'unavailable', reason,
+      normal: null, crit: null, expected: null });
+    if ([baseDamage, coefficientP, personalityRate, damageRate, endCorrection,
+      disorderCorrection, critRate, critMult].some(value => typeof value !== 'number' || !Number.isFinite(value))) {
+      return unavailable('周期ダメージの入力が不足、または非有限値です');
+    }
+    const coefficient = Math.fround(coefficientP);
+    const lateFactor = (1 + endCorrection) + disorderCorrection;
+    if (baseDamage < 0 || coefficient < 0 || personalityRate < 0 || damageRate < 0
+      || lateFactor < 0 || critMult < 0 || critRate < 0 || critRate > 1) {
+      return unavailable('周期ダメージの確認済み計算範囲外です');
+    }
+    const evaluate = critical => {
+      let pre = baseDamage * .01;
+      pre *= critical;
+      pre *= coefficient;
+      pre *= personalityRate;
+      pre *= damageRate;
+      const middle = Math.trunc(pre);
+      const final = Math.trunc(middle * lateFactor);
+      if (!Number.isFinite(pre) || !Number.isSafeInteger(middle) || !Number.isSafeInteger(final)) return null;
+      return { pre, middle, final };
+    };
+    const normal = evaluate(1), crit = evaluate(critMult);
+    if (!normal || !crit) return unavailable('周期ダメージが安全整数範囲を超えています');
+    return { supported: true, calculationMode: 'dot-hit-v1', normal: normal.final, crit: crit.final,
+      expected: normal.final * (1 - critRate) + crit.final * critRate,
+      stages: { normal, crit, coefficientP: coefficient, damageRate, lateFactor } };
+  }
+
+  function createDotAttackSnapshot(base, delta = {}) {
+    if (!base?.dotInput) return null;
+    return Object.freeze({
+      attack: resolveCombatStat(base.baseAtk, base.attackP + getRuntimeAttackModifierP(delta, base.damageType)),
+      critical: resolveCombatStat(base.baseCrit, base.critP + toFiniteNumber(delta.critP)),
+      criticalDamage: resolveCombatStat(base.baseCritDmg, base.critDmgP + toFiniteNumber(delta.critDmgP)),
+      criticalDamagePoints: base.critDmgAddP + toFiniteNumber(delta.critDmgAddP)
+    });
+  }
+
+  function evaluateDotAtTick(base, snapshot, delta = {}) {
+    if (!base?.dotInput || !snapshot) return { supported: false, reason: '周期ダメージの付与元能力が未確認です' };
+                                                                                 
+                                                                                  
+    if (toFiniteNumber(delta.specialP) || toFiniteNumber(delta.otherP)
+      || toFiniteNumber(delta.actionMultiplierBonusP)) {
+      return { supported: false, reason: '周期ダメージ補正の供給位置が未確認です' };
+    }
+    const defense = resolveCombatStat(base.baseDef, base.defenseP - toFiniteNumber(delta.enemyDefDownP), 1);
+    const critResistance = resolveCombatStat(base.baseCritRes, base.critResP - toFiniteNumber(delta.enemyCritResDownP), 1);
+    const critDmgResistance = resolveCombatStat(base.baseCritDmgRes, base.critDmgResP - toFiniteNumber(delta.enemyCritDmgResDownP), 1);
+    const critRate = resolveDirectCritRate(calcRuntimeCritRate(snapshot.critical, critResistance),
+      base.critRateP + toFiniteNumber(delta.critRateP), base.critResAddP);
+    const critMult = clampCombatCritMultiplier(calcRuntimeCritMultiplier(snapshot.criticalDamage, critDmgResistance)
+      + (snapshot.criticalDamagePoints - base.critDmgResAddP) / 100);
+    return evaluateDotDamage({ ...base.dotInput,
+      baseDamage: snapshot.attack * calcRuntimeBaseDamageRate(snapshot.attack, defense),
+      damageRate: resolveNormalDamageRate(1, base.rawAddRate + toFiniteNumber(delta.addP) / 100),
+      critRate, critMult });
   }
 
   function evaluateDamageAtHit(input = {}) {
@@ -3025,13 +3310,11 @@
     if (attackP || enemyDefDownP) {
       const oldFinalAtk = Math.max(0, toFiniteNumber(base.finalAtk));
       const newFinalAtk = attackP
-        ? Math.max(0, toFiniteNumber(base.baseAtk) * (1 + (toFiniteNumber(base.attackP) + attackP) / 100))
+        ? resolveCombatStat(toFiniteNumber(base.baseAtk), toFiniteNumber(base.attackP) + attackP)
         : oldFinalAtk;
       const oldFinalDef = Math.max(1, toFiniteNumber(base.finalDef, 1));
       const newFinalDef = enemyDefDownP
-        ? Math.max(1, toFiniteNumber(base.baseDef, oldFinalDef) * (
-          1 + (toFiniteNumber(base.defenseP) - enemyDefDownP) / 100
-        ))
+        ? resolveCombatStat(toFiniteNumber(base.baseDef, oldFinalDef), toFiniteNumber(base.defenseP) - enemyDefDownP, 1)
         : oldFinalDef;
       const oldDefRate = Math.max(0.000001, toFiniteNumber(base.defRate));
       const newDefRate = calcRuntimeBaseDamageRate(newFinalAtk, newFinalDef);
@@ -3061,38 +3344,27 @@
     if (critP || critRateP || critDmgP || critDmgAddP || enemyCritResDownP || enemyCritDmgResDownP) {
       const oldCritRate = base.guaranteedCrit
         ? 1
-        : Math.max(0.05, Math.min(0.75, toFiniteNumber(base.critRate, 0.05)));
-      const oldCritMult = Math.max(1.2, Math.min(2.5, toFiniteNumber(base.critMult, 1.2)));
-      const newFinalCrit = Math.max(0, toFiniteNumber(base.baseCrit) * (
-        1 + (toFiniteNumber(base.critP) + critP) / 100
-      ));
+        : clampCombatCritRate(toFiniteNumber(base.critRate, 0.05));
+      const oldCritMult = clampCombatCritMultiplier(toFiniteNumber(base.critMult, 1.2));
+      const newFinalCrit = resolveCombatStat(toFiniteNumber(base.baseCrit), toFiniteNumber(base.critP) + critP);
       const newFinalCritRes = enemyCritResDownP
-        ? Math.max(1, toFiniteNumber(base.baseCritRes, base.finalCritRes) * (
-          1 + (toFiniteNumber(base.critResP) - enemyCritResDownP) / 100
-        ))
+        ? resolveCombatStat(toFiniteNumber(base.baseCritRes, base.finalCritRes), toFiniteNumber(base.critResP) - enemyCritResDownP, 1)
         : Math.max(1, toFiniteNumber(base.finalCritRes, 1));
       const newBaseCritRate = calcRuntimeCritRate(newFinalCrit, newFinalCritRes);
       const newCritRate = base.guaranteedCrit
         ? 1
-        : Math.max(0.05, Math.min(0.75,
-          newBaseCritRate
-            + (toFiniteNumber(base.critRateP) + critRateP) / 100
-            - toFiniteNumber(base.critResAddP) / 100
-        ));
-      const newFinalCritDmg = Math.max(0, toFiniteNumber(base.baseCritDmg) * (
-        1 + (toFiniteNumber(base.critDmgP) + critDmgP) / 100
-      ));
+        : resolveDirectCritRate(newBaseCritRate,
+          toFiniteNumber(base.critRateP) + critRateP, toFiniteNumber(base.critResAddP));
+      const newFinalCritDmg = resolveCombatStat(toFiniteNumber(base.baseCritDmg), toFiniteNumber(base.critDmgP) + critDmgP);
       const newFinalCritDmgRes = enemyCritDmgResDownP
-        ? Math.max(1, toFiniteNumber(base.baseCritDmgRes, base.finalCritDmgRes) * (
-          1 + (toFiniteNumber(base.critDmgResP) - enemyCritDmgResDownP) / 100
-        ))
+        ? resolveCombatStat(toFiniteNumber(base.baseCritDmgRes, base.finalCritDmgRes), toFiniteNumber(base.critDmgResP) - enemyCritDmgResDownP, 1)
         : Math.max(1, toFiniteNumber(base.finalCritDmgRes, 1));
       const newBaseCritMult = calcRuntimeCritMultiplier(newFinalCritDmg, newFinalCritDmgRes);
-      const newCritMult = Math.max(1.2, Math.min(2.5,
+      const newCritMult = clampCombatCritMultiplier(
         newBaseCritMult
           + (toFiniteNumber(base.critDmgAddP) + critDmgAddP) / 100
           - toFiniteNumber(base.critDmgResAddP) / 100
-      ));
+      );
       const oldExpectedFactor = 1 + oldCritRate * (oldCritMult - 1);
       const newExpectedFactor = 1 + newCritRate * (newCritMult - 1);
       ratios.critical = newExpectedFactor / Math.max(0.000001, oldExpectedFactor);
@@ -3113,7 +3385,15 @@
   }
 
   function evaluateRuntimeDamage(expectedDamage, current, event, damageProfiles, state, config, runtimeBase = null, statusDamageP = 0) {
-    const modifierDelta = getRuntimeDamageBuffDelta(state, config, current?.key || '');
+                                                                             
+                                                                                 
+                                                                       
+    const eventRuntimeBase = runtimeBase || getEventRuntimeBase(current, event, damageProfiles);
+    const damageActionKey = eventRuntimeBase?.runtimeActionKey ?? (current?.key || '');
+                                                                                
+                                                                                
+    const baselineActionKey = runtimeBase?.runtimeActionKey ?? (current?.key || '');
+    const modifierDelta = getRuntimeDamageBuffDelta(state, config, baselineActionKey);
     const heldAddP = Object.values(state.runtimeResources || {}).reduce((total, resource) => (
       total + (normalizeArray(resource.heldAddEffectIds).some(effectId => (
         normalizeArray(state.runtimeDamageEffectIds).includes(String(effectId || ''))
@@ -3165,7 +3445,7 @@
       legacyExpectedDamage: runtimeBase ? runtimeBase.legacyExpectedDamage ?? expectedDamage
         : event?.type === 'damage' && Array.isArray(current?.events)
           ? getEventExpectedDamage(current, event, damageProfiles, true) : expectedDamage,
-      actionKey: current?.key || '',
+      actionKey: damageActionKey,
       generatedEventType: event?.generatedEventType || '',
       modifierDelta,
       generatedIndependentStatsUnresolved: event?.generatedIndependentStatsUnresolved === true,
@@ -3174,7 +3454,7 @@
       statusDamageP,
       activeEffects,
       hitComponents,
-      runtimeBase: runtimeBase || getEventRuntimeBase(current, event, damageProfiles)
+      runtimeBase: eventRuntimeBase
     });
     if (result.unavailable) throw new RangeError(result.reason);
     if (event?.generatedIndependentStatsUnresolved) {
@@ -3911,7 +4191,8 @@
       const percent = effect.random
         ? pickSpRecoveryValue(effect.percentMin, effect.percentMax)
         : effect.percent;
-      const requestedAmount = fixed + config.maxSp * percent / 100;
+      const amountModifierP = toFiniteNumber(effect.amountModifierP);
+      const requestedAmount = (fixed + config.maxSp * percent / 100) * (1 + amountModifierP / 100);
       if (!requestedAmount) return;
       const before = state.sp;
       state.sp = Math.min(config.maxSp, Math.max(0, state.sp + requestedAmount));
@@ -3923,6 +4204,7 @@
         actionKey: owner?.key || '',
         actionLabel: owner?.label || '',
         requestedAmount,
+        amountModifierP,
         amount: state.sp - before,
         sp: state.sp,
         capped: state.sp === before
@@ -4072,16 +4354,12 @@
       state.normalAttackProgressLastTick = state.tick;
     };
 
-    const getEffectiveNormalAttackIntervalFrames = () => (
-      config.normalAttackIntervalFrames / (1 + getRuntimeAttackSpeedP() / 100)
-    );
-
-    const updateCurrentNormalAttackSchedule = () => {
-      if (state.lastNormalAttackStartTick == null) return;
-      if (usesRenewaTiming) return;                                               
-      state.nextNormalAttackTick = state.lastNormalAttackStartTick
-        + toTicks(getEffectiveNormalAttackIntervalFrames(), ticksPerFrame);
-      scheduleRuntimeStateTimer('nextNormalAttackTick');
+    const getEffectiveNormalAttackIntervalFrames = () => {
+      const base = config.normalAttackSpeedBase;
+      if (base > 0) return config.normalAttackIntervalFrames * base / resolveAttackSpeed(base, getRuntimeAttackSpeedP());
+                                                                               
+                                                                                
+      return config.normalAttackIntervalFrames / (1 + getRuntimeAttackSpeedP() / 100);
     };
 
     const applyAttackSpeedEffect = (effect, reason = '') => {
@@ -4109,7 +4387,7 @@
       }
       scheduleRuntimeExpireTicks(effect);
       if (effect.stackCount === previousStackCount && !effect.durationFrames) return;
-      updateCurrentNormalAttackSchedule();
+                                                                                  
       const totalHasteP = getRuntimeAttackSpeedP();
       logEffectStateChange({
         kind: 'attackSpeed',
@@ -4144,14 +4422,12 @@
     };
 
     const expireAttackSpeedEffects = () => {
-      let changed = false;
       state.runtimeAttackSpeedEffects.forEach(effect => {
         if (!effect.expireTicks.length) return;
         const before = effect.expireTicks.length;
         effect.expireTicks = effect.expireTicks.filter(expireTick => expireTick > state.tick);
         effect.stackCount = effect.expireTicks.length;
         if (effect.stackCount === before) return;
-        changed = true;
         logEffectStateChange({
           kind: 'attackSpeed',
           effectId: effect.id,
@@ -4175,7 +4451,6 @@
           normalAttackIntervalFrames: getEffectiveNormalAttackIntervalFrames()
         });
       });
-      if (changed) updateCurrentNormalAttackSchedule();
     };
 
     const processRuntimeAttackSpeedStacks = () => {
@@ -4305,16 +4580,18 @@
       }
       if (definition.oncePerAction && owner?.instanceId === definition.lastActionInstanceId) return;
       definition.lastActionInstanceId = owner?.instanceId ?? definition.lastActionInstanceId;
-      const matching = state.runtimeBuffStacks.filter(stack => (
-        stack.kind === 'damageBuff' && stack.effectId === definition.id
-      ));
+                                                                            
+                                                                           
+      const stateGroupId = !definition.stackable && definition.runtimeBaseEffectId
+        ? definition.runtimeBaseEffectId : definition.id;
+      const matchesState = stack => stack.kind === 'damageBuff'
+        && (stack.stateGroupId || stack.effectId) === stateGroupId;
+      const matching = state.runtimeBuffStacks.filter(matchesState);
       const operation = !definition.stackable && matching.length ? 'update' : 'apply';
       if (definition.stopAtMaxStacks && matching.length >= definition.maxStacks) return;
       if (!definition.stackable) {
         matching.forEach(stack => { stack.active = false; });
-        state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => (
-          stack.kind !== 'damageBuff' || stack.effectId !== definition.id
-        ));
+        state.runtimeBuffStacks = state.runtimeBuffStacks.filter(stack => !matchesState(stack));
       } else if (matching.length >= definition.maxStacks) {
         const oldest = matching.slice().sort((a, b) => (
           a.expireTick - b.expireTick || a.id - b.id
@@ -4327,7 +4604,7 @@
           label: oldest.label,
           operation: 'remove',
           stackId: oldest.id,
-          stackCount: state.runtimeBuffStacks.filter(stack => stack.effectId === definition.id).length,
+          stackCount: state.runtimeBuffStacks.filter(matchesState).length,
           maxStacks: definition.maxStacks,
           appliedTick: oldest.appliedTick,
           expireTick: oldest.expireTick,
@@ -4341,6 +4618,7 @@
         id: ++state.runtimeBuffSerial,
         kind: 'damageBuff',
         effectId: definition.id,
+        stateGroupId,
         sourceId: definition.sourceId,
         sourceActionKey: owner?.key || '',
         sourceActionLabel: owner?.label || '',
@@ -4363,7 +4641,7 @@
         label: stack.label,
         operation,
         stackId: stack.id,
-        stackCount: state.runtimeBuffStacks.filter(item => item.effectId === definition.id).length,
+        stackCount: state.runtimeBuffStacks.filter(matchesState).length,
         maxStacks: definition.maxStacks,
         appliedTick: stack.appliedTick,
         expireTick: stack.expireTick,
@@ -4383,9 +4661,7 @@
         label: definition.label,
         reason,
         addedStackCount: 1,
-        stackCount: state.runtimeBuffStacks.filter(stack => (
-          stack.kind === 'damageBuff' && stack.effectId === definition.id
-        )).length,
+        stackCount: state.runtimeBuffStacks.filter(matchesState).length,
         maxStacks: definition.maxStacks,
         modifiers: { ...definition.modifiers },
         durationFrames: definition.durationFrames
@@ -4542,13 +4818,11 @@
     };
 
     const resetRuntimeEffectsForAction = actionKey => {
-      let changed = false;
       state.runtimeAttackSpeedEffects.forEach(effect => {
         if (!effect.resetActionKeys.includes(actionKey) || effect.stackCount <= 0) return;
         const previousStackCount = effect.stackCount;
         effect.stackCount = 0;
         effect.expireTicks = [];
-        changed = true;
         logEffectStateChange({
           kind: 'attackSpeed',
           effectId: effect.id,
@@ -4575,7 +4849,6 @@
           resetActionKey: actionKey
         });
       });
-      if (changed) updateCurrentNormalAttackSchedule();
     };
 
     const getActiveStatusStacks = status => state.statusStacks.filter(stack => (
@@ -4758,6 +5031,11 @@
         ? String(config.apostleId || '')
         : String(application.sourceId || '');
       const applicationSourceSelf = application.sourceSelf !== false;
+                                                                            
+                                                                            
+      const dotAttackSnapshot = applicationSourceSelf && applicationSourceId === String(config.apostleId || '')
+        ? createDotAttackSnapshot(statusDamageProfiles[application.status]?.damageResult?.runtimeBase,
+            getRuntimeDamageBuffDelta(state, config)) : null;
       trackedStatuses.add(application.status);
       const groupStacks = state.statusStacks.filter(stack => stack.stackGroupId === application.stackGroupId);
       const operation = !application.stackable && groupStacks.length ? 'update' : 'apply';
@@ -4767,6 +5045,18 @@
           .forEach(stack => { stack.active = false; });
         state.statusStacks = state.statusStacks.filter(stack => stack.stackGroupId !== application.stackGroupId);
       } else if (groupStacks.length >= application.maxStacks) {
+        if (application.stackOverflowPolicy === 'reject') {
+                                                                                
+                                                                               
+          if (!options.suppressLog) logEffectStateChange({
+            kind:'debuff',effectId:application.applicationEffectId || application.status,
+            label:application.status,status:application.status,operation:'reject',
+            stackCount:groupStacks.length,maxStacks:application.maxStacks,
+            sourceActionKey:owner.key,sourceActionLabel:owner.label,sourceId:applicationSourceId,
+            reason:'最大スタックのため新規付与を拒否（既存の期限は維持）'
+          });
+          return;
+        }
         const oldest = groupStacks.slice().sort((a, b) => (
           a.expireTick - b.expireTick || a.appliedTick - b.appliedTick || a.id - b.id
         ))[0];
@@ -4813,7 +5103,10 @@
           ? state.tick + toTicks(application.tickFrames || STATUS_TICK_FRAMES, ticksPerFrame)
           : Infinity,
         tickMultiplier: application.tickMultiplier,
-        reactionOnly: application.reactionOnly === true
+        reactionOnly: application.reactionOnly === true,
+                                                                                  
+                                                                               
+        dotAttackSnapshot
       };
       state.statusStacks.push(stack);
       scheduleRuntimePeriodicEvent(stack);
@@ -4908,6 +5201,11 @@
         reference: String(application.reference || '').trim(),
         sourceActionKey: owner.key,
         sourceActionLabel: owner.label,
+        sourceActionInstanceId: owner.instanceId,
+        sourceActionVariant: owner.variant,
+        sourceRuntimeEffectId: owner.runtimeEffectId || '',
+        kind: application.kind || 'selfState',
+        endEvent: application.endEvent || null,
         appliedTick: state.tick,
         expireTick: state.tick + toTicks(application.durationFrames, ticksPerFrame)
       };
@@ -5143,7 +5441,7 @@
           const triggerValue = String(effect.triggerValue || '').trim();
           if (triggerValue && !sourceIds.has(triggerValue)) return false;
           if (effect.conditionType === '付与者' && effect.conditionValue
-            && String(effect.conditionValue).trim() !== String(transition.sourceId || '').trim()) return false;
+            && normalizeScenarioId(effect.conditionValue) !== normalizeScenarioId(transition.sourceId)) return false;
           return true;
         },
         `${transition.status || transition.stateId || '状態'}${isApplied ? '付与時' : '終了時'}${transition.provisional ? '（暫定）' : ''}`
@@ -5340,6 +5638,8 @@
     const externalTriggerTypes = new Map([
       ['shieldBreak', 'シールド破壊時'],
       ['シールド破壊時', 'シールド破壊時'],
+      ['shieldEnd', 'シールド終了時'],
+      ['シールド終了時', 'シールド終了時'],
       ['hpThreshold', 'HP閾値'],
       ['HP閾値', 'HP閾値'],
       ['damageTaken', '被弾時'],
@@ -5400,6 +5700,18 @@
         event.emitted = true;
         state.externalEventIndex += 1;
         const triggerType = externalTriggerTypes.get(event.type) || event.type;
+        if (triggerType === 'シールド破壊時' || triggerType === 'シールド終了時') {
+          const source = String(event.triggerSourceId || event.sourceId || '').trim();
+          const matching = state.selfStateStacks.filter(stack => stack.kind === 'shield'
+            && (!source || source === stack.stateId || normalizeScenarioId(source) === normalizeScenarioId(config.apostleId)));
+                                                                                 
+          if (source || matching.length === 1) {
+            matching.forEach(stack => {
+              state.selfStateStacks = state.selfStateStacks.filter(item => item.id !== stack.id);
+              finishSelfState(stack, 'remove', triggerType);
+            });
+          }
+        }
         const owner = {
           key: 'external',
           label: event.reason || triggerType,
@@ -5534,14 +5846,32 @@
       }
     };
 
+                                                                             
+                                                                           
+                                                                             
+    const getInactiveProgressReadyTick = (targetFrames, progressFrames, lastTick) => {
+      const progress = progressFrames + integrateActionSpeedFrames(lastTick, state.tick);
+      return state.tick + Math.max(0, Math.ceil((targetFrames - progress - 1e-9) * ticksPerFrame));
+    };
+    const getNextNormalAttackReadyTick = () => usesContinuousAcceleration
+      && state.normalAttackProgressFrames != null && !hasActiveAcceleration()
+      ? getInactiveProgressReadyTick(state.normalAttackCycleFrames,
+        state.normalAttackProgressFrames, state.normalAttackProgressLastTick)
+      : state.nextNormalAttackTick;
+
     const getNextActionInternalEventTick = () => {
       let nextTick = Infinity;
       const current = state.currentAction;
       if (current) {
-        nextTick = Math.min(nextTick, current.endTick);
+        const progressClock = current.dynamicTiming && !hasActiveAcceleration();
+        nextTick = Math.min(nextTick, progressClock
+          ? getInactiveProgressReadyTick(current.motionFrames, current.progressFrames, current.progressLastTick)
+          : current.endTick);
         current.events.forEach(event => {
           if (event.emitted) return;
-          nextTick = Math.min(nextTick, current.startTick + event.relativeTick);
+          nextTick = Math.min(nextTick, progressClock
+            ? getInactiveProgressReadyTick(event.relativeFrames, current.progressFrames, current.progressLastTick)
+            : current.startTick + event.relativeTick);
         });
       }
       if (state.movementTransition) nextTick = Math.min(nextTick, state.movementTransition.endTick);
@@ -5558,11 +5888,14 @@
       });
     };
 
-    const expireSelfStates = () => {
-      const expired = state.selfStateStacks.filter(stack => stack.expireTick <= state.tick);
-      if (!expired.length) return;
-      state.selfStateStacks = state.selfStateStacks.filter(stack => stack.expireTick > state.tick);
-      expired.forEach(stack => {
+    const finishSelfState = (stack, operation, reason) => {
+        if (stack.kind === 'shield') {
+          state.runtimeDamageBuffEffects.forEach(effect => {
+            if (effect.mode !== 'selfShieldEndedTimed' || effect.selfShieldSourceId !== stack.stateId) return;
+            applyRuntimeDamageBuff(effect, {key:stack.sourceActionKey,label:stack.sourceActionLabel,
+              instanceId:stack.sourceActionInstanceId}, reason);
+          });
+        }
         state.runtimeEventEffects.forEach(effect => {
           if (effect.startOnSelfStateId !== stack.stateId) return;
           effect.nextTick = Infinity;
@@ -5573,7 +5906,7 @@
           effectId: stack.stateId,
           label: stack.status,
           status: stack.status,
-          operation: 'expire',
+          operation,
           stackId: stack.id,
           stackCount: 0,
           maxStacks: 1,
@@ -5582,19 +5915,19 @@
           sourceActionKey: stack.sourceActionKey,
           sourceActionLabel: stack.sourceActionLabel,
           sourceId: String(config.apostleId || ''),
-          reason: '持続時間終了',
+          reason,
           details: { reference: stack.reference || '' }
         });
         if (triggerRuntimeEventEffectsForStateChange) {
           triggerRuntimeEventEffectsForStateChange({
             key: stack.sourceActionKey,
             label: stack.sourceActionLabel,
-            variant: '',
+            variant: stack.sourceActionVariant || '',
             instanceId: stack.sourceActionInstanceId || `self-state:${stack.id}`,
             runtimeEffectId: stack.sourceRuntimeEffectId || ''
           }, {
             kind: 'selfState',
-            operation: 'expire',
+            operation,
             stateId: stack.stateId,
             status: stack.status,
             reference: stack.reference || '',
@@ -5605,7 +5938,24 @@
             maxStacks: 1
           });
         }
-      });
+        if (stack.endEvent) {
+          const owner = { key: stack.sourceActionKey, label: stack.sourceActionLabel,
+            variant: stack.sourceActionVariant || '', events: [stack.endEvent],
+            instanceId: stack.sourceActionInstanceId || `self-state:${stack.id}`,
+            runtimeEffectId: stack.sourceRuntimeEffectId || '' };
+          const profile = getVariantDamageProfile(damageProfiles, owner.key, owner.variant);
+          if (!findEventDamageEffectAcrossVariants(damageProfiles, owner, stack.endEvent, profile)) {
+            throw new Error('シールド終了時の攻撃ダメージ入力が不足しています');
+          }
+          emitEvent(owner, stack.endEvent);
+        }
+    };
+
+    const expireSelfStates = () => {
+      const expired = state.selfStateStacks.filter(stack => stack.expireTick <= state.tick);
+      if (!expired.length) return;
+      state.selfStateStacks = state.selfStateStacks.filter(stack => stack.expireTick > state.tick);
+      expired.forEach(stack => finishSelfState(stack, 'expire', '持続時間終了'));
     };
 
     const emitEvent = (owner, event) => {
@@ -5669,7 +6019,9 @@
         triggerCooldownEffectsForHit(owner, event.hitCount || 1);
       }
       else triggerSpRecoveryEffectsForHit(owner, true);
-      if (event.statusApplication) applyStatusApplication(owner, event.statusApplication);
+      if (event.statusApplication) applyStatusApplication(owner, { ...event.statusApplication,
+        timingQuality: event.statusApplication.timingQuality || event.timingQuality || '' });
+      if (event.selfStateApplication) applySelfState(owner, event.selfStateApplication);
                                                                              
                                                                                
                                                                              
@@ -5693,14 +6045,31 @@
           0,
           toFiniteNumber(resolvedDamage?.expectedDamage ?? resolvedDamage, profile.expectedDamage)
         );
-        const damageEvaluation = evaluateRuntimeDamage(
+        const base = profile.damageResult?.runtimeBase || null;
+        let damageEvaluation;
+        if (base?.dotInput && !resolveStatusDamage) {
+          const delta = getRuntimeDamageBuffDelta(state, config);
+          const heldAdd = Object.values(state.runtimeResources || {}).some(resource => toFiniteNumber(resource.stacks)
+            && toFiniteNumber(resource.heldAddPPerStack) && normalizeArray(resource.heldAddEffectIds)
+              .some(id => normalizeArray(state.runtimeDamageEffectIds).includes(String(id || ''))));
+          const unresolved = heldAdd || getStatusReactionTakenDmgP(state, config)
+            || toFiniteNumber(config.runtimeEffects?.statusDamageWeaknessP);
+          const evaluated = unresolved ? { supported: false, reason: '状態・所持補正の周期ダメージ供給位置が未確認です' }
+            : evaluateDotAtTick(base, stack.dotAttackSnapshot, delta);
+          if (!evaluated.supported) throw new RangeError(evaluated.reason);
+          damageEvaluation = { ...evaluated, baseExpectedDamage, expectedDamage: evaluated.expected,
+            ratio: baseExpectedDamage > 0 ? evaluated.expected / baseExpectedDamage : 1,
+            modifierDelta: delta, runtimeBaseAvailable: true, dotAttackSnapshot: stack.dotAttackSnapshot };
+          const calculation = state.damageCalculation || (state.damageCalculation = { roundedEvents: 0, legacyEvents: 0, reasons: new Set() });
+          calculation.roundedDotEvents = (calculation.roundedDotEvents || 0) + 1;
+        } else damageEvaluation = evaluateRuntimeDamage(
           baseExpectedDamage,
           { key: stack.sourceActionKey, variant: '' },
           null,
           damageProfiles,
           state,
           config,
-          profile.damageResult?.runtimeBase || null,
+          base,
           toFiniteNumber(config?.runtimeEffects?.statusDamageWeaknessP)
         );
         const expectedDamage = damageEvaluation.expectedDamage;
@@ -5805,6 +6174,7 @@
     const emitDueActionEvents = () => {
       const current = state.currentAction;
       if (!current) return;
+      const sharedClockDue = [];
       current.events.forEach(event => {
         if (event.emitted) return;
         const due = current.dynamicTiming
@@ -5812,8 +6182,10 @@
           : current.startTick + event.relativeTick === state.tick;
         if (!due) return;
         event.emitted = true;
-        emitEvent(current, event);
+        if (current.hasExplicitEventClock) sharedClockDue.push({owner:current,event,emitted:false});
+        else emitEvent(current, event);
       });
+      if (sharedClockDue.length) emitDueGeneratedEvents(sharedClockDue);
     };
 
     const summonContext = unit => ({ frame: state.tick / ticksPerFrame, definition: unit.definition,
@@ -5939,13 +6311,40 @@
       });
     };
 
-    const emitDueGeneratedEvents = () => {
-      const due = [];
+    const emitDueGeneratedEvents = (actionDue = []) => {
+      let due = actionDue.slice();
       while (true) {
         const next = peekPendingGeneratedEvent();
         if (!next || next.absoluteTick > state.tick) break;
         const pending = popPendingGeneratedEvent();
         if (pending) due.push(pending);
+      }
+                                                                              
+                                                                             
+                                                                    
+      if (due.length > 1 && due.some(pending => pending.event.afterAction != null)) {
+        const groups = new Map();
+                                                                         
+                                                                          
+        const groupKey = (pending,index) => pending.event.generatedObjectId || pending.owner.instanceId == null
+          ? `separate:${index}` : `action:${pending.owner.instanceId}`;
+        due.forEach((pending, index) => {
+          const key = groupKey(pending,index);
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push({pending,index});
+        });
+        groups.forEach(group => {
+          if (group.some(item => item.pending.event.afterAction != null)) {
+            group.sort((a,b) => toFiniteNumber(a.pending.event.eventOrder,1000)
+              - toFiniteNumber(b.pending.event.eventOrder,1000) || a.index - b.index);
+          }
+        });
+        const offsets = new Map();
+        due = due.map((pending,index) => {
+          const key = groupKey(pending,index), offset = offsets.get(key) || 0;
+          offsets.set(key, offset + 1);
+          return groups.get(key)[offset].pending;
+        });
       }
       due.forEach(pending => {
         if (pending.cancelled || pending.event.generatedEventType !== '生成') return;
@@ -6095,11 +6494,19 @@
       const variantLabel = String(action.variantLabels?.[variant] || '').trim();
       const sourceEvents = action.variants[variant] || action.variants.default || [];
       const baseMotionFrames = action.motionFramesByVariant?.[variant] ?? action.motionFrames;
+      if (action.normalAttackIntervalBasis === 'motion' && !(baseMotionFrames > 0)) {
+        throw new RangeError(`${action.label}: 選択分岐の基準モーション長が未確定です`);
+      }
       const selfSpeed = getRenewaSpeedAtStart();
       const otherSpeed = selfSpeed;
-      const normalPeriodFrames = getEffectiveNormalAttackIntervalFrames() / otherSpeed;
+                                                                            
+                                                                              
+      const effectivePeriodFrames = action.normalAttackIntervalBasis === 'motion'
+        ? baseMotionFrames * getEffectiveNormalAttackIntervalFrames() / config.normalAttackIntervalFrames
+        : getEffectiveNormalAttackIntervalFrames();
+      const normalPeriodFrames = effectivePeriodFrames / otherSpeed;
       const motionScale = normalAttack && baseMotionFrames > 0
-        ? calculateActionSpeedTiming(getEffectiveNormalAttackIntervalFrames(), baseMotionFrames, selfSpeed, otherSpeed).motionScale
+        ? calculateActionSpeedTiming(effectivePeriodFrames, baseMotionFrames, selfSpeed, otherSpeed).motionScale
         : 1 / selfSpeed;
       const motionFrames = baseMotionFrames * motionScale;
       const normalCycleFrames = motionFrames + Math.max(0, normalPeriodFrames - baseMotionFrames);
@@ -6111,6 +6518,7 @@
         variant: variant === 'default' ? '' : variant,
         variantLabel,
         instanceId,
+        hasExplicitEventClock: sourceEvents.some(event => event.afterAction != null),
         startTick: state.tick,
         dynamicTiming: usesContinuousAcceleration,
         progressFrames: 0,
@@ -6121,17 +6529,20 @@
         repeatProbabilityP,
         events: sourceEvents.map(event => ({
           ...event,
-          relativeFrames: event.frame * motionScale,
-          relativeTick: toTicks(event.frame * motionScale, ticksPerFrame),
+          relativeFrames: event.frame * (event.eventClock === 'ゲーム時間' ? 1 : motionScale),
+          relativeTick: toTicks(event.frame * (event.eventClock === 'ゲーム時間' ? 1 : motionScale), ticksPerFrame),
           emitted: false
         }))
       };
-      if (action.detachedProjectileTiming) {
+      if (action.detachedProjectileTiming || sourceEvents.some(event => event.afterAction === '継続'
+        || event.eventClock === 'ゲーム時間')) {
                                                                               
                                                                             
         const owner = { ...state.currentAction, events: state.currentAction.events };
-        state.currentAction.events = owner.events.filter(event => event.type !== 'damage');
-        owner.events.filter(event => event.type === 'damage').forEach(event => {
+        const isDetached = event => event.afterAction === '継続' || event.eventClock === 'ゲーム時間'
+          || (action.detachedProjectileTiming && event.type === 'damage' && event.afterAction == null);
+        state.currentAction.events = owner.events.filter(event => !isDetached(event));
+        owner.events.filter(isDetached).forEach(event => {
           scheduleGeneratedEvent({ absoluteTick: state.tick + event.relativeTick,
             owner, event, emitted: false });
         });
@@ -6186,7 +6597,7 @@
         state.lastNormalAttackStartTick = state.tick;
         state.normalAttackProgressFrames = 0;
         state.normalAttackProgressLastTick = state.tick;
-        state.normalAttackCycleFrames = usesRenewaTiming ? normalCycleFrames : getEffectiveNormalAttackIntervalFrames();
+        state.normalAttackCycleFrames = normalCycleFrames;
         state.nextNormalAttackTick = state.tick + toTicks(state.normalAttackCycleFrames, ticksPerFrame);
         scheduleRuntimeStateTimer('nextNormalAttackTick');
       } else if (actionKey === 'lowSkill') {
@@ -6395,8 +6806,7 @@
       if (usesContinuousAcceleration) {
         if (state.normalAttackProgressFrames == null) {
           if (state.tick < state.nextNormalAttackTick) return false;
-        } else if (state.normalAttackProgressFrames + 1e-9 < (usesRenewaTiming
-          ? state.normalAttackCycleFrames : getEffectiveNormalAttackIntervalFrames())) {
+        } else if (state.normalAttackProgressFrames + 1e-9 < state.normalAttackCycleFrames) {
           return false;
         }
       } else if (state.tick < state.nextNormalAttackTick) return false;
@@ -6488,6 +6898,9 @@
         effect,
         effect.mode === 'manualInitial' ? '手動効果を戦闘開始時に仮適用' : '戦闘開始時'
       ));
+                                        
+                                  
+    queueLowSkillIfReady();
 
     const getNextIdleEventTick = () => {
       const candidates = [durationTicks];
@@ -6496,9 +6909,11 @@
         if (Number.isFinite(tick) && tick > state.tick) candidates.push(Math.ceil(tick));
       };
       add(state.actionStartAllowedTick);
+      add(getNextNormalAttackReadyTick());
       add(getNextActionInternalEventTick());
       add(getNextRuntimePeriodicEventTick());
       state.runtimeAccelerationEffects.forEach(effect => add(effect.active ? effect.expireTick : Infinity));
+      state.selfStateStacks.forEach(stack => add(stack.expireTick));
       add(getNextPendingGeneratedEventTick());
                                           
                                         
@@ -6522,10 +6937,11 @@
         || state.skillTransition
       );
       if (isDue(getNextActionInternalEventTick())
-        || (!actionPhaseActive && isDue(state.nextNormalAttackTick))
+        || (!actionPhaseActive && isDue(getNextNormalAttackReadyTick()))
         || (!actionPhaseActive && state.lowSkillQueued && isDue(state.lowSkillReadyTick))
         || (!actionPhaseActive && highSkillMode === 'auto' && getCooldownRemainingTicks('highSkill') <= 0)
         || isDue(getNextRuntimePeriodicEventTick())
+        || state.selfStateStacks.some(stack => isDue(stack.expireTick))
         || isDue(getNextPendingGeneratedEventTick())) {
         return false;
       }
@@ -6606,6 +7022,11 @@
         log('actionEnd', { actionKey: finished.key, actionLabel: finished.label, variant: finished.variant, variantLabel: finished.variantLabel });
         triggerRuntimeEventEffectsForAction(finished, 'end');
         triggerSpRecoveryEffectsForAction(finished, 'end');
+        state.pendingGeneratedEvents.forEach(pending => {
+          if (pending.owner.instanceId === finished.instanceId && pending.event.afterAction === '終了') {
+            pending.cancelled = true;
+          }
+        });
         state.currentAction = null;
         state.lastCompletedAction = {
           key: finished.key,
@@ -6671,6 +7092,7 @@
       damage: {
         calculation: {
           roundedEvents: state.damageCalculation?.roundedEvents || 0,
+          roundedDotEvents: state.damageCalculation?.roundedDotEvents || 0,
           legacyEvents: state.damageCalculation?.legacyEvents || 0,
           legacyReasons: [...(state.damageCalculation?.reasons || [])]
         },
@@ -7119,7 +7541,9 @@
   }
 
   return Object.freeze({
-    version: 38,
+    version: 63,
+    resolveNativeCoefficient,
+    resolveImplicitTimedSpEffectId,
     calculateCooldownSettingSeconds,
     assembleSummonAbilities,
     getSummonCalculationIssues,
@@ -7130,7 +7554,20 @@
     createSeededRandom,
     evaluateDamageAtHit,
     evaluateSingleHitDamage,
+    evaluateDotDamage,
+    createDotAttackSnapshot,
+    evaluateDotAtTick,
     roundDamageRateToEven,
+    roundNativeToEven,
+    resolveNormalDamageRate,
+    resolveDirectCritRate,
+    resolveCombatStat,
+    resolveAttackSpeed,
+    calcRuntimeBaseDamageRate,
+    calcRuntimeCritRate,
+    calcRuntimeCritMultiplier,
+    clampCombatCritRate,
+    clampCombatCritMultiplier,
     simulate,
     simulateMany,
     simulateAsync,

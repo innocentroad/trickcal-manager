@@ -212,6 +212,7 @@
   }
 
   function isExternalOccurrenceOnly(effect = {}) {
+    if (effect.selfShieldSourceId && normalizeTriggerType(effect.triggerType) === 'シールド終了時') return false;
     const classification = getExternalEventClassification(effect);
     return !!classification && EXTERNAL_OCCURRENCE_ONLY_TYPES.has(classification.eventType);
   }

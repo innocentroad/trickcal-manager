@@ -547,6 +547,13 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "role": "攻撃",
       "imagePath": "img/Chara/Levi.webp?v=032119470f9d9ea0"
     },
+    "Lethe": {
+      "name": "レーテー",
+      "personality": "冷静",
+      "position": "前列",
+      "role": "守備",
+      "imagePath": "img/Chara/Lethe.webp?v=55493142ba649ddf"
+    },
     "Rohne": {
       "name": "ローネ",
       "personality": "純粋",
@@ -1310,7 +1317,7 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "img/SP回復.webp": "img/SP回復.webp?v=04761ffeb11bd275"
   },
   "sourceCounts": {
-    "apostles": 79,
+    "apostles": 80,
     "artifacts": 52,
     "spells": 36,
     "masterPowers": 6

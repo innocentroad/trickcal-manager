@@ -191,6 +191,11 @@
     "low": "img/Chara/Skill/Skill_F_Leets.webp",
     "passive": "img/Chara/Skill/Skill_P_Leets.webp"
   },
+  "Lethe": {
+    "high": "img/Chara/Skill/Skill_S_Lethe.webp",
+    "low": "img/Chara/Skill/Skill_F_Lethe.webp",
+    "passive": "img/Chara/Skill/Skill_P_Lethe.webp"
+  },
   "Levi": {
     "high": "img/Chara/Skill/Skill_S_Levi.webp",
     "low": "img/Chara/Skill/Skill_F_Levi.webp",

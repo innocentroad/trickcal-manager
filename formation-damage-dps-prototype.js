@@ -2396,6 +2396,20 @@
     const scenario = snapshot.scenario || {};
     return {
       simulatorVersion: Number(window.TRICKCAL_DPS_SIMULATOR?.version) || 0,
+      timingContent: (() => {
+        const timing = window.DPS_TIMING_DATA?.apostles?.[String(snapshot.targetId || '').toLowerCase()];
+        if (!timing) return null;
+                                                                              
+        const normalize = value => {
+          if (Array.isArray(value)) return value.map(normalize);
+          if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value)
+            .filter(([key]) => !['note', 'sourceLine', 'legacySource', 'rawTimingHoldReasons',
+              'retainedTimingSourceLines', 'heldRawTimingSourceLines'].includes(key)
+              && !key.startsWith('legacy')).map(([key, child]) => [key, normalize(child)]));
+          return value;
+        };
+        return normalize(timing);
+      })(),
       targetId: snapshot.targetId || '',
       skillLevels: snapshot.skillLevels || {},
       damageType: snapshot.damageType || '',
@@ -3033,6 +3047,8 @@
     const statusDamageWeakness = event.statusDamageP ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%` : '';
     const hitEvaluation = event.damageEvaluation?.calculationMode === 'normal-hit-v1'
       ? ' / 命中別再計算・二段整数化'
+      : event.damageEvaluation?.calculationMode === 'dot-hit-v1'
+        ? ' / 周期別再計算・二段整数化'
       : event.damageEvaluation?.calculationMode === 'legacy-continuous'
         ? ` / 旧互換・丸め未対応（${event.damageEvaluation.roundingReason}）`
         : event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001
@@ -3143,7 +3159,7 @@
       : '';
     const calculation = single.damage?.calculation;
     const calculationNote = calculation
-      ? `<p class="fdc-dps-empty">命中別二段整数化 ${formatNumber(calculation.roundedEvents)}イベント / 旧互換・丸め未対応 ${formatNumber(calculation.legacyEvents)}イベント${calculation.legacyEvents ? `：${escapeHtml(calculation.legacyReasons.join(' / '))}` : ''}</p>` : '';
+      ? `<p class="fdc-dps-empty">命中別二段整数化 ${formatNumber(calculation.roundedEvents)}イベント / 周期別二段整数化 ${formatNumber(calculation.roundedDotEvents || 0)}イベント / 旧互換・丸め未対応 ${formatNumber(calculation.legacyEvents)}イベント${calculation.legacyEvents ? `：${escapeHtml(calculation.legacyReasons.join(' / '))}` : ''}</p>` : '';
     return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary>${calculationNote}<div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}${omitted}</div></details>`;
   }
   function createDpsDetailComparisonRows(comparison = {}) {
