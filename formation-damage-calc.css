@@ -3061,6 +3061,43 @@ body.theme-dark .fdc-floating-target.is-resonance .fdc-floating-target-portrait 
   clip-path: inset(0 round calc(0.9rem - 4px));
 }
 
+.fdc-enemy-preset-open {
+  width: 100%; min-width: 0; min-height: 2.5rem; padding: .45rem .7rem;
+  border: 1px solid var(--fdc-border); border-radius: .7rem;
+  color: var(--fdc-text); background: var(--fdc-input); font: inherit;
+  text-align: left; cursor: pointer;
+}
+.fdc-enemy-preset-dialog {
+  position: fixed; inset: 0; margin: auto;
+  width: min(40rem, calc(100vw - 1.5rem)); max-height: 85dvh;
+  box-sizing: border-box; padding: .8rem; overflow: hidden;
+  border: 1px solid var(--fdc-border); border-radius: .9rem;
+  color: var(--fdc-text); background: var(--fdc-panel); font: inherit;
+}
+.fdc-enemy-preset-dialog::backdrop { background: rgba(3,7,18,.62); }
+.fdc-enemy-preset-dialog[open] { display: flex; flex-direction: column; }
+.fdc-enemy-preset-dialog > :not(.fdc-enemy-preset-list) { flex-shrink: 0; }
+.fdc-enemy-preset-dialog header, .fdc-enemy-preset-dialog footer {
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+}
+.fdc-enemy-preset-dialog h2 { margin: 0 0 .5rem; font-size: 1rem; }
+.fdc-enemy-preset-dialog header { background: transparent; color: var(--fdc-text); }
+.fdc-enemy-preset-dialog h2 { color: inherit; }
+.fdc-enemy-preset-dialog footer { justify-content: flex-end; margin-top: .6rem; }
+.fdc-enemy-preset-dialog button {
+  border: 1px solid var(--fdc-border); border-radius: .6rem; padding: .5rem .65rem;
+  background: var(--fdc-input); color: var(--fdc-text); font: inherit; cursor: pointer;
+}
+.fdc-enemy-preset-dialog button:focus-visible { outline: 2px solid var(--fdc-primary); outline-offset: 2px; }
+.fdc-enemy-preset-filters { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin: .5rem 0; }
+.fdc-enemy-preset-list { min-height: 0; max-height: 48dvh; overflow: auto; display: grid; gap: .3rem; }
+.fdc-enemy-preset-list button { text-align: left; }
+.fdc-enemy-stage-heading { margin: .4rem 0 .1rem; padding: .15rem .3rem; font-size: .8rem; color: var(--fdc-muted); }
+.fdc-enemy-preset-list button[aria-pressed="true"] { border-color: var(--fdc-primary); background: color-mix(in srgb, var(--fdc-primary) 20%, var(--fdc-input)); }
+.fdc-enemy-preset-dialog .fdc-field { min-width: 0; }
+.fdc-enemy-preset-dialog input, .fdc-enemy-preset-dialog select { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; }
+.fdc-enemy-preset-field select[hidden] { display: none; }
+
 .fdc-resonance-personality-dialog {
   width: min(28rem, calc(100vw - 1.5rem));
   max-width: calc(100vw - 1.5rem);

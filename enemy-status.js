@@ -19,10 +19,17 @@
     count: document.getElementById('enemy-status-count'),
     list: document.getElementById('enemy-status-list'),
     detail: document.getElementById('enemy-status-detail'),
+    browser: document.querySelector('.enemy-browser'),
+    open: document.getElementById('enemy-status-open'),
+    picker: document.getElementById('enemy-status-picker'),
+    pickerBody: document.getElementById('enemy-status-picker-body'),
+    confirm: document.getElementById('enemy-status-confirm'),
     theme: document.getElementById('enemy-status-theme')
   };
   const params = new URLSearchParams(location.search);
-  const initialKey = entryKeys.has(params.get('preset')) ? params.get('preset') : entries[0]?.[0] || '';
+  const requestedKey = params.get('preset');
+  const canonicalKey = presets[requestedKey]?.selectionAliasOf || requestedKey;
+  const initialKey = entryKeys.has(canonicalKey) ? canonicalKey : entries[0]?.[0] || '';
   const state = {
     key: initialKey,
     phase: Math.max(0, Number(params.get('phase')) || 0),
@@ -30,11 +37,25 @@
     group: 'all'
   };
   const numberFormat = new Intl.NumberFormat('ja-JP');
+  const mobile = window.matchMedia('(max-width: 900px)');
+  const browserParent = el.browser.parentNode;
+  const browserAnchor = el.browser.nextSibling;
+  let pendingKey = null;
 
   initTheme();
   renderGroupOptions();
   bindEvents();
   render();
+  syncBrowserLocation();
+  mobile.addEventListener('change', syncBrowserLocation);
+
+  function syncBrowserLocation() {
+    if (mobile.matches) el.pickerBody.append(el.browser);
+    else {
+      if (el.picker.open) el.picker.close();
+      browserParent.insertBefore(el.browser, browserAnchor);
+    }
+  }
 
   function bindEvents() {
     el.search?.addEventListener('input', () => {
@@ -48,6 +69,12 @@
     el.list?.addEventListener('click', event => {
       const button = event.target.closest('[data-enemy-key]');
       if (!button) return;
+      if (el.picker.open) {
+        pendingKey = button.dataset.enemyKey;
+        renderList();
+        el.list.querySelector(`[data-enemy-key="${CSS.escape(pendingKey)}"]`)?.focus();
+        return;
+      }
       state.key = button.dataset.enemyKey || '';
       state.phase = 0;
       updateUrl();
@@ -59,6 +86,33 @@
       updateUrl();
       renderDetail();
       renderList();
+    });
+    el.open.addEventListener('click', () => {
+      pendingKey = state.key;
+      renderList();
+      el.picker.showModal();
+      el.search.focus();
+    });
+    el.picker.querySelectorAll('[data-picker-cancel]').forEach(button => button.addEventListener('click', () => el.picker.close()));
+    el.picker.addEventListener('click', event => {
+      if (event.target !== el.picker) return;
+      const rect = el.picker.getBoundingClientRect();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) el.picker.close();
+    });
+    el.confirm.addEventListener('click', () => {
+      if (!entryKeys.has(pendingKey)) return;
+                                                                     
+      if (state.key !== pendingKey) { state.key = pendingKey; state.phase = 0; }
+      updateUrl();
+      render();
+      el.picker.close();
+    });
+    el.picker.addEventListener('close', () => {
+      if (el.picker.open) return;
+      pendingKey = null;
+      renderList();
+      if (mobile.matches) el.open.focus();
+      else el.list.querySelector(`[data-enemy-key="${CSS.escape(state.key)}"]`)?.focus();
     });
     el.theme?.addEventListener('click', () => {
       const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
@@ -82,22 +136,21 @@
     });
     if (el.count) el.count.textContent = `${filtered.length} / ${entries.length}件`;
     if (!el.list) return;
+    let previousSection = '';
     el.list.innerHTML = filtered.length ? filtered.map(([key, preset]) => {
-      const selected = key === state.key;
-      const phase = selected ? getPhase(preset, state.phase) : null;
-      const scaled = scalePreset(preset, phase);
+      const selected = key === (pendingKey ?? state.key);
       const metadata = getEnemyPresetMetadata(preset, key);
-      const selectionContext = [metadata.selectionContentLabel, metadata.modeLabel, metadata.difficultyLabel, metadata.worldLabel, metadata.stageLabel].filter(Boolean).join(' ');
+      const section = metadata.type === 'dimensionalClash' ? metadata.stageLabel : metadata.type === 'eliasFrontier' ? metadata.name : metadata.modeLabel || metadata.selectionContentLabel;
+      const heading = section && section !== previousSection ? `<h3 class="enemy-list-heading">${escapeHtml(section)}</h3>` : '';
+      previousSection = section;
+      const selectionContext = [metadata.difficultyLabel, metadata.worldLabel, metadata.type === 'dimensionalClash' ? '' : metadata.stageLabel].filter(Boolean).join(' ');
       return `
+        ${heading}
         <button type="button" class="enemy-list-button${selected ? ' is-selected' : ''}" data-enemy-key="${escapeAttr(key)}" aria-pressed="${selected}">
           <span class="enemy-list-name">${escapeHtml(metadata.name || key)}</span>
           <span class="enemy-list-meta">
             ${selectionContext ? `<span class="enemy-list-context">${escapeHtml(selectionContext)}</span>` : ''}
-            ${metadata.personality ? `<span>${escapeHtml(metadata.personality)}</span>` : ''}
-            ${metadata.sizeLabel ? `<span>${escapeHtml(metadata.sizeLabel)}</span>` : ''}
             <span>${formatDamageType(preset.dmgType)}</span>
-            <span>HP ${formatNumber(scaled.hp)}</span>
-            ${preset.phases?.length ? `<span>${escapeHtml(phase?.name || `${preset.phases.length} phases`)}</span>` : ''}
           </span>
         </button>`;
     }).join('') : '<div class="empty-state">該当する敵がありません。</div>';
@@ -115,6 +168,7 @@
     const phase = getPhase(preset, state.phase);
     const scaled = scalePreset(preset, phase);
     const metadata = getEnemyPresetMetadata(preset, state.key);
+    el.open.textContent = `${metadata.selectionContentLabel || ''} ${metadata.stageLabel || metadata.difficultyLabel || ''} / ${metadata.name || state.key}　▾`;
     const ruleLabels = formatContentRules(metadata.rules);
     const weakness = formatWeakness(preset.weakness);
     const modifiers = formatModifiers(preset.modifiers);
@@ -125,11 +179,11 @@
       { label: metadata.worldLabel },
       { label: metadata.stageLabel }
     ].filter(item => item.label);
-    const attackValue = preset.dmgType === 'mag' ? scaled.atk_m : scaled.atk_p;
     const [specialInteger, specialDecimal] = formatNumber(scaled.special).split('.');
     const stats = [
       ['HP', scaled.hp, 'hp'],
-      ['攻撃', attackValue, 'attack'],
+      ['物理攻撃', scaled.atk_p, 'attack'],
+      ['魔法攻撃', scaled.atk_m, 'attack'],
       ['物理防御', scaled.def_p, 'defense'],
       ['魔法防御', scaled.def_m, 'defense'],
       ['会心', scaled.crit, 'critical'],
@@ -168,7 +222,11 @@
             </tr>`).join('')}</tbody>
         </table>
       </div>
-      <p class="stat-note">※会心・会心抵抗は、会心ダメージ・会心ダメージ抵抗から予測される値です。</p>
+      <div class="enemy-special-modifier" aria-label="敵用補正">
+        <span class="enemy-special-modifier-label">敵用補正</span>
+        <strong class="enemy-special-modifier-value"><span class="enemy-special-modifier-integer">${escapeHtml(specialInteger)}</span>${specialDecimal ? `<span class="enemy-special-modifier-fraction">.${escapeHtml(specialDecimal)}</span>` : ''}<span class="enemy-special-modifier-unit">%</span></strong>
+      </div>
+      <p class="stat-note">※ステータスには予測値が含まれます。</p>
       ${ruleLabels.length ? `
         <div class="detail-rules" aria-label="ステージ設定">
           ${ruleLabels.map(label => `<span class="detail-rule">${escapeHtml(label)}</span>`).join('')}
@@ -178,25 +236,21 @@
           <h3>固有バフ/デバフ</h3>
           <div class="note-list">${modifiers.map(item => `<span class="note-item">${escapeHtml(item)}</span>`).join('')}</div>
         </section>` : ''}
-      <div class="enemy-special-modifier" aria-label="敵用補正">
-        <span class="enemy-special-modifier-label">敵用補正</span>
-        <strong class="enemy-special-modifier-value"><span class="enemy-special-modifier-integer">${escapeHtml(specialInteger)}</span>${specialDecimal ? `<span class="enemy-special-modifier-fraction">.${escapeHtml(specialDecimal)}</span>` : ''}<span class="enemy-special-modifier-unit">%</span></strong>
-      </div>
       <section class="detail-section">
         <h3>行動・スキル倍率</h3>
         ${skills.length ? `
           <div class="table-wrap">
-            <table>
+            <table class="enemy-skill-table">
               <thead><tr><th>種別</th><th>行動名</th><th>倍率</th><th>補足</th></tr></thead>
               <tbody>${skills.map(skill => `
                 <tr>
                   <td class="skill-action">${escapeHtml(skill.action || '攻撃')}</td>
-                  <td>${escapeHtml(skill.name || '-')}</td>
+                  <td class="skill-name">${escapeHtml(skill.name || '—')}</td>
                   <td class="skill-mult">${formatPlainNumber(skill.mult)}%</td>
                   <td class="skill-note">${escapeHtml(skill.note || '')}</td>
                 </tr>`).join('')}</tbody>
             </table>
-          </div>` : '<div class="note-item">登録されたスキルはありません。</div>'}
+          </div>` : '<div class="note-item">行動データ未登録</div>'}
       </section>`;
   }
 
@@ -228,7 +282,8 @@
   }
 
   function isHiddenPreset(key, preset) {
-    return `${key} ${preset?.name || ''}`.toLocaleLowerCase('en-US').includes('dummy');
+    return !!preset?.selectionAliasOf || !!preset?.hideInSelection
+      || `${key} ${preset?.name || ''}`.toLocaleLowerCase('en-US').includes('dummy');
   }
 
   function formatContentRules(rules = {}) {
@@ -304,8 +359,9 @@
   }
 
   function formatNumber(value) {
+    if (value == null || (typeof value === 'string' && !value.trim())) return '—';
     const numeric = Number(value);
-    if (!Number.isFinite(numeric)) return '-';
+    if (!Number.isFinite(numeric)) return '—';
     return Number.isInteger(numeric) ? numberFormat.format(numeric) : formatPlainNumber(numeric);
   }
 

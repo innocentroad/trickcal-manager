@@ -1161,6 +1161,7 @@
       }
       el.enemyStatusLink.href = `${url.pathname}${url.search}${url.hash}`;
     });
+    document.getElementById('fdc-enemy-preset-open')?.addEventListener('click', openEnemyPresetDialog);
     el.enemyPreset?.addEventListener('change', () => {
       view.enemyPresetKey = el.enemyPreset.value || '';
       view.enemyPersonality = normalizePersonalityName(getSelectedEnemyPreset()?.personality);
@@ -1192,10 +1193,12 @@
       renderResult(buildContext());
     });
     el.enemySkill?.addEventListener('change', () => {
+      const previousType = resolveEnemyDamageType();
       view.enemySkillIndex = Number(el.enemySkill.selectedOptions?.[0]?.dataset?.fdcEnemySkillIndex ?? -1);
       renderEnemySkillChoices();
+      syncEnemyActionMetadata(previousType);
       saveCalcSettings();
-      renderResult(buildContext());
+      render();
     });
     [el.inputs.selfHp, el.inputs.atk, el.inputs.selfDef, el.inputs.crit, el.inputs.critDmg, el.inputs.selfCritResBase, el.inputs.selfCritDmgResBase].forEach(input => {
       input?.addEventListener('input', () => {
@@ -1680,9 +1683,9 @@
     el.inputs.enemyAtk.value = Math.round(Number(enemyIsMagic ? scaled.atk_m : scaled.atk_p) || 0);
     el.inputs.enemyCrit.value = Math.round(Number(scaled.crit) || 0);
     el.inputs.enemyCritDmg.value = Math.round(Number(scaled.critDmg) || 0);
-    el.inputs.def.value = Math.round(Number(selfIsMagic ? scaled.def_m : scaled.def_p) || 1);
-    el.inputs.critRes.value = Math.round(Number(scaled.critRes) || 1);
-    el.inputs.critDmgRes.value = Math.round(Number(scaled.critDmgRes) || 1);
+    el.inputs.def.value = getEnemyPresetInputNumber(selfIsMagic ? scaled.def_m : scaled.def_p, 1);
+    el.inputs.critRes.value = getEnemyPresetInputNumber(scaled.critRes, 1);
+    el.inputs.critDmgRes.value = getEnemyPresetInputNumber(scaled.critDmgRes, 1);
     if (scaled.special != null) el.inputs.enemySpecial.value = formatPlainNumber(scaled.special);
     const weaknessInfo = getEnemyPresetWeaknessInfo(preset, selfType);
     if (el.inputs.enemyWeaknessP) el.inputs.enemyWeaknessP.value = formatPlainNumber(weaknessInfo.add);
@@ -2066,7 +2069,85 @@
 
   function syncEnemyPresetManagement() {
     const key = view.enemyPresetKey || el.enemyPreset?.value || '';
+    const button = document.getElementById('fdc-enemy-preset-open');
+    if (button) button.textContent = key ? formatEnemyPresetDisplayName(getEnemyPresets()[key] || {}, key) : '手動入力';
     if (el.enemyPresetDelete) el.enemyPresetDelete.disabled = !key.startsWith('custom:');
+  }
+
+  function openEnemyPresetDialog() {
+    let dialog = document.getElementById('fdc-enemy-preset-dialog');
+    if (!dialog) {
+      dialog = document.createElement('dialog');
+      dialog.id = 'fdc-enemy-preset-dialog';
+      dialog.className = 'fdc-enemy-preset-dialog';
+      dialog.setAttribute('aria-labelledby', 'fdc-enemy-preset-title');
+      document.body.append(dialog);
+      dialog.addEventListener('click', event => {
+        if (event.target === dialog) {
+          const rect = dialog.getBoundingClientRect();
+          if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+        }
+      });
+      dialog.addEventListener('close', () => document.getElementById('fdc-enemy-preset-open')?.focus());
+    }
+    const presets = getEnemyPresets();
+    const entries = Object.entries(presets).filter(([key, preset]) =>
+      !preset.selectionAliasOf && (!preset.hideInSelection || key === view.enemyPresetKey))
+      .sort(typeof compareEnemyPresetEntries === 'function' ? compareEnemyPresetEntries : undefined);
+    const metadata = entries.map(([key, preset]) => ({ key, preset,
+      meta: getEnemyPresetMetadata(preset, key), label: formatEnemyPresetDisplayName(preset, key) }));
+    let pending = presets[view.enemyPresetKey]?.selectionAliasOf || view.enemyPresetKey || '';
+    const contentLabel = row => row.key.startsWith('custom:') ? '保存済み' : row.meta.contentLabel || 'その他';
+    dialog.innerHTML = `<header><h2 id="fdc-enemy-preset-title">敵を選択</h2><button type="button" data-enemy-cancel aria-label="閉じる">×</button></header>
+      <label class="fdc-field"><span>検索</span><input data-enemy-search type="search" placeholder="敵名・段階・難易度"></label>
+      <div class="fdc-enemy-preset-filters">
+        <label class="fdc-field"><span>コンテンツ</span><select data-enemy-content><option value="">すべて</option>${[...new Set(metadata.map(contentLabel))].map(name => `<option>${escapeHtml(name)}</option>`).join('')}</select></label>
+        <label class="fdc-field"><span>敵</span><select data-enemy-name></select></label>
+      </div>
+      <div class="fdc-enemy-preset-list" role="group" aria-label="段階・難易度"></div>
+      <footer><button type="button" data-enemy-cancel>取消</button><button type="button" data-enemy-confirm>選択を反映</button></footer>`;
+    const search = dialog.querySelector('[data-enemy-search]');
+    const content = dialog.querySelector('[data-enemy-content]');
+    const enemy = dialog.querySelector('[data-enemy-name]');
+    const list = dialog.querySelector('.fdc-enemy-preset-list');
+    const renderList = () => {
+      const words = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+      const rows = metadata.filter(row => (!content.value || contentLabel(row) === content.value)
+        && (!enemy.value || row.meta.name === enemy.value)
+        && words.every(word => row.label.toLocaleLowerCase().includes(word)));
+      let lastStage = null;
+      list.innerHTML = `<button type="button" data-enemy-key="" aria-pressed="${pending === ''}">手動入力</button>`
+        + rows.map(row => {
+          const stage = row.meta.type === 'dimensionalClash' ? row.meta.stage : null;
+          const heading = stage !== null && stage !== lastStage ? `<h3 class="fdc-enemy-stage-heading">${stage}段階</h3>` : '';
+          lastStage = stage;
+          return `${heading}<button type="button" data-enemy-key="${escapeAttr(row.key)}" aria-pressed="${pending === row.key}">${escapeHtml(row.label)}</button>`;
+        }).join('')
+        + (rows.length ? '' : '<p>該当する敵はありません</p>');
+      list.querySelectorAll('[data-enemy-key]').forEach(button => button.addEventListener('click', () => {
+        pending = button.dataset.enemyKey;
+        list.querySelectorAll('[data-enemy-key]').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.enemyKey === pending)));
+      }));
+    };
+    const updateEnemies = () => {
+      enemy.innerHTML = '<option value="">すべて</option>' + [...new Set(metadata.filter(row => !content.value || contentLabel(row) === content.value).map(row => row.meta.name))]
+        .map(name => `<option>${escapeHtml(name)}</option>`).join('');
+      renderList();
+    };
+    content.addEventListener('change', updateEnemies);
+    enemy.addEventListener('change', renderList);
+    search.addEventListener('input', renderList);
+    dialog.querySelectorAll('[data-enemy-cancel]').forEach(button => button.addEventListener('click', () => dialog.close()));
+    dialog.querySelector('[data-enemy-confirm]').addEventListener('click', () => {
+      if (pending !== view.enemyPresetKey) {
+        el.enemyPreset.value = pending;
+        el.enemyPreset.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      dialog.close();
+    });
+    updateEnemies();
+    dialog.showModal();
+    search.focus();
   }
 
   function getEnemyApostleSkillOptions(context = buildContext()) {
@@ -2121,7 +2202,7 @@
       skills.forEach((skill, index) => rows.push({
         index,
         value: skill.mult || 100,
-        category: '',
+        category: skill.attackCategory || '',
                                                       
         action: skill.name || skill.action || `Skill ${index + 1}`,
         name: skill.name && skill.action && skill.name !== skill.action ? skill.action : '',
@@ -2143,12 +2224,14 @@
       `).join('')}
     `;
     const activeRow = rows.find(row => row.index === currentIndex);
+    view.enemySelectedSkillCategory = activeRow?.category || '';
     if (activeRow && currentIndex >= 0) {
       if (el.enemySkill) el.enemySkill.value = String(activeRow.value || '');
       if (el.inputs.enemySkill) el.inputs.enemySkill.value = String(activeRow.value || '100');
     }
     el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-skill-index]').forEach(button => {
       button.addEventListener('click', () => {
+        const previousType = resolveEnemyDamageType();
         view.enemySkillIndex = Number(button.dataset.fdcEnemySkillIndex);
         view.enemySelectedSkillCategory = button.dataset.fdcEnemySkillCategory || '';
         const value = button.dataset.fdcEnemySkillValue || '';
@@ -2161,8 +2244,9 @@
         if (el.inputs.enemySkill) el.inputs.enemySkill.value = value || '100';
         el.enemySkillChoices.querySelectorAll('.fdc-enemy-skill-choice').forEach(row => row.classList.remove('is-active'));
         button.classList.add('is-active');
+        syncEnemyActionMetadata(previousType);
         saveCalcSettings();
-        renderResult(buildContext());
+        render();
       });
     });
   }
@@ -2184,6 +2268,22 @@
       if (scaled[key] != null) scaled[key] = Number(scaled[key]) * Number(phase.mult);
     });
     return scaled;
+  }
+
+  function getEnemyPresetInputNumber(value, fallback = 0) {
+    if (value == null || (typeof value === 'string' && !value.trim())) return fallback;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? Math.round(number) : fallback;
+  }
+
+  function syncEnemyActionMetadata(previousType) {
+    const preset = getSelectedEnemyPreset();
+    if (view.enemySourceMode === 'preset' && !view.enemyStatDirty && preset
+      && previousType !== resolveEnemyDamageType(preset)) {
+      const stats = scaleEnemyPresetByPhase(preset, view.enemyPhaseIndex);
+      el.inputs.enemyAtk.value = Math.round(Number(resolveEnemyDamageType(preset) === 'magic' ? stats.atk_m : stats.atk_p) || 0);
+    }
+    syncDamageTypeUi(buildContext());
   }
 
   function getStatRecalculationMessage(state, enemyMember) {
@@ -5780,7 +5880,8 @@
 
   function applyEnabledSelfSkillEffects(effects, context) {
     buildSelfSkillEffectOptions(context.target, context)
-      .filter(option => !(context.excludeNormalCalculationOnlyEffects && option.normalCalculationOnly))
+      .filter(option => !(context.excludeNormalCalculationOnlyEffects && (option.normalCalculationOnly
+        || getFdcDefenseConditionState([option.detailText, option.condition].filter(Boolean).join(' '), option).applicable)))
       .filter(isFdcSkillEffectSourceEnabled)
       .filter(option => isSelfSkillEffectOptionEnabled(option, context.skillEffectStateOverrides))
       .forEach(option => {
@@ -5797,7 +5898,8 @@
           effectTarget: option.effectTarget || '',
           condition: option.condition || '',
           effectValue: option.effectValue || '',
-          normalCalculationOnly: !!option.normalCalculationOnly,
+          normalCalculationOnly: !!option.normalCalculationOnly
+            || getFdcDefenseConditionState([option.detailText, option.condition].filter(Boolean).join(' '), option).applicable,
           spSourceLabel: option.spSourceLabel || '',
           label: option.label,
           bonuses: getSkillEffectOptionBonuses(option),
@@ -5809,6 +5911,8 @@
   }
 
   function isSelfSkillEffectOptionEnabled(option, stateOverrides = null) {
+    const defense = getFdcDefenseConditionState([option?.detailText, option?.condition].filter(Boolean).join(' '), option);
+    if (defense.applicable && defense.resolved && !defense.matched) return false;
     if (!option?.key) return !!option?.defaultEnabled;
     const canonicalKey = getFdcSkillEffectCanonicalKey(option.key);
     if (stateOverrides && Object.prototype.hasOwnProperty.call(stateOverrides, canonicalKey)) {
@@ -5816,7 +5920,7 @@
     }
     const manualState = getSelfSkillEffectManualState(option);
     if (manualState !== null) return manualState;
-    return !!option.defaultEnabled;
+    return defense.applicable && !defense.resolved ? false : !!option.defaultEnabled;
   }
 
   function isFdcSkillEffectSourceEnabled(option = {}) {
@@ -6288,6 +6392,7 @@
   }
 
   function isFdcSkillEffectAutoOnly(option = {}) {
+    if (option.conditionBlocked) return true;
     if (option.normalCalculationOnly) return false;
                                    
                              
@@ -10836,17 +10941,25 @@
   }
 
   function pushToggleableConditionalEffect(result, item, defaultEnabled = false) {
+    const defenseState = getFdcDefenseConditionState(item.effectText || item.label || '', item);
+    if (defenseState.applicable) {
+      item = { ...item, normalCalculationOnly: true, conditionBlocked: defenseState.resolved && !defenseState.matched };
+      if (!defenseState.resolved) {
+        defaultEnabled = false;
+        item.reason = '条件が成立したものとして手動で反映';
+      }
+    }
     if (!item.bonuses || !Object.keys(item.bonuses).length) {
       result.conditional.push(item);
       return;
     }
     const autoControlled = isFdcSkillEffectAutoOnly(item);
-    const effectiveEnabled = autoControlled
+    const effectiveEnabled = item.conditionBlocked ? false : autoControlled
       ? !!defaultEnabled
       : isConditionalEffectEnabled(item.conditionKey, defaultEnabled);
     const control = {
       ...item,
-      canToggle: true,
+      canToggle: !item.conditionBlocked,
       defaultEnabled: !!defaultEnabled,
       controlMode: autoControlled ? 'automatic' : (item.controlMode || 'manual'),
       tags: {
@@ -10919,6 +11032,11 @@
   }
 
   function judgeActionCondition(text, actionCategory = '') {
+    const defenseState = getFdcDefenseConditionState(text);
+    if (defenseState.applicable) return {
+      hasActionCondition: true, matched: defenseState.resolved && defenseState.matched,
+      reason: defenseState.resolved ? (defenseState.matched ? '敵行動の条件一致' : '敵行動が条件対象外') : '敵行動の条件未設定'
+    };
     const conditions = [];
     const body = String(text || '');
     const category = getFdcSkillBaseCategory(actionCategory);
@@ -10945,6 +11063,46 @@
       matched: failed.length === 0,
       reason: failed.length ? `行動条件未選択: ${failed.map(([label]) => label).join(' / ')}` : conditions.map(([label]) => `${label}条件一致`).join(' / ')
     };
+  }
+
+  function getFdcDefenseConditionState(text, effect = null) {
+    const body = String(text || '');
+    const defenseBonus = !effect || Object.keys(effect.bonuses || {}).some(isDefenseBonusKey);
+                                                                           
+                                                                      
+    const clauses = [...body.matchAll(/被((?:(?:物理|魔法|通常|普通|基本|強化|低学年|高学年|スキル))*)攻撃|((?:(?:物理|魔法|通常|普通|基本|強化|低学年|高学年|スキル))*)攻撃(?:被命中|を受け)/g)]
+      .map(match => match[1] ?? match[2] ?? '');
+    const incoming = clauses.length > 0 || /被弾|被撃|シールド|保護状態/.test(body);
+    if (view.perspective !== 'enemy' || !defenseBonus || !incoming) return { applicable: false };
+    const unknownState = /シールド|保護状態|被弾|被撃/.test(body);
+    const preset = getSelectedEnemyPreset();
+    const skill = preset?.skills?.[view.enemySkillIndex];
+    const category = view.enemySourceMode === 'apostle' ? view.enemySelectedSkillCategory : skill?.attackCategory;
+    const physical = clauses.some(clause => /物理/.test(clause)), magic = clauses.some(clause => /魔法/.test(clause));
+    const basic = clauses.some(clause => /通常|普通/.test(clause));
+    const strictBasic = clauses.some(clause => /基本/.test(clause)), enhanced = clauses.some(clause => /強化/.test(clause));
+    const skillAttack = clauses.some(clause => /スキル|低学年|高学年/.test(clause));
+    const lowSkill = clauses.some(clause => /低学年/.test(clause)), highSkill = clauses.some(clause => /高学年/.test(clause));
+    const rawType = view.enemyDamageType !== 'auto' ? view.enemyDamageType
+      : skill?.damageType || skill?.dmgType || (view.enemySourceMode === 'preset' ? preset?.dmgType : '');
+    const type = /^(?:mag|magic)$/.test(rawType || '') ? 'magic' : /^(?:phys|physical)$/.test(rawType || '') ? 'physical' : '';
+    const explicitMismatch = (!!category && ((basic && !['基本攻撃', '強化攻撃', 'basicAttack', 'enhancedAttack'].includes(category))
+      || (strictBasic && !['基本攻撃', 'basicAttack'].includes(category))
+      || (enhanced && !['強化攻撃', 'enhancedAttack'].includes(category))
+      || (skillAttack && !['低学年スキル', '高学年スキル', 'lowSkill', 'highSkill'].includes(category))
+      || (lowSkill && !['低学年スキル', 'lowSkill'].includes(category))
+      || (highSkill && !['高学年スキル', 'highSkill'].includes(category))))
+      || (!!type && ((physical && type !== 'physical') || (magic && type !== 'magic')));
+    if (explicitMismatch) return { applicable: true, resolved: true, matched: false };
+    const resolved = !unknownState && (!(basic || strictBasic || enhanced || skillAttack) || !!category) && (!(physical || magic) || !!type);
+    const matched = resolved && (!basic || ['基本攻撃', '強化攻撃', 'basicAttack', 'enhancedAttack'].includes(category))
+      && (!strictBasic || ['基本攻撃', 'basicAttack'].includes(category))
+      && (!enhanced || ['強化攻撃', 'enhancedAttack'].includes(category))
+      && (!skillAttack || ['低学年スキル', '高学年スキル', 'lowSkill', 'highSkill'].includes(category))
+      && (!lowSkill || ['低学年スキル', 'lowSkill'].includes(category))
+      && (!highSkill || ['高学年スキル', 'highSkill'].includes(category))
+      && (!physical || type === 'physical') && (!magic || type === 'magic');
+    return { applicable: true, resolved, matched };
   }
 
   function resolveCardEffectBonusDamageType(effect, damageType) {
@@ -10980,6 +11138,8 @@
   }
 
   function judgeTargetText(text, target, damageType = '') {
+                                                                              
+    text = String(text || '').replace(/被(?:物理|魔法)(?:通常|普通|基本|強化)?攻撃(?:時|命中時|被命中時)?|(?:物理|魔法)攻撃(?:を受け(?:る|た)(?:時)?|被命中時)/g, '被攻撃');
     const checks = [];
     const resolvedType = damageType || resolveDamageType('auto', target);
     const namedTargetState = getNamedApostleTargetState(text, target);
@@ -12262,6 +12422,10 @@
       const basic = getApostle(view.enemyApostleId);
       return resolveDamageType('auto', { attackType: basic?.攻撃タイプ || basic?.攻撃Type || '' });
     }
+    const skill = preset?.skills?.[view.enemySkillIndex];
+    const skillType = skill?.damageType || skill?.dmgType;
+    if (skillType === 'mag' || skillType === 'magic') return 'magic';
+    if (skillType === 'phys' || skillType === 'physical') return 'physical';
     if (preset?.dmgType === 'mag' || preset?.dmgType === 'magic') return 'magic';
     if (preset?.dmgType === 'phys' || preset?.dmgType === 'physical') return 'physical';
     return 'physical';
@@ -13773,10 +13937,10 @@
   }
 
   function excludeNormalCalculationOnlyEffectsFromContext(context = {}) {
-    const applied = Array.isArray(context.effects?.applied) ? context.effects.applied : [];
-    const filteredApplied = applied.filter(item => !item.normalCalculationOnly);
-    if (filteredApplied.length === applied.length) return { ...context, excludeNormalCalculationOnlyEffects: true };
-    const effects = { ...context.effects, applied: filteredApplied };
+    const effects = { ...context.effects };
+    for (const [key, rows] of Object.entries(effects)) {
+      if (Array.isArray(rows)) effects[key] = rows.filter(item => !item?.normalCalculationOnly);
+    }
     return {
       ...context,
       effects,
@@ -16706,7 +16870,8 @@
       ...(context.effects?.applied || []),
       ...(context.effects?.globalStats || []),
       ...(context.effects?.conditional || [])
-    ].filter(row => !hasAnySourceTag(row, ['スキル/アサイド']))
+    ].filter(row => !(context.excludeNormalCalculationOnlyEffects && row.normalCalculationOnly))
+      .filter(row => !hasAnySourceTag(row, ['スキル/アサイド']))
       .filter(isEffectRelevantToPerspective);
     effectRows.forEach(row => {
       const unsupportedRuntimeTrigger = isDpsUnsupportedEffectRow(row);
