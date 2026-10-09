@@ -26,6 +26,11 @@
     const result = error.result || {};
     const code = result.code || 'failed';
     document.documentElement?.setAttribute('data-storage-error', code);
+    const editorStatus = document.getElementById('board-editor-status');
+    if (editorStatus && document.getElementById('board-editor-dialog')?.open) {
+      editorStatus.hidden = false;
+      editorStatus.textContent = '変更の自動保存に失敗しました。画面上の編集は残っています。再読み込みする前に保存容量やバックアップを確認してください。';
+    }
     const status = document.getElementById('state-status');
     if (status) {
       status.textContent = '保存データを確認できませんでした。再読み込みして再試行してください。';
@@ -553,6 +558,7 @@
   let formationSuppressClickUntil = 0;
   let formationPickerReturnFocus = null;
   let boardProgressCountsCache = {};
+  let boardEditorReturn = null;
   let boardProgressRequirementCache = {};
   const historyState = { isRestoring: false, suspended: 0, blocked: false };
   const historyEngine = window.TRICKCAL_STAT_HISTORY.create({
@@ -785,9 +791,21 @@
     elements.historyRedo = document.getElementById('history-redo');
   }
   function bindEvents() {
+    const boardEditor = document.getElementById('board-editor-dialog');
+    const closeBoardEditor = () => { boardEditor.close(); restoreBoardEditorWorkspace(); };
+    document.getElementById('board-editor-close')?.addEventListener('click', closeBoardEditor);
+    boardEditor?.addEventListener('cancel', event => { event.preventDefault(); closeBoardEditor(); });
+    boardEditor?.addEventListener('close', () => { if (!boardEditor.open) restoreBoardEditorWorkspace(); });
+    document.getElementById('board-editor-apply-plan')?.addEventListener('click', applyDisplayedBoardPlanToCurrent);
+    for (const direction of ['previous', 'next']) {
+      document.getElementById('board-editor-' + direction)?.addEventListener('click', event => {
+        const id = event.currentTarget.dataset.apostleId;
+        if (id) selectBoardEditorApostle(id, { preserveLayer: true });
+      });
+    }
     for (const type of ['click', 'input', 'change', 'keydown']) {
       document.addEventListener(type, event => {
-        if ((stateSlotSavePending || historyState.suspended) && event.target?.closest?.('.dashboard-main')) {
+        if ((stateSlotSavePending || historyState.suspended) && event.target?.closest?.('.dashboard-main, #board-editor-dialog')) {
           event.preventDefault(); event.stopImmediatePropagation();
         }
       }, true);
@@ -2200,22 +2218,7 @@
       if (apostleLink) {
         const apostleId = apostleLink.dataset.boardGlobalOpenApostle;
         if (!apostleId) return;
-        const globalDraft = globalBoardDrafts[apostleId];
-        const history = beginHistoryAction('使徒選択');
-        view.id = apostleId;
-        appState.activeId = apostleId;
-        ensureApostleState(apostleId);
-        if (globalDraft) {
-          view.boardEditMode = globalDraft.mode || view.boardGlobalMode;
-          view.board = findGlobalBoardDraftChangedLayer(apostleId, globalDraft) || view.board;
-        }
-        projectBoardWorkspaceDrafts();
-        elements.apostleSelect.value = apostleId;
-        syncControlsFromState();
-        activateDashboardView('board', { skipHistory: true });
-        render();
-        saveState({ refreshSnapshots: false });
-        commitHistoryAction(history);
+        selectBoardEditorApostle(apostleId, { trigger: apostleLink });
         return;
       }
       const button = event.target.closest('button[data-board-global-key]');
@@ -4506,7 +4509,7 @@
 
   function historyInteractionBlocked() {
     return historyState.blocked || stateSlotSavePending || historyState.suspended > 0
-      || !!document.querySelector('dialog[open]') || !document.querySelector('.dashboard-main');
+      || !!document.querySelector('dialog[open]:not(#board-editor-dialog)') || !document.querySelector('.dashboard-main');
   }
 
   function applyHistoryValues(scope, values) {
@@ -4669,6 +4672,12 @@
       window.clearTimeout(renderTimer);
       renderTimer = 0;
     }
+    const editor = document.getElementById('board-editor-dialog');
+    if (editor?.open && (!isDashboardPanelActive('global') || !isGlobalSettingPanelActive('board-global'))) {
+      editor.close();
+      restoreBoardEditorWorkspace();
+    }
+    if (editor?.open) syncBoardDraftToGlobalDraft();
     const basic = DATA.getById('basicInfo', view.id);
     const equipment = DATA.getById('equipment', view.id);
     const rankBonus = DATA.getById('rankGlobalBonuses', view.id);
@@ -4728,9 +4737,10 @@
     renderActiveResearch(basic, totals, activeEffects, breakdown);
     if (!options.skipActiveGlobal && isDashboardPanelActive('global')) renderActiveGlobalSettingPanel();
     if (isDashboardPanelActive('formation')) renderFormation({ deferSpellCatalog: options.deferFormationSpellCatalog });
-    if (isDashboardPanelActive('board')) {
+    if (isDashboardPanelActive('board') || editor?.open) {
       renderBoardSpecial(boardRows);
       renderBoard(boardRows, totals, activeEffects, breakdown, globalPercentBonuses);
+      if (editor?.open) renderBoardEditorHeading(basic);
     }
     collectBoardEffects(totals, activeEffects, breakdown, globalPercentBonuses);
     collectAsideLevel3GlobalEffects(globalPercentBonuses, activeEffects);
@@ -4840,6 +4850,14 @@
     elements.image.alt = basic.使徒名 || basic.id;
     renderProfileFollowIcon(basic, state);
     renderProfileAsideIcon(basic, state);
+                                                                              
+                                                                              
+    if (elements.image.dataset.renderedApostleId !== basic.id) {
+      elements.image.dataset.renderedApostleId = basic.id;
+      document.dispatchEvent(new CustomEvent('stat-active-apostle-rendered', {
+        detail: { apostleId: basic.id }
+      }));
+    }
   }
 
   function setProfileVisualClasses(basic, state) {
@@ -5270,6 +5288,91 @@
     if (viewName === 'global' && options.render !== false) renderActiveGlobalSettingPanel();
     syncDashboardRouteToUrl();
     commitHistoryAction(history);
+  }
+
+                                                                             
+                                                                               
+  function selectBoardEditorApostle(apostleId, options = {}) {
+    if (!DATA.getById('basicInfo', apostleId)) return;
+    const history = beginHistoryAction('使徒選択');
+    const mode = options.trigger ? view.boardGlobalMode : view.boardEditMode;
+    const draft = boardWorkspaceDrafts[boardDraftKey(apostleId, mode)];
+    view.id = apostleId;
+    appState.activeId = apostleId;
+    ensureApostleState(apostleId);
+    view.boardEditMode = mode;
+    if (!options.preserveLayer) {
+      const layers = [...view.boardGlobalFilters.layers].map(Number).filter(layer => [1, 2, 3].includes(layer));
+      if (options.trigger && layers.length) view.board = Math.min(...layers);
+      else if (draft) view.board = findGlobalBoardDraftChangedLayer(apostleId, draft) || view.board;
+    }
+    projectBoardWorkspaceDrafts();
+    elements.apostleSelect.value = apostleId;
+    syncControlsFromState();
+    if (options.trigger) openBoardEditor(options.trigger);
+    render();
+    saveState({ refreshSnapshots: false });
+    commitHistoryAction(history);
+    document.getElementById('board-editor-body').scrollTop = 0;
+  }
+
+  function openBoardEditor(trigger) {
+    const dialog = document.getElementById('board-editor-dialog');
+    if (!dialog || dialog.open) return;
+    const panel = document.querySelector('[data-dashboard-panel="board"] .board-panel');
+    const history = document.querySelector('.history-floating-controls');
+    boardEditorReturn = { panelParent: panel.parentNode, panelNext: panel.nextSibling,
+      historyParent: history.parentNode, historyNext: history.nextSibling,
+      trigger, scrollX: window.scrollX, scrollY: window.scrollY,
+                                                                             
+                                                                                
+      apostleIds: [...elements.boardGlobalOverviewList.querySelectorAll('[data-board-global-open-apostle]')]
+        .map(link => link.dataset.boardGlobalOpenApostle) };
+    document.getElementById('board-editor-body').appendChild(panel);
+    document.getElementById('board-editor-history').appendChild(history);
+    dialog.showModal();
+    document.getElementById('board-editor-close').focus();
+  }
+
+  function restoreBoardEditorWorkspace() {
+    if (!boardEditorReturn) return;
+    const origin = boardEditorReturn;
+    boardEditorReturn = null;
+    origin.panelParent.insertBefore(document.querySelector('#board-editor-body .board-panel'), origin.panelNext);
+    origin.historyParent.insertBefore(document.querySelector('#board-editor-history .history-floating-controls'), origin.historyNext);
+    document.getElementById('board-editor-apply-plan').hidden = true;
+    stashBoardWorkspaceDrafts();
+    if (isDashboardPanelActive('global') && isGlobalSettingPanelActive('board-global')) renderBoardGlobalOverview();
+    const restoredTrigger = document.querySelector('[data-board-global-open-apostle="' + view.id + '"]');
+    (restoredTrigger || origin.trigger)?.focus({ preventScroll: true });
+    window.scrollTo({ left: origin.scrollX, top: origin.scrollY, behavior: 'auto' });
+  }
+
+  function renderBoardEditorHeading(basic) {
+    const name = basic?.使徒名 || view.id;
+    const image = document.getElementById('board-editor-image');
+    const src = getApostleImagePath(view.id);
+    if (image.getAttribute('src') !== src) image.src = src;
+    image.alt = name;
+    document.getElementById('board-editor-title').textContent = name + 'のボード';
+    document.getElementById('board-editor-context').textContent =
+      `${view.boardEditMode === 'plan' ? '予定' : '現在'} · B${view.board}${hasBoardDraftChanges() ? ' · 未確定' : ''}`;
+    const apply = document.getElementById('board-editor-apply-plan');
+    apply.hidden = view.boardEditMode !== 'plan';
+    apply.disabled = !hasBoardDraftChanges() && !hasSavedBoardPlan();
+    const ids = boardEditorReturn?.apostleIds || [];
+    const index = ids.indexOf(view.id);
+    for (const [direction, offset] of [['previous', -1], ['next', 1]]) {
+      const button = document.getElementById('board-editor-' + direction);
+      const target = index < 0 ? null : DATA.getById('basicInfo', ids[index + offset]);
+      const label = direction === 'previous' ? '前の使徒' : '次の使徒';
+      button.disabled = !target;
+      button.dataset.apostleId = target?.id || '';
+      button.setAttribute('aria-label', target ? `${label}: ${target.使徒名 || target.id}` : `${label}なし`);
+      button.innerHTML = target
+        ? `<span aria-hidden="true">${offset < 0 ? '‹' : '›'}</span><img src="${escapeAttr(getApostleImagePath(target.id))}" alt=""><span><small>${label}</small>${escapeHtml(target.使徒名 || target.id)}</span>`
+        : `<span>${label}なし</span>`;
+    }
   }
 
   function openGlobalSettingPanel(tab = 'research', options = {}) {

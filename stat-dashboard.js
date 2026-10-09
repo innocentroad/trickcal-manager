@@ -266,6 +266,7 @@
 
   apostleSelect.addEventListener('change', syncBottomApostle);
   document.addEventListener('stat-state-applied', syncBottomApostle);
+  document.addEventListener('stat-active-apostle-rendered', syncBottomApostle);
 
   ['save-state-slot', 'load-state-slot', 'delete-state-slot'].forEach(id => {
     document.getElementById(id).addEventListener('click', () => {
