@@ -5412,6 +5412,11 @@
     params.delete('view');
     params.delete('global');
     params.delete('card');
+                                                                           
+                                                         
+    params.delete('apostle');
+    params.delete('board');
+    params.delete('boardMode');
 
     if (viewName === 'global') {
       if (globalPanel === 'cards') {
@@ -5439,7 +5444,21 @@
     } else if (global) {
       openGlobalSettingPanel(global, { scroll: true, skipHistory: true });
     } else if (targetView) {
-      activateDashboardView(targetView, { skipHistory: true });
+      const apostleId = params.get('apostle');
+      if (targetView === 'board' && apostleId && DATA.getById('basicInfo', apostleId)) {
+        const history = beginHistoryAction('画面遷移');
+        view.id = apostleId; appState.activeId = apostleId;
+        ensureApostleState(apostleId);
+        const layer = Number(params.get('board'));
+        if ([1,2,3].includes(layer)) view.board = layer;
+        view.boardEditMode = params.get('boardMode') === 'plan' ? 'plan' : 'current';
+        projectBoardWorkspaceDrafts();
+        elements.apostleSelect.value = apostleId;
+        syncControlsFromState();
+        activateDashboardView(targetView, {skipHistory:true});
+        render(); saveState({refreshSnapshots:false});
+        commitHistoryAction(history);
+      } else activateDashboardView(targetView, { skipHistory: true });
       if (targetView === 'formation') {
         document.querySelector('[data-dashboard-panel="formation"]')?.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'smooth' });
       }

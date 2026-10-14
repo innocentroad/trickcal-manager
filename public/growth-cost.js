@@ -51,7 +51,10 @@
     $('results').innerHTML=items.map((c,index)=>{
       const effect=c.effects.map(e=>`${escape(e.name)} +${fmt(e.value)}%`).join(' / ');
       const section=(title,value)=>`<div><label>${title}</label><div class="costs">${costs(value)}</div></div>`;
-      return `<article class="candidate"><div class="candidate-title"><img class="portrait" loading="lazy" src="${escape(asset('img/Chara/'+(portraitAliases[c.id]||c.id)+'.webp'))}" alt=""><div><span class="name">${escape(c.basic.使徒名)}</span> <span class="meta">B${c.layer}</span><p class="effect">${effect}</p><p class="meta">現在★${c.star} / 必要★${c.requiredStar}${!options().includeStar&&c.star<c.requiredStar?'（スターアップ費用を除外）':''}</p></div></div>
+      const query=new URLSearchParams({view:'board',apostle:c.id,board:String(c.layer),boardMode:options().mode==='planned'?'plan':'current'}).toString();
+      const boardUrl=window.TRICKCAL_PUBLIC_SITE?.pageUrl('manager',query)||`../stat-dashboard.html?${query}`;
+      const title=`${c.basic.使徒名}の個別ボード B${c.layer}を開く`;
+      return `<article class="candidate"><div class="candidate-title"><a href="${escape(boardUrl)}" aria-label="${escape(title)}" title="${escape(title)}"><img class="portrait" loading="lazy" src="${escape(asset('img/Chara/'+(portraitAliases[c.id]||c.id)+'.webp'))}" alt=""></a><div><a class="name candidate-board-link" href="${escape(boardUrl)}" title="${escape(title)}">${escape(c.basic.使徒名)}</a> <span class="meta">B${c.layer}</span><p class="effect">${effect}</p><p class="meta">現在★${c.star} / 必要★${c.requiredStar}${!options().includeStar&&c.star<c.requiredStar?'（スターアップ費用を除外）':''}</p></div></div>
         <div class="costs">${c.warnings.length?'<span class="warning">費用未確定</span>':costs(c.costs)}</div>
         <details data-route-index="${index}"><summary>内訳 · 追加${c.required.length}マス</summary><div class="breakdown">${section('対象マス',c.targetCosts)}${section('経路・ゲート',c.routeCosts)}${section('スターアップ',c.starCosts)}</div><div class="route-map"></div>${c.warnings.map(w=>`<p class="warning">${escape(w)}</p>`).join('')}</details></article>`;
     }).join('')||'<p class="empty">対象の未取得特殊マスはありません。</p>';

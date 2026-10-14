@@ -1,3 +1,28 @@
+.fdc-shield-result { display:block; font-size:.65rem; line-height:1.25; overflow-wrap:anywhere; }
+.fdc-shield-result[hidden] { display:none; }
+#fdc-shield-input-note { font-size:.7rem; line-height:1.3; opacity:.8; }
+.fdc-shield-switch { position:absolute; top:calc(-1.7rem - 1px); left:max(7.2rem,calc((100% - 1200px) / 2 + 7.7rem)); display:flex; align-items:center; gap:3px; height:1.7rem; padding:0 4px; border:1px solid var(--fdc-border); border-radius:7px 7px 0 0; background:var(--fdc-panel-strong); color:var(--fdc-text); font-size:.65rem; }
+.fdc-shield-switch[hidden], .fdcp-bottom-bar[data-mode="dps"] .fdc-shield-switch { display:none; }
+.fdc-shield-switch button { font:inherit; color:inherit; background:transparent; border:0; border-radius:4px; padding:3px 6px; cursor:pointer; }
+.fdc-shield-switch button[aria-pressed="true"] { color:#fff; background:#566fd1; }
+.fdc-hp-shield { white-space:normal; }
+#fdcp-bottom-bar[data-mode="single"].has-shield-result { --fdcp-result-card-rows:1rem minmax(0,1fr) 1.9rem; }
+#fdcp-bottom-bar[data-mode="single"].has-shield-result .result-card .fdc-result-hp-rate { display:block; height:auto; overflow:visible; text-align:center; line-height:1.1; }
+#fdcp-bottom-bar .fdc-hp-shield { display:block; overflow-wrap:anywhere; }
+.fdc-shield-source-picker { grid-column:1/-1; min-width:0; }
+.fdc-shield-source-picker summary { cursor:pointer; font-size:.8rem; overflow-wrap:anywhere; }
+.fdc-shield-source-picker .fdc-skill-effect-toggle { grid-template-columns:auto minmax(0,1fr) auto; }
+.fdc-shield-source-picker .fdc-skill-effect-text { min-width:0; overflow-wrap:anywhere; }
+.fdc-shield-source-picker .fdc-skill-effect-toggle > input { grid-column:1; grid-row:1; margin:3px 0 0; }
+.fdc-shield-source-picker .fdc-skill-effect-text { grid-column:2; grid-row:1; }
+.fdc-shield-source-picker .fdc-skill-effect-info { grid-column:3; grid-row:1; }
+#fdc-shield-manual-field[hidden] { display:none !important; }
+.fdc-shield-source-picker small { font-size:.7rem; }
+.fdc-shield-source-picker input[type="radio"] { accent-color:#818cf8; width:.85rem; height:.85rem; }
+#fdc-shield-source-options { max-height:none; overflow:visible; }
+.fdc-shield-source-picker input[type="checkbox"] { accent-color:#818cf8; width:.9rem; height:.9rem; }
+.fdc-shield-modes { grid-column:1/-1; display:flex; flex-wrap:wrap; gap:5px 12px; font-size:.75rem; }
+.fdc-shield-modes label { display:flex; align-items:center; gap:4px; cursor:pointer; }
 :root {
   --trickcal-topbar-height: 3.25rem;
   --trickcal-follow-bar-height: 0px;

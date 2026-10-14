@@ -10992,6 +10992,24 @@ body.dashboard-page.is-booting::after {
   margin: 0;
 }
 
+.board-global-tool-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+@media (max-width: 600px) {
+  .board-global-tool-links {
+    width: 100%;
+  }
+  .board-global-tool-links .board-preview-link {
+    flex: 1 1 auto;
+    min-height: 40px;
+  }
+}
+
 .board-preview-link {
   min-height: 36px;
   display: inline-flex;

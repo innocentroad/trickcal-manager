@@ -16,7 +16,7 @@
   const CALC_SAVE_LIMIT = 50;
   let damageSaveWriteMessage = '';
   let seasonRuleRefreshTimer = null;
-  const DAMAGE_CALCULATION_VERSION = 95;
+  const DAMAGE_CALCULATION_VERSION = 103;
                                                                                          
   const SEASON_RULE_LABELS = {
     magic: '魔法ダメージ＋25%', physical: '物理ダメージ＋25%',
@@ -229,6 +229,12 @@
     pinnedCompareClear: document.getElementById('fdc-pinned-compare-clear'),
     pinnedCompareNote: document.getElementById('fdc-pinned-compare-note'),
     selfSkillChoices: document.getElementById('fdc-self-skill-choices'),
+    shieldRemaining: document.getElementById('fdc-self-shield-remaining'),
+    shieldSwitch: document.getElementById('fdc-shield-switch'),
+    shieldSourcePicker: document.getElementById('fdc-shield-source-picker'),
+    shieldSourceOptions: document.getElementById('fdc-shield-source-options'),
+    shieldSourceSummary: document.getElementById('fdc-shield-source-summary'),
+    shieldManualField: document.getElementById('fdc-shield-manual-field'),
     inputs: {
       selfHp: document.getElementById('fdc-self-hp'),
       atk: document.getElementById('fdc-atk'),
@@ -331,6 +337,11 @@
         crit: document.getElementById('fdc-result-crit-hp')
       },
       detailToggle: document.getElementById('fdc-result-detail-toggle'),
+      shieldResults: {
+        normal: document.getElementById('fdc-result-normal-shield'),
+        expected: document.getElementById('fdc-result-expected-shield'),
+        crit: document.getElementById('fdc-result-crit-shield')
+      },
       detailPanel: document.getElementById('fdc-result-detail-panel'),
       detailNote: document.getElementById('fdc-result-detail-note'),
       detailTabs: document.getElementById('fdc-result-detail-tabs'),
@@ -341,6 +352,7 @@
 
   const view = {
     targetId: '',
+    defensiveShield: { targetId: '', remaining: '0' },
     damageType: 'auto',
     enemyDamageType: 'auto',
     gradeOverride: 'saved',
@@ -1318,6 +1330,46 @@
         renderResult(context);
       });
     });
+    el.shieldSourceOptions?.addEventListener('click', event => {
+      const button = event.target.closest('[data-fdc-shield-source-info]');
+      if (!button) return;
+      event.preventDefault();
+      const context = buildContext();
+      const source = getDefensiveShieldSources(context).find(item => item.id === button.dataset.fdcShieldSourceInfo);
+      if (source) showFdcInfoPopover(button, source.label, [source.meta,
+        source.condition ? `付与条件：${source.condition}` : '',
+        `参照HP：${source.hpReference === 'caster' ? source.casterName : '受ける使徒'}の最大HP`,
+        `シールド倍率：${source.coefficientP}%`, '付与済みとして選択してください。発動判定・時間経過は再現しません。']);
+    });
+    el.shieldSourceOptions?.addEventListener('change', event => {
+      const modifier = event.target.closest('[data-fdc-shield-modifier]');
+      if (modifier) {
+        view.conditionalEffectEnabled[modifier.dataset.fdcShieldModifier] = modifier.checked;
+        saveCalcSettings(); render(); return;
+      }
+      const radio = event.target.closest('[data-fdc-shield-source]');
+      if (!radio) return;
+      const selection = normalizeDefensiveShield(view.defensiveShield, view.targetId);
+      if (radio.type === 'checkbox') {
+        const choices = selection.sourceId === '__list__' ? {...selection.sourceEnabled} :
+          Object.fromEntries(getDefensiveShieldSources(buildContext()).map(row => [row.id,row.id === selection.sourceId]));
+        choices[radio.value] = radio.checked;
+        view.defensiveShield = {...selection,sourceId:'__list__',sourceEnabled:choices};
+      } else view.defensiveShield = {...selection,sourceId:radio.value};
+      saveCalcSettings(); render();
+    });
+    el.shieldSwitch?.querySelectorAll('[data-fdc-shield-enabled]').forEach(button => {
+      button.addEventListener('click', () => {
+        view.defensiveShield = { ...normalizeDefensiveShield(view.defensiveShield, view.targetId), enabled: button.dataset.fdcShieldEnabled === 'true' };
+        saveCalcSettings();
+        render();
+      });
+    });
+    el.shieldRemaining?.addEventListener('input', () => {
+      view.defensiveShield = { ...normalizeDefensiveShield(view.defensiveShield, view.targetId), sourceId:'__manual__',remaining: el.shieldRemaining.value };
+      saveCalcSettings();
+      render();
+    });
     Object.values(el.inputs).forEach(input => {
       if (!input || isEnemyCorrectionInput(input) || [el.inputs.selfHp, el.inputs.atk, el.inputs.selfDef, el.inputs.crit, el.inputs.critDmg, el.inputs.selfCritResBase, el.inputs.selfCritDmgResBase].includes(input)) return;
       input.addEventListener('input', () => {
@@ -1373,6 +1425,13 @@
     cancelSeasonRuleRefresh();
     syncSeasonRuleFields();
     const context = buildContext();
+    if (el.shieldRemaining) el.shieldRemaining.value = normalizeDefensiveShield(view.defensiveShield, view.targetId).remaining;
+    if (el.shieldSwitch) {
+      el.shieldSwitch.hidden = view.perspective !== 'enemy';
+      const enabled = normalizeDefensiveShield(view.defensiveShield, view.targetId).enabled;
+      el.shieldSwitch.querySelectorAll('[data-fdc-shield-enabled]').forEach(button =>
+        button.setAttribute('aria-pressed', String((button.dataset.fdcShieldEnabled === 'true') === enabled)));
+    }
     syncApplyFloatUi();
     renderBoardPlanBonus(context);
     syncPinnedComparisonUi(context);
@@ -2130,7 +2189,7 @@
   ) {
     const selfIsAttacker = view.perspective !== 'enemy';
     const enemyIsAttacker = view.perspective === 'enemy';
-    if (el.selfBuffCategory) el.selfBuffCategory.hidden = !selfIsAttacker && !enemyBreakDebuffConfig;
+    if (el.selfBuffCategory) el.selfBuffCategory.hidden = !selfIsAttacker && !enemyBreakDebuffConfig && !el.shieldRemaining;
     const enemyHasRelevantDefenseEffect = enemyWeaknessInfo.hasAny
       || enemyStatusDamageWeaknessInfo.hasAny
       || enemyStatusTakenDamageWeaknessInfo.hasAny
@@ -2516,6 +2575,7 @@
       view.targetId = members[0]?.id || view.targetId;
     }
     if (!explicitTarget && (!view.targetId || !allMembers.some(member => member.id === view.targetId))) view.targetId = members[0]?.id || allMembers[0]?.id || '';
+    if (!explicitTarget && !overrides.detached) view.defensiveShield = normalizeDefensiveShield(view.defensiveShield, view.targetId);
     const target = resonanceValidation.duplicateId ? null
       : getCurrentTargetMember(members, allMembers, explicitTarget ? overrides.targetId : view.targetId);
     const targetPlacementRequired = isTargetPlacementRequired(target, members);
@@ -3108,6 +3168,7 @@
       },
       battleConditions: {
         perspective: savedView.perspective === 'enemy' ? 'enemy' : 'self',
+        defensiveShield: normalizeDefensiveShield(savedView.defensiveShield, targetId),
         damageType: savedView.damageType || 'auto',
         enemyDamageType: savedView.enemyDamageType || 'auto',
         actionCategory: savedView.selectedSkillCategory || '',
@@ -3195,6 +3256,7 @@
       savedAt: Date.now(),
       view: clonePlain({
         targetId: view.targetId || '',
+        defensiveShield: normalizeDefensiveShield(view.defensiveShield, view.targetId),
         formationPresetId: view.formationPresetId || '',
         damageType: view.damageType || 'auto',
         enemyDamageType: view.enemyDamageType || 'auto',
@@ -3292,6 +3354,7 @@
   function applyDamageSnapshotView(savedView = {}, options = {}) {
     if (options.settings) {
       if (typeof savedView.targetId === 'string') view.targetId = savedView.targetId;
+      view.defensiveShield = normalizeDefensiveShield(savedView.defensiveShield, view.targetId);
       if (typeof savedView.formationPresetId === 'string') view.formationPresetId = savedView.formationPresetId;
       if (['auto', 'physical', 'magic'].includes(savedView.damageType)) view.damageType = savedView.damageType;
       if (['saved', '1', '2', '3', '4', '5', '6'].includes(String(savedView.gradeOverride))) view.gradeOverride = String(savedView.gradeOverride);
@@ -3449,6 +3512,7 @@
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
       if (typeof saved.targetId === 'string') view.targetId = saved.targetId;
+      view.defensiveShield = normalizeDefensiveShield(saved.defensiveShield, view.targetId);
       if (typeof saved.formationPresetId === 'string') view.formationPresetId = saved.formationPresetId;
       if (['auto', 'physical', 'magic'].includes(saved.damageType)) view.damageType = saved.damageType;
       if (['auto', 'physical', 'magic'].includes(saved.enemyDamageType)) view.enemyDamageType = saved.enemyDamageType;
@@ -3532,6 +3596,7 @@
     try {
       storageLocal.setItem(CALC_SETTINGS_KEY, JSON.stringify({
         targetId: view.targetId || '',
+        defensiveShield: normalizeDefensiveShield(view.defensiveShield, view.targetId),
         formationPresetId: view.formationPresetId || '',
         damageType: view.damageType || 'auto',
         enemyDamageType: view.enemyDamageType || 'auto',
@@ -6158,7 +6223,7 @@
   function isSelfSkillEffectOptionEnabled(option, stateOverrides = null) {
     if (option.normalStatusBlocked) return false;
     const defense = getFdcDefenseConditionState([option?.detailText, option?.condition].filter(Boolean).join(' '), option);
-    if (defense.applicable && defense.resolved && !defense.matched) return false;
+    if (defense.applicable && !defense.shieldCondition && defense.resolved && !defense.matched) return false;
     if (!option?.key) return !!option?.defaultEnabled;
     const canonicalKey = getFdcSkillEffectCanonicalKey(option.key);
     if (stateOverrides && Object.prototype.hasOwnProperty.call(stateOverrides, canonicalKey)) {
@@ -6166,6 +6231,7 @@
     }
     const manualState = getSelfSkillEffectManualState(option);
     if (manualState !== null) return manualState;
+    if (defense.shieldCondition) return defense.resolved && defense.matched;
     return defense.applicable && !defense.resolved ? false : !!option.defaultEnabled;
   }
 
@@ -8759,7 +8825,7 @@
       <label class="fdc-artifact-effect-mini-chip ${item.canToggle ? 'is-toggleable' : ''}${autoControlled ? ' is-auto-controlled' : ''}" data-fdc-effect-control="${escapeAttr(autoControlled ? 'automatic' : 'manual')}">
         ${toggle}
         <span class="fdc-artifact-effect-mini-chip-content">
-          <span>${escapeHtml(label)}</span>
+          <span${item.shieldCondition ? ' title="シールド残量から判定。手動ON/OFFを優先します。"' : ''}>${escapeHtml(label)}</span>
           ${bonusText ? `<b>${escapeHtml(bonusText)}</b>` : ''}
           ${renderFdcEffectTimingTag(item)}
           ${Number(item.overlapStackMax) > 1 ? `<em>×${escapeHtml(item.overlapCount)}</em>` : ''}
@@ -9199,6 +9265,7 @@
 
   function renderResult(context, options = {}) {
     cancelSeasonRuleRefresh();
+    Object.values(el.result.shieldResults || {}).forEach(element => { if (element) element.hidden = true; });
     if (context.statRecalculationRequired) {
       renderStatRecalculationRequiredResult(context);
       return;
@@ -9245,8 +9312,10 @@
     renderResultValue(el.result.crit, result.crit, currentResult?.crit, { type: 'number', beforeLabel });
     renderResultValue(el.result.expected, result.expected, currentResult?.expected, { type: 'number', beforeLabel });
     renderHpRateResults(result, currentResult);
+    renderDefensiveShieldResults(result, currentResult);
     renderResultMetricSwitch(result, currentResult, beforeLabel);
     renderResultDetail(context, result);
+    renderDefensiveShieldSources(context);
     window.dispatchEvent(new CustomEvent('trickcal:damage-calculator-rendered', {
       detail: { targetId: context.target?.id || '', source: options.source || '' }
     }));
@@ -9389,14 +9458,315 @@
   }
 
   function renderHpRateResults(result, currentResult = null) {
+    el.result.bar?.classList.toggle('has-shield-result', !!(result.defensiveShield?.supported || currentResult?.defensiveShield?.supported));
     const entries = [
       ['normal', result.normal, currentResult?.normal],
       ['expected', result.expected, currentResult?.expected],
       ['crit', result.crit, currentResult?.crit]
     ];
     entries.forEach(([key, damage, currentDamage]) => {
-      renderHpRateValue(el.result.hpRates?.[key], result.hp, damage, currentResult?.hp, currentDamage);
+      const shield = result.defensiveShield, beforeShield = currentResult?.defensiveShield;
+      if (shield && !shield.supported || beforeShield && !beforeShield.supported) {
+        if (el.result.hpRates?.[key]) el.result.hpRates[key].hidden = true;
+        return;
+      }
+      const hpDamage = getDefensiveHpDisplayDamage(result, key);
+      const beforeDamage = currentResult ? getDefensiveHpDisplayDamage(currentResult, key) : currentDamage;
+      renderHpRateValue(el.result.hpRates?.[key], result.hp, hpDamage,
+        currentResult?.hp, beforeDamage);
+      if (el.result.hpRates?.[key]) el.result.hpRates[key].title = shield?.supported
+        ? '最大HPからの目安（シールド概算後）' : '';
+      const remaining = shield?.[key]?.remaining || 0;
+      const beforeRemaining = beforeShield?.[key]?.remaining || 0;
+      const element = el.result.hpRates?.[key];
+      if (element && !element.hidden && (remaining > 0 || beforeRemaining > 0)) {
+        const text = currentResult ? `${formatNumber(beforeRemaining)} → ${formatNumber(remaining)}` : formatNumber(remaining);
+        element.innerHTML += `<span class="fdc-hp-shield"> ＋ 盾 ${escapeHtml(text)}</span>`;
+      }
     });
+  }
+
+  function getDefensiveHpDisplayDamage(result, key) {
+    const shield = result.defensiveShield;
+    if (view.perspective !== 'enemy' || key !== 'expected') return shield?.[key]?.hpDamage ?? result[key];
+    const chance = Math.max(0, Math.min(1, Number(result.critRate) || 0));
+    const normalRate = calculateRemainingHpRate(result.hp, shield?.normal?.hpDamage ?? result.normal);
+    const critRate = calculateRemainingHpRate(result.hp, shield?.crit?.hpDamage ?? result.crit);
+    return result.hp * (1 - (normalRate * (1 - chance) + critRate * chance) / 100);
+  }
+
+  function normalizeDefensiveShield(value, targetId = '') {
+    if (!value || value.targetId !== targetId) return { targetId, remaining: '0', enabled: true,sourceId:'__list__',sourceEnabled:{} };
+    return { targetId, remaining: value.remaining == null ? '' : String(value.remaining), enabled: value.enabled !== false,
+      sourceId:typeof value.sourceId === 'string' && value.sourceId ? value.sourceId : String(value.remaining) === '0' ? '__list__' : '__manual__',
+      sourceEnabled:pickBooleanMap(value.sourceEnabled || {}) };
+  }
+
+  function getDefensiveShieldAmount(targetId = view.targetId) {
+    const settings = normalizeDefensiveShield(view.defensiveShield, targetId);
+    if (!settings.enabled) return 0;
+    if (settings.sourceId === 'none') return 0;
+    if (settings.sourceId && settings.sourceId !== '__manual__') {
+                                                                                  
+                                                                                  
+      const context = getDefensiveShieldSourceContext();
+      const resolved = resolveAutomaticDefensiveShield(context, 1, null, true);
+      return resolved.supported ? (resolved.coefficientP > 0 ? 1 : 0) : null;
+    }
+    const value = settings.remaining;
+    const amount = value.trim() === '' ? NaN : Number(value);
+    return Number.isSafeInteger(amount) && amount >= 0 ? amount : null;
+  }
+
+  function getDefensiveShieldSourceContext() {
+    const state = getEffectiveStatState();
+    const formation = applyTempSpellOverrides(applyTempArtifactOverrides(applyTempMemberOverrides(normalizeFormation(getSelectedFormationSource(state).formation))));
+    const members = getFormationMembers(formation, state);
+    return {state, formation, members, target: getCurrentTargetMember(members, getAllApostleMembers(state, formation)), cards: state.cards || {}};
+  }
+
+  function getDefensiveShieldSources(context) {
+    if (!context?.target) return [];
+    const target = context.target, apostle = getApostleSkillData(target);
+    const levels = getFdcEffectiveSkillLevels(target);
+    const allowed = new Set(['Allet_high_e01','ED_low_e01','Vivi_low_e01','Vivi_high_e02',
+      'Kyarot_aside_2_e01','Chloe_low_e02','Jade_enhanced_e03','Barong_passive_e01',
+      'BigWood_low_e01','Selene_high_e02','Selene_favorite_1_e02']);
+    const sources = collectFdcApostleSkillSources(apostle, levels, target, context);
+    const favoriteSelene = sources.some(s => (s.skill.effects || []).some(e => e.effectId === 'Selene_favorite_1_e02'));
+    const rows = [];
+    sources.forEach(({skill, sourceLabel}) => {
+      (skill.effects || []).forEach(effect => {
+        if (!allowed.has(effect.effectId) || favoriteSelene && effect.effectId === 'Selene_high_e02') return;
+                                                                                              
+        if (effect.valueKind !== 'シールド' || effect.valueClass !== '倍率'
+          || effect.effectTarget !== '自身' || effect.reference !== '最大HP') return;
+        const category = getFdcApostleSkillCategory(skill, sourceLabel);
+        const level = getFdcSkillLevelForEffect(levels, effect, category);
+        const raw = effect.fixedValue ?? effect.levels?.[String(level)];
+        const info = parseFdcEffectNumericValue(raw);
+        const coefficientP = info && !info.isRange ? info.value : null;
+        rows.push({id: `skill:${effect.effectId}`, label: `${target.name} / ${sourceLabel} / ${skill.skillType || category}`,
+          coefficientP, condition: effect.condition || effect.triggerType || '',
+          meta: `${skill.skillName || ''} / Lv${level}`, provisional: effect.effectId !== 'Selene_favorite_1_e02'});
+      });
+    });
+    if (isEffectSourceActive('artifact')) {
+      [...new Set(target.artifactIds || [])].forEach(id => {
+        if (!['artifact_elven_wand','artifact_safety_harness'].includes(id)) return;
+        const row = createCardRow(id, 1, context.state?.cards?.[id]);
+        const effect = (getCard(id)?.conditionalEffects || []).find(e => e.bonusesByStar?.[row.star - 1]?.shieldP !== undefined);
+        if (effect) rows.push({id:`card:${effect.id}`,label:row.name,meta:`★${row.star} / 本人に付与済み`,
+          coefficientP:Number(effect.bonusesByStar[row.star - 1].shieldP),provisional:true});
+      });
+    }
+    if (Number.isInteger(target.line)) {
+      (context.members || []).forEach(caster => {
+        const casterData = getApostleSkillData(caster);
+        const casterLevels = getFdcEffectiveSkillLevels(caster);
+        const casterContext = {...context, target:caster};
+        if (isEffectSourceActive('formationSkill')) collectFdcApostleSkillSources(casterData, casterLevels, caster, casterContext).forEach(({skill,sourceLabel}) => {
+          (skill.effects || []).forEach(effect => {
+            const rules = {
+              Shoupan_favorite_1_e02:{kind:'シールド',target:'回復させた味方',otherOnly:true},
+              ED_aside_2_e03:{kind:'追加シールド',target:'残りHP割合が最も低い味方'},
+              Vivi_aside_2_e04:{kind:'シールド',target:'自身以外の残りHP割合が最も少ない味方',otherOnly:true},
+              Snorky_low_e01:{kind:'シールド',target:'味方/前列',frontOnly:true},
+              Snorky_aside_2_e01:{kind:'シールド',target:'味方/前列',frontOnly:true}
+            };
+            const rule = rules[effect.effectId];
+            if (!rule || effect.valueKind !== rule.kind || effect.valueClass !== '倍率'
+              || effect.reference !== '最大HP' || effect.effectTarget !== rule.target
+              || rule.otherOnly && caster.id === target.id
+              || rule.frontOnly && target.position !== '前列') return;
+            const level = getFdcSkillLevelForEffect(casterLevels, effect, getFdcApostleSkillCategory(skill,sourceLabel));
+            const info = parseFdcEffectNumericValue(effect.fixedValue ?? effect.levels?.[String(level)]);
+            rows.push({id:`ally:${caster.id}:${effect.effectId}`,label:`${caster.name} / ${sourceLabel} / ${skill.skillType || 'シールド'}`,
+              casterId:caster.id,casterName:caster.name,hpReference:'caster',
+              coefficientP:info && !info.isRange ? info.value : null,
+              condition:`${effect.condition || effect.triggerType || ''} / 選択した使徒が盾を受領済み`,meta:`${caster.name}の最大HP参照 / ${effect.fixedValue == null ? `Lv${level}` : '固定値'} / 受領済みとしてON`,provisional:true});
+          });
+        });
+        if (caster.id !== target.id && isEffectSourceActive('artifact') && caster.position === target.position
+          && Number.isInteger(caster.line) && (caster.artifactIds || []).includes('artifact_safety_harness')) {
+          const card = createCardRow('artifact_safety_harness',1,context.state?.cards?.artifact_safety_harness);
+          const effect = (getCard(card.id)?.conditionalEffects || []).find(e => e.id === 'artifact_safety_harness_e01');
+          rows.push({id:`ally:${caster.id}:artifact_safety_harness_e01`,label:`${caster.name} / ${card.name}`,
+            casterId:caster.id,casterName:caster.name,hpReference:'recipient',
+            coefficientP:effect?.bonusesByStar?.[card.star-1]?.shieldP,
+            condition:'同列・付与済み',meta:`★${card.star} / 受ける使徒の最大HP参照`,provisional:true});
+        }
+      });
+    }
+    return rows;
+  }
+
+  function isDefaultDefensiveShieldSource(row, candidates) {
+    return /^(card:|ally:[^:]+:artifact_)/.test(row.id)
+      && candidates.find(item=>/^(card:|ally:[^:]+:artifact_)/.test(item.id)
+        && item.id.split(':').at(-1) === row.id.split(':').at(-1))?.id === row.id;
+  }
+
+  function getDefensiveShieldGrailModifier(context) {
+    const id = 'artifact_grail_of_origins';
+    if (!isEffectSourceActive('artifact') || !(context.target?.artifactIds || []).includes(id)) return null;
+    const row = createCardRow(id,1,context.state?.cards?.[id]);
+    const effect = (getCard(id)?.conditionalEffects || []).find(item=>item.id === 'artifact_grail_of_origins_e01');
+    if (!effect) return {supported:false};
+    const conditionKey = createConditionEffectKey('装備遺物',row,effect,'',context.target);
+    const value = effect.bonusesByStar?.[row.star - 1]?.shieldEffectP;
+    return {supported:Number.isFinite(value),value,star:row.star,conditionKey,
+      enabled:isConditionalEffectEnabled(conditionKey,false)};
+  }
+
+  function resolveAutomaticDefensiveShield(context, hp, sourceId = null, presenceOnly = false) {
+    const selection = sourceId === null ? normalizeDefensiveShield(view.defensiveShield, context?.target?.id || view.targetId) : {sourceId};
+    if (selection.sourceId === '__list__') {
+      const candidates = getDefensiveShieldSources(context);
+      const enabled = candidates.filter(row => Object.prototype.hasOwnProperty.call(selection.sourceEnabled || {},row.id)
+        ? selection.sourceEnabled[row.id] : isDefaultDefensiveShieldSource(row,candidates));
+      const missing = Object.entries(selection.sourceEnabled || {}).some(([id,on]) => on && !candidates.some(row=>row.id === id));
+      if (missing) return {supported:false,reason:'ONにしたシールドの付与元が現在の構成にありません。'};
+      const kinds = enabled.map(row=>row.id.split(':').at(-1));
+      if (new Set(kinds).size !== kinds.length) return {supported:false,reason:'同じ効果の盾を複数ONにした場合は合算未対応です。1つ選ぶか手入力してください。'};
+      const instances = enabled.map(row=>resolveAutomaticDefensiveShield(context,hp,row.id,presenceOnly));
+      const failure = instances.find(row=>!row.supported);
+      if (failure) return failure;
+      const amount = instances.reduce((sum,row)=>sum+row.amount,0);
+      if (!Number.isSafeInteger(amount)) return {supported:false,reason:'シールド合計が計算可能な範囲を超えています。'};
+      return {...(instances.length === 1 ? instances[0] : {}),supported:true,amount,coefficientP:instances.reduce((sum,row)=>sum+row.coefficientP,0),instances,
+        sourceLabel:`ON ${enabled.length}効果`,hpReferenceLabel:instances.length === 1 ? instances[0].hpReferenceLabel : '各効果の参照HP',provisional:true};
+    }
+    const source = getDefensiveShieldSources(context).find(item => item.id === selection.sourceId);
+    if (!source) return {supported:false,reason:'選択したシールドの付与元が現在の構成にありません。'};
+    if (!Number.isFinite(source.coefficientP) || source.coefficientP < 0 || !Number.isFinite(hp) || hp <= 0) {
+      return {supported:false,reason:'シールドの効果値または参照HPを確認してください。'};
+    }
+                                                                             
+                                                                          
+    if (source.hpReference === 'caster') {
+      const caster = (context.members || []).find(member => member.id === source.casterId);
+      if (!Number.isFinite(caster?.stats?.hp) || caster.stats.hp <= 0 || caster.needsSelection
+        || isTargetPlacementRequired(caster, context.members)) {
+        return {supported:false,reason:'付与する使徒のHPを確認できません。残量を手入力してください。'};
+      }
+    }
+    if (getSelectedSeasonRules().includes('shield')) {
+      return {supported:false,reason:'シーズンルールの盾量補正は自動計算未対応です。残量を手入力してください。'};
+    }
+    let modifierP = 0;
+    const grail = getDefensiveShieldGrailModifier(context);
+    if (grail && !grail.supported) return {supported:false,reason:'祭司長の香炉の補正値が不足しています。'};
+    if (grail?.enabled) modifierP += grail.value;
+    const spellId = 'spell_joanne_prayer_power';
+    if (isEffectSourceActive('spell') && (context.formation?.spells || []).includes(spellId)) {
+      const row = createCardRow(spellId, 1, context.state?.cards?.[spellId]);
+      const effect = (getCard(spellId)?.conditionalEffects || []).find(e => e.id === 'spell_joanne_prayer_power_e01');
+      const value = effect?.bonusesByStar?.[row.star - 1]?.shieldEffectP;
+      if (!Number.isFinite(value)) return {supported:false,reason:'シールド効果補正の値が不足しています。'};
+      modifierP += value;
+    }
+    let referenceHp = hp;
+    if (source.hpReference === 'caster' && !presenceOnly) {
+      const casterContext = buildContext({sourceContext:context,targetId:source.casterId,detached:true,isolatedActor:true});
+      if (!casterContext.target?.stats || casterContext.formationSelectionRequired
+        || casterContext.targetPlacementRequired) return {supported:false,reason:'付与する使徒のHPを確認できません。残量を手入力してください。'};
+      referenceHp = casterContext.target.stats.hp * (1 + (getActiveHpBonusP(casterContext)
+        + getSeasonRuleModifiers(casterContext,true).hpP) / 100);
+    }
+    const amount = Math.trunc(((referenceHp * 0.01) * source.coefficientP) * (1 + modifierP / 100));
+    if (!Number.isSafeInteger(amount) || amount < 0) return {supported:false,reason:'シールド量が計算可能な範囲を超えています。'};
+    return {supported:true,amount,sourceLabel:source.label,coefficientP:source.coefficientP,modifierP,
+      referenceHp,hpReferenceLabel:source.hpReference === 'caster' ? `${source.casterName}の最大HP` : '受ける使徒の最大HP',provisional:source.provisional};
+  }
+
+  function getDefensiveShieldDetailRows(context, hp) {
+    if (view.perspective !== 'enemy' || context.forceSelfAttack) return [];
+    const selection = normalizeDefensiveShield(view.defensiveShield,context.target?.id || view.targetId);
+    const automatic = selection.sourceId && !['none','__manual__'].includes(selection.sourceId)
+      ? resolveAutomaticDefensiveShield(context,hp) : null;
+    const manual = selection.remaining.trim() === '' ? NaN : Number(selection.remaining);
+    const amount = selection.sourceId === 'none' ? 0 : automatic ? automatic.amount : manual;
+    return [['シールド量（被弾前）', automatic && !automatic.supported ? automatic.reason
+      : Number.isSafeInteger(amount) && amount >= 0 ? `${formatNumber(amount)}（${selection.enabled ? '込み' : 'なし・未適用'}）` : '入力を確認してください'],
+      ...(automatic?.supported ? (automatic.instances || [automatic]).map(row=>['シールドの参照元',`${row.sourceLabel} / ${row.hpReferenceLabel} / ${formatNumber(row.referenceHp)}`]) : [])];
+  }
+
+  function renderDefensiveShieldSources(context) {
+    if (!el.shieldSourceOptions) return;
+    const selection = normalizeDefensiveShield(view.defensiveShield, view.targetId);
+    const candidates = getDefensiveShieldSources(context);
+    const modes = [{id:'__list__',label:'効果一覧から計算'},{id:'__manual__',label:'残量を手入力'},{id:'none',label:'盾なし'}];
+    const rows = [...modes,...candidates];
+    Object.entries(selection.sourceEnabled).forEach(([id,on])=>{
+      if (on && !rows.some(row=>row.id === id)) rows.push({id,label:'ONにした付与元が現在の構成にありません'});
+    });
+    if (!rows.some(row=>row.id === selection.sourceId)) rows.push({id:selection.sourceId,label:'選択元が現在の構成にありません'});
+    if (el.shieldManualField) el.shieldManualField.hidden = selection.sourceId !== '__manual__';
+    const hp = readNumber(el.inputs.selfHp) * (1 + (getActiveHpBonusP(context) + getSeasonRuleModifiers(context, true).hpP) / 100);
+    el.shieldSourceOptions.innerHTML = `<div class="fdc-shield-modes">${modes.map(row=>{
+      const checked = row.id === selection.sourceId || row.id === '__list__' && !['none','__manual__','__list__'].includes(selection.sourceId);
+      return `<label><input type="radio" name="fdc-shield-source" data-fdc-shield-source value="${escapeAttr(row.id)}" ${checked ? 'checked' : ''}>${row.id === '__list__' ? '効果一覧' : row.id === '__manual__' ? '手入力' : '盾なし'}</label>`;
+    }).join('')}</div>` + rows.filter(row=>!modes.some(mode=>mode.id === row.id)).map(row => {
+      const resolved = Number.isFinite(row.coefficientP) ? resolveAutomaticDefensiveShield(context, hp, row.id) : null;
+      const isMode = modes.some(mode=>mode.id === row.id);
+      const checked = isMode ? row.id === selection.sourceId || row.id === '__list__' && !['none','__manual__','__list__'].includes(selection.sourceId) : selection.sourceId === '__list__'
+        ? (Object.prototype.hasOwnProperty.call(selection.sourceEnabled,row.id) ? selection.sourceEnabled[row.id] : isDefaultDefensiveShieldSource(row,candidates))
+        : row.id === selection.sourceId;
+      return `<label class="fdc-skill-effect-toggle"><input type="${isMode ? 'radio' : 'checkbox'}" ${isMode ? 'name="fdc-shield-source"' : ''} data-fdc-shield-source value="${escapeAttr(row.id)}" ${checked ? 'checked' : ''}><span class="fdc-skill-effect-text"><strong>${escapeHtml(row.label)}${Number.isFinite(row.coefficientP) ? ` / ${escapeHtml(row.coefficientP)}%` : ''}</strong>${row.meta ? `<small>${escapeHtml(row.meta)}${resolved?.supported ? ` → ${escapeHtml(formatNumber(resolved.amount))}${resolved.modifierP ? `（盾効果＋${escapeHtml(resolved.modifierP)}%）` : ''}` : resolved ? ` / ${escapeHtml(resolved.reason)}` : ''}${row.provisional ? ' / 暫定' : ''}</small>` : ''}</span>${row.meta ? `<button type="button" class="fdc-skill-effect-info" data-fdc-shield-source-info="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.label)}の説明">i</button>` : ''}</label>`;
+    }).join('');
+    const grail = getDefensiveShieldGrailModifier(context);
+    if (grail?.supported) el.shieldSourceOptions.insertAdjacentHTML('beforeend',
+      `<label class="fdc-skill-effect-toggle"><input type="checkbox" data-fdc-shield-modifier="${escapeAttr(grail.conditionKey)}" ${grail.enabled ? 'checked' : ''}><span class="fdc-skill-effect-text"><strong>祭司長の香炉 / シールド効果＋${escapeHtml(grail.value)}%</strong><small>★${escapeHtml(grail.star)} / ONで補正発動済みとして計算（暫定）</small></span></label>`);
+    const resolved = !['none','__manual__'].includes(selection.sourceId) ? resolveAutomaticDefensiveShield(context, hp) : null;
+    if (el.shieldSourceSummary) el.shieldSourceSummary.textContent = `${rows.find(row => row.id === (selection.sourceId || ''))?.label || '手入力'}${resolved?.supported ? ` / ${formatNumber(resolved.amount)}` : resolved ? ' / 自動計算未対応' : ''}`;
+  }
+
+  function evaluateDefensiveShield(result, amount, reason = '') {
+    if (!Number.isSafeInteger(amount) || amount < 0) return { supported: false, reason: 'シールド残量は0以上の整数で入力してください。' };
+    if (reason) return { supported: false, reason };
+    if (![result.normal, result.crit, result.critRate].every(Number.isFinite)) {
+      return { supported: false, reason: 'シールド概算のダメージを確認してください。' };
+    }
+    const absorb = incoming => {
+      const damage = Math.max(0, incoming), absorbed = Math.min(amount, damage);
+      return { absorbed, hpDamage: damage - absorbed, remaining: amount - absorbed };
+    };
+    const normal = absorb(result.normal), crit = absorb(result.crit);
+    const chance = Math.max(0, Math.min(1, result.critRate));
+    const expected = Object.fromEntries(['absorbed', 'hpDamage', 'remaining'].map(key =>
+      [key, normal[key] * (1 - chance) + crit[key] * chance]));
+    return { supported: true, startingAmount: amount, normal, crit, expected, approximate: true };
+  }
+
+  function getDefensiveShieldResult(result, context) {
+    if (context.forceSelfAttack || view.perspective !== 'enemy') return null;
+    const selection = normalizeDefensiveShield(view.defensiveShield, context.target?.id || view.targetId);
+    const automatic = selection.enabled && selection.sourceId && !['none','__manual__'].includes(selection.sourceId)
+      ? resolveAutomaticDefensiveShield(context, result.hp) : null;
+    const amount = automatic ? (automatic.supported ? automatic.amount : null) : getDefensiveShieldAmount(context.target?.id || view.targetId);
+    if (automatic && !automatic.supported) return automatic;
+    if (amount === 0) return null;
+    const skill = view.enemySourceMode === 'preset' ? getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex]
+      : view.enemySkillIndex >= 0 ? getEnemyApostleSkillOptions(context)[view.enemySkillIndex] : null;
+    const category = view.enemySelectedSkillCategory || skill?.attackCategory || '';
+    const special = !!skill?.damageReference || /状態異常|継続|反射|固定ダメージ/.test(
+      category + ' ' + (skill?.attackCategory || '') + ' ' + (skill?.name || '') + ' ' + (skill?.kind || ''));
+    const multiple = Number(skill?.roundingHitCount || skill?.hitCount || skill?.damageCount || 1) > 1
+      || Number(skill?.actionRepeatCount || 1) > 1 || /総.*ダメージ/.test(skill?.kind || '');
+    return {...evaluateDefensiveShield(result, amount, special || multiple
+      ? 'この攻撃のシールド内訳は未対応です。単発の通常ダメージで確認してください。' : ''), ...(automatic ? {automatic} : {})};
+  }
+
+  function renderDefensiveShieldResults(result, currentResult = null) {
+    for (const key of ['normal', 'expected', 'crit']) {
+      const element = el.result.shieldResults?.[key];
+      if (!element) continue;
+      const shield = result.defensiveShield, before = currentResult?.defensiveShield;
+      element.hidden = !(shield && !shield.supported || before && !before.supported);
+      if (element.hidden) { element.textContent = ''; continue; }
+      element.textContent = shield?.reason || before?.reason;
+    }
   }
 
   function renderHpRateValue(element, hp, damage, currentHp = null, currentDamage = null) {
@@ -9510,6 +9880,10 @@
           ['通常ダメージ', formatNumber(result.normal)],
           ['期待ダメージ', formatNumber(result.expected)],
           ['会心時ダメージ', formatNumber(result.crit)],
+          ...(result.defensiveShield?.supported ? [
+            ['シールド吸収（通常／期待／会心）', ['normal','expected','crit'].map(key => formatNumber(result.defensiveShield[key].absorbed)).join(' ／ ')],
+            ['残シールド（通常／期待／会心）', ['normal','expected','crit'].map(key => formatNumber(result.defensiveShield[key].remaining)).join(' ／ ')]
+          ] : []),
           ['命中計算', result.rounding?.calculationMode === 'normal-hit-v1'
             ? '命中ごとに2段階で整数化' : '旧互換・丸め未対応'],
           ...(result.rounding?.calculationMode === 'legacy-continuous'
@@ -9555,6 +9929,7 @@
           createSideDetailRow('会心', formatNumber(stat.finalCrit), attackerIsEnemy),
           createSideDetailRow('会心DMG', formatNumber(stat.finalCritDmg), attackerIsEnemy),
           createSideDetailRow('HP', formatNumber(stat.finalHp), defenderIsEnemy),
+          ...getDefensiveShieldDetailRows(context, stat.finalHp),
           createSideDetailRow(defenseLabel, formatNumber(stat.finalDef), defenderIsEnemy),
           createSideDetailRow('会心抵抗', formatNumber(stat.finalCritRes), defenderIsEnemy),
           createSideDetailRow('会心DMG抵抗', formatNumber(stat.finalCritDmgRes), defenderIsEnemy),
@@ -10013,6 +10388,7 @@
     const normal = oneHitNormal * hitCount;
     const crit = oneHitCrit * hitCount;
     const expected = oneHitExpected * hitCount;
+    const defensiveShield = getDefensiveShieldResult({ normal, crit, expected, critRate, hp:finalHp }, context);
     const hitBreakdown = epicaAdditionalHit ? {
       asideRank: epicaAdditionalHit.asideRank,
       enemyCount: epicaAdditionalHit.enemyCount,
@@ -10025,6 +10401,7 @@
     } : null;
     return {
       hp: finalHp,
+      defensiveShield,
       normal,
       crit,
       expected,
@@ -10807,6 +11184,7 @@
         if (Object.prototype.hasOwnProperty.call(assumptions, key)) view[key] = clonePlain(assumptions[key]);
       }
       view.perspective = battleConditions.perspective === 'enemy' ? 'enemy' : 'self';
+      view.defensiveShield = normalizeDefensiveShield(battleConditions.defensiveShield, targetId);
       view.damageType = battleConditions.damageType || 'auto';
       view.enemyDamageType = battleConditions.enemyDamageType || 'auto';
       view.enemySourceMode = battleConditions.enemySourceMode === 'apostle' ? 'apostle' : 'preset';
@@ -10973,7 +11351,7 @@
       selectedSkillCategory: conditions.selectedSkillCategory || '',
       selectedSkillOptionKey: conditions.selectedSkillOptionKey || '',
       enemySelectedSkillCategory: conditions.enemySelectedSkillCategory || ''
-    }, 'single-action-v1');
+    }, 'single-action-v2-shield');
   }
 
   function createPinnedDpsInputFingerprint(scenario = {}, dpsSnapshot = {}) {
@@ -11755,7 +12133,12 @@
   function pushToggleableConditionalEffect(result, item, defaultEnabled = false) {
     const defenseState = getFdcDefenseConditionState(item.effectText || item.label || '', item);
     if (defenseState.applicable) {
-      item = { ...item, normalCalculationOnly: true, conditionBlocked: defenseState.resolved && !defenseState.matched };
+      item = { ...item, normalCalculationOnly: true, conditionBlocked: !defenseState.shieldCondition && defenseState.resolved && !defenseState.matched };
+      if (defenseState.shieldCondition) {
+        defaultEnabled = defenseState.resolved && defenseState.matched;
+        item.reason = 'シールド残量から判定（手動変更可）';
+        item.shieldCondition = true;
+      }
       if (!defenseState.resolved) {
         defaultEnabled = false;
         item.reason = '条件が成立したものとして手動で反映';
@@ -11886,6 +12269,13 @@
       .map(match => match[1] ?? match[2] ?? '');
     const incoming = clauses.length > 0 || /被弾|被撃|シールド|保護状態/.test(body);
     if (view.perspective !== 'enemy' || !defenseBonus || !incoming) return { applicable: false };
+    const shieldCondition = !/付与時|破壊時|終了時|保護状態|被弾|被撃/.test(body)
+      && ((effect?.conditionType === '固有状態中' && effect?.conditionValue === 'シールド')
+        || /シールド(?:中|が付与されている場合|を保有している間)/.test(body));
+    if (shieldCondition && clauses.length === 0) {
+      const amount = getDefensiveShieldAmount();
+      return { applicable: true, resolved: amount !== null, matched: amount !== null && amount > 0, shieldCondition: true };
+    }
     const unknownState = /シールド|保護状態|被弾|被撃/.test(body);
     const preset = getSelectedEnemyPreset();
     const skill = preset?.skills?.[view.enemySkillIndex];
@@ -14812,6 +15202,7 @@
       },
       battleConditions: {
         perspective: view.perspective === 'enemy' ? 'enemy' : 'self',
+        defensiveShield: options.excludeNormalCalculationOnlyEffects ? undefined : normalizeDefensiveShield(view.defensiveShield, view.targetId),
         damageType: view.damageType || 'auto',
         resolvedDamageType: context.damageType || '',
         enemyDamageType: view.enemyDamageType || 'auto',
@@ -18835,6 +19226,7 @@
 
   function createComparableDamageResult(result = {}) {
     return {
+      defensiveShield: result.defensiveShield ? clonePlain(result.defensiveShield) : null,
       normal: Number(result.normal) || 0,
       crit: Number(result.crit) || 0,
       expected: Number(result.expected) || 0,
