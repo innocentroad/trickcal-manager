@@ -7356,3 +7356,23 @@ body.theme-dark { --personality-gradient-base: #253044; }
   background: var(--fdc-master-power-color);
   box-shadow: 0 0 7px color-mix(in srgb, var(--fdc-master-power-color) 62%, transparent);
 }
+/* Single-action status assumptions must not look like DPS permanent states. */
+body[data-fdcp-mode="dps"] [data-fdc-normal-state-control] { display: none; }
+.fdc-season-rules { grid-column: 1 / -1; min-width: 0; }
+.fdc-season-rules > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 800; }
+.fdc-season-rules > summary::before { content: '▸'; flex: none; }
+.fdc-season-rules > summary > span { flex: none; white-space: nowrap; }
+.fdc-season-rules[open] > summary::before { content: '▾'; }
+.fdc-season-rules > summary small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 400; opacity: .8; }
+.fdc-season-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; margin-top: 12px; }
+.fdc-season-options label { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; line-height: 1.4; cursor: pointer; }
+.fdc-season-options input { flex: none; accent-color: var(--fdc-primary); margin-top: 2px; }
+@media(max-width:600px) { .fdc-season-options { grid-template-columns: 1fr; } }
+.fdc-season-description { font-size: 12px; line-height: 1.5; margin: 5px 0; overflow-wrap: anywhere; opacity: .85; }
+body[data-fdcp-mode="dps"] #fdc-season-shock-field { display: none; }
+.fdc-season-selected { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.fdc-season-selected[hidden] { display: none; }
+.fdc-season-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 5px 8px; font: inherit; font-size: 11px; border: 1px solid var(--fdc-primary); border-radius: 8px; color: var(--fdc-text); background: var(--fdc-primary-soft); cursor: pointer; }
+.fdc-season-chip > span:first-child { overflow-wrap: anywhere; }
+.fdc-season-chip > span:last-child { flex: none; opacity: .75; }
+.fdc-season-chip:focus-visible { outline: 2px solid var(--fdc-primary); outline-offset: 2px; }

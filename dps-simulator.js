@@ -9,6 +9,7 @@
 
   const DEFAULT_TICKS_PER_FRAME = 10;
   const DEFAULT_FRAMES_PER_SECOND = 60;
+  const TIG_HERO_HP_WARNING = 'ティグの使徒相手への最大HP追加ダメージは未計上です。攻撃力由来のダメージだけで暫定比較します。';
   const ACTION_SKILL_TYPES = Object.freeze({
     basicAttack: '普通攻撃_基本',
     enhancedAttack: '普通攻撃_強化',
@@ -57,6 +58,23 @@
     return Number.isFinite(number) ? number : fallback;
   }
 
+  function normalizeResolvedSpRecoveryFactors(effect) {
+    if (effect?.resolvedRecoveryFactors === undefined) return undefined;
+    const factors = effect.resolvedRecoveryFactors;
+    if (!factors || typeof factors !== 'object' || Array.isArray(factors)
+      || typeof factors.owner !== 'number' || !Number.isFinite(factors.owner)
+      || typeof factors.recipient !== 'number' || !Number.isFinite(factors.recipient)) {
+      throw new RangeError('SP回復の供給側・受取側の確定係数が不足または不正です');
+    }
+    if (effect.amountModifierP !== undefined && (typeof effect.amountModifierP !== 'number'
+      || !Number.isFinite(effect.amountModifierP) || effect.amountModifierP !== 0)) {
+      throw new RangeError('SP回復の確定係数と旧回復量補正を重複指定できません');
+    }
+                                                                          
+                                                                          
+    return { owner: Math.max(0, factors.owner), recipient: Math.max(0, factors.recipient) };
+  }
+
   function toTicks(frames, ticksPerFrame = DEFAULT_TICKS_PER_FRAME) {
                                                                            
                                                                                   
@@ -70,6 +88,12 @@
 
   function createSeededRandom(seed = 1) {
     let state = (Math.floor(toFiniteNumber(seed, 1)) >>> 0) || 1;
+                                                                           
+                                                                          
+                                                                        
+    state = Math.imul(state ^ (state >>> 16), 0x85ebca6b);
+    state = Math.imul(state ^ (state >>> 13), 0xc2b2ae35);
+    state = (state ^ (state >>> 16)) >>> 0;
     return function random() {
       state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
       return state / 0x100000000;
@@ -276,9 +300,15 @@
           weight: toFiniteNumber(effect?.triggerValue)
         })).filter(candidate => candidate.effectId && candidate.weight > 0)
       : [];
+                                                                            
+                                                                       
+    const ristyCounter = skill.skillId === 'Risty_favorite_1' && actionKey === 'enhancedAttack'
+      ? effects.find(effect => effect.effectId === 'Risty_favorite_1_e03'
+        && effect.triggerType === 'n回ごと' && Number(effect.triggerValue) > 0) : null;
     return {
       ...JSON.parse(JSON.stringify(skill || {})),
       ...metadata,
+      ...(ristyCounter ? {triggerType: ristyCounter.triggerType, triggerValue: Number(ristyCounter.triggerValue)} : {}),
       effects,
       dpsActionKey: actionKey,
       dpsReplacesBase: true,
@@ -632,6 +662,9 @@
       || normalizeArray(apostle?.skills)
         .flatMap(candidate => normalizeArray(candidate?.effects))
         .find(effect => effect?.effectId === effectId)
+      || Object.values(apostle?.aside?.levels || {})
+        .flatMap(candidate => normalizeArray(candidate?.effects))
+        .find(effect => effect?.effectId === effectId)
       || null;
   }
 
@@ -839,6 +872,11 @@
         Math.max(max, toFiniteNumber(resolveEffectValue(effect, getSkillLevel(skill, skillLevels))))
       ), 0);
 
+                                                                            
+                                                                             
+                                                                               
+                                                                          
+      if (normalizeScenarioId(apostle?.id) === 'pira') return;
       const gainBuff = skillEffects.find(({ effect }) => (
         (String(effect?.condition || '').includes(`${resource.name}獲得時`)
           || String(effect?.conditionValue || '').includes(resource.id))
@@ -961,6 +999,7 @@
       } else if (stack.kind !== 'damageBuff') {
         return;
       }
+      if (!isTimedRuntimeBuffConditionActive(state, stack, actionKey)) return;
       addModifierMap(delta, stack.modifiers);
     });
     normalizeArray(config?.runtimeEffects?.damageBuffEffects).forEach(effect => {
@@ -979,6 +1018,32 @@
       && state.tick < stack.expireTick
       && (!effect.requireSelfSource || stack.sourceSelf === true)
     ));
+  }
+
+                                                                            
+                                                                          
+                                                                          
+  function isTimedRuntimeBuffConditionActive(state, stack, actionKey = state?.currentAction?.key || '') {
+    if (normalizeArray(stack.applyActionKeys).length && !stack.applyActionKeys.includes(actionKey)) return false;
+    return !stack.requiredStatus || isRuntimeStatusConditionActive(state, {
+      mode:'conditionalStatus', requiredStatus:stack.requiredStatus,
+      requireSelfSource:stack.requireSelfSource
+    });
+  }
+
+  function resolveNativeStatusCoefficientSelection(state, selection) {
+    const kinds = selection?.statusKinds;
+    const multipliers = selection?.multipliers;
+    if (!Array.isArray(kinds) || !kinds.length || kinds.some(kind => typeof kind !== 'string' || !kind)
+      || new Set(kinds).size !== kinds.length || !Array.isArray(multipliers)
+      || multipliers.length !== kinds.length + 1
+      || multipliers.some(value => typeof value !== 'number' || !Number.isFinite(value) || value <= 0)
+      || !Number.isFinite(state?.tick)) {
+      throw new RangeError('状態種類数による係数選択の入力が不正です');
+    }
+    const kindCount = kinds.filter(kind => normalizeArray(state.statusStacks).some(stack =>
+      stack.status === kind && stack.active !== false && state.tick < stack.expireTick)).length;
+    return { kindCount, multiplier: Math.fround(multipliers[kindCount]) };
   }
 
   function getRuntimeAttackModifierP(modifiers, damageType = '') {
@@ -1033,6 +1098,10 @@
         application?.processGroupId
         && effect?.processGroupId === application.processGroupId
         && effect?.valueClass === '持続時間'
+                                                                              
+                                                                           
+        && getStatusName(effect?.valueKind) === status
+        && getBranchName(effect) === branch
       )) || effects.find(effect => (
         effect?.effectType === 'デバフ'
         && effect?.valueClass === '持続時間'
@@ -1064,20 +1133,54 @@
       const mayoPoison = status === '毒' && stackable && maxStacks === 9
         && ({Mayo_enhanced:'Mayo_enhanced_e02',Mayo_low:'Mayo_low_e03',Mayo_high:'Mayo_high_e03'}[skill?.skillId]
           === application.effectId);
+                                                                         
+                                                                               
+      const patulaPoison = status === '毒' && stackable && maxStacks === 9
+        && skill?.skillId === 'Patula_low' && application.effectId === 'Patula_low_e02';
+                                                                         
+                                                                              
+      const dayaBleed = status === '苦痛' && stackable && maxStacks === 9
+        && ({Daya_low:'Daya_low_e02',Daya_enhanced:'Daya_enhanced_e02'}[skill?.skillId]
+          === application.effectId);
+      const blanchetBleed = status === '苦痛' && stackable && maxStacks === 9
+        && skill?.skillId === 'Blanchet_enhanced' && application.effectId === 'Blanchet_enhanced_e02';
+                                                                     
+                                                                            
+      const rollettBurn = status === '火傷' && stackable && maxStacks === 9
+        && skill?.skillId === 'Rollett_enhanced' && application.effectId === 'Rollett_enhanced_e02';
+                                                                  
+                                                                        
+      const ashurBurn = status === '火傷' && stackable && maxStacks === 9
+        && ({Ashur_basic:'Ashur_basic_e02', Ashur_enhanced:'Ashur_enhanced_e04'}[skill?.skillId]
+          === application.effectId);
+                                                                       
+                                                                            
+      const aliceBurn = status === '火傷' && stackable && maxStacks === 9
+        && ({Alice_low:'Alice_low_e06', Alice_high:'Alice_high_e06'}[skill?.skillId]
+          === application.effectId);
       return {
         status,
         branch,
         applicationEffectId: application.effectId || '',
+        ...(skill?.skillId === 'Amelia_high' && application.effectId === 'Amelia_high_e03'
+          && status === '気絶' && application.conditionType === '対象状態'
+          && application.conditionValue === '感電' ? { requiredTargetStatus: '感電' } : {}),
         reference: application.reference || '',
         durationEffectId: durationEffect?.effectId || '',
         durationFrames: durationSeconds > 0 ? durationSeconds * DEFAULT_FRAMES_PER_SECOND : null,
         stackable,
         maxStacks,
-        stackOverflowPolicy: mayoPoison ? 'reject' : 'replaceOldest',
+        stackOverflowPolicy: mayoPoison || patulaPoison || dayaBleed || blanchetBleed || rollettBurn || ashurBurn || aliceBurn ? 'reject' : 'replaceOldest',
                                                      
                                           
                                 
-        stackGroupId: explicitGroup || (mayoPoison ? 'Mayo:poison:stack:9'
+        stackGroupId: explicitGroup || (rollettBurn ? 'Rollett:burn:stack:9'
+          : aliceBurn ? 'Alice:burn:stack:9'
+          : ashurBurn ? `${skill.skillId}:burn:stack:9`
+          : blanchetBleed ? 'Blanchet:enhanced:bleed:stack:9'
+          : dayaBleed ? `${skill.skillId}:bleed:stack:9`
+          : mayoPoison ? 'Mayo:poison:stack:9'
+          : patulaPoison ? 'Patula:poison:stack:9'
           : `${status}:${stackable ? 'stack' : 'single'}:${maxStacks}`),
         dealsPeriodicDamage: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status),
         tickFrames: Object.prototype.hasOwnProperty.call(DOT_STATUS_MULTIPLIERS, status) ? STATUS_TICK_FRAMES : 0,
@@ -1168,6 +1271,31 @@
       : null;
   }
 
+  function hasActionLocalSuicideEnd(definition, action) {
+    return normalizeArray(definition.endConditions).some(condition => (
+      condition.conditionType === '攻撃完了' && condition.endAction === '自爆'
+    )) && normalizeArray(definition.timingEvents).some(event => (
+      event.recordPurpose !== '観測' && event.actionId === action.id
+      && event.timeOrigin === '召喚ユニット行動開始' && event.eventType === '自爆'
+      && /ダメージ/.test(event.effectKind || '')
+      && Number.isFinite(event.frame) && event.frame >= 0 && event.frame <= action.motionFrames
+    ));
+  }
+
+                                                                            
+                                                                            
+                                                                                
+  function isInstantSuicideAction(definition, action) {
+    if (action.motionFrames !== 0 || action.actionType !== '自爆'
+      || !hasActionLocalSuicideEnd(definition, action)) return false;
+    const events = normalizeArray(definition.timingEvents).filter(event => (
+      event.recordPurpose !== '観測' && event.actionId === action.id
+      && event.timeOrigin === '召喚ユニット行動開始'
+    ));
+    return events.length === 1 && events[0].eventType === '自爆'
+      && events[0].frame === 0 && /ダメージ/.test(events[0].effectKind || '');
+  }
+
   function getGeneratedAttackSpeedSettings(generated) {
     const reference = String(generated?.attackSpeedReference || '');
     const scope = String(generated?.attackSpeedScope || generated?.speedScope || '');
@@ -1191,16 +1319,30 @@
     };
   }
 
+  function getRistyBearActionSequence(definition) {
+    if (definition.id !== 'Risty_low_bear') return null;
+    const actions = normalizeArray(definition.summonActions);
+    const ids = [1, 2, 3].map(index => `Risty_low_bear_attack${index}`);
+    if (actions.length !== 3 || !ids.every(id => actions.filter(action => action.id === id).length === 1)) return null;
+    const sequence = ids.map(id => actions.find(action => action.id === id));
+    if (sequence.slice(0, 2).some(action => hasActionLocalSuicideEnd(definition, action))) return null;
+    return hasActionLocalSuicideEnd(definition, sequence[2]) ? sequence : null;
+  }
+
   function getSummonUnitIssues(definition) {
     const issues = [...normalizeArray(definition.executionIssues)];
     const actions = normalizeArray(definition.summonActions);
     const rows = normalizeArray(definition.timingEvents).filter(row => row.recordPurpose !== '観測');
-    if (actions.length !== 1) issues.push('召喚ユニットの行動は現在1種類が必要です');
+    if (actions.length !== 1 && !getRistyBearActionSequence(definition)) {
+      issues.push('召喚ユニットの行動順が未対応または不正です');
+    }
     if (!(typeof definition.attackSpeedBase === 'number' && Number.isFinite(definition.attackSpeedBase) && definition.attackSpeedBase > 0)) {
       issues.push('召喚ユニットの攻撃速度基礎が不正です');
     }
     actions.forEach(action => {
-      if (!(action.motionFrames > 0)) issues.push(`${action.id}: モーション長が未確定です`);
+      if (!(action.motionFrames > 0) && !isInstantSuicideAction(definition, action)) {
+        issues.push(`${action.id}: モーション長が未確定です`);
+      }
       const hits = rows.filter(row => row.actionId === action.id && row.timeOrigin === '召喚ユニット行動開始');
       if (!hits.length || hits.some(row => row.frame == null || !Number.isFinite(row.frame) || row.frame < 0 || row.frame > action.motionFrames)) {
         issues.push(`${action.id}: 行動内命中時刻が未確定・不正です`);
@@ -1227,9 +1369,9 @@
     const stats = {};
     const parts = [assembly, ...modifiers];
     modifiers.forEach(part => {
-      if (!part || Object.keys(part).some(key => !['fixed', 'rateP', 'commonFixed', 'commonRateP',
+      if (!part || Object.keys(part).some(key => !['fixed', 'rateP', 'additional', 'commonFixed', 'commonRateP',
         'attackSpeedFixed', 'attackSpeedP'].includes(key))) throw new RangeError('分身能力補正の種類が未対応です');
-      ['fixed', 'rateP'].forEach(group => {
+      ['fixed', 'rateP', 'additional'].forEach(group => {
         if (Object.keys(part[group] || {}).some(key => !SUMMON_BASE_KEYS.includes(key))) throw new RangeError('分身能力補正の対象が未対応です');
       });
       ['commonFixed', 'commonRateP'].forEach(group => {
@@ -1241,7 +1383,8 @@
       const base = number(assembly.ownerBaseStats?.[key]) * number(assembly.multipliers?.[key]);
       const common = /Atk$/.test(key) ? 'attack' : /Def$/.test(key) ? 'defense' : null;
       stats[key] = roundDamageRateToEven((base + sum('fixed', key) + (common ? sum('commonFixed', common) : 0))
-        * (1 + (sum('rateP', key) + (common ? sum('commonRateP', common) : 0)) / 100));
+        * (1 + (sum('rateP', key) + (common ? sum('commonRateP', common) : 0)) / 100)
+        + sum('additional', key));
       if (!Number.isFinite(stats[key])) throw new RangeError('分身能力が計算範囲外です');
     });
     const speedBase = number(assembly.attackSpeedBase);
@@ -1251,7 +1394,9 @@
     const speedP = parts.reduce((total, part) => total + number(part.attackSpeedP ?? 0), 0);
     stats.attackSpeed = Math.max(speedBase * low, Math.min(speedBase * high,
       roundDamageRateToEven((speedBase + speedFixed) * (1 + speedP / 100))));
-    stats.hp = Math.max(1, Math.trunc(number(assembly.hpFixed)));
+                                                                          
+                                                                             
+    if (assembly.hpFixed !== undefined) stats.hp = Math.max(1, Math.trunc(number(assembly.hpFixed)));
     return stats;
   }
 
@@ -1276,10 +1421,110 @@
       'damageRate', 'endCorrection', 'critMult', 'critRate', 'additionalCoefficient'];
     definitions.forEach(definition => {
       const prepared = input.definitions?.[definition.id];
-      if (!prepared || !['resolved-hit-v1', 'momo-abilities-v2'].includes(prepared.assemblyMode)) {
+      if (prepared?.assemblyMode === 'epica-dedicated-owner-query-v1') {
+        if (input.policyVersion !== 2
+          || prepared.sourceBoundary?.contract !== 'owner-normal-physical-query'
+          || prepared.sourceBoundary?.deltaBaselineAction !== 'basicAttack'
+          || prepared.sourceBoundary?.criticalModel !== 'mean-v1') {
+          issues.push(`${definition.id}: 専用人形の本人能力問い合わせ契約が不足しています`);
+        }
+        const built = buildEpicaDedicatedHitQuery(prepared.ownerQueryBase, {}, 0);
+        if (!built.supported) issues.push(`${definition.id}: ${built.reason}`);
+        if (!Array.isArray(prepared.contributions) || prepared.contributions.length
+          || prepared.queryTimeline || prepared.abilityAssembly || prepared.hitInputs || prepared.executionRules) {
+          issues.push(`${definition.id}: 専用人形の本人能力問い合わせへ別の継承規則を混ぜられません`);
+        }
+        if (!prepared.speed || !['attackSpeedP', 'selfSpeed', 'otherSpeed'].every(key => (
+          typeof prepared.speed[key] === 'number' && Number.isFinite(prepared.speed[key])
+        )) || prepared.speed.attackSpeedP <= -100 || prepared.speed.selfSpeed <= 0
+          || prepared.speed.otherSpeed <= 0) {
+          issues.push(`${definition.id}: 専用人形の個体速度供給が不足しています`);
+        }
+        if (prepared.accelerationModel !== undefined
+          && (prepared.accelerationModel !== 'epica-skill-self-v1' || prepared.speed?.otherSpeed !== 1)) {
+          issues.push(`${definition.id}: 専用人形のスキル型加速契約が不正です`);
+        }
+        if (prepared.spawnClock !== undefined) {
+          const clock = prepared.spawnClock;
+          if (prepared.accelerationModel !== 'epica-skill-self-v1'
+            || !clock || clock.policy !== 'initial-self-speed'
+            || typeof clock.animationFrames !== 'number' || !Number.isFinite(clock.animationFrames)
+            || clock.animationFrames <= 0 || clock.aiDelayFrames !== 1
+            || typeof clock.lifetimeFrames !== 'number' || !Number.isFinite(clock.lifetimeFrames)
+            || clock.lifetimeFrames <= clock.aiDelayFrames) {
+            issues.push(`${definition.id}: 生成完了・初回AI・寿命の時計が不足または不正です`);
+          }
+        }
+        const events = normalizeArray(definition.timingEvents).filter(event => (
+          event.recordPurpose !== '観測' && /ダメージ/.test(event.effectKind || '')
+        ));
+        if (!events.length || events.some(event => event.effectKind !== '物理ダメージ'
+          || event.eventType !== '攻撃' || event.timeOrigin !== '召喚ユニット行動開始')) {
+          issues.push(`${definition.id}: 専用人形の物理普通攻撃通知が不足または不一致です`);
+        }
+        return;
+      }
+      if (prepared?.assemblyMode === 'epica-dedicated-query-timeline-v1') {
+                                                                           
+                                                                             
+                                                                 
+        if (input.policyVersion !== 2
+          || prepared.sourceBoundary?.contract !== 'resolved-dedicated-query-timeline'
+          || prepared.sourceBoundary?.actionKind !== 'normalAttack'
+          || prepared.sourceBoundary?.attackType !== 'physical'
+          || prepared.sourceBoundary?.criticalModel !== 'mean-v1') {
+          issues.push(`${definition.id}: 専用人形の命中問い合わせ契約が不足しています`);
+        }
+        if (!Array.isArray(prepared.contributions) || prepared.contributions.length
+          || prepared.abilityAssembly || prepared.hitInputs || prepared.executionRules) {
+          issues.push(`${definition.id}: 解決済み命中問い合わせへ別の継承・補正規則を混ぜられません`);
+        }
+        const timeline = prepared.queryTimeline;
+        if (!Array.isArray(timeline) || !timeline.length || timeline[0]?.startFrame !== 0) {
+          issues.push(`${definition.id}: 専用人形の初期命中問い合わせがありません`);
+        } else {
+          let previous = -1;
+          const level = timeline[0].query?.skillLevel;
+          timeline.forEach(row => {
+            if (!row || typeof row !== 'object' || Array.isArray(row)) {
+              issues.push(`${definition.id}: 命中問い合わせの行が不正です`);
+              return;
+            }
+            if (typeof row.startFrame !== 'number' || !Number.isFinite(row.startFrame)
+              || row.startFrame <= previous || row.startFrame < 0
+              || row.query?.frame !== row.startFrame || row.query?.skillLevel !== level) {
+              issues.push(`${definition.id}: 命中問い合わせの時刻・スキルレベルが不正です`);
+            }
+            previous = row.startFrame;
+            const result = evaluateEpicaDedicatedHitQuery(row.query);
+            if (!result.supported) issues.push(`${definition.id}: ${result.reason}`);
+          });
+        }
+        if (!prepared.speed || !['attackSpeedP', 'selfSpeed', 'otherSpeed'].every(key => (
+          typeof prepared.speed[key] === 'number' && Number.isFinite(prepared.speed[key])
+        )) || prepared.speed.attackSpeedP <= -100 || prepared.speed.selfSpeed <= 0
+          || prepared.speed.otherSpeed <= 0) {
+          issues.push(`${definition.id}: 専用人形の個体速度入力が不正です`);
+        }
+        const events = normalizeArray(definition.timingEvents).filter(event => (
+          event.recordPurpose !== '観測' && /ダメージ/.test(event.effectKind || '')
+        ));
+        if (!events.length || events.some(event => event.effectKind !== '物理ダメージ'
+          || event.eventType !== '攻撃' || event.timeOrigin !== '召喚ユニット行動開始')) {
+          issues.push(`${definition.id}: 専用人形の物理普通攻撃通知が不足または不一致です`);
+        }
+        return;
+      }
+      if (!prepared || !['resolved-hit-v1', 'momo-abilities-v2', 'missile-abilities-v1'].includes(prepared.assemblyMode)) {
         issues.push(`${definition.id}: 分身能力の組立式・効果対応が未解決です`); return;
       }
-      const abilities = prepared.assemblyMode === 'momo-abilities-v2';
+      const missile = prepared.assemblyMode === 'missile-abilities-v1';
+      const abilities = missile || prepared.assemblyMode === 'momo-abilities-v2';
+      if (missile && (prepared.provisionalModel || prepared.executionRules
+        || prepared.abilityAssembly?.hpFixed !== undefined
+        || prepared.sourceBoundary?.contract !== 'missile-snapshot-v1')) {
+        issues.push(`${definition.id}: Missile能力契約にMomo固有のHP・生成・暫定規則を流用できません`);
+      }
       if (prepared.executionRules) {
         const rule = prepared.executionRules;
         if (input.policyVersion !== 2 || !['generationIntervalSeconds', 'gamePlaySpeed',
@@ -1301,15 +1546,22 @@
       if (abilities) {
         try {
           if (input.policyVersion !== 2) throw new RangeError('分身能力組立はpolicyVersion 2が必要です');
+          if (!missile && !Number.isFinite(prepared.abilityAssembly?.hpFixed)) {
+            throw new RangeError('CreatureのHP入力が不足しています');
+          }
           assembleSummonAbilities(prepared.abilityAssembly);
           if (prepared.speed?.attackSpeedP !== 0 || prepared.abilityAssembly.attackSpeedBase !== definition.attackSpeedBase) {
             throw new RangeError('能力組立の基礎攻速・率入力が重複または不一致です');
           }
           if (!Array.isArray(prepared.enemyTimeline) || !prepared.enemyTimeline.length) throw new RangeError('命中対象の能力入力がありません');
           let previous = -1;
+          const defenseKeys = missile ? [...new Set(normalizeArray(definition.timingEvents)
+            .filter(event => event.recordPurpose !== '観測' && /ダメージ/.test(event.effectKind || ''))
+            .map(event => prepared.hitContexts?.[event.effectId]?.attackType === 'physical'
+              ? 'physicalDef' : 'magicDef'))] : ['magicDef'];
           prepared.enemyTimeline.forEach(row => {
             if (!Number.isFinite(row.startFrame) || row.startFrame < 0 || row.startFrame <= previous
-              || !['magicDef', 'critRes', 'critDmgRes'].every(key => typeof row.stats?.[key] === 'number'
+              || ![...defenseKeys, 'critRes', 'critDmgRes'].every(key => typeof row.stats?.[key] === 'number'
                 && Number.isFinite(row.stats[key]) && row.stats[key] >= 0)) throw new RangeError('敵能力の時刻・値が不正です');
             previous = row.startFrame;
           });
@@ -1323,6 +1575,10 @@
       }
       normalizeArray(definition.timingEvents).filter(event => event.recordPurpose !== '観測'
         && /ダメージ/.test(event.effectKind || '')).forEach(event => {
+        if (missile && (!['physical', 'magic'].includes(prepared.hitContexts?.[event.effectId]?.attackType)
+          || !['normalAttack', 'autoTrigger'].includes(prepared.hitContexts?.[event.effectId]?.actionKind))) {
+          issues.push(`${definition.id}/${event.effectId}: Missile自身の攻撃種別・行動分類が不足しています`);
+        }
         const hit = prepared.hitInputs?.[event.effectId];
         const required = abilities ? fields.filter(field => !['baseDamage', 'critRate', 'critMult'].includes(field)) : fields;
         if (!hit || required.some(field => typeof hit[field] !== 'number' || !Number.isFinite(hit[field]))
@@ -1348,6 +1604,12 @@
         }
         if (effect.sourceKind === 'status' && [4, 9].includes(effect.nativeKind)
           && effect.inheritance === 'copyAtSpawn') issues.push(`${effect.id}: WorldRule/Augmentをコピーできません`);
+        if (missile && effect.inheritance === 'copyAtSpawn'
+          && (Object.keys(effect.speedModifiers || {}).length
+            || Object.hasOwn(effect.abilityModifiers || {}, 'attackSpeedP')
+            || Object.hasOwn(effect.abilityModifiers || {}, 'attackSpeedFixed'))) {
+          issues.push(`${effect.id}: Missile攻速は子自身の46/47経路で、主人snapshotからコピーできません`);
+        }
         if (typeof effect.startFrame !== 'number' || !Number.isFinite(effect.startFrame)
           || effect.startFrame < 0 || (effect.endFrame !== null && (
             typeof effect.endFrame !== 'number' || !Number.isFinite(effect.endFrame) || effect.endFrame <= effect.startFrame))) {
@@ -1420,6 +1682,50 @@
   function createSummonDataResolver(input) {
     return ({ definition, frame, ownerModifiers = {}, ownerAttackSpeedP = 0 }) => {
       const prepared = input.definitions[definition.id];
+      if (prepared.assemblyMode === 'epica-dedicated-owner-query-v1') {
+        return {
+          ownerDeltaAction: 'basicAttack',
+          getSpeed: context => ({ ...prepared.speed,
+            ...(prepared.accelerationModel === 'epica-skill-self-v1'
+              ? { selfSpeed: prepared.speed.selfSpeed * context.globalActionSpeed, otherSpeed: 1 } : {}) }),
+          ...(prepared.spawnClock ? {
+            getSpawnTiming: context => {
+              const scale = prepared.speed.selfSpeed * context.globalActionSpeed;
+              if (!Number.isFinite(scale) || scale <= 0) {
+                throw new RangeError(`${definition.id}: 生成時のモーション速度が不正です`);
+              }
+              const completedAt = prepared.spawnClock.animationFrames / scale;
+              return {
+                initialDelayFrames: completedAt + prepared.spawnClock.aiDelayFrames,
+                lifetimeFrames: completedAt + prepared.spawnClock.lifetimeFrames
+              };
+            }
+          } : {}),
+          getHitInput: context => {
+            const built = buildEpicaDedicatedHitQuery(prepared.ownerQueryBase,
+              context.ownerModifiers, context.frame);
+            if (!built.supported) throw new RangeError(`${definition.id}: ${built.reason}`);
+            const result = evaluateEpicaDedicatedHitQuery(built.query);
+            if (!result.supported) throw new RangeError(`${definition.id}: ${result.reason}`);
+            return result.hitInput;
+          }
+        };
+      }
+      if (prepared.assemblyMode === 'epica-dedicated-query-timeline-v1') {
+        return {
+          getSpeed: () => ({ ...prepared.speed }),
+          getHitInput: context => {
+                                                                               
+                                                                             
+                                                                          
+            const row = prepared.queryTimeline.filter(item => item.startFrame <= context.frame).at(-1);
+            const result = evaluateEpicaDedicatedHitQuery({ ...row.query, frame: context.frame });
+            if (!result.supported) throw new RangeError(`${definition.id}: ${result.reason}`);
+            return result.hitInput;
+          }
+        };
+      }
+      const assembled = ['momo-abilities-v2', 'missile-abilities-v1'].includes(prepared.assemblyMode);
       const provisional = prepared.provisionalModel === 'momo-site-snapshot-v1';
       const copiedOwner = provisional ? { ...ownerModifiers } : {};
       const inferredAbility = provisional ? { rateP: {
@@ -1466,25 +1772,27 @@
       return {
         getSpeed: context => {
           const speed = { ...prepared.speed };
-          if (prepared.assemblyMode === 'momo-abilities-v2') {
+          if (assembled) {
             speed.attackSpeedP = (statsAt(context.frame).attackSpeed / definition.attackSpeedBase - 1) * 100;
           }
           if (provisional) {
             speed.selfSpeed = context.globalActionSpeed || 1;
             speed.otherSpeed = context.globalActionSpeed || 1;
           }
-          if (prepared.assemblyMode !== 'momo-abilities-v2') activeEffectsAt(context.frame).forEach(effect => {
+          if (!assembled) activeEffectsAt(context.frame).forEach(effect => {
             Object.entries(effect.speedModifiers || {}).forEach(([key, value]) => { speed[key] += value; });
           });
           return speed;
         },
         getHitInput: context => {
           const hit = { ...prepared.hitInputs[context.event.effectId] };
-          if (prepared.assemblyMode === 'momo-abilities-v2') {
+          if (assembled) {
             const stats = statsAt(context.frame);
             const enemy = prepared.enemyTimeline.filter(row => row.startFrame <= context.frame).at(-1).stats;
-            const atk = Math.max(0, stats.magicAtk);
-            hit.baseDamage = atk * calcRuntimeBaseDamageRate(atk, Math.max(1, enemy.magicDef));
+            const physical = prepared.assemblyMode === 'missile-abilities-v1'
+              && prepared.hitContexts[context.event.effectId].attackType === 'physical';
+            const atk = Math.max(0, physical ? stats.physicalAtk : stats.magicAtk);
+            hit.baseDamage = atk * calcRuntimeBaseDamageRate(atk, Math.max(1, physical ? enemy.physicalDef : enemy.magicDef));
             const adjustment = prepared.hitAdjustments?.[context.event.effectId] || {};
             hit.critRate = clampCombatCritRate(calcRuntimeCritRate(Math.max(0, stats.crit), Math.max(1, enemy.critRes))
               + (toFiniteNumber(adjustment.critRateP) + toFiniteNumber(copiedOwner.critRateP)) / 100);
@@ -1518,6 +1826,20 @@
     const motionScale = Math.min(1, period / motionFrames) / selfSpeed;
     return { motionScale, motionFrames: motionFrames * motionScale,
       waitFrames: Math.max(0, period - motionFrames) };
+  }
+
+                                                                                  
+                                                                               
+  function getAliceGeneratedFirstHitApplicationId(skill, generated, row) {
+    const contracts = {
+      Alice_low_scratch: ['Alice_low', 'Alice_low_e08', 'Alice_low_e11', 'かすり傷注意'],
+      Alice_high_scratch: ['Alice_high', 'Alice_high_e08', 'Alice_high_e11', 'かすり傷注意'],
+      Alice_high_shock: ['Alice_high', 'Alice_high_e01', 'Alice_high_e03', '傘持参']
+    };
+    const contract = contracts[generated?.id];
+    return contract && skill?.skillId === contract[0] && row?.effectId === contract[1]
+      && generated.branch === contract[3] && row.repeatTarget === true
+      ? contract[2] : '';
   }
 
   function buildGeneratedEvents(apostle, skill, actionTiming, warnings, statusDefinitions = [], skillLevel = 1) {
@@ -1596,6 +1918,8 @@
             generatedInstanceOrder: instanceOrder,
             generatedInstanceKey,
             generatedEventType: '生成',
+            generatedSpawnOrigin: generated.spawnOrigin,
+            generatedSpawnFrame: spawnFrame,
             respawnPolicy: generated.respawnPolicy || '',
             generatedAttackSpeedReference: attackSpeedSettings.reference,
             generatedAttackSpeedBase: attackSpeedSettings.base,
@@ -1626,7 +1950,12 @@
                                                                                   
           const effect = resolveApostleEffect(apostle, skill, row.effectId)
             || resolveRowDamageEffect(skill, row, row.branch || '');
-          const statusApplication = statusDefinitions.find(item => item.applicationEffectId === row.effectId) || null;
+          const scratchApplicationId = getAliceGeneratedFirstHitApplicationId(skill, generated, row);
+          const statusApplication = statusDefinitions.find(item => item.applicationEffectId === (scratchApplicationId || row.effectId)) || null;
+          const expectedAliceStatus = generated.id === 'Alice_high_shock' ? '感電' : '気絶';
+          if (scratchApplicationId && (!statusApplication || statusApplication.status !== expectedAliceStatus)) {
+            throw new RangeError('アリスの反復命中に対応する状態入力がありません');
+          }
           const damage = (!!effect && isDamageEffect(effect))
             || /ダメージ|攻撃/.test(String(row.effectKind || ''));
           if (row.effectId && !resolveApostleEffect(apostle, skill, row.effectId)) {
@@ -1674,6 +2003,8 @@
               generatedObjectName: generated.name || '',
               generatedInstanceOrder: instanceOrder,
               generatedInstanceKey,
+              generatedSpawnOrigin: generated.spawnOrigin,
+              generatedSpawnFrame: spawnFrame,
               generatedEventType: row.eventType || '',
               generatedEndFrame: endFrame,
               respawnPolicy: generated.respawnPolicy || '',
@@ -1689,7 +2020,8 @@
               generatedRepeatAnchorFrame: eventFrame,
               generatedRepeatIntervalFrames: repeatInterval,
               generatedRepeatCount: repeatCount,
-              statusApplication,
+              statusApplication: scratchApplicationId && repeat !== 0 ? null : statusApplication,
+              ...(scratchApplicationId && repeat === 0 ? {statusApplicationPhase: 'afterDamage'} : {}),
               timingQuality: /済|完了/.test(String(row.researchStatus || '')) ? 'measured' : 'provisional',
               note: row.note || generated.note || ''
             });
@@ -1705,6 +2037,13 @@
   }
 
   function buildVariantEvents(apostle, skill, actionTiming, actionKey, branch, motionFrames, warnings, suppressDamageFallback = false, statusDefinitions = [], runtimeResources = [], skillLevel = 1, exactBranch = false, timingContext = {}, branchComposition = 'replacement') {
+    const sherumArea = normalizeScenarioId(apostle?.id) === 'sherum'
+      && ['lowSkill', 'highSkill'].includes(actionKey);
+    const yomiArea = normalizeScenarioId(apostle?.id) === 'yomi' && actionKey === 'highSkill'
+      && normalizeArray(actionTiming?.timingEvents).some(row => ['Yomi_high_e01','Yomi_high_e02'].includes(row.effectId));
+                                                                          
+                                                                          
+    if (sherumArea || yomiArea) suppressDamageFallback = true;
     const usesRawTiming = actionTiming?.timingBasis === 'rawMotion'
       && actionTiming?.timingAdoption !== '暫定採用';
     const includeCommonRows = !exactBranch || branchComposition === 'additive';
@@ -1719,6 +2058,9 @@
       const rowBranch = row.branch || '';
       if ((includeCommonRows && (rowBranch === '' || rowBranch === '共通')) || rowBranch === branch) return true;
       if (!selectedResourceBranch) return false;
+                                                                             
+                                                                            
+      if (normalizeScenarioId(apostle?.id) === 'pira' && actionKey === 'highSkill') return false;
       const match = String(rowBranch).match(new RegExp(`^${selectedResourceBranch.resource.name}(\\d+)$`));
       return !!match && Number(match[1]) <= selectedResourceBranch.count;
     });
@@ -1845,21 +2187,32 @@
     }
 
     statusDefinitions.filter(item => item.branch === branch).forEach(statusApplication => {
-                                                                          
-                                                                      
-      if (normalizeArray(actionTiming?.generatedObjects).some(object => object.executionMode === '召喚ユニット'
-        && normalizeArray(object.timingEvents).some(row => row.recordPurpose !== '観測'
+                                                                             
+                                                                               
+      if (normalizeArray(actionTiming?.generatedObjects).some(object =>
+        normalizeArray(object.timingEvents).some(row => row.recordPurpose !== '観測'
           && row.effectId === statusApplication.applicationEffectId && row.eventType === '状態付与'))) return;
+      if (normalizeArray(actionTiming?.generatedObjects).some(object => object.recordPurpose !== '観測'
+        && normalizeArray(object.timingEvents).some(row => row.recordPurpose !== '観測'
+          && getAliceGeneratedFirstHitApplicationId(skill, object, row) === statusApplication.applicationEffectId))) return;
       if (events.some(event => event.statusApplication?.applicationEffectId === statusApplication.applicationEffectId)) return;
                                                                             
                                                                               
       const application = resolveEffect(skill, statusApplication.applicationEffectId);
-      const sourceId = String(application?.triggerSourceId || '');
+                                                                            
+                                                                               
+                                                                                 
+      const ayaFreezeHit = skill?.skillId === 'Aya_high'
+        && statusApplication.applicationEffectId === 'Aya_high_e03'
+        && statusApplication.status === '凍傷' && statusApplication.durationFrames === 600
+        && statusApplication.maxStacks === 9 && !application?.triggerSourceId;
+      const sourceId = String(application?.triggerSourceId || (ayaFreezeHit ? 'Aya_high_e01' : ''));
       const sourceEffect = resolveEffect(skill, sourceId);
                                                                          
                                                                               
                                                                           
-      const runtimeOwnsApplication = application?.triggerType === '攻撃命中時' && sourceId
+      const runtimeOwnsApplication = ['攻撃命中時', '普通攻撃命中時一定確率', '通常攻撃命中時一定確率']
+        .includes(application?.triggerType) && sourceId
         && normalizeArray(timingContext.runtimeEventEffects).some(effect => (
           effect.triggerType === application.triggerType
           && (String(effect.triggerSourceId || '') === sourceId
@@ -1868,9 +2221,9 @@
             && step.application?.applicationEffectId === statusApplication.applicationEffectId)
         ));
       if (runtimeOwnsApplication) return;
-      const linkedHits = application?.triggerType === '攻撃命中時'
+      const linkedHits = (ayaFreezeHit || (application?.triggerType === '攻撃命中時'
         && !application.conditionType && !application.condition && !application.triggerValue && application.processGroupId
-        && sourceEffect?.processGroupId === application.processGroupId && isDamageEffect(sourceEffect)
+        && sourceEffect?.processGroupId === application.processGroupId && isDamageEffect(sourceEffect)))
         ? events.filter(event => event.type === 'damage' && event.effectId === sourceId) : [];
       const orderedSources = new Set(linkedHits.map(event => `${event.frame}:${event.eventOrder}`));
       if (linkedHits.length && orderedSources.size === linkedHits.length && linkedHits.every(event => (
@@ -1911,6 +2264,49 @@
     ));
     const damageEvents = sortedEvents.filter(event => event.type === 'damage' && event.hitCount > 0);
     if (damageEvents.length) damageEvents[damageEvents.length - 1].isFinalHit = true;
+    if (sherumArea) {
+      const favoriteArea = actionKey === 'lowSkill' && skill?.skillId === 'Sherum_favorite_1';
+      const durationId = favoriteArea ? 'Sherum_favorite_1_e01'
+        : actionKey === 'lowSkill' ? 'Sherum_low_e03' : 'Sherum_high_e03';
+      const duration = resolveEffectValue(resolveEffect(skill, durationId), skillLevel);
+      const damageId = favoriteArea ? 'Sherum_favorite_1_e04'
+        : actionKey === 'lowSkill' ? 'Sherum_low_e01' : 'Sherum_high_e01';
+      const pulseIds = [damageId, ...(actionKey === 'lowSkill'
+        ? [favoriteArea ? 'Sherum_favorite_1_e02' : 'Sherum_low_e04'] : [])];
+      if (sortedEvents.some(event => event.type === 'damage' && event.effectId !== damageId)) {
+        throw new RangeError('シェルム領域の条件付き追加ダメージは未接続です');
+      }
+      sortedEvents.forEach(event => {
+        if (!pulseIds.includes(event.effectId)) return;
+        if (!Number.isFinite(duration) || duration <= 0 || event.timingQuality === 'fallbackEnd') {
+          throw new RangeError('シェルム領域の持続時間・発生通知が不足しています');
+        }
+        const pulseEvent = { ...event, hitCount: event.type === 'damage' ? 1 : 0,
+          isFinalHit: false, afterAction: '継続' };
+        event.type = 'effect';
+        event.hitCount = 0;
+        event.isFinalHit = false;
+        event.ownerArea = {durationSeconds:duration, intervalSeconds:1, pulseEvent};
+      });
+    }
+    if (yomiArea) {
+      const duration = resolveEffectValue(resolveEffect(skill, 'Yomi_high_e04'), skillLevel);
+      const rows = sortedEvents.filter(event => ['Yomi_high_e01','Yomi_high_e02'].includes(event.effectId));
+      if (!Number.isFinite(duration) || duration !== 12 || rows.length !== 2
+        || rows.filter(event => event.effectId === 'Yomi_high_e01').length !== 1
+        || rows.filter(event => event.effectId === 'Yomi_high_e02').length !== 1
+        || rows.some(event => event.timingQuality === 'fallbackEnd' || event.frame !== rows[0].frame)
+        || rows.find(event => event.effectId === 'Yomi_high_e02').type !== 'damage'
+        || rows.find(event => event.effectId === 'Yomi_high_e01').type === 'damage') {
+        throw new RangeError('ヨミの月光領域の生成通知・持続時間が不足しています');
+      }
+      rows.forEach(event => {
+        const pulseEvent = {...event, hitCount:event.type === 'damage' ? 1 : 0,
+          isFinalHit:false,afterAction:'継続'};
+        event.type='effect';event.hitCount=0;event.isFinalHit=false;
+        event.ownerArea={durationSeconds:duration,intervalSeconds:1,pulseEvent};
+      });
+    }
     return sortedEvents;
   }
 
@@ -1937,8 +2333,30 @@
     const baseSkill = findSkill(apostle, actionKey);
     const skill = findSkill(apostle, actionKey, buildOptions.skillOverrides);
     if (!actionTiming || !skill) return null;
+                                                                                   
+    const pendingRecoveryTiming = actionTiming.activationMode === 'nonOccupyingRecoveryPending';
+    const nonOccupyingImmediate = pendingRecoveryTiming
+      || actionTiming.activationMode === 'nonOccupyingImmediate';
+    if (pendingRecoveryTiming && (!normalizeArray(skill.effects).length
+      || normalizeArray(skill.effects).some(effect => effect.effectType !== '回復'
+        || effect.valueKind !== 'HP回復')
+      || normalizeArray(actionTiming.timingEvents).length)) {
+      throw new RangeError('回復時刻未確認の非占有発動はHP回復のみの高学年に限定されます');
+    }
+    if (nonOccupyingImmediate && (actionKey !== 'highSkill'
+      || !(Number(skill.cooldownSeconds) > 0)
+      || (!pendingRecoveryTiming && !normalizeArray(actionTiming.timingEvents).length)
+      || normalizeArray(actionTiming.timingEvents).some(event => event.frame !== 0
+        || !event.effectId || !resolveApostleEffect(apostle, skill, event.effectId))
+      || normalizeArray(actionTiming.timingPatterns).length
+      || normalizeArray(actionTiming.generatedObjects).length)) {
+      throw new RangeError('非占有・即時高学年のCTまたは明示命中入力が不正です');
+    }
     const motionVariants = normalizeArray(actionTiming.motionVariants).filter(item => item?.gameFrames != null);
-    if (actionTiming.motionFrames == null && !motionVariants.length) return null;
+    if (!nonOccupyingImmediate && actionTiming.motionFrames == null && !motionVariants.length) return null;
+    if (nonOccupyingImmediate && (motionVariants.length || actionTiming.motionFrames != null)) {
+      throw new RangeError('非占有高学年に本人モーションを指定できません');
+    }
     const motionFrames = Math.max(0, toFiniteNumber(
       actionTiming.motionFrames,
       motionVariants[0]?.gameFrames
@@ -2061,7 +2479,24 @@
       const lastPatternFrame = patternRows.reduce((max, row) => (
         Math.max(max, toFiniteNumber(row.frame))
       ), 0);
-      motionFramesByVariant[variantKey] = Math.max(baseFrames, lastPatternFrame);
+      let patternMotionFrames = baseFrames;
+      if (skill.skillId === 'Kidian_low' && actionKey === 'lowSkill') {
+        const extra = getActiveSkillCountModifierSum(timingContext.skillCountModifiers,
+          actionKey, timingContext.artifactCount);
+        if (extra > 0) {
+          const patterns = normalizeArray(actionTiming.timingPatterns).filter(pattern =>
+            pattern.id === 'Kidian_low_pattern02' && pattern.effectId === 'Kidian_low_e01');
+          if (patterns.length !== 1 || !(patterns[0].intervalFrames > 0) || !Number.isInteger(extra))
+            throw new RangeError('ギデオンの追加攻撃と終了時計の入力を確認できません');
+                                                                               
+                                                                            
+                                                                          
+          patternMotionFrames += extra * patterns[0].intervalFrames;
+          const notice='ギデオンA2は一部に暫定的な数値を使用しています。HP変化に伴う追加効果の自動発動は未対応です。';
+          if (!warnings.includes(notice)) warnings.push(notice);
+        }
+      }
+      motionFramesByVariant[variantKey] = Math.max(patternMotionFrames, lastPatternFrame);
     });
     const variants = {};
     branches.forEach(branch => {
@@ -2089,6 +2524,27 @@
         branchComposition
       );
     });
+    if (skill.skillId === 'Elena_basic' && !favoriteOverrideActive) {
+      const damage = normalizeArray(variants.default).filter(event => event.type === 'damage');
+      const first = normalizeArray(skill.effects).find(effect => effect.effectId === 'Elena_basic_e01');
+      const last = normalizeArray(skill.effects).find(effect => effect.effectId === 'Elena_basic_e03');
+      if (damage.length === 3 && getLv1Multiplier(first) === 90 && getLv1Multiplier(last) === 60) {
+        let index = 0;
+        variants.default = variants.default.map(event => {
+          if (event.type !== 'damage') return event;
+          const finalHit = index++ === 2;
+          return { ...event, effectId: finalHit ? last.effectId : first.effectId,
+            coefficientShare: null, nativeCoefficientScale: 150 / (finalHit ? 60 : 90), nativeCoefficientInteger: true,
+            nativeEffectDamage: Math.fround(finalHit ? .4 : .3), onlySelectedDamageEffect: true };
+        });
+      }
+    }
+    if (skill.skillId === 'Elena_high' && !favoriteOverrideActive
+      && summonUnits.some(unit => unit.id === 'Elena_high_drone')) {
+                                                                              
+                                                                       
+      variants.default = normalizeArray(variants.default).filter(event => event.type !== 'damage');
+    }
     const exclusiveDamageCandidates = normalizeArray(skill?.dpsExclusiveDamageCandidates)
       .filter(candidate => candidate?.effectId && toFiniteNumber(candidate?.weight) > 0);
     const exclusiveCandidateWeight = exclusiveDamageCandidates.reduce((total, candidate) => (
@@ -2097,6 +2553,26 @@
     let actionVariantNames = branches.filter(Boolean);
     const variantLabels = {};
     let exclusiveVariantSelection = null;
+                                                                        
+                                                                                     
+                                                                             
+    const posherChoices = [
+      { effectId: 'Posher_low_e03', branch: '黄のポーション', weight: 25 },
+      { effectId: 'Posher_low_e01', branch: '緑のポーション', weight: 50 },
+      { effectId: 'Posher_low_e02', branch: '赤のポーション', weight: 25 }
+    ];
+    const posherVariantSelection = normalizeScenarioId(apostle?.id) === 'posher'
+      && actionKey === 'lowSkill' && skill?.skillId === 'Posher_low'
+      && !exclusiveDamageCandidates.length
+      && actionVariantNames.length === 3
+      && posherChoices.every(choice => actionVariantNames.includes(choice.branch)
+        && normalizeArray(actionTiming.timingEvents).some(row => row.branch === choice.branch
+          && row.effectId === choice.effectId && row.frame !== null && row.frame !== undefined
+          && Number.isFinite(Number(row.frame)) && Number(row.frame) >= 0)
+        && normalizeArray(skill.effects).some(effect => effect.effectId === choice.effectId
+          && effect.conditionType === 'ランダム分岐' && effect.conditionValue === choice.branch))
+      ? { type: 'weighted', choices: posherChoices.map(({ branch, weight }) => ({ branch, weight })) }
+      : null;
                                                                            
                                                                               
                                                                             
@@ -2152,6 +2628,24 @@
         .reduce((total, event) => total + toFiniteNumber(event.resourceChange.amount), 0);
       return { resourceId: resource.id, choices, predictedGain: commonGain };
     }).find(Boolean);
+    let motionVariantSelection = null;
+    if (actionTiming.variantWeights !== undefined) {
+      const weights = actionTiming.variantWeights;
+      const choices = Object.entries(weights || {}).map(([branch, weight]) => ({ branch, weight }));
+      const sourceBranches = [...new Set(motionVariants.map(item => item.branch))];
+      if (!choices.length || !sourceBranches.length || sourceBranches.includes('')
+        || choices.length !== sourceBranches.length
+        || choices.some(choice => !sourceBranches.includes(choice.branch)
+          || typeof choice.weight !== 'number' || !Number.isFinite(choice.weight) || choice.weight <= 0)
+        || !Number.isFinite(choices.reduce((sum, choice) => sum + choice.weight, 0))
+        || exclusiveVariantSelection || posherVariantSelection || selfStateVariantChoices.length || resourceVariant) {
+        throw new RangeError('モーション分岐の抽選重みが不足、不正、または別の選択条件と競合しています');
+      }
+                                                                         
+                                                            
+      motionVariantSelection = { type: 'weighted', choices: choices.filter(choice => branches.includes(choice.branch)) };
+      if (!motionVariantSelection.choices.length) throw new RangeError('モーション抽選の実行可能分岐がありません');
+    }
                                        
                                       
     const triggerType = actionKey === 'enhancedAttack'
@@ -2194,6 +2688,11 @@
     const fixedBranch = preferredBranch != null && preferredBranch !== ''
       ? preferredBranch
       : artifactBranch;
+                                                                         
+                                                                            
+    const aliceCardSelection = ['Alice_low','Alice_high'].includes(skill.skillId)
+      && !fixedBranch && ['傘持参','残り火注意','かすり傷注意'].every(branch => branches.includes(branch))
+      ? {type:'random'} : null;
     const blockedBySelfStateIds = actionKey === 'enhancedAttack'
       ? [...new Set(normalizeArray(skill.effects)
         .filter(effect => String(effect?.conditionType || '') === '固有状態外')
@@ -2202,13 +2701,16 @@
       : [];
                                                                               
                                                                             
-    if (skill.skillId === 'Allet_high' || skill.skillId === 'Vivi_low') {
+    if (skill.skillId === 'Allet_high' || skill.skillId === 'Vivi_low' || skill.skillId === 'Snorky_low') {
       const allet = skill.skillId === 'Allet_high';
-      const shield = skill.effects.find(effect => effect.effectId === (allet ? 'Allet_high_e01' : 'Vivi_low_e01'));
-      const lifetime = skill.effects.find(effect => effect.effectId === (allet ? 'Allet_high_e02' : 'Vivi_low_e02'));
+      const snorky = skill.skillId === 'Snorky_low';
+      const prefix = allet ? 'Allet_high' : snorky ? 'Snorky_low' : 'Vivi_low';
+      const shield = skill.effects.find(effect => effect.effectId === `${prefix}_e01`);
+      const lifetime = skill.effects.find(effect => effect.effectId === `${prefix}_e02`);
       const attack = allet ? skill.effects.find(effect => effect.effectId === 'Allet_high_e03') : null;
       const durationFrames = resolveEffectValue(lifetime, buildOptions.skillLevels?.[allet ? 'high' : 'low'] || 1) * 60;
-      if (shield?.effectTarget !== '自身' || !(durationFrames > 0) || (allet && attack?.effectType !== '攻撃')) {
+      if (!(shield?.effectTarget === '自身' || (snorky && shield?.effectTarget === '味方/前列'
+        && (apostle.position || apostle.basic?.position) === '前列')) || !(durationFrames > 0) || (allet && attack?.effectType !== '攻撃')) {
         throw new Error(`${apostle.name || skill.skillId}のシールド終了効果の入力が不足しています`);
       }
       Object.values(variants).forEach(events => {
@@ -2227,8 +2729,150 @@
         };
       });
     }
+                                                                                
+                                                                               
+                                                                         
+    if (skill.skillId === 'Kommy_low' || skill.skillId === 'Kommy_high' || skill.skillId === 'Tig_high'
+      || skill.skillId === 'Joanne_high') {
+      const low = skill.skillId === 'Kommy_low';
+      const tig = skill.skillId === 'Tig_high';
+      const joanne = skill.skillId === 'Joanne_high';
+      const stateId = joanne ? 'Joanne_high_e03' : tig ? 'Tig_high_e05' : low ? 'Kommy_low_e04' : 'Kommy_high_e05';
+      const durationId = joanne ? 'Joanne_high_e04' : tig ? 'Tig_high_e06' : low ? 'Kommy_low_e05' : 'Kommy_high_e06';
+      const stateEffect = skill.effects.find(effect => effect.effectId === stateId);
+      const durationEffect = skill.effects.find(effect => effect.effectId === durationId);
+      const durationFrames = resolveEffectValue(durationEffect, buildOptions.skillLevels?.[low ? 'low' : 'high'] || 1) * 60;
+      if (stateEffect?.effectType !== '固有状態' || stateEffect?.effectTarget !== '自身' || !(durationFrames > 0)) {
+        throw new Error(`${apostle.name || skill.skillId}の自己状態・持続時間が不足しています`);
+      }
+      Object.values(variants).forEach(events => {
+        const sources = events.filter(event => event.type === 'effect' && event.effectId === stateId);
+        if (sources.length !== 1) throw new Error(`${apostle.name || skill.skillId}の自己状態の発生時刻を一意に解決できません`);
+        sources[0].selfStateApplication = {stateId, status: stateEffect.valueKind, durationFrames};
+      });
+    }
+    if (actionKey === 'highSkill' && skill.skillId === 'Selene_favorite_1') {
+                                                                             
+                                                                       
+      const branch = 'セリーネの夜幻影';
+      const events = normalizeArray(variants[branch]);
+      const hit = events.find(event => event.type === 'damage');
+      if (events.filter(event => event.type === 'damage').length !== 1
+        || hit?.effectId !== 'Selene_favorite_1_e01') {
+        throw new RangeError('セリーネ愛用の独立ダメージ通知が不足しています');
+      }
+      for (const [stateId, durationId, kind] of [
+        ['Selene_favorite_1_e02','Selene_favorite_1_e03','shield'],
+        ['Selene_favorite_1_e04','Selene_favorite_1_e05','selfState']
+      ]) {
+        const effect = resolveEffect(skill, stateId);
+        const durationFrames = resolveEffectValue(resolveEffect(skill, durationId), skillLevel) * 60;
+        const sources = events.filter(event => event.type === 'effect' && event.effectId === stateId);
+        if (effect?.effectTarget !== '自身' || durationFrames !== 480 || sources.length !== 1
+          || sources[0].frame <= hit.frame || sources[0].frame >= motionFramesByVariant[branch]) {
+          throw new RangeError('セリーネ愛用の自己状態通知・持続が不足しています');
+        }
+        sources[0].selfStateApplication = {stateId,status:effect.valueKind,kind,durationFrames,
+          reference:effect.reference || ''};
+      }
+      const stateEvents = events.filter(event => event.selfStateApplication);
+      if (stateEvents[0].frame !== stateEvents[1].frame) throw new RangeError('セリーネ愛用の自己通知時刻が不一致です');
+    }
+                                                                         
+                                                                            
+                                                                            
+    const motionLinkedInstances = new Map();
+    generatedEvents.filter(event => event.generatedSpawnOrigin === 'モーション内').forEach(event => {
+                                                                          
+                                                                                
+                                                                           
+      const key = event.generatedInstanceKey;
+      if (!motionLinkedInstances.has(key)) motionLinkedInstances.set(key, []);
+      motionLinkedInstances.get(key).push(event);
+    });
+    if (motionLinkedInstances.size) Object.entries(variants).forEach(([variant, events]) => {
+      motionLinkedInstances.forEach(sequence => {
+        const first = sequence[0];
+        if (first.branch && first.branch !== '共通' && first.branch !== variant) return;
+        const spawnFrame = first.generatedSpawnFrame;
+        const end = motionFramesByVariant[variant] ?? motionFrames;
+        if (!Number.isFinite(spawnFrame) || spawnFrame < 0 || spawnFrame > end
+          || sequence.some(event => event.frame < spawnFrame)) {
+          throw new RangeError('モーション内生成の発生時刻・生成後イベントが不正です');
+        }
+        events.push({frame: spawnFrame, eventOrder:0, type:'effect', hitCount:0,
+          timingQuality:first.timingQuality, motionLinkedGeneratedEvents:sequence,
+          note:first.note || ''});
+      });
+      events.sort((a,b) => a.frame-b.frame || toFiniteNumber(a.eventOrder)-toFiniteNumber(b.eventOrder));
+    });
+    if (repeatPolicy && (skill === baseSkill || skill.skillId === 'Snorky_favorite_1')) {
+                                                                              
+                                                                                    
+      const favorite = skill.skillId === 'Snorky_favorite_1';
+      const branch = favorite ? 'スノキーのフェドーラ' : 'default';
+      const damageId = favorite ? 'Snorky_favorite_1_e01' : 'Snorky_enhanced_e01';
+      const notifications = normalizeArray(actionTiming.timingEvents).filter(event => (
+        (favorite ? event.branch === branch : !event.branch) && event.effectId === damageId
+        && event.timingBasis === 'rawMotion'
+      ));
+      if (favorite && normalizeArray(actionTiming.timingEvents).length && notifications.length !== 1) {
+        throw new RangeError('スノキー愛用の連続強化通知の原時刻が不足しています');
+      }
+      if (notifications.length > 1) throw new RangeError('スノキーの連続強化攻撃の通知時刻が重複しています');
+      if (notifications.length === 1) {
+        const candidates = normalizeArray(variants[branch]).filter(event => (
+          event.type === 'damage' && event.effectId === damageId
+          && event.frame === notifications[0].frame
+        ));
+        if (candidates.length !== 1) throw new RangeError('スノキーの連続強化攻撃の通知を命中処理へ接続できません');
+        let repeatNotification = candidates[0];
+        if (favorite) {
+          const stun = normalizeArray(variants[branch]).find(event => event.effectId === 'Snorky_favorite_1_e02');
+          const probability = resolveEffectValue(resolveEffect(skill,'Snorky_favorite_1_e03'),skillLevel);
+          if (!stun?.statusApplication || stun.frame !== candidates[0].frame
+            || probability !== 50 || stun.statusApplication.durationFrames !== 120) {
+            throw new RangeError('スノキー愛用の気絶通知・確率・持続が不足しています');
+          }
+          stun.statusApplication.applicationProbability = probability;
+          stun.statusApplication.stackGroupId = 'Snorky_favorite_1:気絶:single:1';
+                                                                           
+                                                                         
+          repeatNotification = stun;
+        }
+        repeatNotification.enhancedRepeatNotification = true;
+        repeatPolicy.notificationVariants = [branch];
+      }
+    }
+    if (actionKey === 'enhancedAttack' && skill.skillId === 'Barong_favorite_1') {
+                                                                           
+                                                                              
+      const events = variants['バロンの呪いのぬいぐるみ'];
+      const hits = normalizeArray(events).filter(event => event.type === 'damage');
+      const definition = statusDefinitions.find(item => item.applicationEffectId === 'Barong_favorite_1_e02');
+      const amount = resolveEffectValue(resolveEffect(skill, 'Barong_favorite_1_e02'), skillLevel);
+      if (hits.length !== 3 || hits.some(event => event.effectId !== 'Barong_favorite_1_e01')
+        || definition?.status !== '攻撃速度減少' || definition.durationFrames !== 300
+        || definition.maxStacks !== 1 || amount !== 30) {
+        throw new RangeError('バロン愛用の3命中・敵攻速低下・持続の入力が不足しています');
+      }
+      hits[2].statusApplication = {...definition, stackGroupId:'Barong_favorite_1:攻撃速度減少:single:1'};
+      hits[2].statusApplicationPhase = 'afterDamage';
+    }
+    if (pendingRecoveryTiming) {
+                                                                               
+                                                                         
+      variants.default = [];
+      warnings.push(`${skill.skillId}: 回復の適用時刻は未確認です。発動・CTのみを反映します`);
+    }
+    if (nonOccupyingImmediate && !pendingRecoveryTiming && Object.values(variants).some(events => !events.length
+      || events.some(event => event.frame !== 0 || event.timingQuality === 'fallbackEnd'))) {
+      throw new RangeError('非占有高学年の未確定命中を0秒へ置換できません');
+    }
     return {
       key: actionKey,
+      activationMode: nonOccupyingImmediate ? 'nonOccupyingImmediate' : 'motion',
+      ...(pendingRecoveryTiming ? {pendingRecoveryTiming:true} : {}),
       eventTimingContractVersion: actionTiming.eventTimingContractVersion || 0,
       normalAttackIntervalBasis,
       label: skill?.dpsActionName
@@ -2243,11 +2887,12 @@
       statusDefinitions,
       variantNames: actionVariantNames,
       variantLabels,
-      variantSelection: exclusiveVariantSelection || (selfStateVariantChoices.length
+      variantSelection: motionVariantSelection || exclusiveVariantSelection || posherVariantSelection || aliceCardSelection || (selfStateVariantChoices.length
         ? {
             type: 'selfState',
             choices: selfStateVariantChoices,
-            fallbackBranch: branches.includes('') ? 'default' : (actionVariantNames[0] || 'default')
+            fallbackBranch: branches.includes('') ? 'default'
+              : (branches.find(branch => !selfStateVariantBranches.has(branch)) || actionVariantNames[0] || 'default')
           }
         : (resourceVariant
         ? { type: 'resourceAfterGain', ...resourceVariant }
@@ -2264,7 +2909,7 @@
       triggerProbability: /^一定確率/.test(triggerType) ? Math.min(100, triggerValue) : 0,
       triggerEveryCount: triggerType === 'n回ごと' ? Math.max(1, Math.floor(triggerValue || 1)) : 0,
       repeatPolicy,
-      transitionFrames: actionKey === 'lowSkill' || actionKey === 'highSkill' ? 2 : 0,
+      transitionFrames: nonOccupyingImmediate ? 0 : actionKey === 'lowSkill' || actionKey === 'highSkill' ? 2 : 0,
       requiredSp: actionKey === 'lowSkill' ? Math.max(1, toFiniteNumber(skill.requiredSp, 300)) : 0,
       cooldownSeconds: actionKey === 'highSkill' ? Math.max(0, toFiniteNumber(skill.cooldownSeconds)) : 0
     };
@@ -2272,6 +2917,7 @@
 
   function buildCombatantConfig(apostle, timing, buildOptions = {}) {
     const warnings = normalizeArray(buildOptions.runtimeEffects?.warnings).map(String).filter(Boolean);
+    const intrinsicExternalEvents = [];
     const scenario = buildOptions.scenario && typeof buildOptions.scenario === 'object'
       ? buildOptions.scenario
       : null;
@@ -2331,9 +2977,45 @@
       };
       current.initialStacks = Math.max(0, toFiniteNumber(resource.initialStacks, current.initialStacks));
       current.maxStacks = Math.max(1, toFiniteNumber(resource.maxStacks, current.maxStacks));
+      if (normalizeScenarioId(apostle?.id) === 'jade' && current.id === '翡翠玉'
+        && normalizeArray(resource.heldAddEffectIds).includes('Jade_aside_2_e02')) {
+        if (resource.heldAddPPerStack !== 9 || current.maxStacks !== 3
+          || JSON.stringify(resource.heldAddActionKeys) !== '["lowSkill","highSkill"]') {
+          throw new RangeError('ジェイドの翡翠玉所持補正が不正です');
+        }
+        current.heldAddEffectIds = ['Jade_aside_2_e02'];
+        current.heldAddPPerStack = 9;
+        current.heldAddActionKeys = ['lowSkill','highSkill'];
+      }
+      if (normalizeScenarioId(apostle?.id) === 'jade' && current.id === '翡翠玉'
+        && resource.heldHasteEffectId === 'Jade_aside_2_e03') {
+        if (resource.heldHastePPerStack !== 5 || current.maxStacks !== 3) {
+          throw new RangeError('ジェイドの翡翠玉攻速補正が不正です');
+        }
+        current.heldHasteEffectId = resource.heldHasteEffectId;
+        current.heldHastePPerStack = 5;
+      }
       runtimeResourceMap.set(current.id, current);
     });
     const runtimeResources = Array.from(runtimeResourceMap.values());
+                                                                           
+                                                                                
+    if (Array.isArray(buildOptions.runtimeEffects?.resourceHeldEffects)) {
+      const enabled = effectId => buildOptions.runtimeEffects.resourceHeldEffects.some(effect => (
+        effect.effectId === effectId && effect.mode !== 'off'
+      ));
+      runtimeResources.forEach(resource => {
+        if (normalizeScenarioId(apostle?.id) !== 'jade' || resource.id !== '翡翠玉') return;
+        if (!enabled('Jade_aside_2_e02')) {
+          resource.heldAddEffectIds = [];
+          resource.heldAddPPerStack = 0;
+        }
+        if (!enabled('Jade_aside_2_e03')) {
+          delete resource.heldHasteEffectId;
+          resource.heldHastePPerStack = 0;
+        }
+      });
+    }
     const intervalValues = [...new Set(normalizeArray(timing?.normalAttackIntervalVariants)
       .filter(item => timing?.actions?.[item?.actionKey]?.normalAttackIntervalBasis !== 'motion')
       .map(item => Number(item?.gameFrames))
@@ -2349,6 +3031,103 @@
       });
       if (action) actions[actionKey] = action;
     });
+    if (normalizeScenarioId(apostle?.id) === 'shoupan' && !actions.enhancedAttack) {
+                                                                              
+                                                                               
+      warnings.push('シュパンの強化行動による回復・移動は未反映です。愛用品の付随効果も再現していません。');
+    }
+    if (normalizeScenarioId(apostle?.id) === 'joanne' && asideRank === 0) {
+      if (actions.enhancedAttack) {
+        const row = String(scenario?.actors?.self?.position || '');
+        const ordinaryBranch = `${row}・通常`;
+        const dreamBranch = `${row}・夢現`;
+        if (!['前列','中列','後列'].includes(row)
+          || !actions.enhancedAttack.variantNames.includes(ordinaryBranch)
+          || !actions.enhancedAttack.variantNames.includes(dreamBranch)) {
+          throw new RangeError('ジョアンの支援に必要な配置列が未設定です');
+        }
+                                                                            
+                                                                             
+        actions.enhancedAttack.variantSelection = {type:'selfState',
+          choices:[{branch:dreamBranch,stateId:'Joanne_high_e03'}],fallbackBranch:ordinaryBranch};
+        const skill = findSkill(apostle, 'enhancedAttack');
+        const intrinsic = (id, durationId, kind, target) => {
+          const effect = resolveEffect(skill, id);
+          const durationEffect = resolveEffect(skill, durationId);
+          const value = resolveEffectValue(effect);
+          const durationFrames = resolveEffectValue(durationEffect) * 60;
+          if (effect?.valueKind !== kind || effect.effectTarget !== target
+            || !Number.isFinite(value) || value < 0 || !(durationFrames > 0)) {
+            throw new RangeError('ジョアン支援の本人受取・持続入力が不正です');
+          }
+          return {id:`${id}:intrinsic:self`,runtimeBaseEffectId:id,sourceId:apostle.id,
+            label:kind,mode:'sourceEventTimed',triggerSourceId:id,
+            triggerActionKeys:['enhancedAttack'],sourceEventFallbackMode:'disabled',
+            durationFrames,stackable:false,maxStacks:1,oncePerAction:false,value};
+        };
+        const ownedSupport = effect => {
+          const ids = [effect?.id,effect?.runtimeBaseEffectId,effect?.effectId].map(value=>String(value||''));
+          return ids.some(id=>/^Joanne_enhanced_e(?:01|03|05|09|11)(?:$|:)/.test(id))
+            && (normalizeScenarioId(effect?.ownerId) === 'joanne'
+              || normalizeScenarioId(effect?.sourceId) === 'joanne'
+              || ids.some(id=>/:owner:Joanne(?:$|:)|:intrinsic:self$/.test(id)));
+        };
+        const runtimeEffects = {...buildOptions.runtimeEffects};
+        for (const key of ['damageBuffEffects','attackSpeedEffects','spRegenEffects','spRecoveryEffects']) {
+          runtimeEffects[key] = normalizeArray(runtimeEffects[key]).filter(effect=>!ownedSupport(effect));
+        }
+        if (row === '中列') {
+          const buff=intrinsic('Joanne_enhanced_e03','Joanne_enhanced_e04','普通攻撃ダメージ量増加','味方全員');
+          runtimeEffects.damageBuffEffects.push({...buff,modifiers:{normalAttackAddP:buff.value}});
+          const haste=intrinsic('Joanne_enhanced_e09','Joanne_enhanced_e10','攻撃速度増加','中列の味方');
+          runtimeEffects.attackSpeedEffects.push({...haste,hasteP:haste.value});
+        } else if (row === '後列') {
+          const buff=intrinsic('Joanne_enhanced_e05','Joanne_enhanced_e06','スキルダメージ量増加','味方全員');
+          runtimeEffects.damageBuffEffects.push({...buff,modifiers:{skillAddP:buff.value}});
+          const regen=intrinsic('Joanne_enhanced_e11','Joanne_enhanced_e12','毎秒SP回復量増加','後列の味方');
+          runtimeEffects.spRegenEffects.push({...regen,fixed:regen.value,percent:0});
+        }
+                                                                               
+                                                                                
+        buildOptions = {...buildOptions,runtimeEffects};
+      }
+                                                                            
+                                                                             
+                                                                          
+      for (const key of ['basicAttack', 'lowSkill']) {
+        const action = actions[key];
+        if (!action) continue;
+        if (!action.variantNames.includes('通常') || !action.variantNames.includes('夢現')) {
+          throw new RangeError('ジョアンの通常・夢現の行動入力が不足しています');
+        }
+        action.variantSelection = {type:'selfState',
+          choices:[{branch:'夢現',stateId:'Joanne_high_e03'}],fallbackBranch:'通常'};
+      }
+      if (actions.basicAttack) {
+        for (const [branch, events] of Object.entries(actions.basicAttack.variants)) {
+          const hits = events.filter(event => event.type === 'damage');
+          const effectId = branch === '通常' ? 'Joanne_basic_e01' : 'Joanne_basic_e02';
+          const multiplier = branch === '通常' ? 200 : 500;
+          if (hits.length !== 1 || hits[0].hitCount !== 1
+            || hits[0].lv1PerHitMultiplier !== multiplier) {
+            throw new RangeError('ジョアンの基本攻撃の置換・命中入力が不正です');
+          }
+                                                                            
+                                                                             
+                                                                                
+          hits[0].effectId = effectId;
+          hits[0].coefficientShare = 1;
+          hits[0].onlySelectedDamageEffect = true;
+        }
+      }
+    }
+                                                                             
+                                                                          
+    if (normalizeScenarioId(apostle?.id) === 'snorky' && actions.highSkill) {
+      Object.values(actions.highSkill.variants).forEach(events => events.forEach(event => {
+        if (event.type === 'damage' && event.effectId === 'Snorky_high_e01') event.onlySelectedDamageEffect = true;
+      }));
+    }
     const epicaA2TimingApproximation = normalizeScenarioId(apostle?.id) === 'epica' && asideRank >= 2;
     const epicaLowEffects = normalizeScenarioId(apostle?.id) === 'epica'
       ? normalizeArray(findSkill(apostle, 'lowSkill')?.effects) : [];
@@ -2364,6 +3143,26 @@
       .flatMap(skill => normalizeArray(skill.effects).map(effect => ({
         ...effect, probabilityLevel: getSkillLevel(skill, buildOptions.skillLevels || {})
       })));
+                                                                          
+                                                                       
+                                                                    
+    const isNaia = normalizeScenarioId(apostle?.id) === 'naia';
+    const naiaCooldownPassive = isNaia
+      ? passiveProbabilityEffects.filter(effect => effect.effectId === 'Naia_passive_e01') : [];
+    let intrinsicCooldownFixedSeconds = 0;
+    if (isNaia) {
+      if (!naiaCooldownPassive.length) throw new Error('ナイアの常時CT短縮の入力が不足しています');
+      if (naiaCooldownPassive.length !== 1) throw new Error('ナイアの常時CT短縮が重複しています');
+      const effect = naiaCooldownPassive[0];
+      const value = resolveEffectValue(effect, effect.probabilityLevel);
+      if (effect.valueKind !== 'クールタイム減少' || effect.effectTarget !== '自身'
+        || effect.conditionType || effect.condition || effect.triggerType
+        || effect.duration || effect.durationSeconds || effect.durationFrames
+        || !Number.isFinite(value) || value < 0) {
+        throw new Error('ナイアの常時CT短縮の対象・条件・数値を確認してください');
+      }
+      intrinsicCooldownFixedSeconds = value;
+    }
     const additionalPowerAttackRate = [...passiveProbabilityEffects, ...unlockedAsideEffects]
       .filter(effect => ['強化攻撃発動確率増加', '強化攻撃確率増加'].includes(effect.valueKind)
         && effect.effectTarget === '自身' && !effect.conditionType && !effect.condition
@@ -2409,7 +3208,65 @@
         });
       });
     });
+    if (normalizeScenarioId(apostle?.id) === 'rufo'
+      && actions.enhancedAttack?.skillId === 'Rufo_enhanced') {
+                                                                             
+                                                                              
+                                                                         
+      Object.entries(actions.enhancedAttack.variants || {}).forEach(([branch,events]) => {
+        if (branch !== 'default' || events.some(event => event.effectId === 'Rufo_enhanced_e02')) return;
+        events.push({type:'selfState',frame:Math.fround(0.20000001788139343) * 60,
+          effectId:'Rufo_enhanced_e02',label:'目くらまし',timingQuality:'asset',
+          selfStateApplication:{stateId:'Rufo_enhanced_e02',status:'目くらまし',durationFrames:240}});
+        events.sort((a,b)=>a.frame-b.frame);
+      });
+    }
+    if (normalizeScenarioId(apostle?.id) === 'risty' && asideRank >= 2 && enemyCount !== 1) {
+      Object.entries(actions.highSkill?.variants || {}).forEach(([branch,events]) => {
+        actions.highSkill.variants[branch]=events.filter(event=>!normalizeArray(event.motionLinkedGeneratedEvents)
+          .some(item=>item.generatedObjectId==='Risty_aside_high_extra'));
+      });
+      warnings.push('リスティA2の追加攻撃は敵1体の比較にのみ対応しています。');
+    }
     const timingEffectIds = new Set();
+    const reservationInput = buildOptions.runtimeEffects?.yomiAsideReservations;
+    const yomiAsideReservations = normalizeScenarioId(apostle?.id) === 'yomi'
+      && enemyCount === 1 && actions.enhancedAttack?.skillId === 'Yomi_enhanced' && reservationInput
+      ? { ...reservationInput, delaySeconds:[...reservationInput.delaySeconds] } : null;
+    if (yomiAsideReservations) {
+      if (yomiAsideReservations.sourceEffectId !== 'Yomi_enhanced_e01'
+        || yomiAsideReservations.effectId !== 'Yomi_aside_2_e03'
+        || yomiAsideReservations.delaySeconds.length !== 3
+        || yomiAsideReservations.delaySeconds.some((delay,index)=>delay !== [.5,.8,1.1][index])) {
+        throw new RangeError('ヨミの追加攻撃予約入力が不正です');
+      }
+      timingEffectIds.add(yomiAsideReservations.effectId);
+    }
+    if (reservationInput && enemyCount !== 1) warnings.push('ヨミA2の追加攻撃は敵1体の比較にのみ対応しています。');
+    if (normalizeScenarioId(apostle?.id) === 'chloe' && actions.basicAttack) {
+      const form = actions.basicAttack.variants?.['ぬいぐるみの意志'];
+      const hits = normalizeArray(form).filter(event => event.type === 'damage');
+      if (hits.length !== 3 || hits.some((event, index) =>
+        event.effectId !== ['Chloe_basic_e02','Chloe_basic_e02','Chloe_basic_e04'][index]
+        || event.hitCount !== 1 || !Number.isFinite(event.frame))) {
+        throw new RangeError('クロエ変身基本の3通知入力が不足しています');
+      }
+      const explicit = form.filter(event => event.effectId === 'Chloe_low_e04');
+      if (explicit.length && explicit.length !== 3) {
+        throw new RangeError('クロエ変身バフの通知数が一致しません');
+      }
+      if (!explicit.length) {
+                                                                             
+                                                                                
+        hits.forEach(hit => form.push({frame:hit.frame,
+          eventOrder:toFiniteNumber(hit.eventOrder,1000)+.25,
+          type:'effect',effectId:'Chloe_low_e04',effectType:'バフ',hitCount:0,
+          eventClock:hit.eventClock,afterAction:hit.afterAction,timeOrigin:hit.timeOrigin,
+          timingQuality:'provisional',note:'暫定: 変身基本の各命中直後に普通攻撃バフを付与'}));
+        form.sort((a,b)=>a.frame-b.frame || toFiniteNumber(a.eventOrder)-toFiniteNumber(b.eventOrder));
+      }
+      warnings.push('クロエ通常暫定: 変身基本の各命中直後に普通攻撃バフを付与します。実際の同一通知内の前後関係は未確認です。');
+    }
     if (normalizeScenarioId(apostle?.id) === 'vivi') {
       warnings.push('ヴィヴィ通常暫定: 固定単体敵を低学年の盾終了効果の範囲内として扱います。被弾による早期破壊は外部イベントで指定し、高学年の盾から防御低下は発動しません。');
     }
@@ -2423,12 +3280,37 @@
         if (event?.effectId) timingEffectIds.add(String(event.effectId));
       });
     });
+    if (normalizeScenarioId(apostle?.id) === 'sherum' && asideRank >= 2
+      && Object.values(actions.highSkill?.variants || {}).some(events =>
+        normalizeArray(events).some(event => event.effectId === 'Sherum_high_e01' && event.ownerArea))) {
+                                                                            
+                                                                             
+      timingEffectIds.add('Sherum_aside_2_e03');
+      warnings.push('シェルムA2の領域効果に暫定的な処理を使用しています。');
+    }
     const resolveSourceEventMode = (effect, sourceMode, fallbackMode) => {
       const mode = String(effect?.mode || fallbackMode);
       if (mode !== sourceMode) return mode;
       const triggerSourceId = String(effect?.triggerSourceId || '');
       if (triggerSourceId && timingEffectIds.has(triggerSourceId)) return mode;
+                                                                        
+                                                                          
+                                                                        
+      if (normalizeScenarioId(apostle?.id) === 'chloe'
+        && effect.id === 'Chloe_aside_2_e07:owner:Chloe'
+        && triggerSourceId === 'Chloe_low_e01' && effect.hasteP === 30
+        && effect.durationFrames === 420
+        && normalizeArray(buildOptions.runtimeEffects?.eventEffects).some(producer =>
+          producer.triggerType === '低学年スキル使用時'
+          && normalizeArray(producer.steps).some(step => step.type === 'selfState'
+            && step.application?.stateId === triggerSourceId
+            && step.application?.durationFrames > 0))) return mode;
       const resolvedFallbackMode = String(effect?.sourceEventFallbackMode || fallbackMode);
+      if (normalizeScenarioId(apostle?.id) === 'yomi'
+        && triggerSourceId === 'Yomi_aside_2_e03' && resolvedFallbackMode === 'disabled') {
+        warnings.push('ヨミA2の追加攻撃と付随効果は未反映です。');
+        return 'disabled';
+      }
       warnings.push(resolvedFallbackMode === 'disabled'
         ? `${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないためDPSでは発動させません`
         : `${effect?.label || effect?.id || '効果'}: 発動元 ${triggerSourceId || '(未設定)'} の発生タイミングがないため行動単位で近似します`);
@@ -2451,6 +3333,7 @@
       ...legacyPeriodicAttackSpeed
     ].map((effect, index) => ({
       id: String(effect?.id || `attackSpeed:${index}`),
+      runtimeBaseEffectId: String(effect?.runtimeBaseEffectId || ''),
       sourceId: String(effect?.sourceId || ''),
       externalSourceId: String(effect?.externalSourceId || ''),
       externalTriggerType: String(effect?.externalTriggerType || ''),
@@ -2517,9 +3400,16 @@
       externalSourceId: String(effect?.externalSourceId || ''),
       externalTriggerType: String(effect?.externalTriggerType || ''),
       label: String(effect?.label || effect?.id || '毎秒SP回復効果'),
-      mode: effect?.mode === 'externalTimed' ? 'externalTimed' : 'constant',
+      mode: effect?.mode === 'sourceEventTimed'
+        ? resolveSourceEventMode(effect, 'sourceEventTimed', 'disabled')
+        : effect?.mode === 'externalTimed' ? 'externalTimed' : 'constant',
+      ...(effect?.mode === 'sourceEventTimed' ? {
+        triggerSourceId: String(effect?.triggerSourceId || ''),
+        triggerActionKeys: normalizeArray(effect?.triggerActionKeys).map(String)
+      } : {}),
       durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
       fixed: toFiniteNumber(effect?.fixed),
+      baseFixed: toFiniteNumber(effect?.baseFixed),
       percent: toFiniteNumber(effect?.percent)
     })).filter(effect => effect.fixed || effect.percent);
     const spRecoveryEffects = normalizeArray(buildOptions.runtimeEffects?.spRecoveryEffects).map((effect, index) => ({
@@ -2527,6 +3417,7 @@
       sourceId: String(effect?.sourceId || ''),
       externalSourceId: String(effect?.externalSourceId || ''),
       externalTriggerType: String(effect?.externalTriggerType || ''),
+      externalBindingKey: String(effect?.externalBindingKey || ''),
       effectId: String(effect?.effectId || ''),
       label: String(effect?.label || effect?.id || 'SP回復効果'),
       mode: resolveSourceEventMode(effect, 'sourceEvent', 'action'),
@@ -2535,6 +3426,16 @@
       percent: toFiniteNumber(effect?.percent),
       fixedMin: toFiniteNumber(effect?.fixedMin, effect?.fixed),
       amountModifierP: toFiniteNumber(effect?.amountModifierP),
+      ...(effect?.unitDelaySeconds === undefined ? {} : {unitDelaySeconds: (() => {
+        if (typeof effect.unitDelaySeconds !== 'number' || !Number.isFinite(effect.unitDelaySeconds)
+          || effect.unitDelaySeconds <= 0 || !['action','actionHit'].includes(effect.mode)) {
+          throw new RangeError('SP回復のunit待機時間が不正です');
+        }
+        return Math.fround(effect.unitDelaySeconds);
+      })()}),
+      ...(effect?.resolvedRecoveryFactors === undefined ? {} : {
+        resolvedRecoveryFactors: normalizeResolvedSpRecoveryFactors(effect)
+      }),
       fixedMax: toFiniteNumber(effect?.fixedMax, effect?.fixed),
       percentMin: toFiniteNumber(effect?.percentMin, effect?.percent),
       percentMax: toFiniteNumber(effect?.percentMax, effect?.percent),
@@ -2545,10 +3446,304 @@
       triggerPhase: effect?.triggerPhase === 'end' ? 'end' : 'start',
       oncePerAction: !!effect?.oncePerAction,
       random: effect?.randomBound === 'range',
+      ...(effect?.randomValueType === 'float' ? {randomValueType:'float'} : {}),
       sourceEventFallbackMode: String(effect?.sourceEventFallbackMode || 'action')
     })).filter(effect => effect.id && (
       effect.fixed || effect.percent || effect.fixedMin || effect.fixedMax || effect.percentMin || effect.percentMax
     ));
+    if (normalizeScenarioId(apostle?.id) === 'posher' && asideRank === 0) {
+      warnings.push('ポーシャーの変異は持続時間とデバフ状態を反映しますが、敵の基礎能力はプリセット値を維持する暫定モデルです。ワールドボスへの変異は無効です');
+    }
+                                                                            
+                                                                          
+                                                                           
+                                                                            
+    if (normalizeScenarioId(apostle?.id) === 'alice' && asideRank === 0
+      && (normalizeArray(apostle.skills).some(skill => skill.skillId === 'Alice_passive')
+        || spRecoveryEffects.some(effect => effect.effectId === 'Alice_passive_e02'))) {
+      const passive = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Alice_passive');
+      const recovery = resolveEffect(passive, 'Alice_passive_e02');
+      const fixed = resolveEffectValue(recovery, getSkillLevel(passive, buildOptions.skillLevels));
+      if (recovery?.valueKind !== 'SP回復' || recovery.valueClass !== '固定値'
+        || recovery.effectTarget !== '自身' || !Number.isFinite(fixed) || fixed < 0) {
+        throw new RangeError('アリスの強化命中SP回復入力が不正です');
+      }
+      const existing = spRecoveryEffects.filter(effect => effect.effectId === recovery.effectId);
+      if (existing.length > 1 || existing.some(effect => effect.mode !== 'actionHit'
+        || effect.fixed !== fixed || effect.percent !== 0
+        || effect.triggerActionKeys.length !== 1 || effect.triggerActionKeys[0] !== 'enhancedAttack'
+        || effect.random || effect.triggerEveryCount || effect.externalTriggerType)) {
+        throw new RangeError('アリスの強化命中SP回復が重複または別の発動設定になっています');
+      }
+      const effect = existing[0] || {id:'alice-passive-intrinsic-sp',sourceId:apostle.id,
+        effectId:recovery.effectId,label:'強化攻撃命中時のSP回復',mode:'actionHit',
+        fixed,percent:0,triggerActionKeys:['enhancedAttack']};
+      effect.oncePerAction = false;
+      effect.alicePassiveResetFrames = 60;
+      if (!existing.length) spRecoveryEffects.push(effect);
+      warnings.push('アリスのSP回復期限と強化命中が同時の場合は、期限終了を先に処理する暫定モデルです');
+    }
+                                                                          
+                                                                                
+    if (normalizeScenarioId(apostle?.id) === 'jade') {
+      const highSkill = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Jade_high');
+      const recoveryRows = normalizeArray(highSkill?.effects).filter(effect => effect.effectId === 'Jade_high_e04');
+      const recovery = recoveryRows[0];
+      const percent = resolveEffectValue(recovery, getSkillLevel(highSkill, buildOptions.skillLevels));
+      const timedRows = normalizeArray(timing?.actions?.highSkill?.timingEvents)
+        .filter(row => row.effectId === 'Jade_high_e04');
+      if (highSkill?.skillType !== '高学年' || recoveryRows.length !== 1 || recovery?.valueKind !== 'SP回復'
+        || recovery.valueClass !== '倍率' || recovery.effectTarget !== '自身'
+        || recovery.conditionType || recovery.condition || recovery.durationSeconds || recovery.durationFrames
+        || !Number.isFinite(percent) || percent < 0
+        || timedRows.length !== 1 || !Number.isFinite(timedRows[0].frame)
+        || timedRows[0].frame < 0 || timedRows[0].effectKind !== 'SP回復') {
+        throw new RangeError('ジェイドの高学年SP回復の入力・発生時刻が不正です');
+      }
+      const existing = spRecoveryEffects.filter(effect => effect.effectId === recovery.effectId
+        && (!effect.sourceId || normalizeScenarioId(effect.sourceId) === 'jade'));
+      if (existing.length > 1 || existing.some(effect => effect.mode !== 'sourceEvent'
+        || effect.triggerSourceId !== recovery.effectId || effect.percent !== percent || effect.fixed !== 0)) {
+        throw new RangeError('ジェイドの高学年SP回復が重複または別の発動設定になっています');
+      }
+      if (!existing.length && percent > 0) spRecoveryEffects.push({
+        id: 'jade-high-intrinsic-sp', sourceId: apostle.id, effectId: recovery.effectId,
+        label: '高学年のSP回復', mode: 'sourceEvent', triggerSourceId: recovery.effectId,
+        fixed: 0, percent, triggerActionKeys: ['highSkill'], oncePerAction: true,
+        sourceEventFallbackMode: 'actionTimed'
+      });
+    }
+                                                                            
+                                                                                
+    if (normalizeScenarioId(apostle?.id) === 'yomi'
+      && normalizeArray(actions.highSkill?.variants?.default).some(event => event.ownerArea)) {
+      const high = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Yomi_high');
+      const recovery = resolveEffect(high,'Yomi_high_e01');
+      const fixed = resolveEffectValue(recovery,getSkillLevel(high,buildOptions.skillLevels));
+      if (recovery?.valueClass !== '固定値' || recovery.effectTarget !== '月光内の味方'
+        || !Number.isFinite(fixed) || fixed < 0) throw new RangeError('ヨミの月光SP回復入力が不正です');
+      const existing=spRecoveryEffects.filter(effect=>effect.effectId===recovery.effectId);
+      const moonlightFactors = buildOptions.runtimeEffects?.yomiMoonlightRecoveryFactors === undefined
+        ? undefined : normalizeResolvedSpRecoveryFactors({ resolvedRecoveryFactors: buildOptions.runtimeEffects.yomiMoonlightRecoveryFactors });
+      if (existing.length > 1 || existing.some(effect=>effect.mode!=='sourceEvent'
+        || effect.triggerSourceId!==recovery.effectId || effect.fixed!==fixed || effect.percent!==0
+        || effect.oncePerAction || !effect.triggerActionKeys.includes('highSkill'))) {
+        throw new RangeError('ヨミの月光SP回復が重複または別の発動設定になっています');
+      }
+      if (!existing.length) spRecoveryEffects.push({id:'yomi-moonlight-intrinsic-sp',sourceId:apostle.id,
+        effectId:recovery.effectId,label:'月光内のSP回復',mode:'sourceEvent',triggerSourceId:recovery.effectId,
+        fixed,percent:0,triggerActionKeys:['highSkill'],oncePerAction:false,sourceEventFallbackMode:'disabled',
+        ...(moonlightFactors ? {resolvedRecoveryFactors:moonlightFactors,amountModifierP:0} : {})});
+      else if (moonlightFactors) {
+        const provided = existing[0].resolvedRecoveryFactors;
+        if (provided && (provided.owner !== moonlightFactors.owner || provided.recipient !== moonlightFactors.recipient)) {
+          throw new RangeError('ヨミの月光SP回復量補正が一致しません');
+        }
+        existing[0].resolvedRecoveryFactors = moonlightFactors;
+        existing[0].amountModifierP = 0;
+      }
+    }
+                                                                           
+                                                                              
+                                                                            
+                                                                             
+                                                   
+                                                                             
+                                                                               
+                                                                           
+    if (normalizeScenarioId(apostle?.id) === 'ashur' && asideRank === 0
+      && actions.lowSkill && actions.highSkill) {
+      for (const [key, damageId, stateId, status, durationFrames] of [
+        ['basicAttack', 'Ashur_basic_e01', 'Ashur_basic_e02', '火傷', 120],
+        ['enhancedAttack', 'Ashur_enhanced_e02', 'Ashur_enhanced_e04', '火傷', 180],
+        ['highSkill', 'Ashur_high_e02', 'Ashur_high_e04', '気絶', 180]
+      ]) {
+        const action = actions[key];
+        const events = normalizeArray(action?.variants?.default);
+        const hits = events.filter(event => event.type === 'damage');
+        const states = normalizeArray(action?.statusDefinitions);
+        const application = states.find(state => state.applicationEffectId === stateId);
+        if (!action || hits.length !== 1 || hits[0].effectId !== damageId || hits[0].hitCount !== 1
+          || states.length !== 1 || !application || application.status !== status
+          || application.durationFrames !== durationFrames
+          || events.some(event => event.statusApplication && (
+            event.statusApplication.applicationEffectId !== stateId
+            || (event.timingQuality !== 'fallbackEnd' && event.frame !== hits[0].frame)))) {
+          throw new RangeError('エシュールの通常構成の命中・状態入力が対応済みの条件と一致しません');
+        }
+        action.variants.default = events.filter(event => !event.statusApplication || event === hits[0]).map(event =>
+          event === hits[0] ? { ...event, statusApplication: { ...application },
+            statusApplicationPhase: 'afterDamage' } : event);
+      }
+    }
+    if (normalizeScenarioId(apostle?.id) === 'amelia' && asideRank === 0) {
+      const passive = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Amelia_passive');
+      if (passive && enemyCount === 1) {
+        const level = getSkillLevel(passive, buildOptions.skillLevels || {});
+        const effectValue = id => resolveEffectValue(normalizeArray(passive.effects).find(effect => effect.effectId === id), level);
+        const duration = effectValue('Amelia_passive_e02');
+        if (duration !== 10 + .5 * (level - 1) || effectValue('Amelia_passive_e03') !== 2
+          || effectValue('Amelia_passive_e04') !== 10)
+          throw new RangeError('アメリアのパッシブ感電入力が暫定契約と一致しません');
+                                                                             
+                                                                                    
+        intrinsicExternalEvents.push({id:'amelia-passive-shock', intrinsic:true,
+          type:'statusApplied', frame:1, intervalFrames:600, sourceId:apostle.id,
+          status:'感電', statusDurationFrames:duration * DEFAULT_FRAMES_PER_SECOND,
+          statusApplicationEffectId:'Amelia_passive_e01', statusSourceId:apostle.id,
+          statusSourceSelf:true, statusDealsPeriodicDamage:false,
+          statusStackGroupId:'Amelia_passive_e01:感電', reason:'パッシブ感電（範囲内に留まる暫定モデル）'});
+        warnings.push('アメリアのパッシブは敵が範囲内に留まる前提で、初回1ゲームフレーム後、以後10秒ごとに感電を付与します。');
+      }
+      for (const [actionKey,skillId,damageId,stateId,duration] of [
+        ['enhancedAttack','Amelia_enhanced','Amelia_enhanced_e01','Amelia_enhanced_e02',180],
+        ['lowSkill','Amelia_low','Amelia_low_e01','Amelia_low_e02',360]
+      ]) {
+        const skill=normalizeArray(apostle.skills).find(row=>row.skillId===skillId);
+        const action=actions[actionKey],events=normalizeArray(action?.variants?.default);
+        const hits=events.filter(event=>event.type==='damage');
+        if (!skill || !action) continue;
+        const durations=normalizeArray(skill.effects).filter(effect=>effect.valueKind==='感電'
+          && effect.valueClass==='持続時間');
+        const durationEffect=durations[0];
+        const durationFrames=resolveEffectValue(durationEffect,getSkillLevel(skill,buildOptions.skillLevels||{}))*DEFAULT_FRAMES_PER_SECOND;
+        if (durations.length!==1 || hits.length!==1 || hits[0].effectId!==damageId || hits[0].hitCount!==1
+          || durationFrames!==duration || normalizeArray(action.statusDefinitions).some(state=>state.applicationEffectId!==stateId)
+          || events.some(event=>event.statusApplication && (event.timingQuality!=='fallbackEnd'
+            || event.statusApplication.applicationEffectId!==stateId)))
+          throw new RangeError('アメリアの普通構成の命中・感電入力が解析契約と一致しません');
+        const application={status:'感電',applicationEffectId:stateId,durationEffectId:durationEffect.effectId,
+          durationFrames,stackable:false,maxStacks:1,stackOverflowPolicy:'replaceOldest',stackGroupId:'感電:single:1',
+          dealsPeriodicDamage:false,tickFrames:0,tickMultiplier:0};
+        action.statusDefinitions=[application];
+        action.variants.default=events.filter(event=>!event.statusApplication).map(event=>event===hits[0]
+          ? {...event,statusApplication:{...application},statusApplicationPhase:'afterDamage'} : event);
+      }
+                                                                         
+                                                                              
+                                                                             
+      const high=actions.highSkill;
+      if (high) {
+        const events=normalizeArray(high.variants?.default);
+        const hits=events.filter(event=>event.type==='damage');
+        const stun=normalizeArray(high.statusDefinitions).find(state=>state.applicationEffectId==='Amelia_high_e03');
+        const sourceSeconds=[1.3000000715255737,1.5000001192092896,2.1000001430511475,
+          2.3000001907348633,2.500000238418579,2.9000000953674316];
+        if (hits.length!==6 || hits.some((event,index)=>event.effectId!=='Amelia_high_e01'
+          || event.hitCount!==1 || Math.abs(event.frame-sourceSeconds[index]*DEFAULT_FRAMES_PER_SECOND)>1e-5)
+          || !stun || stun.status!=='気絶' || stun.requiredTargetStatus!=='感電'
+          || normalizeArray(high.statusDefinitions).length!==1
+          || events.some(event=>event.statusApplication && (event.timingQuality!=='fallbackEnd'
+            || event.statusApplication.applicationEffectId!=='Amelia_high_e03')))
+          throw new RangeError('アメリア高学年の通常構成の命中・気絶入力が解析契約と一致しません');
+        high.variants.default=events.filter(event=>!event.statusApplication).map(event=>{
+          const index=hits.indexOf(event);
+          return index>=0 && index!==4
+            ? {...event,statusApplication:{...stun},statusApplicationPhase:'afterDamage'} : event;
+        });
+      }
+    }
+                                                                             
+                                                                            
+                                                                              
+    if (normalizeScenarioId(apostle?.id) === 'haley' && asideRank === 0) {
+      const lowSkill = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Haley_low');
+      const lowDamage = normalizeArray(lowSkill?.effects).find(effect => effect.effectId === 'Haley_low_e01');
+      const level = getSkillLevel(lowSkill, buildOptions.skillLevels || {});
+      const total = resolveEffectValue(lowDamage, level);
+      const coefficient = 320 + 30 * (level - 1);
+      const low = actions.lowSkill;
+      const events = normalizeArray(low?.variants?.default);
+      const hits = events.filter(event => event.type === 'damage');
+      const definition = normalizeArray(low?.statusDefinitions).find(item => item.applicationEffectId === 'Haley_low_e03');
+      if (!lowSkill || !lowDamage || lowDamage.valueKind !== '総物理ダメージ'
+        || !Number.isFinite(total) || Math.abs(total - coefficient * .99) > 1e-7
+        || hits.length !== 3 || hits.some(event => event.effectId !== 'Haley_low_e01' || event.hitCount !== 1)
+        || !definition || definition.status !== '苦痛' || definition.durationFrames !== 300
+        || !definition.stackable || definition.maxStacks !== 9
+        || events.some(event => event.statusApplication && event.timingQuality !== 'fallbackEnd')) {
+        throw new RangeError('ヘイリー低学年の通常構成の命中・苦痛入力が解析契約と一致しません');
+      }
+      const application = { ...definition, stackOverflowPolicy: 'reject',
+        stackGroupId: 'Haley:苦痛:stack:9', applicationProbability: 50 };
+      low.statusDefinitions = low.statusDefinitions.map(item => item === definition ? application : item);
+      low.variants.default = events.filter(event => !(event.statusApplication?.applicationEffectId === 'Haley_low_e03'
+        && event.timingQuality === 'fallbackEnd')).map(event => event.type === 'damage' ? {
+          ...event, nativeCoefficientScale: coefficient / total, nativeCoefficientInteger: true,
+          nativeEffectDamage: Math.fround(.33), statusApplication: { ...application },
+          statusApplicationPhase: 'beforeDamage', nativeStatusCoefficientSelection: {
+            statusKinds: ['火傷','毒','苦痛'], multipliers: [1,Math.fround(1.2),Math.fround(1.4),Math.fround(1.6)] }
+        } : event);
+                                                                       
+                                                                             
+                                          
+      const high = actions.highSkill;
+      const highHits = normalizeArray(high?.generatedEvents)
+        .filter(event => event.generatedObjectId === 'Haley_high_pulses' && event.type === 'damage');
+      if (highHits.length) {
+        const blind = normalizeArray(high?.statusDefinitions)
+          .find(item => item.applicationEffectId === 'Haley_high_e03');
+        if (highHits.length !== 7 || !blind || blind.status !== '目隠し' || blind.durationFrames !== 600
+          || blind.stackable || highHits.some((event, index) => event.effectId !== 'Haley_high_e01'
+            || event.generatedRepeatIndex !== index || event.frame !== 60 + index * 60
+            || !event.persistent || event.nativeEffectDamage !== Math.fround(.145))
+          || normalizeArray(high.variants?.default).some(event => event.type === 'damage'
+            || (event.statusApplication && event.timingQuality !== 'fallbackEnd'))) {
+          throw new RangeError('ヘイリー高学年の通常構成の反復命中・目隠し入力が解析契約と一致しません');
+        }
+        high.variants.default = high.variants.default.filter(event =>
+          !(event.statusApplication?.applicationEffectId === 'Haley_high_e03' && event.timingQuality === 'fallbackEnd'));
+                                                                             
+                                                                              
+        highHits[0].statusApplication = { ...blind };
+        highHits[0].statusApplicationPhase = 'afterDamage';
+      }
+    }
+                                                                             
+                                                                             
+    if (normalizeScenarioId(apostle?.id) === 'chloe' && actions.highSkill) {
+      const high = actions.highSkill;
+      const events = normalizeArray(high.generatedEvents);
+      const spawns = events.filter(event => event.generatedEventType === '生成');
+      if (spawns.length !== 7 || events.length !== 14 || spawns.some((event, index) =>
+        event.generatedObjectId !== 'Chloe_high_doll' || event.generatedInstanceOrder !== index + 1
+        || events.filter(item => item.generatedInstanceKey === event.generatedInstanceKey).length !== 2
+        || events.some(item => item.generatedInstanceKey === event.generatedInstanceKey
+          && (!Number.isFinite(item.frame) || item.frame < event.frame)))) {
+        throw new RangeError('クロエ高学年の7体生成・生成後通知の入力が不足しています');
+      }
+                                                                          
+                                                                               
+                                                                                
+      high.ownerReservePolicy = { objectId: 'Chloe_high_doll', count: 7,
+        intervalSeconds: .6, referenceUpdatesPerGameSecond: 60 };
+      warnings.push('クロエ高学年の生成待ちは暫定60更新/ゲーム秒で加速を反映。生成後の命中待ちは従来の測定値を使用します。');
+    }
+    const jadeLowGemSelection = normalizeScenarioId(apostle?.id) === 'jade';
+    let jadeOverflowBuff = null;
+    if (jadeLowGemSelection) {
+      const lowHits = normalizeArray(actions.lowSkill?.variants?.default)
+        .filter(event => event.type === 'damage');
+      const resource = runtimeResources.find(item => item.id === '翡翠玉');
+      if (lowHits.length !== 1 || lowHits[0].effectId !== 'Jade_low_e01'
+        || lowHits[0].hitCount !== 1 || lowHits[0].resourceChange
+        || !resource || resource.maxStacks !== 3) {
+        throw new RangeError('ジェイドの低学年命中・翡翠玉上限の入力が不正です');
+      }
+      const passive = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Jade_passive');
+      const rows = normalizeArray(passive?.effects).filter(effect => effect.effectId === 'Jade_passive_e01');
+      const effect = rows[0], percent = resolveEffectValue(effect, getSkillLevel(passive, buildOptions.skillLevels));
+      if (rows.length !== 1 || effect.valueKind !== '魔法攻撃力増加' || effect.valueClass !== '倍率'
+        || effect.effectTarget !== '自身' || effect.triggerSourceId !== '翡翠玉'
+        || !Number.isFinite(percent) || percent < 0) {
+        throw new RangeError('ジェイドの玉上限時の魔法攻撃力バフ入力が不正です');
+      }
+                                                                            
+                                                                              
+      jadeOverflowBuff = {id: effect.effectId, label: '翡翠玉上限時の魔法攻撃力増加',
+        attackPPerStack: percent, modifiers: {magicAtkP: percent}, kind: 'damageBuff',
+        maxStacks: 1, durationFrames: 360};
+    }
     const cooldownSettingEffects = normalizeArray(buildOptions.runtimeEffects?.cooldownSettingEffects)
       .map((effect, index) => ({
         id: String(effect?.id || `cooldownSetting:${index}`), sourceId: String(effect?.sourceId || ''),
@@ -2558,7 +3753,31 @@
         percent: toFiniteNumber(effect?.percent),
         durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames))
       })).filter(effect => effect.percent && effect.durationFrames > 0);
-    const cooldownEffects = normalizeArray(buildOptions.runtimeEffects?.cooldownEffects).map((effect, index) => ({
+    const suppliedCooldownEffects = normalizeArray(buildOptions.runtimeEffects?.cooldownEffects).slice();
+    if (normalizeScenarioId(apostle?.id) === 'sherum') {
+      const enhanced = normalizeArray(apostle.skills).find(skill => skill.skillId === 'Sherum_enhanced');
+      const rows = normalizeArray(enhanced?.effects).filter(effect => effect.effectId === 'Sherum_enhanced_e02');
+      const effect = rows[0], seconds = resolveEffectValue(effect, getSkillLevel(enhanced, buildOptions.skillLevels));
+      if (rows.length !== 1 || effect.valueKind !== '自分現在高学年クールタイム減少'
+        || effect.effectTarget !== '自身' || effect.valueClass !== 'クールタイム'
+        || !Number.isFinite(seconds) || seconds < 0) {
+        throw new RangeError('シェルムの強化攻撃CT短縮入力が不正です');
+      }
+                                                                               
+                                                                                   
+      const existing = suppliedCooldownEffects.filter(item => item.id === effect.effectId);
+      if (existing.length > 1) throw new RangeError('シェルムの強化攻撃CT短縮が重複しています');
+      const index = suppliedCooldownEffects.findIndex(item => item.id === effect.effectId);
+      if (index >= 0) suppliedCooldownEffects.splice(index, 1);
+      if (seconds > 0) suppliedCooldownEffects.push({
+        id: effect.effectId, sourceId: apostle.id, label: '強化攻撃の高学年CT短縮',
+        mode: 'sourceEvent', triggerSourceId: effect.effectId,
+        triggerActionKeys: ['enhancedAttack'], oncePerAction: true,
+        targetActionKey: 'highSkill', operation: 'subtract', amountFrames: seconds * 60,
+        sourceEventFallbackMode: 'disabled'
+      });
+    }
+    const cooldownEffects = suppliedCooldownEffects.map((effect, index) => ({
       id: String(effect?.id || `cooldown:${index}`),
       sourceId: String(effect?.sourceId || ''),
       label: String(effect?.label || effect?.id || 'クールタイム変更'),
@@ -2592,10 +3811,13 @@
       });
     }
     const baseSpRegenOverride = Number(buildOptions.runtimeEffects?.baseSpRegen);
-    const baseSpRegen = Math.max(0, Number.isFinite(baseSpRegenOverride)
+    const naturalSpBaseFixed = spRegenEffects.filter(effect => effect.mode === 'constant')
+      .reduce((total, effect) => total + effect.baseFixed, 0);
+    const baseSpRegen = Math.max(0, (Number.isFinite(baseSpRegenOverride)
       ? baseSpRegenOverride
-      : toFiniteNumber(apostle?.basic?.spRecoveryPerSecond));
-    const spRegenFixed = spRegenEffects.filter(effect => effect.mode === 'constant').reduce((total, effect) => total + effect.fixed, 0);
+      : toFiniteNumber(apostle?.basic?.spRecoveryPerSecond)) + naturalSpBaseFixed);
+    const spRegenFixed = spRegenEffects.filter(effect => effect.mode === 'constant')
+      .reduce((total, effect) => total + effect.fixed - effect.baseFixed, 0);
     const spRegenPercent = spRegenEffects.filter(effect => effect.mode === 'constant').reduce((total, effect) => total + effect.percent, 0);
     const personality = apostle?.basic?.personality || apostle?.personality || '';
     const statusReactions = normalizeArray(buildOptions.runtimeEffects?.statusReactions).map((reaction, index) => ({
@@ -2607,7 +3829,43 @@
       maxStacks: Math.max(0, Math.floor(toFiniteNumber(reaction?.maxStacks))),
       attackerPersonality: String(reaction?.attackerPersonality || '')
     })).filter(reaction => reaction.status && reaction.takenDmgP);
-    const damageBuffEffects = normalizeArray(buildOptions.runtimeEffects?.damageBuffEffects).map((effect, index) => ({
+    let suppliedDamageBuffEffects = normalizeArray(buildOptions.runtimeEffects?.damageBuffEffects);
+    if (normalizeScenarioId(apostle?.id) === 'chloe' && actions.basicAttack) {
+      const buffs = suppliedDamageBuffEffects.filter(effect => effect.id === 'Chloe_low_e04:owner:Chloe');
+      if (buffs.length !== 1 || buffs[0].modifiers?.normalAttackAddP !== 7
+        || buffs[0].maxStacks !== 9 || buffs[0].durationFrames !== 600
+        || buffs[0].conditionType !== '固有状態中' || buffs[0].conditionValue !== 'Chloe_low_e01') {
+        throw new RangeError('クロエ変身バフの供給条件が未接続です');
+      }
+      suppliedDamageBuffEffects = suppliedDamageBuffEffects.map(effect => effect !== buffs[0] ? effect : {
+        ...effect,mode:'sourceEventTimed',triggerSourceId:'Chloe_low_e04',
+        triggerActionKeys:['basicAttack'],oncePerAction:false,sourceEventFallbackMode:'disabled'
+      });
+    }
+    if (normalizeScenarioId(apostle?.id) === 'sherum' && actions.lowSkill) {
+      const skill = findSkill(apostle, 'lowSkill', buildOptions.skillOverrides);
+      const favoriteArea = skill?.skillId === 'Sherum_favorite_1';
+      const buff = resolveEffect(skill, favoriteArea ? 'Sherum_favorite_1_e02' : 'Sherum_low_e04');
+      const duration = resolveEffectValue(resolveEffect(skill, favoriteArea ? 'Sherum_favorite_1_e03' : 'Sherum_low_e05'), getSkillLevel(skill, buildOptions.skillLevels));
+      const percent = resolveEffectValue(buff, getSkillLevel(skill, buildOptions.skillLevels));
+      if (buff?.valueKind !== '攻撃力増加' || buff.valueClass !== '倍率'
+        || !Number.isFinite(percent) || percent < 0 || !Number.isFinite(duration) || duration <= 0) {
+        throw new RangeError('シェルム領域の攻撃力バフ入力が不正です');
+      }
+      suppliedDamageBuffEffects = suppliedDamageBuffEffects.filter(effect => (
+        !(favoriteArea && (effect.runtimeBaseEffectId === 'Sherum_low_e04'
+          || String(effect.id || '').startsWith('Sherum_low_e04')))
+        &&
+        effect.id !== buff.effectId && effect.runtimeBaseEffectId !== buff.effectId
+        && !String(effect.id || '').startsWith(`${buff.effectId}:`)
+      ));
+      suppliedDamageBuffEffects.push({id:buff.effectId, runtimeBaseEffectId:buff.effectId,
+        sourceId:apostle.id, label:'伝承のカーテンの攻撃力増加',mode:'sourceEventTimed',
+        triggerSourceId:buff.effectId,triggerActionKeys:['lowSkill'],durationFrames:duration*60,
+        stackable:false,oncePerAction:false,maxStacks:1,
+        modifiers:{physicalAtkP:percent,magicAtkP:percent},sourceEventFallbackMode:'disabled'});
+    }
+    const damageBuffEffects = suppliedDamageBuffEffects.map((effect, index) => ({
       id: String(effect?.id || `damageBuff:${index}`),
       runtimeBaseEffectId: String(effect?.runtimeBaseEffectId || ''),
       sourceId: String(effect?.sourceId || ''),
@@ -2631,6 +3889,8 @@
       requireSelfSource: !!effect?.requireSelfSource,
       durationFrames: Math.max(0, toFiniteNumber(effect?.durationFrames)),
       stackable: !!effect?.stackable,
+      applyActionKeys: normalizeArray(effect?.applyActionKeys).map(String),
+      releaseAfterActionKeys: normalizeArray(effect?.releaseAfterActionKeys).map(String),
       maxStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.maxStacks, 1))),
       fixedStacks: Math.max(1, Math.floor(toFiniteNumber(effect?.fixedStacks, 1))),
       oncePerAction: !!effect?.oncePerAction,
@@ -2646,7 +3906,108 @@
           .map(([key, value]) => [key, toFiniteNumber(value)])
           .filter(([, value]) => value))]))
     })).filter(effect => effect.id && Object.keys(effect.modifiers).length);
-    const eventEffects = normalizeArray(buildOptions.runtimeEffects?.eventEffects).map((effect, index) => ({
+    if (normalizeScenarioId(apostle?.id) === 'snorky') {
+      damageBuffEffects.forEach(effect => {
+                                                                               
+                                                                              
+        if (effect.id.startsWith('Snorky_passive_e01:owner:Snorky')
+          && effect.triggerType === '強化攻撃使用時' && effect.triggerSourceId === '強化攻撃') {
+          effect.stackable = true;
+          effect.maxStacks = 3;
+          effect.stopAtMaxStacks = true;
+        }
+        if (effect.triggerType !== 'シールド終了時' || effect.triggerSourceId !== 'Snorky_low_e01'
+          || !effect.id.startsWith('Snorky_low_e03:owner:Snorky')) return;
+        effect.mode = 'selfShieldEndedTimed';
+        effect.selfShieldSourceId = 'Snorky_low_e01';
+      });
+    }
+    const worldBossFlag = buildOptions.scenario?.actors?.enemy?.isWorldBoss
+      ?? buildOptions.scenario?.battleConditions?.enemyIsWorldBoss;
+    const enemyIsWorldBoss = typeof worldBossFlag === 'boolean' ? worldBossFlag
+      : buildOptions.scenario?.actors?.enemy?.sourceMode === 'apostle' ? false : null;
+    const tigTargetSourceMode = buildOptions.scenario?.actors?.enemy?.sourceMode
+      ?? buildOptions.scenario?.battleConditions?.enemySourceMode;
+    let tigHeroHpModel = null;
+    if (normalizeScenarioId(apostle?.id) === 'tig' && actions.lowSkill
+      && tigTargetSourceMode === 'apostle') {
+      if (enemyIsWorldBoss === true) throw new RangeError('ティグの敵設定で使徒とワールドボスが同時指定されています。');
+      tigHeroHpModel = 'omit-with-warning-v1';
+      warnings.push(TIG_HERO_HP_WARNING);
+      Object.values(actions.lowSkill.variants).forEach(events => {
+        const damage = events.filter(event => event.type === 'damage');
+        if (damage.length !== 1 || damage[0].effectId !== 'Tig_low_e01') {
+          throw new RangeError('ティグ低学年の攻撃力由来の命中を特定できません。');
+        }
+                                                                              
+                                                                                
+        damage[0].onlySelectedDamageEffect = true;
+      });
+    }
+    if (normalizeScenarioId(apostle?.id) === 'sherum' && enemyIsWorldBoss === true) {
+      const skill = findSkill(apostle, 'lowSkill', buildOptions.skillOverrides);
+      const favoriteArea = skill?.skillId === 'Sherum_favorite_1';
+      const extra = resolveEffect(skill, favoriteArea ? 'Sherum_favorite_1_e06' : 'Sherum_low_e06');
+      const sourceDamageId = favoriteArea ? 'Sherum_favorite_1_e04' : 'Sherum_low_e01';
+      const lv1PulseCoefficient = favoriteArea ? 150 : 72;
+      if (!actions.lowSkill || extra?.conditionType !== '敵種別'
+        || extra.conditionValue !== 'ワールドボスモンスター' || !isDamageEffect(extra)) {
+        throw new RangeError('シェルムのワールドボス追加領域の入力が不足しています');
+      }
+      Object.values(actions.lowSkill.variants).forEach(events => {
+        const source = events.find(event => event.effectId === sourceDamageId && event.ownerArea);
+        if (!source) throw new RangeError('シェルムのワールドボス追加領域の発生通知が不足しています');
+        const pulseEvent = { ...source.ownerArea.pulseEvent, effectId:extra.effectId,
+          nativeCoefficientScale:lv1PulseCoefficient/getLv1Multiplier(extra), coefficientShare:getCoefficientShare(extra,lv1PulseCoefficient) };
+                                                                       
+                                                                            
+                                                                            
+        events.push({ ...source, id:`${source.id || extra.effectId}:worldBoss`, effectId:extra.effectId,
+          eventOrder:toFiniteNumber(source.eventOrder)+1,
+          ownerArea:{ ...source.ownerArea, startDelaySeconds:0.1, pulseEvent }});
+      });
+      warnings.push('シェルム領域は固定単体敵が範囲内にいる条件で計算します。ワールドボス分類は敵プリセットの設定を使用します');
+    }
+    const suppliedEventEffects = normalizeArray(buildOptions.runtimeEffects?.eventEffects).filter(effect => {
+      if (normalizeScenarioId(apostle?.id) !== 'sherum'
+        || !normalizeArray(effect.effectIds).some(id => ['Sherum_low_e06','Sherum_favorite_1_e06'].includes(id))) return true;
+      if (enemyIsWorldBoss === false) return false;
+      if (enemyIsWorldBoss === true) return false;                                                     
+                                                                         
+                                                                             
+                                                            
+      throw new RangeError('シェルムのワールドボス限定追加領域は、敵種別と発生処理の確認が必要です');
+    });
+                                                                            
+                                                                            
+                                                                              
+    const normalizeEventChoices = effect => {
+      if (effect.weightedChoices === undefined) {
+        if (normalizeArray(effect.steps).some(step => step.choiceId != null)) {
+          throw new RangeError('抽選分岐の重みがありません');
+        }
+        return null;
+      }
+      const choices = normalizeArray(effect.weightedChoices);
+      const ids = new Set();
+      let total = 0;
+      if (!choices.length || normalizeRuntimeTriggerProbability(effect) != null) throw new RangeError('通知の抽選条件が不正です');
+      const normalized = choices.map(choice => {
+        if (typeof choice.id !== 'string' || !choice.id.trim() || ids.has(choice.id)
+          || !Number.isSafeInteger(choice.weight) || choice.weight < 0) {
+          throw new RangeError('通知の抽選重み・識別子が不正です');
+        }
+        ids.add(choice.id); total += choice.weight;
+        return {id:choice.id,weight:choice.weight};
+      });
+      if (!(total > 0) || total > 2147483647
+        || normalizeArray(effect.steps).some(step => typeof step.choiceId !== 'string' || !ids.has(step.choiceId))
+        || normalized.some(choice => !normalizeArray(effect.steps).some(step => step.choiceId === choice.id))) {
+        throw new RangeError('通知の抽選合計・分岐処理が不正です');
+      }
+      return {choices:normalized,total};
+    };
+    const eventEffects = suppliedEventEffects.map((effect, index) => ({
       id: String(effect?.id || `runtimeEvent:${index}`),
       label: String(effect?.label || effect?.id || '時系列効果'),
       triggerType: String(effect?.triggerType || ''),
@@ -2673,6 +4034,7 @@
       perHitTrigger: !!effect?.perHitTrigger
         || ['各ヒット', '毎ヒット'].includes(String(effect?.triggerValue || '').trim()),
       finalHitOnly: effect?.finalHitOnly === true,
+      weightedChoices: normalizeEventChoices(effect),
       conditionResource: effect?.conditionResource ? {
         id: String(effect.conditionResource.id || ''),
         min: effect.conditionResource.min == null ? null : toFiniteNumber(effect.conditionResource.min),
@@ -2718,6 +4080,8 @@
       apostleId: timing?.id || apostle?.id || '',
       epicaA2TimingApproximation,
       epicaLowReplacementDurationFrames,
+      jadeLowGemSelection,
+      jadeOverflowBuff,
       name: timing?.name || apostle?.name || '',
       scenarioFingerprint: String(scenario?.sourceMeta?.fingerprint || ''),
       scenarioTargetId: scenarioSelfId,
@@ -2736,14 +4100,19 @@
       spRegen: Math.max(0, baseSpRegen * (1 + spRegenPercent / 100) + spRegenFixed),
       baseSpRegen,
       highSkillCooldownSettings: {
-        fixedSeconds: Math.max(0, toFiniteNumber(buildOptions.highSkillCooldownSettings?.fixedSeconds)),
-        percent: toFiniteNumber(buildOptions.highSkillCooldownSettings?.percent)
+        fixedSeconds: Math.max(0, toFiniteNumber(buildOptions.highSkillCooldownSettings?.fixedSeconds))
+          + intrinsicCooldownFixedSeconds,
+        percent: toFiniteNumber(buildOptions.highSkillCooldownSettings?.percent),
+        ...(Number.isFinite(buildOptions.highSkillCooldownSettings?.initialFixedSeconds)
+          ? { initialFixedSeconds: Math.max(0, buildOptions.highSkillCooldownSettings.initialFixedSeconds)
+              + intrinsicCooldownFixedSeconds } : {})
       },
       spRecoveryIntervalFrames: Math.max(1, toFiniteNumber(timing?.spRecoveryIntervalFrames, 60)),
       requiredSp: Math.max(1, actions.lowSkill?.requiredSp || 300),
       maxSp: Math.max(1, actions.lowSkill?.requiredSp || 300),
       lowSkillSpPolicy: 'reset',
       runtimeEffects: {
+        yomiAsideReservations,
         attackSpeedEffects,
         accelerationEffects,
         spRegenEffects,
@@ -2752,6 +4121,7 @@
         cooldownSettingEffects,
         damageBuffEffects,
         eventEffects,
+        resourceHeldEffects: normalizeArray(buildOptions.runtimeEffects?.resourceHeldEffects).map(effect => ({...effect})),
         statusDamageWeaknessP: Math.max(0, toFiniteNumber(buildOptions.runtimeEffects?.statusDamageWeaknessP)),
         initialTargetStatuses: normalizeArray(buildOptions.runtimeEffects?.initialTargetStatuses).map(item => ({
           status: String(item?.status || ''),
@@ -2761,8 +4131,17 @@
         statusReactions,
         damageEffectIds: normalizeArray(buildOptions.runtimeEffects?.damageEffectIds).map(String).filter(Boolean)
       },
-      externalEvents: normalizeArray(buildOptions.externalEvents || buildOptions.runtimeEffects?.externalEvents).map((event, index) => ({
+      externalEvents: [...intrinsicExternalEvents, ...normalizeArray(buildOptions.externalEvents || buildOptions.runtimeEffects?.externalEvents)].map(event => {
+                                                                             
+                                                                            
+        if (event?.sourceId === 'Pira' && event?.type === 'リソース変化時'
+          && event?.value === '獲得時' && event?.bindingKey === 'Pira::リソース変化時::Pira_wealth') {
+          return { ...event, type: 'リソース獲得時', bindingKey: 'Pira::リソース獲得時::Pira_wealth' };
+        }
+        return event;
+      }).map((event, index) => ({
         id: String(event?.id || `external:${index}`),
+        intrinsic: event?.intrinsic === true,
         type: String(event?.type || event?.triggerType || ''),
         frame: Math.max(0, toFiniteNumber(event?.frame)),
         intervalFrames: Math.max(0, toFiniteNumber(event?.intervalFrames)),
@@ -2791,7 +4170,41 @@
         reason: String(event?.reason || '')
       })).filter(event => event.type),
       runtimeResources,
+      supportClocks: normalizeArray(buildOptions.supportClocks).map(clock => {
+        const input = clock.input || {};
+        if (!input.apostle || !clock.timing || !normalizeArray(clock.bindings).length) {
+          throw new RangeError('支援時計の入力が不足しています');
+        }
+        const actorConfig = buildCombatantConfig(input.apostle, clock.timing, {
+          scenario: input.scenario, skillLevels: input.skillLevels,
+          skillOverrides: input.dpsSkillOverrides, timingBranches: input.dpsTimingBranches,
+          highSkillCooldownSettings: input.highSkillCooldownSettings,
+          runtimeEffects: input.runtimeEffects,
+          enemySize: input.scenario?.battleConditions?.enemySize,
+          enemySizeRank: input.scenario?.battleConditions?.enemySizeRank
+        });
+        if (clock.bindings.some(binding => !isSupportClockBindingSupported(actorConfig, binding))) {
+          throw new RangeError('支援時計の発動通知を確認できません');
+        }
+        const bindingKeys = new Set();
+        const bindings = normalizeArray(clock.bindings).filter(binding => {
+          if (bindingKeys.has(binding.bindingKey)) return false;
+          bindingKeys.add(binding.bindingKey);
+          return true;
+        });
+        return {
+          ownerId: String(clock.ownerId),
+          highSkillMode: clock.highSkillMode === 'auto' ? 'auto' : 'off',
+          bindings,
+          config: actorConfig,
+          damageProfiles: input.actionDamageProfiles || {},
+          statusDamageProfiles: input.statusDamageProfiles || {},
+          summonCalculationInput: input.summonCalculationInput || null
+        };
+      }),
       enemyCount,
+      enemyIsWorldBoss,
+      tigHeroHpModel,
       actions,
       warnings
     };
@@ -2848,6 +4261,20 @@
       return selected;
     }
     if (action.key === 'highSkill') {
+                                                                           
+                                                                                 
+      if (action.skillId === 'Pira_high' && weightedSelection?.type === 'resourceAfterGain') {
+        const resource = state.runtimeResources?.[weightedSelection.resourceId];
+        const desired = Math.min(Math.max(1, toFiniteNumber(resource?.maxStacks, 1)), Math.max(0,
+          toFiniteNumber(resource?.stacks) + toFiniteNumber(weightedSelection.predictedGain)
+        ));
+        const choices = normalizeArray(weightedSelection.choices)
+          .filter(choice => names.includes(choice?.branch))
+          .slice().sort((a, b) => a.stacks - b.stacks);
+        return choices.find(choice => choice.stacks === desired)?.branch
+          || choices.filter(choice => choice.stacks <= desired).pop()?.branch
+          || names[0];
+      }
       if (state.lastSkillVariant && names.includes(state.lastSkillVariant)) return state.lastSkillVariant;
       return names.includes('かすり傷注意') ? 'かすり傷注意' : names[0];
     }
@@ -2912,7 +4339,7 @@
     const amount = effect => Math.max(0, toFiniteNumber(legacy
       ? effect.damageResult?.runtimeBase?.legacyExpectedDamage ?? effect.expectedDamage : effect.expectedDamage));
     let expectedDamage = 0;
-    if (damageEvents.length === 1 && effects.length > 1) {
+    if (damageEvents.length === 1 && effects.length > 1 && !event.onlySelectedDamageEffect) {
       expectedDamage = legacy ? effects.reduce((sum, effect) => sum + amount(effect), 0)
         : Math.max(0, toFiniteNumber(variantProfile.totalExpectedDamage));
     } else {
@@ -2958,7 +4385,7 @@
     const count = event.hitCount || 1;
     if (!Number.isSafeInteger(repeat) || repeat < 1 || !Number.isSafeInteger(count) || count < 1
       || !Number.isSafeInteger(repeat * count) || event.timingQuality === 'fallbackEnd') return [];
-    const selected = events.length === 1 && effects.length > 1 ? effects : [
+    const selected = events.length === 1 && effects.length > 1 && !event.onlySelectedDamageEffect ? effects : [
       findEventDamageEffect(effects, profile, event)
         || findEventDamageEffectAcrossVariants(damageProfiles, current, event, profile)
     ];
@@ -2996,8 +4423,9 @@
     return components.some(component => !component) ? [] : components;
   }
 
-  function getStatusReactionTakenDmgP(state, config) {
+  function getStatusReactionTakenDmgP(state, config, include = () => true) {
     return normalizeArray(config?.runtimeEffects?.statusReactions).reduce((total, reaction) => {
+      if (!include(reaction)) return total;
       if (reaction.attackerPersonality && reaction.attackerPersonality !== config.personality) return total;
       const activeStacks = normalizeArray(state?.statusStacks).filter(stack => (
         stack.status === reaction.status && state.tick <= stack.expireTick
@@ -3008,6 +4436,21 @@
         : 1;
       return total + reaction.takenDmgP * appliedStacks;
     }, 0);
+  }
+
+  function isResolvedDamageRateStatusReaction(reaction) {
+                                                                           
+                                                                                
+    if (reaction.id === 'season:shock' && reaction.status === '感電'
+      && reaction.takenDmgP === 50 && reaction.perStack === false
+      && reaction.maxStacks === 1 && !reaction.attackerPersonality) return true;
+                                                                        
+                                                                               
+                                                                          
+    return reaction.id === 'builtin:frostbite-calm-taken-damage'
+      && reaction.status === '凍傷' && reaction.attackerPersonality === '冷静'
+      && reaction.takenDmgP === 8 && reaction.perStack === true
+      && reaction.maxStacks === 0;
   }
 
                                                                             
@@ -3044,6 +4487,31 @@
   }
 
   function evaluateSingleHitDamage(input = {}) {
+    if (input.coefficientChoices != null) {
+      const choices = input.coefficientChoices;
+      const invalid = reason => ({ supported: false, calculationMode: 'unavailable', reason,
+        normal: null, crit: null, expected: null });
+      if (!Array.isArray(choices) || choices.length < 2 || choices.length > 101
+        || choices.some((value, index) => !Number.isSafeInteger(value) || value < 0
+          || (index > 0 && value <= choices[index - 1]))) {
+        return invalid('倍率抽選の候補が不正です');
+      }
+      const mean = choices.reduce((total, value) => total + value / choices.length, 0);
+      if (!Number.isFinite(input.coefficientP) || Math.abs(input.coefficientP - mean) > 1e-8) {
+        return invalid('倍率抽選の候補と行動倍率が一致しません');
+      }
+                                                                                 
+      const { coefficientChoices, ...resolved } = input;
+      const outcomes = choices.map(coefficientP => ({ coefficientP,
+        ...evaluateSingleHitDamage({ ...resolved, coefficientP }) }));
+      if (outcomes.some(outcome => !outcome.supported)) return invalid('倍率抽選の命中計算が未確定です');
+      const average = key => outcomes.reduce((total, outcome) => total + outcome[key] / outcomes.length, 0);
+      return { supported: true, calculationMode: 'normal-hit-v1',
+        normal: average('normal'), crit: average('crit'), expected: average('expected'),
+        coefficientOutcomes: outcomes,
+        stages: { coefficientP: mean, effectDamage: outcomes[0].stages.effectDamage,
+          damageRate: outcomes[0].stages.damageRate, endFactor: outcomes[0].stages.endFactor } };
+    }
     const values = {
       baseDamage: input.baseDamage,
       coefficientP: input.coefficientP,
@@ -3091,20 +4559,208 @@
       stages: { normal, crit, coefficientP, effectDamage, damageRate, endFactor } };
   }
 
+                                                                              
+                                                                               
+                                                                  
+  function buildEpicaDedicatedHitQuery(base, modifierDelta, frame) {
+    const unavailable = reason => ({ supported: false, reason, query: null });
+                                                                            
+                                                                         
+    if (!base || base.schemaVersion !== 1 || base.abilityStage !== 'owner-normal-physical-base'
+      || base.actionKind !== 'normalAttack' || base.attackType !== 'physical'
+      || base.criticalModel !== 'mean-v1' || base.baseEndCorrection !== 0
+      || !Number.isInteger(base.skillLevel) || base.skillLevel < 1 || base.skillLevel > 15
+      || typeof frame !== 'number' || !Number.isFinite(frame) || frame < 0) {
+      return unavailable('専用人形の物理普通攻撃用の能力供給が未接続です');
+    }
+    const required = ['baseAtk', 'attackP', 'baseCrit', 'critP', 'baseCritDmg', 'critDmgP',
+      'baseDef', 'defenseP', 'baseCritRes', 'critResP', 'baseCritDmgRes', 'critDmgResP',
+      'critRateP', 'critResAddP', 'critDmgAddP', 'critDmgResAddP', 'rawAddRate',
+      'personalityRate', 'conditionalEndCorrection', 'additionalCoefficient'];
+    if (required.some(key => typeof base[key] !== 'number' || !Number.isFinite(base[key]))
+      || ['baseAtk', 'baseCrit', 'baseCritDmg', 'baseDef', 'baseCritRes', 'baseCritDmgRes']
+        .some(key => base[key] < 0)) {
+      return unavailable('専用人形の基礎能力・敵能力・補正内訳が不足または不正です');
+    }
+    if (!modifierDelta || typeof modifierDelta !== 'object' || Array.isArray(modifierDelta)) {
+      return unavailable('専用人形の命中時補正差分がありません');
+    }
+    const allowed = new Set(['atkP', 'physicalAtkP', 'magicAtkP', 'critP', 'critDmgP',
+      'critRateP', 'critDmgAddP', 'enemyDefDownP', 'enemyCritResDownP',
+      'enemyCritDmgResDownP', 'addP', 'nativeEndCorrectionP']);
+    for (const [key, value] of Object.entries(modifierDelta)) {
+      if (typeof value !== 'number' || !Number.isFinite(value)
+        || (value !== 0 && !allowed.has(key))) {
+        return unavailable(`専用人形への補正適用が未確認です: ${key}`);
+      }
+    }
+    const delta = key => modifierDelta[key] ?? 0;
+    const query = { schemaVersion: 1, abilityStage: 'dedicated-hit-query',
+      actionKind: 'normalAttack', attackType: 'physical', criticalModel: 'mean-v1',
+      skillLevel: base.skillLevel, frame,
+      stats: {
+        physicalAtk: resolveCombatStat(base.baseAtk, base.attackP + delta('atkP') + delta('physicalAtkP')),
+        crit: resolveCombatStat(base.baseCrit, base.critP + delta('critP')),
+        critDmg: resolveCombatStat(base.baseCritDmg, base.critDmgP + delta('critDmgP'))
+      },
+      enemy: {
+        physicalDef: resolveCombatStat(base.baseDef, base.defenseP - delta('enemyDefDownP'), 1),
+        critRes: resolveCombatStat(base.baseCritRes, base.critResP - delta('enemyCritResDownP'), 1),
+        critDmgRes: resolveCombatStat(base.baseCritDmgRes, base.critDmgResP - delta('enemyCritDmgResDownP'), 1)
+      },
+      personalityRate: base.personalityRate,
+      damageRate: resolveNormalDamageRate(1, base.rawAddRate + delta('addP') / 100),
+      baseEndCorrection: 0,
+      conditionalEndCorrection: base.conditionalEndCorrection + delta('nativeEndCorrectionP') / 100,
+      additionalCoefficient: base.additionalCoefficient,
+      critRateP: roundDamageRateToEven(base.critRateP + delta('critRateP'))
+        + roundDamageRateToEven(-base.critResAddP),
+      critDmgAddP: base.critDmgAddP + delta('critDmgAddP') - base.critDmgResAddP
+    };
+    const checked = evaluateEpicaDedicatedHitQuery(query);
+    return checked.supported ? { supported: true, query } : unavailable(checked.reason);
+  }
+
+  function evaluateEpicaDedicatedHitQuery(query) {
+    const unavailable = reason => ({ supported: false, calculationMode: 'unavailable',
+      reason, normal: null, crit: null, expected: null });
+    if (!query || query.schemaVersion !== 1 || query.abilityStage !== 'dedicated-hit-query'
+      || query.actionKind !== 'normalAttack' || query.attackType !== 'physical'
+      || query.criticalModel !== 'mean-v1'
+      || !Number.isInteger(query.skillLevel) || query.skillLevel < 1 || query.skillLevel > 15
+      || typeof query.frame !== 'number' || !Number.isFinite(query.frame) || query.frame < 0) {
+      return unavailable('エピカ専用人形の命中時能力・行動区分が未接続です');
+    }
+    const required = [query.stats?.physicalAtk, query.stats?.crit, query.stats?.critDmg,
+      query.enemy?.physicalDef, query.enemy?.critRes, query.enemy?.critDmgRes,
+      query.personalityRate, query.damageRate, query.baseEndCorrection,
+      query.conditionalEndCorrection, query.additionalCoefficient, query.critRateP, query.critDmgAddP];
+    if (required.some(value => typeof value !== 'number' || !Number.isFinite(value))
+      || [query.stats.physicalAtk, query.stats.crit, query.stats.critDmg,
+        query.enemy.physicalDef, query.enemy.critRes, query.enemy.critDmgRes].some(value => value < 0)
+      || query.baseEndCorrection !== 0) {
+      return unavailable('エピカ専用人形の能力・敵抵抗・補正供給が不足または不正です');
+    }
+    const attack = query.stats.physicalAtk;
+    const critRate = clampCombatCritRate(calcRuntimeCritRate(query.stats.crit,
+      Math.max(1, query.enemy.critRes)) + query.critRateP / 100);
+    const critMult = clampCombatCritMultiplier(calcRuntimeCritMultiplier(query.stats.critDmg,
+      Math.max(1, query.enemy.critDmgRes)) + query.critDmgAddP / 100);
+    const hitInput = {
+      baseDamage: attack * calcRuntimeBaseDamageRate(attack, Math.max(1, query.enemy.physicalDef)),
+      coefficientP: 200 + 20 * (query.skillLevel - 1), effectDamage: 1,
+      personalityRate: query.personalityRate, damageRate: query.damageRate,
+      endCorrection: query.conditionalEndCorrection,
+      additionalCoefficient: query.additionalCoefficient, critRate, critMult
+    };
+    const result = evaluateSingleHitDamage(hitInput);
+    return { ...result, hitInput: result.supported ? hitInput : null,
+      criticalModel: 'mean-v1', queryFrame: query.frame };
+  }
+
   function evaluateResolvedHit(component, input) {
     const base = component.runtimeBase;
     const hit = base?.hitInput;
     if (!hit) return null;
     input = { ...input, actionKey: base.runtimeActionKey ?? input.actionKey };
     const delta = input.modifierDelta || {};
+                                                                              
+                                                                          
+                                                                            
+    const actionMultiplier = getRuntimeActionMultiplierModifierP(delta, input.actionKey, input.generatedEventType);
+    const tigOverdrive = String(input.apostleId || '').toLowerCase() === 'tig'
+      && ['Tig_basic_e01','Tig_basic_e02','Tig_enhanced_e01','Tig_enhanced_e02'].includes(input.effectId)
+      && ['basicAttack','enhancedAttack'].includes(input.actionKey)
+      && !input.generatedEventType && !base.actionMultiplierBonusP
+      && actionMultiplier === 100 && delta.normalAttackMultiplierBonusP === 100
+      && normalizeArray(input.activeEffects).some(e => ['Tig_high_e04:owner:Tig',
+        'Tig_favorite_1_e04:owner:Tig'].includes(e.id)
+        && e.modifiers?.normalAttackMultiplierBonusP === 100);
+                                                                         
+                                                                             
+                                                                        
+                                                                      
+    const chloeRateSources = normalizeArray(input.activeEffects)
+      .filter(effect => toFiniteNumber(effect.modifiers?.normalAttackAddP));
+    const chloeRateSupplier = String(input.apostleId || '').toLowerCase() === 'chloe'
+      && chloeRateSources.length > 0
+      && chloeRateSources.every(effect => effect.id === 'Chloe_low_e04:owner:Chloe'
+        && effect.modifiers.normalAttackAddP > 0
+        && effect.modifiers.normalAttackAddP % 7 === 0)
+      && delta.normalAttackAddP > 0 && delta.normalAttackAddP <= 63
+      && chloeRateSources.reduce((sum, effect) => sum + effect.modifiers.normalAttackAddP, 0)
+        === delta.normalAttackAddP;
+    const chloeNormalRate = chloeRateSupplier
+      && ['basicAttack', 'enhancedAttack'].includes(input.actionKey)
+      && !input.generatedEventType
+      && ['Chloe_basic_e01','Chloe_basic_e02','Chloe_basic_e04','Chloe_enhanced_e01'].includes(input.effectId);
+                                                                             
+                                                                             
+                                                                               
+                                                                               
+    const chloeHighRateExcluded = chloeRateSupplier && input.actionKey === 'highSkill'
+      && input.effectId === 'Chloe_high_e02' && input.generatedEventType === '攻撃'
+      && component.effectDamage === 1 && component.hitCount === 1;
+                                                                         
+                                                                           
+                                                                           
+    const joanneSupportHit = String(input.apostleId || '').toLowerCase() === 'joanne'
+      && !input.generatedEventType
+      && ({Joanne_basic_e01:'basicAttack',Joanne_basic_e02:'basicAttack',Joanne_high_e01:'highSkill'})[input.effectId] === input.actionKey;
+    const joanneRateSupplier = key => {
+      const sources = normalizeArray(input.activeEffects).filter(effect=>toFiniteNumber(effect.modifiers?.[key]));
+      const id = key === 'normalAttackAddP' ? 'Joanne_enhanced_e03:intrinsic:self' : 'Joanne_enhanced_e05:intrinsic:self';
+      return joanneSupportHit && delta[key] === 20 && sources.length === 1
+        && sources[0].id === id && sources[0].modifiers?.[key] === 20;
+    };
+    const joanneNormalRate = joanneRateSupplier('normalAttackAddP');
+    const joanneSkillRate = joanneRateSupplier('skillAddP');
+                                                                           
+                                                                              
+                                                                               
+                                                                           
+    const ameliaRateSources = normalizeArray(input.activeEffects)
+      .filter(effect => toFiniteNumber(effect.modifiers?.normalAttackAddP));
+    const ameliaRateSupplier = String(input.apostleId || '').toLowerCase() === 'amelia'
+      && !input.generatedEventType
+      && ({Amelia_basic_e01:'basicAttack', Amelia_enhanced_e01:'enhancedAttack',
+        Amelia_low_e01:'lowSkill', Amelia_high_e01:'highSkill'})[input.effectId] === input.actionKey
+      && delta.normalAttackAddP === 40 && ameliaRateSources.length === 1
+      && ameliaRateSources[0].id === 'Amelia_aside_2_e02:owner:Amelia'
+      && ameliaRateSources[0].kind === 'conditionalStatus'
+      && ameliaRateSources[0].modifiers.normalAttackAddP === 40;
+                                                                      
+                                                                            
+                                                                         
+    const xionHeldSources = normalizeArray(input.activeEffects)
+      .filter(effect => effect.kind === 'resourceHeld');
+    const xionHeldRate = String(input.apostleId || '').toLowerCase() === 'xion'
+      && base.damageType === 'physical' && !input.generatedEventType
+      && ({ Xion_basic_e01: 'basicAttack', Xion_enhanced_e01: 'enhancedAttack',
+        Xion_low_e01: 'lowSkill', Xion_high_e01: 'highSkill' })[input.effectId] === input.actionKey
+      && xionHeldSources.length === 1
+      && xionHeldSources[0].id === 'runtime-resource-held'
+      && xionHeldSources[0].modifiers?.addP === input.heldAddP
+      && normalizeArray(xionHeldSources[0].sources).length === 1
+      && normalizeArray(xionHeldSources[0].sources).every(source => source.resourceId === '魔弾'
+        && source.perStack === 5 && Number.isInteger(source.stacks)
+        && source.stacks > 0 && source.stacks <= 6
+        && normalizeArray(source.effectIds).length === 1
+        && source.effectIds[0] === 'Xion_passive_e04'
+        && source.stacks * source.perStack === input.heldAddP);
                                                                                
                                                                              
-    if (getRuntimeActionMultiplierModifierP(delta, input.actionKey, input.generatedEventType)
+    if ((actionMultiplier && !tigOverdrive)
       || toFiniteNumber(delta.specialP) || toFiniteNumber(delta.otherP)
       || ['normalAttackAddP', 'basicAddP', 'enhancedAddP', 'lowSkillAddP', 'highSkillAddP', 'skillAddP']
         .some(key => toFiniteNumber(delta[key])
+          && !(key === 'normalAttackAddP' && (chloeNormalRate || chloeHighRateExcluded || joanneNormalRate || ameliaRateSupplier))
+          && !(key === 'skillAddP' && joanneSkillRate)
           && !(base.runtimeActionKey === 'passive' && input.actionKey === 'passive'))
-      || input.heldAddP || input.statusTakenDmgP || input.statusDamageP) return null;
+      || (input.heldAddP && !xionHeldRate)
+      || input.hasUnresolvedStatusReaction
+      || toFiniteNumber(input.statusTakenDmgP) !== toFiniteNumber(input.resolvedStatusTakenDmgP)
+      || input.statusDamageP) return null;
     const attackP = getRuntimeAttackModifierP(delta, base.damageType);
     const finalAtk = resolveCombatStat(base.baseAtk, base.attackP + attackP);
     const finalDef = resolveCombatStat(base.baseDef, base.defenseP - toFiniteNumber(delta.enemyDefDownP), 1);
@@ -3116,15 +4772,33 @@
       calcRuntimeCritRate(finalCrit, finalCritRes), base.critRateP + toFiniteNumber(delta.critRateP), base.critResAddP);
     const critMult = clampCombatCritMultiplier(
       calcRuntimeCritMultiplier(finalCritDmg, finalCritDmgRes) + (base.critDmgAddP + toFiniteNumber(delta.critDmgAddP) - base.critDmgResAddP) / 100);
+    let coefficientP = (component.coefficientP ?? hit.coefficientP) * (tigOverdrive ? 2 : 1);
+    if (input.nativeCoefficientMultiplier != null) {
+      const multiplier = input.nativeCoefficientMultiplier;
+      if (typeof multiplier !== 'number' || !Number.isFinite(multiplier) || multiplier <= 0
+        || !Number.isSafeInteger(coefficientP) || coefficientP < 0) {
+        return { supported: false, reason: '状態数補正の元係数または倍率が未確定です' };
+      }
+                                                                        
+                                                                               
+      coefficientP = Math.trunc(Math.fround(Math.fround(coefficientP) * Math.fround(multiplier)));
+    }
     const result = evaluateSingleHitDamage({ ...hit,
       baseDamage: finalAtk * calcRuntimeBaseDamageRate(finalAtk, finalDef),
-      coefficientP: component.coefficientP ?? hit.coefficientP,
+      coefficientP,
       effectDamage: component.effectDamage ?? hit.effectDamage,
-      damageRate: resolveNormalDamageRate(1, base.rawAddRate + getRuntimeAddModifierP(delta, input.actionKey) / 100),
+      damageRate: resolveNormalDamageRate(1, base.rawAddRate
+        + (getRuntimeAddModifierP(delta, input.actionKey) + (xionHeldRate ? input.heldAddP : 0)
+          + toFiniteNumber(input.resolvedStatusTakenDmgP)) / 100),
+                                                                            
+                                                                                
+      endCorrection: (hit.endCorrection ?? 0) + (delta.nativeEndCorrectionP ?? 0) / 100,
       critRate, critMult });
     const count = component.hitCount ?? 1;
     if (!Number.isSafeInteger(count) || count < 1) return { supported: false, reason: '命中数が未確定です' };
-    if (result.supported && (!Number.isSafeInteger(result.normal * count) || !Number.isSafeInteger(result.crit * count))) {
+    const totals = result.coefficientOutcomes || [result];
+    if (result.supported && totals.some(outcome => !Number.isSafeInteger(outcome.normal * count)
+      || !Number.isSafeInteger(outcome.crit * count))) {
       return { supported: false, reason: '命中合計が安全整数範囲を超えています' };
     }
     return { ...result, hitCount: count, expected: result.supported ? result.expected * count : null };
@@ -3193,6 +4867,9 @@
     return evaluateDotDamage({ ...base.dotInput,
       baseDamage: snapshot.attack * calcRuntimeBaseDamageRate(snapshot.attack, defense),
       damageRate: resolveNormalDamageRate(1, base.rawAddRate + toFiniteNumber(delta.addP) / 100),
+                                                                            
+                                                                                 
+      endCorrection: base.dotInput.endCorrection + (delta.nativeEndCorrectionP ?? 0) / 100,
       critRate, critMult });
   }
 
@@ -3217,7 +4894,9 @@
       id: String(effect?.id || effect?.effectId || ''),
       label: String(effect?.label || ''),
       kind: String(effect?.kind || ''),
-      modifiers: { ...(effect?.modifiers || {}) }
+      modifiers: { ...(effect?.modifiers || {}) },
+      ...(Array.isArray(effect?.sources) ? { sources: effect.sources.map(source => ({
+        ...source, effectIds: [...normalizeArray(source.effectIds)] })) } : {})
     }));
     const base = input.runtimeBase || null;
     const hitComponents = input.hitComponents || (base?.hitInput ? [{ runtimeBase: base, hitCount: 1 }] : null);
@@ -3235,6 +4914,14 @@
         calculationMode: 'unavailable', reason: unavailable.reason, unavailable: true,
         ratio: 1, ratios: {}, activeEffects, modifierDelta: { ...modifierDelta },
         heldAddP, statusTakenDmgP, statusDamageP, runtimeBaseAvailable: true };
+    }
+    if ((modifierDelta.nativeEndCorrectionP != null && modifierDelta.nativeEndCorrectionP !== 0)
+      || input.nativeCoefficientMultiplier != null) {
+      return { baseExpectedDamage: expectedDamage, expectedDamage: NaN,
+        calculationMode: 'unavailable', reason: '最終補正または状態数補正の命中計算入力が不足しています',
+        unavailable: true, ratio: 1, ratios: {}, activeEffects,
+        modifierDelta: { ...modifierDelta }, heldAddP, statusTakenDmgP, statusDamageP,
+        runtimeBaseAvailable: !!base };
     }
     const calculationMode = 'legacy-continuous';
     if (input.legacyExpectedDamage != null) expectedDamage = Math.max(0, toFiniteNumber(input.legacyExpectedDamage));
@@ -3395,15 +5082,24 @@
     const baselineActionKey = runtimeBase?.runtimeActionKey ?? (current?.key || '');
     const modifierDelta = getRuntimeDamageBuffDelta(state, config, baselineActionKey);
     const heldAddP = Object.values(state.runtimeResources || {}).reduce((total, resource) => (
-      total + (normalizeArray(resource.heldAddEffectIds).some(effectId => (
+      total + ((!normalizeArray(resource.heldAddActionKeys).length
+        || resource.heldAddActionKeys.includes(damageActionKey))
+        && normalizeArray(resource.heldAddEffectIds).some(effectId => (
         normalizeArray(state.runtimeDamageEffectIds).includes(String(effectId || ''))
       ))
         ? toFiniteNumber(resource.stacks) * toFiniteNumber(resource.heldAddPPerStack)
         : 0)
     ), 0);
     const statusTakenDmgP = getStatusReactionTakenDmgP(state, config);
+    const resolvedStatusTakenDmgP = getStatusReactionTakenDmgP(state, config, isResolvedDamageRateStatusReaction);
+                                                                             
+                                                                                  
+    const hasUnresolvedStatusReaction = normalizeArray(config?.runtimeEffects?.statusReactions)
+      .some(reaction => !isResolvedDamageRateStatusReaction(reaction)
+        && getStatusReactionTakenDmgP(state, config, candidate => candidate === reaction) !== 0);
     const activeEffects = normalizeArray(state.runtimeBuffStacks)
       .filter(stack => stack.kind === 'damageBuff' || stack.kind === 'resourceGain')
+      .filter(stack => isTimedRuntimeBuffConditionActive(state, stack))
       .map(stack => ({
         id: stack.effectId,
         label: stack.label,
@@ -3422,7 +5118,13 @@
       id: 'runtime-resource-held',
       label: '固有リソース所持補正',
       kind: 'resourceHeld',
-      modifiers: { addP: heldAddP }
+      modifiers: { addP: heldAddP },
+      sources: Object.values(state.runtimeResources || {})
+        .filter(resource => resource.stacks > 0 && resource.heldAddPPerStack
+          && (!normalizeArray(resource.heldAddActionKeys).length || resource.heldAddActionKeys.includes(damageActionKey))
+          && normalizeArray(resource.heldAddEffectIds).some(id => normalizeArray(state.runtimeDamageEffectIds).includes(id)))
+        .map(resource => ({ resourceId: resource.id, stacks: resource.stacks,
+          perStack: resource.heldAddPPerStack, effectIds: [...normalizeArray(resource.heldAddEffectIds)] }))
     });
     if (statusTakenDmgP) activeEffects.push({
       id: 'runtime-status-reaction',
@@ -3446,11 +5148,16 @@
         : event?.type === 'damage' && Array.isArray(current?.events)
           ? getEventExpectedDamage(current, event, damageProfiles, true) : expectedDamage,
       actionKey: damageActionKey,
+      apostleId: config.apostleId,
+      effectId: event?.effectId || '',
+      nativeCoefficientMultiplier: event?.nativeCoefficientMultiplier,
       generatedEventType: event?.generatedEventType || '',
       modifierDelta,
       generatedIndependentStatsUnresolved: event?.generatedIndependentStatsUnresolved === true,
       heldAddP,
       statusTakenDmgP,
+      resolvedStatusTakenDmgP,
+      hasUnresolvedStatusReaction,
       statusDamageP,
       activeEffects,
       hitComponents,
@@ -3495,14 +5202,74 @@
     );
     const initialActionDelayTicks = toTicks(initialActionDelayFrames, ticksPerFrame);
     const random = createSeededRandom(options.seed);
+                                                                               
+                                                                             
+                                                                              
+                                                                                
+    const supportEvents = [];
+    for (const clock of normalizeArray(config.supportClocks)) {
+      const bindings = clock.bindings.filter(binding => !normalizeArray(options.externalEvents ?? config.externalEvents)
+        .some(event => event.bindingKey && event.bindingKey === binding.bindingKey));
+      if (!bindings.length) continue;
+      const supportSeed = deriveSupportSeed(options.seed, clock.ownerId);
+      yield* simulateSteps(clock.config, {
+        ...options, seed: supportSeed, highSkillMode: clock.highSkillMode,
+        externalEvents: [], recordTimeline: false, recordDamageSeries: false,
+        damageProfiles: clock.damageProfiles, statusDamageProfiles: clock.statusDamageProfiles,
+        summonCalculationInput: clock.summonCalculationInput,
+        notificationSink: notification => {
+          bindings.forEach(binding => {
+            if (!matchesSupportNotification(binding, notification)) return;
+            const applicationDelayFrames = binding.supportRecipientModel === 'selected-recipient-provisional'
+              ? calculatePiraGiftDelayFrames(binding.supportApplicationDelaySeconds, framesPerSecond) : 0;
+            supportEvents.push({ type: binding.type, frame: notification.frame + applicationDelayFrames,
+              sourceId: clock.ownerId, bindingKey: binding.bindingKey,
+              triggerSourceId: binding.triggerSourceId || '', value: binding.value ?? '',
+              conditionType: binding.conditionType || '', conditionValue: binding.conditionValue ?? '',
+              reason: `${binding.label || '編成効果'}（支援行動）`,
+              candidateId: binding.id, supportClock: true });
+            if (binding.type === '状態付与時' && binding.statusReactionOnly === true) {
+              Object.assign(supportEvents[supportEvents.length - 1], {
+                status: notification.status, statusDurationFrames: notification.durationFrames,
+                statusStackable: binding.statusStackable, statusMaxStacks: binding.statusMaxStacks,
+                statusStackCount: 1, statusStackGroupId: binding.statusStackGroupId,
+                statusApplicationEffectId: notification.applicationEffectId,
+                statusSourceId: clock.ownerId, statusSourceSelf: false,
+                statusDealsPeriodicDamage: false, statusReactionOnly: true
+              });
+            }
+          });
+        }
+      }, cooperative);
+    }
+    if (supportEvents.length) options = { ...options,
+      externalEvents: [...normalizeArray(options.externalEvents
+        ?? normalizeArray(config.externalEvents).filter(event => event.intrinsic !== true)), ...supportEvents] };
     const enemyCount = Math.max(1, Math.floor(toFiniteNumber(
       options.enemyCount ?? config.enemyCount,
       1
     )));
     const highSkillMode = options.highSkillMode === 'auto' ? 'auto' : 'disabled';
+                                                                                
+                                                                              
+                                                                           
+    if (normalizeScenarioId(config.apostleId) === 'tig' && config.actions?.lowSkill
+      && config.enemyIsWorldBoss !== true
+      && !(config.enemyIsWorldBoss === false && config.tigHeroHpModel === 'omit-with-warning-v1')) {
+      throw new RangeError('ティグの低学年DPSは現在ワールドボス相手に限定しています。使徒相手の最大HP追加ダメージ、または敵区分が未確認のため計算を停止しました。');
+    }
     const activeSummonDefinitions = Object.values(config.actions || {}).filter(action => (
       action.key !== 'highSkill' || highSkillMode === 'auto'
     )).flatMap(action => normalizeArray(action.summonUnits));
+    if (activeSummonDefinitions.length && ['elena-known-site-neutral-v1', 'ashur-known-site-recorded-contact-v1']
+      .includes(options.summonCalculationInput?.provisionalModel)
+      && ([...normalizeArray(options.externalEvents), ...normalizeArray(config.externalEvents)].length
+        || ['damageBuffEffects', 'attackSpeedEffects', 'accelerationEffects', 'eventEffects']
+          .flatMap(key => [...normalizeArray(options.runtimeEffects?.[key]),
+            ...normalizeArray(config.runtimeEffects?.[key])])
+          .some(effect => effect.mode !== 'off' && effect.mode !== 'disabled'))) {
+      throw new RangeError('この召喚モデルと動的補正・外部イベントの併用は接続待ちです');
+    }
     if (options.summonCalculationInput && options.resolveSummonUnit) {
       throw new RangeError('召喚計算の純データとcallbackは同時指定できません');
     }
@@ -3542,6 +5309,9 @@
     if (config.epicaA2TimingApproximation && enemyCount !== 1) {
       throw new Error('エピカA2暫定DPSは敵1体に限定しています。');
     }
+    if (config.runtimeEffects?.yomiAsideReservations && enemyCount !== 1) {
+      throw new Error('ヨミA2の追加攻撃は敵1体の比較に限定しています。');
+    }
     if (config.epicaA2TimingApproximation && ['spRecoveryEffects', 'cooldownEffects', 'damageBuffEffects']
       .flatMap(key => normalizeArray(config.runtimeEffects?.[key]))
       .some(effect => effect.mode === 'actionHit'
@@ -3550,7 +5320,7 @@
     }
     const initialHighSkillCooldownMultiplier = Math.max(
       0,
-      toFiniteNumber(options.initialHighSkillCooldownMultiplier, 1)
+      toFiniteNumber(options.initialHighSkillCooldownMultiplier, 0.5)
     );
     const recurringHighSkillCooldownMultiplier = Math.max(
       0,
@@ -3614,9 +5384,15 @@
     const state = {
       tick: 0,
       currentAction: null,
+      nonOccupyingHighGlobalReadyTick: 0,
       movementTransition: null,
       skillTransition: null,
       pendingGeneratedEvents: [],
+      ownerAreas: [],
+      ownerReserves: [],
+      pendingUnitSpRecoveries: [],
+      pendingYomiAsideAttacks: [],
+      ownerAreaSerial: 0,
       pendingGeneratedEventQueue: [],
       generatedEventQueueSequence: 0,
       runtimePeriodicEventQueue: [],
@@ -3642,7 +5418,7 @@
         nextTick: effect.intervalFrames > 0 ? toTicks(effect.intervalFrames, ticksPerFrame) : Infinity
       })),
       runtimeSpRegenEffects: normalizeArray(config.runtimeEffects?.spRegenEffects)
-        .filter(effect => effect.mode === 'externalTimed')
+        .filter(effect => ['externalTimed','sourceEventTimed'].includes(effect.mode))
         .map(effect => ({ ...effect, expireTicks: [] })),
       runtimeCooldownSettingEffects: normalizeArray(config.runtimeEffects?.cooldownSettingEffects)
         .map(effect => ({ ...effect, expireTicks: [] })),
@@ -3656,12 +5432,16 @@
       })),
       runtimeSpRecoveryEffects: normalizeArray(config.runtimeEffects?.spRecoveryEffects).map(effect => ({
         ...effect,
+        ...(effect?.resolvedRecoveryFactors === undefined ? {} : {
+          resolvedRecoveryFactors: normalizeResolvedSpRecoveryFactors(effect)
+        }),
         nextTick: effect.mode === 'periodic' && effect.intervalFrames > 0
           ? toTicks(effect.intervalFrames, ticksPerFrame)
           : Infinity,
         triggerCount: 0,
         lastActionInstanceId: null,
-        activeUntilTick: -1
+        activeUntilTick: -1,
+        alicePassiveExpiryTick: -1
       })),
       runtimeCooldownEffects: normalizeArray(config.runtimeEffects?.cooldownEffects).map(effect => ({
         ...effect,
@@ -3681,7 +5461,9 @@
         occurrenceCount: 0,
         lastActionInstanceId: null
       })),
-      externalEvents: normalizeArray(options.externalEvents || config.externalEvents)
+      externalEvents: (options.externalEvents
+        ? [...normalizeArray(config.externalEvents).filter(event => event.intrinsic === true), ...normalizeArray(options.externalEvents)]
+        : normalizeArray(config.externalEvents))
         .flatMap((event, index) => {
           const startFrame = Math.max(0, toFiniteNumber(event?.frame));
           const intervalFrames = Math.max(0, toFiniteNumber(event?.intervalFrames));
@@ -3731,10 +5513,8 @@
           actionKey: 'highSkill',
           readyTick: highSkillMode === 'auto' && config.actions.highSkill?.cooldownSeconds
             ? toTicks(
-                calculateCooldownSettingSeconds(config.actions.highSkill.cooldownSeconds,
-                  config.highSkillCooldownSettings)
-                  * initialHighSkillCooldownMultiplier
-                  * framesPerSecond,
+                calculateInitialCooldownSettingSeconds(config.actions.highSkill.cooldownSeconds,
+                  config.highSkillCooldownSettings, initialHighSkillCooldownMultiplier) * framesPerSecond,
                 ticksPerFrame
               )
             : Infinity
@@ -3744,6 +5524,7 @@
     };
 
     const log = (type, detail = {}) => {
+      options.notificationSink?.({frame: state.tick / ticksPerFrame, type, ...detail});
       if (!recordTimeline) return;
       timelineEventCount += 1;
       if (timeline.length >= Math.max(100, toFiniteNumber(options.maxTimelineEvents, 2000))) {
@@ -4105,10 +5886,11 @@
       log('lowSkillReady', { sp: state.sp });
     };
 
-    const pickSpRecoveryValue = (minimum, maximum) => {
+    const pickSpRecoveryValue = (minimum, maximum, valueType = '') => {
       const low = Math.min(toFiniteNumber(minimum), toFiniteNumber(maximum));
       const high = Math.max(toFiniteNumber(minimum), toFiniteNumber(maximum));
       if (Math.abs(high - low) < 0.000001) return low;
+      if (valueType === 'float') return Math.fround(low + random() * (high - low));
       if (Number.isInteger(low) && Number.isInteger(high)) {
         return low + Math.floor(random() * (high - low + 1));
       }
@@ -4186,16 +5968,26 @@
 
     const applySpRecoveryEffect = (effect, reason = '', owner = null) => {
       const fixed = effect.random
-        ? pickSpRecoveryValue(effect.fixedMin, effect.fixedMax)
+        ? pickSpRecoveryValue(effect.fixedMin, effect.fixedMax, effect.randomValueType)
         : effect.fixed;
       const percent = effect.random
-        ? pickSpRecoveryValue(effect.percentMin, effect.percentMax)
+        ? pickSpRecoveryValue(effect.percentMin, effect.percentMax, effect.randomValueType)
         : effect.percent;
       const amountModifierP = toFiniteNumber(effect.amountModifierP);
-      const requestedAmount = (fixed + config.maxSp * percent / 100) * (1 + amountModifierP / 100);
+      const factors = effect.resolvedRecoveryFactors;
+      const baseAmount = fixed + config.maxSp * percent / 100;
+      const requestedAmount = factors
+        ? baseAmount * factors.owner * factors.recipient
+        : baseAmount * (1 + amountModifierP / 100);
       if (!requestedAmount) return;
       const before = state.sp;
-      state.sp = Math.min(config.maxSp, Math.max(0, state.sp + requestedAmount));
+                                                                         
+                                                                            
+                                                                            
+      const candidateSp = before + requestedAmount;
+      const roundedAmount = roundNativeToEven(Math.fround(candidateSp - before), 0) || 0;
+      state.sp = candidateSp < 1 ? 0
+        : Math.min(config.maxSp, Math.max(0, before + roundedAmount));
       log('spRecoveryEvent', {
         effectId: effect.effectId || effect.id,
         sourceId: effect.sourceId,
@@ -4204,12 +5996,25 @@
         actionKey: owner?.key || '',
         actionLabel: owner?.label || '',
         requestedAmount,
+        roundedAmount,
         amountModifierP,
+        ...(factors ? { resolvedRecoveryFactors: { ...factors } } : {}),
         amount: state.sp - before,
         sp: state.sp,
         capped: state.sp === before
       });
       queueLowSkillIfReady();
+    };
+
+    const requestSpRecoveryEffect = (effect, reason, owner) => {
+      if (!(effect.unitDelaySeconds > 0)) {applySpRecoveryEffect(effect,reason,owner);return;}
+                                                                     
+                                                                              
+      state.pendingUnitSpRecoveries.push({effect:{...effect},owner:{...owner},reason,
+        elapsed:Math.fround(Math.fround(1 / 60) * Math.fround(getOwnerAreaSpeed())),
+        nextTick:state.tick + toTicks(framesPerSecond / 60,ticksPerFrame)});
+      log('spRecoveryScheduled',{effectId:effect.effectId || effect.id,actionKey:owner.key,
+        unitDelaySeconds:effect.unitDelaySeconds,referenceUpdatesPerGameSecond:60});
     };
 
     const triggerSpRecoveryEffectsForAction = (owner, phase = 'start') => {
@@ -4226,13 +6031,19 @@
         if (!effect.triggerActionKeys.includes(owner.key)) return;
         effect.triggerCount += 1;
         if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
-        applySpRecoveryEffect(effect, `${owner.label}${phase === 'end' ? '終了時' : '発動時'}`, owner);
+        const reason = `${owner.label}${phase === 'end' ? '終了時' : '発動時'}`;
+        requestSpRecoveryEffect(effect,reason,owner);
       });
     };
 
-    const triggerSpRecoveryEffectsForHit = (owner, effectEvent = false, hitCount = 1) => {
+    const triggerSpRecoveryEffectsForHit = (owner, effectEvent = false, hitCount = 1, event = null) => {
       state.runtimeSpRecoveryEffects.forEach(effect => {
         if (effect.mode !== 'actionHit' || !effect.triggerActionKeys.includes(owner.key)) return;
+                                                                               
+                                                                             
+        if (effect.externalTriggerType === '生成物命中時'
+          && (event?.type !== 'damage' || !effect.triggerSourceId
+            || event.generatedObjectId !== effect.triggerSourceId)) return;
                                                
                                                   
         if (effectEvent && !effect.oncePerAction) return;
@@ -4242,7 +6053,17 @@
           effect.triggerCount += 1;
           if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) continue;
           effect.lastActionInstanceId = owner.instanceId;
-          applySpRecoveryEffect(effect, `${owner.label}${effectEvent ? '効果発生時' : '命中時'}`, owner);
+          if (effect.alicePassiveResetFrames > 0) {
+            const retained = effect.alicePassiveExpiryTick > state.tick;
+            effect.alicePassiveExpiryTick = state.tick + toTicks(effect.alicePassiveResetFrames, ticksPerFrame);
+            if (retained) {
+              log('spRecoveryRejected', {effectId:effect.effectId,sourceId:effect.sourceId,
+                actionKey:owner.key,reason:'既存のSP回復状態を延長し、新規回復は受け付けません',
+                expireFrame:effect.alicePassiveExpiryTick / ticksPerFrame,sp:state.sp});
+              continue;
+            }
+          }
+          requestSpRecoveryEffect(effect, `${owner.label}${effectEvent ? '効果発生時' : '命中時'}`, owner);
         }
       });
     };
@@ -4262,9 +6083,23 @@
       });
     };
 
-    const getRuntimeAttackSpeedP = () => state.runtimeAttackSpeedEffects.reduce((total, effect) => (
-      total + effect.stackCount * effect.hasteP
-    ), 0);
+    const getRuntimeAttackSpeedP = () => {
+      const shared = new Map();
+      let total = 0;
+      state.runtimeAttackSpeedEffects.forEach(effect => {
+        const value = effect.stackCount * effect.hasteP;
+        if (!effect.stackable && effect.runtimeBaseEffectId) {
+          const previous = shared.get(effect.runtimeBaseEffectId) || 0;
+                                                                         
+                                                                              
+          if (Math.abs(value) > Math.abs(previous)) shared.set(effect.runtimeBaseEffectId,value);
+        } else total += value;
+      });
+      return total + [...shared.values()].reduce((sum,value)=>sum+value,0)
+        + Object.values(state.runtimeResources || {}).reduce((sum,resource)=>(
+          sum+toFiniteNumber(resource.stacks)*toFiniteNumber(resource.heldHastePPerStack)
+        ),0);
+    };
 
     const getAccelerationContribution = (effect, fromTick, toTick) => {
       if (!effect?.active || !(toTick > fromTick)) return 0;
@@ -4365,6 +6200,18 @@
     const applyAttackSpeedEffect = (effect, reason = '') => {
       const previousStackCount = effect.stackCount;
       const previousTotalHasteP = getRuntimeAttackSpeedP();
+      if (!effect.stackable && effect.runtimeBaseEffectId) {
+        state.runtimeAttackSpeedEffects.forEach(other => {
+          if (other === effect || other.stackable || other.mode === 'fixed'
+            || other.runtimeBaseEffectId !== effect.runtimeBaseEffectId || !other.stackCount) return;
+          other.stackCount = 0;
+          other.expireTicks = [];
+          scheduleRuntimeExpireTicks(other);
+          logEffectStateChange({kind:'attackSpeed',effectId:other.id,label:other.label,
+            operation:'replace',stackCount:0,maxStacks:other.maxStacks,sourceId:other.sourceId,
+            reason:'同じ攻撃速度効果を更新'});
+        });
+      }
       if (effect.durationFrames > 0) {
         const expireTick = state.tick + toTicks(effect.durationFrames, ticksPerFrame);
         if (effect.stackable) {
@@ -4618,12 +6465,16 @@
         id: ++state.runtimeBuffSerial,
         kind: 'damageBuff',
         effectId: definition.id,
+        applyActionKeys: normalizeArray(definition.applyActionKeys),
+        releaseAfterActionKeys: normalizeArray(definition.releaseAfterActionKeys),
         stateGroupId,
         sourceId: definition.sourceId,
         sourceActionKey: owner?.key || '',
         sourceActionLabel: owner?.label || '',
         label: definition.label,
         modifiers: { ...definition.modifiers },
+        requiredStatus: definition.requiredStatus || '',
+        requireSelfSource: !!definition.requireSelfSource,
         active: true,
         appliedTick: state.tick,
         expireTick: definition.durationFrames > 0
@@ -4681,6 +6532,9 @@
     const triggerDamageBuffEffectsForHit = (owner, hitCount = 1) => {
       state.runtimeDamageBuffEffects.forEach(effect => {
         if (effect.mode !== 'actionHitTimed' || !effect.triggerActionKeys.includes(owner.key)) return;
+        if (normalizeScenarioId(config.apostleId) === 'rim'
+          && effect.id === 'Rim_aside_2_e01:owner:Rim'
+          && !isRuntimeStatusConditionActive(state,{mode:'conditionalStatus',requiredStatus:'苦痛'})) return;
         const applications = effect.stackable ? Math.max(1, Math.floor(toFiniteNumber(hitCount, 1))) : 1;
         for (let index = 0; index < applications; index += 1) {
           effect.triggerCount += 1;
@@ -4741,6 +6595,19 @@
         if (!matchesOwner(effect)) return;
         applyAttackSpeedEffect(effect, `${sourceEffectId}発生時`);
       });
+      state.runtimeSpRegenEffects.forEach(effect => {
+        if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId
+          || !matchesOwner(effect) || !(effect.durationFrames > 0)) return;
+        const operation = effect.expireTicks.some(tick=>tick>state.tick) ? 'update' : 'apply';
+                                                                             
+                                                                                
+        effect.expireTicks = [state.tick + toTicks(effect.durationFrames,ticksPerFrame)];
+        scheduleRuntimeExpireTicks(effect);
+        logEffectStateChange({kind:'spRegen',effectId:effect.id,sourceId:effect.sourceId,
+          label:effect.label,operation,stackCount:1,appliedTick:state.tick,
+          expireTick:effect.expireTicks[0],sourceActionKey:owner.key,
+          reason:`${sourceEffectId}発生時`,details:{fixed:effect.fixed,percent:effect.percent}});
+      });
       state.runtimeAccelerationEffects.forEach(effect => {
         if (effect.mode !== 'sourceEventTimed' || effect.triggerSourceId !== sourceEffectId) return;
         if (!matchesOwner(effect)) return;
@@ -4752,7 +6619,8 @@
         if (effect.oncePerAction && effect.lastActionInstanceId === owner.instanceId) return;
         effect.triggerCount += 1;
         if (effect.triggerEveryCount > 0 && effect.triggerCount % effect.triggerEveryCount !== 0) return;
-        effect.lastActionInstanceId = owner.instanceId;
+                                                                            
+                                                                              
         applyRuntimeDamageBuff(effect, owner, `${sourceEffectId}発生時`);
       });
       state.runtimeSpRecoveryEffects.forEach(effect => {
@@ -4789,13 +6657,15 @@
         const directEventIds = new Set([
           event?.effectId,
           event?.statusApplication?.applicationEffectId,
-          event?.statusApplication?.stateId
+          event?.statusApplication?.stateId,
+          event?.selfStateApplication?.applicationEffectId,
+          event?.selfStateApplication?.stateId
         ].map(value => String(value || '').trim()).filter(Boolean));
         const embeddedStep = step => {
           if (!directEventIds.size) return false;
           if (step?.type === 'resource' && !event?.resourceChange) return false;
           if (['status', 'selfState'].includes(step?.type)
-            && !(event?.statusApplication?.durationFrames > 0)) return false;
+            && !((step.type === 'selfState' ? event?.selfStateApplication : event?.statusApplication)?.durationFrames > 0)) return false;
           if (!['resource', 'status', 'selfState'].includes(step?.type)) return false;
           const stepId = String(
             step?.effectId
@@ -4887,13 +6757,13 @@
         }
         const stack = {
           id: ++state.runtimeBuffSerial,
-          kind: 'resourceGain',
+          kind: definition.kind === 'damageBuff' ? 'damageBuff' : 'resourceGain',
           effectId: definition.id,
           sourceActionKey: owner?.key || '',
           sourceActionLabel: owner?.label || '',
           label: definition.label,
           attackP: definition.attackPPerStack,
-          modifiers: { atkP: definition.attackPPerStack },
+          modifiers: definition.modifiers ? { ...definition.modifiers } : { atkP: definition.attackPPerStack },
           active: true,
           appliedTick: state.tick,
           expireTick: state.tick + toTicks(definition.durationFrames, ticksPerFrame)
@@ -4947,10 +6817,36 @@
       if (change.operation === 'gain') {
         resource.stacks = Math.min(resource.maxStacks, before + requestedAmount);
         if (resource.stacks > before) addRuntimeGainBuff(resource, owner, resource.stacks - before);
+        if (config.jadeOverflowBuff && normalizeScenarioId(config.apostleId) === 'jade'
+          && resource.id === '翡翠玉' && owner.key === 'enhancedAttack'
+          && before === 3 && requestedAmount === 1) {
+          addRuntimeGainBuff({ ...resource, gainBuff: config.jadeOverflowBuff }, owner, 1);
+        }
       } else if (change.operation === 'consume') {
         resource.stacks = Math.max(0, before - requestedAmount);
       }
       if (resource.stacks !== before) {
+        if (normalizeScenarioId(config.apostleId) === 'jade' && resource.heldAddPPerStack > 0
+          && resource.heldAddEffectIds.includes('Jade_aside_2_e02')) {
+          logEffectStateChange({kind:'damageBuff', effectId:'Jade_aside_2_e02',
+            label:'翡翠玉のスキルダメージ効果', operation:resource.stacks ? 'update' : 'remove',
+            stackCount:resource.stacks, maxStacks:resource.maxStacks,
+            sourceId:config.apostleId, sourceActionKey:owner?.key || '',
+            details:{addP:resource.stacks*resource.heldAddPPerStack,
+              applyActionKeys:resource.heldAddActionKeys}});
+        }
+        if (resource.heldHasteEffectId) {
+                                                                              
+                                                                           
+          logEffectStateChange({kind:'attackSpeed', effectId:resource.heldHasteEffectId,
+            label:'翡翠玉の攻撃速度効果', operation:resource.stacks ? 'update' : 'remove',
+            stackCount:resource.stacks, maxStacks:resource.maxStacks,
+            sourceId:config.apostleId, sourceActionKey:owner?.key || '',
+            details:{hastePerStackP:resource.heldHastePPerStack,
+              addedHasteP:(resource.stacks-before)*resource.heldHastePPerStack,
+              totalHasteP:getRuntimeAttackSpeedP(),
+              normalAttackIntervalFrames:getEffectiveNormalAttackIntervalFrames()}});
+        }
         logEffectStateChange({
           kind: 'resource',
           effectId: resource.id,
@@ -5012,7 +6908,7 @@
           sourceActionKey: stack.sourceActionKey || '',
           sourceActionLabel: stack.sourceActionLabel || '',
           sourceId: stack.sourceId || '',
-          reason: '持続時間終了'
+          reason: normalizeArray(stack.releaseAfterActionKeys).length ? 'スキル終了' : '持続時間終了'
         });
         log('runtimeBuffExpired', {
           label: stack.label,
@@ -5027,6 +6923,38 @@
 
     const applyStatusApplication = (owner, application, options = {}) => {
       if (!application?.status || !(application.durationFrames > 0)) return;
+      if (application.requiredTargetStatus && !isRuntimeStatusConditionActive(state,
+        {mode:'conditionalStatus',requiredStatus:application.requiredTargetStatus})) {
+        if (!options.suppressLog) logEffectStateChange({kind:'debuff',effectId:application.applicationEffectId,
+          label:application.status,status:application.status,operation:'reject',sourceActionKey:owner.key,
+          sourceActionLabel:owner.label,reason:`対象に${application.requiredTargetStatus}がありません`});
+        return;
+      }
+                                                                        
+                                                                                  
+                                                                    
+      if ((application.applicationEffectId === 'Posher_high_e01'
+          || application.applicationEffectId === 'Rollett_aside_2_e03' && application.blocksWorldBoss === true)
+        && application.status === '変異' && config.enemyIsWorldBoss === true) {
+        if (!options.suppressLog) logEffectStateChange({
+          kind: 'debuff', effectId: application.applicationEffectId,
+          label: application.status, status: application.status, operation: 'reject',
+          sourceActionKey: owner.key, sourceActionLabel: owner.label,
+          reason: 'ワールドボスには変異を付与できません'
+        });
+        return;
+      }
+      if (application.applicationProbability != null) {
+        const probability = application.applicationProbability;
+        if (typeof probability !== 'number' || !Number.isFinite(probability) || probability < 0 || probability > 100) {
+          throw new RangeError('状態付与率が不正です');
+        }
+        const roll = probability < 100 ? Math.fround(random() * 100) : 0;
+        const success = roll < probability;
+        if (!options.suppressLog) log('statusApplicationRoll', { actionKey: owner.key,
+          status: application.status, probability, roll, success });
+        if (!success) return;
+      }
       const applicationSourceId = application.sourceId == null
         ? String(config.apostleId || '')
         : String(application.sourceId || '');
@@ -5093,6 +7021,7 @@
         sourceRuntimeEffectLabel: owner.runtimeEffectId ? (owner.runtimeEffectLabel || owner.label) : '',
         applicationEffectId: application.applicationEffectId || application.stateId || '',
         reference: application.reference || '',
+        ...(application.value == null ? {} : {value:application.value}),
         sourceSelf: applicationSourceSelf,
         active: true,
         appliedTick: state.tick,
@@ -5134,6 +7063,7 @@
       if (!options.suppressLog) log('statusApplied', {
         actionKey: owner.key,
         actionLabel: owner.label,
+        applicationEffectId: stack.applicationEffectId,
         status: stack.status,
         stackCount: getActiveStatusStacks(stack.status).length,
         maxStacks: stack.maxStacks,
@@ -5210,6 +7140,16 @@
         expireTick: state.tick + toTicks(application.durationFrames, ticksPerFrame)
       };
       state.selfStateStacks.push(stack);
+                                                                          
+                                                                    
+      if (normalizeScenarioId(config.apostleId) === 'chloe'
+        && application.stateId === 'Chloe_low_e01' && owner.runtimeEffectId
+        && state.runtimeAttackSpeedEffects.some(effect =>
+          effect.id === 'Chloe_aside_2_e07:owner:Chloe'
+          && effect.mode === 'sourceEventTimed' && effect.hasteP === 30
+          && effect.durationFrames === 420)) {
+        triggerRuntimeEffectsForSourceEvent(owner, {effectId:application.stateId});
+      }
       state.runtimeEventEffects.forEach(effect => {
         if (effect.startOnSelfStateId !== stack.stateId || !(effect.intervalFrames > 0)) return;
         effect.nextTick = state.tick + toTicks(effect.intervalFrames, ticksPerFrame);
@@ -5314,10 +7254,24 @@
                                             
                                           
       const emittedEffectIds = new Set();
+      let selectedChoice = null;
+      if (definition.weightedChoices) {
+        const {choices,total} = definition.weightedChoices;
+        const draw = Math.floor(random() * total);
+        let cumulative = 0;
+        selectedChoice = choices.find(choice => {
+          cumulative += choice.weight;
+          return cumulative > draw;
+        })?.id;
+        if (!selectedChoice) throw new RangeError('通知の抽選結果が範囲外です');
+        log('runtimeEffectChoice', {actionKey:owner.key,actionLabel:owner.label,
+          runtimeEffectId:definition.id,choiceId:selectedChoice,draw,total,reason});
+      }
       const previousRuntimeChainPath = activeRuntimeChainPath;
       activeRuntimeChainPath = chainPath;
       try {
         definition.steps.forEach(step => {
+          if (selectedChoice && step.choiceId !== selectedChoice) return;
           if (step.type === 'resource') {
             applyResourceChange(owner, {
               resourceId: step.resourceId,
@@ -5722,6 +7676,8 @@
         log('externalEvent', {
           externalEventId: event.id,
           externalEventType: event.type,
+          bindingKey: event.bindingKey,
+          sourceId: event.sourceId,
           triggerType,
           occurrence: event.occurrence,
           intervalFrames: event.intervalFrames,
@@ -5776,8 +7732,13 @@
         }
         const matchesExternalRuntimeEffect = effect => (
           effect.externalTriggerType === triggerType
+          && (effect.effectId !== 'ED_aside_2_e05' || !effect.externalBindingKey
+            || (event.sourceId === effect.externalSourceId
+              && event.bindingKey === effect.externalBindingKey && !event.status))
           && (!effect.externalBindingKey || (!event.status
-            && (!event.bindingKey || effect.externalBindingKey === event.bindingKey)))
+            && (effect.externalSourceId === 'Pira'
+              ? event.sourceId === 'Pira' && effect.externalBindingKey === event.bindingKey
+              : (!event.bindingKey || effect.externalBindingKey === event.bindingKey))))
                                                
                                              
                                         
@@ -5788,7 +7749,7 @@
           applyAttackSpeedEffect(effect, `${triggerType} / ${event.reason || event.id}`);
         });
         state.runtimeSpRegenEffects.forEach(effect => {
-          if (!matchesExternalRuntimeEffect(effect) || !(effect.durationFrames > 0)) return;
+          if (effect.mode !== 'externalTimed' || !matchesExternalRuntimeEffect(effect) || !(effect.durationFrames > 0)) return;
           effect.expireTicks = effect.expireTicks.filter(tick => tick > state.tick);
           effect.expireTicks.push(state.tick + toTicks(effect.durationFrames, ticksPerFrame));
           scheduleRuntimeExpireTicks(effect);
@@ -5959,6 +7920,51 @@
     };
 
     const emitEvent = (owner, event) => {
+      if (event.motionLinkedGeneratedEvents) {
+        const sequence = event.motionLinkedGeneratedEvents;
+        const generatedOwner = {...owner, events:sequence};
+        sequence.forEach(item => scheduleGeneratedEvent({
+          absoluteTick:state.tick + toTicks(item.frame-item.generatedSpawnFrame, ticksPerFrame),
+          owner:generatedOwner, event:item, emitted:false
+        }));
+        return;
+      }
+      if (event.ownerArea) {
+        const definition = event.ownerArea;
+        if (!definition.pulseEvent || definition.pulseEvent.ownerArea) {
+          throw new RangeError('領域の周期イベント入力が不足しています');
+        }
+        const pulseEvent = { ...definition.pulseEvent, onlySelectedDamageEffect: true };
+        const areaInstanceId = ++state.ownerAreaSerial;
+        const delay = definition.startDelaySeconds ?? 0;
+        if (!Number.isFinite(delay) || delay < 0) throw new RangeError('領域の開始遅延が不正です');
+        state.ownerAreas.push({ areaInstanceId, started:false,
+          owner: { ...owner, events: [pulseEvent] }, pulseEvent,
+          startTick: state.tick + toTicks(delay * framesPerSecond, ticksPerFrame),
+          clock: createOwnerAreaClock(definition.durationSeconds, definition.intervalSeconds ?? 1)
+        });
+        processOwnerAreas();
+        return;
+      }
+      if (config.jadeLowGemSelection && normalizeScenarioId(config.apostleId) === 'jade'
+        && owner.key === 'lowSkill' && event.type === 'damage' && event.effectId === 'Jade_low_e01') {
+        const resource = state.runtimeResources['翡翠玉'];
+        const stacks = resource?.stacks;
+        if (!Number.isInteger(stacks) || stacks < 0 || stacks > 3 || resource.maxStacks !== 3) {
+          throw new RangeError('ジェイドの命中時の翡翠玉数が不正です');
+        }
+        const percent = stacks === 3 ? 150 : stacks > 0 ? 120 : 100;
+                                                                          
+                                                                             
+        event = { ...event, nativeCoefficientScale: 1, nativeCoefficientInteger: true,
+          nativeEffectDamage: Math.fround(Math.fround(percent) * Math.fround(.01)) };
+        log('resourceDamageSelection', {actionKey: owner.key, effectId: event.effectId,
+          resourceId: '翡翠玉', stacks, percent, effectDamage: event.nativeEffectDamage});
+                                                                              
+                                                                              
+        if (stacks === 3) applyResourceChange(owner, {resourceId: '翡翠玉', operation: 'consume',
+          amount: 3, changeEventBasis: '低学年命中時'});
+      }
       if (owner.key === 'lowSkill' && event.effectId === 'Epica_low_e04'
         && config.epicaLowReplacementDurationFrames > 0) {
         state.epicaLowEnhancedUntilTick = state.tick + config.epicaLowReplacementDurationFrames * ticksPerFrame;
@@ -5970,6 +7976,23 @@
                                                                                   
                                                                                
       if (event.resourceChange) applyResourceChange(owner, event.resourceChange);
+      if (event.statusApplicationPhase != null && !['beforeDamage', 'afterDamage'].includes(event.statusApplicationPhase)) {
+        throw new RangeError('状態付与と命中の順序指定が不正です');
+      }
+      if (event.statusApplicationPhase === 'beforeDamage') {
+        if (event.type !== 'damage' || !event.statusApplication) {
+          throw new RangeError('命中前の状態付与には命中と状態入力が必要です');
+        }
+        applyStatusApplication(owner, { ...event.statusApplication,
+          timingQuality: event.statusApplication.timingQuality || event.timingQuality || '' });
+      }
+      if (event.nativeStatusCoefficientSelection) {
+        if (event.type !== 'damage') throw new RangeError('状態数係数補正には命中イベントが必要です');
+        const selection = resolveNativeStatusCoefficientSelection(state, event.nativeStatusCoefficientSelection);
+        event = { ...event, nativeCoefficientMultiplier: selection.multiplier };
+        log('statusCoefficientSelection', { actionKey: owner.key, effectId: event.effectId,
+          kindCount: selection.kindCount, multiplier: selection.multiplier });
+      }
       const baseExpectedDamage = event.type === 'damage'
         ? getEventExpectedDamage(owner, event, damageProfiles)
         : 0;
@@ -6011,22 +8034,56 @@
         generatedIndependentStatsUnresolved: event.generatedIndependentStatsUnresolved === true,
         generatedEventType: event.generatedEventType || '',
         timingQuality: event.timingQuality,
+        areaPulseKind: event.areaPulseKind || '',
+        areaInstanceId: event.areaInstanceId || null,
         note: event.note || ''
       });
       if (event.type === 'damage') {
         triggerDamageBuffEffectsForHit(owner, event.hitCount || 1);
-        triggerSpRecoveryEffectsForHit(owner, false, event.hitCount || 1);
+        triggerSpRecoveryEffectsForHit(owner, false, event.hitCount || 1, event);
         triggerCooldownEffectsForHit(owner, event.hitCount || 1);
       }
-      else triggerSpRecoveryEffectsForHit(owner, true);
-      if (event.statusApplication) applyStatusApplication(owner, { ...event.statusApplication,
+      else triggerSpRecoveryEffectsForHit(owner, true, 1, event);
+      if (event.statusApplication && event.statusApplicationPhase !== 'beforeDamage') applyStatusApplication(owner, { ...event.statusApplication,
         timingQuality: event.statusApplication.timingQuality || event.timingQuality || '' });
       if (event.selfStateApplication) applySelfState(owner, event.selfStateApplication);
                                                                              
                                                                                
                                                                              
       triggerRuntimeEffectsForSourceEvent(owner, event);
+      if (normalizeScenarioId(config.apostleId) === 'sherum'
+        && owner.key === 'highSkill' && event.type === 'damage'
+        && event.effectId === 'Sherum_high_e01' && event.areaPulseKind === 'first'
+        && normalizeArray(config.runtimeEffects?.damageBuffEffects).some(effect =>
+          effect.triggerSourceId === 'Sherum_aside_2_e03')) {
+                                                                           
+                                                                              
+        emitEvent(owner, {type:'effect',effectId:'Sherum_aside_2_e03',hitCount:0,
+          timingQuality:'provisional',label:'領域デバフ（暫定）'});
+      }
+      const reservation = config.runtimeEffects?.yomiAsideReservations;
+      if (reservation && owner.key === 'enhancedAttack'
+        && event.type === 'damage' && event.effectId === reservation.sourceEffectId) {
+        const extra = {type:'damage', effectId:reservation.effectId, hitCount:1,
+          onlySelectedDamageEffect:true, nativeCoefficientScale:1, nativeEffectDamage:1,
+          timingQuality:'provisional', label:'追加攻撃'};
+                                                                           
+                                                                          
+                                                                                
+        if (!getEventRuntimeBase(owner,extra,damageProfiles)) {
+          throw new RangeError('ヨミの追加攻撃の命中計算入力が不足しています');
+        }
+        reservation.delaySeconds.forEach((delaySeconds,index)=> {
+          state.pendingYomiAsideAttacks.push({delaySeconds,index,
+            owner:{...owner,events:[extra]},event:{...extra},
+            elapsed:Math.fround(Math.fround(1/60)*Math.fround(getOwnerAreaSpeed())),
+            nextTick:state.tick+toTicks(framesPerSecond/60,ticksPerFrame)});
+        });
+        log('additionalAttackScheduled',{actionKey:owner.key,effectId:reservation.effectId,
+          count:3,referenceUpdatesPerGameSecond:60});
+      }
       triggerRuntimeEventEffectsForEvent(owner, event);
+      if (event.enhancedRepeatNotification) continueEnhancedRepeat(owner, 'notification');
     };
 
     const processStatusTicks = () => {
@@ -6052,14 +8109,16 @@
           const heldAdd = Object.values(state.runtimeResources || {}).some(resource => toFiniteNumber(resource.stacks)
             && toFiniteNumber(resource.heldAddPPerStack) && normalizeArray(resource.heldAddEffectIds)
               .some(id => normalizeArray(state.runtimeDamageEffectIds).includes(String(id || ''))));
-          const unresolved = heldAdd || getStatusReactionTakenDmgP(state, config)
+          const statusTakenDmgP = getStatusReactionTakenDmgP(state, config, isResolvedDamageRateStatusReaction);
+          const unresolved = heldAdd || getStatusReactionTakenDmgP(state, config, reaction => !isResolvedDamageRateStatusReaction(reaction))
             || toFiniteNumber(config.runtimeEffects?.statusDamageWeaknessP);
           const evaluated = unresolved ? { supported: false, reason: '状態・所持補正の周期ダメージ供給位置が未確認です' }
-            : evaluateDotAtTick(base, stack.dotAttackSnapshot, delta);
+            : evaluateDotAtTick(base, stack.dotAttackSnapshot,
+              { ...delta, addP: toFiniteNumber(delta.addP) + statusTakenDmgP });
           if (!evaluated.supported) throw new RangeError(evaluated.reason);
           damageEvaluation = { ...evaluated, baseExpectedDamage, expectedDamage: evaluated.expected,
             ratio: baseExpectedDamage > 0 ? evaluated.expected / baseExpectedDamage : 1,
-            modifierDelta: delta, runtimeBaseAvailable: true, dotAttackSnapshot: stack.dotAttackSnapshot };
+            modifierDelta: delta, statusTakenDmgP, runtimeBaseAvailable: true, dotAttackSnapshot: stack.dotAttackSnapshot };
           const calculation = state.damageCalculation || (state.damageCalculation = { roundedEvents: 0, legacyEvents: 0, reasons: new Set() });
           calculation.roundedDotEvents = (calculation.roundedDotEvents || 0) + 1;
         } else damageEvaluation = evaluateRuntimeDamage(
@@ -6171,6 +8230,106 @@
       });
     };
 
+    const getOwnerAreaSpeed = () => getRenewaSpeedAtStart()
+      + state.runtimeAccelerationEffects.reduce((total, effect) => {
+        if (isRenewaAcceleration(effect) || !effect.active || effect.expireTick <= state.tick) return total;
+        const elapsed = Math.max(0, (state.tick - effect.startTick) / ticksPerFrame);
+        const amount = Math.max(0, toFiniteNumber(effect.maxAccelerationP, effect.accelerationP)) / 100;
+        if (effect.curve !== 'linearHold' || !(effect.rampFrames > 0)) return total + amount;
+        if (elapsed >= effect.rampFrames + Math.max(0, effect.holdFrames)) return total;
+        return total + amount * Math.min(1, elapsed / effect.rampFrames);
+      }, 0);
+    const getNextOwnerAreaTick = () => state.ownerAreas.reduce((next, area) => Math.min(next,
+      area.startTick + toTicks(area.clock.nextUpdate / 60 * framesPerSecond, ticksPerFrame)), Infinity);
+    const processOwnerAreas = () => {
+      state.ownerAreas.forEach(area => {
+        if (state.tick < area.startTick) return;
+        if (!area.started) {
+          area.started = true;
+          log('ownerAreaStart', {areaInstanceId:area.areaInstanceId,actionKey:area.owner.key,
+            effectId:area.pulseEvent.effectId,durationSeconds:area.clock.duration,
+            referenceUpdatesPerGameSecond:60});
+        }
+        const elapsed = (state.tick - area.startTick) / ticksPerFrame / framesPerSecond;
+                                                                                 
+                                                                               
+        const pulses = advanceOwnerAreaClock(area.clock, Math.max(0, elapsed), getOwnerAreaSpeed);
+        pulses.forEach(pulse => emitEvent(area.owner, { ...area.pulseEvent,
+          areaPulseKind: pulse.kind, areaInstanceId: area.areaInstanceId }));
+        if (area.clock.ended) log('ownerAreaEnd', {areaInstanceId: area.areaInstanceId,
+          actionKey: area.owner.key, effectId: area.pulseEvent.effectId});
+      });
+      state.ownerAreas = state.ownerAreas.filter(area => !area.clock.ended);
+    };
+
+    const getNextOwnerReserveTick = () => state.ownerReserves.reduce((next, reserve) =>
+      Math.min(next, reserve.nextTick), Infinity);
+    const getNextUnitSpRecoveryTick = () => state.pendingUnitSpRecoveries.reduce((next, pending) =>
+      Math.min(next,pending.nextTick),Infinity);
+    const getNextYomiAsideAttackTick = () => state.pendingYomiAsideAttacks.reduce((next,pending)=>
+      Math.min(next,pending.nextTick),Infinity);
+    const processYomiAsideAttacks = () => {
+      state.pendingYomiAsideAttacks.forEach(pending=> {
+        if (pending.nextTick > state.tick) return;
+        if (pending.elapsed >= pending.delaySeconds) {
+          pending.finished=true;
+          emitEvent(pending.owner,pending.event);
+        } else {
+          const speed=getOwnerAreaSpeed();
+          if (!Number.isFinite(speed) || speed < 0 || !Number.isFinite(Math.fround(speed))) {
+            throw new RangeError('追加攻撃待機の加速値が不正です');
+          }
+          pending.elapsed=Math.fround(pending.elapsed+Math.fround(Math.fround(1/60)*Math.fround(speed)));
+          pending.nextTick=state.tick+toTicks(framesPerSecond/60,ticksPerFrame);
+        }
+      });
+      state.pendingYomiAsideAttacks=state.pendingYomiAsideAttacks.filter(pending=>!pending.finished);
+    };
+    const processUnitSpRecoveries = () => {
+      state.pendingUnitSpRecoveries.forEach(pending => {
+        if (pending.nextTick > state.tick) return;
+        if (pending.elapsed >= pending.effect.unitDelaySeconds) {
+          applySpRecoveryEffect(pending.effect,pending.reason,pending.owner);
+          pending.finished=true;
+        } else {
+          const speed=getOwnerAreaSpeed();
+          if (!Number.isFinite(speed) || speed < 0 || !Number.isFinite(Math.fround(speed))) {
+            throw new RangeError('SP回復待機の加速値が不正です');
+          }
+          pending.elapsed=Math.fround(pending.elapsed + Math.fround(Math.fround(1 / 60) * Math.fround(speed)));
+          pending.nextTick=state.tick + toTicks(framesPerSecond / 60,ticksPerFrame);
+        }
+      });
+      state.pendingUnitSpRecoveries=state.pendingUnitSpRecoveries.filter(pending=>!pending.finished);
+    };
+    const releaseOwnerReserveChild = reserve => {
+      const spawn = reserve.spawns[reserve.index++];
+      reserve.owner.events.filter(event => event.generatedInstanceKey === spawn.generatedInstanceKey)
+        .forEach(event => scheduleGeneratedEvent({
+          absoluteTick: state.tick + toTicks(event.frame - spawn.frame, ticksPerFrame),
+          owner: reserve.owner, event, emitted: false
+        }));
+      log('ownerReserveGenerated', {actionKey: reserve.owner.key,
+        instanceId: reserve.owner.instanceId, generatedInstanceOrder: spawn.generatedInstanceOrder,
+        generatedInstanceKey: spawn.generatedInstanceKey, referenceUpdatesPerGameSecond: 60});
+      reserve.wait = 0;
+    };
+    const processOwnerReserves = () => {
+      state.ownerReserves.forEach(reserve => {
+        if (state.tick < reserve.nextTick) return;
+        const speed = getOwnerAreaSpeed();                                                          
+        if (!Number.isFinite(speed) || speed < 0 || !Number.isFinite(Math.fround(speed))) {
+          throw new RangeError('生成待ちの加速値が不正です');
+        }
+        reserve.wait = Math.fround(reserve.wait
+          + Math.fround(Math.fround(1 / 60) * Math.fround(speed)));
+        if (reserve.wait >= Math.fround(reserve.intervalSeconds)) releaseOwnerReserveChild(reserve);
+        reserve.update++;
+        reserve.nextTick = reserve.startTick + toTicks(reserve.update / 60 * framesPerSecond, ticksPerFrame);
+      });
+      state.ownerReserves = state.ownerReserves.filter(reserve => reserve.index < reserve.spawns.length);
+    };
+
     const emitDueActionEvents = () => {
       const current = state.currentAction;
       if (!current) return;
@@ -6190,12 +8349,18 @@
 
     const summonContext = unit => ({ frame: state.tick / ticksPerFrame, definition: unit.definition,
       instanceOrder: unit.order, sourceActionKey: unit.owner.key, state: unit.localState,
-      actionId: unit.action?.id || '', unitId: unit.id, globalActionSpeed: getRenewaSpeedAtStart() });
+      actionId: unit.action?.id || '', unitId: unit.id, globalActionSpeed: getRenewaSpeedAtStart(),
+      ...(unit.adapter.ownerDeltaAction === 'basicAttack'
+        ? { ownerModifiers: getRuntimeDamageBuffDelta(state, config, 'basicAttack') } : {}) });
     const getSummonTiming = unit => {
       const supplied = unit.adapter.getSpeed(summonContext(unit));
       if (!supplied || ![supplied.attackSpeedP, supplied.selfSpeed, supplied.otherSpeed].every(value => (
         typeof value === 'number' && Number.isFinite(value)
-      )) || supplied.attackSpeedP <= -100) throw new RangeError(`${unit.definition.id}: 召喚ユニット速度が不正です`);
+      )) || supplied.attackSpeedP <= -100 || supplied.selfSpeed <= 0
+        || supplied.otherSpeed <= 0) throw new RangeError(`${unit.definition.id}: 召喚ユニット速度が不正です`);
+      if (isInstantSuicideAction(unit.definition, unit.action)) {
+        return { motionScale: 1 / supplied.selfSpeed, motionFrames: 0, waitFrames: 0 };
+      }
       return calculateActionSpeedTiming(DEFAULT_FRAMES_PER_SECOND * 300 / unit.definition.attackSpeedBase
         / (1 + supplied.attackSpeedP / 100), unit.action.motionFrames, supplied.selfSpeed, supplied.otherSpeed);
     };
@@ -6252,18 +8417,34 @@
       if (!adapter || typeof adapter.getSpeed !== 'function' || typeof adapter.getHitInput !== 'function') {
         throw new RangeError(`${definition.id}: 召喚ユニット能力・速度・命中入力が未接続です`);
       }
-      const endFrame = getGeneratedTimedEndFrame(definition, state.tick / ticksPerFrame);
-      if (endFrame == null) throw new RangeError(`${definition.id}: 時間終了条件が必要です`);
-      const unit = { id, definition, order, action, adapter, owner: pending.owner,
+      const spawnTiming = typeof adapter.getSpawnTiming === 'function'
+        ? adapter.getSpawnTiming({ frame: state.tick / ticksPerFrame, globalActionSpeed: getRenewaSpeedAtStart() }) : null;
+      if (spawnTiming && (!['initialDelayFrames', 'lifetimeFrames'].every(key => (
+        typeof spawnTiming[key] === 'number' && Number.isFinite(spawnTiming[key])
+      )) || spawnTiming.initialDelayFrames < 0 || spawnTiming.lifetimeFrames <= spawnTiming.initialDelayFrames)) {
+        throw new RangeError(`${definition.id}: 生成時計の待ち・終了時刻が不正です`);
+      }
+      const endFrame = spawnTiming ? state.tick / ticksPerFrame + spawnTiming.lifetimeFrames
+        : getGeneratedTimedEndFrame(definition, state.tick / ticksPerFrame);
+      const actionSequence = getRistyBearActionSequence(definition);
+      if (actionSequence && action.id !== actionSequence[0].id) {
+        throw new RangeError(`${definition.id}: 最初の行動が順序定義と一致しません`);
+      }
+      if (endFrame == null && !hasActionLocalSuicideEnd(definition, action)
+        && !actionSequence) {
+        throw new RangeError(`${definition.id}: 時間終了条件または行動内自爆による終了条件が必要です`);
+      }
+      const unit = { id, definition, order, action, actionSequence, sequenceIndex: 0, adapter, owner: pending.owner,
         actionEvents: normalizeArray(definition.timingEvents).map((event, index) => ({ event, index }))
           .filter(({ event }) => event.recordPurpose !== '観測'
             && event.timeOrigin === '召喚ユニット行動開始' && event.actionId === action.id),
         localState: {}, actionSerial: 0, progressFrames: null, lastTick: state.tick,
-        nextStartTick: state.tick + toTicks(execution?.initialDelayFrames ?? starts[0].frame, ticksPerFrame),
-        endTick: toTicks(endFrame, ticksPerFrame), emitted: new Set() };
+        nextStartTick: state.tick + toTicks(spawnTiming?.initialDelayFrames ?? execution?.initialDelayFrames ?? starts[0].frame, ticksPerFrame),
+        endTick: endFrame == null ? Infinity : toTicks(endFrame, ticksPerFrame), emitted: new Set() };
       summonUnits.set(id, unit);
       log('summonSpawn', { unitId: id, generatedObjectId: definition.id, generatedInstanceOrder: order,
-        actionKey: pending.owner.key, endFrame, initialDelayFrames: execution?.initialDelayFrames ?? starts[0].frame });
+        actionKey: pending.owner.key, endFrame,
+        initialDelayFrames: spawnTiming?.initialDelayFrames ?? execution?.initialDelayFrames ?? starts[0].frame });
     };
     const processSummonUnits = () => {
       summonUnits.forEach((unit, id) => {
@@ -6274,12 +8455,22 @@
           log('summonActionStart', { unitId: id, summonActionId: unit.action.id,
             generatedObjectId: unit.definition.id, sourceActionKey: unit.owner.key, waitFrames: unit.waitFrames });
         };
-        const emitUnitActionEvents = () => unit.actionEvents.forEach(({ event, index }) => {
-          if (unit.emitted.has(index)
-            || unit.progressFrames + 1e-9 < event.frame) return;
-          if (!/ダメージ/.test(event.effectKind || '')) throw new RangeError(`${unit.definition.id}: 召喚ユニット行動の非ダメージ効果は未対応です`);
-          unit.emitted.add(index); emitSummonHit(unit, event);
-        });
+        const emitUnitActionEvents = () => {
+          for (const { event, index } of unit.actionEvents) {
+            if (unit.emitted.has(index)
+              || unit.progressFrames + 1e-9 < event.frame) continue;
+            if (!/ダメージ/.test(event.effectKind || '')) throw new RangeError(`${unit.definition.id}: 召喚ユニット行動の非ダメージ効果は未対応です`);
+            unit.emitted.add(index); emitSummonHit(unit, event);
+                                                                             
+                                                                               
+                                                                                
+            if (event.eventType === '自爆') {
+              summonUnits.delete(id);
+              log('summonEnd', { unitId: id, generatedObjectId: unit.definition.id, reason: '行動内自爆' });
+              return;
+            }
+          }
+        };
                                                                                       
         if (state.tick >= unit.endTick) {
           const rule = options.summonCalculationInput?.definitions?.[unit.definition.id]?.executionRules;
@@ -6302,10 +8493,20 @@
         }
         if (unit.progressFrames == null) return;
         emitUnitActionEvents();
+        if (!summonUnits.has(id)) return;
         if (unit.progressFrames + 1e-9 >= unit.action.motionFrames) {
           unit.progressFrames = null;
           unit.nextStartTick = state.tick + toTicks(unit.waitFrames, ticksPerFrame);
           log('summonActionEnd', { unitId: id, summonActionId: unit.action.id });
+          if (unit.actionSequence) {
+            unit.sequenceIndex += 1;
+            const next = unit.actionSequence[unit.sequenceIndex];
+            if (!next) throw new RangeError(`${unit.definition.id}: 最終攻撃の終了通知が実行されていません`);
+            unit.action = next;
+            unit.actionEvents = normalizeArray(unit.definition.timingEvents).map((event, index) => ({ event, index }))
+              .filter(({ event }) => event.recordPurpose !== '観測'
+                && event.timeOrigin === '召喚ユニット行動開始' && event.actionId === next.id);
+          }
           if (unit.nextStartTick === state.tick) { startUnitAction(); emitUnitActionEvents(); }
         }
       });
@@ -6561,7 +8762,8 @@
       }
       triggerDamageBuffEffectsForAction(state.currentAction, 'start');
       const generatedSourceEvents = normalizeArray(action.generatedEvents).filter(event => (
-        !event.branch || event.branch === '共通' || event.branch === state.currentAction.variant
+        event.generatedSpawnOrigin !== 'モーション内'
+        && (!event.branch || event.branch === '共通' || event.branch === state.currentAction.variant)
       ));
       const generatedRuntimeEvents = generatedSourceEvents.map(event => {
         const rule = options.summonCalculationInput?.definitions?.[event.generatedObjectId]?.executionRules;
@@ -6584,7 +8786,24 @@
         startTick: state.tick,
         events: generatedRuntimeEvents
       };
-      generatedRuntimeEvents.forEach(event => {
+      const policy = action.ownerReservePolicy;
+      if (policy) {
+        if (normalizeScenarioId(config.apostleId) !== 'chloe' || actionKey !== 'highSkill'
+          || policy.objectId !== 'Chloe_high_doll' || policy.count !== 7
+          || policy.intervalSeconds !== .6 || policy.referenceUpdatesPerGameSecond !== 60) {
+          throw new RangeError('生成待ちの対応契約が不正です');
+        }
+        const spawns = generatedRuntimeEvents.filter(event => event.generatedEventType === '生成'
+          && event.generatedObjectId === policy.objectId)
+          .sort((a,b) => a.generatedInstanceOrder - b.generatedInstanceOrder);
+        if (spawns.length !== policy.count) throw new RangeError('生成待ちの個体数が一致しません');
+        const reserve = { owner: generatedOwner, spawns, index: 0, wait: 0,
+          intervalSeconds: policy.intervalSeconds, startTick: state.tick, update: 1,
+          nextTick: state.tick + toTicks(framesPerSecond / 60, ticksPerFrame) };
+        releaseOwnerReserveChild(reserve);
+        state.ownerReserves.push(reserve);
+      }
+      generatedRuntimeEvents.filter(event => !policy || event.generatedObjectId !== policy.objectId).forEach(event => {
         scheduleGeneratedEvent({
           absoluteTick: state.tick + event.relativeTick,
           owner: generatedOwner,
@@ -6689,9 +8908,14 @@
         : startAction(actionKey, selectedVariant, startOptions)
     );
 
-    const continueEnhancedRepeat = finished => {
+    const continueEnhancedRepeat = (finished, phase = 'end') => {
       const chain = state.enhancedRepeatChain;
       if (!chain || finished?.key !== 'enhancedAttack') return false;
+      const notificationBound = normalizeArray(config.actions.enhancedAttack?.repeatPolicy?.notificationVariants)
+        .includes(finished.variant || 'default');
+                                                                           
+                                                                         
+      if ((phase === 'end' && notificationBound) || (phase === 'notification' && !notificationBound)) return false;
                                 
       if (chain.pending) return false;
       const baseDetail = {
@@ -6701,7 +8925,8 @@
         probability: chain.actionProbabilityP,
         decrementPoints: chain.decrementPoints,
         estimated: chain.estimated,
-        maxActions: chain.maxActions
+        maxActions: chain.maxActions,
+        drawPhase: phase
       };
       if (state.tick >= durationTicks) {
         state.enhancedRepeatChain = null;
@@ -6735,8 +8960,11 @@
         });
         return false;
       }
-      const roll = random() * 100;
-      const success = roll < probability;
+                                                                            
+                                                                     
+      const ticket = probability >= 100 ? 0 : Math.floor(random() * 10001);
+      const roll = ticket / 100;
+      const success = probability >= 100 || ticket <= Math.trunc(Math.fround(probability * 100));
       const nextProbability = Math.max(0, probability - chain.decrementPoints);
       if (!success) {
         state.enhancedRepeatChain = null;
@@ -6764,7 +8992,8 @@
         probability,
         roll,
         nextProbability,
-        reason: lowSkillReady ? '低学年を優先して保留' : '次の強化攻撃へ直結'
+        reason: lowSkillReady ? '低学年を優先して保留'
+          : phase === 'notification' ? '行動終了後の強化攻撃を予約' : '次の強化攻撃へ直結'
       });
       return true;
     };
@@ -6814,12 +9043,63 @@
       const nextNormalAttackSequence = state.normalAttackSequence + 1;
       const enhancedBlocked = normalizeArray(enhancedAction?.blockedBySelfStateIds)
         .some(stateId => isSelfStateActive(stateId));
+                                                                            
+                                                                               
+      const enhancedProbability = Math.fround(toFiniteNumber(enhancedAction?.triggerProbability)
+        + Math.fround(toFiniteNumber(getRuntimeDamageBuffDelta(state, config, 'enhancedAttack').enhancedAttackRateP)));
       const enhanced = !enhancedBlocked && !!enhancedAction && (state.tick < state.epicaLowEnhancedUntilTick || (enhancedAction.triggerStatus
         ? getActiveStatusStacks(enhancedAction.triggerStatus).length > 0
         : (enhancedAction.triggerEveryCount > 0
           ? nextNormalAttackSequence % enhancedAction.triggerEveryCount === 0
-          : enhancedAction.triggerProbability > 0 && Math.floor(random() * 100) < enhancedAction.triggerProbability)));
+          : enhancedProbability > 0 && Math.floor(random() * 100) < enhancedProbability)));
       return beginActionPreparation(enhanced ? 'enhancedAttack' : 'basicAttack');
+    };
+
+    const canActivateNonOccupyingHigh = () => {
+      const action = config.actions.highSkill;
+      return highSkillMode === 'auto' && action?.activationMode === 'nonOccupyingImmediate'
+        && state.tick >= state.actionStartAllowedTick
+        && !state.movementTransition && !state.skillTransition
+        && !['lowSkill', 'highSkill'].includes(state.currentAction?.key);
+    };
+
+    const tryActivateNonOccupyingHigh = () => {
+      if (!canActivateNonOccupyingHigh()
+        || getCooldownRemainingTicks('highSkill') > 0
+        || state.tick < state.nonOccupyingHighGlobalReadyTick) return false;
+      const action = config.actions.highSkill;
+      const variant = pickVariant(action, state, random);
+      const owner = {key:'highSkill', label:action.label, variant:variant === 'default' ? '' : variant,
+        variantLabel:action.variantLabels?.[variant] || '', instanceId:++state.actionSerial,
+        startTick:state.tick, events:action.variants[variant] || action.variants.default || []};
+                                                                               
+      triggerCooldownEffectsForAction(owner, 'beforeStart');
+      triggerAttackSpeedEffectsForAction('highSkill');
+      triggerAccelerationEffectsForAction('highSkill');
+      triggerDamageBuffEffectsForAction(owner, 'start');
+      counts.highSkill += 1;
+      log('actionStart', {actionKey:owner.key, actionLabel:owner.label, variant:owner.variant,
+        activationMode:action.activationMode, sp:state.sp, motionFrames:null});
+      triggerSpRecoveryEffectsForAction(owner, 'start');
+      triggerRuntimeEventEffectsForAction(owner);
+      owner.events.forEach(event => emitEvent(owner, event));
+      log('actionEnd', {actionKey:owner.key, actionLabel:owner.label, variant:owner.variant,
+        activationMode:action.activationMode});
+      triggerRuntimeEventEffectsForAction(owner, 'end');
+      triggerSpRecoveryEffectsForAction(owner, 'end');
+      triggerAttackSpeedEffectsForAction('highSkill', 'end');
+      triggerAccelerationEffectsForAction('highSkill', 'end');
+      triggerDamageBuffEffectsForAction(owner, 'end');
+                                                                               
+      const percent = state.runtimeCooldownSettingEffects.reduce((total, effect) => total
+        + effect.expireTicks.filter(tick => tick > state.tick).length * effect.percent, 0);
+      setCooldownRemainingTicks('highSkill', toTicks(calculateCooldownSettingSeconds(
+        action.cooldownSeconds, config.highSkillCooldownSettings, percent)
+        * recurringHighSkillCooldownMultiplier * framesPerSecond, ticksPerFrame));
+      state.nonOccupyingHighGlobalReadyTick = state.tick + toTicks(framesPerSecond, ticksPerFrame);
+      triggerCooldownEffectsForAction(owner, 'start');
+      triggerCooldownEffectsForAction(owner, 'end');
+      return true;
     };
 
     const tryStartAction = () => {
@@ -6843,7 +9123,8 @@
         if (tryStartNormalAttack()) return;
         if (beginActionPreparation('lowSkill')) return;
       }
-      if (highSkillMode === 'auto' && getCooldownRemainingTicks('highSkill') <= 0 && beginActionPreparation('highSkill')) return;
+      if (highSkillMode === 'auto' && config.actions.highSkill?.activationMode !== 'nonOccupyingImmediate'
+        && getCooldownRemainingTicks('highSkill') <= 0 && beginActionPreparation('highSkill')) return;
       if (tryStartNormalAttack()) return;
       if (state.lowSkillQueued) beginActionPreparation('lowSkill');
     };
@@ -6915,6 +9196,12 @@
       state.runtimeAccelerationEffects.forEach(effect => add(effect.active ? effect.expireTick : Infinity));
       state.selfStateStacks.forEach(stack => add(stack.expireTick));
       add(getNextPendingGeneratedEventTick());
+      add(getNextOwnerAreaTick());
+      add(getNextOwnerReserveTick());
+      add(getNextUnitSpRecoveryTick());
+      add(getNextYomiAsideAttackTick());
+      if (canActivateNonOccupyingHigh()) add(Math.max(state.cooldowns.highSkill.readyTick,
+        state.nonOccupyingHighGlobalReadyTick));
                                           
                                         
                                                     
@@ -6937,12 +9224,16 @@
         || state.skillTransition
       );
       if (isDue(getNextActionInternalEventTick())
+        || (canActivateNonOccupyingHigh() && getCooldownRemainingTicks('highSkill') <= 0
+          && state.tick >= state.nonOccupyingHighGlobalReadyTick)
         || (!actionPhaseActive && isDue(getNextNormalAttackReadyTick()))
         || (!actionPhaseActive && state.lowSkillQueued && isDue(state.lowSkillReadyTick))
         || (!actionPhaseActive && highSkillMode === 'auto' && getCooldownRemainingTicks('highSkill') <= 0)
         || isDue(getNextRuntimePeriodicEventTick())
         || state.selfStateStacks.some(stack => isDue(stack.expireTick))
-        || isDue(getNextPendingGeneratedEventTick())) {
+        || isDue(getNextPendingGeneratedEventTick())
+        || isDue(getNextOwnerAreaTick()) || isDue(getNextOwnerReserveTick())
+        || isDue(getNextUnitSpRecoveryTick()) || isDue(getNextYomiAsideAttackTick())) {
         return false;
       }
       const nextTick = getNextIdleEventTick();
@@ -7008,6 +9299,10 @@
       processPeriodicSpRecoveryEffects();
       processPeriodicRuntimeEventEffects();
       processStatusTicks();
+      processOwnerAreas();
+      processOwnerReserves();
+      processUnitSpRecoveries();
+      processYomiAsideAttacks();
       emitDueActionEvents();
       emitDueGeneratedEvents();
       processSummonUnits();
@@ -7022,6 +9317,10 @@
         log('actionEnd', { actionKey: finished.key, actionLabel: finished.label, variant: finished.variant, variantLabel: finished.variantLabel });
         triggerRuntimeEventEffectsForAction(finished, 'end');
         triggerSpRecoveryEffectsForAction(finished, 'end');
+        state.runtimeBuffStacks.forEach(stack => {
+          if (normalizeArray(stack.releaseAfterActionKeys).includes(finished.key)) stack.expireTick = state.tick;
+        });
+        expireRuntimeBuffs();
         state.pendingGeneratedEvents.forEach(pending => {
           if (pending.owner.instanceId === finished.instanceId && pending.event.afterAction === '終了') {
             pending.cancelled = true;
@@ -7050,8 +9349,8 @@
         if (finished.key === 'lowSkill' || finished.key === 'highSkill') {
           resumeBaseSpRecovery();
         }
-                                        
-                                            
+                                                                          
+                                                                           
         continueEnhancedRepeat(finished);
       }
       if (state.movementTransition && state.movementTransition.endTick === state.tick) {
@@ -7074,6 +9373,9 @@
         state.skillTransition = null;
         startAction(actionKey, selectedVariant, startOptions);
       }
+                                                                          
+                                                                                 
+      tryActivateNonOccupyingHigh();
       tryStartAction();
     }
 
@@ -7256,8 +9558,11 @@
         })),
         lastSkillVariant: state.lastSkillVariant
       },
-      warnings: [...normalizeArray(config.warnings), ...speedModelWarnings,
-        ...normalizeArray(options.summonCalculationInput?.assumptions)]
+      warnings: [...new Set([...normalizeArray(config.warnings), ...speedModelWarnings,
+        ...(normalizeScenarioId(config.apostleId) === 'tig' && config.actions?.lowSkill
+          && config.enemyIsWorldBoss === false && config.tigHeroHpModel === 'omit-with-warning-v1'
+          ? [TIG_HERO_HP_WARNING] : []),
+        ...normalizeArray(options.summonCalculationInput?.assumptions)])]
     };
   }
 
@@ -7518,8 +9823,218 @@
     return Math.max(0, Math.fround(remaining * factor));
   }
 
+  function calculateInitialCooldownSettingSeconds(baseSeconds, settings = {}, multiplier = 0.5) {
+                                                                            
+                                                                      
+                                                                            
+    const initialSettings = Number.isFinite(settings?.initialFixedSeconds)
+      ? { ...settings, fixedSeconds: settings.initialFixedSeconds } : settings;
+    const reduced = calculateCooldownSettingSeconds(baseSeconds, initialSettings);
+    const initialRate = Math.max(0, toFiniteNumber(multiplier, 0.5));
+    return Math.max(0, Math.fround(Math.fround(reduced) * Math.fround(initialRate)));
+  }
+
+                                                                             
+                                                                             
+                                                                               
+  function createOwnerAreaClock(durationSeconds, intervalSeconds = 1) {
+    if (!Number.isFinite(durationSeconds) || durationSeconds < 0
+      || !Number.isFinite(intervalSeconds) || intervalSeconds <= 0
+      || !Number.isFinite(Math.fround(durationSeconds))
+      || !Number.isFinite(Math.fround(intervalSeconds)) || Math.fround(intervalSeconds) <= 0) {
+      throw new RangeError('領域の持続時間・周期が不正です');
+    }
+    return { duration: Math.fround(durationSeconds), interval: Math.fround(intervalSeconds),
+      wait: 0, period: 0, nextUpdate: 0, lastGameSeconds: -1, ended: false };
+  }
+
+  function advanceOwnerAreaClock(clock, elapsedGameSeconds, selfSpeedAtTime = () => 1) {
+    if (!Number.isFinite(elapsedGameSeconds) || elapsedGameSeconds < 0
+      || elapsedGameSeconds < clock.lastGameSeconds) {
+      throw new RangeError('領域の時計を逆行させることはできません');
+    }
+    const pulses = [];
+    while (!clock.ended && clock.nextUpdate / 60 <= elapsedGameSeconds) {
+      const update = clock.nextUpdate;
+      const gameSeconds = update / 60;
+      const speed = selfSpeedAtTime(gameSeconds);
+      if (!Number.isFinite(speed) || speed < 0 || !Number.isFinite(Math.fround(speed))) {
+        throw new RangeError('領域の加速値が不正です');
+      }
+      const emit = kind => pulses.push({ kind, update, gameSeconds, ownerSeconds: clock.wait });
+      if (update === 0) emit('first');
+      if (clock.wait > clock.duration) {
+        emit('end');
+        clock.ended = true;
+        break;
+      }
+      if (clock.period >= clock.interval) {
+        clock.period = 0;
+        emit('period');
+      }
+      const delta = Math.fround(Math.fround(1 / 60) * Math.fround(speed));
+      clock.period = Math.fround(clock.period + delta);
+      clock.wait = Math.fround(clock.wait + delta);
+      clock.nextUpdate += 1;
+    }
+    clock.lastGameSeconds = elapsedGameSeconds;
+    return pulses;
+  }
+
+  function deriveSupportSeed(seed, ownerId) {
+    let hash = 2166136261;
+    for (const char of `support:${String(ownerId).toLowerCase()}`) {
+      hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+    }
+    return Math.max(1, (hash ^ Math.floor(toFiniteNumber(seed, 1))) >>> 0);
+  }
+
+                                                                         
+                                                                           
+                                                                           
+  function calculatePiraGiftDelayFrames(seconds, updatesPerGameSecond) {
+    if (!Number.isFinite(seconds) || seconds < 0
+      || !Number.isFinite(updatesPerGameSecond) || updatesPerGameSecond <= 0) {
+      throw new RangeError('Invalid gift delay clock');
+    }
+    const threshold = Math.fround(seconds);
+    const delta = Math.fround(1 / updatesPerGameSecond);
+    let elapsed = 0, updates = 0;
+    const limit = Math.ceil(seconds * updatesPerGameSecond) + 2;
+    while (elapsed < threshold && updates < limit) {
+      elapsed = Math.fround(elapsed + delta);
+      updates++;
+    }
+    if (elapsed < threshold) throw new RangeError('Gift delay clock did not reach threshold');
+    return updates;
+  }
+
+  function isSupportClockBindingSupported(config, binding) {
+    if (!binding.bindingKey) return false;
+    if (normalizeScenarioId(config.apostleId) === 'pira'
+      && binding.effectIds?.includes('Pira_aside_2_e05')) {
+      return binding.supportRecipientModel === 'selected-recipient-provisional'
+        && binding.supportApplicationDelaySeconds === 0.5
+        && binding.type === '高学年スキル終了時'
+        && binding.triggerSourceId === '高学年スキル'
+        && !binding.conditionType && !binding.conditionValue
+        && normalizeArray(binding.triggerActionKeys).length === 1
+        && binding.triggerActionKeys[0] === 'highSkill' && !!config.actions?.highSkill;
+    }
+    if (normalizeScenarioId(config.apostleId) === 'sherum'
+      && binding.type === '高学年スキル効果発生時'
+      && binding.triggerSourceId === 'Sherum_aside_2_e03'
+      && !binding.conditionType && !binding.conditionValue) {
+      return normalizeArray(config.runtimeEffects?.damageBuffEffects).some(effect =>
+        effect.triggerSourceId === 'Sherum_aside_2_e03' && effect.durationFrames === 360)
+        && Object.values(config.actions?.highSkill?.variants || {}).some(events =>
+          normalizeArray(events).some(event => event.effectId === 'Sherum_high_e01' && event.ownerArea));
+    }
+    if (normalizeScenarioId(config.apostleId)==='rollett' && binding.type==='状態付与時'
+      && binding.statusReactionOnly===true && !binding.conditionType && !binding.conditionValue) {
+      return normalizeArray(config.runtimeEffects?.eventEffects).some(effect=>effect.id==='Rollett:aside2:childChoice'
+        && effect.weightedChoices?.total===300 && normalizeArray(effect.steps).some(step=>step.type==='status'
+          && step.application?.applicationEffectId===binding.triggerSourceId
+          && step.application.status===binding.status));
+    }
+    if (normalizeScenarioId(config.apostleId) === 'yomi'
+      && binding.type === '強化攻撃命中時' && binding.triggerSourceId === 'Yomi_aside_2_e03'
+      && !binding.conditionType && !binding.conditionValue
+      && normalizeArray(binding.triggerActionKeys).length === 1
+      && binding.triggerActionKeys[0] === 'enhancedAttack') {
+      return config.enemyCount === 1 && !!config.runtimeEffects?.yomiAsideReservations;
+    }
+    if (normalizeScenarioId(config.apostleId) === 'barong' && binding.type === '状態付与時'
+      && binding.triggerSourceId === 'Barong_favorite_1_e02' && binding.status === '攻撃速度減少'
+      && binding.statusReactionOnly === true && !binding.conditionType && !binding.conditionValue) {
+      return Object.values(config.actions?.enhancedAttack?.variants || {}).some(events =>
+        normalizeArray(events).some(event => event.statusApplication?.applicationEffectId === binding.triggerSourceId
+          && event.statusApplication.durationFrames === 300));
+    }
+    if (normalizeScenarioId(config.apostleId) === 'snorky' && binding.type === '状態付与時'
+      && binding.triggerSourceId === 'Snorky_favorite_1_e02' && binding.status === '気絶'
+      && binding.statusReactionOnly === true && !binding.conditionType && !binding.conditionValue) {
+      return Object.values(config.actions?.enhancedAttack?.variants || {}).some(events =>
+        normalizeArray(events).some(event => event.statusApplication?.applicationEffectId === binding.triggerSourceId
+          && event.statusApplication.applicationProbability === 50));
+    }
+    if (normalizeScenarioId(config.apostleId) === 'daya' && binding.type === '状態付与時'
+      && binding.triggerSourceId === 'Daya_aside_2_e04' && binding.status === '気絶'
+      && binding.statusReactionOnly === true && !binding.conditionType && !binding.conditionValue) {
+      return normalizeArray(config.runtimeEffects?.eventEffects).some(effect =>
+        effect.triggerType === '高学年スキル命中時'
+        && normalizeArray(effect.triggerActionKeys).includes('highSkill')
+        && normalizeArray(effect.steps).some(step => step.type === 'status'
+          && step.application?.applicationEffectId === binding.triggerSourceId
+          && step.application?.status === '気絶' && step.application.durationFrames === 150));
+    }
+                                                                              
+    if (normalizeScenarioId(config.apostleId) === 'tig' && binding.type === '状態付与時'
+      && binding.triggerSourceId === 'Tig_favorite_1_e05' && binding.status === '火傷'
+      && binding.statusReactionOnly === true && !binding.conditionType && !binding.conditionValue) {
+      return normalizeArray(config.runtimeEffects?.eventEffects).some(effect =>
+        normalizeArray(effect.steps).some(step => step.type === 'status'
+          && step.application?.applicationEffectId === binding.triggerSourceId));
+    }
+    const pira = normalizeScenarioId(config.apostleId) === 'pira';
+                                                                            
+                                                                               
+    const piraBranch = pira && binding.type === '高学年スキル効果発生時'
+      && ((binding.triggerSourceId === 'Pira_high_e03'
+        && binding.conditionType === '発動前リソーススタック範囲' && binding.conditionValue === 'Pira_wealth:0-29')
+        || (binding.triggerSourceId === 'Pira_high_e06'
+        && binding.conditionType === '発動前リソーススタック' && binding.conditionValue === 'Pira_wealth:30'));
+    if (pira && binding.type === 'リソース獲得時' && binding.triggerSourceId === 'Pira_wealth') {
+      return !binding.conditionType && !binding.conditionValue
+        && normalizeArray(config.runtimeResources).some(resource => resource.id === 'Pira_wealth');
+    }
+    if (!/^(?:普通攻撃|強化攻撃|低学年スキル|高学年スキル)(?:使用|発動|終了|命中|効果発生)時$/.test(binding.type)
+      || ((binding.conditionType || binding.conditionValue) && !piraBranch)) return false;
+    const keys = normalizeArray(binding.triggerActionKeys);
+    if (!keys.length || keys.some(key => !config.actions?.[key])) return false;
+    const source = String(binding.triggerSourceId || '');
+    const concreteSource = source && !/^(普通攻撃(?:_基本|_強化)?|基本攻撃|強化攻撃|低学年スキル|高学年スキル)$/.test(source);
+    const needsNotification = /効果発生時$/.test(binding.type)
+      || (concreteSource && /発動時$|命中時$/.test(binding.type));
+    if (!needsNotification) return true;
+    const matches = event => event?.effectId === source
+      || normalizeArray(event?.motionLinkedGeneratedEvents).some(matches);
+    return keys.some(key => Object.values(config.actions[key].variants || {})
+      .some(events => normalizeArray(events).some(matches)));
+  }
+
+  function matchesSupportNotification(binding, notification) {
+    if (binding.type === '状態付与時') return notification.type === 'statusApplied'
+      && notification.applicationEffectId === binding.triggerSourceId
+      && notification.status === binding.status;
+    if (binding.type === 'リソース獲得時') return notification.type === 'resourceChange'
+      && notification.resourceId === binding.triggerSourceId && notification.operation === 'gain'
+      && notification.after > notification.before && notification.amount > 0;
+    if (normalizeArray(binding.triggerActionKeys).length
+      && !binding.triggerActionKeys.includes(notification.actionKey)) return false;
+    const type = String(binding.type || '');
+    const source = String(binding.triggerSourceId || '');
+    const genericSource = !source || /^(普通攻撃(?:_基本|_強化)?|基本攻撃|強化攻撃|低学年スキル|高学年スキル)$/.test(source);
+    if (/効果発生時$/.test(type) || (/発動時$/.test(type) && !genericSource)) {
+      return ['hit', 'effect'].includes(notification.type) && source === notification.effectId;
+    }
+    if (/使用時$|発動時$/.test(type)) return notification.type === 'actionStart';
+    if (/終了時$/.test(type)) return notification.type === 'actionEnd';
+    if (/命中時$/.test(type)) return notification.type === 'hit'
+      && !notification.generatedObjectId && (genericSource || source === notification.effectId);
+    return false;
+  }
+
   function hasSimulationRandomness(config = {}) {
+    if (normalizeArray(config.supportClocks).some(clock => hasSimulationRandomness(clock.config))) return true;
     const actions = Object.values(config.actions || {});
+    const probabilisticStatus = event => {
+      const probability = event?.statusApplication?.applicationProbability;
+      return (typeof probability === 'number' && probability > 0 && probability < 100)
+        || normalizeArray(event?.motionLinkedGeneratedEvents).some(probabilisticStatus);
+    };
+    if (actions.some(action => Object.values(action?.variants || {}).some(events =>
+      normalizeArray(events).some(probabilisticStatus)))) return true;
     if (actions.some(action => (
       Number(action?.triggerProbability) > 0
       || Number(action?.repeatPolicy?.initialProbabilityP) > 0
@@ -7533,6 +10048,8 @@
     ];
     return effects.some(effect => (
       effect?.random === true
+      || normalizeArray(effect?.weightedChoices?.choices).filter(choice=>choice.weight>0).length>1
+      || probabilisticStatus(effect)
       || effect?.randomBound === 'range'
       || (Number.isFinite(Number(effect?.triggerProbability))
         && Number(effect.triggerProbability) > 0
@@ -7541,10 +10058,14 @@
   }
 
   return Object.freeze({
-    version: 63,
+    version: 205,
+    calculatePiraGiftDelayFrames,
     resolveNativeCoefficient,
     resolveImplicitTimedSpEffectId,
     calculateCooldownSettingSeconds,
+    calculateInitialCooldownSettingSeconds,
+    createOwnerAreaClock,
+    advanceOwnerAreaClock,
     assembleSummonAbilities,
     getSummonCalculationIssues,
     getSummonUnitIssues,
@@ -7553,7 +10074,10 @@
     createActionSkillOverride,
     createSeededRandom,
     evaluateDamageAtHit,
+    resolveNativeStatusCoefficientSelection,
     evaluateSingleHitDamage,
+    buildEpicaDedicatedHitQuery,
+    evaluateEpicaDedicatedHitQuery,
     evaluateDotDamage,
     createDotAttackSnapshot,
     evaluateDotAtTick,
@@ -7569,6 +10093,7 @@
     clampCombatCritRate,
     clampCombatCritMultiplier,
     simulate,
+    isSupportClockBindingSupported,
     simulateMany,
     simulateAsync,
     simulateManyAsync,

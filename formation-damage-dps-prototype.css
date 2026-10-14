@@ -11,7 +11,11 @@
 .fdcp-dps-unavailable-details summary::-webkit-details-marker { display:none; }
 .fdcp-dps-unavailable-details summary::marker { content:""; }
 .fdcp-dps-unavailable-details:focus-within summary { outline:2px solid var(--fdc-focus,#60a5fa); outline-offset:2px; }
-.fdcp-dps-unavailable-details[open] > p { position:fixed; z-index:120; right:.5rem; bottom:calc(var(--fdc-result-bar-height,6.35rem) + 2rem); box-sizing:border-box; width:min(30rem,calc(100vw - 1rem)); max-height:min(28vh,10rem); overflow:auto; margin:0; padding:.55rem .7rem; border:1px solid var(--fdc-border); border-radius:8px; color:var(--fdc-text); background:var(--fdc-panel-strong); box-shadow:0 8px 24px rgba(0,0,0,.28); font:inherit; font-size:.7rem; line-height:1.4; }
+.fdcp-dps-reason-dialog { position:fixed; inset:50% auto auto 50%; transform:translate(-50%,-50%); margin:0; box-sizing:border-box; width:min(30rem,calc(100vw - 1rem)); max-height:70vh; max-height:70dvh; overflow:auto; padding:.75rem; border:1px solid var(--fdc-border); border-radius:10px; color:var(--fdc-text); background:var(--fdc-panel-strong); font:inherit; }
+.fdcp-dps-reason-dialog::backdrop { background:rgba(0,0,0,.45); }
+.fdcp-dps-reason-head { display:flex; align-items:center; justify-content:space-between; gap:.75rem; font-size:.85rem; }
+.fdcp-dps-reason-head button { flex:none; width:2rem; height:2rem; border:1px solid var(--fdc-border); border-radius:7px; color:inherit; background:transparent; font:inherit; cursor:pointer; }
+.fdcp-dps-reason-dialog > p { margin:.65rem 0 0; font-size:.8rem; line-height:1.5; white-space:pre-line; overflow-wrap:anywhere; }
 .fdcp-mode-tabs button { box-sizing:border-box; flex:0 0 var(--fdcp-mode-tabs-width); width:var(--fdcp-mode-tabs-width); height:1.7rem; border:1px solid var(--fdc-border); border-bottom:0; border-radius:7px 7px 0 0; padding:3px 6px; color:var(--fdc-text); background:#1a2744; font:inherit; font-size:.68rem; font-weight:900; line-height:1; cursor:pointer; writing-mode:horizontal-tb; text-orientation:mixed; box-shadow:0 -2px 7px rgba(15,23,42,.2); }
 body.theme-light .fdcp-mode-tabs button:not([aria-selected="true"]):not([disabled]):not([aria-disabled="true"]) { background:#fff; }
 .fdcp-mode-tabs button[aria-selected="true"] { color:#fff; background:#566fd1; border-color:#93aaff; }
@@ -496,3 +500,50 @@ body.theme-dark .fdcp-dps-settings-panel .fdc-dps-runtime-policy.is-policy-reado
 .fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list span { color:var(--fdc-muted); font-weight:800; }
 .fdcp-dps-detail-panel .fdc-dps-runtime-auxiliary-list b,
 .fdcp-dps-settings-panel .fdc-dps-runtime-auxiliary-list b { min-width:0; overflow-wrap:anywhere; color:var(--fdc-text); font-weight:700; }
+
+/* Bound every anchored calculator popover by the actual header/controller/results.
+   Detail-open popovers occupy the sheet below their button, not the result cards. */
+.fdcp-page .fdc-apply-float-panel,
+.fdcp-page .fdc-compare-float-panel,
+.fdcp-page .fdc-save-popover,
+.fdcp-page .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) {
+  box-sizing:border-box; position:fixed; top:auto;
+  bottom:var(--fdc-overlay-above-bottom,10.5rem);
+  right:max(.75rem,env(safe-area-inset-right));
+  max-height:max(0px,calc(100dvh - var(--fdc-overlay-safe-top,var(--trickcal-top-occupied-height)) - var(--fdc-overlay-above-bottom,10.5rem)));
+  overflow-y:auto; overscroll-behavior:contain;
+}
+.fdcp-page.fdc-result-detail-open .fdc-apply-float-panel,
+.fdcp-page.fdc-result-detail-open .fdc-compare-float-panel,
+.fdcp-page.fdc-result-detail-open .fdc-save-popover,
+.fdcp-page.fdc-result-detail-open .fdcp-dps-float-slot .fdcp-float-panel:not([hidden]) {
+  top:max(var(--fdc-overlay-safe-top,4rem),var(--fdc-overlay-below-top,4rem)); bottom:auto;
+  max-height:max(0px,calc(100dvh - max(var(--fdc-overlay-safe-top,4rem),var(--fdc-overlay-below-top,4rem)) - var(--fdc-overlay-safe-bottom,6rem)));
+}
+.fdcp-page .fdc-card-cost-panel {
+  box-sizing:border-box; position:fixed; top:auto; bottom:var(--fdc-cost-above-bottom,12rem);
+  left:max(clamp(.75rem,3vw,1.35rem),env(safe-area-inset-left)); right:auto;
+  max-height:max(0px,calc(100dvh - var(--fdc-overlay-safe-top,4rem) - var(--fdc-cost-above-bottom,12rem)));
+  overflow-y:auto; overscroll-behavior:contain;
+}
+.fdcp-page.fdc-result-detail-open .fdc-card-cost-panel {
+  top:max(var(--fdc-overlay-safe-top,4rem),var(--fdc-cost-below-top,4rem)); bottom:auto;
+  max-height:max(0px,calc(100dvh - max(var(--fdc-overlay-safe-top,4rem),var(--fdc-cost-below-top,4rem)) - var(--fdc-overlay-safe-bottom,6rem)));
+}
+.fdcp-page .fdc-result-detail-panel {
+  box-sizing:border-box;
+  max-height:min(62dvh,30rem,max(0px,calc(100dvh - var(--fdc-overlay-safe-top,4rem) - var(--fdcp-collapsed-bar-height,5.35rem) - 6.5rem)));
+}
+@media(max-width:680px) {
+  .fdcp-page .fdcp-dps-float-slot .fdcp-dps-settings-panel:not([hidden]) {
+    left:max(.5rem,env(safe-area-inset-left)); right:max(.5rem,env(safe-area-inset-right)); width:auto;
+  }
+}
+/* On phones the expanded sheet can reach the side selector's
+   normal fixed position. Keep it beside the top-right swap control instead. */
+@media(max-width:860px) {
+  .fdcp-page.fdc-result-detail-open .fdc-mobile-side-switch {
+    top:calc(var(--trickcal-top-occupied-height) + .5rem);
+    right:4rem;
+  }
+}

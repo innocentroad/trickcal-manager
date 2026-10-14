@@ -403,6 +403,7 @@
     if (typeof policyApi?.isDpsFormationCandidateAutoEnabled === 'function') {
       return policyApi.isDpsFormationCandidateAutoEnabled(candidate, options, events);
     }
+    if (candidate.supportClockOwnerId) return false;
     const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
     if (schedulePolicy.mode !== 'periodic') return false;
     if (String(options?.formationTimelineMode || 'off') !== 'supportEstimate') return false;
@@ -417,10 +418,13 @@
       return { code: 'external', label: '外部入力待ち' };
     }
     if (isDpsFormationCandidateManuallyScheduled(candidate, events)) {
-      return { code: 'manual', label: '周期設定済み' };
+      return { code: 'manual', label: candidate.supportClockOwnerId ? '時刻指定済み' : '周期設定済み' };
     }
     if (isDpsFormationCandidateAutoEnabled(candidate, options, events)) {
-      return { code: 'estimated', label: '自動（推定）' };
+      return { code: 'estimated', label: candidate.supportClockOwnerId ? '自動（支援行動）' : '自動（推定）' };
+    }
+    if (candidate.supportClockOwnerId && candidate.supportClockAvailable !== true) {
+      return { code: 'missing', label: '時刻入力待ち' };
     }
     if (isDpsHighSkillFormationCandidate(candidate)) {
       return { code: 'high-off', label: '初期OFF' };
@@ -598,25 +602,38 @@
       })
       .filter(event => event.type && event.candidateId && event.intervalFrames > 0);
   }
-  function applyDpsRuntimeEffectOverrides(runtimeEffects = {}, targetId = '', overrides = dpsRuntimeEffectOverrides) {
+  function applyDpsRuntimeEffectOverrides(runtimeEffects = {}, targetId = '', overrides = dpsRuntimeEffectOverrides, options = {}) {
     const source = runtimeEffects || {};
     const display = { ...source };
     const simulation = { ...source };
+    const resolveOverride = effect => {
+      const saved = getDpsRuntimeEffectOverrideForEffect(targetId, effect, overrides)
+        || (effect.runtimeHasExplicitOverride === true
+          ? {mode: effect.runtimeOverrideMode, fixedStacks: effect.runtimeFixedStacks} : null);
+      const policy = getDpsRuntimeEffectPolicy(effect);
+                                                                          
+                                                                
+      const outgoingHighAuto = policy.highSkillOnly && options.formationAutoBindingKeys?.includes(
+        effect.bindingKey || effect.externalBindingKey);
+      return saved || (outgoingHighAuto || (options.supportHighSkillAuto === true && policy.highSkillOnly
+        && policy.capability === 'exact') ? {mode: 'auto'} : null);
+    };
     [
       ['attackSpeedEffects', true], ['accelerationEffects', false], ['damageBuffEffects', true], ['spRecoveryEffects', false],
-      ['cooldownEffects', false], ['cooldownSettingEffects', false], ['eventEffects', false]
+      ['cooldownEffects', false], ['cooldownSettingEffects', false], ['eventEffects', false],
+      ['resourceHeldEffects', false]
     ].forEach(([collectionKey, supportsFixed]) => {
       const displayRows = Array.isArray(source[collectionKey]) ? source[collectionKey] : [];
       display[collectionKey] = displayRows.map(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
-        const override = getDpsRuntimeEffectOverrideForEffect(targetId, effect, overrides);
+        const override = resolveOverride(effect);
         const runtimePolicy = getDpsRuntimeEffectPolicy(effect, { supportsFixed });
         const defaultMode = runtimePolicy.defaultMode;
         return { ...effect, runtimePolicy, runtimeDefaultMode: defaultMode, runtimeHasExplicitOverride: !!override, runtimeOverrideMode: override?.mode || defaultMode, runtimeFixedStacks: Math.max(1, Math.floor(Number(override?.fixedStacks) || 1)), runtimeSupportsFixed: runtimePolicy.supportsFixed };
       });
       simulation[collectionKey] = displayRows.flatMap(effect => {
         const effectId = String(effect?.id || effect?.effectId || '');
-        const override = getDpsRuntimeEffectOverrideForEffect(targetId, effect, overrides);
+        const override = resolveOverride(effect);
         const mode = override?.mode || getDpsRuntimeEffectDefaultMode(effect);
         if (mode === 'off') {
                                                     
@@ -782,6 +799,7 @@
       this.pendingAutoRun = false;
       this.lastAutoFingerprint = '';
       this.dpsModeActive = false;
+      this.inputDirty = true;
       this.runToken = 0;
       this.activeCancellation = null;
       this.timelineVisibleLimit = 160;
@@ -801,8 +819,7 @@
       });
       this.damageGraphModel = null;
       this.updateExternalEventCount();
-                                         
-                                            
+                                                                      
       this.currentTargetId = '';
       this.availability = { ready: false, snapshot: null, support: null, error: null };
       this.onAvailabilityChange = null;
@@ -1001,8 +1018,45 @@
     }
 
     createInputSnapshot(snapshot = {}) {
+      const settings = this.getDpsSettings();
+      const candidates = snapshot.formationEventCandidates || [];
+      const bindingModes = {
+        ...getDpsFormationBindingModes(snapshot.runtimeEffects || {}),
+        ...getDpsFormationCandidateBindingModes(candidates, snapshot.targetId || '')
+      };
+      const supportClocks = (snapshot.formationSupportClocks || []).map(clock => ({
+        ...clock,
+        bindings: candidates.filter(candidate => clock.candidateIds.includes(candidate.id)
+          && window.TRICKCAL_DPS_TRIGGER_POLICY?.isDpsFormationCandidateAutoEnabled(candidate, {
+            ...settings, bindingModes
+          }, this.externalEvents)),
+        input: {
+          ...clock.input
+        }
+      })).filter(clock => clock.bindings.length);
+      supportClocks.forEach(clock => {
+                                                                             
+                                                                              
+                                                                                 
+                                                                  
+        const highOptIn = candidates.some(candidate => candidate.ownerId === clock.ownerId
+          && clock.candidateIds.includes(candidate.id) && isDpsHighSkillFormationCandidate(candidate)
+          && window.TRICKCAL_DPS_TRIGGER_POLICY?.isDpsFormationCandidateAutoEnabled(candidate,
+            {...settings, bindingModes}, []));
+        clock.highSkillMode = highOptIn || (settings.formationHighSkillMode === 'auto'
+          && settings.formationTimelineMode === 'supportEstimate') ? 'auto' : 'off';
+        const original = snapshot.formationSupportClocks.find(item => item.ownerId === clock.ownerId);
+        clock.input.runtimeEffects = applyDpsRuntimeEffectOverrides(original.input.runtimeEffects, clock.ownerId,
+          dpsRuntimeEffectOverrides, {supportHighSkillAuto: clock.highSkillMode === 'auto'}).simulation;
+      });
       return {
         ...snapshot,
+        supportClocks,
+        dpsRuntimeSimulationEffects: supportClocks.length
+          ? applyDpsRuntimeEffectOverrides(snapshot.runtimeEffects, snapshot.targetId,
+            dpsRuntimeEffectOverrides, {formationAutoBindingKeys: supportClocks.flatMap(clock =>
+              clock.bindings.map(binding => binding.bindingKey))}).simulation
+          : snapshot.dpsRuntimeSimulationEffects,
                                            
                                                   
                                          
@@ -1018,7 +1072,15 @@
         : '暫定';
     }
 
+    markInputDirty() {
+      this.inputDirty = true;
+      if (this.dpsModeActive) return;
+      this.availability = { ready: false, snapshot: null, support: null, error: null };
+      this.onAvailabilityChange?.({ ...this.availability, transition: null });
+    }
+
     refreshAvailability({ render = this.dpsModeActive } = {}) {
+      if (!this.dpsModeActive) { this.markInputDirty(); return null; }
       try {
         const snapshot = createDpsSnapshotWithRuntimeOverrides(this.adapter);
         const targetId = String(snapshot?.targetId || '').trim().toLowerCase();
@@ -1039,6 +1101,7 @@
         else if (this.dpsModeActive && !support?.supported) this.invalidateForUnsupportedAvailability();
         this.currentTargetId = targetId;
         this.availability = { ready: true, snapshot, support, error: null };
+        this.inputDirty = false;
         if (render) this.renderAvailability(snapshot, support);
         this.onAvailabilityChange?.({ ready: true, snapshot, support, transition });
         return { snapshot, support };
@@ -1400,6 +1463,7 @@
     }
 
     renderDpsExternalInput(snapshot = null) {
+      if (!this.dpsModeActive) return;
       const host = this.elements.externalInput;
       if (!host) return;
       const previousExternalDetails = host.querySelector?.('[data-fdcp-detail-section="external"]');
@@ -1416,14 +1480,26 @@
     }
 
     renderDpsRuntimeSettings(snapshot = null) {
+      if (!this.dpsModeActive) return;
       const host = this.elements.runtimeSettings;
       if (!host) return;
       const previousDetails = host.querySelector?.('[data-fdcp-detail-section="runtime-settings"]');
       const previousSchedule = host.querySelector?.('[data-fdcp-detail-section="runtime-schedule"]');
       const sourceSnapshot = snapshot || this.latest?.snapshot || this.availability?.snapshot || {};
       const settings = this.getDpsSettings();
+      const automaticBindings = new Set(this.createInputSnapshot(sourceSnapshot).supportClocks
+        .flatMap(clock => clock.bindings.map(binding => binding.bindingKey)));
+                                                                                
+                                                                               
+      const runtimeDisplay = {...sourceSnapshot.runtimeEffects};
+      for (const key of ['attackSpeedEffects','accelerationEffects','damageBuffEffects',
+        'spRecoveryEffects','cooldownEffects','eventEffects']) {
+        runtimeDisplay[key] = (sourceSnapshot.runtimeEffects?.[key] || []).map(effect =>
+          automaticBindings.has(effect.bindingKey || effect.externalBindingKey)
+            ? {...effect, runtimeOverrideMode:'auto', supportClockAutomatic:true} : effect);
+      }
       host.innerHTML = renderDpsRuntimeSettingsContent(
-        sourceSnapshot.runtimeEffects || {},
+        runtimeDisplay,
         !!previousDetails?.open,
         this.externalEvents,
         sourceSnapshot.formationEventCandidates || [],
@@ -1527,6 +1603,7 @@
     }
 
     refreshDamageGraphModel() {
+      if (!this.dpsModeActive) return;
       this.damageGraphModel = createDpsDamageGraphModel(
         this.latest?.single || null,
         this.baseline?.single || null
@@ -1534,6 +1611,7 @@
     }
 
     renderDamageGraphs({ detail = true, sparkline = true } = {}) {
+      if (!this.dpsModeActive) return;
       if (sparkline) drawSparkline(this.elements.sparkline, this.damageGraphModel?.current || null);
       if (detail) {
         const canvas = this.elements.detailGrid?.querySelector?.('[data-fdcp-damage-graph]');
@@ -1556,7 +1634,8 @@
         this.externalEvents = detailEvents;
         this.externalEventsInitialized = true;
       }
-      const available = this.refreshAvailability({ render: true });
+      const available = !this.inputDirty && this.availability?.ready
+        ? this.availability : this.refreshAvailability({ render: true });
       if (!this.dpsModeActive || !available?.support?.supported) return;
       const simulator = window.TRICKCAL_DPS_SIMULATOR;
       const timing = window.DPS_TIMING_DATA?.apostles?.[String(available.snapshot.targetId || '').toLowerCase()];
@@ -1588,7 +1667,9 @@
             skillLevels: snapshot.skillLevels,
             skillOverrides: snapshot.dpsSkillOverrides,
             timingBranches: snapshot.dpsTimingBranches,
+            highSkillCooldownSettings: snapshot.highSkillCooldownSettings,
             runtimeEffects: snapshot.dpsRuntimeSimulationEffects || snapshot.runtimeEffects,
+            supportClocks: snapshot.supportClocks || [],
             externalEvents: snapshot.externalEvents || [],
             enemySize: snapshot.scenario?.battleConditions?.enemySize || snapshot.scenario?.actors?.enemy?.size || '',
             enemySizeRank: snapshot.scenario?.battleConditions?.enemySizeRank || snapshot.scenario?.actors?.enemy?.sizeRank || 0
@@ -1741,6 +1822,7 @@
     }
 
     renderDpsDetail() {
+      if (!this.dpsModeActive) return;
       this.renderDpsExternalInput();
       const grid = this.elements.detailGrid;
       if (!grid) return;
@@ -1778,7 +1860,8 @@
           ...(timingRows.length ? [{ title: '行動タイミング', className: 'is-wide', rows: timingRows }] : []),
           {
             title: '対応構成',
-            rows: [['使徒', `${support.label} / ${support.configuration}${support.provisional ? `（暫定: ${support.provisionalLabel}）` : ''}`]]
+            rows: [['使徒', `${support.label} / ${support.configuration}${support.provisional ? `（暫定: ${support.provisionalLabel}）` : ''}`],
+              ...(support.warnings || []).map(warning => ['注意', warning])]
           },
           ...commonGroups,
           {
@@ -1811,6 +1894,7 @@
     }
 
     saveBaseline() {
+      if (!this.dpsModeActive) return;
       if (this.running) {
         this.elements.baselineNote.textContent = 'DPS計算の完了後に基準を保存してください。';
         return;
@@ -1936,6 +2020,21 @@
     const dpsModeToggle = document.querySelector('[data-fdcp-mode="dps"]');
     const dpsUnavailableDetails = document.getElementById('fdcp-dps-unavailable-details');
     const dpsUnavailableReason = document.getElementById('fdcp-dps-unavailable-reason');
+    const dpsReasonDialog = document.getElementById('fdcp-dps-reason-dialog');
+    if (dpsReasonDialog && dpsUnavailableDetails) {
+      dpsUnavailableDetails.addEventListener('toggle', () => {
+        if (dpsUnavailableDetails.open && !dpsUnavailableDetails.hidden) {
+          if (!dpsReasonDialog.open) dpsReasonDialog.showModal();
+        } else if (dpsReasonDialog.open) dpsReasonDialog.close();
+      });
+      dpsReasonDialog.addEventListener('close', () => { dpsUnavailableDetails.open = false; });
+      dpsReasonDialog.querySelector('[data-fdcp-reason-close]')?.addEventListener('click', () => dpsReasonDialog.close());
+      dpsReasonDialog.addEventListener('click', event => {
+        const rect = dpsReasonDialog.getBoundingClientRect();
+        if (event.target === dpsReasonDialog && (event.clientX < rect.left || event.clientX > rect.right
+          || event.clientY < rect.top || event.clientY > rect.bottom)) dpsReasonDialog.close();
+      });
+    }
     let currentMode = 'single';
     let refreshTimer = 0;
                                                        
@@ -2008,23 +2107,24 @@
       dpsModeToggle.title = state.title;
       dpsModeToggle.setAttribute('aria-label', state.ariaLabel);
       if (dpsUnavailableDetails) {
-        const reason = state.disabled ? state.title : '';
-        if (!state.disabled || (dpsUnavailableReason && dpsUnavailableReason.textContent !== reason)) {
+        const warning = (availability?.support?.warnings || []).join('\n');
+        const reason = state.disabled ? state.title : warning;
+        if (!reason || (dpsUnavailableReason && dpsUnavailableReason.textContent !== reason)) {
           dpsUnavailableDetails.open = false;
+          if (dpsReasonDialog?.open) dpsReasonDialog.close();
         }
-        dpsUnavailableDetails.hidden = !state.disabled;
+        dpsUnavailableDetails.hidden = !reason;
+        const summary = dpsUnavailableDetails.querySelector('summary');
+        if (summary) summary.textContent = state.disabled ? '未対応理由' : 'DPSの注意';
         if (dpsUnavailableReason) dpsUnavailableReason.textContent = reason;
       }
     };
+    let enterTimer = 0;
     const setMode = mode => {
       const dpsMode = mode === 'dps';
-                                                    
-                                                      
-                                  
-      if (dpsMode) {
-        controller.refreshAvailability({ render: false });
-        if (!controller.canEnterDpsMode()) return false;
-      }
+      window.clearTimeout(enterTimer);
+      window.clearTimeout(refreshTimer);
+      enterTimer = refreshTimer = 0;
       currentMode = dpsMode ? 'dps' : 'single';
                                                                                
                                                                                
@@ -2055,8 +2155,18 @@
       }
       document.querySelectorAll('[data-fdcp-mode]').forEach(button => button.setAttribute('aria-selected', String(button.dataset.fdcpMode === mode)));
       if (dpsMode) {
-        controller.refreshAvailability();
-        controller.requestAutoRun();
+        elements.state.textContent = '最新設定を確認中…';
+        elements.value.textContent = '…';
+        elements.run.disabled = true;
+                                                                          
+        enterTimer = window.setTimeout(() => {
+          enterTimer = 0;
+          if (currentMode !== 'dps') return;
+          const available = controller.refreshAvailability();
+          if (currentMode !== 'dps') return;
+          if (available && !controller.canEnterDpsMode()) { setMode('single'); return; }
+          controller.requestAutoRun();
+        }, 0);
       }
       return true;
     };
@@ -2145,36 +2255,46 @@
     [elements.highMode, elements.masterPowerMode, elements.formationTimelineMode, elements.formationHighMode, elements.duration, elements.seed, elements.trials, elements.autoRun]
       .filter(Boolean).forEach(input => input.addEventListener('change', refreshDpsSettings));
     const scheduleAvailabilityRefresh = ({ delay = 120 } = {}) => {
+      controller.markInputDirty();
       window.clearTimeout(refreshTimer);
+      if (currentMode !== 'dps') { refreshTimer = 0; return; }
       refreshTimer = window.setTimeout(() => {
-        const activeDps = currentMode === 'dps';
-        controller.refreshAvailability({ render: activeDps });
-                                                    
-        if (activeDps) controller.requestAutoRun();
+        refreshTimer = 0;
+        if (currentMode !== 'dps' || enterTimer || !controller.inputDirty) return;
+        controller.refreshAvailability();
+        if (currentMode === 'dps') controller.requestAutoRun();
       }, delay);
     };
     const isPrototypeControl = target => !!target?.closest?.('#fdcp-bottom-bar, #fdc-apply-float-controller');
+    const refreshFromInput = event => {
+      if (isPrototypeControl(event.target)) return;
+                                                                     
+      const season = event.composedPath?.().some(node => node?.id === 'fdc-season-section')
+        || !!event.target?.closest?.('#fdc-season-section');
+      if (season && event.type === 'click') return;
+      scheduleAvailabilityRefresh({ delay: season ? 300 : 120 });
+    };
     document.addEventListener('change', event => {
-      if (!isPrototypeControl(event.target)) scheduleAvailabilityRefresh();
+      refreshFromInput(event);
     }, { passive: true });
     document.addEventListener('input', event => {
-      if (!isPrototypeControl(event.target)) scheduleAvailabilityRefresh();
+      refreshFromInput(event);
     }, { passive: true });
                                                
                                                
     document.addEventListener('click', event => {
-      if (!isPrototypeControl(event.target)) scheduleAvailabilityRefresh();
+      refreshFromInput(event);
     }, { passive: true });
                                                         
                                                         
                                                
-    window.addEventListener('trickcal:damage-calculator-rendered', () => {
+    window.addEventListener('trickcal:damage-calculator-rendered', event => {
       scheduleAvailabilityRefresh({ delay: 0 });
     });
     window.addEventListener('pagehide', () => controller.persistDpsSettingsForTarget());
     syncHighModeQuickControl();
     setMode('single');
-    controller.refreshAvailability({ render: false });
+    controller.markInputDirty();
     syncHighModeQuickControl();
   }
 
@@ -2306,9 +2426,19 @@
     const keys = ['basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill'];
     if (!aggregate || !(Number(aggregate.meanDps) >= 0)) return [...keys, 'other'].map(key => ({ key, placeholder: true }));
     const total = Math.max(0, Number(aggregate.meanDps) || 0);
+                                                                            
+                                                                             
+                                                                               
+    const statusDpsByAction = Object.fromEntries(keys.map(key => [key, 0]));
+    Object.values(aggregate.byStatus || {}).forEach(status => {
+      (Array.isArray(status?.sources) ? status.sources : []).forEach(source => {
+        if (source?.sourceType !== 'action' || !keys.includes(source.sourceId)) return;
+        statusDpsByAction[source.sourceId] += Math.max(0, Number(source.contributionDps) || 0);
+      });
+    });
     const rows = keys.map(key => {
       const item = aggregate.byAction?.[key] || {};
-      return { key, contributionDps: Math.max(0, Number(item.contributionDps) || 0), averageStarts: Number(item.averageStarts) || 0 };
+      return { key, contributionDps: Math.max(0, (Number(item.contributionDps) || 0) - statusDpsByAction[key]), averageStarts: Number(item.averageStarts) || 0 };
     });
     const actionTotal = rows.reduce((sum, row) => sum + row.contributionDps, 0);
     const other = Math.max(0, total - actionTotal);
@@ -2338,8 +2468,12 @@
   function createDpsComparison(baseline = {}, current = {}) {
     const beforeAggregate = baseline.aggregate || {};
     const afterAggregate = current.aggregate || {};
-    const beforeRows = baseline.breakdown || createDpsBottomBreakdown(beforeAggregate);
-    const afterRows = current.breakdown || createDpsBottomBreakdown(afterAggregate);
+                                                                        
+                                                               
+    const beforeRows = beforeAggregate.byAction ? createDpsBottomBreakdown(beforeAggregate)
+      : baseline.breakdown || createDpsBottomBreakdown(beforeAggregate);
+    const afterRows = afterAggregate.byAction ? createDpsBottomBreakdown(afterAggregate)
+      : current.breakdown || createDpsBottomBreakdown(afterAggregate);
                                         
                                            
                                 
@@ -2418,12 +2552,23 @@
       apostle: snapshot.apostle || null,
       dpsSkillOverrides: snapshot.dpsSkillOverrides || {},
       dpsTimingBranches: snapshot.dpsTimingBranches || {},
+      highSkillCooldownSettings: snapshot.highSkillCooldownSettings || {},
       selectedSkillOptions: snapshot.selectedSkillOptions || [],
       actionDamageProfiles: snapshot.actionDamageProfiles || {},
       summonCalculationInput: snapshot.summonCalculationInput || null,
       additionalDamageComponents: snapshot.additionalDamageComponents || [],
       statusDamageProfiles: snapshot.statusDamageProfiles || {},
       runtimeEffects: snapshot.runtimeEffects || {},
+      supportClocks: (snapshot.supportClocks || []).map(clock => ({
+        ownerId: clock.ownerId,
+        highSkillMode: clock.highSkillMode,
+        bindings: clock.bindings,
+        timing: clock.timing,
+                                                                            
+                                                                            
+                                                                                
+        input: createDpsInputProjection(clock.input || {})
+      })),
       externalEvents: normalizeDpsExternalEvents(snapshot.externalEvents || []),
       scenario: {
         actors: scenario.actors || {},
@@ -2519,6 +2664,10 @@
     Object.entries(ACTION_LABELS).forEach(([actionKey, defaultLabel]) => {
       const action = config?.actions?.[actionKey];
       if (!action) return;
+      if (action.activationMode === 'nonOccupyingImmediate') {
+        rows.push([`${action.label || defaultLabel}の発動方式`, '普通攻撃を中断せず発動']);
+        return;
+      }
       const variants = Object.entries(action.motionFramesByVariant || {})
         .filter(([, frames]) => Number.isFinite(Number(frames)))
         .map(([branch, frames]) => ({ branch, frames: Number(frames) }));
@@ -2651,7 +2800,7 @@
       const stateLabel = isPeriodic
         ? `${scheduleState.label} / ${schedulePolicy.capabilityLabel}`
         : `${schedulePolicy.capabilityLabel} / 非周期・${repeatabilityLabel}`;
-      const actionLabel = !isPeriodic
+      const actionLabel = candidate.supportClockOwnerId ? '時刻を指定' : !isPeriodic
         ? '追加'
         : scheduleState.code === 'manual'
           ? '周期を調整'
@@ -2696,7 +2845,7 @@
         </select>
       </label>`;
     }).join('');
-    return `<div class="fdc-dps-runtime-settings fdc-dps-formation-status-settings"><div class="fdc-dps-runtime-settings-head"><strong>編成由来状態効果</strong><small>編成中アヤの凍傷を、選択中の冷静使徒へ状態反応専用で反映します。</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
+    return `<div class="fdc-dps-runtime-settings fdc-dps-formation-status-settings"><div class="fdc-dps-runtime-settings-head"><strong>編成由来状態効果</strong><small>味方が敵へ付与した状態を反映します。味方のダメージ自体は加算しません。</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div></div>`;
   }
 
   function renderDpsRuntimeScheduleContent(candidates = [], events = [], open = false, options = {}) {
@@ -2781,6 +2930,7 @@
   }
   function formatDpsActionEffectValue(row = {}) {
     const value = String(row.value || '').trim();
+    if (row.rangeAssumption) return [value || '条件成立時に反映', row.effectTarget, row.rangeDecision].filter(Boolean).join(' / ');
     if (value) return value;
     if (row.skillRewrite) return 'スキル効果を変更';
     if (row.guaranteedCrit) return '会心率100%';
@@ -2844,6 +2994,11 @@
     };
     (runtimeEffects.damageBuffEffects || []).forEach(effect => register(effect, 'damage', getDpsRuntimeDamageTargetActionKeys(effect.modifiers || {}), effect.triggerActionKeys || []));
     (runtimeEffects.attackSpeedEffects || []).forEach(effect => register(effect, 'speed', ['basicAttack', 'enhancedAttack'], effect.triggerActionKeys || []));
+    (runtimeEffects.resourceHeldEffects || []).forEach(effect => {
+      register(effect, effect.kind || 'damage', effect.targetActionKeys || []);
+      const descriptor = descriptors.get(effect.id);
+      if (descriptor) descriptor.activityCount = activityCounts.get(effect.effectId) || 0;
+    });
     (runtimeEffects.accelerationEffects || []).forEach(effect => register(effect, 'acceleration', ['basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill'], effect.triggerActionKeys || []));
     (runtimeEffects.spRecoveryEffects || []).forEach(effect => register(effect, 'sp', [], effect.triggerActionKeys || []));
     (runtimeEffects.cooldownEffects || []).forEach(effect => register(effect, 'cooldown', [], effect.triggerActionKeys || []));
@@ -2909,6 +3064,7 @@
     register('attackSpeedEffects', true, '攻撃速度');
     register('accelerationEffects', false, '全行動速度');
     register('damageBuffEffects', true, 'ダメージ補正');
+    register('resourceHeldEffects', false, '所持数効果');
     register('spRecoveryEffects', false, 'SP回復');
     register('cooldownEffects', false, 'クールタイム');
     register('cooldownSettingEffects', false, '次回CT設定');
@@ -2922,10 +3078,13 @@
       const unsupported = item.runtimePolicy.capability === 'unsupported';
       const fixed = item.mode === 'fixed' && item.supportsFixed && !item.readOnly && !unsupported;
       const externalMatch = getDpsRuntimeExternalEventMatchState(item.runtimeEffect, externalEvents);
-      const presentation = getDpsRuntimeEffectPolicyPresentation(item.runtimePolicy, { mode: item.mode, explicit: item.explicit, readOnly: item.readOnly, externalMatched: externalMatch.matched });
+      const clockAutomatic = item.runtimeEffect.supportClockAutomatic === true;
+      const presentation = clockAutomatic ? {label:'自動（支援行動）',className:'is-estimated',
+        detailLabel:'支援使徒の行動に連動'}
+        : getDpsRuntimeEffectPolicyPresentation(item.runtimePolicy, { mode: item.mode, explicit: item.explicit, readOnly: item.readOnly, externalMatched: externalMatch.matched });
       const schedulePolicy = getDpsRuntimeEffectSchedulePolicy(item.runtimeEffect, { policy: item.runtimePolicy, supportsFixed: item.supportsFixed });
       const policyClass = `is-policy-${presentation.className.replace(/^is-/, '')}`;
-      const externalDetail = externalMatch.required
+      const externalDetail = externalMatch.required && !clockAutomatic
         ? ` / ${externalMatch.matched ? `対応${externalMatch.count}件` : `対応イベントなし（${externalMatch.expectedLabel}）`}`
         : '';
       const detailLabel = `${presentation.detailLabel} / ${schedulePolicy.capabilityLabel}${externalDetail}`;

@@ -13,6 +13,7 @@ const ENEMY_PRESET_CONTENTS = Object.freeze({
     }),
     dimensionalClash: Object.freeze({
         label: "次元の衝突",
+        isWorldBoss: true,
         shortLabel: "次元",
         englishLabel: "Dimensional Clash",
         rules: Object.freeze({
@@ -23,6 +24,7 @@ const ENEMY_PRESET_CONTENTS = Object.freeze({
     }),
     eliasFrontier: Object.freeze({
         label: "エーリアスフロンティア",
+        isWorldBoss: true,
         shortLabel: "EF",
         englishLabel: "Elias Frontier",
         stageLabels: Object.freeze(["微辛1", "微辛2", "小辛1", "小辛2", "中辛1", "中辛2", "麻辣1", "麻辣2", "激辛1", "激辛2"]),
@@ -164,6 +166,8 @@ function getEnemyPresetMetadata(preset = {}, key = "") {
             : (stage ? String(stage) : ""));
     return {
         type,
+        isWorldBoss: typeof preset.isWorldBoss === "boolean"
+            ? preset.isWorldBoss : definition.isWorldBoss === true,
         mode,
         difficulty,
         world,

@@ -89,21 +89,21 @@ const APOSTLE_LIBRARY = [
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
             "levels": {
-              "1": 1080.0,
-              "2": 1188.0,
-              "3": 1296.0,
-              "4": 1404.0,
-              "5": 1512.0,
-              "6": 1620.0,
-              "7": 1728.0,
-              "8": 1836.0,
-              "9": 1944.0,
-              "10": 2052.0,
-              "11": 2160.0,
-              "12": 2268.0,
-              "13": 2376.0,
-              "14": 2484.0,
-              "15": 2592.0
+              "1": 300.0,
+              "2": 330.0,
+              "3": 360.0,
+              "4": 390.0,
+              "5": 420.0,
+              "6": 450.0,
+              "7": 480.0,
+              "8": 510.0,
+              "9": 540.0,
+              "10": 570.0,
+              "11": 600.0,
+              "12": 630.0,
+              "13": 660.0,
+              "14": 690.0,
+              "15": 720.0
             }
           },
           {
@@ -305,7 +305,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "普通攻撃のダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "damageModifierCategory": "行動倍率",
+              "damageModifierCategory": "与ダメージ量",
               "conditionType": "対象状態",
               "conditionValue": "感電",
               "condition": "感電状態の敵攻撃時",
@@ -2718,7 +2718,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Ifrit_high_e04",
-            "valueKind": "魔法ダメージ",
+            "valueKind": "総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "effectTarget": "敵/範囲",
@@ -5106,8 +5106,11 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Erpin_enhanced_e01",
             "valueKind": "SP回復",
-            "valueClass": "固定値",
+            "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "強化攻撃効果発生時",
+            "triggerValue": "各通知",
+            "triggerSourceId": "Erpin_enhanced_e01",
             "effectTarget": "自身",
             "fixedValue": 35.0
           }
@@ -5136,8 +5139,9 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "SP回復",
                 "valueClass": "倍率",
                 "effectType": "バフ",
-                "triggerType": "一定確率",
-                "triggerValue": 30.0,
+                "triggerType": "強化攻撃効果発生時",
+                "triggerValue": "各通知",
+                "triggerSourceId": "Erpin_favorite_1_e01",
                 "effectTarget": "自身",
                 "fixedValue": 35.0
               },
@@ -5150,8 +5154,11 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "スキルダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
-                "triggerType": "一定確率",
-                "triggerValue": 30.0,
+                "damageModifierCategory": "与ダメージ量",
+                "triggerType": "強化攻撃効果発生時",
+                "triggerValue": "各通知",
+                "triggerSourceId": "Erpin_favorite_1_e02",
+                "condition": "次の低学年・高学年スキルが終了するまで",
                 "effectTarget": "自身",
                 "fixedValue": 60.0
               }
@@ -8574,10 +8581,13 @@ const APOSTLE_LIBRARY = [
             "valueKind": "与ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "高学年スキル効果発生時",
+            "triggerSourceId": "Kommy_high_e05",
             "conditionType": "固有状態中",
             "conditionValue": "Kommy_high_e05",
             "condition": "巨大化中",
             "effectTarget": "自身",
+            "duration": 12.0,
             "levels": {
               "1": 20.0,
               "2": 22.0,
@@ -8598,10 +8608,13 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "高学年スキル効果発生時",
+            "triggerSourceId": "Kommy_high_e05",
             "conditionType": "固有状態中",
             "conditionValue": "Kommy_high_e05",
             "condition": "巨大化中",
             "effectTarget": "自身",
+            "duration": 12.0,
             "levels": {
               "1": 50.0,
               "2": 54.0,
@@ -8619,6 +8632,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Kommy_high_e05",
+            "processGroupId": "Kommy_high_gigantic",
             "valueKind": "巨大化",
             "valueClass": "状態付与",
             "effectType": "固有状態",
@@ -8626,6 +8640,7 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Kommy_high_e06",
+            "processGroupId": "Kommy_high_gigantic",
             "valueKind": "巨大化",
             "valueClass": "持続時間",
             "effectType": "固有状態",
@@ -10189,7 +10204,8 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
         "description": "一定確率で前方の敵に範囲魔法ダメージを与え、自身の現在の高学年スキルのクールタイムが即時減少する。",
-        "triggerType": "一定確率"
+        "triggerType": "一定確率",
+        "triggerValue": 25.0
       }
     ],
     "favoriteCard": {
@@ -14553,6 +14569,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "SP回復",
               "valueClass": "固定値",
               "effectType": "回復",
+              "triggerType": "被弾時",
               "effectTarget": "自身",
               "fixedValue": 6.0
             },
@@ -14829,7 +14846,8 @@ const APOSTLE_LIBRARY = [
         "skillType": "普通攻撃_強化",
         "skillName": "強化",
         "description": "一定確率で大きなダイヤを飛ばして敵に魔法ダメージを与え、苦痛を付与する。",
-        "triggerType": "一定確率"
+        "triggerType": "一定確率",
+        "triggerValue": 40.0
       }
     ],
     "favoriteCard": {},
@@ -14920,7 +14938,8 @@ const APOSTLE_LIBRARY = [
               "valueClass": "クールタイム",
               "effectType": "クールタイム",
               "effectTarget": "自身",
-              "targetSkill": "高学年スキル"
+              "targetSkill": "高学年スキル",
+              "fixedValue": 10.0
             },
             {
               "skillId": "Daya_aside_2",
@@ -14948,7 +14967,8 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "高学年スキル",
               "condition": "高学年スキル命中時",
               "effectTarget": "敵",
-              "targetSkill": "高学年スキル"
+              "targetSkill": "高学年スキル",
+              "fixedValue": 2.5
             }
           ],
           "description": "低学年スキルが命中すると、SPを100%回復する。（最大連続使用回数：2回）\n高学年スキルのクールタイムが減少し、気絶効果が追加される。"
@@ -15788,8 +15808,11 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "高学年スキル効果発生時",
+            "triggerSourceId": "Tig_high_e05",
             "effectTarget": "自身",
-            "fixedValue": 150.0
+            "fixedValue": 150.0,
+            "duration": 10.0
           },
           {
             "effectId": "Tig_high_e03",
@@ -15804,8 +15827,12 @@ const APOSTLE_LIBRARY = [
             "valueKind": "普通攻撃ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "バフ",
+            "damageModifierCategory": "行動倍率",
+            "triggerType": "高学年スキル効果発生時",
+            "triggerSourceId": "Tig_high_e05",
             "effectTarget": "自身",
-            "fixedValue": 100.0
+            "fixedValue": 100.0,
+            "duration": 10.0
           },
           {
             "effectId": "Tig_high_e07",
@@ -15827,7 +15854,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Tig_passive_e01",
             "valueKind": "攻撃速度増加",
-            "valueClass": "持続時間",
+            "valueClass": "倍率",
             "effectType": "パッシブ",
             "effectTarget": "自身",
             "levels": {
@@ -15901,6 +15928,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "SP回復",
             "valueClass": "固定値",
             "effectType": "回復",
+            "triggerType": "効果発生時",
+            "triggerSourceId": "Tig_enhanced_e03",
             "effectTarget": "自身",
             "fixedValue": 120.0
           }
@@ -16052,14 +16081,34 @@ const APOSTLE_LIBRARY = [
               },
               {
                 "effectId": "Tig_favorite_1_e07",
+                "processGroupId": "Tig_favorite_1_burn_damage",
+                "processOrder": 1.0,
                 "valueKind": "与ダメージ増加",
                 "valueClass": "倍率",
                 "effectType": "バフ",
+                "damageModifierCategory": "与ダメージ量",
+                "triggerType": "高学年スキル効果発生時",
+                "triggerSourceId": "Tig_favorite_1_e07",
                 "conditionType": "対象状態",
                 "conditionValue": "火傷",
                 "condition": "火傷状態の敵を攻撃時",
                 "effectTarget": "自身",
                 "fixedValue": 100.0
+              },
+              {
+                "effectId": "Tig_favorite_1_e11",
+                "processGroupId": "Tig_favorite_1_burn_damage",
+                "processOrder": 2.0,
+                "valueKind": "与ダメージ増加",
+                "valueClass": "持続時間",
+                "effectType": "バフ",
+                "triggerType": "高学年スキル効果発生時",
+                "triggerSourceId": "Tig_favorite_1_e07",
+                "conditionType": "対象状態",
+                "conditionValue": "火傷",
+                "condition": "火傷状態の敵を攻撃時",
+                "effectTarget": "自身",
+                "fixedValue": 10.0
               }
             ],
             "skillId": "Tig_favorite_1",
@@ -16264,7 +16313,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "与ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "前方の敵",
+              "effectTarget": "前列の味方",
               "fixedValue": 14.0
             },
             {
@@ -16273,7 +16322,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "攻撃速度増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "effectTarget": "前方の敵",
+              "effectTarget": "前列の味方",
               "fixedValue": 5.0
             }
           ],
@@ -16553,7 +16602,10 @@ const APOSTLE_LIBRARY = [
                   "9": 36.0,
                   "10": 38.0,
                   "11": 40.0,
-                  "12": 42.0
+                  "12": 42.0,
+                  "13": 44.0,
+                  "14": 46.0,
+                  "15": 48.0
                 }
               },
               {
@@ -19550,6 +19602,8 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Pira_low_e01",
             "valueKind": "物理ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
             "effectTarget": "敵/範囲",
             "levels": {
               "1": 270.0,
@@ -19627,10 +19681,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "富豪消費",
             "valueClass": "状態解除",
             "effectType": "固有状態",
-            "triggerType": "高学年スキル終了時",
-            "triggerSourceId": "高学年スキル",
-            "condition": "高学年スキル終了時、富豪をランダムに消費",
             "effectTarget": "自身",
+            "reference": "Pira_wealth",
             "fixedValue": "1～30"
           },
           {
@@ -19643,28 +19695,30 @@ const APOSTLE_LIBRARY = [
             "condition": "高学年開始時に富豪0～29スタック",
             "effectTarget": "敵/範囲",
             "levels": {
-              "1": 675.0,
-              "2": 702.0,
-              "3": 729.0,
-              "4": 756.0,
-              "5": 783.0,
-              "6": 810.0,
-              "7": 837.0,
-              "8": 864.0,
-              "9": 891.0,
-              "10": 918.0,
-              "11": 945.0,
-              "12": 972.0,
-              "13": 999.0,
-              "14": 1026.0,
-              "15": 1053.0
+              "1": 750.0,
+              "2": 780.0,
+              "3": 810.0,
+              "4": 840.0,
+              "5": 870.0,
+              "6": 900.0,
+              "7": 930.0,
+              "8": 960.0,
+              "9": 990.0,
+              "10": 1020.0,
+              "11": 1050.0,
+              "12": 1080.0,
+              "13": 1110.0,
+              "14": 1140.0,
+              "15": 1170.0
             }
           },
           {
             "effectId": "Pira_high_e03",
             "valueKind": "会心増加",
-            "valueClass": "状態付与",
+            "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "効果発動時",
+            "triggerSourceId": "Pira_high_e03",
             "conditionType": "発動前リソーススタック範囲",
             "conditionValue": "Pira_wealth:0-29",
             "condition": "高学年開始時に富豪0～29スタック",
@@ -19712,8 +19766,10 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Pira_high_e06",
             "valueKind": "会心増加",
-            "valueClass": "状態付与",
+            "valueClass": "倍率",
             "effectType": "バフ",
+            "triggerType": "効果発動時",
+            "triggerSourceId": "Pira_high_e06",
             "conditionType": "発動前リソーススタック",
             "conditionValue": "Pira_wealth:30",
             "condition": "高学年開始時に富豪30スタック",
@@ -19735,7 +19791,7 @@ const APOSTLE_LIBRARY = [
         "skillId": "Pira_high",
         "skillType": "高学年",
         "skillName": "フィーバー☆タイムや〜！",
-        "description": "金の玉を降らせて敵に範囲物理ダメージを9回与え、味方全員の会心を増加させる。富豪を30スタック保有した状態でスキルを発動すると、物理ダメージと会心増加が強化される。\nスキル終了時、富豪をランダムに失う。",
+        "description": "金の玉を降らせて敵に範囲物理ダメージを10回与え、味方全員の会心を増加させる。富豪を30スタック保有した状態でスキルを発動すると、物理ダメージと会心増加が強化される。\nスキル終了時、富豪をランダムに失う。",
         "cooldownSeconds": 30.0
       },
       {
@@ -19837,6 +19893,8 @@ const APOSTLE_LIBRARY = [
             "valueKind": "被ダメージ量増加",
             "valueClass": "倍率",
             "effectType": "デバフ",
+            "triggerType": "攻撃命中時",
+            "triggerSourceId": "Pira_enhanced_e02",
             "effectTarget": "敵",
             "fixedValue": 22.0
           },
@@ -19915,6 +19973,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量増加",
                 "valueClass": "倍率",
                 "effectType": "デバフ",
+                "triggerType": "攻撃命中時",
+                "triggerSourceId": "Pira_favorite_1_e02",
                 "effectTarget": "敵",
                 "fixedValue": 44.0
               },
@@ -20016,7 +20076,7 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Pira_aside_2",
               "effectId": "Pira_aside_2_e01",
-              "valueKind": "会心率抵抗減少",
+              "valueKind": "会心抵抗減少",
               "valueClass": "倍率",
               "effectType": "デバフ",
               "triggerType": "低学年スキル命中時",
@@ -20029,7 +20089,7 @@ const APOSTLE_LIBRARY = [
             {
               "skillId": "Pira_aside_2",
               "effectId": "Pira_aside_2_e02",
-              "valueKind": "会心率抵抗減少",
+              "valueKind": "会心抵抗減少",
               "valueClass": "持続時間",
               "effectType": "デバフ",
               "triggerType": "低学年スキル命中時",
@@ -20273,9 +20333,9 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "倍率",
             "effectType": "バフ",
-            "triggerType": "高学年スキル使用時",
-            "triggerSourceId": "高学年スキル",
-            "condition": "高学年使用時",
+            "triggerType": "高学年スキル命中時",
+            "triggerSourceId": "Hilde_high_e01",
+            "condition": "高学年命中時",
             "effectTarget": "味方/範囲",
             "levels": {
               "1": 65.0,
@@ -20302,9 +20362,9 @@ const APOSTLE_LIBRARY = [
             "valueKind": "攻撃速度増加",
             "valueClass": "持続時間",
             "effectType": "バフ",
-            "triggerType": "高学年スキル使用時",
-            "triggerSourceId": "高学年スキル",
-            "condition": "高学年使用時",
+            "triggerType": "高学年スキル命中時",
+            "triggerSourceId": "Hilde_high_e01",
+            "condition": "高学年命中時",
             "effectTarget": "味方/範囲",
             "levels": {
               "1": 7.0,
@@ -20885,6 +20945,8 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Blanchet_high_e02",
+            "processGroupId": "Blanchet_high_proc_final",
+            "processOrder": 1.0,
             "valueKind": "最後の一撃の総魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
@@ -20917,6 +20979,8 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Blanchet_high_e04",
+            "processGroupId": "Blanchet_high_proc_final",
+            "processOrder": 2.0,
             "valueKind": "確定会心",
             "valueClass": "条件",
             "effectType": "攻撃",
@@ -21068,7 +21132,10 @@ const APOSTLE_LIBRARY = [
                   "9": 504.0,
                   "10": 532.0,
                   "11": 560.0,
-                  "12": 588.0
+                  "12": 588.0,
+                  "13": 616.0,
+                  "14": 644.0,
+                  "15": 672.0
                 }
               },
               {
@@ -21095,7 +21162,10 @@ const APOSTLE_LIBRARY = [
                   "9": 756.0,
                   "10": 798.0,
                   "11": 840.0,
-                  "12": 882.0
+                  "12": 882.0,
+                  "13": 924.0,
+                  "14": 966.0,
+                  "15": 1008.0
                 }
               },
               {
@@ -21122,7 +21192,10 @@ const APOSTLE_LIBRARY = [
                   "9": 612.0,
                   "10": 646.0,
                   "11": 680.0,
-                  "12": 714.0
+                  "12": 714.0,
+                  "13": 748.0,
+                  "14": 782.0,
+                  "15": 816.0
                 }
               },
               {
@@ -21149,7 +21222,10 @@ const APOSTLE_LIBRARY = [
                   "9": 918.0,
                   "10": 969.0,
                   "11": 1020.0,
-                  "12": 1071.0
+                  "12": 1071.0,
+                  "13": 1122.0,
+                  "14": 1173.0,
+                  "15": 1224.0
                 }
               },
               {
@@ -21277,7 +21353,7 @@ const APOSTLE_LIBRARY = [
               "valueKind": "強化攻撃ダメージ量増加",
               "valueClass": "倍率",
               "effectType": "バフ",
-              "damageModifierCategory": "行動倍率",
+              "damageModifierCategory": "与ダメージ量",
               "triggerType": "強化攻撃使用時",
               "triggerSourceId": "強化攻撃",
               "condition": "強化攻撃使用時",
@@ -23362,15 +23438,15 @@ const APOSTLE_LIBRARY = [
             "levels": {
               "1": "650～1000",
               "2": "690～1080",
-              "3": "690～1080",
-              "4": "690～1080",
-              "5": "690～1080",
-              "6": "690～1080",
-              "7": "690～1080",
-              "8": "690～1080",
-              "9": "690～1080",
-              "10": "690～1080",
-              "11": "690～1080",
+              "3": "730～1160",
+              "4": "770～1240",
+              "5": "810～1320",
+              "6": "850～1400",
+              "7": "890～1480",
+              "8": "930～1560",
+              "9": "970～1640",
+              "10": "1010～1720",
+              "11": "1050～1800",
               "12": "1090～1880",
               "13": "1130～1960",
               "14": "1170～2040",
@@ -23379,16 +23455,16 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Posher_low_e03",
-            "processGroupId": "Posher_low_proc01",
-            "processOrder": 2.0,
+            "processGroupId": "Posher_low_proc02",
+            "processOrder": 1.0,
             "valueKind": "魔法ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "triggerType": "低学年スキル効果発生時",
             "triggerSourceId": "低学年スキル",
             "conditionType": "ランダム分岐",
-            "conditionValue": "赤のポーション",
-            "condition": "赤のポーション使用時",
+            "conditionValue": "黄のポーション",
+            "condition": "黄のポーション使用時",
             "effectTarget": "ランダムな敵",
             "levels": {
               "1": "480～800",
@@ -23411,7 +23487,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Posher_low_e04",
             "processGroupId": "Posher_low_proc02",
-            "processOrder": 1.0,
+            "processOrder": 2.0,
             "valueKind": "気絶",
             "valueClass": "状態付与",
             "effectType": "デバフ",
@@ -23425,7 +23501,7 @@ const APOSTLE_LIBRARY = [
           {
             "effectId": "Posher_low_e05",
             "processGroupId": "Posher_low_proc02",
-            "processOrder": 2.0,
+            "processOrder": 3.0,
             "valueKind": "気絶",
             "valueClass": "持続時間",
             "effectType": "デバフ",
@@ -23753,16 +23829,16 @@ const APOSTLE_LIBRARY = [
             "effectTarget": "敵",
             "levels": {
               "1": 846.45,
-              "2": 942.93,
-              "3": 1039.41,
-              "4": 1135.89,
-              "5": 1232.37,
-              "6": 1328.85,
-              "7": 1425.33,
-              "8": 1521.81,
-              "9": 1618.29,
-              "10": 1714.77,
-              "11": 1811.25,
+              "2": 894.96,
+              "3": 954.36,
+              "4": 1019.7,
+              "5": 1097.91,
+              "6": 1183.05,
+              "7": 1281.06,
+              "8": 1385.01,
+              "9": 1502.82,
+              "10": 1626.57,
+              "11": 1761.21,
               "12": 1907.73
             }
           }
@@ -25907,15 +25983,16 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Yomi_low_e06",
-            "processGroupId": "Yomi_low_proc01",
-            "processOrder": 5.0,
-            "valueKind": "基本攻撃強化",
-            "valueClass": "スキル変更",
+            "processGroupId": "Yomi_low_rate_proc",
+            "processOrder": 1.0,
+            "valueKind": "強化攻撃確率増加",
+            "valueClass": "倍率",
             "effectType": "バフ",
-            "conditionType": "領域内",
-            "conditionValue": "Yomi_low_moonlight",
-            "condition": "月光持続中",
-            "effectTarget": "自身"
+            "triggerType": "低学年スキル使用時",
+            "triggerSourceId": "Yomi_low_e06",
+            "effectTarget": "自身",
+            "fixedValue": 100.0,
+            "duration": 8.0
           }
         ],
         "skillId": "Yomi_low",
@@ -26687,18 +26764,24 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Risty_enhanced_e01",
+            "processGroupId": "Risty_enhanced_damage",
+            "processOrder": 1.0,
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
             "effectTarget": "敵",
+            "targetSkill": "普通攻撃_強化",
             "fixedValue": 120.0
           },
           {
             "effectId": "Risty_enhanced_e02",
+            "processGroupId": "Risty_enhanced_damage",
+            "processOrder": 2.0,
             "valueKind": "確定会心",
             "valueClass": "固定値",
             "effectType": "攻撃",
             "effectTarget": "敵",
+            "targetSkill": "普通攻撃_強化",
             "fixedValue": 1.0
           }
         ],
@@ -26719,8 +26802,8 @@ const APOSTLE_LIBRARY = [
             "effects": [
               {
                 "effectId": "Risty_favorite_1_e01",
-                "processGroupId": "Risty_favorite_1_proc01",
-                "processOrder": 1.0,
+                "processGroupId": "Risty_favorite_1_damage",
+                "processOrder": 2.0,
                 "targetSkill": "普通攻撃_強化",
                 "targetSkillName": "強化",
                 "valueKind": "確定会心",
@@ -26732,16 +26815,32 @@ const APOSTLE_LIBRARY = [
               },
               {
                 "effectId": "Risty_favorite_1_e02",
-                "processGroupId": "Risty_favorite_1_proc01",
-                "processOrder": 2.0,
+                "processGroupId": "Risty_favorite_1_sp",
+                "processOrder": 1.0,
                 "targetSkill": "普通攻撃_強化",
                 "targetSkillName": "強化",
                 "valueKind": "SP回復",
                 "valueClass": "固定値",
                 "effectType": "バフ",
+                "triggerType": "強化攻撃効果発生時",
+                "triggerValue": "各通知",
+                "triggerSourceId": "Risty_favorite_1_e02",
+                "effectTarget": "自身",
+                "fixedValue": 60.0
+              },
+              {
+                "effectId": "Risty_favorite_1_e03",
+                "processGroupId": "Risty_favorite_1_damage",
+                "processOrder": 1.0,
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化",
+                "valueKind": "物理ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
                 "triggerType": "n回ごと",
                 "triggerValue": 3.0,
-                "effectTarget": "自身"
+                "effectTarget": "敵",
+                "fixedValue": 240.0
               }
             ],
             "skillId": "Risty_favorite_1",
@@ -26872,7 +26971,23 @@ const APOSTLE_LIBRARY = [
               "effectType": "攻撃",
               "effectTarget": "残りHP割合が最も低い敵3体",
               "targetSkill": "高学年スキル",
-              "fixedValue": 160.0
+              "levels": {
+                "1": 160.0,
+                "2": 171.0,
+                "3": 181.0,
+                "4": 192.0,
+                "5": 203.0,
+                "6": 213.0,
+                "7": 224.0,
+                "8": 235.0,
+                "9": 245.0,
+                "10": 256.0,
+                "11": 267.0,
+                "12": 277.0,
+                "13": 288.0,
+                "14": 299.0,
+                "15": 309.0
+              }
             },
             {
               "skillId": "Risty_aside_2",
@@ -28246,6 +28361,8 @@ const APOSTLE_LIBRARY = [
         "effects": [
           {
             "effectId": "Rim_basic_e01",
+            "processGroupId": "Rim_basic_hit",
+            "processOrder": 1.0,
             "valueKind": "物理ダメージ",
             "valueClass": "倍率",
             "effectType": "攻撃",
@@ -28254,15 +28371,22 @@ const APOSTLE_LIBRARY = [
           },
           {
             "effectId": "Rim_basic_e02",
+            "processGroupId": "Rim_basic_hit",
+            "processOrder": 2.0,
             "valueKind": "苦痛",
             "valueClass": "状態付与",
             "effectType": "デバフ",
             "effectStack": true,
             "maxStack": 9.0,
+            "triggerType": "普通攻撃命中時一定確率",
+            "triggerValue": 70.0,
+            "triggerSourceId": "Rim_basic_e01",
             "effectTarget": "範囲内の敵"
           },
           {
             "effectId": "Rim_basic_e03",
+            "processGroupId": "Rim_basic_hit",
+            "processOrder": 3.0,
             "valueKind": "苦痛",
             "valueClass": "持続時間",
             "effectType": "デバフ",
@@ -28413,14 +28537,14 @@ const APOSTLE_LIBRARY = [
               "effectId": "Rim_aside_3_global_e01",
               "statApplyTo": "全体",
               "statName": "HP",
-              "increaseP": 4.0
+              "increaseP": 3.0
             },
             {
               "skillId": "Rim_aside_3_global",
               "effectId": "Rim_aside_3_global_e02",
               "statApplyTo": "全体",
               "statName": "会心",
-              "increaseP": 4.0
+              "increaseP": 3.0
             }
           ],
           "effects": [
@@ -28802,8 +28926,8 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "倍率",
                 "effectType": "バフ",
-                "triggerType": "n回ごと",
-                "triggerValue": 4.0,
+                "triggerType": "対象スキル使用時",
+                "triggerSourceId": "Rudd_favorite_1_e01",
                 "effectTarget": "自身",
                 "fixedValue": 30.0
               },
@@ -28816,22 +28940,22 @@ const APOSTLE_LIBRARY = [
                 "valueKind": "被ダメージ量減少",
                 "valueClass": "持続時間",
                 "effectType": "バフ",
-                "triggerType": "n回ごと",
-                "triggerValue": 4.0,
+                "triggerType": "対象スキル使用時",
+                "triggerSourceId": "Rudd_favorite_1_e01",
                 "effectTarget": "自身",
                 "fixedValue": 6.0
               },
               {
                 "effectId": "Rudd_favorite_1_e03",
-                "processGroupId": "Rudd_favorite_1_proc01",
+                "processGroupId": "Rudd_favorite_1_proc02",
                 "processOrder": 3.0,
                 "targetSkill": "普通攻撃_強化",
                 "targetSkillName": "強化",
                 "valueKind": "HP回復",
                 "valueClass": "倍率",
                 "effectType": "回復",
-                "triggerType": "n回ごと",
-                "triggerValue": 4.0,
+                "triggerType": "対象スキル使用時",
+                "triggerSourceId": "Rudd_favorite_1_e03",
                 "effectTarget": "自身",
                 "reference": "最大HP",
                 "fixedValue": 20.0
@@ -30597,14 +30721,17 @@ const APOSTLE_LIBRARY = [
               },
               {
                 "effectId": "Rollett_favorite_1_e02",
+                "processGroupId": "Rollett_favorite_1_sp",
+                "processOrder": 1.0,
                 "targetSkill": "低学年",
                 "targetSkillName": "歓声を浴びるエンターテイナー",
                 "valueKind": "SP回復量",
                 "valueClass": "固定値",
                 "effectType": "回復",
-                "triggerType": "低学年スキル使用時",
-                "triggerSourceId": "低学年スキル",
-                "condition": "低学年スキル発動時（鳩の復活マジックを披露時）",
+                "triggerType": "低学年スキル効果発生時",
+                "triggerValue": "各通知",
+                "triggerSourceId": "Rollett_favorite_1_e02",
+                "condition": "鳩の復活マジックを披露時",
                 "effectTarget": "自身",
                 "fixedValue": 100.0
               }

@@ -39,6 +39,7 @@
     { eventType: 'リソース変化時', eventClass: 'resource-changed', label: 'リソース変化', repeatability: 'repeatable', matcher: /リソース(?:変化|獲得|消費)/ },
     { eventType: 'n回ごと', eventClass: 'action-count', label: 'n回ごと', repeatability: 'counted', matcher: /n回ごと/ },
     { eventType: '規定ヒット時', eventClass: 'action-count', label: '規定ヒット', repeatability: 'counted', matcher: /規定ヒット時/ },
+    { eventType: '強化攻撃効果発生時', eventClass: 'skill-effect', label: '強化攻撃の効果発生', repeatability: 'repeatable', matcher: /^強化攻撃効果発生/ },
     { eventType: '低学年スキル効果発生時', eventClass: 'skill-effect', label: '低学年スキル効果発生', repeatability: 'repeatable', matcher: /低学年スキル効果発生/ },
     { eventType: '高学年スキル効果発生時', eventClass: 'skill-effect', label: '高学年スキル効果発生', repeatability: 'repeatable', matcher: /高学年スキル効果発生/ },
     { eventType: '低学年スキル最終ヒット命中時', eventClass: 'skill-action', label: '低学年最終ヒット命中', repeatability: 'repeatable', matcher: /低学年スキル最終ヒット命中/ },
@@ -337,10 +338,17 @@
     const highSkill = triggerGrade === 'high' || triggerGrade === 'mixed';
     const highSkillOnly = triggerGrade === 'high';
     const mixedSkill = triggerGrade === 'mixed';
+                                         
+                                       
+    const selfPerformanceAutomatic = effect.selfPerformanceAutomatic === true
+      && String(effect.ownerId || '').toLowerCase() === 'epica'
+      && effect.triggerSourceId === 'Epica_high_e03'
+      && effect.mode === 'sourceEventTimed'
+      && !explicitlyExternal;
                                     
                                     
                          
-    const defaultMode = unsupported || highSkillOnly ? 'off' : 'auto';
+    const defaultMode = unsupported || (highSkillOnly && !selfPerformanceAutomatic) ? 'off' : 'auto';
     const triggerType = normalizeTriggerType(effect.triggerType);
     const triggerDomain = externalCondition
       ? 'external'
@@ -355,7 +363,7 @@
               : actionKeys.length
                 ? 'selfAction'
                 : 'sourceEvent';
-    const reasonCode = highSkillOnly
+    const reasonCode = highSkillOnly && !selfPerformanceAutomatic
       ? 'highSkillOptIn'
       : mixedSkill
         ? 'mixedActionBinding'
@@ -585,17 +593,19 @@
 
   function getDpsFormationCandidateSchedulePolicy(candidate = {}) {
     const timingMode = valueText(candidate.timingMode).toLowerCase();
-    const actionLinked = timingMode === 'periodic';
+    const actionLinked = timingMode === 'periodic' || candidate.supportClockAvailable === true;
     const eventClass = valueText(candidate.eventClass);
     if (actionLinked) {
       return Object.freeze({
         mode: 'periodic',
         actionLinked: true,
         capability: 'periodic',
-        capabilityLabel: '周期指定対応',
+        capabilityLabel: candidate.supportClockAvailable === true ? '支援行動に連動' : '周期指定対応',
         inputLabel: '時系列効果・発動タイミング',
         eventClass,
-        reason: '編成行動に連動する効果。初期値は行動間隔・SP・CTからの推定値。'
+        reason: candidate.supportClockAvailable === true
+          ? '支援使徒の行動順・発動時刻に連動する効果。'
+          : '編成行動に連動する効果。初期値は行動間隔・SP・CTからの推定値。'
       });
     }
     return Object.freeze({
@@ -657,7 +667,10 @@
   function isDpsFormationCandidateAutoEnabled(candidate = {}, options = {}, events = []) {
     const schedulePolicy = getDpsFormationCandidateSchedulePolicy(candidate);
     if (schedulePolicy.mode !== 'periodic') return false;
-    if (!(Number(candidate.intervalSeconds) > 0)) return false;
+    if (candidate.supportClockOwnerId && candidate.supportClockAvailable !== true) return false;
+    if (!candidate.supportClockOwnerId && !(Number(candidate.intervalSeconds) > 0)
+      && !(candidate.automaticOneShot === true && candidate.confidence === 'estimate'
+        && Number.isFinite(Number(candidate.startSeconds)) && Number(candidate.startSeconds) >= 0)) return false;
     const explicitMode = getDpsFormationCandidateExplicitMode(candidate, options);
     if (explicitMode === 'off' || explicitMode === 'fixed') return false;
     if (explicitMode === 'auto') return !isFormationCandidateManuallyScheduled(candidate, events);
@@ -694,11 +707,13 @@
     const sourceCandidates = Array.isArray(candidates) ? candidates : [];
     const sourceEvents = Array.isArray(manualEvents) ? manualEvents : [];
     return sourceCandidates
+      .filter(candidate => !candidate.supportClockOwnerId)
       .filter(candidate => isDpsFormationCandidateAutoEnabled(candidate, options, sourceEvents))
       .map(candidate => {
         const startSeconds = Math.max(0, Number(candidate.startSeconds) || 0);
         const intervalSeconds = Math.max(0, Number(candidate.intervalSeconds) || 0);
-        const repeatCount = Math.max(0, Math.floor(Number(candidate.repeatCount) || 0));
+        const repeatCount = candidate.automaticOneShot === true ? 1
+          : Math.max(0, Math.floor(Number(candidate.repeatCount) || 0));
         return {
           id: `auto:${valueText(candidate.id) || 'formation'}`,
           type: valueText(candidate.type),
@@ -738,7 +753,8 @@
           candidateProvider: candidate?.provider || 'estimated'
         };
       })
-      .filter(event => event.type && event.candidateId && event.intervalFrames > 0);
+      .filter(event => event.type && event.candidateId
+        && (event.intervalFrames > 0 || event.repeatCount === 1));
   }
 
   function isUnsupported(effect = {}, fallbackText = '') {

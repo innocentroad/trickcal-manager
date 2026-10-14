@@ -257,7 +257,8 @@
       popover.setAttribute('role', 'menu');
       for (const definition of [
         { key: 'pvp', route: 'pvp', label: 'PvP', fallback: 'public/pvp-range.html', fallbackFromPublic: 'pvp-range.html' },
-        { key: 'bingo', route: 'bingo', label: 'ビンゴ探索', fallback: 'public/bingo.html', fallbackFromPublic: 'bingo.html' }
+        { key: 'bingo', route: 'bingo', label: 'ビンゴ探索', fallback: 'public/bingo.html', fallbackFromPublic: 'bingo.html' },
+        { key: 'growth-cost', route: 'growth-cost', label: '特殊マス育成コスト', fallback: 'public/growth-cost.html', fallbackFromPublic: 'growth-cost.html' }
       ]) {
         const item = createElement('a');
         item.href = dataMenuHref(bar, page, definition);

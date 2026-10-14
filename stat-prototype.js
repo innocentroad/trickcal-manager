@@ -2110,12 +2110,14 @@
 
     elements.asideOverviewGrid.addEventListener('change', event => {
       const target = event.target;
-      if (!target.matches('select[data-aside-apostle-id]')) return;
-      const history = beginHistoryAction('一覧アサイド変更');
-      const id = target.dataset.asideApostleId;
+      const isLevel = target.matches('select[data-aside-level-apostle-id]');
+      if (!isLevel && !target.matches('select[data-aside-apostle-id]')) return;
+      const id = isLevel ? target.dataset.asideLevelApostleId : target.dataset.asideApostleId;
+      if (!isPublicAsideEnabled(id)) return;
+      const history = beginHistoryAction(isLevel ? '一覧アサイドLv変更' : '一覧アサイド変更');
       const state = ensureApostleState(id);
-      state.asideRank = Number(target.value) || 0;
-      state.asideLevel = normalizeAsideLevelForRank(state.asideLevel, state.asideRank);
+      if (!isLevel) state.asideRank = Number(target.value) || 0;
+      state.asideLevel = normalizeAsideLevelForRank(isLevel ? Number(target.value) : state.asideLevel, state.asideRank);
       state.skillLevels = normalizeSkillLevels(state.skillLevels, state.asideRank);
       if (id === view.id) {
         syncAsideControlsFromState(state);
@@ -2128,7 +2130,7 @@
     });
 
     elements.asideOverviewGrid.addEventListener('click', event => {
-      if (event.target.closest('select, button')) return;
+      if (event.target.closest('select, button, .aside-overview-level')) return;
       const card = event.target.closest('[data-aside-card-id]');
       if (!card) return;
       const select = card.querySelector('select[data-aside-apostle-id]');
@@ -7606,7 +7608,7 @@
           ? 'aside-a1'
           : 'aside-off';
     return `
-      <label class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" data-aside-image-wrap title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階を変更">
+      <div class="rank-overview-card aside-overview-card personality-${escapeAttr(row.性格 || '')} ${asideTone}" data-aside-card-id="${escapeAttr(row.id)}" data-aside-image-wrap title="${escapeAttr(row.使徒名 || row.id)}のアサイド段階・レベルを変更">
         <img data-apostle-image data-aside-image-fallback="Aside" class="rank-overview-icon" src="img/Chara/Aside/AsideIcon_${escapeAttr(getApostleAssetId(row.id))}.webp" alt="">
         <span class="aside-image-fallback-label" data-aside-image-fallback-label hidden>Aside</span>
         <span class="rank-overview-name">${escapeHtml(row.使徒名 || row.id)}</span>
@@ -7617,7 +7619,12 @@
           <option value="2" ${asideRank === 2 ? 'selected' : ''}>A2</option>
           <option value="3" ${asideRank === 3 ? 'selected' : ''}>A3</option>
         </select>
-      </label>
+        <label class="aside-overview-level"><span>Lv</span>
+          <select data-aside-level-apostle-id="${escapeAttr(row.id)}" aria-label="${escapeAttr(row.使徒名 || row.id)} アサイドレベル"${asideRank ? '' : ' disabled'}>
+            ${asideRank ? createNumberOptions(1, getAsideLevelCap(asideRank)).map(({ value, label }) => `<option value="${value}"${value === normalizeAsideLevelForRank(state.asideLevel, asideRank) ? ' selected' : ''}>${label}</option>`).join('') : '<option value="0">—</option>'}
+          </select>
+        </label>
+      </div>
     `;
   }
 

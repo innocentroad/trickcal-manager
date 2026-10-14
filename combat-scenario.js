@@ -160,7 +160,8 @@
     if (Object.keys(singleActionCache).length || Object.keys(legacySingleActionResult).length) {
       caches.singleAction = {
         inputFingerprint: String(singleActionCache.inputFingerprint || ''),
-        result: asObject(singleActionCache.result || legacySingleActionResult)
+        result: asObject(singleActionCache.result || legacySingleActionResult),
+        snapshot: asObject(singleActionCache.snapshot)
       };
     }
     if (Object.keys(dpsCache).length || Object.keys(legacyDpsSnapshot).length) {
@@ -224,7 +225,8 @@
       caches: {
         singleAction: payload.singleActionResult ? {
           inputFingerprint: payload.singleActionInputFingerprint || '',
-          result: payload.singleActionResult
+          result: payload.singleActionResult,
+          snapshot: payload.singleActionSnapshot || {}
         } : undefined,
         dps: payload.dpsSnapshot ? {
           inputFingerprint: payload.dpsInputFingerprint || '',
