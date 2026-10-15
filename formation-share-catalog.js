@@ -15,7 +15,8 @@
       'Mynx', 'Maison', 'Meluna', 'Momo', 'Yumimi', 'Yomi', 'Risty', 'Leets', 'Renewa', 'Rim',
       'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum',
       'Joanne',
-      'Lethe'
+      'Lethe',
+      'KommySwim'
     ],
     artifacts: [
       'artifact_yomi_moonflower', 'artifact_erpin_ice_cream_cake', 'artifact_butter_yellow_card',

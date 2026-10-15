@@ -151,6 +151,13 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "role": "守備",
       "imagePath": "img/Chara/Kommy.webp?v=f9582c2030c7b410"
     },
+    "KommySwim": {
+      "name": "コミー（水着）",
+      "personality": "冷静",
+      "position": "中列",
+      "role": "支援",
+      "imagePath": "img/Chara/KommySwim.webp?v=c1d027917e6d8d04"
+    },
     "Sari": {
       "name": "サリー",
       "personality": "純粋",
@@ -1317,7 +1324,7 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "img/SP回復.webp": "img/SP回復.webp?v=04761ffeb11bd275"
   },
   "sourceCounts": {
-    "apostles": 80,
+    "apostles": 81,
     "artifacts": 52,
     "spells": 36,
     "masterPowers": 6

@@ -171,6 +171,11 @@
     "low": "img/Chara/Skill/Skill_F_Kommy.webp",
     "passive": "img/Chara/Skill/Skill_P_Kommy.webp"
   },
+  "KommySwim": {
+    "high": "img/Chara/Skill/Skill_S_KommySwim.webp",
+    "low": "img/Chara/Skill/Skill_F_KommySwim.webp",
+    "passive": "img/Chara/Skill/Skill_P_KommySwim.webp"
+  },
   "Kyarot": {
     "high": "img/Chara/Skill/Skill_S_Kyarot.webp",
     "low": "img/Chara/Skill/Skill_F_Kyarot.webp",

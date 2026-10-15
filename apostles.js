@@ -8740,6 +8740,476 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "kommyswim",
+    "name": "コミー（水着）",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "冷静",
+      "race": "獣人",
+      "role": "支援",
+      "position": "中列",
+      "attackType": "魔法",
+      "initialSp": 150.0,
+      "spRecoveryPerSecond": 30.0,
+      "baseAttackSpeed": 100.0,
+      "combatPowerCorrection": 0.44,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
+    },
+    "statTypes": {
+      "hp": 2.0,
+      "atkP": 0.0,
+      "atkM": 2.0,
+      "defP": 2.0,
+      "defM": 2.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 3.0,
+      "critDmgRes": 3.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "effectId": "KommySwim_basic_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "最も近い敵",
+            "fixedValue": 60.0
+          },
+          {
+            "effectId": "KommySwim_basic_e02",
+            "valueKind": "HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "effectTarget": "残りHP割合が最も低い前列の味方（不在時は味方全体から選択）",
+            "reference": "対象の最大HP",
+            "fixedValue": 5.0
+          }
+        ],
+        "skillId": "KommySwim_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本攻撃",
+        "description": "残りHP割合が最も低い前列の味方1名と、最も近い敵1体に手作りジュースを販売する。手作りジュースは味方のHPを回復させ、敵には魔法ダメージを与える。\n前列の味方がいない場合、残りHP割合が最も低い味方を対象に指定する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "KommySwim_low_e01",
+            "valueKind": "総HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "effectTarget": "周囲の味方",
+            "reference": "対象の最大HP",
+            "levels": {
+              "1": 24.0,
+              "2": 24.0,
+              "3": 24.0,
+              "4": 24.0,
+              "5": 24.0,
+              "6": 24.0,
+              "7": 24.0,
+              "8": 24.0,
+              "9": 24.0,
+              "10": 24.0,
+              "11": 24.0,
+              "12": 24.0,
+              "13": 24.0,
+              "14": 24.0,
+              "15": 24.0
+            }
+          },
+          {
+            "effectId": "KommySwim_low_e02",
+            "valueKind": "回復回数",
+            "valueClass": "回数",
+            "effectType": "回復",
+            "effectTarget": "周囲の味方",
+            "fixedValue": 12.0
+          },
+          {
+            "effectId": "KommySwim_low_e03",
+            "processGroupId": "KommySwim_low_skill_buff",
+            "processOrder": 1.0,
+            "valueKind": "スキルダメージ量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "damageModifierCategory": "与ダメージ量",
+            "attackCategory": "スキル",
+            "effectStack": true,
+            "maxStack": 3.0,
+            "effectTarget": "周囲の味方",
+            "targetSkill": "低学年スキル/高学年スキル",
+            "levels": {
+              "1": 7.0,
+              "2": 8.0,
+              "3": 10.0,
+              "4": 11.0,
+              "5": 13.0,
+              "6": 14.0,
+              "7": 15.0,
+              "8": 17.0,
+              "9": 18.0,
+              "10": 20.0,
+              "11": 21.0,
+              "12": 22.0,
+              "13": 24.0,
+              "14": 25.0,
+              "15": 27.0
+            }
+          },
+          {
+            "effectId": "KommySwim_low_e04",
+            "processGroupId": "KommySwim_low_skill_buff",
+            "processOrder": 2.0,
+            "valueKind": "スキルダメージ量増加",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "effectTarget": "周囲の味方",
+            "fixedValue": 9.0
+          },
+          {
+            "effectId": "KommySwim_low_e05",
+            "valueKind": "付与回数",
+            "valueClass": "回数",
+            "effectType": "バフ",
+            "condition": "スキルダメージ量増加を3回付与",
+            "effectTarget": "周囲の味方",
+            "fixedValue": 3.0
+          }
+        ],
+        "skillId": "KommySwim_low",
+        "skillType": "低学年",
+        "skillName": "水遊びって楽しくないかにゃ？",
+        "description": "水遊びをしながら一定時間、周囲の味方のHPを12回回復させ、スキルダメージ量を3回増加させる。\nスキルダメージ量増加効果は最大3回までスタック可能。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "KommySwim_high_e01",
+            "processGroupId": "KommySwim_high_hit",
+            "processOrder": 1.0,
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "ランダムな敵の位置の範囲内",
+            "levels": {
+              "1": 2880.0,
+              "2": 3078.0,
+              "3": 3258.0,
+              "4": 3456.0,
+              "5": 3654.0,
+              "6": 3834.0,
+              "7": 4032.0,
+              "8": 4230.0,
+              "9": 4410.0,
+              "10": 4608.0,
+              "11": 4806.0,
+              "12": 4986.0,
+              "13": 5184.0,
+              "14": 5382.0,
+              "15": 5562.0
+            }
+          },
+          {
+            "effectId": "KommySwim_high_e02",
+            "valueKind": "ヒット数",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "ランダムな敵の位置の範囲内",
+            "fixedValue": 6.0
+          },
+          {
+            "effectId": "KommySwim_high_e03",
+            "processGroupId": "KommySwim_high_hit",
+            "processOrder": 2.0,
+            "valueKind": "沈黙",
+            "valueClass": "状態付与",
+            "effectType": "デバフ",
+            "triggerType": "攻撃命中時",
+            "triggerSourceId": "KommySwim_high_e01",
+            "effectTarget": "命中した敵"
+          },
+          {
+            "effectId": "KommySwim_high_e04",
+            "processGroupId": "KommySwim_high_hit",
+            "processOrder": 3.0,
+            "valueKind": "沈黙",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "命中した敵",
+            "fixedValue": 4.0
+          }
+        ],
+        "skillId": "KommySwim_high",
+        "skillType": "高学年",
+        "skillName": "プール建設予定地にゃ",
+        "description": "一定時間、ランダムな敵の位置に6回塩水を浴びせる。落下地点の敵に範囲魔法ダメージを与え、沈黙を付与する。",
+        "cooldownSeconds": 32.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "KommySwim_passive_e01",
+            "valueKind": "HP治癒量増加",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 30.0,
+              "2": 33.0,
+              "3": 36.0,
+              "4": 39.0,
+              "5": 42.0,
+              "6": 45.0,
+              "7": 48.0,
+              "8": 51.0,
+              "9": 54.0,
+              "10": 57.0,
+              "11": 60.0,
+              "12": 63.0,
+              "13": 66.0,
+              "14": 69.0,
+              "15": 72.0
+            }
+          }
+        ],
+        "skillId": "KommySwim_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "HP治癒量が増加する。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "KommySwim_enhanced_e01",
+            "valueKind": "HP回復",
+            "valueClass": "倍率",
+            "effectType": "回復",
+            "condition": "アサイド2以上",
+            "effectTarget": "残りHP割合が最も低い味方3名",
+            "reference": "対象の最大HP",
+            "fixedValue": 11.0
+          },
+          {
+            "effectId": "KommySwim_enhanced_e02",
+            "processGroupId": "KommySwim_enhanced_reduce",
+            "processOrder": 1.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "condition": "アサイド2以上",
+            "effectTarget": "残りHP割合が最も低い味方3名",
+            "fixedValue": 25.0
+          },
+          {
+            "effectId": "KommySwim_enhanced_e03",
+            "processGroupId": "KommySwim_enhanced_reduce",
+            "processOrder": 2.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "condition": "アサイド2以上",
+            "effectTarget": "残りHP割合が最も低い味方3名",
+            "fixedValue": 4.0
+          }
+        ],
+        "skillId": "KommySwim_enhanced",
+        "skillType": "普通攻撃_強化",
+        "skillName": "強化",
+        "description": "2回目の攻撃の代わりに簡易屋台を設置し、残りHP割合が最も低い味方3名に特製コミージュースを販売する。特製コミージュースは味方のHPを回復させ、一定時間、被ダメージ量を減少させる",
+        "triggerType": "n回ごと",
+        "triggerValue": 2.0
+      }
+    ],
+    "favoriteCard": {},
+    "aside": {
+      "name": "魔性のジュース",
+      "levels": {
+        "1": {
+          "name": "飲みすぎ注意",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "KommySwim_aside_1",
+              "effectId": "KommySwim_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "KommySwim_aside_1",
+              "effectId": "KommySwim_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "KommySwim_aside_1",
+              "effectId": "KommySwim_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "KommySwim_aside_1",
+              "effectId": "KommySwim_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "KommySwim_aside_1",
+              "effectId": "KommySwim_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "戦闘時ステータス増加"
+        },
+        "2": {
+          "name": "傑作誕生",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "KommySwim_aside_2",
+              "effectId": "KommySwim_aside_2_e01",
+              "valueKind": "強化攻撃追加",
+              "valueClass": "条件",
+              "effectType": "バフ",
+              "condition": "2回目の基本攻撃を強化攻撃へ置換。回復・軽減量は強化攻撃欄に記載",
+              "effectTarget": "自身",
+              "fixedValue": 1.0
+            },
+            {
+              "skillId": "KommySwim_aside_2",
+              "effectId": "KommySwim_aside_2_e02",
+              "processGroupId": "KommySwim_aside_2_skill_buff",
+              "processOrder": 1.0,
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "damageModifierCategory": "与ダメージ量",
+              "attackCategory": "スキル",
+              "effectStack": true,
+              "maxStack": 3.0,
+              "condition": "低学年の同効果を上書き（通常分と加算しない）",
+              "effectTarget": "周囲の味方",
+              "targetSkill": "低学年スキル/高学年スキル",
+              "levels": {
+                "1": 14.0,
+                "2": 16.0,
+                "3": 20.0,
+                "4": 22.0,
+                "5": 26.0,
+                "6": 28.0,
+                "7": 30.0,
+                "8": 34.0,
+                "9": 36.0,
+                "10": 40.0,
+                "11": 42.0,
+                "12": 44.0,
+                "13": 48.0,
+                "14": 50.0,
+                "15": 54.0
+              }
+            },
+            {
+              "skillId": "KommySwim_aside_2",
+              "effectId": "KommySwim_aside_2_e03",
+              "processGroupId": "KommySwim_aside_2_skill_buff",
+              "processOrder": 2.0,
+              "valueKind": "スキルダメージ量増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "effectTarget": "周囲の味方",
+              "fixedValue": 9.0
+            },
+            {
+              "skillId": "KommySwim_aside_2",
+              "effectId": "KommySwim_aside_2_e04",
+              "processGroupId": "KommySwim_aside_2_invincible",
+              "processOrder": 1.0,
+              "valueKind": "無敵",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "低学年スキル発動時",
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "KommySwim_aside_2",
+              "effectId": "KommySwim_aside_2_e05",
+              "processGroupId": "KommySwim_aside_2_invincible",
+              "processOrder": 2.0,
+              "valueKind": "無敵",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 3.0
+            }
+          ],
+          "description": "戦闘時、強化攻撃が追加される。2回目の攻撃の代わりに簡易屋台を設置し、残りHP割合が最も低い味方3名に特製コミージュースを販売する。特製コミージュースは味方のHPを回復させ、一定時間、被ダメージ量を減少させる。\n低学年スキルのスキルダメージ量増加値が2倍になる。"
+        },
+        "3": {
+          "name": "即完売！コミー社長の成功神話",
+          "stats": [
+            {
+              "skillId": "KommySwim_aside_3_global",
+              "effectId": "KommySwim_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "魔法防御力",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "KommySwim_aside_3_global",
+              "effectId": "KommySwim_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心抵抗",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "KommySwim_aside_3_battle",
+              "effectId": "KommySwim_aside_3_battle_e01",
+              "valueKind": "与ダメージ量増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "damageModifierCategory": "与ダメージ量",
+              "effectTarget": "中列の味方",
+              "fixedValue": 13.6
+            },
+            {
+              "skillId": "KommySwim_aside_3_battle",
+              "effectId": "KommySwim_aside_3_battle_e02",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "中列の味方",
+              "fixedValue": 5.9
+            }
+          ],
+          "description": "中列の味方の敵への与ダメージ量を増加させ、中列の味方の敵からの被ダメージ量を減少させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "sari",
     "name": "サリー",
     "basic": {
