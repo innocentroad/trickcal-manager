@@ -6833,10 +6833,12 @@
     } catch (_) {                                  }
     const entries = (Array.isArray(data.resumeMaterialSlots) ? data.resumeMaterialSlots : [])
       .filter(slot => slot.materialId === materialId);
-    const groups = [true, false].map(isBest => {
-      const matching = entries.filter(entry => entry.isBest === isBest)
+    const groups = ['main', 'sub', 'rest'].map(role => {
+      const matching = entries.filter(entry => role === 'rest' ? entry.sources.includes('rest')
+        : entry.sources.includes('job') && entry.isBest === (role === 'main'))
         .sort((a, b) => a.apostleName.localeCompare(b.apostleName, 'ja'));
       if (!matching.length) return '';
+      const label = role === 'main' ? 'メイン（仕事）' : role === 'sub' ? 'サブ（仕事）' : '休息';
       const apostles = matching.map(entry => {
         const name = String(entry.apostleName || '');
         if (!name) return '';
@@ -6850,9 +6852,9 @@
         const image = assetId
           ? `<img src="${escapeAttr(window.TRICKCAL_PUBLIC_SITE?.assetUrl?.(`img/Chara/${assetId}.webp`) || `img/Chara/${assetId}.webp`)}" alt="" loading="lazy">`
           : '';
-        return `<a class="research-life-job-apostle${isBest ? ' is-main' : ''}${image ? '' : ' name-only'}" href="${escapeAttr(apostleHref)}" target="_blank" rel="noopener" aria-label="${isBest ? 'メイン' : '履歴書素材'}の使徒：${escapeAttr(name)}">${image}<span>${escapeHtml(name)}</span></a>`;
+        return `<a class="research-life-job-apostle is-${role}${image ? '' : ' name-only'}" href="${escapeAttr(apostleHref)}" target="_blank" rel="noopener" aria-label="${label}の使徒：${escapeAttr(name)}">${image}<span>${escapeHtml(name)}</span></a>`;
       }).join('');
-      return `<div class="research-life-job-apostle-group role-${isBest ? 'main' : 'normal'}"><strong>${isBest ? 'メイン' : 'その他の履歴書素材'}</strong><div>${apostles}</div></div>`;
+      return `<div class="research-life-job-apostle-group role-${role}" data-research-source-role="${role}"><strong>${label}</strong><div>${apostles}</div></div>`;
     }).join('');
     const content = entries.length
       ? groups

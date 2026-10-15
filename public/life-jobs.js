@@ -19,7 +19,7 @@
     tooltip: document.getElementById('life-jobs-material-tooltip')
   };
   const numberFormat = new Intl.NumberFormat('ja-JP');
-  const roleLabels = { main: 'メイン', normal: '履歴書素材' };
+  const roleLabels = { main: 'メイン', sub: 'サブ', rest: '休息' };
   const materialsById = new Map((data?.materials || []).map(item => [item.id, item]));
   const apostlesByName = new Map((data?.apostles || []).map(apostle => [apostle.name, apostle]));
   const params = new URLSearchParams(location.search);
@@ -67,7 +67,8 @@
       : '';
     const amount = quantity === '' || quantity == null ? ''
       : `<span class="life-jobs-quantity">${escapeHtml(quantity)}</span>`;
-    const roleClass = categories.includes('main') ? ' is-main' : '';
+    const roleClass = ['main', 'sub', 'rest'].filter(role => categories.includes(role))
+      .map(role => ` is-${role}`).join('');
     const compactClass = compact ? ' is-compact' : '';
     return `<span class="life-jobs-material-icon${roleClass}${compactClass}" data-life-job-material="${escapeHtml(name)}" aria-label="${escapeHtml(name)}">${background}${image}${amount}</span>`;
   }
@@ -79,10 +80,6 @@
       ? `<img src="${escapeHtml(assetUrl(`img/Chara/${assetId}.webp`))}" alt="" loading="lazy">`
       : '<span class="life-jobs-no-portrait" aria-hidden="true">人</span>';
     return `<span class="life-jobs-apostle-identity">${image}<span>${escapeHtml(apostleName)}</span></span>`;
-  }
-
-  function sourceLabel(slot) {
-    return (slot.sources || []).map(source => source === 'job' ? '仕事' : '休息').join('・');
   }
 
   function updateLocation(method = 'pushState') {
@@ -148,15 +145,17 @@
     }
     const slots = resumeSlots().filter(slot => slot.materialId === material.id)
       .sort((a, b) => Number(b.isBest) - Number(a.isBest) || a.apostleName.localeCompare(b.apostleName, 'ja'));
-    const groups = [true, false].map(isBest => {
-      const matching = slots.filter(slot => slot.isBest === isBest);
+    const groups = ['main', 'sub', 'rest'].map(role => {
+      const matching = slots.filter(slot => role === 'rest' ? slot.sources.includes('rest')
+        : slot.sources.includes('job') && slot.isBest === (role === 'main'));
       if (!matching.length) return '';
-      return `<section class="life-jobs-role-group role-${isBest ? 'main' : 'normal'}"><h3>${isBest ? 'メイン' : 'その他の履歴書素材'}</h3><div class="life-jobs-role-entries">${matching.map(slot => {
-        return `<button type="button" class="life-jobs-apostle-result${isBest ? ' is-main' : ''}" data-choose-apostle="${escapeHtml(slot.apostleName)}" aria-label="${escapeHtml(`${slot.apostleName}、${isBest ? 'メイン素材' : '履歴書素材'}、入手元：${sourceLabel(slot)}`)}" title="${escapeHtml(`入手元：${sourceLabel(slot)}`)}">${renderApostleIcon(slot.apostleName)}<small>${escapeHtml(sourceLabel(slot))}</small></button>`;
+      const origin = role === 'rest' ? '休息' : '仕事';
+      return `<section class="life-jobs-role-group role-${role}" data-source-role="${role}"><h3>${role === 'rest' ? '休息' : `${roleLabels[role]}（仕事）`}</h3><div class="life-jobs-role-entries">${matching.map(slot => {
+        return `<button type="button" class="life-jobs-apostle-result is-${role}" data-choose-apostle="${escapeHtml(slot.apostleName)}" aria-label="${escapeHtml(`${slot.apostleName}、${roleLabels[role]}、入手元：${origin}`)}" title="${escapeHtml(`入手元：${origin}`)}">${renderApostleIcon(slot.apostleName)}<small>${origin}</small></button>`;
       }).join('')}</div></section>`;
     }).join('');
     elements.detail.innerHTML = `<header class="life-jobs-selected-heading">${renderMaterialLayers(material)}<div><h2>${escapeHtml(material.name)}</h2><p>登録済みの履歴書素材</p></div></header>`
-      + `<div class="life-jobs-results-summary">${numberFormat.format(slots.length)}人</div>${groups || '<p class="life-jobs-empty">登録済みの履歴書素材に該当なし</p>'}`;
+      + `<div class="life-jobs-results-summary">${numberFormat.format(new Set(slots.map(slot => slot.apostleName)).size)}人（仕事・休息の重複を除く）</div>${groups || '<p class="life-jobs-empty">登録済みの履歴書素材に該当なし</p>'}`;
   }
 
   function renderApostleView() {
@@ -169,22 +168,26 @@
     }
     const slots = resumeSlots().filter(slot => slot.apostleName === apostle.name)
       .sort((a, b) => a.order - b.order);
-    const renderApostleEntry = slot => {
+    const renderApostleEntry = (slot, role) => {
       const material = materialsById.get(slot.materialId);
       if (!material) return '';
-      const role = slot.isBest ? 'main' : 'normal';
-      return `<button type="button" class="life-jobs-material-result" data-choose-material="${escapeHtml(material.name)}" data-material-name="${escapeHtml(material.name)}" aria-label="${escapeHtml(`${roleLabels[role]}：${material.name}、入手元：${sourceLabel(slot)}`)}" title="${escapeHtml(`${material.name}・入手元：${sourceLabel(slot)}`)}">${renderMaterialLayers(material, { categories: [role] })}<small>${escapeHtml(sourceLabel(slot))}</small></button>`;
+      const origin = role === 'rest' ? '休息' : '仕事';
+      return `<button type="button" class="life-jobs-material-result" data-choose-material="${escapeHtml(material.name)}" data-material-name="${escapeHtml(material.name)}" aria-label="${escapeHtml(`${roleLabels[role]}：${material.name}、入手元：${origin}`)}" title="${escapeHtml(`${material.name}・入手元：${origin}`)}">${renderMaterialLayers(material, { categories: [role] })}<small>${origin}</small></button>`;
     };
-    const upperCount = Math.ceil(slots.length / 2);
-    const rows = slots.length ? `<div class="life-jobs-resume-layout" aria-label="履歴書素材。左から表示順">
-      <div class="life-jobs-resume-row">${slots.slice(0, upperCount).map(renderApostleEntry).join('')}</div>
-      <div class="life-jobs-resume-row">${slots.slice(upperCount).map(renderApostleEntry).join('')}</div>
-    </div>` : '';
+                                                                                 
+    const groups = [
+      ['main', slots.filter(slot => slot.isBest && slot.sources.includes('job'))],
+      ['sub', slots.filter(slot => !slot.isBest && slot.sources.includes('job'))],
+      ['rest', slots.filter(slot => slot.sources.includes('rest'))]
+    ];
+    const rows = slots.length ? `<div class="life-jobs-resume-layout" aria-label="メイン、サブ、休息の順。各段は左から表示順">${groups.map(([role, entries]) =>
+      `<section class="life-jobs-resume-group role-${role}" data-resume-role="${role}"><h3>${roleLabels[role]}</h3><div class="life-jobs-resume-row">${entries.length ? entries.map(slot => renderApostleEntry(slot, role)).join('') : '<small class="life-jobs-no-material">なし</small>'}</div></section>`
+    ).join('')}</div>` : '';
     const portrait = apostle.assetId
       ? `<img src="${escapeHtml(assetUrl(`img/Chara/${apostle.assetId}.webp`))}" alt="" loading="lazy">`
       : '<span class="life-jobs-no-portrait" aria-hidden="true">人</span>';
     elements.detail.innerHTML = `<header class="life-jobs-selected-heading">${portrait}<div><h2>${escapeHtml(apostle.name)}</h2><p>登録済みの履歴書素材</p></div></header>`
-      + `<div class="life-jobs-results-summary">${numberFormat.format(slots.length)}素材・緑枠はメイン素材</div>`
+      + `<div class="life-jobs-results-summary">${numberFormat.format(slots.length)}素材（仕事・休息の重複を除く）</div>`
       + (rows || '<p class="life-jobs-empty">登録済みの履歴書素材はありません。</p>');
   }
 

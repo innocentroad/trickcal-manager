@@ -618,6 +618,10 @@ body.dashboard-page.is-booting::after {
 .research-life-job-apostle { min-width: 3.2rem; min-height: 2.7rem; padding: 2px 4px; display: inline-grid; justify-items: center; align-content: start; gap: 1px; border: 1px solid transparent; border-radius: 6px; color: inherit; text-decoration: none; font-size: .67rem; line-height: 1.15; text-align: center; }
 .research-life-job-apostle img { width: 2rem; height: 2rem; object-fit: contain; }
 .research-life-job-apostle.is-main { border: 2px solid #3caa57; }
+.research-life-job-apostle.is-sub { border: 2px solid #4388c9; }
+.research-life-job-apostle.is-rest { border: 2px solid #bd7424; }
+:root[data-theme="dark"] .research-life-job-apostle.is-sub { border-color: #7dbbff; }
+:root[data-theme="dark"] .research-life-job-apostle.is-rest { border-color: #edb465; }
 .research-life-job-categories { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
 .research-life-job-categories > span { padding: 0 3px; border: 1px solid color-mix(in srgb, currentColor 24%, transparent); border-radius: 999px; font-size: .52rem; line-height: 1.2; white-space: nowrap; }
 .research-life-job-categories > .role-main { border-color: #3caa57; color: #21863b; }

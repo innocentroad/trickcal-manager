@@ -9,6 +9,8 @@
   --life-accent: #4e9d4f;
   --life-shadow: rgba(75, 125, 67, .16);
   --life-main-border: #329949;
+  --life-sub-border: #4388c9;
+  --life-rest-border: #bd7424;
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -21,6 +23,8 @@
   --life-accent: #8cabff;
   --life-shadow: rgba(0, 0, 0, .36);
   --life-main-border: #59ce78;
+  --life-sub-border: #7dbbff;
+  --life-rest-border: #edb465;
 }
 * { box-sizing: border-box; }
 body.life-jobs-page {
@@ -152,6 +156,8 @@ body.life-jobs-page {
 }
 .life-jobs-material-icon.is-compact { width: 2.4rem; height: 2.4rem; flex-basis: 2.4rem; }
 .life-jobs-material-icon.is-main { border: 2px solid var(--life-main-border); }
+.life-jobs-material-icon.is-sub { border: 2px solid var(--life-sub-border); }
+.life-jobs-material-icon.is-rest { border: 2px solid var(--life-rest-border); }
 .life-jobs-slot, .life-jobs-item-image {
   position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none;
 }
@@ -186,9 +192,17 @@ body.life-jobs-page {
   color: var(--life-text); font-size: .76rem; line-height: 1.25;
 }
 .life-jobs-role-group.role-main h3 { border-color: var(--life-main-border); }
+.life-jobs-role-group.role-sub h3 { border-color: var(--life-sub-border); }
+.life-jobs-role-group.role-rest h3 { border-color: var(--life-rest-border); }
 .life-jobs-role-entries { display: flex; flex-wrap: wrap; gap: .25rem; }
 .life-jobs-resume-layout { display: grid; gap: .25rem; align-content: start; }
 .life-jobs-resume-row { display: flex; flex-wrap: wrap; gap: .25rem; min-width: 0; }
+.life-jobs-resume-group { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); align-items: start; gap: .35rem; padding: .2rem 0; }
+.life-jobs-resume-group h3 { margin: .35rem 0 0; padding-left: .35rem; border-left: 3px solid; font-size: .74rem; line-height: 1.4; }
+.life-jobs-resume-group.role-main h3 { border-color: var(--life-main-border); }
+.life-jobs-resume-group.role-sub h3 { border-color: var(--life-sub-border); }
+.life-jobs-resume-group.role-rest h3 { border-color: var(--life-rest-border); }
+.life-jobs-no-material { color: var(--life-muted); padding: .35rem 0; font-size: .72rem; }
 .life-jobs-material-result, .life-jobs-apostle-result {
   display: inline-flex; align-items: center; gap: .3rem; min-width: 0; min-height: 3rem;
   padding: .2rem .3rem; border: 1px solid var(--life-border); border-radius: 7px;
@@ -198,6 +212,8 @@ body.life-jobs-page {
 .life-jobs-material-result:focus-visible::after { content: attr(data-material-name); max-width: 6rem; color: var(--life-text); font-size: .68rem; overflow-wrap: anywhere; }
 .life-jobs-material-result small, .life-jobs-apostle-result small { color: var(--life-muted); font-size: .62rem; }
 .life-jobs-apostle-result.is-main { border: 2px solid var(--life-main-border); }
+.life-jobs-apostle-result.is-sub { border: 2px solid var(--life-sub-border); }
+.life-jobs-apostle-result.is-rest { border: 2px solid var(--life-rest-border); }
 .life-jobs-material-result:hover, .life-jobs-apostle-result:hover { background: var(--life-panel); }
 .life-jobs-material-result:focus-visible, .life-jobs-apostle-result:focus-visible { outline: 2px solid var(--life-accent); outline-offset: 2px; }
 .life-jobs-apostle-identity { min-width: 0; display: inline-flex; align-items: center; gap: .36rem; font-size: .78rem; font-weight: 750; }
