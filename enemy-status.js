@@ -27,7 +27,8 @@
     theme: document.getElementById('enemy-status-theme')
   };
   const params = new URLSearchParams(location.search);
-  const requestedKey = params.get('preset');
+  const rawRequestedKey = params.get('preset');
+  const requestedKey = typeof resolveEnemyPresetKey==='function' ? resolveEnemyPresetKey(rawRequestedKey) : rawRequestedKey;
   const canonicalKey = presets[requestedKey]?.selectionAliasOf || requestedKey;
   const initialKey = entryKeys.has(canonicalKey) ? canonicalKey : entries[0]?.[0] || '';
   const state = {
@@ -241,13 +242,13 @@
         ${skills.length ? `
           <div class="table-wrap">
             <table class="enemy-skill-table">
-              <thead><tr><th>種別</th><th>行動名</th><th>倍率</th><th>補足</th></tr></thead>
+              <thead><tr><th>攻撃判定</th><th>行動名</th><th>倍率</th><th>補足</th></tr></thead>
               <tbody>${skills.map(skill => `
                 <tr>
-                  <td class="skill-action">${escapeHtml(skill.action || '攻撃')}</td>
+                  <td class="skill-action">${escapeHtml(skill.attackCategory || '未設定')}${skill.damageType ? `<small> / ${escapeHtml(skill.damageType === 'physical' ? '物理' : '魔法')}</small>` : ''}</td>
                   <td class="skill-name">${escapeHtml(skill.name || '—')}</td>
                   <td class="skill-mult">${formatPlainNumber(skill.mult)}%</td>
-                  <td class="skill-note">${escapeHtml(skill.note || '')}</td>
+                  <td class="skill-note">${escapeHtml([skill.note,skill.unsupportedReason].filter(Boolean).join(' ／ '))}</td>
                 </tr>`).join('')}</tbody>
             </table>
           </div>` : '<div class="note-item">行動データ未登録</div>'}

@@ -16,7 +16,8 @@
   const CALC_SAVE_LIMIT = 50;
   let damageSaveWriteMessage = '';
   let seasonRuleRefreshTimer = null;
-  const DAMAGE_CALCULATION_VERSION = 103;
+  const DAMAGE_CALCULATION_VERSION = 111;
+  let enemyHitRuntime = null;
                                                                                          
   const SEASON_RULE_LABELS = {
     magic: '魔法ダメージ＋25%', physical: '物理ダメージ＋25%',
@@ -313,6 +314,9 @@
       enemyNoise: document.getElementById('fdc-enemy-noise'),
       enemyAngerStack: document.getElementById('fdc-enemy-anger-stack'),
       enemyFuryPlus: document.getElementById('fdc-enemy-fury-plus'),
+      enemyManualAttack: document.getElementById('fdc-enemy-manual-attack'),
+      enemySequence: document.getElementById('fdc-enemy-sequence'),
+      enemyManualReduction: document.getElementById('fdc-enemy-manual-reduction'),
       enemyWeaknessP: document.getElementById('fdc-enemy-weakness-p'),
       enemyStatusTakenDamageWeakness: document.getElementById('fdc-enemy-status-taken-damage-weakness'),
       enemyCritRateP: document.getElementById('fdc-enemy-crit-rate-p'),
@@ -951,6 +955,8 @@
     el.enemySourceMode?.addEventListener('change', () => {
       const nextMode = el.enemySourceMode.value === 'apostle' ? 'apostle' : 'preset';
       if (nextMode !== view.enemySourceMode) {
+        if (el.inputs.enemySequence) el.inputs.enemySequence.value = '';
+        resetEnemyManualStates();
         view.enemySeasonRuleKey = '';
         view.enemySeasonShock = false;
       }
@@ -1263,6 +1269,8 @@
     el.enemyPreset?.addEventListener('change', () => {
       const nextPresetKey = el.enemyPreset.value || '';
       if (nextPresetKey !== view.enemyPresetKey) {
+        if (el.inputs.enemySequence) el.inputs.enemySequence.value = '';
+        resetEnemyManualStates();
         view.enemySeasonRuleKey = '';
         view.enemySeasonShock = false;
       }
@@ -1302,6 +1310,10 @@
     el.enemySkill?.addEventListener('change', () => {
       const previousType = resolveEnemyDamageType();
       view.enemySkillIndex = Number(el.enemySkill.selectedOptions?.[0]?.dataset?.fdcEnemySkillIndex ?? -1);
+      const definition=view.enemySourceMode==='preset'
+        ? getEnemyHitDefinition(getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex],view.enemySkillIndex) : null;
+      if (el.inputs.enemySequence) el.inputs.enemySequence.value=definition ? JSON.stringify({mode:'sequence',presetKey:view.enemyPresetKey,
+        skillKey:definition.key,revision:definition.revision,segment:1,offset:1,count:1,all:false}) : '';
       renderEnemySkillChoices();
       syncEnemyActionMetadata(previousType);
       saveCalcSettings();
@@ -1384,6 +1396,7 @@
           syncWeaknessFields(resolveSelfDamageType(buildContext().target));
         }
         if (input === el.inputs.enemySkill) {
+          if (el.inputs.enemySequence) el.inputs.enemySequence.value = '';
           view.enemySkillIndex = -2;
           view.enemySelectedSkillCategory = '';
           if (el.enemySkill) el.enemySkill.value = input.value || '';
@@ -1791,7 +1804,8 @@
 
   function populateEnemyPresets() {
     if (!el.enemyPreset) return;
-    const previous = view.enemyPresetKey || el.enemyPreset.value;
+    const rawPrevious = view.enemyPresetKey || el.enemyPreset.value;
+    const previous = typeof resolveEnemyPresetKey==='function' ? resolveEnemyPresetKey(rawPrevious) : rawPrevious;
     const presets = getEnemyPresets();
     el.enemyPreset.innerHTML = [
       '<option value="">手動入力</option>',
@@ -1827,7 +1841,7 @@
       '<option value="" data-fdc-enemy-skill-index="-1">なし</option>',
       ...skills.map((skill, index) => {
         const name = [skill.action, skill.name, skill.note ? `(${skill.note})` : ''].filter(Boolean).join(' ');
-        return `<option value="${escapeAttr(skill.mult || 100)}" data-fdc-enemy-skill-index="${index}">${escapeHtml(name || `Skill ${index + 1}`)} / ${escapeHtml(formatPlainNumber(skill.mult || 100))}%</option>`;
+        return `<option value="${escapeAttr(skill.mult ?? '')}" data-fdc-enemy-skill-index="${index}">${escapeHtml(name || `Skill ${index + 1}`)} / ${Number.isFinite(skill.mult)?escapeHtml(formatPlainNumber(skill.mult))+'%':'命中列'}</option>`;
       })
     ].join('');
     renderEnemySkillChoices(preset);
@@ -1875,11 +1889,23 @@
     syncPersonalityTypeAffinity(buildContext());
     const skills = Array.isArray(preset.skills) ? preset.skills : [];
     let skillIndex = Number.isFinite(Number(view.enemySkillIndex)) ? Number(view.enemySkillIndex) : -1;
+    const hitSelection = readEnemyHitSelection();
+    if (hitSelection && hitSelection.presetKey === view.enemyPresetKey && hitSelection.skillKey) {
+      const resolvedIndex = skills.findIndex((skill,index) => getEnemyHitSkillKey(skill,index) === hitSelection.skillKey);
+      if (resolvedIndex >= 0) skillIndex = resolvedIndex;
+    }
     if (skillIndex >= skills.length) skillIndex = skills.length ? 0 : -1;
-    if (skillIndex >= 0 && skills[skillIndex]?.mult) {
+    if (skillIndex >= 0 && Number.isFinite(skills[skillIndex]?.mult) && skills[skillIndex].mult >= 0) {
       el.enemySkill.value = String(skills[skillIndex].mult);
       if (el.inputs.enemySkill) el.inputs.enemySkill.value = String(skills[skillIndex].mult);
       view.enemySkillIndex = skillIndex;
+    } else if (skillIndex >= 0 && Array.isArray(skills[skillIndex]?.hits)) {
+      view.enemySkillIndex = skillIndex;
+      if (el.inputs.enemySkill) el.inputs.enemySkill.value = '';
+    } else if (skillIndex === -2) {
+                                                                             
+                                                                               
+      view.enemySkillIndex = -2;
     } else {
       if (el.inputs.enemySkill) el.inputs.enemySkill.value = '100';
       view.enemySkillIndex = -1;
@@ -2025,6 +2051,60 @@
     const fury = getEnemyPresetFuryConfig();
     const plus = normalizeEnemyFuryPlus(el.inputs.enemyFuryPlus?.value ?? -1);
     return fury && plus >= 0 ? fury.initial + fury.perStack * plus : 0;
+  }
+
+                                                                        
+  function getEnemyManualStateConfig(preset = getSelectedEnemyPreset(), key = view.enemyPresetKey) {
+    return preset?.manualStates || null;
+  }
+
+  function normalizeEnemyManualStates(values = {}, config = getEnemyManualStateConfig()) {
+    const attack = Number(values?.enemyManualAttack), reduction = Number(values?.enemyManualReduction);
+    return {
+      attackP: config?.attackValues.includes(attack) ? attack : 0,
+      reductionP: config?.reductionValues.includes(reduction) ? reduction : 0
+    };
+  }
+
+  function getEnemyManualStates() {
+    return normalizeEnemyManualStates({
+      enemyManualAttack: el.inputs.enemyManualAttack?.value,
+      enemyManualReduction: el.inputs.enemyManualReduction?.value
+    });
+  }
+
+  function resetEnemyManualStates() {
+    for (const key of ['enemyManualAttack', 'enemyManualReduction']) {
+      if (el.inputs[key]) el.inputs[key].value = '0';
+    }
+  }
+
+  function syncEnemyManualStateFields() {
+    const config = getEnemyManualStateConfig(), state = getEnemyManualStates();
+    const section = document.getElementById('fdc-enemy-manual-states');
+    if (section) section.hidden = !config;
+    const attackField = document.getElementById('fdc-enemy-manual-attack-field');
+    if (attackField) attackField.hidden = !config || config.attackValues.length < 2;
+    for (const [key, values, value, options] of [
+      ['enemyManualAttack', config?.attackValues || [0], state.attackP, config?.attackOptions],
+      ['enemyManualReduction', config?.reductionValues || [0], state.reductionP, config?.reductionOptions]
+    ]) {
+      const input = el.inputs[key];
+      if (!input) continue;
+      if (options) {
+        const signature = JSON.stringify(options);
+        if (input.dataset.stateOptions !== signature) {
+          input.replaceChildren(...options.map(item => {
+            const option = document.createElement('option');
+            option.value = String(item.value); option.textContent = item.label;
+            return option;
+          }));
+          input.dataset.stateOptions = signature;
+        }
+      }
+      for (const option of input.options) option.hidden = option.disabled = !values.includes(Number(option.value));
+      input.value = String(value);
+    }
   }
 
   function getEnemyPresetWeaknessAdd(preset, damageType = '') {
@@ -2203,7 +2283,13 @@
 
   function getSelectedEnemyPreset() {
     if (view.enemySourceMode === 'apostle') return null;
-    return getEnemyPresets()[view.enemyPresetKey || el.enemyPreset?.value || ''] || null;
+    const raw=view.enemyPresetKey || el.enemyPreset?.value || '';
+    const key=typeof resolveEnemyPresetKey==='function' ? resolveEnemyPresetKey(raw) : raw;
+    if (key!==raw) {
+      view.enemyPresetKey=key;
+      if(el.enemyPreset)el.enemyPreset.value=key;
+    }
+    return getEnemyPresets()[key] || null;
   }
 
   function getActiveEnemyContentRules() {
@@ -2226,10 +2312,14 @@
   }
 
   function getEnemyPresets() {
-    return {
+    const presets = {
       ...(typeof ENEMY_PRESETS === 'undefined' ? {} : ENEMY_PRESETS),
       ...getCustomEnemyPresets()
     };
+    if(typeof ENEMY_PRESET_KEY_ALIASES!=='undefined') for(const [oldKey,key] of Object.entries(ENEMY_PRESET_KEY_ALIASES)) {
+      if(!Object.prototype.hasOwnProperty.call(presets,oldKey)&&presets[key])Object.defineProperty(presets,oldKey,{value:presets[key],enumerable:false});
+    }
+    return presets;
   }
 
   function getCustomEnemyPresets() {
@@ -2314,6 +2404,7 @@
         }));
       storageLocal.setItem(CUSTOM_ENEMY_PRESETS_KEY, JSON.stringify(stored));
       view.enemyPresetKey = '';
+      if (el.inputs.enemySequence) el.inputs.enemySequence.value = '';
       if (el.inputs.enemyFuryPlus) el.inputs.enemyFuryPlus.value = '-1';
       view.enemyPhaseIndex = 0;
       view.enemySkillIndex = -1;
@@ -2421,6 +2512,306 @@
     return buildFdcApostleSkillOptions(member, enemyContext);
   }
 
+  function getEnemySkillChoiceClassification(category) {
+    return ({ '基本攻撃': '通常', '強化攻撃': '強化', 'スキル': 'スキル',
+      '低学年スキル': '低学年', '高学年スキル': '高学年',
+      'SPスキル':'SPスキル', 'CTスキル':'スキル', 'HP条件スキル':'スキル', '種別なし':'種別なし' })[category] || '';
+  }
+
+  function formatEnemySkillChoiceMultiplier(row) {
+    if (row.value === '') return '—';
+    const value = `${formatPlainNumber(row.value)}%`;
+    return row.basis === 'hit' ? `${value}/発` : row.basis === 'total' ? `合計${value}` : value;
+  }
+
+  function renderEnemySkillChoiceRow(row, currentIndex) {
+    const classification = getEnemySkillChoiceClassification(row.classification || row.category);
+    return `
+      <button type="button" class="fdc-skill-choice fdc-enemy-skill-choice ${row.index === currentIndex ? 'is-active' : ''}" aria-pressed="${row.index === currentIndex}" data-fdc-enemy-skill-index="${row.index}" data-fdc-enemy-skill-value="${escapeAttr(row.value)}" data-fdc-enemy-skill-category="${escapeAttr(row.category)}">
+        <span class="fdc-enemy-skill-main">
+          ${classification ? `<span class="fdc-skill-choice-action fdc-enemy-skill-classification ${getFdcApostleSkillTone(row.classification || row.category)}">${escapeHtml(classification)}</span>` : ''}
+          <span class="fdc-enemy-skill-name">${escapeHtml(row.title)}</span>
+        </span>
+        <span class="fdc-skill-choice-mult">${escapeHtml(formatEnemySkillChoiceMultiplier(row))}</span>
+      </button>`;
+  }
+
+  function getEnemyHitSkillKey(skill, index) {
+    return typeof skill?.skillKey === 'string' ? skill.skillKey : `legacy-index:${index}`;
+  }
+
+  function readEnemyHitSelection() {
+    try {
+      const raw = el.inputs.enemySequence?.value;
+      if (!raw) return null;                                                            
+      const state = JSON.parse(raw);
+      return state && typeof state === 'object' && !Array.isArray(state) ? state : { mode: 'invalid' };
+    } catch { return { mode: 'invalid' }; }
+  }
+
+  function getEnemyHitDefinition(skill, index) {
+    if (!skill) return null;
+                                                                               
+                                                                              
+    const hits = Array.isArray(skill.hits) ? skill.hits : null;
+    if (!hits) return null;
+    return { key: getEnemyHitSkillKey(skill,index), revision: skill.hitRevision ||
+      JSON.stringify([skill.attackCategory || '',skill.damageType || '',skill.classificationMode || '',skill.attackCategoryCandidates || [],hits.map(hit=>[
+        hit.order,hit.coefficientP,hit.count,hit.source,hit.actor,hit.attackCategory || '',hit.damageType || '',
+        hit.classificationMode || '',hit.attackCategoryCandidates || []])]), hits };
+  }
+
+  function planEnemyHits(definition, selection) {
+    const fail = reason => ({ supported: false, reason });
+    if (!definition || !selection || selection.mode !== 'sequence') return fail('受ける範囲を選択してください。');
+    if (selection.skillKey !== definition.key || selection.revision !== definition.revision) return fail('技の命中データが変わりました。受ける範囲を選び直してください。');
+    const rows = definition.hits;
+    if (!rows.length || rows.length > 100) return fail('命中区間の数を確認してください。');
+    if (rows.some((r,i) => r.order !== i+1 || (r.count != null && (!Number.isSafeInteger(r.count) || r.count < 1)))) return fail('命中区間または回数が不正です。');
+    const start = selection.all ? 1 : selection.segment, offset = selection.all ? 1 : selection.offset;
+    if (!Number.isSafeInteger(start) || start < 1 || start > rows.length || !Number.isSafeInteger(offset) || offset < 1) return fail('開始区間と開始位置を確認してください。');
+    if (selection.all && rows.some(r => r.count == null)) return fail('回数未確認の区間があるため、全段合計は計算できません。');
+    let remaining = selection.all ? rows.reduce((n,r) => n+r.count,0) : selection.count;
+    if (!Number.isSafeInteger(remaining) || remaining < 1 || remaining > 10000) return fail('受ける発数は1～10000の整数で指定してください。');
+    const chunks = []; let assumed = false;
+    for (let i=start-1; i<rows.length && remaining>0; i++) {
+      const row = rows[i], first = i===start-1 ? offset : 1;
+      if (row.actor !== 'boss' || !['direct','indirect'].includes(row.source)) return fail('この範囲にはボス本人以外、または主体未確認の攻撃が含まれます。');
+      if (typeof row.coefficientP !== 'number' || !Number.isFinite(row.coefficientP) || row.coefficientP < 0) return fail('1発倍率が未確認の区間があります。');
+      if (row.count == null && first !== 1) return fail('回数未確認の区間は先頭からの指定回数で確認してください。');
+      const available = row.count == null ? remaining : row.count-first+1;
+      if (available < 1) return fail('開始位置が区間の回数を超えています。');
+      const count = Math.min(available,remaining);
+      assumed ||= row.count == null;
+      chunks.push({ ...row, offset: first, selectedCount: count }); remaining -= count;
+    }
+    if (remaining) return fail('指定した発数が命中列を超えています。');
+    return { supported: true, chunks, count: chunks.reduce((n,r)=>n+r.selectedCount,0), assumed };
+  }
+
+  function getEnemyHitAbsoluteStart(definition, selection) {
+    if (selection?.all) return 1;
+    if (!Number.isSafeInteger(selection?.segment) || selection.segment<1
+      || !Number.isSafeInteger(selection?.offset) || selection.offset<1) return null;
+    const selectedHit=definition.hits[selection.segment-1];
+    if (!selectedHit || (selectedHit.count==null?selection.offset!==1:selection.offset>selectedHit.count)) return null;
+    let start=selection.offset;
+    for (let i=0;i<selection.segment-1;i++) {
+      const count=definition.hits[i]?.count;
+      if (!Number.isSafeInteger(count) || count<1) return null;
+      start+=count;
+    }
+    return selection.segment<=definition.hits.length&&start>0?start:null;
+  }
+
+  function getEnemyHitPosition(definition, start) {
+    if (!Number.isSafeInteger(start) || start<1 || start>10000) return null;
+    let offset=start;
+    for (const hit of definition.hits) {
+      if (hit.count==null) return offset===1?{segment:hit.order,offset:1}:null;
+      if (offset<=hit.count) return {segment:hit.order,offset};
+      offset-=hit.count;
+    }
+    return null;
+  }
+
+  function renderEnemyHitPreview(definition, state) {
+    const start=getEnemyHitAbsoluteStart(definition,state), active=state?.mode==='sequence';
+    const total=definition.hits.every(h=>Number.isSafeInteger(h.count)&&h.count>0)
+      ? definition.hits.reduce((n,h)=>n+h.count,0):null;
+    const end=state?.all?total:start+(state?.count||1)-1;
+    const tokens=[];let position=1;
+    const samePower=definition.hits.length===1;
+    for (const hit of definition.hits) {
+      const power=hit.coefficientP==null?'未確認':`${hit.coefficientP}%`;
+      if (total!=null&&total<=8&&!samePower) {
+        for(let n=0;n<hit.count;n++,position++)tokens.push({label:`${position}発目 ${power}`,selected:active&&start!=null&&position>=start&&position<=end});
+      } else {
+        const last=hit.count==null?null:position+hit.count-1;
+        const selected=active&&start!=null&&(last==null?end>=position:start<=last&&end>=position);
+        const selectedCount=selected&&last!=null?Math.max(0,Math.min(end,last)-Math.max(start,position)+1):null;
+        tokens.push({label:`${power} × ${hit.count??'？'}発${selectedCount!=null&&selectedCount<hit.count?`（${selectedCount}発分）`:''}`,selected});
+        if(last==null)break;
+        position=last+1;
+      }
+    }
+    const limit=total!=null&&total<=8?8:6;
+    return tokens.slice(0,limit).map(token=>`<span class="fdc-enemy-hit-token${token.selected?' is-selected':''}">${escapeHtml(token.label)}</span>`).join('')
+      +(tokens.length>limit?`<span class="fdc-enemy-hit-token">ほか${tokens.length-limit}件</span>`:'');
+  }
+
+  function renderEnemyHitControls(skill, index) {
+    const definition = view.enemySourceMode === 'preset' ? getEnemyHitDefinition(skill,index) : null;
+    if (!definition) return view.enemySourceMode==='preset'&&skill
+      ? '<p class="fdc-enemy-hit-unregistered">命中内訳未登録。現在の技倍率で計算します。</p>' : '';
+    const state = readEnemyHitSelection(), active = state?.mode === 'sequence';
+    const knownCount = definition.hits.every(r=>Number.isSafeInteger(r.count)&&r.count>0)
+      ? definition.hits.reduce((n,r)=>n+r.count,0) : null;
+    return `<section class="fdc-enemy-hits" aria-label="受ける攻撃の範囲">
+      <div data-fdc-enemy-hit-legacy ${active?'hidden':''} class="fdc-enemy-hit-legacy">
+        <span>保存時の倍率で計算中</span><button type="button" data-fdc-enemy-hit-mode="single">命中数で計算</button>
+      </div>
+      <div data-fdc-enemy-hit-settings ${!active?'hidden':''}>
+        <div class="fdc-enemy-hit-buttons">
+          <label for="fdc-enemy-hit-count">受ける数</label>
+          <button type="button" data-fdc-enemy-hit-step="-1" aria-label="受ける数を1発減らす">−</button>
+          <span class="fdc-enemy-hit-number"><input id="fdc-enemy-hit-count" aria-label="受ける数" type="number" min="1" max="10000" step="1" data-fdc-enemy-hit-field="count" value="${Number.isSafeInteger(state?.count)?state.count:1}">発</span>
+          <button type="button" data-fdc-enemy-hit-step="1" aria-label="受ける数を1発増やす">＋</button>
+          <button type="button" data-fdc-enemy-hit-mode="all" title="${knownCount==null?'回数未確認のため全段は選べません':`全${knownCount}発を受ける`}" ${knownCount==null?'disabled':''} aria-pressed="${active&&!!state.all}">全段</button>
+        </div>
+        <div class="fdc-enemy-hit-preview" data-fdc-enemy-hit-preview aria-label="威力と受ける範囲">${renderEnemyHitPreview(definition,state)}</div>
+        <details class="fdc-enemy-hit-details"><summary>詳細</summary>
+          <label class="fdc-enemy-hit-start">受け始め <input aria-label="受け始め" type="number" min="1" max="10000" step="1" data-fdc-enemy-hit-field="start" value="${getEnemyHitAbsoluteStart(definition,state)??''}" placeholder="未確認">発目から</label>
+          <p>設定したシールド量は、この受け始めから消費します。</p>
+          ${Number.isFinite(skill.mult)?'<button type="button" data-fdc-enemy-hit-mode="legacy">従来の倍率で計算</button>':''}
+        </details>
+      </div>
+      <div data-fdc-enemy-hit-result aria-live="polite"></div>
+    </section>`;
+  }
+
+  function bindEnemyHitControls(skill,index) {
+    const definition = getEnemyHitDefinition(skill,index);
+    if (!definition) return;
+    const update = (mode,field,value) => {
+      const previous = readEnemyHitSelection();
+      const next = { presetKey:view.enemyPresetKey, skillKey:definition.key, revision:definition.revision,
+        mode: mode==='legacy'?'legacy':'sequence', segment:previous?.segment||1, offset:previous?.offset||1,
+        count:previous?.count||1, all:mode==='all' };
+      if (mode==='single') { next.count=1; next.offset=1; next.segment=1; }
+      if (mode==='all') { next.segment=1; next.offset=1; next.count=definition.hits.reduce((n,r)=>n+(r.count||0),0); }
+      if (field==='start') {
+        const position=getEnemyHitPosition(definition,Number(value));
+        if (!position) { el.enemySkillChoices.querySelector('[data-fdc-enemy-hit-result]').textContent='受け始めを確認してください。回数未確認の部分より後は指定できません。'; return; }
+        Object.assign(next,position);next.all=false;
+        if(definition.hits.every(h=>Number.isSafeInteger(h.count)&&h.count>0)) next.count=Math.min(next.count,definition.hits.reduce((n,h)=>n+h.count,0)-Number(value)+1);
+      } else if (field) { next[field]=Number(value); next.all=false; }
+      el.inputs.enemySequence.value=JSON.stringify(next);
+      saveCalcSettings();
+      if (field) {
+        el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.fdcEnemyHitMode==='single'&&next.count===1)));
+        renderResult(buildContext());
+      } else render();
+    };
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-mode]').forEach(button=>button.addEventListener('click',()=>update(button.dataset.fdcEnemyHitMode)));
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-field]').forEach(input=>input.addEventListener('change',()=>update('range',input.dataset.fdcEnemyHitField,input.value)));
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-step]').forEach(button=>button.addEventListener('click',()=>{
+      const current=readEnemyHitSelection();
+      update('range','count',Math.max(1,(Number(current?.count)||1)+Number(button.dataset.fdcEnemyHitStep)));
+    }));
+  }
+
+  function renderEnemyHitResult(result, comparison = null) {
+    const element=el.enemySkillChoices?.querySelector('[data-fdc-enemy-hit-result]');
+    if (!element) return;
+                                                                             
+                                                                                  
+    const state=readEnemyHitSelection(), active=state?.mode==='sequence';
+    const definition=getEnemyHitDefinition(getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex],view.enemySkillIndex);
+    const start=definition?getEnemyHitAbsoluteStart(definition,state):null;
+    const total=definition?.hits.every(h=>Number.isSafeInteger(h.count)&&h.count>0)?definition.hits.reduce((n,h)=>n+h.count,0):null;
+    const maxCount=total!=null&&start!=null?total-start+1:10000;
+    const legacy=el.enemySkillChoices.querySelector('[data-fdc-enemy-hit-legacy]');
+    if(legacy)legacy.hidden=active;
+    const settings=el.enemySkillChoices.querySelector('[data-fdc-enemy-hit-settings]');
+    if(settings)settings.hidden=!active;
+    const preview=el.enemySkillChoices.querySelector('[data-fdc-enemy-hit-preview]');
+    if(preview&&definition)preview.innerHTML=renderEnemyHitPreview(definition,state);
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-step]').forEach(button=>{
+      button.disabled=!active||(Number(button.dataset.fdcEnemyHitStep)<0?state.count<=1:state.count>=maxCount);
+    });
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-mode]').forEach(button=>{
+      const mode=button.dataset.fdcEnemyHitMode;
+      button.setAttribute('aria-pressed',String(mode==='legacy'?!active:active&&(mode==='all'?!!state.all:!state.all&&state.count===1)));
+    });
+    el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-hit-field]').forEach(input=>{
+      const field=input.dataset.fdcEnemyHitField;
+      if(field==='count')input.max=String(maxCount);
+      if (document.activeElement!==input) input.value=field==='start'?String(start??''):String(state?.[field]??1);
+    });
+    const seq=result.enemySequence;
+    if (!seq) { element.textContent='従来の倍率で計算中'; return; }
+    if (!seq.supported) { element.textContent=seq.reason; return; }
+    const before=comparison?.enemySequence;
+    element.innerHTML=`<p><strong>${escapeHtml(seq.label)}</strong>${before?.supported?` ／ 比較元：${escapeHtml(before.label)}`:''}</p>
+      ${result.defensiveShield?.expectedModel==='mean-route'?'<p>シールド込み・期待値は目安</p>':''}
+      <details class="fdc-enemy-hit-details"><summary>計算内訳</summary>
+      <p>先頭の1発（期待）：${formatNumber(seq.single.expected)} ／ ${seq.count}発合計（期待）：${formatNumber(result.expected)}</p>
+      ${seq.rows.map((row,i)=>{
+        const shield=result.defensiveShield?.segments?.[i]?.expected;
+        return `<p>${escapeHtml(row.label)}・${row.source==='indirect'?'間接':'直接'}：${row.coefficientP}% × ${row.selectedCount}発 ／ ${shield?'盾あり時の1発':'1発'} ${formatNumber(row.single.expected)} ／ 合計 ${formatNumber(row.expected)}${shield?` ／ HPへ ${formatNumber(shield.hpDamage)}・残盾 ${formatNumber(shield.remaining)}`:''}</p>`;
+      }).join('')}
+      <p>命中ごとの概算${seq.assumed?'・回数指定の仮定あり':''}。シールド消費以外の状態は固定。補正表示は先頭命中。</p>
+      ${result.defensiveShield?.expectedModel==='mean-route'?'<p>設定した盾量を選択範囲の先頭から消費。「期待」は期待ダメージで消費した目安で、生存確率ではありません。非会心・全会心も確認してください。</p>':''}</details>`;
+  }
+
+  function calculateEnemyHitSequence(context, definition, selection) {
+    const plan = planEnemyHits(definition,selection);
+    const unavailable = reason => ({ ...createPlacementRequiredDamageResult(), unavailable:'hit-calculation-unavailable',
+      rounding:{reason}, enemySequence:{supported:false,reason} });
+    if (!plan.supported) return unavailable(plan.reason);
+    if (selection.presetKey !== view.enemyPresetKey) return unavailable('敵が変わっています。受ける範囲を選び直してください。');
+    const previous = { runtime:enemyHitRuntime,category:view.enemySelectedSkillCategory };
+    const initialType=resolveEnemyDamageType(), parent=getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex];
+    const rows=[]; let first;
+    try {
+      for (const chunk of plan.chunks) {
+        const damageType=chunk.damageType || parent.damageType || initialType;
+        if (!['physical','magic'].includes(damageType)) return unavailable('攻撃属性が未確認です。');
+        const presetStats=scaleEnemyPresetByPhase(getSelectedEnemyPreset(),view.enemyPhaseIndex);
+        const initialPresetAtk=presetStats[initialType==='magic'?'atk_m':'atk_p'];
+        const manualEnemyAtk=readNumber(el.inputs.enemyAtk)!==Math.round(initialPresetAtk);
+        if (damageType!==initialType && (view.enemyStatDirty || view.statDirty || manualEnemyAtk)) return unavailable('属性の異なる区間の手動能力値が不足しています。');
+        const presetAtk=presetStats[damageType==='magic'?'atk_m':'atk_p'];
+        const baseAtk=damageType===initialType ? (el.inputs.enemyAtk.value.trim()===''?NaN:readNumber(el.inputs.enemyAtk))
+          : typeof presetAtk==='number' ? Math.round(presetAtk) : NaN;
+        if (!Number.isFinite(baseAtk) || baseAtk<0) return unavailable('区間の攻撃力が未設定です。');
+        const classification=chunk.classificationMode || chunk.attackCategory || chunk.attackCategoryCandidates ? chunk : parent;
+        enemyHitRuntime={ ...parent, ...chunk, damageType, mult:chunk.coefficientP, hitCount:1,
+          attackCategory:classification.classificationMode==='unconfirmed'?'':classification.attackCategory || '',
+          attackCategoryCandidates:classification.attackCategoryCandidates,
+          classificationMode:classification.classificationMode };
+        view.enemySelectedSkillCategory=enemyHitRuntime.attackCategory;
+        const hitContext=buildContext({sourceContext:context,detached:true});
+        const baseDef=damageType===initialType ? undefined
+          : (hitContext.automaticSelfStats || hitContext.target?.stats || {})[damageType==='magic'?'magicDef':'physicalDef'];
+        if (damageType!==initialType && (!Number.isFinite(baseDef) || baseDef<0)) return unavailable('区間の防御力が未設定です。');
+        const single=calculateDamage({...hitContext,enemySequenceEvaluating:true,enemySequenceHit:{baseAtk,baseDef}});
+        if (single.unavailable || !['normal','crit','expected'].every(key=>Number.isFinite(single[key]))) return unavailable(single.rounding?.reason||'区間の計算を確認してください。');
+        first ||= single;
+        let withoutShield;
+        if (plan.count>1 && first.defensiveShield?.supported) {
+          if (single.defensiveShield && !single.defensiveShield.supported) return unavailable(single.defensiveShield.reason);
+                                                                                     
+          enemyHitRuntime={...enemyHitRuntime,shieldRemaining:0};
+          const offContext=buildContext({sourceContext:context,detached:true});
+          const off=calculateDamage({...offContext,enemySequenceEvaluating:true,enemySequenceShieldProbe:true,enemySequenceHit:{baseAtk,baseDef}});
+          if (off.unavailable || !['normal','crit','expected'].every(key=>Number.isFinite(off[key]))) return unavailable(off.rounding?.reason||'シールド消費後の計算を確認してください。');
+          withoutShield={normal:off.normal,crit:off.crit,expected:off.expected};
+        }
+        rows.push({label:chunk.label||`区間${chunk.order}`,source:chunk.source,coefficientP:chunk.coefficientP,
+          selectedCount:chunk.selectedCount,single:{normal:single.normal,crit:single.crit,expected:single.expected},
+          ...(withoutShield?{withoutShield}:{}),
+          normal:single.normal*chunk.selectedCount,crit:single.crit*chunk.selectedCount,expected:single.expected*chunk.selectedCount});
+      }
+    } finally { enemyHitRuntime=previous.runtime; view.enemySelectedSkillCategory=previous.category; }
+    const result={...first};
+    for (const key of ['normal','crit','expected']) result[key]=rows.reduce((n,r)=>n+r[key],0);
+    if (!['normal','crit','expected'].every(key=>Number.isFinite(result[key])&&result[key]<=Number.MAX_SAFE_INTEGER)) return unavailable('命中合計が計算可能な範囲を超えています。');
+    if (plan.count>1 && first.defensiveShield?.supported) {
+      const shield=evaluateEnemyHitShield(rows,first.defensiveShield.startingAmount);
+      result.defensiveShield={...shield,...(first.defensiveShield.automatic?{automatic:first.defensiveShield.automatic}:{})};
+      if (shield.supported) for (const key of ['normal','crit','expected']) {
+        result[key]=shield[key].incoming;
+        rows.forEach((row,i)=>{row[key]=shield.segments[i][key].incoming;});
+      }
+    }
+    result.enemySequence={supported:true,count:plan.count,assumed:plan.assumed,rows,single:rows[0].single,
+      label: selection.all?`全${plan.count}発`: `${getEnemyHitAbsoluteStart(definition,selection)??'指定の'}発目から${plan.count}発`};
+    result.rounding={calculationMode:'enemy-per-hit-approximate',reason:'各命中を従来式で個別評価した概算。途中の状態変化は固定。'};
+    return result;
+  }
+
   function renderEnemySkillChoices(preset = getSelectedEnemyPreset(), context = null) {
     if (!el.enemySkillChoices) return;
     if (view.perspective !== 'enemy') {
@@ -2436,9 +2827,8 @@
       index: -1,
       value: '',
       category: '',
-      action: 'なし',
-      name: '通常入力',
-      note: 'スキル倍率を使わない'
+      title: '通常入力',
+      note: '上のスキル倍率を入力して計算します。'
     }];
     if (apostleMode) {
       getEnemyApostleSkillOptions(context || buildContext()).forEach((option, index) => {
@@ -2447,8 +2837,8 @@
           index,
           value: option.value || 100,
           category: option.category || '',
-          action: getFdcApostleSkillActionLabel(option.sourceCategory || option.category),
-          name: option.skillName || option.sourceCategory || option.category || '',
+          classification: option.attackCategory || option.category || '',
+          title: option.skillName || option.sourceCategory || option.category || '',
           note: [
             classificationLabel ? `攻撃分類: ${classificationLabel}` : '',
             option.kind || '',
@@ -2460,38 +2850,47 @@
       const skills = Array.isArray(preset?.skills) ? preset.skills : [];
       skills.forEach((skill, index) => rows.push({
         index,
-        value: skill.mult || 100,
+        value: Number.isFinite(skill.mult) ? skill.mult : '',
         category: skill.attackCategory || '',
-                                                      
-        action: skill.name || skill.action || `Skill ${index + 1}`,
-        name: skill.name && skill.action && skill.name !== skill.action ? skill.action : '',
-        note: skill.note || ''
+        title: skill.name || skill.action || `Skill ${index + 1}`,
+        basis: skill.multiplierBasis === 'hit' ? 'hit' : 'total',
+        note: [skill.note || '', ({'standard-entry':'通常発動時の判定です。',
+          'entry-dependent':'発動条件により判定が変わります。候補に共通する条件だけ自動適用します。',
+          'unconfirmed':'攻撃判定は未確認です。'})[skill.classificationMode] || ''].filter(Boolean).join(' ')
       }));
     }
-    el.enemySkillChoices.innerHTML = `
-      <div class="fdc-skill-choice-header fdc-enemy-skill-choice-header">
-        <span>行動</span>
-        <span>倍率</span>
-        <span>補足</span>
-      </div>
-      ${rows.map(row => `
-        <button type="button" class="fdc-skill-choice fdc-enemy-skill-choice ${row.index === currentIndex ? 'is-active' : ''}" data-fdc-enemy-skill-index="${row.index}" data-fdc-enemy-skill-value="${escapeAttr(row.value)}" data-fdc-enemy-skill-category="${escapeAttr(row.category)}">
-          <span class="fdc-skill-choice-action ${row.index < 0 ? 'tone-basic' : apostleMode ? getFdcApostleSkillTone(row.category) : 'tone-extra'}">${escapeHtml(row.action)}</span>
-          <span class="fdc-skill-choice-mult">${row.value === '' ? '-' : `${escapeHtml(formatPlainNumber(row.value))}%`}</span>
-          <span class="fdc-skill-choice-kind">${escapeHtml([row.name, row.note].filter(Boolean).join(' / ') || '-')}</span>
-        </button>
-      `).join('')}
-    `;
     const activeRow = rows.find(row => row.index === currentIndex);
+    el.enemySkillChoices.innerHTML = `
+      ${currentIndex>=0 ? renderEnemyHitControls(preset?.skills?.[currentIndex],currentIndex) : ''}
+      ${activeRow ? `<details class="fdc-enemy-skill-detail">
+        <summary>選択中の技の補足</summary>
+        <strong>${escapeHtml(activeRow.title)}</strong>
+        ${activeRow.note ? `<p>${escapeHtml(activeRow.note)}</p>` : ''}
+      </details>` : ''}
+      <div class="fdc-skill-choice-header fdc-enemy-skill-choice-header">
+        <span>技</span>
+        <span>倍率</span>
+      </div>
+      ${rows.map(row => renderEnemySkillChoiceRow(row, currentIndex)).join('')}
+    `;
     view.enemySelectedSkillCategory = activeRow?.category || '';
     if (activeRow && currentIndex >= 0) {
-      if (el.enemySkill) el.enemySkill.value = String(activeRow.value || '');
-      if (el.inputs.enemySkill) el.inputs.enemySkill.value = String(activeRow.value || '100');
+      if (el.enemySkill) {
+                                                                                     
+        Array.from(el.enemySkill.options || []).forEach(option => {
+          option.selected = Number(option.dataset.fdcEnemySkillIndex) === currentIndex;
+        });
+      }
+      if (el.inputs.enemySkill && !readEnemyHitSelection()) el.inputs.enemySkill.value = String(activeRow.value ?? '100');
     }
+    if (currentIndex>=0 && !apostleMode) bindEnemyHitControls(preset?.skills?.[currentIndex],currentIndex);
     el.enemySkillChoices.querySelectorAll('[data-fdc-enemy-skill-index]').forEach(button => {
       button.addEventListener('click', () => {
         const previousType = resolveEnemyDamageType();
         view.enemySkillIndex = Number(button.dataset.fdcEnemySkillIndex);
+        const selectedSkill=preset?.skills?.[view.enemySkillIndex], definition=apostleMode?null:getEnemyHitDefinition(selectedSkill,view.enemySkillIndex);
+        if (el.inputs.enemySequence) el.inputs.enemySequence.value=definition ? JSON.stringify({mode:'sequence',presetKey:view.enemyPresetKey,
+          skillKey:definition.key,revision:definition.revision,segment:1,offset:1,count:1,all:false}) : '';
         view.enemySelectedSkillCategory = button.dataset.fdcEnemySkillCategory || '';
         const value = button.dataset.fdcEnemySkillValue || '';
         if (el.enemySkill) {
@@ -2500,12 +2899,13 @@
             option.selected = Number(option.dataset.fdcEnemySkillIndex) === view.enemySkillIndex;
           });
         }
-        if (el.inputs.enemySkill) el.inputs.enemySkill.value = value || '100';
+        if (el.inputs.enemySkill) el.inputs.enemySkill.value = value || (definition ? '' : '100');
         el.enemySkillChoices.querySelectorAll('.fdc-enemy-skill-choice').forEach(row => row.classList.remove('is-active'));
         button.classList.add('is-active');
         syncEnemyActionMetadata(previousType);
         saveCalcSettings();
         render();
+        el.enemySkillChoices.querySelector(`button[data-fdc-enemy-skill-index="${view.enemySkillIndex}"]`)?.focus({ preventScroll: true });
       });
     });
   }
@@ -3417,7 +3817,9 @@
       if (Number.isFinite(Number(savedView.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(savedView.enemyPhaseIndex));
       if (Number.isFinite(Number(savedView.enemySkillIndex))) view.enemySkillIndex = Number(savedView.enemySkillIndex);
     }
-    view.statDirty = true;
+                                                                           
+                                                                                
+    if (options.settings) view.statDirty = savedView.statDirty !== false;
   }
   function readDamageCalculationInputs() {
     return Object.fromEntries(Object.entries(el.inputs || {})
@@ -3426,11 +3828,17 @@
   }
 
   function writeDamageCalculationInputs(values = {}, options = { settings: true, enemy: true }) {
+    if (options.enemy) {
+      if (el.inputs.enemySequence) el.inputs.enemySequence.value = typeof values.enemySequence==='string' ? values.enemySequence : '';
+      const state = normalizeEnemyManualStates(values);
+      if (el.inputs.enemyManualAttack) el.inputs.enemyManualAttack.value = String(state.attackP);
+      if (el.inputs.enemyManualReduction) el.inputs.enemyManualReduction.value = String(state.reductionP);
+    }
     if (options.enemy && el.inputs.enemyFuryPlus) {
       el.inputs.enemyFuryPlus.value = String(normalizeEnemyFuryPlus(values.enemyFuryPlus ?? -1));
     }
     Object.entries(values || {}).forEach(([key, value]) => {
-      if (key === 'enemyFuryPlus') return;
+      if (['enemyFuryPlus', 'enemyManualAttack', 'enemyManualReduction'].includes(key)) return;
       const input = el.inputs?.[key];
       if (!input || !('value' in input)) return;
       const enemyInput = isEnemyDamageInputKey(key);
@@ -3511,6 +3919,11 @@
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (!saved || typeof saved !== 'object') return;
+      if (el.inputs.enemySequence) el.inputs.enemySequence.value = typeof saved.enemySequence==='string' ? saved.enemySequence : '';
+      if (el.inputs.enemySkill && Object.hasOwn(saved,'enemySkill')
+        && (typeof saved.enemySkill==='string'||typeof saved.enemySkill==='number'&&Number.isFinite(saved.enemySkill))) {
+        el.inputs.enemySkill.value=String(saved.enemySkill);
+      }
       if (typeof saved.targetId === 'string') view.targetId = saved.targetId;
       view.defensiveShield = normalizeDefensiveShield(saved.defensiveShield, view.targetId);
       if (typeof saved.formationPresetId === 'string') view.formationPresetId = saved.formationPresetId;
@@ -3541,6 +3954,9 @@
       if (hasCurrentEnemyCorrectionSchema && saved.enemyGlobalAdditive && typeof saved.enemyGlobalAdditive === 'object') writeEnemyCorrectionInputs('additiveInputKey', saved.enemyGlobalAdditive);
       if (hasCurrentEnemyCorrectionSchema && saved.enemyResearchPreset && typeof saved.enemyResearchPreset === 'object') view.enemyResearchPreset = { level: Number(saved.enemyResearchPreset.level) || 0, progress: Number(saved.enemyResearchPreset.progress) || 0, dirty: !!saved.enemyResearchPreset.dirty };
       if (typeof saved.enemyPresetKey === 'string') view.enemyPresetKey = saved.enemyPresetKey;
+      const manualStates = normalizeEnemyManualStates(saved);
+      if (el.inputs.enemyManualAttack) el.inputs.enemyManualAttack.value = String(manualStates.attackP);
+      if (el.inputs.enemyManualReduction) el.inputs.enemyManualReduction.value = String(manualStates.reductionP);
       view.enemySeasonRuleKey = normalizeSeasonRuleKey(saved.enemySeasonRuleKey);
       view.enemySeasonShock = !!saved.enemySeasonShock;
       if (Number.isFinite(Number(saved.enemyPhaseIndex))) view.enemyPhaseIndex = Math.max(0, Number(saved.enemyPhaseIndex));
@@ -3643,7 +4059,11 @@
         tempCardStates: sanitizeFdcTempCardStates(view.tempCardStates),
         extraCrayon: readExtraCrayonInputs(),
         masterPower: normalizeMasterPowerSettings(view.masterPower),
-        enemyFuryPlus: normalizeEnemyFuryPlus(el.inputs.enemyFuryPlus?.value ?? -1)
+        enemyFuryPlus: normalizeEnemyFuryPlus(el.inputs.enemyFuryPlus?.value ?? -1),
+        enemyManualAttack: getEnemyManualStates().attackP,
+        enemyManualReduction: getEnemyManualStates().reductionP,
+        enemySequence: el.inputs.enemySequence?.value || '',
+        enemySkill: el.inputs.enemySkill?.value ?? ''
       }));
     } catch (error) {
       console.warn('Failed to save formation damage settings', error);
@@ -3893,7 +4313,8 @@
     const option = context.selectedSkillOption;
     const category = incoming ? view.enemySelectedSkillCategory
       : option?.attackCategory || option?.category || context.actionCategory;
-    if ((category && !['基本攻撃', '強化攻撃', '低学年スキル', '高学年スキル', 'basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill'].includes(category))
+    if ((category && !['基本攻撃', '強化攻撃', '低学年スキル', '高学年スキル', 'basicAttack', 'enhancedAttack', 'lowSkill', 'highSkill',
+      'スキル', 'skill', 'SPスキル', 'CTスキル', 'HP条件スキル'].includes(category))
       || option?.damageReference || /固定/.test(option?.kind || '')) return result;
     for (const effect of power.effects || []) {
       const value = Number(effect['固定値']) || 0;
@@ -9264,6 +9685,7 @@
   }
 
   function renderResult(context, options = {}) {
+    syncEnemyManualStateFields();
     cancelSeasonRuleRefresh();
     Object.values(el.result.shieldResults || {}).forEach(element => { if (element) element.hidden = true; });
     if (context.statRecalculationRequired) {
@@ -9291,6 +9713,7 @@
     }
     const result = calculateDamage(context);
     const pinnedComparison = getPinnedSingleComparison(context);
+    renderEnemyHitResult(result, pinnedComparison?.result);
     if (result.unavailable === 'hit-calculation-unavailable') {
       [el.result.normal, el.result.crit, el.result.expected, el.result.critRate].forEach(element => {
         if (element) { element.textContent = '—'; element.classList.remove('is-compare'); }
@@ -9475,7 +9898,9 @@
       renderHpRateValue(el.result.hpRates?.[key], result.hp, hpDamage,
         currentResult?.hp, beforeDamage);
       if (el.result.hpRates?.[key]) el.result.hpRates[key].title = shield?.supported
-        ? '最大HPからの目安（シールド概算後）' : '';
+        ? key==='expected'&&shield.expectedModel==='mean-route'
+          ? '期待ダメージ順にシールドを消費した残HPの目安（生存確率ではありません）'
+          : '最大HPからの目安（シールド概算後）' : '';
       const remaining = shield?.[key]?.remaining || 0;
       const beforeRemaining = beforeShield?.[key]?.remaining || 0;
       const element = el.result.hpRates?.[key];
@@ -9488,6 +9913,7 @@
 
   function getDefensiveHpDisplayDamage(result, key) {
     const shield = result.defensiveShield;
+    if (result.enemySequence?.supported) return shield?.[key]?.hpDamage ?? result[key];
     if (view.perspective !== 'enemy' || key !== 'expected') return shield?.[key]?.hpDamage ?? result[key];
     const chance = Math.max(0, Math.min(1, Number(result.critRate) || 0));
     const normalRate = calculateRemainingHpRate(result.hp, shield?.normal?.hpDamage ?? result.normal);
@@ -9503,6 +9929,8 @@
   }
 
   function getDefensiveShieldAmount(targetId = view.targetId) {
+    if (typeof enemyHitRuntime!=='undefined' && targetId===view.targetId
+      && Number.isFinite(enemyHitRuntime?.shieldRemaining)) return enemyHitRuntime.shieldRemaining;
     const settings = normalizeDefensiveShield(view.defensiveShield, targetId);
     if (!settings.enabled) return 0;
     if (settings.sourceId === 'none') return 0;
@@ -9531,7 +9959,7 @@
     const levels = getFdcEffectiveSkillLevels(target);
     const allowed = new Set(['Allet_high_e01','ED_low_e01','Vivi_low_e01','Vivi_high_e02',
       'Kyarot_aside_2_e01','Chloe_low_e02','Jade_enhanced_e03','Barong_passive_e01',
-      'BigWood_low_e01','Selene_high_e02','Selene_favorite_1_e02']);
+      'BigWood_low_e01','Selene_high_e02','Selene_favorite_1_e02','Epica_aside_2_e07']);
     const sources = collectFdcApostleSkillSources(apostle, levels, target, context);
     const favoriteSelene = sources.some(s => (s.skill.effects || []).some(e => e.effectId === 'Selene_favorite_1_e02'));
     const rows = [];
@@ -9546,9 +9974,13 @@
         const raw = effect.fixedValue ?? effect.levels?.[String(level)];
         const info = parseFdcEffectNumericValue(raw);
         const coefficientP = info && !info.isRange ? info.value : null;
+        const epicaProtectionShield = effect.effectId === 'Epica_aside_2_e07';
+                                                                               
+                                                                              
         rows.push({id: `skill:${effect.effectId}`, label: `${target.name} / ${sourceLabel} / ${skill.skillType || category}`,
-          coefficientP, condition: effect.condition || effect.triggerType || '',
-          meta: `${skill.skillName || ''} / Lv${level}`, provisional: effect.effectId !== 'Selene_favorite_1_e02'});
+          coefficientP, condition: epicaProtectionShield ? '保護の発動後・本人に付与済み' : effect.condition || effect.triggerType || '',
+          meta: epicaProtectionShield ? '保護発動後の残量を比較 / 戦闘不能を防ぐ処理は含みません'
+            : `${skill.skillName || ''} / Lv${level}`, provisional: effect.effectId !== 'Selene_favorite_1_e02'});
       });
     });
     if (isEffectSourceActive('artifact')) {
@@ -9739,16 +10171,46 @@
     return { supported: true, startingAmount: amount, normal, crit, expected, approximate: true };
   }
 
+  function evaluateEnemyHitShield(rows, amount) {
+    const fail=reason=>({supported:false,reason});
+    if (!Number.isSafeInteger(amount) || amount<0) return fail('シールド残量は0以上の整数で入力してください。');
+    if (!rows.length || rows.length>100) return fail('命中区間を確認してください。');
+    let count=0;
+    for (const row of rows) {
+      if (!Number.isSafeInteger(row.selectedCount) || row.selectedCount<1) return fail('命中回数を確認してください。');
+      count+=row.selectedCount;
+      for (const key of ['normal','crit','expected']) if (![row.single?.[key],row.withoutShield?.[key]].every(v=>Number.isFinite(v)&&v>=0)) return fail('命中ごとのシールド計算を確認してください。');
+    }
+    if (count>10000) return fail('命中回数が計算可能な範囲を超えています。');
+    const result={supported:true,startingAmount:amount,approximate:true,expectedModel:'mean-route',segments:rows.map(()=>({}))};
+    for (const key of ['normal','crit','expected']) {
+      let remaining=amount,incoming=0,absorbed=0,hpDamage=0;
+      rows.forEach((row,i)=>{
+        const before={incoming,absorbed,hpDamage};
+        for (let hit=0;hit<row.selectedCount;hit++) {
+          const damage=(remaining>0?row.single:row.withoutShield)[key];
+          const used=Math.min(remaining,damage);
+          remaining-=used;incoming+=damage;absorbed+=used;hpDamage+=damage-used;
+        }
+        result.segments[i][key]={incoming:incoming-before.incoming,absorbed:absorbed-before.absorbed,
+          hpDamage:hpDamage-before.hpDamage,remaining};
+      });
+      if (![remaining,incoming,absorbed,hpDamage].every(v=>Number.isFinite(v)&&v<=Number.MAX_SAFE_INTEGER)) return fail('シールド合計が計算可能な範囲を超えています。');
+      result[key]={incoming,absorbed,hpDamage,remaining};
+    }
+    return result;
+  }
+
   function getDefensiveShieldResult(result, context) {
-    if (context.forceSelfAttack || view.perspective !== 'enemy') return null;
+    if (context.forceSelfAttack || context.enemySequenceShieldProbe || view.perspective !== 'enemy') return null;
     const selection = normalizeDefensiveShield(view.defensiveShield, context.target?.id || view.targetId);
     const automatic = selection.enabled && selection.sourceId && !['none','__manual__'].includes(selection.sourceId)
       ? resolveAutomaticDefensiveShield(context, result.hp) : null;
     const amount = automatic ? (automatic.supported ? automatic.amount : null) : getDefensiveShieldAmount(context.target?.id || view.targetId);
     if (automatic && !automatic.supported) return automatic;
     if (amount === 0) return null;
-    const skill = view.enemySourceMode === 'preset' ? getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex]
-      : view.enemySkillIndex >= 0 ? getEnemyApostleSkillOptions(context)[view.enemySkillIndex] : null;
+    const skill = (typeof enemyHitRuntime==='undefined'?null:enemyHitRuntime) || (view.enemySourceMode === 'preset' ? getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex]
+      : view.enemySkillIndex >= 0 ? getEnemyApostleSkillOptions(context)[view.enemySkillIndex] : null);
     const category = view.enemySelectedSkillCategory || skill?.attackCategory || '';
     const special = !!skill?.damageReference || /状態異常|継続|反射|固定ダメージ/.test(
       category + ' ' + (skill?.attackCategory || '') + ' ' + (skill?.name || '') + ' ' + (skill?.kind || ''));
@@ -9869,6 +10331,7 @@
     el.result.detailNote.textContent = target
       ? `${target.name} / ${formatStatModeLabel(target)} / ${formatGradeLabel(target)}`
       : '使徒未選択';
+    if (result.enemySequence?.supported) el.result.detailNote.textContent += ` / ${result.enemySequence.label}・概算。補正内訳は先頭命中。`;
     const pinnedComparison = getPinnedSingleComparison(context);
     const pinnedDiffGroups = pinnedComparison
       ? createPinnedComparisonDiffGroups(context, pinnedComparison.session)
@@ -10092,6 +10555,16 @@
     if (context?.formationDuplicateResonanceId || context?.formationSelectionRequired) return createResonanceRequiredDamageResult(context);
     const summary = context.summary || {};
     const isEnemyAttack = !context.forceSelfAttack && view.perspective === 'enemy';
+    if (isEnemyAttack && view.enemySourceMode==='preset' && !context.enemySequenceEvaluating) {
+      const selection=readEnemyHitSelection();
+      const selectedSkill=getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex];
+      if(selectedSkill?.unsupportedReason)return {...createPlacementRequiredDamageResult(),unavailable:'hit-calculation-unavailable',
+        rounding:{reason:selectedSkill.unsupportedReason},enemySequence:{supported:false,reason:selectedSkill.unsupportedReason}};
+      if (selection && selection.mode!=='legacy') return calculateEnemyHitSequence(context,
+        getEnemyHitDefinition(selectedSkill,view.enemySkillIndex),selection);
+      if (Array.isArray(selectedSkill?.hits) && !Number.isFinite(selectedSkill.mult)) return calculateEnemyHitSequence(context,
+        getEnemyHitDefinition(selectedSkill,view.enemySkillIndex),null);
+    }
     const attacker = context.isolatedActor && !isEnemyAttack
                                                                                
                                                                            
@@ -10171,11 +10644,11 @@
     const selfValue = (input, key) => context.isolatedActor ? Number(selfStats[key])
       : readFdcAutomaticCombatStat(input, selfStats[key], selfManual);
     const enemyValue = (input, key) => readFdcAutomaticCombatStat(input, enemyStats[key], view.enemyStatDirty);
-    const baseAtk = isEnemyAttack ? enemyValue(el.inputs.enemyAtk, enemyMagic ? 'magicAtk' : 'physicalAtk')
+    const baseAtk = isEnemyAttack ? context.enemySequenceHit?.baseAtk ?? enemyValue(el.inputs.enemyAtk, enemyMagic ? 'magicAtk' : 'physicalAtk')
       : selfValue(el.inputs.atk, selfMagic ? 'magicAtk' : 'physicalAtk');
     const baseCrit = isEnemyAttack ? enemyValue(el.inputs.enemyCrit, 'crit') : selfValue(el.inputs.crit, 'crit');
     const baseCritDmg = isEnemyAttack ? enemyValue(el.inputs.enemyCritDmg, 'critDmg') : selfValue(el.inputs.critDmg, 'critDmg');
-    const baseDef = isEnemyAttack ? selfValue(el.inputs.selfDef, enemyMagic ? 'magicDef' : 'physicalDef')
+    const baseDef = isEnemyAttack ? context.enemySequenceHit?.baseDef ?? selfValue(el.inputs.selfDef, enemyMagic ? 'magicDef' : 'physicalDef')
       : enemyValue(el.inputs.def, selfMagic ? 'magicDef' : 'physicalDef');
     const baseCritRes = isEnemyAttack ? selfValue(el.inputs.selfCritResBase, 'critRes') : enemyValue(el.inputs.critRes, 'critRes');
     const baseCritDmgRes = isEnemyAttack ? selfValue(el.inputs.selfCritDmgResBase, 'critDmgRes') : enemyValue(el.inputs.critDmgRes, 'critDmgRes');
@@ -10559,7 +11032,7 @@
   function getAttackMods(side) {
     if (side === 'enemy') {
       return {
-        atkP: readNumber(el.inputs.enemyAtkP),
+        atkP: readNumber(el.inputs.enemyAtkP) + getEnemyManualStates().attackP,
         critP: readNumber(el.inputs.enemyCritP),
         critDmgP: readNumber(el.inputs.enemyCritDmgP),
         skill: readEnemySkillMultiplier(),
@@ -10698,7 +11171,7 @@
     return {
       defP: readNumber(el.inputs.enemyDefP),
       defDownP: readNumber(el.inputs.enemyDefDownP),
-      takenDmgP: readNumber(el.inputs.enemyTakenDmgP) + getEnemyPresetFuryTakenDamageP(),
+      takenDmgP: readNumber(el.inputs.enemyTakenDmgP) + getEnemyPresetFuryTakenDamageP() + getEnemyManualStates().reductionP,
       critResP: readNumber(el.inputs.enemyCritResP),
       critResDownP: readNumber(el.inputs.enemyCritResDownP),
       critResAddP: 0,
@@ -10709,8 +11182,11 @@
   }
 
   function readEnemySkillMultiplier() {
-    const selected = Number(el.inputs.enemySkill?.value);
-    return Number.isFinite(selected) && selected > 0 ? selected : 100;
+    if (typeof enemyHitRuntime!=='undefined' && enemyHitRuntime) return enemyHitRuntime.mult;
+    const raw=String(el.inputs.enemySkill?.value??'').trim();
+    if (!raw) return 100;                                                        
+    const selected = Number(raw);
+    return Number.isFinite(selected) && selected >= 0 ? selected : 100;
   }
 
   function syncPerspectiveUi() {
@@ -11389,6 +11865,16 @@
     if (Number(session?.baseline?.scenario?.sourceMeta?.statCalculationVersion)
       !== TRICKCAL_SHARED_STAT_ENGINE?.snapshotCalculationVersion) return null;
     const cache = session?.caches?.singleAction;
+    try {
+      const raw=session?.baseline?.scenario?.battleConditions?.inputs?.enemySequence;
+      const selection=raw?JSON.parse(raw):null;
+      if (selection?.mode==='sequence') {
+        const skills=getEnemyPresets()[selection.presetKey]?.skills || [];
+        const index=skills.findIndex((s,i)=>getEnemyHitSkillKey(s,i)===selection.skillKey);
+        const definition=getEnemyHitDefinition(skills[index],index);
+        if (!definition || definition.revision!==selection.revision) return null;
+      }
+    } catch { return null; }
     if (cache?.inputFingerprint) {
       const expected = createPinnedSingleActionInputFingerprint(session?.baseline?.scenario || {});
       if (expected && expected !== cache.inputFingerprint) return null;
@@ -12279,30 +12765,38 @@
     const unknownState = /シールド|保護状態|被弾|被撃/.test(body);
     const preset = getSelectedEnemyPreset();
     const skill = preset?.skills?.[view.enemySkillIndex];
-    const category = view.enemySourceMode === 'apostle' ? view.enemySelectedSkillCategory : skill?.attackCategory;
+    const runtime=typeof enemyHitRuntime==='undefined'?null:enemyHitRuntime;
+    const classification = runtime || (view.enemySourceMode === 'apostle' ? null : skill);
+    const category = runtime?.attackCategory ?? (view.enemySourceMode === 'apostle' ? view.enemySelectedSkillCategory : skill?.attackCategory);
+    const categories = classification?.classificationMode === 'unconfirmed' ? []
+      : Array.isArray(classification?.attackCategoryCandidates) && classification.attackCategoryCandidates.length
+        ? classification.attackCategoryCandidates : category ? [category] : [];
     const physical = clauses.some(clause => /物理/.test(clause)), magic = clauses.some(clause => /魔法/.test(clause));
     const basic = clauses.some(clause => /通常|普通/.test(clause));
     const strictBasic = clauses.some(clause => /基本/.test(clause)), enhanced = clauses.some(clause => /強化/.test(clause));
     const skillAttack = clauses.some(clause => /スキル|低学年|高学年/.test(clause));
     const lowSkill = clauses.some(clause => /低学年/.test(clause)), highSkill = clauses.some(clause => /高学年/.test(clause));
-    const rawType = view.enemyDamageType !== 'auto' ? view.enemyDamageType
-      : skill?.damageType || skill?.dmgType || (view.enemySourceMode === 'preset' ? preset?.dmgType : '');
+    const rawType = runtime?.damageType || (view.enemyDamageType !== 'auto' ? view.enemyDamageType
+      : skill?.damageType || skill?.dmgType || (view.enemySourceMode === 'preset' ? preset?.dmgType : ''));
     const type = /^(?:mag|magic)$/.test(rawType || '') ? 'magic' : /^(?:phys|physical)$/.test(rawType || '') ? 'physical' : '';
-    const explicitMismatch = (!!category && ((basic && !['基本攻撃', '強化攻撃', 'basicAttack', 'enhancedAttack'].includes(category))
-      || (strictBasic && !['基本攻撃', 'basicAttack'].includes(category))
-      || (enhanced && !['強化攻撃', 'enhancedAttack'].includes(category))
-      || (skillAttack && !['低学年スキル', '高学年スキル', 'lowSkill', 'highSkill'].includes(category))
-      || (lowSkill && !['低学年スキル', 'lowSkill'].includes(category))
-      || (highSkill && !['高学年スキル', 'highSkill'].includes(category))))
+    const needsCategory = basic || strictBasic || enhanced || skillAttack;
+    const outcomes = categories.map(candidate => {
+      const genericSkill = candidate === 'スキル' || candidate === 'skill';
+      if ((basic && !['基本攻撃','強化攻撃','basicAttack','enhancedAttack'].includes(candidate))
+        || (strictBasic && !['基本攻撃','basicAttack'].includes(candidate))
+        || (enhanced && !['強化攻撃','enhancedAttack'].includes(candidate))
+        || (skillAttack && !['スキル','skill','SPスキル','低学年スキル','高学年スキル','lowSkill','highSkill','CTスキル','HP条件スキル'].includes(candidate))
+        || (lowSkill && !genericSkill && !['SPスキル','低学年スキル','lowSkill'].includes(candidate))
+        || (highSkill && !genericSkill && !['高学年スキル','highSkill'].includes(candidate))) return false;
+      return (lowSkill || highSkill) && genericSkill ? null : true;
+    });
+    const categoryMatch = !needsCategory ? true : !outcomes.length ? null
+      : outcomes.every(value => value === true) ? true : outcomes.every(value => value === false) ? false : null;
+    const explicitMismatch = categoryMatch === false
       || (!!type && ((physical && type !== 'physical') || (magic && type !== 'magic')));
     if (explicitMismatch) return { applicable: true, resolved: true, matched: false };
-    const resolved = !unknownState && (!(basic || strictBasic || enhanced || skillAttack) || !!category) && (!(physical || magic) || !!type);
-    const matched = resolved && (!basic || ['基本攻撃', '強化攻撃', 'basicAttack', 'enhancedAttack'].includes(category))
-      && (!strictBasic || ['基本攻撃', 'basicAttack'].includes(category))
-      && (!enhanced || ['強化攻撃', 'enhancedAttack'].includes(category))
-      && (!skillAttack || ['低学年スキル', '高学年スキル', 'lowSkill', 'highSkill'].includes(category))
-      && (!lowSkill || ['低学年スキル', 'lowSkill'].includes(category))
-      && (!highSkill || ['高学年スキル', 'highSkill'].includes(category))
+    const resolved = !unknownState && categoryMatch !== null && (!(physical || magic) || !!type);
+    const matched = resolved && categoryMatch === true
       && (!physical || type === 'physical') && (!magic || type === 'magic');
     return { applicable: true, resolved, matched };
   }
@@ -13626,6 +14120,7 @@
   }
 
   function resolveEnemyDamageType(preset = getSelectedEnemyPreset()) {
+    if (typeof enemyHitRuntime!=='undefined' && enemyHitRuntime?.damageType) return enemyHitRuntime.damageType;
     if (view.enemyDamageType === 'physical' || view.enemyDamageType === 'magic') return view.enemyDamageType;
     if (view.enemySourceMode === 'apostle') {
       const basic = getApostle(view.enemyApostleId);
@@ -19225,6 +19720,13 @@
   }
 
   function createComparableDamageResult(result = {}) {
+    const actionMultiplier=(...values)=>{
+      for(const value of values) {
+        if(value==null || typeof value==='string'&&!value.trim())continue;
+        if(Number.isFinite(Number(value)))return Number(value);
+      }
+      return 100;
+    };
     return {
       defensiveShield: result.defensiveShield ? clonePlain(result.defensiveShield) : null,
       normal: Number(result.normal) || 0,
@@ -19253,9 +19755,9 @@
         rawAddRate: Number(result.detail?.mods?.rawAddRate) || Number(result.detail?.mods?.addRate) || 1,
         personalityRate: Number(result.detail?.mods?.typeP) / 100,
         addRate: Number(result.detail?.mods?.addRate) || 1,
-        baseActionMultiplierP: Number(result.detail?.mods?.baseActionMultiplierP) || Number(result.detail?.mods?.skillP) || 100,
+        baseActionMultiplierP: actionMultiplier(result.detail?.mods?.baseActionMultiplierP,result.detail?.mods?.skillP),
         actionMultiplierBonusP: Number(result.detail?.mods?.actionMultiplierBonusP) || 0,
-        finalActionMultiplierP: Number(result.detail?.mods?.finalActionMultiplierP) || Number(result.detail?.mods?.skillP) || 100,
+        finalActionMultiplierP: actionMultiplier(result.detail?.mods?.finalActionMultiplierP,result.detail?.mods?.skillP),
         specialP: Number(result.detail?.mods?.specialP) || 100,
         otherP: Number(result.detail?.mods?.otherP) || 100,
         baseCrit: Number(result.detail?.stats?.baseCrit) || 0,

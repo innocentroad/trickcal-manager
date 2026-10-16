@@ -3756,7 +3756,63 @@ body.theme-light .fdc-field select {
 
 .fdc-enemy-skill-choice-header,
 .fdc-enemy-skill-choice {
-  grid-template-columns: minmax(4.8rem, 0.8fr) minmax(3.8rem, 0.45fr) minmax(0, 1.35fr);
+  grid-template-columns: minmax(0, 1fr) max-content;
+}
+
+.fdc-enemy-skill-choice {
+  min-width: 0;
+  min-height: 2.1rem;
+}
+
+.fdc-enemy-skill-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.32rem;
+  min-width: 0;
+}
+
+.fdc-enemy-skill-main > .fdc-enemy-skill-classification {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  font-size: 0.65rem;
+  padding: 0.12rem 0.35rem;
+}
+
+.fdc-enemy-skill-name {
+  min-width: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  font-weight: 850;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.fdc-enemy-skill-choice > .fdc-skill-choice-mult {
+  align-self: center;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.fdc-enemy-skill-choice:focus-visible {
+  outline: 2px solid var(--fdc-primary);
+  outline-offset: 2px;
+}
+
+.fdc-enemy-skill-detail {
+  min-width: 0;
+  color: var(--fdc-muted);
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.fdc-enemy-skill-detail > summary {
+  cursor: pointer;
+  padding: 0.25rem 0;
+}
+
+.fdc-enemy-skill-detail > p {
+  margin: 0.25rem 0;
+  white-space: pre-line;
 }
 
 .fdc-skill-choice-header {
@@ -7401,3 +7457,26 @@ body[data-fdcp-mode="dps"] #fdc-season-shock-field { display: none; }
 .fdc-season-chip > span:first-child { overflow-wrap: anywhere; }
 .fdc-season-chip > span:last-child { flex: none; opacity: .75; }
 .fdc-season-chip:focus-visible { outline: 2px solid var(--fdc-primary); outline-offset: 2px; }
+.fdc-enemy-hits { min-width:0; padding:.55rem; border:1px solid var(--border-color,#64748b); border-radius:.5rem; }
+.fdc-enemy-hit-buttons { display:flex; flex-wrap:wrap; gap:.4rem; }
+.fdc-enemy-hit-buttons button { padding:.35rem .65rem; }
+.fdc-enemy-hit-buttons { align-items:center; gap:.3rem; font-size:.8rem; }
+.fdc-enemy-hit-buttons button { min-height:36px; min-width:36px; font:inherit; }
+.fdc-enemy-hit-number { display:inline-flex; align-items:center; gap:3px; }
+.fdc-enemy-hit-number input { width:4.2rem; min-width:0; text-align:center; padding:.3rem; box-sizing:border-box; font:inherit; }
+.fdc-enemy-hit-preview { display:flex; flex-wrap:wrap; gap:4px; margin:.4rem 0; }
+.fdc-enemy-hit-token { padding:3px 5px; border-radius:5px; border:1px solid var(--fdc-border); color:var(--fdc-muted); font-size:.7rem; overflow-wrap:anywhere; }
+.fdc-enemy-hit-token.is-selected { color:var(--fdc-text); background:var(--fdc-primary-soft); border-color:var(--fdc-primary); }
+.fdc-enemy-hit-details summary { cursor:pointer; font-size:.75rem; }
+.fdc-enemy-hit-start { display:flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:.8rem; margin:.4rem 0; }
+.fdc-enemy-hit-start input { width:4.5rem; padding:.3rem; font:inherit; }
+.fdc-enemy-hit-legacy { display:flex; align-items:center; flex-wrap:wrap; gap:.4rem; font-size:.75rem; }
+[data-fdc-enemy-hit-legacy][hidden],[data-fdc-enemy-hit-settings][hidden] { display:none !important; }
+.fdc-enemy-hit-unregistered { font-size:.75rem; color:var(--fdc-muted); margin:.3rem 0; }
+@media(max-width:600px) { .fdc-enemy-hit-buttons { gap:3px; font-size:.75rem; } .fdc-enemy-hit-buttons button { padding:.3rem; } .fdc-enemy-hit-number input { width:3.2rem; } }
+.fdc-enemy-hit-buttons button[aria-pressed="true"] { outline:2px solid #818cf8; }
+.fdc-enemy-hit-range { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.5rem; margin:.5rem 0; }
+.fdc-enemy-hit-range label { display:grid; gap:.2rem; min-width:0; }
+.fdc-enemy-hit-range input,.fdc-enemy-hit-range select { width:100%; min-width:0; box-sizing:border-box; }
+.fdc-enemy-hits p { margin:.35rem 0; font-size:.8rem; overflow-wrap:anywhere; }
+@media(max-width:600px) { .fdc-enemy-hit-range { grid-template-columns:repeat(2,minmax(0,1fr)); } .fdc-enemy-hit-range label:first-child { grid-column:1/-1; } }
