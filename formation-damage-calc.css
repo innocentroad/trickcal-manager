@@ -7466,6 +7466,7 @@ body[data-fdcp-mode="dps"] #fdc-season-shock-field { display: none; }
 .fdc-season-chip > span:last-child { flex: none; opacity: .75; }
 .fdc-season-chip:focus-visible { outline: 2px solid var(--fdc-primary); outline-offset: 2px; }
 .fdc-enemy-hits { min-width:0; padding:.55rem; border:1px solid var(--border-color,#64748b); border-radius:.5rem; }
+.fdc-enemy-hit-warning { padding:.4rem .55rem; border-left:3px solid var(--fdc-accent); border-radius:.25rem; background:var(--fdc-primary-soft); color:var(--fdc-text); }
 .fdc-enemy-hit-buttons { display:flex; flex-wrap:wrap; gap:.4rem; }
 .fdc-enemy-hit-buttons button { padding:.35rem .65rem; }
 .fdc-enemy-hit-buttons { align-items:center; gap:.3rem; font-size:.8rem; }

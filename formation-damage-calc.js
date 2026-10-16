@@ -2636,20 +2636,22 @@
     if (selection.all && rows.some(r => r.count == null)) return fail('回数未確認の区間があるため、全段合計は計算できません。');
     let remaining = selection.all ? rows.reduce((n,r) => n+r.count,0) : selection.count;
     if (!Number.isSafeInteger(remaining) || remaining < 1 || remaining > 10000) return fail('受ける発数は1～10000の整数で指定してください。');
-    const chunks = []; let assumed = false;
+    const chunks = []; let assumed = false; const warnings = new Set();
     for (let i=start-1; i<rows.length && remaining>0; i++) {
       const row = rows[i], first = i===start-1 ? offset : 1;
-      if (row.actor !== 'boss' || !['direct','indirect'].includes(row.source)) return fail('この範囲にはボス本人以外、または主体未確認の攻撃が含まれます。');
       if (typeof row.coefficientP !== 'number' || !Number.isFinite(row.coefficientP) || row.coefficientP < 0) return fail('1発倍率が未確認の区間があります。');
       if (row.count == null && first !== 1) return fail('回数未確認の区間は先頭からの指定回数で確認してください。');
       const available = row.count == null ? remaining : row.count-first+1;
       if (available < 1) return fail('開始位置が区間の回数を超えています。');
       const count = Math.min(available,remaining);
+      if (row.actor !== 'boss') warnings.add('攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。');
+      if (row.source === 'indirect') warnings.add('間接攻撃はボス本人のステータスを使った暫定計算です。');
+      else if (row.source !== 'direct') warnings.add('直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。');
       assumed ||= row.count == null;
       chunks.push({ ...row, offset: first, selectedCount: count }); remaining -= count;
     }
     if (remaining) return fail('指定した発数が命中列を超えています。');
-    return { supported: true, chunks, count: chunks.reduce((n,r)=>n+r.selectedCount,0), assumed };
+    return { supported: true, chunks, count: chunks.reduce((n,r)=>n+r.selectedCount,0), assumed, warnings:[...warnings] };
   }
 
   function getEnemyHitAbsoluteStart(definition, selection) {
@@ -2793,16 +2795,24 @@
       if (document.activeElement!==input) input.value=field==='start'?String(start??''):String(state?.[field]??1);
     });
     const seq=result.enemySequence;
-    if (!seq) { element.textContent='従来の倍率で計算中'; return; }
+    if (!seq) {
+      const skill=getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex];
+      const warnings=[...(skill?.provisionalWarnings||[])];
+      if(skill?.classificationMode==='unconfirmed')warnings.push('攻撃判定が未確認のため、判定に応じた補正は反映されない場合があります。');
+      element.innerHTML=`<p>従来の倍率で計算中</p>${warnings.length?`<p class="fdc-enemy-hit-warning" role="note"><strong>暫定計算：</strong>${[...new Set(warnings)].map(escapeHtml).join('<br>')}</p>`:''}`;
+      return;
+    }
     if (!seq.supported) { element.textContent=seq.reason; return; }
     const before=comparison?.enemySequence;
     element.innerHTML=`<p><strong>${escapeHtml(seq.label)}</strong>${before?.supported?` ／ 比較元：${escapeHtml(before.label)}`:''}</p>
+      ${seq.warnings?.length?`<p class="fdc-enemy-hit-warning" role="note"><strong>暫定計算：</strong>${seq.warnings.map(escapeHtml).join('<br>')}</p>`:''}
       ${result.defensiveShield?.expectedModel==='mean-route'?'<p>シールド込み・期待値は目安</p>':''}
       <details class="fdc-enemy-hit-details"><summary>計算内訳</summary>
       <p>先頭の1発（期待）：${formatNumber(seq.single.expected)} ／ ${seq.count}発合計（期待）：${formatNumber(result.expected)}</p>
       ${seq.rows.map((row,i)=>{
         const shield=result.defensiveShield?.segments?.[i]?.expected;
-        return `<p>${escapeHtml(row.label)}・${row.source==='indirect'?'間接':'直接'}：${row.coefficientP}% × ${row.selectedCount}発 ／ ${shield?'盾あり時の1発':'1発'} ${formatNumber(row.single.expected)} ／ 合計 ${formatNumber(row.expected)}${shield?` ／ HPへ ${formatNumber(shield.hpDamage)}・残盾 ${formatNumber(shield.remaining)}`:''}</p>`;
+        const sourceLabel=row.source==='indirect'?'間接':row.source==='direct'?'直接':'区分未確認';
+        return `<p>${escapeHtml(row.label)}・${sourceLabel}：${row.coefficientP}% × ${row.selectedCount}発 ／ ${shield?'盾あり時の1発':'1発'} ${formatNumber(row.single.expected)} ／ 合計 ${formatNumber(row.expected)}${shield?` ／ HPへ ${formatNumber(shield.hpDamage)}・残盾 ${formatNumber(shield.remaining)}`:''}</p>`;
       }).join('')}
       <p>命中ごとの概算${seq.assumed?'・回数指定の仮定あり':''}。シールド消費以外の状態は固定。補正表示は先頭命中。</p>
       ${result.defensiveShield?.expectedModel==='mean-route'?'<p>設定した盾量を選択範囲の先頭から消費。「期待」は期待ダメージで消費した目安で、生存確率ではありません。非会心・全会心も確認してください。</p>':''}</details>`;
@@ -2816,9 +2826,10 @@
     if (selection.presetKey !== view.enemyPresetKey) return unavailable('敵が変わっています。受ける範囲を選び直してください。');
     const previous = { runtime:enemyHitRuntime,category:view.enemySelectedSkillCategory };
     const initialType=resolveEnemyDamageType(), parent=getSelectedEnemyPreset()?.skills?.[view.enemySkillIndex];
-    const rows=[]; let first;
+    const rows=[]; let first; const warnings=new Set(plan.warnings||[]);
     try {
       for (const chunk of plan.chunks) {
+        if(!chunk.damageType&&!parent.damageType)warnings.add('技固有の攻撃属性が未確認のため、敵の攻撃属性設定を使った暫定計算です。');
         const damageType=chunk.damageType || parent.damageType || initialType;
         if (!['physical','magic'].includes(damageType)) return unavailable('攻撃属性が未確認です。');
         const presetStats=scaleEnemyPresetByPhase(getSelectedEnemyPreset(),view.enemyPhaseIndex);
@@ -2830,6 +2841,8 @@
           : typeof presetAtk==='number' ? Math.round(presetAtk) : NaN;
         if (!Number.isFinite(baseAtk) || baseAtk<0) return unavailable('区間の攻撃力が未設定です。');
         const classification=chunk.classificationMode || chunk.attackCategory || chunk.attackCategoryCandidates ? chunk : parent;
+        if(classification.classificationMode==='unconfirmed')warnings.add('攻撃判定が未確認のため、判定に応じた補正は反映されない場合があります。');
+        else if(classification.classificationMode==='entry-dependent')warnings.add('発動条件により攻撃判定が変わるため、条件に応じた補正が十分反映されない場合があります。');
         enemyHitRuntime={ ...parent, ...chunk, damageType, mult:chunk.coefficientP, hitCount:1,
           attackCategory:classification.classificationMode==='unconfirmed'?'':classification.attackCategory || '',
           attackCategoryCandidates:classification.attackCategoryCandidates,
@@ -2869,7 +2882,7 @@
         rows.forEach((row,i)=>{row[key]=shield.segments[i][key].incoming;});
       }
     }
-    result.enemySequence={supported:true,count:plan.count,assumed:plan.assumed,rows,single:rows[0].single,
+    result.enemySequence={supported:true,count:plan.count,assumed:plan.assumed,rows,single:rows[0].single,warnings:[...warnings],
       label: selection.all?`全${plan.count}発`: `${getEnemyHitAbsoluteStart(definition,selection)??'指定の'}発目から${plan.count}発`};
     result.rounding={calculationMode:'enemy-per-hit-approximate',reason:'各命中を従来式で個別評価した概算。途中の状態変化は固定。'};
     return result;

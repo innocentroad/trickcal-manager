@@ -842,19 +842,25 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "ビーム(ドローン追撃)",
-      "unsupportedReason": "別個体による攻撃です。攻撃側の能力を確認するまで計算できません。",
+      "provisionalWarnings": [
+        "間接攻撃はボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 500,
       "action": "攻撃",
       "attackCategory": "スキル",
+      "description": "ステータスはボスと別判定かも",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/8"
     },
     {
       "name": "重力球",
-      "unsupportedReason": "別個体による攻撃です。攻撃側の能力を確認するまで計算できません。",
+      "provisionalWarnings": [
+        "間接攻撃はボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 600,
       "action": "攻撃",
       "attackCategory": "スキル",
+      "description": "ステータスはボスと別判定かも",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/9"
     },
@@ -863,20 +869,27 @@ const ENEMY_SKILL_SETS = {
       "mult": 1000,
       "action": "攻撃",
       "attackCategory": "スキル",
+      "description": "ステータスはボスと別判定かも",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/10"
     },
     {
       "name": "時間停止ドローン",
-      "unsupportedReason": "別個体による攻撃です。攻撃側の能力を確認するまで計算できません。",
+      "provisionalWarnings": [
+        "間接攻撃はボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 2030,
       "action": "攻撃",
       "attackCategory": "スキル",
+      "description": "ステータスはボスと別判定かも",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/11"
     },
     {
       "name": "火傷（隕石など）",
+      "provisionalWarnings": [
+        "間接攻撃はボス本人のステータスを使った暫定計算です。"
+      ],
       "statusType": "火傷",
       "statusDamageMode": "single-tick",
       "mult": 30,
@@ -893,8 +906,21 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/1"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 150,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "9bd2af4b5f70169003add8598705278cf15f1e5a41f5bdd73499979662770b2f"
     },
     {
       "name": "薙ぎ払い",
@@ -902,8 +928,21 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "強化攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/2"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 250,
+          "count": 1,
+          "attackCategory": "強化攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "cdc36ab95d7aa517750f7c9d1381b6b29dd6d017675912629dfe4132bd9e6ddd"
     },
     {
       "name": "直線斬り",
@@ -911,8 +950,21 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/3"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/3",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 600,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "d98a48cc761802d952ac225314c7231538efae09c258cd18887174c95428b19b"
     },
     {
       "name": "基本攻撃[金モード]",
@@ -920,8 +972,21 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/4"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/4",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 175,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "cd10f6c67688dde5279585047d4d8df6e589588a8bbc86f967ad6727b8b7cb60"
     },
     {
       "name": "薙ぎ払い[金モード]",
@@ -929,8 +994,21 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "強化攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/5"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/5",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 300,
+          "count": 1,
+          "attackCategory": "強化攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "f6f91ca359e99ba96b6af4eae7dd54101132c39d21d39e896934da1eda94351b"
     },
     {
       "name": "直線斬り[金モード]",
@@ -938,22 +1016,53 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "イサムレヨン（EF）/6"
+      "hitCount": 1,
+      "skillKey": "イサムレヨン（EF）/6",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 700,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e3f6e2d1864ba6c49742caf42d6294c876172e559662abbc9e34daab7c4a7fad"
     }
   ],
   "set4": [
     {
       "name": "（通常）",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
-      "multiplierBasis": "hit",
-      "skillKey": "バンク蔵/1"
+      "hitCount": 1,
+      "skillKey": "バンク蔵/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 100,
+          "count": 1
+        }
+      ],
+      "hitRevision": "b8b6efab4f572f152d4c618b48ce082377da04f5367595e85752c3b683856d46"
     }
   ],
   "set5": [
     {
       "name": "基本攻撃",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
@@ -961,6 +1070,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "ピコハン",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -968,6 +1081,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "ネギ",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 250,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -975,6 +1092,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "100tハンマー",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 400,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -1006,6 +1127,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "暴走モードA",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -1013,6 +1138,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "暴走モードB",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -1020,6 +1149,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "暴走モードC",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 200,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -1027,6 +1160,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "暴走モードD",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 250,
       "action": "攻撃",
       "attackCategory": "スキル",
@@ -1036,6 +1173,10 @@ const ENEMY_SKILL_SETS = {
   "set6": [
     {
       "name": "基本攻撃・足踏み",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
@@ -1043,6 +1184,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "叩きつけ",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
@@ -1596,7 +1741,19 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/1"
+      "skillKey": "イサムレヨン（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 100,
+          "count": 1,
+          "attackCategory": "基本攻撃"
+        }
+      ],
+      "hitRevision": "cb32a88c843bf599dd3203b31579fb8a2c561ea02f3d70b71e2925ad9451fb4c"
     },
     {
       "name": "薙ぎ払い",
@@ -1604,7 +1761,19 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "強化攻撃",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/2"
+      "skillKey": "イサムレヨン（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 175,
+          "count": 1,
+          "attackCategory": "強化攻撃"
+        }
+      ],
+      "hitRevision": "e2b59296ea2f91fe849bf79ace19c4bd50f3fb55ec3c3af849bbef1e9cdb1cf1"
     },
     {
       "name": "直線斬り",
@@ -1612,7 +1781,19 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/3"
+      "skillKey": "イサムレヨン（次元）/3",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 400,
+          "count": 1,
+          "attackCategory": "スキル"
+        }
+      ],
+      "hitRevision": "ea3aa1cf39add29a37fc64dcc073cd11ef1fae5d980f6fe43193a63170614372"
     },
     {
       "name": "基本攻撃[金モード]",
@@ -1620,7 +1801,19 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/4"
+      "skillKey": "イサムレヨン（次元）/4",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 150,
+          "count": 1,
+          "attackCategory": "基本攻撃"
+        }
+      ],
+      "hitRevision": "ec3c1a7912e5c3d2bcfeaf6dc675ebc6762ee3e7b6c733ad7c75ddc4239e87a4"
     },
     {
       "name": "薙ぎ払い[金モード]",
@@ -1628,7 +1821,19 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "強化攻撃",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/5"
+      "skillKey": "イサムレヨン（次元）/5",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 250,
+          "count": 1,
+          "attackCategory": "強化攻撃"
+        }
+      ],
+      "hitRevision": "03abf2635ad60a87c936fa2e115f368fcbc7a05b34558f6082c1f7786973b4fe"
     },
     {
       "name": "直線斬り[金モード]",
@@ -1636,47 +1841,123 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "hitCount": 1,
-      "skillKey": "イサムレヨン（次元）/6"
+      "skillKey": "イサムレヨン（次元）/6",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "direct",
+          "actor": "boss",
+          "coefficientP": 600,
+          "count": 1,
+          "attackCategory": "スキル"
+        }
+      ],
+      "hitRevision": "10b9bfc53ce4637120234373244edaffb6bf7ef74f7f63d84a0136fe9fc976f1"
     }
   ],
   "set8": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 120,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "キモグリ（次元）/1"
+      "hitCount": 1,
+      "skillKey": "キモグリ（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 120,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e0dd9ca9516cda9f78233f1d88fa9b6ddc79ea69a9530253c6ca1a1efaf5e439"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 384,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "キモグリ（次元）/2"
+      "hitCount": 1,
+      "skillKey": "キモグリ（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 384,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "89dd0a825a7a8c1ba9c98d5389c90a600f58c73e0f9b1907132a45c1f62a4f70"
     }
   ],
   "set9": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "サライグマ（次元）/1"
+      "hitCount": 1,
+      "skillKey": "サライグマ（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 150,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "563ef37a5064592a2c99ed39e544f4f33de0e851ab25d12f3fe2fbb99202d453"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 360,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "サライグマ（次元）/2"
+      "hitCount": 1,
+      "skillKey": "サライグマ（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 360,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "920ef1722e38c462b3ef4e6447c2bdaa523abbf68ce86dea408f100a68ca9048"
     }
   ],
   "set10": [
@@ -1819,71 +2100,182 @@ const ENEMY_SKILL_SETS = {
   "set13": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 210,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ドン石（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ドン石（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 210,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "8e2ee276085cac0f2e06120d6b4193a37eb8e8421b027a9117ab1d09cee7a391"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 256,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ドン石（次元）/2"
+      "hitCount": 1,
+      "skillKey": "ドン石（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 256,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "a7d0ebf2b09cb940aee01513b04c91242e0008937145325328017906db24dcc4"
     }
   ],
   "set14": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ナニクマ（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ナニクマ（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 150,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "563ef37a5064592a2c99ed39e544f4f33de0e851ab25d12f3fe2fbb99202d453"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 360,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ナニクマ（次元）/2"
+      "hitCount": 1,
+      "skillKey": "ナニクマ（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 360,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "920ef1722e38c462b3ef4e6447c2bdaa523abbf68ce86dea408f100a68ca9048"
     }
   ],
   "set15": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 180,
       "action": "攻撃",
       "classificationMode": "unconfirmed",
-      "multiplierBasis": "hit",
-      "skillKey": "ヌウリング（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ヌウリング（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 180,
+          "count": 1,
+          "classificationMode": "unconfirmed"
+        }
+      ],
+      "hitRevision": "337bb3e9cf5fd680a95cfb853bf9292eec8eeb409d0bcfe6935294f6a6d74867"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 288,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ヌウリング（次元）/2"
+      "hitCount": 1,
+      "skillKey": "ヌウリング（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 288,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "b664aeb6bbe59b999f4ba19783a91ef91bdd9e1deba82f1655d37690e9cb768e"
     }
   ],
   "set16": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 120,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ノビリュー（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ノビリュー（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 120,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e0dd9ca9516cda9f78233f1d88fa9b6ddc79ea69a9530253c6ca1a1efaf5e439"
     },
     {
       "name": "スキル",
@@ -1913,55 +2305,138 @@ const ENEMY_SKILL_SETS = {
   "set17": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 180,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ハットツムリ（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ハットツムリ（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 180,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e3b0b648e9e2123ba137903a8e85658c4237ed3420d1648c4fc7107ddf6a0c35"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 360,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ハットツムリ（次元）/2"
+      "hitCount": 1,
+      "skillKey": "ハットツムリ（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 360,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "920ef1722e38c462b3ef4e6447c2bdaa523abbf68ce86dea408f100a68ca9048"
     }
   ],
   "set18": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 120,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ルパル（次元）/1"
+      "hitCount": 1,
+      "skillKey": "ルパル（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 120,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e0dd9ca9516cda9f78233f1d88fa9b6ddc79ea69a9530253c6ca1a1efaf5e439"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 480,
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "ルパル（次元）/2"
+      "hitCount": 1,
+      "skillKey": "ルパル（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 480,
+          "count": 1,
+          "attackCategory": "スキル",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "76801eb9c9b72041ca88159a4b8e9e13c1bd3fa6d100da1e995c648114fc6405"
     }
   ],
   "set19": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 180,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "一口草（次元）/1"
+      "hitCount": 1,
+      "skillKey": "一口草（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 180,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "e3b0b648e9e2123ba137903a8e85658c4237ed3420d1648c4fc7107ddf6a0c35"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 720,
       "action": "攻撃",
       "classificationMode": "unconfirmed",
@@ -1972,7 +2447,7 @@ const ENEMY_SKILL_SETS = {
           "order": 1,
           "label": "区間1",
           "source": "unknown",
-          "actor": "unknown",
+          "actor": "boss",
           "coefficientP": 360,
           "count": 1,
           "attackCategory": "スキル",
@@ -1990,79 +2465,146 @@ const ENEMY_SKILL_SETS = {
           "intervalSeconds": 0.5
         }
       ],
-      "hitRevision": "8009b46f84ca365c5a949393c2a437c08204fa629e1a5207ef363d782043d6c4"
+      "hitRevision": "d5565fb944bd36c97f145f73471414ce46976d8034133d2e98b78335d198cdf1"
     }
   ],
   "set20": [
     {
       "name": "通常攻撃",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 210,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "multiplierBasis": "hit",
-      "skillKey": "幽霊布団（次元）/1"
+      "hitCount": 1,
+      "skillKey": "幽霊布団（次元）/1",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 210,
+          "count": 1,
+          "attackCategory": "基本攻撃",
+          "classificationMode": "standard-entry"
+        }
+      ],
+      "hitRevision": "8e2ee276085cac0f2e06120d6b4193a37eb8e8421b027a9117ab1d09cee7a391"
     },
     {
       "name": "スキル",
+      "provisionalWarnings": [
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 240,
       "action": "攻撃",
       "classificationMode": "unconfirmed",
-      "multiplierBasis": "hit",
-      "skillKey": "幽霊布団（次元）/2"
+      "hitCount": 1,
+      "skillKey": "幽霊布団（次元）/2",
+      "hits": [
+        {
+          "order": 1,
+          "label": "",
+          "source": "unknown",
+          "actor": "boss",
+          "coefficientP": 240,
+          "count": 1,
+          "classificationMode": "unconfirmed"
+        }
+      ],
+      "hitRevision": "b1c0252d91edbc8a3c4543ecd3bb8a960830b505f50dfe7478a879bc7f70396c"
     }
   ],
   "set21": [
     {
       "name": "通常攻撃1",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 100,
       "action": "攻撃",
       "skillKey": "[E] Dummy/1"
     },
     {
       "name": "通常攻撃2",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 50,
       "action": "攻撃",
       "skillKey": "[E] Dummy/2"
     },
     {
       "name": "通常攻撃3",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 80,
       "action": "攻撃",
       "skillKey": "[E] Dummy/3"
     },
     {
       "name": "通常攻撃4",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 120,
       "action": "攻撃",
       "skillKey": "[E] Dummy/4"
     },
     {
       "name": "通常攻撃5",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 150,
       "action": "攻撃",
       "skillKey": "[E] Dummy/5"
     },
     {
       "name": "強攻撃1",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 200,
       "action": "攻撃",
       "skillKey": "[E] Dummy/6"
     },
     {
       "name": "強攻撃2",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 300,
       "action": "攻撃",
       "skillKey": "[E] Dummy/7"
     },
     {
       "name": "スキル攻撃1",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 500,
       "action": "攻撃",
       "skillKey": "[E] Dummy/8"
     },
     {
       "name": "スキル攻撃2",
+      "provisionalWarnings": [
+        "攻撃主体がボス本人以外または未確認のため、ボス本人のステータスを使った暫定計算です。",
+        "直接・間接の区分が未確認のため、ボス本人のステータスを使った暫定計算です。"
+      ],
       "mult": 1000,
       "action": "攻撃",
       "skillKey": "[E] Dummy/9"
