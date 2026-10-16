@@ -254,7 +254,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 2,
       "skillKey": "M.E.O.W（EF）/1",
       "hits": [
@@ -277,7 +276,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 1,
       "skillKey": "M.E.O.W（EF）/2",
       "hits": [
@@ -299,7 +297,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 1350,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 9,
       "skillKey": "M.E.O.W（EF）/3",
       "hits": [
@@ -355,7 +352,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 4000,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 10,
       "skillKey": "M.E.O.W（EF）/4",
       "hits": [
@@ -422,7 +418,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 4000,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 10,
       "skillKey": "M.E.O.W（EF）/5",
       "hits": [
@@ -489,7 +484,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 2200,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 11,
       "skillKey": "M.E.O.W（EF）/6",
       "hits": [
@@ -512,7 +506,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 13300,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 19,
       "skillKey": "M.E.O.W（EF）/7",
       "hits": [
@@ -535,7 +528,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 720,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 3,
       "skillKey": "M.E.O.W（EF）/8",
       "hits": [
@@ -563,7 +555,6 @@ const ENEMY_SKILL_SETS = {
         "HP条件スキル"
       ],
       "classificationMode": "entry-dependent",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 15,
       "skillKey": "M.E.O.W（EF）/9",
       "hits": [
@@ -622,7 +613,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 500,
       "action": "攻撃",
       "classificationMode": "unconfirmed",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 4,
       "skillKey": "M.E.O.W（EF）/10",
       "hits": [
@@ -657,7 +647,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
-      "note": "RNG",
       "hitCount": 3,
       "skillKey": "R41リニュア（EF）/1",
       "hits": [
@@ -699,7 +688,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 200,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/2",
       "hits": [
@@ -721,7 +709,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 650,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "AoE / デバフ:破壊",
       "hitCount": 2,
       "skillKey": "R41リニュア（EF）/3",
       "hits": [
@@ -753,7 +740,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 600,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "AoE / デバフ:破壊",
       "hitCount": 2,
       "skillKey": "R41リニュア（EF）/4",
       "hits": [
@@ -785,7 +771,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 900,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE / デバフ:破壊",
       "hitCount": 2,
       "skillKey": "R41リニュア（EF）/5",
       "hits": [
@@ -817,7 +802,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 300,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/6",
       "hits": [
@@ -839,7 +823,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 1250,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "hitCount": 5,
       "skillKey": "R41リニュア（EF）/7",
       "hits": [
@@ -863,7 +846,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 500,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE / ドローン数で+1～2発?",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/8"
     },
@@ -873,7 +855,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 600,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE / 火傷",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/9"
     },
@@ -882,7 +863,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 1000,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/10"
     },
@@ -892,7 +872,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 2030,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "10体: 203%×10?",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/11"
     },
@@ -903,7 +882,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 30,
       "action": "DoT",
       "attackCategory": "状態異常",
-      "note": "隕石により火傷/スタックする",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/12"
     }
@@ -916,7 +894,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/1"
     },
     {
@@ -926,7 +903,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "強化攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/2"
     },
     {
@@ -936,7 +912,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/3"
     },
     {
@@ -946,7 +921,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/4"
     },
     {
@@ -956,7 +930,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "強化攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/5"
     },
     {
@@ -966,7 +939,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "AoE",
       "skillKey": "イサムレヨン（EF）/6"
     }
   ],
@@ -992,7 +964,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE / 気絶",
       "skillKey": "リリ一（次元）/2"
     },
     {
@@ -1007,7 +978,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 400,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "skillKey": "リリ一（次元）/4"
     },
     {
@@ -1016,7 +986,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "note": "AoE / ヒットストップ",
       "hitCount": 5,
       "skillKey": "リリ一（次元）/5",
       "hits": [
@@ -1040,7 +1009,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "ABCDをランダム?で繰り返し",
       "skillKey": "リリ一（次元）/6"
     },
     {
@@ -1048,7 +1016,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "ABCDをランダム?で繰り返し",
       "skillKey": "リリ一（次元）/7"
     },
     {
@@ -1056,7 +1023,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 200,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "ABCDをランダム?で繰り返し",
       "skillKey": "リリ一（次元）/8"
     },
     {
@@ -1064,7 +1030,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 250,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "ABCDをランダム?で繰り返し",
       "skillKey": "リリ一（次元）/9"
     }
   ],
@@ -1074,7 +1039,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
-      "note": "2段: 50%*2",
       "skillKey": "ケルベロス（次元）/1"
     },
     {
@@ -1090,7 +1054,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 18,
       "skillKey": "ケルベロス（次元）/3",
       "hits": [
@@ -1301,7 +1264,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 17,
       "skillKey": "ケルベロス（次元）/4",
       "hits": [
@@ -1414,7 +1376,6 @@ const ENEMY_SKILL_SETS = {
         "HP条件スキル"
       ],
       "classificationMode": "entry-dependent",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 10,
       "skillKey": "ケルベロス（次元）/5",
       "hits": [
@@ -1511,7 +1472,6 @@ const ENEMY_SKILL_SETS = {
         "HP条件スキル"
       ],
       "classificationMode": "entry-dependent",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 6,
       "skillKey": "ケルベロス（次元）/6",
       "hits": [
@@ -1576,7 +1536,6 @@ const ENEMY_SKILL_SETS = {
         "HP条件スキル"
       ],
       "classificationMode": "entry-dependent",
-      "note": "ループ1周分。確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。 ／ 確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 18,
       "skillKey": "ケルベロス（次元）/7",
       "hits": [
@@ -1636,7 +1595,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 100,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/1"
     },
@@ -1645,7 +1603,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 175,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/2"
     },
@@ -1654,7 +1611,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 400,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/3"
     },
@@ -1663,7 +1619,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 150,
       "action": "攻撃",
       "attackCategory": "基本攻撃",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/4"
     },
@@ -1672,7 +1627,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 250,
       "action": "攻撃",
       "attackCategory": "強化攻撃",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/5"
     },
@@ -1681,7 +1635,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 600,
       "action": "攻撃",
       "attackCategory": "スキル",
-      "note": "AoE",
       "hitCount": 1,
       "skillKey": "イサムレヨン（次元）/6"
     }
@@ -1694,7 +1647,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "キモグリ（次元）/1"
     },
     {
@@ -1704,7 +1656,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "キモグリ（次元）/2"
     }
   ],
@@ -1716,7 +1667,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "サライグマ（次元）/1"
     },
     {
@@ -1726,7 +1676,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "サライグマ（次元）/2"
     }
   ],
@@ -1737,7 +1686,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 3,
       "skillKey": "ドローンG型（次元）/1",
       "hits": [
@@ -1762,7 +1710,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 8,
       "skillKey": "ドローンG型（次元）/2",
       "hits": [
@@ -1789,7 +1736,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 3,
       "skillKey": "ドローンS型（次元）/1",
       "hits": [
@@ -1814,7 +1760,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 8,
       "skillKey": "ドローンS型（次元）/2",
       "hits": [
@@ -1841,7 +1786,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 4,
       "skillKey": "ドローンU型（次元）/1",
       "hits": [
@@ -1880,7 +1824,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ドン石（次元）/1"
     },
     {
@@ -1890,7 +1833,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ドン石（次元）/2"
     }
   ],
@@ -1902,7 +1844,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ナニクマ（次元）/1"
     },
     {
@@ -1912,7 +1853,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ナニクマ（次元）/2"
     }
   ],
@@ -1923,7 +1863,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "classificationMode": "unconfirmed",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ヌウリング（次元）/1"
     },
     {
@@ -1933,7 +1872,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ヌウリング（次元）/2"
     }
   ],
@@ -1945,7 +1883,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ノビリュー（次元）/1"
     },
     {
@@ -1954,7 +1891,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "attackCategory": "SPスキル",
       "classificationMode": "standard-entry",
-      "note": "確認できた本人の攻撃が全発命中する目安。召喚体・未確認の追撃は含みません。",
       "hitCount": 5,
       "skillKey": "ノビリュー（次元）/2",
       "hits": [
@@ -1982,7 +1918,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ハットツムリ（次元）/1"
     },
     {
@@ -1992,7 +1927,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ハットツムリ（次元）/2"
     }
   ],
@@ -2004,7 +1938,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ルパル（次元）/1"
     },
     {
@@ -2014,7 +1947,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "スキル",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "ルパル（次元）/2"
     }
   ],
@@ -2026,7 +1958,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "一口草（次元）/1"
     },
     {
@@ -2034,7 +1965,6 @@ const ENEMY_SKILL_SETS = {
       "mult": 720,
       "action": "攻撃",
       "classificationMode": "unconfirmed",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "hitCount": 3,
       "skillKey": "一口草（次元）/2",
       "hits": [
@@ -2071,7 +2001,6 @@ const ENEMY_SKILL_SETS = {
       "attackCategory": "基本攻撃",
       "classificationMode": "standard-entry",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "幽霊布団（次元）/1"
     },
     {
@@ -2080,7 +2009,6 @@ const ENEMY_SKILL_SETS = {
       "action": "攻撃",
       "classificationMode": "unconfirmed",
       "multiplierBasis": "hit",
-      "note": "通知1回分。行動全体の命中数・飛翔時間は未確認。",
       "skillKey": "幽霊布団（次元）/2"
     }
   ],

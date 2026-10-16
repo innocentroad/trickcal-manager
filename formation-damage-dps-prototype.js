@@ -284,11 +284,12 @@
   function getDpsRuntimeEffectPolicyPresentation(policy = {}, options = {}) {
     const policyApi = typeof window !== 'undefined' ? window.TRICKCAL_DPS_TRIGGER_POLICY : null;
     if (typeof policyApi?.getRuntimeEffectPolicyPresentation === 'function') {
-      return policyApi.getRuntimeEffectPolicyPresentation(policy, options);
+      const presentation = policyApi.getRuntimeEffectPolicyPresentation(policy, options);
+      return options.readOnly ? { ...presentation, label: '現在値' } : presentation;
     }
     const mode = ['auto', 'fixed', 'off'].includes(options.mode) ? options.mode : (policy.defaultMode || 'auto');
     const readOnly = options.readOnly === true;
-    const label = readOnly ? '監査のみ' : mode === 'fixed' ? '固定' : mode === 'off' ? 'OFF' : policy.capability === 'estimated' ? '自動（推定）' : '自動';
+    const label = readOnly ? '現在値' : mode === 'fixed' ? '固定' : mode === 'off' ? 'OFF' : policy.capability === 'estimated' ? '自動（推定）' : '自動';
     const statusCode = readOnly ? 'readonly' : policy.capability === 'estimated' && mode === 'auto' ? 'estimated' : mode;
     const className = readOnly ? 'is-readonly' : policy.capability === 'estimated' && mode === 'auto' ? 'is-estimated' : `is-${mode}`;
     return { mode, label, statusCode, className, reasonLabel: '発動条件要確認', qualityLabel: '未確認', detailLabel: '発動条件要確認 / 未確認' };
@@ -681,9 +682,9 @@
       ['初期対象状態', statuses.join('・') || 'なし'],
       ['状態反応', reactions.join('・') || 'なし'],
       ['状態異常弱点', weakness ? `その他倍率 +${formatNumber(weakness)}%` : 'なし'],
-      ['固有リソース', resources.join('・') || 'なし']
+      ['固有効果', resources.join('・') || 'なし']
     ];
-    return `<div class="fdc-dps-runtime-auxiliary" data-fdc-dps-runtime-readonly="auxiliary"><strong>補助ランタイム（監査のみ）</strong><small>現在のDPSへ渡る初期状態・状態反応・リソース。個別発動モードは設定しません。</small><div class="fdc-dps-runtime-auxiliary-list">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></div>`).join('')}</div></div>`;
+    return `<div class="fdc-dps-runtime-auxiliary" data-fdc-dps-runtime-readonly="auxiliary"><strong>状態・固有効果</strong><div class="fdc-dps-runtime-auxiliary-list">${rows.map(([label, value]) => `<div><span>${escapeHtml(label)}</span><b>${escapeDpsEffectHtml(value)}</b></div>`).join('')}</div></div>`;
   }
 
   function normalizeDpsExternalEvent(value = {}, index = 0) {
@@ -2810,10 +2811,10 @@
       return `
         <article class="fdc-dps-formation-event-candidate is-${escapeAttr(scheduleState.code)}">
           <div>
-            <strong class="is-trigger">${escapeHtml(candidate.label || candidate.type)}</strong>
+            <strong class="is-trigger">${escapeDpsEffectHtml(candidate.label || candidate.type, candidate)}</strong>
             ${effectSummary ? `<strong class="is-effect">発動効果: ${escapeHtml(effectSummary)}</strong>` : ''}
             <span class="${isPeriodic ? 'is-periodic-kind' : 'is-event-kind'}" data-fdc-dps-formation-event-state="${escapeAttr(scheduleState.code)}">${escapeHtml(stateLabel)}</span>
-            <span>${escapeHtml(candidate.basis || '時刻を手動設定')}</span>
+            <span>${escapeDpsEffectHtml(candidate.basis || '時刻を手動設定', candidate)}</span>
           </div>
           <button type="button" data-fdc-dps-formation-event-add="${escapeAttr(candidate.id || '')}">${actionLabel}</button>
         </article>
@@ -2836,10 +2837,10 @@
         candidate.basis || '',
         scheduleState.code === 'manual' ? '手動周期設定あり' : ''
       ].filter(Boolean).join(' / ');
-      const title = `${candidate.label || '編成由来状態効果'} / ${mode === 'off' ? 'OFF' : '自動'}`;
+      const title = formatDpsEffectDisplayText(`${candidate.label || '編成由来状態効果'} / ${mode === 'off' ? 'OFF' : '自動'}`, candidate);
       return `<label class="fdc-dps-runtime-setting fdc-dps-formation-status-setting${mode === 'off' ? ' is-off' : ''}" title="${escapeAttr(title)}">
-        <span><strong>${escapeHtml(candidate.label || '編成由来状態効果')} <b class="fdc-dps-runtime-policy ${mode === 'off' ? 'is-policy-off' : 'is-policy-estimated'}">${mode === 'off' ? 'OFF' : '自動'}</b></strong><small>${escapeHtml(detail || '編成由来の状態効果')}</small></span>
-        <select data-fdc-dps-formation-mode="${escapeAttr(candidate.id || '')}" aria-label="${escapeAttr(candidate.label || '編成由来状態効果')}のDPS動作">
+        <span><strong>${escapeDpsEffectHtml(candidate.label || '編成由来状態効果', candidate)} <b class="fdc-dps-runtime-policy ${mode === 'off' ? 'is-policy-off' : 'is-policy-estimated'}">${mode === 'off' ? 'OFF' : '自動'}</b></strong><small>${escapeDpsEffectHtml(detail || '編成由来の状態効果', candidate)}</small></span>
+        <select data-fdc-dps-formation-mode="${escapeAttr(candidate.id || '')}" aria-label="${escapeAttr(formatDpsEffectDisplayText(candidate.label || '編成由来状態効果', candidate))}のDPS動作">
           <option value="auto"${mode === 'auto' ? ' selected' : ''}>自動</option>
           <option value="off"${mode === 'off' ? ' selected' : ''}>OFF</option>
         </select>
@@ -3088,15 +3089,15 @@
         ? ` / ${externalMatch.matched ? `対応${externalMatch.count}件` : `対応イベントなし（${externalMatch.expectedLabel}）`}`
         : '';
       const detailLabel = `${presentation.detailLabel} / ${schedulePolicy.capabilityLabel}${externalDetail}`;
-      const title = `${item.label} / ${presentation.label} / ${detailLabel}`;
+      const title = formatDpsEffectDisplayText(`${item.label} / ${presentation.label} / ${detailLabel}`, item.runtimeEffect);
       const readOnlyControl = item.readOnly || unsupported;
       const control = readOnlyControl
-        ? `<span class="fdc-dps-runtime-readonly" title="${escapeAttr(title)}">${unsupported ? '未対応' : '監査'}</span>`
-        : `<select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(item.label)}のDPS動作"><option value="auto"${item.mode === 'auto' ? ' selected' : ''}>${item.runtimePolicy.capability === 'external' ? '外部入力' : '自動'}</option>${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}<option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option></select>`;
+        ? `<span class="fdc-dps-runtime-readonly" title="${escapeAttr(title)}">${unsupported ? '未対応' : '現在値'}</span>`
+        : `<select data-fdc-dps-runtime-mode="${escapeAttr(item.id)}" aria-label="${escapeAttr(formatDpsEffectDisplayText(item.label, item.runtimeEffect))}のDPS動作"><option value="auto"${item.mode === 'auto' ? ' selected' : ''}>${item.runtimePolicy.capability === 'external' ? '外部入力' : '自動'}</option>${item.supportsFixed ? `<option value="fixed"${fixed ? ' selected' : ''}>固定</option>` : ''}<option value="off"${item.mode === 'off' ? ' selected' : ''}>OFF</option></select>`;
       const stack = item.supportsFixed && !readOnlyControl
         ? `<span class="fdc-dps-runtime-stack${fixed ? '' : ' is-disabled'}"><input type="number" min="1" max="${item.maxStacks}" step="1" value="${Math.min(item.maxStacks, item.fixedStacks)}" data-fdc-dps-runtime-stacks="${escapeAttr(item.id)}"${fixed ? '' : ' disabled'}><small>/${item.maxStacks}</small></span>`
         : '';
-      return `<label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}${readOnlyControl ? ' is-readonly' : ''}" data-runtime-policy-status="${escapeAttr(presentation.statusCode)}" title="${escapeAttr(title)}"><span><strong>${escapeHtml(item.label)} <b class="fdc-dps-runtime-policy ${policyClass}">${escapeHtml(presentation.label)}</b></strong><small>${escapeHtml(item.kinds.join('・'))} / ${escapeHtml(detailLabel)}</small></span>${control}${stack}</label>`;
+      return `<label class="fdc-dps-runtime-setting${item.mode === 'off' ? ' is-off' : fixed ? ' is-fixed' : ''}${readOnlyControl ? ' is-readonly' : ''}" data-runtime-policy-status="${escapeAttr(presentation.statusCode)}" title="${escapeAttr(title)}"><span><strong>${escapeDpsEffectHtml(item.label, item.runtimeEffect)} <b class="fdc-dps-runtime-policy ${policyClass}">${escapeHtml(presentation.label)}</b></strong><small>${escapeHtml(item.kinds.join('・'))} / ${escapeDpsEffectHtml(detailLabel, item.runtimeEffect)}</small></span>${control}${stack}</label>`;
     }).join('');
     return `<div class="fdc-dps-runtime-settings"><div class="fdc-dps-runtime-settings-head"><strong>時系列効果設定</strong><small>自動・外部入力待ち・初期OFF・未対応を区別 / 固定は指定スタックを常時適用 / OFFはDPSから除外</small></div><div class="fdc-dps-runtime-settings-list">${rows}</div>${auxiliaryAudit}</div>`;
   }
@@ -3168,12 +3169,12 @@
         if (!row) return '<span class="fdc-dps-effect-state is-none" title="この行動では評価対象外">—</span>';
         const actionKey = column.actionKey || (appliesToEveryBaseAction ? 'basicAttack' : '');
         const state = getDpsMatrixState(row, actionKey, descriptor, hasResult);
-        return `<span class="fdc-dps-effect-state ${escapeAttr(state.className)}" title="${escapeAttr(state.title)}">${escapeHtml(state.label)}</span>`;
+        return `<span class="fdc-dps-effect-state ${escapeAttr(state.className)}" title="${escapeAttr(formatDpsEffectDisplayText(state.title, row))}">${escapeHtml(state.label)}</span>`;
       }).join('');
       const runtimeMeta = descriptor
         ? (descriptor.overrideMode === 'off' ? 'DPS OFF' : descriptor.overrideMode === 'fixed' ? `DPS固定×${descriptor.fixedStacks}` : `DPS自動${descriptor.activityCount > 0 ? `・発動${formatNumber(descriptor.activityCount)}回` : ''}`)
         : (representative.runtimeManaged ? 'DPS自動' : '');
-      return `<div class="fdc-dps-effect-matrix-row${descriptor || representative.runtimeManaged ? ' is-runtime-managed' : ''}"><span class="fdc-dps-effect-name"><strong>${escapeHtml(representative.label || '効果')}</strong><small>${escapeHtml([representative.source, formatDpsActionEffectValue(representative), runtimeMeta].filter(Boolean).join(' / '))}</small></span>${states}</div>`;
+      return `<div class="fdc-dps-effect-matrix-row${descriptor || representative.runtimeManaged ? ' is-runtime-managed' : ''}"><span class="fdc-dps-effect-name"><strong>${escapeDpsEffectHtml(representative.label || '効果', representative)}</strong><small>${escapeDpsEffectHtml([representative.source, formatDpsActionEffectValue(representative), runtimeMeta].filter(Boolean).join(' / '), representative)}</small></span>${states}</div>`;
     }).join('');
     return `<details class="fdc-dps-effect-audit-panel"><summary>行動別適用効果 <span>${formatNumber(effectKeys.length)}効果</span></summary><p>固定効果はON/OFF、時間変化する効果はDPS自動の発動実績・起点・適用対象を表示します。単発計算の仮定トグルとは独立しています。</p>${runtimeControls}<div class="fdc-dps-effect-matrix" style="--fdc-effect-column-count:${columns.length}"><div class="fdc-dps-effect-matrix-head"><span>効果</span>${headers}</div>${rows}</div></details>`;
   }
@@ -3204,14 +3205,6 @@
     const effectLabel = String(event.effectValueKind || '').trim();
     const statusReaction = event.statusTakenDmgP ? ` / 状態反応 +${formatNumber(event.statusTakenDmgP)}%` : '';
     const statusDamageWeakness = event.statusDamageP ? ` / 状態異常弱点 その他倍率 +${formatNumber(event.statusDamageP)}%` : '';
-    const hitEvaluation = event.damageEvaluation?.calculationMode === 'normal-hit-v1'
-      ? ' / 命中別再計算・二段整数化'
-      : event.damageEvaluation?.calculationMode === 'dot-hit-v1'
-        ? ' / 周期別再計算・二段整数化'
-      : event.damageEvaluation?.calculationMode === 'legacy-continuous'
-        ? ` / 旧互換・丸め未対応（${event.damageEvaluation.roundingReason}）`
-        : event.damageEvaluation && Math.abs((Number(event.damageEvaluation.ratio) || 1) - 1) > .0001
-          ? ` / 時点補正 ×${formatNumber(event.damageEvaluation.ratio)}（基礎 ${formatDamage(event.damageEvaluation.baseExpectedDamage)}）` : '';
     const runtimeBuffValue = formatDpsRuntimeBuffModifiers(event.modifiers) || (event.attackPPerStack ? `物理攻撃力 +${formatNumber(event.attackPPerStack)}%` : '補正適用');
     const cooldownDeltaFrames = Math.abs((Number(event.beforeFrames) || 0) - (Number(event.afterFrames) || 0));
     const cooldownChange = event.operation === 'multiply'
@@ -3226,7 +3219,7 @@
       movementEnd: `${event.toActionLabel || ACTION_LABELS[event.toActionKey] || event.toActionKey}の射程へ移動完了`,
       actionStart: `${action}${repeatLabel}${variant} 開始`,
       actionEnd: `${action}${repeatLabel}${variant} 終了`,
-      hit: `${action}${repeatLabel}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}${statusReaction}`,
+      hit: `${action}${repeatLabel}${variant}${generated} ${event.hitCount > 1 ? `${event.hitCount}ヒット` : 'ヒット'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${statusReaction}`,
       enhancedRepeatProbability: `強化攻撃連続発動（推定） / 再発動確率 ${formatNumber(event.probability)}% / ${event.success ? `成功・次回${formatNumber(event.nextProbability)}%` : '終了'} / 減少${formatNumber(event.decrementPoints)}ポイント${event.reason ? ` / ${event.reason}` : ''}`,
       effect: `${action}${variant} 効果発生${effectLabel ? ` / ${effectLabel}` : ''}`,
       spRecovery: event.capped ? `SP回復周期 / 上限 ${formatNumber(event.sp)}` : `SP +${formatNumber(event.amount)} → ${formatNumber(event.sp)}`,
@@ -3244,17 +3237,17 @@
       runtimeBuffApplied: `${event.label} ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${runtimeBuffValue}${event.durationFrames > 0 ? ` / ${formatNumber(event.durationFrames / 60)}秒` : ''}`,
       runtimeBuffExpired: `${event.label} 終了 / 残り${formatNumber(event.stackCount)}スタック`,
       runtimeEffectProbability: `${action ? `${action} / ` : ''}${event.label || '時系列効果'} 発動抽選 / ${formatNumber(event.probability)}% ${event.success ? '成功' : '不発'}${event.reason ? ` / ${event.reason}` : ''}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
-      runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}${hitEvaluation}`,
+      runtimeEffectHit: `${event.label || '時系列効果'} / ${event.reason || '効果発生'}${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ''}`,
       runtimeHealingEvent: `${event.label || 'HP回復'} / ${event.reason || '効果発生'} / ${event.reference ? `${event.reference}の` : ''}${formatNumber(event.value)}%`,
       externalEvent: `外部イベント / ${event.reason || event.triggerType || '手動入力'}${event.status ? ` / ${event.status}付与` : ''}${event.intervalFrames > 0 ? ` / ${formatNumber(event.occurrence)}回目` : ''}`,
       statusApplied: `${event.status}付与 / ${formatNumber(event.stackCount)}/${formatNumber(event.maxStacks)}スタック / ${statusDuration}`,
-      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${hitEvaluation}${statusReaction}${statusDamageWeakness}`,
+      statusTick: `${event.status}ダメージ / ${formatNumber(event.stackCount)}スタック${event.expectedDamage > 0 ? ` / 期待 ${formatDamage(event.expectedDamage)}` : ' / ダメージ未評価'}${statusReaction}${statusDamageWeakness}`,
       statusExpired: `${event.status}終了 / 残り${formatNumber(event.stackCount)}スタック`,
       effectStateChanged: formatDpsEffectStateChange(event)
     };
     const fallbackLabel = formatDpsTimelineFallbackLabel(event);
     const message = map[event.type] || `${action}${action ? ' / ' : ''}${fallbackLabel}`;
-    return `${message}${formatDpsTimelineQualitySuffix(event)}`;
+    return formatDpsEffectDisplayText(`${message}${formatDpsTimelineQualitySuffix(event)}`, event);
   }
   function formatDpsEffectStateChange(event = {}) {
     const kindLabel = ({
@@ -3317,8 +3310,8 @@
       ? `<p class="fdc-dps-empty">記録上限により計${formatNumber(Number(timelineStats.total) || timeline.length + omittedCount)}件中、${formatNumber(omittedCount)}件を省略しています。計算・グラフには影響しません。</p>`
       : '';
     const calculation = single.damage?.calculation;
-    const calculationNote = calculation
-      ? `<p class="fdc-dps-empty">命中別二段整数化 ${formatNumber(calculation.roundedEvents)}イベント / 周期別二段整数化 ${formatNumber(calculation.roundedDotEvents || 0)}イベント / 旧互換・丸め未対応 ${formatNumber(calculation.legacyEvents)}イベント${calculation.legacyEvents ? `：${escapeHtml(calculation.legacyReasons.join(' / '))}` : ''}</p>` : '';
+    const calculationNote = calculation?.legacyEvents > 0
+      ? '<p class="fdc-dps-empty">一部に概算を含みます。</p>' : '';
     return `<details class="fdc-dps-timeline-panel" open><summary>単一seed 行動タイムライン</summary>${calculationNote}<div class="fdc-dps-timeline">${visible.length ? visible.map(event => `<div class="fdc-dps-timeline-row type-${escapeAttr(event.type || '')}"><time>${escapeHtml(formatNumber(event.frame))}F <small>${escapeHtml(formatNumber(Number(event.frame) / 60))}秒</small></time><span>${escapeHtml(formatDpsTimelineEvent(event))}</span></div>`).join('') : '<p class="fdc-dps-empty">表示できるイベントがありません。</p>'}${more}${omitted}</div></details>`;
   }
   function createDpsDetailComparisonRows(comparison = {}) {
@@ -3337,6 +3330,13 @@
       return { label, value: `${before} → ${after} / ${difference}${percent ? `（${percent}）` : ''}`, className };
     });
   }
+  function formatDpsEffectDisplayText(value, effect = {}) {
+                                                                         
+    const format = window.TRICKCAL_DAMAGE_CALC?.formatEffectDisplayText;
+    return typeof format === 'function' ? format(value, effect)
+      : String(value ?? '').replace(/[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+(?:[:：][^\s/／、,）)]+)?/g, '条件付き');
+  }
+  function escapeDpsEffectHtml(value, effect = {}) { return escapeHtml(formatDpsEffectDisplayText(value, effect)); }
   function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char])); }
   function escapeAttr(value) { return escapeHtml(value).replace(/`/g, '&#96;'); }
   function createDpsDamageGraphSeries(result = null) {

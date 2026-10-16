@@ -1840,7 +1840,7 @@
     el.enemySkill.innerHTML = [
       '<option value="" data-fdc-enemy-skill-index="-1">なし</option>',
       ...skills.map((skill, index) => {
-        const name = [skill.action, skill.name, skill.note ? `(${skill.note})` : ''].filter(Boolean).join(' ');
+        const name = [skill.action, skill.name].filter(Boolean).join(' ');
         return `<option value="${escapeAttr(skill.mult ?? '')}" data-fdc-enemy-skill-index="${index}">${escapeHtml(name || `Skill ${index + 1}`)} / ${Number.isFinite(skill.mult)?escapeHtml(formatPlainNumber(skill.mult))+'%':'命中列'}</option>`;
       })
     ].join('');
@@ -2854,7 +2854,7 @@
         category: skill.attackCategory || '',
         title: skill.name || skill.action || `Skill ${index + 1}`,
         basis: skill.multiplierBasis === 'hit' ? 'hit' : 'total',
-        note: [skill.note || '', ({'standard-entry':'通常発動時の判定です。',
+        note: [skill.description || '', ({'standard-entry':'通常発動時の判定です。',
           'entry-dependent':'発動条件により判定が変わります。候補に共通する条件だけ自動適用します。',
           'unconfirmed':'攻撃判定は未確認です。'})[skill.classificationMode] || ''].filter(Boolean).join(' ')
       }));
@@ -6415,8 +6415,8 @@
     const condition = option.condition || getSkillEffectConditionSummary(option) || '常時';
     const target = option.effectTarget || '本人';
     return {
-      main: [kind, value + stackText].filter(Boolean).join(' '),
-      meta: [condition === '常時' ? '' : condition, target].filter(Boolean).join(' / ')
+      main: formatFdcEffectDisplayText([kind, value + stackText].filter(Boolean).join(' '), option),
+      meta: formatFdcEffectDisplayText([condition === '常時' ? '' : condition, target].filter(Boolean).join(' / '), option)
     };
   }
 
@@ -6457,7 +6457,7 @@
       ...(option.durationText ? [{ label: '効果時間', value: option.durationText.replace(/^持続\s*/, '') }] : []),
       { label: '条件', value: option.condition || getSkillEffectConditionSummary(option) || '常時' },
       { label: '効果対象', value: option.effectTarget || '本人' }
-    ];
+    ].map(row => ({ ...row, value: formatFdcEffectDisplayText(row.value, option) }));
   }
 
   function collectRenderedSkillEffectOptions(context) {
@@ -6469,7 +6469,7 @@
 
   function showSkillEffectPopover(anchor, option) {
     const lines = getSkillEffectDisplayRows(option).map(row => `${row.label}: ${row.value}`);
-    showFdcInfoPopover(anchor, option.label || 'スキル効果詳細', lines);
+    showFdcInfoPopover(anchor, formatFdcEffectDisplayText(option.label || 'スキル効果詳細', option), lines);
   }
 
   function getSkillEffectConditionSummary(option) {
@@ -8099,6 +8099,51 @@
     return [trigger ? `発動:${trigger}` : '', condition ? (meta.conditionType === '編成中' ? condition : `適用:${condition}`) : '']
       .filter(Boolean)
       .join(' / ');
+  }
+
+                                                                                  
+                                                                                 
+  function getFdcEffectDisplayCatalog() {
+    const library = typeof APOSTLE_LIBRARY === 'undefined' ? null : APOSTLE_LIBRARY;
+    if (getFdcEffectDisplayCatalog.cached?.library === library) return getFdcEffectDisplayCatalog.cached;
+    const effects = new Map(), names = new Map();
+    const visit = value => {
+      if (!value || typeof value !== 'object') return;
+      if (Array.isArray(value)) { value.forEach(visit); return; }
+      if (value.effectId) effects.set(String(value.effectId), value);
+      if (value.stateId && (value.name || value.stateName)) names.set(String(value.stateId), String(value.name || value.stateName));
+      Object.values(value).forEach(item => { if (item && typeof item === 'object') visit(item); });
+    };
+    visit(library);
+    return (getFdcEffectDisplayCatalog.cached = { library, effects, names });
+  }
+
+  function formatFdcEffectDisplayText(value, effect = {}) {
+    let text = String(value ?? '');
+    if (!text) return text;
+    const catalog = getFdcEffectDisplayCatalog();
+    const keys = [effect.effectId, effect.id, ...(Array.isArray(effect.effectIds) ? effect.effectIds : [])];
+    const definition = keys.map(key => catalog.effects.get(String(key || ''))).find(Boolean) || effect;
+    const structured = getFdcStructuredEffectConditionText(definition);
+    const originalCondition = String(definition.displayCondition || definition.condition || '').trim();
+    const technical = /発動前リソーススタック|リソース変化時|行動区間|固有状態終了時/;
+    const internalKey = /[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+/;
+    if (structured && (definition.displayCondition || technical.test(structured)) && originalCondition
+        && !technical.test(originalCondition) && !internalKey.test(originalCondition)) {
+      text = text.split(structured).join(originalCondition);
+    }
+    text = text.replace(/発動前リソーススタック(範囲)?\s+([A-Za-z][A-Za-z0-9_]*):([0-9]+)(?:-([0-9]+))?/g,
+      (_, range, key, low, high) => catalog.names.has(key)
+        ? `発動時に${catalog.names.get(key)}${low}${range && high ? `～${high}` : ''}スタック`
+        : '条件付き');
+    text = text.replace(/([A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+):([0-9]+)(?:-([0-9]+))?/g,
+      (raw, key, low, high) => catalog.names.has(key) ? `${catalog.names.get(key)}${low}${high ? `～${high}` : ''}スタック` : raw);
+    text = text.replace(/[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+(?:[:：][^\s/／、,）)]+)?/g,
+      key => catalog.names.get(key) || '条件付き');
+    return text.replace(/リソース変化時\s*獲得時/g, '獲得時')
+      .replace(/発動前リソーススタック範囲|発動前リソーススタック|行動区間|固有状態終了時/g, '条件')
+      .replace(/(?:条件付き\s*){2,}/g, '条件付き ')
+      .trim();
   }
 
   function formatFdcConditionDisplayValue(value, effect = {}) {
@@ -20324,6 +20369,7 @@
 
   window.TRICKCAL_DAMAGE_CALC = Object.freeze({
     version: 15,
+    formatEffectDisplayText: formatFdcEffectDisplayText,
     captureCombatScenario,
     createSingleActionSnapshot: createCurrentSingleActionSnapshot,
     createDpsEvaluationInput,

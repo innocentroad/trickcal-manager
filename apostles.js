@@ -10125,7 +10125,8 @@ const APOSTLE_LIBRARY = [
             "condition": "翡翠玉獲得時",
             "effectTarget": "自身",
             "reference": "最大HP",
-            "fixedValue": 30.0
+            "fixedValue": 30.0,
+            "displayCondition": "翡翠玉獲得時"
           },
           {
             "effectId": "Jade_enhanced_e04",
@@ -10139,7 +10140,8 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "翡翠玉",
             "condition": "翡翠玉獲得時",
             "effectTarget": "自身",
-            "fixedValue": 6.0
+            "fixedValue": 6.0,
+            "displayCondition": "翡翠玉獲得時"
           }
         ],
         "skillId": "Jade_enhanced",
@@ -12024,6 +12026,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "魔弾",
             "condition": "魔弾獲得時",
             "effectTarget": "自身",
+            "displayCondition": "魔弾獲得時",
             "levels": {
               "1": 20.0,
               "2": 23.0,
@@ -12056,7 +12059,8 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "魔弾",
             "condition": "魔弾獲得時",
             "effectTarget": "自身",
-            "fixedValue": 10.0
+            "fixedValue": 10.0,
+            "displayCondition": "魔弾獲得時"
           },
           {
             "effectId": "Xion_passive_e03",
@@ -12658,7 +12662,8 @@ const APOSTLE_LIBRARY = [
               "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方",
               "targetSkill": "低学年スキル",
-              "fixedValue": 2.0
+              "fixedValue": 2.0,
+              "displayCondition": "低学年スキルのバフを獲得時"
             },
             {
               "skillId": "Sist_aside_2",
@@ -12676,7 +12681,8 @@ const APOSTLE_LIBRARY = [
               "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方",
               "targetSkill": "低学年スキル",
-              "reference": "低学年スキルのレベルに依存"
+              "reference": "低学年スキルのレベルに依存",
+              "displayCondition": "低学年スキルのバフを獲得時"
             },
             {
               "skillId": "Sist_aside_2",
@@ -12694,7 +12700,8 @@ const APOSTLE_LIBRARY = [
               "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方",
               "targetSkill": "低学年スキル",
-              "fixedValue": 10.0
+              "fixedValue": 10.0,
+              "displayCondition": "低学年スキルのバフを獲得時"
             },
             {
               "skillId": "Sist_aside_2",
@@ -12712,7 +12719,8 @@ const APOSTLE_LIBRARY = [
               "condition": "低学年スキルのバフを獲得時",
               "effectTarget": "味方",
               "targetSkill": "低学年スキル",
-              "reference": "低学年スキルのレベルに依存"
+              "reference": "低学年スキルのレベルに依存",
+              "displayCondition": "低学年スキルのバフを獲得時"
             },
             {
               "skillId": "Sist_aside_2",
@@ -18914,7 +18922,8 @@ const APOSTLE_LIBRARY = [
               "condition": "低学年スキルで突進中",
               "effectTarget": "自身",
               "targetSkill": "低学年スキル",
-              "fixedValue": 40.0
+              "fixedValue": 40.0,
+              "displayCondition": "低学年スキルで突進中"
             },
             {
               "skillId": "Barong_aside_2",
@@ -20164,6 +20173,7 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:0-29",
             "condition": "高学年開始時に富豪0～29スタック",
             "effectTarget": "敵/範囲",
+            "displayCondition": "高学年開始時に富豪0～29スタック",
             "levels": {
               "1": 750.0,
               "2": 780.0,
@@ -20193,7 +20203,8 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:0-29",
             "condition": "高学年開始時に富豪0～29スタック",
             "effectTarget": "味方全員",
-            "fixedValue": 20.0
+            "fixedValue": 20.0,
+            "displayCondition": "高学年開始時に富豪0～29スタック"
           },
           {
             "effectId": "Pira_high_e04",
@@ -20204,7 +20215,8 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:0-29",
             "condition": "高学年開始時に富豪0～29スタック",
             "effectTarget": "味方全員",
-            "fixedValue": 10.0
+            "fixedValue": 10.0,
+            "displayCondition": "高学年開始時に富豪0～29スタック"
           },
           {
             "effectId": "Pira_high_e05",
@@ -20215,6 +20227,7 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:30",
             "condition": "高学年開始時に富豪30スタック",
             "effectTarget": "敵/範囲",
+            "displayCondition": "高学年開始時に富豪30スタック",
             "levels": {
               "1": 1350.0,
               "2": 1404.0,
@@ -20244,7 +20257,8 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:30",
             "condition": "高学年開始時に富豪30スタック",
             "effectTarget": "味方全員",
-            "fixedValue": 40.0
+            "fixedValue": 40.0,
+            "displayCondition": "高学年開始時に富豪30スタック"
           },
           {
             "effectId": "Pira_high_e07",
@@ -20255,7 +20269,8 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Pira_wealth:30",
             "condition": "高学年開始時に富豪30スタック",
             "effectTarget": "味方全員",
-            "fixedValue": 10.0
+            "fixedValue": 10.0,
+            "displayCondition": "高学年開始時に富豪30スタック"
           }
         ],
         "skillId": "Pira_high",
@@ -20276,6 +20291,7 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "Pira_wealth",
             "condition": "富豪獲得時",
             "effectTarget": "味方/後列",
+            "displayCondition": "富豪獲得時",
             "levels": {
               "1": 10.0,
               "2": 11.0,
@@ -20304,7 +20320,8 @@ const APOSTLE_LIBRARY = [
             "triggerSourceId": "Pira_wealth",
             "condition": "富豪獲得時",
             "effectTarget": "味方/後列",
-            "fixedValue": 5.0
+            "fixedValue": 5.0,
+            "displayCondition": "富豪獲得時"
           }
         ],
         "skillId": "Pira_passive",
@@ -22699,7 +22716,8 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "Haley_enhanced_e01",
               "condition": "強化攻撃バフ獲得時",
               "effectTarget": "自身を除く味方使徒/中列",
-              "fixedValue": 32.0
+              "fixedValue": 32.0,
+              "displayCondition": "強化攻撃バフ獲得時"
             },
             {
               "skillId": "Haley_aside_2",
@@ -22714,7 +22732,8 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "Haley_enhanced_e01",
               "condition": "強化攻撃バフ獲得時",
               "effectTarget": "自身を除く味方使徒/中列",
-              "fixedValue": 6.0
+              "fixedValue": 6.0,
+              "displayCondition": "強化攻撃バフ獲得時"
             },
             {
               "skillId": "Haley_aside_2",
@@ -22729,7 +22748,8 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "Haley_enhanced_e01",
               "condition": "強化攻撃バフ獲得時",
               "effectTarget": "自身を除く味方使徒/中列",
-              "fixedValue": 16.0
+              "fixedValue": 16.0,
+              "displayCondition": "強化攻撃バフ獲得時"
             },
             {
               "skillId": "Haley_aside_2",
@@ -22744,7 +22764,8 @@ const APOSTLE_LIBRARY = [
               "triggerSourceId": "Haley_enhanced_e01",
               "condition": "強化攻撃バフ獲得時",
               "effectTarget": "自身を除く味方使徒/中列",
-              "fixedValue": 6.0
+              "fixedValue": 6.0,
+              "displayCondition": "強化攻撃バフ獲得時"
             },
             {
               "skillId": "Haley_aside_2",
@@ -27625,6 +27646,7 @@ const APOSTLE_LIBRARY = [
             "condition": "力溜め終了時に発生",
             "effectTarget": "敵/範囲",
             "targetSkill": "低学年スキル",
+            "displayCondition": "力溜め終了時に発生",
             "levels": {
               "1": 200.0,
               "2": 220.0,
@@ -29741,7 +29763,8 @@ const APOSTLE_LIBRARY = [
             "conditionValue": "Rufo_high:回転",
             "condition": "高学年スキルで回転時",
             "effectTarget": "自身",
-            "fixedValue": 50.0
+            "fixedValue": 50.0,
+            "displayCondition": "高学年スキルで回転時"
           },
           {
             "effectId": "Rufo_high_e04",
