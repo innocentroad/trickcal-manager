@@ -2441,61 +2441,124 @@
       dialog.addEventListener('close', () => document.getElementById('fdc-enemy-preset-open')?.focus());
     }
     const presets = getEnemyPresets();
+    const savedKey = view.enemyPresetKey || '';
+    const currentKey = presets[savedKey]?.selectionAliasOf
+      || (typeof resolveEnemyPresetKey === 'function' ? resolveEnemyPresetKey(savedKey) : savedKey);
     const entries = Object.entries(presets).filter(([key, preset]) =>
-      !preset.selectionAliasOf && (!preset.hideInSelection || key === view.enemyPresetKey))
+      !preset.selectionAliasOf && (!preset.hideInSelection || key === currentKey))
       .sort(typeof compareEnemyPresetEntries === 'function' ? compareEnemyPresetEntries : undefined);
-    const metadata = entries.map(([key, preset]) => ({ key, preset,
-      meta: getEnemyPresetMetadata(preset, key), label: formatEnemyPresetDisplayName(preset, key) }));
-    let pending = presets[view.enemyPresetKey]?.selectionAliasOf || view.enemyPresetKey || '';
+    const metadata = entries.map(([key, preset]) => {
+      const meta = getEnemyPresetMetadata(preset, key);
+      const groupKey = preset.isCustom ? `custom:${key}` : JSON.stringify([
+        meta.type, meta.mode, meta.world, meta.name, meta.personality
+      ]);
+      return { key, preset, meta, groupKey, label: formatEnemyPresetDisplayName(preset, key) };
+    });
     const contentLabel = row => row.key.startsWith('custom:') ? '保存済み' : row.meta.contentLabel || 'その他';
+    const currentRow = metadata.find(row => row.key === currentKey);
+    const entityLabel = row => {
+      if (row.key.startsWith('custom:')) return `[保存] ${row.meta.name}`;
+      const context = [row.meta.contentShortLabel || row.meta.contentLabel, row.meta.modeLabel, row.meta.worldLabel]
+        .filter(Boolean).join(' / ');
+      const name = row.meta.personality ? `${row.meta.name}［${row.meta.personality}］` : row.meta.name;
+      return context ? `${context} / ${name}` : name;
+    };
+    const variantLabel = row => [row.meta.difficultyLabel, row.meta.stageLabel].filter(Boolean).join(' / ') || '標準';
+    let selectedGroupKey = currentRow?.groupKey || (currentKey ? null : '__manual__');
+    let pending = currentRow?.key || (currentKey ? null : '');
     dialog.innerHTML = `<header><h2 id="fdc-enemy-preset-title">敵を選択</h2><button type="button" data-enemy-cancel aria-label="閉じる">×</button></header>
       <label class="fdc-field"><span>検索</span><input data-enemy-search type="search" placeholder="敵名・段階・難易度"></label>
       <div class="fdc-enemy-preset-filters">
         <label class="fdc-field"><span>コンテンツ</span><select data-enemy-content><option value="">すべて</option>${[...new Set(metadata.map(contentLabel))].map(name => `<option>${escapeHtml(name)}</option>`).join('')}</select></label>
-        <label class="fdc-field"><span>敵</span><select data-enemy-name></select></label>
+        <label class="fdc-field"><span>敵</span><select data-enemy-name><option value="">敵を選択</option><option value="__manual__">手動入力</option></select></label>
       </div>
-      <div class="fdc-enemy-preset-list" role="group" aria-label="段階・難易度"></div>
+      <label class="fdc-field fdc-enemy-variant-field"><span>難易度・段階</span><select data-enemy-variant disabled><option value="">先に敵を選択</option></select></label>
       <footer><button type="button" data-enemy-cancel>取消</button><button type="button" data-enemy-confirm>選択を反映</button></footer>`;
     const search = dialog.querySelector('[data-enemy-search]');
     const content = dialog.querySelector('[data-enemy-content]');
     const enemy = dialog.querySelector('[data-enemy-name]');
-    const list = dialog.querySelector('.fdc-enemy-preset-list');
-    const renderList = () => {
+    const variant = dialog.querySelector('[data-enemy-variant]');
+    const confirm = dialog.querySelector('[data-enemy-confirm]');
+    const matchesSearch = row => {
       const words = search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-      const rows = metadata.filter(row => (!content.value || contentLabel(row) === content.value)
-        && (!enemy.value || row.meta.name === enemy.value)
-        && words.every(word => row.label.toLocaleLowerCase().includes(word)));
-      let lastStage = null;
-      list.innerHTML = `<button type="button" data-enemy-key="" aria-pressed="${pending === ''}">手動入力</button>`
-        + rows.map(row => {
-          const stage = row.meta.type === 'dimensionalClash' ? row.meta.stage : null;
-          const heading = stage !== null && stage !== lastStage ? `<h3 class="fdc-enemy-stage-heading">${stage}段階</h3>` : '';
-          lastStage = stage;
-          return `${heading}<button type="button" data-enemy-key="${escapeAttr(row.key)}" aria-pressed="${pending === row.key}">${escapeHtml(row.label)}</button>`;
-        }).join('')
-        + (rows.length ? '' : '<p>該当する敵はありません</p>');
-      list.querySelectorAll('[data-enemy-key]').forEach(button => button.addEventListener('click', () => {
-        pending = button.dataset.enemyKey;
-        list.querySelectorAll('[data-enemy-key]').forEach(row => row.setAttribute('aria-pressed', String(row.dataset.enemyKey === pending)));
-      }));
+      const haystack = `${entityLabel(row)} ${variantLabel(row)} ${row.label}`.toLocaleLowerCase();
+      return words.every(word => haystack.includes(word));
     };
-    const updateEnemies = () => {
-      enemy.innerHTML = '<option value="">すべて</option>' + [...new Set(metadata.filter(row => !content.value || contentLabel(row) === content.value).map(row => row.meta.name))]
-        .map(name => `<option>${escapeHtml(name)}</option>`).join('');
-      renderList();
+    const rowsInScope = () => metadata.filter(row => (!content.value || contentLabel(row) === content.value) && matchesSearch(row));
+    const setPendingFromVariant = () => {
+      pending = variant.value || null;
+      confirm.disabled = pending === null;
     };
-    content.addEventListener('change', updateEnemies);
-    enemy.addEventListener('change', renderList);
-    search.addEventListener('input', renderList);
+    const renderVariants = () => {
+      const rows = rowsInScope().filter(row => row.groupKey === selectedGroupKey);
+      if (selectedGroupKey === '__manual__') {
+        variant.innerHTML = '<option value="">手動入力</option>';
+        variant.disabled = true;
+        pending = '';
+        confirm.disabled = false;
+        return;
+      }
+      if (!rows.length) {
+        variant.innerHTML = '<option value="">先に敵を選択</option>';
+        variant.disabled = true;
+        pending = null;
+        confirm.disabled = true;
+        return;
+      }
+      const counts = new Map();
+      rows.forEach(row => counts.set(variantLabel(row), (counts.get(variantLabel(row)) || 0) + 1));
+      const duplicateIndexes = new Map();
+      variant.innerHTML = '<option value="">難易度・段階を選択</option>' + rows.map(row => {
+        const label = variantLabel(row);
+        const duplicate = counts.get(label) > 1;
+        const duplicateIndex = (duplicateIndexes.get(label) || 0) + 1;
+        duplicateIndexes.set(label, duplicateIndex);
+        const uniqueLabel = duplicate ? `${label}（別設定${duplicateIndex}）` : label;
+        return `<option value="${escapeAttr(row.key)}">${escapeHtml(uniqueLabel)}</option>`;
+      }).join('');
+      variant.disabled = false;
+      if (rows.some(row => row.key === pending)) variant.value = pending;
+      else if (rows.length === 1) variant.value = rows[0].key;
+      setPendingFromVariant();
+    };
+    const renderEnemies = ({ preserve = true } = {}) => {
+      const rows = rowsInScope();
+      const groups = new Map();
+      rows.forEach(row => {
+        if (!groups.has(row.groupKey)) groups.set(row.groupKey, row);
+      });
+      if (preserve && selectedGroupKey !== '__manual__' && !groups.has(selectedGroupKey)) {
+        selectedGroupKey = null;
+        pending = null;
+      }
+      const options = [...groups.values()].map(row => `<option value="${escapeAttr(row.groupKey)}">${escapeHtml(entityLabel(row))}</option>`).join('');
+      enemy.innerHTML = '<option value="">敵を選択</option><option value="__manual__">手動入力</option>' + options;
+      if (selectedGroupKey && (selectedGroupKey === '__manual__' || groups.has(selectedGroupKey))) enemy.value = selectedGroupKey;
+      else enemy.value = '';
+      renderVariants();
+    };
+    content.addEventListener('change', () => renderEnemies());
+    enemy.addEventListener('change', () => {
+      selectedGroupKey = enemy.value || null;
+      pending = selectedGroupKey === '__manual__' ? '' : null;
+      if (selectedGroupKey !== '__manual__') {
+        const rows = rowsInScope().filter(row => row.groupKey === selectedGroupKey);
+        pending = rows.length === 1 ? rows[0].key : null;
+      }
+      renderVariants();
+    });
+    variant.addEventListener('change', setPendingFromVariant);
+    search.addEventListener('input', () => renderEnemies());
     dialog.querySelectorAll('[data-enemy-cancel]').forEach(button => button.addEventListener('click', () => dialog.close()));
-    dialog.querySelector('[data-enemy-confirm]').addEventListener('click', () => {
+    confirm.addEventListener('click', () => {
+      if (pending === null) return;
       if (pending !== view.enemyPresetKey) {
         el.enemyPreset.value = pending;
         el.enemyPreset.dispatchEvent(new Event('change', { bubbles: true }));
       }
       dialog.close();
     });
-    updateEnemies();
+    renderEnemies({ preserve: false });
     dialog.showModal();
     search.focus();
   }
@@ -2854,7 +2917,9 @@
         category: skill.attackCategory || '',
         title: skill.name || skill.action || `Skill ${index + 1}`,
         basis: skill.multiplierBasis === 'hit' ? 'hit' : 'total',
-        note: [skill.description || '', ({'standard-entry':'通常発動時の判定です。',
+        note: [skill.description || '', skill.statusDamageMode === 'single-tick'
+          ? `${skill.statusType || '状態異常'}の1回分を計算します。継続中の合計ダメージは含みません。攻撃属性は敵の属性設定を使います。` : '',
+          ({'standard-entry':'通常発動時の判定です。',
           'entry-dependent':'発動条件により判定が変わります。候補に共通する条件だけ自動適用します。',
           'unconfirmed':'攻撃判定は未確認です。'})[skill.classificationMode] || ''].filter(Boolean).join(' ')
       }));

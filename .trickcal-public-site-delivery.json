@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "e31560c7f3f22932",
-  "sourceCommit": "db2598206e05070d313d57af759eba0400a03d74",
+  "candidateId": "eb408835983a2198",
+  "sourceCommit": "245b37321a2599561aed3e655952b9858116080b",
   "profile": "legacy",
-  "contentDigest": "8df6d67f18a0dbc8b45d5af0c260937186cb3b081ffa774b9724505cc053ac83",
-  "outputDigest": "9a5a49485e6b3895",
+  "contentDigest": "6ca312f2ec81cabb6dea2e7c5a24d49eb4a145682e2535f5e9e651ab8b59f102",
+  "outputDigest": "c4a15533a10da406",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
@@ -70,7 +70,7 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "723d49d5f323c7611901986f81f94ac7e8af73b25aa792991a4da4e0791c0535"
+      "sha256": "1ad4071bfc10fd67aef55372f9dd1982bbf3b9d67a865ce06beb72bf956c083a"
     },
     {
       "path": "data/life-jobs/index.html",
@@ -98,7 +98,7 @@
     },
     {
       "path": "enemy-presets.js",
-      "sha256": "62fd049d39517fb6d9f9effca7858cb9df1ff998c5427d3768808884f351a289"
+      "sha256": "cec685838285ac4f2413bce0503dd4a3dc7b9507d6e3c9dcd0e2e5c2fbf0f6b5"
     },
     {
       "path": "enemy-status.css",
@@ -106,7 +106,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "667a82762d4c811f7083a0bf6a7c8bd70e4268e3f051191c42edd813cc0a055e"
+      "sha256": "ea04a053caf05da83510ae55e34b9da3f31edd5d4c169ffe06b38a4dfc8568d2"
     },
     {
       "path": "enemy-status.js",
@@ -114,15 +114,15 @@
     },
     {
       "path": "formation-damage-calc.css",
-      "sha256": "b20b5ca0becdfd6cd30db5c1bca5f40725080f012c5e67c6604b9d2f6f0f4b08"
+      "sha256": "22db365673d9c0dd94e7f760c264b823e5626ae4f4b91c5284e116084492a5e4"
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "1fb52c3fd26bea4723723b691b3feb61da5505b15832445f94dbe7fa634d7ce2"
+      "sha256": "c09eb55fee6bfbf63ef81d48de136cf382e7c2f7455bf678acd1873f9ca9fd95"
     },
     {
       "path": "formation-damage-calc.js",
-      "sha256": "76d3d76e041c75765e00e2bce89ac64468932060c5cddd69cf4e8a8629f4253b"
+      "sha256": "a5f398e4aef9ef4d326d825e5f4f56cfad27627ac836ff7ea03b48b3e396f260"
     },
     {
       "path": "formation-damage-dps-prototype.css",
@@ -130,7 +130,7 @@
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "8d1fc0746de1e293a7f422a8fa5a923e927238e8483a0d22c5bb8fbe038226b1"
+      "sha256": "ad1204be16517f33d504a5021cea3c11082f63ccb82c71040b1835177981e987"
     },
     {
       "path": "formation-damage-dps-prototype.js",
@@ -174,7 +174,7 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "14b3c4282a41be6a3561fc3957bf4af7a9be53505f3cc1f8eade60115dd1c7bd"
+      "sha256": "80b4705b00e0e313c78731e335f24e1710aeafa41fa8a29f5185157f85aea790"
     },
     {
       "path": "formation-share.js",
@@ -5062,7 +5062,7 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "8e99def0df25316158cac75e5f09317b0be813d800c77b8f42f87c3a42042500"
+      "sha256": "a0127ef9016b764e4eb048ea706e744219555635c0d5a0da57662b70ca3e20d5"
     },
     {
       "path": "public-site-runtime.js",
@@ -5074,7 +5074,7 @@
     },
     {
       "path": "public/apostle-data.html",
-      "sha256": "0933d089bd8cb9a6493dce296e1f0433642d884a0a9c17ebf78a655046dd8bdf"
+      "sha256": "697dc149f44213b72c4bea60c7fff3065e3ce681547e11653ae41e4d2292c43a"
     },
     {
       "path": "public/apostle-data.js",
@@ -5082,7 +5082,7 @@
     },
     {
       "path": "public/bingo.html",
-      "sha256": "958ca5f531abee9e5b577d004cd0813c17fea94fe7b35bf709e6a45f2c62cf97"
+      "sha256": "266fb118c8efa406e537887986518830b9e2dd2effcad28b962802dd2cf18a29"
     },
     {
       "path": "public/board-layout-preview.css",
@@ -5090,7 +5090,7 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "c7b7f25012cefbfc51da5b1e54cae2a2115e88b10b973b862454288b68cb5718"
+      "sha256": "556a85cd3438d814abfcebd85d2743080922c3367dfe44c4b62a608abd351e2a"
     },
     {
       "path": "public/board-layout-preview.js",
@@ -5106,7 +5106,7 @@
     },
     {
       "path": "public/growth-cost.html",
-      "sha256": "02d969cc0611fcb5720e50b69447ab6e3cbd449bbad38694d5e25c20ab16f51a"
+      "sha256": "0af185c64c4c5dc09c632bd9de40d29349686d16be7a95133887280ef68ea293"
     },
     {
       "path": "public/growth-cost.js",
@@ -5118,7 +5118,7 @@
     },
     {
       "path": "public/life-jobs.html",
-      "sha256": "c4fd617d6be1533b575ef382dab96e291be22444a79f3d163c05664ac68cdf72"
+      "sha256": "4aafc221388c296d78295cbe3b6e28cbe1b9557c382cfba9324c1fdc82231da7"
     },
     {
       "path": "public/life-jobs.js",
@@ -5130,7 +5130,7 @@
     },
     {
       "path": "public/pvp-range.html",
-      "sha256": "fdbfa323925a12c342983a0dde108eaa7c1dcf14dc538475f437b02e144e699b"
+      "sha256": "974d9dbd45af7683fafb45d2ac076a7e7cd092feb74549ba5c6a9f061216f573"
     },
     {
       "path": "public/pvp-range.js",
@@ -5146,7 +5146,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "693bee89f3c918a4056aea617959b5834761f7e455a529f2dd6c2be2b072ee11"
+      "sha256": "b38c50ad21ad63d7f5e0ab66c89db5c5c81f4c38e07d8ca3128ad29fd6587283"
     },
     {
       "path": "share/index.html",
@@ -5170,7 +5170,7 @@
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "c28558788a4f7c26402320beb18aa353143b360917503220e310d5d2af06fafa"
+      "sha256": "fb50bcdf3739fe1b523cfa9b7af5f570bebaccdf680573502735d489144ae47c"
     },
     {
       "path": "stat-dashboard.js",
@@ -5206,7 +5206,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "3584594863d423850959748d728c8bbdc57d5d34c61d17f35dcd619d06144ca8"
+      "sha256": "d063c45f338970d3e108cec4c98a1d6b0434add1b1a3f6a0910bb56a04b260c4"
     },
     {
       "path": "storage-registry.js",
@@ -5222,7 +5222,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "478fcf8703b2c2f2470841329cf8bbbe72f74f3023bfa10cb4274f77fd6a39b1"
+      "sha256": "3c253df97539d9da4a07dbc337e1b10039198a63430a31e886371a03e7c1fa55"
     },
     {
       "path": "storage-transfer.js",

@@ -877,10 +877,10 @@ const ENEMY_SKILL_SETS = {
     },
     {
       "name": "火傷（隕石など）",
-      "unsupportedReason": "継続ダメージは、現在の敵攻撃の概算には対応していません。",
       "statusType": "火傷",
+      "statusDamageMode": "single-tick",
       "mult": 30,
-      "action": "DoT",
+      "action": "攻撃",
       "attackCategory": "状態異常",
       "hitCount": 1,
       "skillKey": "R41リニュア（EF）/12"
