@@ -258,7 +258,8 @@
       for (const definition of [
         { key: 'pvp', route: 'pvp', label: 'PvP', fallback: 'public/pvp-range.html', fallbackFromPublic: 'pvp-range.html' },
         { key: 'bingo', route: 'bingo', label: 'ビンゴ探索', fallback: 'public/bingo.html', fallbackFromPublic: 'bingo.html' },
-        { key: 'growth-cost', route: 'growth-cost', label: 'ボード塗り候補', fallback: 'public/growth-cost.html', fallbackFromPublic: 'growth-cost.html' }
+        { key: 'growth-cost', route: 'growth-cost', label: 'ボード塗り候補', fallback: 'public/growth-cost.html', fallbackFromPublic: 'growth-cost.html' },
+        { key: 'critical', route: 'critical', label: '会心チェック', fallback: 'public/critical.html', fallbackFromPublic: 'critical.html' }
       ]) {
         const item = createElement('a');
         item.href = dataMenuHref(bar, page, definition);

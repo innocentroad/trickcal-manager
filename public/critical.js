@@ -114,7 +114,7 @@
     $('chance').textContent=r.error?'—':percent(r.rate);$('multiplier').textContent=r.error?'—':percent(r.multiplier);
     $('chance').dataset.value=r.error?'':String(r.rate);$('multiplier').dataset.value=r.error?'':String(r.multiplier);
     $('chance-change').textContent='';$('multiplier-note').textContent=r.error?'':multiplierLimit(r.multiplier);
-    if(!r.error&&r.rate>=.75)$('chance-change').textContent='上限';
+    if(!r.error&&r.rate>=1)$('chance-change').textContent='上限';
     if(comp&&!r.error&&!comp.error){
       $('chance-change').textContent=`→ ${percent(comp.rate)}（${nfmt((comp.rate-r.rate)*100)}pt）`;
       const baseLimit=multiplierLimit(r.multiplier),changedLimit=multiplierLimit(comp.multiplier),limits=[baseLimit&&`現在${baseLimit}`,changedLimit&&`変更後${changedLimit}`].filter(Boolean);

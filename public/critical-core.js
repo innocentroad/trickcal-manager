@@ -93,7 +93,11 @@
       if(missing.length)return {error:'見つからないカードがあります。選び直してください。'};
       const chance=side==='self'?math.calcRuntimeCritRate(ally.crit,enemy.critRes):math.calcRuntimeCritRate(enemy.crit,ally.critRes);
       const multiplier=side==='self'?math.calcRuntimeCritMultiplier(ally.critDmg,enemy.critDmgRes):math.calcRuntimeCritMultiplier(enemy.critDmg,ally.critDmgRes);
-      return {rate:math.clampCombatCritRate(chance+(side==='self'?rate:-rate)/100),multiplier:math.clampCombatCritMultiplier(multiplier+(side==='self'?damage:-damage)/100),rateBonus:rate,damageBonus:damage,approximate,ally,enemy};
+      const rateDelta=side==='self'?rate:-rate;
+                                                                          
+                                                                        
+      const resolvedRate=Math.max(Math.fround(.05),Math.min(1,math.clampCombatCritRate(chance)+rateDelta/100));
+      return {rate:resolvedRate,multiplier:math.clampCombatCritMultiplier(multiplier+(side==='self'?damage:-damage)/100),rateBonus:rate,damageBonus:damage,approximate,ally,enemy};
     }catch(e){return {error:e.message};}
   }
   return {KEYS,LABELS,defaults,normalize,encode,decode,initialCardState,baseBonuses,conditionalBonus,cardBonuses,relevant,enemyStats,calculate};
