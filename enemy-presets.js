@@ -214,7 +214,7 @@ function compareEnemyPresetEntries([keyA, presetA], [keyB, presetB]) {
         || compareText(a.mode, b.mode)
         || compareText(a.difficulty, b.difficulty)
         || a.world - b.world
-        || a.stage - b.stage
+        || (a.type === 'eliasFrontier' ? b.stage - a.stage : a.stage - b.stage)
         || compareText(keyA, keyB);
 }
 

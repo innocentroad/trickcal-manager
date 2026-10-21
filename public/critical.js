@@ -114,9 +114,11 @@
     $('chance').textContent=r.error?'—':percent(r.rate);$('multiplier').textContent=r.error?'—':percent(r.multiplier);
     $('chance').dataset.value=r.error?'':String(r.rate);$('multiplier').dataset.value=r.error?'':String(r.multiplier);
     $('chance-change').textContent='';$('multiplier-note').textContent=r.error?'':multiplierLimit(r.multiplier);
-    if(!r.error&&r.rate>=1)$('chance-change').textContent='上限';
+    const rateLimit=value=>value>=.75?'上限':value<=Math.fround(.05)?'下限':'';
+    if(!r.error)$('chance-change').textContent=rateLimit(r.rate);
     if(comp&&!r.error&&!comp.error){
-      $('chance-change').textContent=`→ ${percent(comp.rate)}（${nfmt((comp.rate-r.rate)*100)}pt）`;
+      const rateLimits=[rateLimit(r.rate)&&`現在${rateLimit(r.rate)}`,rateLimit(comp.rate)&&`変更後${rateLimit(comp.rate)}`].filter(Boolean);
+      $('chance-change').textContent=[`→ ${percent(comp.rate)}（${nfmt((comp.rate-r.rate)*100)}pt）`,...rateLimits].join(' · ');
       const baseLimit=multiplierLimit(r.multiplier),changedLimit=multiplierLimit(comp.multiplier),limits=[baseLimit&&`現在${baseLimit}`,changedLimit&&`変更後${changedLimit}`].filter(Boolean);
       $('multiplier-note').textContent=[`→ ${percent(comp.multiplier)}（${nfmt((comp.multiplier-r.multiplier)*100)}pt）${comp.approximate?' · 概算':''}`, ...limits].join(' · ');
     }
@@ -211,7 +213,9 @@
     $('enemy-content').innerHTML='<option value="">選択</option>'+[...groups].map(([k,v])=>`<option value="${esc(k)}">${esc(v)}</option>`).join('');$('enemy-content').value=pendingGroup;stageOptions();
   }
   function stageOptions(){
-    const candidates=entries.filter(([k,p])=>group(k,p)===pendingGroup),stages=new Map(candidates.map(([k,p])=>{const m=getEnemyPresetMetadata(p,k);return [stageKey(k,p),[m.difficultyLabel,m.worldLabel,m.stageLabel,m.personality].filter(Boolean).join(' / ')||'通常'];}));
+    const candidates=entries.filter(([k,p])=>group(k,p)===pendingGroup);
+    if(pendingGroup.startsWith('eliasFrontier:'))candidates.sort(([ka,a],[kb,b])=>getEnemyPresetMetadata(b,kb).stage-getEnemyPresetMetadata(a,ka).stage);
+    const stages=new Map(candidates.map(([k,p])=>{const m=getEnemyPresetMetadata(p,k);return [stageKey(k,p),[m.difficultyLabel,m.worldLabel,m.stageLabel,m.personality].filter(Boolean).join(' / ')||'通常'];}));
     if(!stages.has(pendingStage))pendingStage=stages.keys().next().value||'';
     $('enemy-stage').innerHTML=[...stages].map(([k,label])=>`<option value="${esc(k)}">${esc(label)}</option>`).join('');$('enemy-stage').value=pendingStage;$('enemy-stage').disabled=!candidates.length;nameOptions();
   }

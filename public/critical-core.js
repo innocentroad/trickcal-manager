@@ -4,7 +4,7 @@
   const LABELS={crit:'会心',critDmg:'会心ダメージ',critRes:'会心抵抗',critDmgRes:'会心ダメージ抵抗'};
   const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
   const object=o=>o!==null&&typeof o==='object'&&!Array.isArray(o);
-  function defaults(){return {inputModel:2,side:'self',modes:{self:'direct',enemy:'direct'},ally:Object.fromEntries(KEYS.map(k=>[k,''])),buffs:Object.fromEntries(KEYS.map(k=>[k,'0'])),direct:{self:{rate:'0',damage:'0'},enemy:{rate:'0',damage:'0'}},extra:{self:{rate:'0',damage:'0'},enemy:{rate:'0',damage:'0'}},cards:{card:[],formation:[]},cardDefault:'auto',enemy:{key:'',phase:0,overrides:{}},source:null,formationId:'',memberId:'',statMode:'current',grade:'saved',growth:{enabled:false,fields:Object.fromEntries(KEYS.map(k=>[k,{current:'',next:''}]))}};}
+  function defaults(){return {inputModel:2,side:'self',modes:{self:'direct',enemy:'direct'},ally:{crit:'60000',critDmg:'60000',critRes:'40000',critDmgRes:''},buffs:Object.fromEntries(KEYS.map(k=>[k,'0'])),direct:{self:{rate:'0',damage:'0'},enemy:{rate:'0',damage:'0'}},extra:{self:{rate:'0',damage:'0'},enemy:{rate:'0',damage:'0'}},cards:{card:[],formation:[]},cardDefault:'auto',enemy:{key:'',phase:0,overrides:{}},source:null,formationId:'',memberId:'',statMode:'current',grade:'saved',growth:{enabled:false,fields:Object.fromEntries(KEYS.map(k=>[k,{current:'',next:''}]))}};}
   function numeric(value,{blank=true,min=-1e6,max=1e12}={}){
     if(value===''&&blank)return '';
     if(!['number','string'].includes(typeof value)||String(value).trim()===''||!Number.isFinite(Number(value))||Number(value)<min||Number(value)>max)throw Error('入力の数値が不正です。');
@@ -94,9 +94,8 @@
       const chance=side==='self'?math.calcRuntimeCritRate(ally.crit,enemy.critRes):math.calcRuntimeCritRate(enemy.crit,ally.critRes);
       const multiplier=side==='self'?math.calcRuntimeCritMultiplier(ally.critDmg,enemy.critDmgRes):math.calcRuntimeCritMultiplier(enemy.critDmg,ally.critDmgRes);
       const rateDelta=side==='self'?rate:-rate;
-                                                                          
-                                                                        
-      const resolvedRate=Math.max(Math.fround(.05),Math.min(1,math.clampCombatCritRate(chance)+rateDelta/100));
+                                                                                
+      const resolvedRate=math.clampCombatCritRate(chance+rateDelta*0.01);
       return {rate:resolvedRate,multiplier:math.clampCombatCritMultiplier(multiplier+(side==='self'?damage:-damage)/100),rateBonus:rate,damageBonus:damage,approximate,ally,enemy};
     }catch(e){return {error:e.message};}
   }

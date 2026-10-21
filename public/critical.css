@@ -68,13 +68,14 @@
 #growth-panel>.growth-heading-line>.check{flex:none;display:flex;flex-direction:row;align-items:center;gap:5px;margin:0;color:var(--fdc-text);font-size:12px}
 #growth-panel .growth-help>p{width:min(260px,78vw)}
 #growth-fields .growth-table{display:grid;gap:0;margin:2px 0 9px}
-#growth-fields .growth-row{display:grid;grid-template-columns:minmax(6.5rem,.9fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:center;margin:0;padding:7px 0;border-top:1px solid var(--fdc-border)}
+#growth-fields .growth-row{display:grid;grid-template-columns:minmax(6.5rem,.9fr) minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:start;margin:0;padding:7px 0;border-top:1px solid var(--fdc-border)}
 #growth-fields .growth-header{padding:0 0 5px;border-top:0;color:var(--fdc-muted);font-size:11px;font-weight:600}
 #growth-fields .growth-header>span:not(:first-child){text-align:left}
-#growth-fields .growth-name{min-width:0;color:var(--fdc-text);font-size:12px;font-weight:600;overflow-wrap:anywhere}
+#growth-fields .growth-name{display:flex;align-items:center;min-height:34px;min-width:0;color:var(--fdc-text);font-size:12px;font-weight:600;overflow-wrap:anywhere}
 #growth-fields .growth-input-cell{display:block;min-width:0;margin:0;color:var(--fdc-muted)}
 #growth-fields .growth-input-cell input{min-height:34px;padding:5px 7px;font-size:13px;font-variant-numeric:tabular-nums}
-#growth-fields .growth-delta-input{display:flex;align-items:center;gap:2px;min-width:0;min-height:34px;padding:0 6px;border:1px solid var(--fdc-border);border-radius:8px;background:var(--fdc-bg)}
+#growth-fields .growth-input-cell>input{height:34px}
+#growth-fields .growth-delta-input{display:flex;align-items:center;gap:2px;min-width:0;height:34px;min-height:34px;padding:0 6px;border:1px solid var(--fdc-border);border-radius:8px;background:var(--fdc-bg)}
 #growth-fields .growth-delta-input:focus-within{outline:2px solid var(--fdc-primary);outline-offset:2px}
 #growth-fields .growth-delta-input [data-growth-sign]{flex:none;color:var(--fdc-muted);font-size:12px;pointer-events:none}
 #growth-fields .growth-delta-input input{width:0;flex:1;min-width:0;min-height:30px;padding:4px 1px;border:0;border-radius:0;background:transparent;font-size:13px}
@@ -82,6 +83,7 @@
 #growth-fields .growth-delta-input [data-growth-preview]{flex:none;color:var(--fdc-muted);font-size:10px;white-space:nowrap;pointer-events:none}
 #growth-fields .growth-delta-cell{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;min-width:0}
 #growth-fields .growth-delta-cell>small{min-height:1.2em;color:var(--fdc-muted);font-size:10px;line-height:1.2;overflow-wrap:anywhere}
+#growth-fields .growth-delta-cell>small:empty{display:none}
 #growth-fields .growth-delta-cell>small.error{color:#b75232}
 .visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 @media(max-width:380px){#growth-fields .growth-row{grid-template-columns:minmax(4.8rem,.8fr) minmax(0,1fr) minmax(0,1fr);gap:5px}#growth-fields .growth-header{font-size:10px}#growth-fields .growth-name{font-size:11px}#growth-fields .growth-input-cell input{min-height:33px;padding:4px;font-size:12px}#growth-fields .growth-delta-input{gap:1px;padding:0 4px}#growth-fields .growth-delta-input input{min-height:29px;font-size:12px}#growth-fields .growth-delta-input [data-growth-preview]{font-size:9px}#growth-fields .growth-delta-cell>small{font-size:9px}#growth-panel .growth-title-line{gap:4px}#growth-panel>.growth-heading-line>.check{font-size:11px}}
