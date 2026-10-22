@@ -36,6 +36,7 @@
     ['preference.boardOrientation', 'localStorage', 'trickcal_board_orientation', 'display', 'user-preference', 'stat-prototype.js'],
     ['research.materialInventory', 'localStorage', 'trickcal_research_inventory_v1', 'research', 'user-working-settings', 'stat-prototype.js'],
     ['calc.settings', 'localStorage', 'trickcal_formation_damage_settings_v1', 'calculation', 'user-working-settings', 'formation-damage-calc.js'],
+    ['tool.criticalSettings', 'localStorage', 'trickcal_tool_critical_settings_v1', 'calculation', 'user-working-settings', 'public/critical.js'],
     ['calc.resultSaves', 'localStorage', 'trickcal_formation_damage_result_saves_v1', 'calculation', 'named-user-snapshots', 'formation-damage-calc.js'],
     ['calc.enemyPresets', 'localStorage', 'trickcal_formation_damage_enemy_presets_v1', 'enemy', 'user-authored-data', 'formation-damage-calc.js'],
     ['dps.settings', 'localStorage', 'trickcal:dps-settings:v1', 'dps', 'per-target-user-settings', 'formation-damage-dps-prototype.js'],

@@ -1977,7 +1977,7 @@ const CARD_LIBRARY = {
             "name": "グウィンの小さなペンギンの友達",
             "signature": true,
             "favoriteCharacter": "グウィン",
-            "cost": 10,
+            "cost": 18,
             "bonusesByStar": [
                 {
                     "hasteP": 11.3,

@@ -9,7 +9,22 @@
   const start = () => {
     const boot = root.TRICKCAL_STORAGE_BOOT || Promise.resolve({ ok: true });
     Promise.resolve(boot).then(result => {
-      if (!result?.ok) return;
+      if (root.TRICKCAL_PUBLIC_SITE_CONFIG?.retired && root.TRICKCAL_PUBLIC_SITE_CONFIG?.profile === 'legacy') {
+        const controller = root.TRICKCAL_STORAGE_TRANSFER_SOURCE.createController({
+          window: root, document: root.document, backup: root.TRICKCAL_STORAGE_BACKUP,
+          runtime: root.TRICKCAL_STORAGE_RUNTIME_INSTANCE, transferApi: root.TRICKCAL_STORAGE_TRANSFER
+        });
+        root.TRICKCAL_STORAGE_TRANSFER_SOURCE_CONTROLLER = controller;
+        controller.initialize();
+        return;
+      }
+      if (!result?.ok) {
+        const status = root.document.getElementById('transfer-status');
+        if (status) status.textContent = '保存機能を確認できません。復旧ページを開いてください。';
+        const fileButton = root.document.getElementById('transfer-file-button');
+        if (fileButton) fileButton.disabled = true;
+        return;
+      }
       const controller = api.createController({
         window: root,
         document: root.document,
@@ -90,7 +105,9 @@
     'preference.boardShortcutOffMode': 'ボード操作設定',
     'preference.boardOrientation': 'ボード向き設定',
     'preference.boardPreviewScale': 'ボード表示倍率',
-    'sharePrototype.globalEnhancements': '共有表示の全体強化設定'
+    'sharePrototype.globalEnhancements': '共有表示の全体強化設定',
+    'tool.criticalSettings': '会心チェックの入力',
+    'research.materialInventory': '研究素材の在庫'
   });
 
   function datasetDisplayLabel(dataset) {

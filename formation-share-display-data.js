@@ -785,7 +785,7 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "artifact_guin_tiny_penguin": {
       "name": "グウィンの小さなペンギンの友達",
       "rarity": "伝説",
-      "cost": 10,
+      "cost": 18,
       "signature": true,
       "favoriteCharacter": "グウィン",
       "kind": "artifact",

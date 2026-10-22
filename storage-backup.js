@@ -25,6 +25,8 @@
     'dps.runtimeOverrides'
   ]);
   const AUXILIARY_EXCLUSION_CODES = new Set(['invalid-data', 'recovery-required', 'unsupported']);
+                                                                                                        
+  const OPTIONAL_DATASET_KEYS = new Set(['tool.criticalSettings', 'research.materialInventory']);
 
   const DATASET_SPECS = Object.freeze([
     Object.freeze({ key: 'stat.slots', ids: Object.freeze(['stat.slotStore']) }),
@@ -43,12 +45,16 @@
     Object.freeze({ key: 'preference.boardShortcutOffMode', ids: Object.freeze(['preference.boardShortcutOffMode']) }),
     Object.freeze({ key: 'preference.boardOrientation', ids: Object.freeze(['preference.boardOrientation']) }),
     Object.freeze({ key: 'preference.boardPreviewScale', ids: Object.freeze(['preference.boardPreviewScale']) }),
-    Object.freeze({ key: 'sharePrototype.globalEnhancements', ids: Object.freeze(['sharePrototype.globalEnhancements']) })
+    Object.freeze({ key: 'sharePrototype.globalEnhancements', ids: Object.freeze(['sharePrototype.globalEnhancements']) }),
+    Object.freeze({ key: 'tool.criticalSettings', ids: Object.freeze(['tool.criticalSettings']) }),
+    Object.freeze({ key: 'research.materialInventory', ids: Object.freeze(['research.materialInventory']) })
   ]);
 
   const DATASET_BY_KEY = new Map(DATASET_SPECS.map(spec => [spec.key, spec]));
   const INCLUDED_ENTRY_IDS = new Set(DATASET_SPECS.flatMap(spec => spec.ids));
   const RESCUE_ENTRY_SPECS = Object.freeze([
+    Object.freeze({ id: 'tool.criticalSettings', area: 'localStorage' }),
+    Object.freeze({ id: 'research.materialInventory', area: 'localStorage' }),
     Object.freeze({ id: 'stat.slotStore', area: 'localStorage' }),
     Object.freeze({ id: 'stat.legacyCurrent', area: 'localStorage' }),
     Object.freeze({ id: 'stat.liveMirror', area: 'localStorage' }),
@@ -254,6 +260,9 @@
       throw new BackupValidationError('invalid-data', '保存設定のJSON型が不正です。', { id });
     }
     if (id === 'calc.resultSaves') validateCalculationResultSaves(parsed, id);
+    if (OPTIONAL_DATASET_KEYS.has(id) && !isPlainObject(parsed)) {
+      throw new BackupValidationError('invalid-data', '追加設定のJSON型が不正です。', { id });
+    }
   }
 
   function validateCalculationResultSaves(value, id = 'calc.resultSaves') {
@@ -262,7 +271,7 @@
     }
     value.forEach(item => {
       if (!isPlainObject(item) || typeof item.id !== 'string' || !item.id.trim()
-        || !isPlainObject(item.snapshot) || Number(item.snapshot.version) !== 4
+        || !isPlainObject(item.snapshot) || ![4, 5].includes(Number(item.snapshot.version))
         || (Object.prototype.hasOwnProperty.call(item, 'name') && typeof item.name !== 'string')
         || (Object.prototype.hasOwnProperty.call(item, 'savedAt')
           && !isValidSavedAt(item.savedAt))) {
@@ -600,6 +609,9 @@
       throw new BackupValidationError('invalid-data', '正規化ボード倍率が不正です。', { dataset: datasetKey });
     }
     if (datasetKey === 'calc.resultSaves') validateCalculationResultSaves(value, datasetKey);
+    if (OPTIONAL_DATASET_KEYS.has(datasetKey) && !isPlainObject(value)) {
+      throw new BackupValidationError('invalid-data', '追加設定のJSON型が不正です。', { dataset: datasetKey });
+    }
     if (datasetKey === 'calc.settings' || datasetKey === 'calc.enemyPresets'
       || datasetKey === 'dps.settings' || datasetKey === 'dps.runtimeOverrides'
       || datasetKey === 'sharePrototype.globalEnhancements') {
@@ -646,8 +658,8 @@
       throw new BackupValidationError('invalid-data', 'payloadの基本形式が不正です。');
     }
     const datasetKeys = Object.keys(payload.datasets);
-    if (datasetKeys.length !== DATASET_SPECS.length
-      || !DATASET_SPECS.every(spec => Object.prototype.hasOwnProperty.call(payload.datasets, spec.key))) {
+    if (datasetKeys.some(key => !DATASET_BY_KEY.has(key))
+      || !DATASET_SPECS.every(spec => OPTIONAL_DATASET_KEYS.has(spec.key) || Object.prototype.hasOwnProperty.call(payload.datasets, spec.key))) {
       throw new BackupValidationError('invalid-data', 'datasetの数または種類が不正です。');
     }
     datasetKeys.forEach(key => validateDatasetEnvelope(key, payload.datasets[key]));
@@ -718,7 +730,8 @@
       || typeof payload.createdAt !== 'string'
       || Number.isNaN(Date.parse(payload.createdAt))
       || !Array.isArray(payload.entries)
-      || payload.entries.length !== RESCUE_ENTRY_SPECS.length) {
+      || payload.entries.length < RESCUE_ENTRY_SPECS.length - OPTIONAL_DATASET_KEYS.size
+      || payload.entries.length > RESCUE_ENTRY_SPECS.length) {
       throw new BackupValidationError('invalid-data', '救出payloadの基本形式が不正です。');
     }
     const seen = new Set();
@@ -748,6 +761,9 @@
       }
       seen.add(item.id);
     });
+    if (!RESCUE_ENTRY_SPECS.every(spec => OPTIONAL_DATASET_KEYS.has(spec.id) || seen.has(spec.id))) {
+      throw new BackupValidationError('invalid-data', '救出対象が不足しています。');
+    }
     assertJsonSafe(payload);
     return payload;
   }
@@ -907,7 +923,7 @@
   }
 
   function summarizePayload(payload) {
-    const datasets = DATASET_SPECS.map(spec => ({
+    const datasets = DATASET_SPECS.filter(spec => Object.prototype.hasOwnProperty.call(payload.datasets, spec.key)).map(spec => ({
       key: spec.key,
       state: payload.datasets[spec.key].state,
       entries: payload.datasets[spec.key].state === 'present'
@@ -950,6 +966,7 @@
     for (const spec of DATASET_SPECS) {
       if (!includeDisplaySettings && DISPLAY_DATASET_KEYS.has(spec.key)) continue;
       const dataset = payload.datasets[spec.key];
+      if (!dataset && OPTIONAL_DATASET_KEYS.has(spec.key)) continue;
       if (dataset.state === 'excluded') {
         if (!allowAuxiliaryExclusion) {
           throw new BackupValidationError('invalid-data', '補助設定の除外には明示確認が必要です。', { dataset: spec.key });
