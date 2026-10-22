@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "purpose": "P5b local public-site delivery ownership ledger",
-  "candidateId": "25e21b225b415c86",
-  "sourceCommit": "f29739fee1179c59d43bd40e2d0a9c899b36621a",
+  "candidateId": "2e68cb6c465e25c9",
+  "sourceCommit": "a5734a1688660896018ce2d2fe7f839aa3c941e2",
   "profile": "legacy",
-  "contentDigest": "687c7587b98613e6d202ba670cd4f0ef7ce0e8cdf2a194937a38c11884092e50",
-  "outputDigest": "e530b44398af4f8b",
+  "contentDigest": "da70ff3ab32e714a2e12956e6b8379a4860647ed6272c33f8cb0e010f511dec6",
+  "outputDigest": "6c6a288ad71418ae",
   "identityPath": "public-site-deployment.json",
   "ownedFiles": [
     {
@@ -30,11 +30,11 @@
     },
     {
       "path": "apostle-skill-image-data.js",
-      "sha256": "077a771fdb891c13bd54f3a40f1ef4ea61f4f67da78037f346862de98284ee70"
+      "sha256": "1abba02082aff1b52531ca0d3005a0ee92668bb83e33c7b556750a93d9a64fa6"
     },
     {
       "path": "apostles.js",
-      "sha256": "d19443f24584119196a04e77f0a4b663cd34d87102ce77166bdc756977259c8e"
+      "sha256": "4af0b2f68dd57cdfb987c261d09827af7e4c594b720bcbaf9616f1c70c9d032d"
     },
     {
       "path": "app-cache.js",
@@ -50,7 +50,7 @@
     },
     {
       "path": "cards.js",
-      "sha256": "cae5b30ecb4f8f6a7afec29255ce13d6db4b0af910dd1f4989fd829645fb18ff"
+      "sha256": "5a2102a0c3a5d02fa8a3130ef2f0e296d6c9d984e103b71ebdcc93b3b03dcbbd"
     },
     {
       "path": "combat-scenario.js",
@@ -70,7 +70,7 @@
     },
     {
       "path": "data/index.html",
-      "sha256": "26cb05101dfeb77dbb320c92bd0e346c78a0f4c3e8e994fdf68cf7308bd73118"
+      "sha256": "72800fa6788a2c186195761b99f825b650180f1d4681d1fdc8fcb7b27a71cead"
     },
     {
       "path": "data/life-jobs/index.html",
@@ -98,7 +98,7 @@
     },
     {
       "path": "enemy-presets.js",
-      "sha256": "5a2d05ecd7f213ac299b24ad00ac48e5e50402ac9a167d399146e4ea2829dccf"
+      "sha256": "eb88a3cec8c2e6a5d55c2b4e79dafb5c679ddafe6fcf1de4948e81757f86e7d3"
     },
     {
       "path": "enemy-status.css",
@@ -106,7 +106,7 @@
     },
     {
       "path": "enemy-status.html",
-      "sha256": "fc1755d6bc29da9fe492ebc965d6da3f3fd2b37dd6db30eabc490c9cac794236"
+      "sha256": "63323d42942e9b0e1f7fca6959a8fb4cdf2d0e107646367c76332a42fbf8d12b"
     },
     {
       "path": "enemy-status.js",
@@ -118,11 +118,11 @@
     },
     {
       "path": "formation-damage-calc.html",
-      "sha256": "dfa92da61f28574ea9850a873303a1829041742021e0a1122859460d145300e7"
+      "sha256": "503effa690e18160259633511bad43edbd456b074a2eb63cfd7b6ce71d4d318d"
     },
     {
       "path": "formation-damage-calc.js",
-      "sha256": "5d19f6ae00157dd82c1bd434d9518fa9c71df56f9c0d32637f9bd74aa959fbe8"
+      "sha256": "b35e5b0fcca72d6bc7da8eaa85641329bef9c62c9c3b3fb2c030423ba45617c9"
     },
     {
       "path": "formation-damage-dps-prototype.css",
@@ -130,7 +130,7 @@
     },
     {
       "path": "formation-damage-dps-prototype.html",
-      "sha256": "53ec16b67db596b77356913201e5356c1cd4358b1e6873e8a522dbdcc9a732d7"
+      "sha256": "449d57fc2797c57bb6775f56d40685723331d9460822cc70fcf49dcb0dfc6b14"
     },
     {
       "path": "formation-damage-dps-prototype.js",
@@ -146,7 +146,7 @@
     },
     {
       "path": "formation-share-catalog.js",
-      "sha256": "d4baae39ecaff54203f3cd00b8d56cd262b428772d0c1feeb9686c4d263926f5"
+      "sha256": "5e00187045e1990b98c64a4493b37d8c2728de94a9b302f9917bd76a1640e544"
     },
     {
       "path": "formation-share-codec.js",
@@ -154,11 +154,11 @@
     },
     {
       "path": "formation-share-create.js",
-      "sha256": "3631a53a8637278edcd92f093bbb26328f9adb57df1199b92433d7d9d84eca73"
+      "sha256": "15bef2ab1931bb3578a7ed555b371e2c95c29654b72b15e3b2b15351c3fa7c12"
     },
     {
       "path": "formation-share-display-data.js",
-      "sha256": "e19c5b42babde08b0bbd07da3627543b45294155c3987322634151f5416e85cb"
+      "sha256": "f97395f3cb75791f3dbef76e57ab7cead70916a322d834d95a42b613c4266252"
     },
     {
       "path": "formation-share-image.js",
@@ -174,7 +174,7 @@
     },
     {
       "path": "formation-share.html",
-      "sha256": "6f61e2eb1e87a53adb91e34539e635b2ca673f8213da17b04fc0ae1d02b91aa1"
+      "sha256": "d9368da5f03d13387469b856ab63e70e284ea9e1e4882f6d9f2b126fa79d85e0"
     },
     {
       "path": "formation-share.js",
@@ -399,6 +399,10 @@
     {
       "path": "img/Card/Artifact/キャロットのサトウキビ.webp",
       "sha256": "b92883030a6a67f940e482d22df40172530822849029ecda6c17f8ca86a3e923"
+    },
+    {
+      "path": "img/Card/Artifact/グウィンの小さなペンギンの友達.webp",
+      "sha256": "beb5cd4b01ce58465dae871e607a7ec8e8e2e3507a8d39f68b2de607acf1f83c"
     },
     {
       "path": "img/Card/Artifact/クロエの万能裁縫箱.webp",
@@ -1417,6 +1421,10 @@
       "sha256": "90a29785dcf56f6ad5b3390c934c58529fbace78ffe94086b4501091db964f4f"
     },
     {
+      "path": "img/Chara/Aside/AsideIcon_Guin.webp",
+      "sha256": "5f3caf63a2e3b02b26a894c50f2d9f8f3d79476c517f1d89ccf0b60783f7c30c"
+    },
+    {
       "path": "img/Chara/Aside/AsideIcon_Haley.webp",
       "sha256": "4acb147f7fa19eb8418ac6048ad6e62fb5d8629573f58dd2d5ae9a0afdddd642"
     },
@@ -1629,6 +1637,10 @@
       "sha256": "dcfb633d046c25efc74ebfb2b54430a8dfe44ba2afe63b213fc9e71b1db3683d"
     },
     {
+      "path": "img/Chara/Guin.webp",
+      "sha256": "014357f2f640aba0c182edd0dda0fdd0b77ff557ffe5e6dcc974ad52538700b6"
+    },
+    {
       "path": "img/Chara/Haley.webp",
       "sha256": "85672ac47022e3f62e6225f8a61342ecee141e02d6364251a9a07e50a9219430"
     },
@@ -1807,6 +1819,14 @@
     {
       "path": "img/Chara/Sist.webp",
       "sha256": "46ebf72990d83c5cd4906af8737739ce2ba895838cb6a7b8f8356394d2dff7d9"
+    },
+    {
+      "path": "img/Chara/Skill/Icon_AdmissionSkill_Guin.webp",
+      "sha256": "c872b4a364c8f360a02ab9a2c2cd75cabb1cce0777eecc0e2cb19629e3f2b22b"
+    },
+    {
+      "path": "img/Chara/Skill/Icon_GraduateSkill_Guin.webp",
+      "sha256": "4050e6241076725e5e4afe3796c14c7b52f160b598a02487b3327db34726c336"
     },
     {
       "path": "img/Chara/Skill/MagicAttack.webp",
@@ -2247,6 +2267,10 @@
     {
       "path": "img/Chara/Skill/Skill_P_Gabia.webp",
       "sha256": "b24c49e1c2cbc30005b128a25e097b16f774755aadd039632ddac6b4ce8c11d8"
+    },
+    {
+      "path": "img/Chara/Skill/Skill_P_Guin.webp",
+      "sha256": "08c3c00f02a66c31beb9a6a57318e73ff9e209985b043746f67382b597f43553"
     },
     {
       "path": "img/Chara/Skill/Skill_P_Haley.webp",
@@ -5062,7 +5086,7 @@
     },
     {
       "path": "public-site-deployment.json",
-      "sha256": "f18ac75bb9fa9e9bfaf01c2c159ec9cd87a74338780d206cbb9eb0d7edf8adf7"
+      "sha256": "7f490e729d908e2afd72cf2937e406dec97007e1a1fc34edd1ba8abc0d4739df"
     },
     {
       "path": "public-site-runtime.js",
@@ -5074,7 +5098,7 @@
     },
     {
       "path": "public/apostle-data.html",
-      "sha256": "969ed139ed04f12bda9eb3d9cc5a21d4b242194cea0fc5734153d7142d7ae227"
+      "sha256": "f33141727bf8bd712b57150d9120db7661ce478d37c9a2777432544533d4044b"
     },
     {
       "path": "public/apostle-data.js",
@@ -5082,7 +5106,7 @@
     },
     {
       "path": "public/bingo.html",
-      "sha256": "5a59c107d0b17f1df031e0d70aa230a63cbe57ee6a305778711851138a46d40a"
+      "sha256": "6654b12728cc70bb3e7026580367c7a417e57df1a72bb496efa33944fc464c61"
     },
     {
       "path": "public/board-layout-preview.css",
@@ -5090,7 +5114,7 @@
     },
     {
       "path": "public/board-layout-preview.html",
-      "sha256": "2c7ede3c3bcd94545f73f72b1a0124de6ced9579ebbb1ce0d168a9adc34334f3"
+      "sha256": "fc044274c20a6239a0781c841c9862c775d13f86d6bd9b4f521f0b2a49c788bd"
     },
     {
       "path": "public/board-layout-preview.js",
@@ -5106,7 +5130,7 @@
     },
     {
       "path": "public/critical.html",
-      "sha256": "1d626b64a348167df11bd11c385659541ec864b8b7b17980b9722b69b1753c61"
+      "sha256": "f9e4ebbe86d267150b41f65a846a613d3cf5c7150467c31a8977640b3d2305b8"
     },
     {
       "path": "public/critical.js",
@@ -5122,7 +5146,7 @@
     },
     {
       "path": "public/growth-cost.html",
-      "sha256": "320dc1dd411d96e4e65cca7efc40d69cc8314515e2145272fbe5bf94a5328116"
+      "sha256": "eea4be6e0aab2428b114abb791ae4bf5c583a3aa1ce737d08151aa837ccbacb8"
     },
     {
       "path": "public/growth-cost.js",
@@ -5134,7 +5158,7 @@
     },
     {
       "path": "public/life-jobs.html",
-      "sha256": "6195be3b495ff309e01569c7263e2cf5734536d8bed789e85f898bdc8790859c"
+      "sha256": "f50674173684a31352db2bb32c53a480cef6a0ec0d664851099403386515deeb"
     },
     {
       "path": "public/life-jobs.js",
@@ -5146,7 +5170,7 @@
     },
     {
       "path": "public/pvp-range.html",
-      "sha256": "d5a9400eeb4f11164042c87f3f0e0fcbeaf5c099709d2e3a051db219f05f6255"
+      "sha256": "c869d3d5e24da3ec16ad03d154ae883aa0d537ef0b0bd8c3ae8fe0ba6dedbf16"
     },
     {
       "path": "public/pvp-range.js",
@@ -5162,7 +5186,7 @@
     },
     {
       "path": "service-worker.js",
-      "sha256": "cbc3e929ed7b77010861accaf6ef71a26ace6b1e8bf830c0758c166e9df3eba9"
+      "sha256": "83a2911dcabbb43d7db91c4f24ac2467cf75edf9eec9da9d91a526f88ce91ec0"
     },
     {
       "path": "share/index.html",
@@ -5186,7 +5210,7 @@
     },
     {
       "path": "stat-dashboard.html",
-      "sha256": "f0c921b5f7a8cebcd99c48e03cddf80f6cf64e2c55462ca360f33f8bfa6f9673"
+      "sha256": "96352337cd120d7a084a0bd7e392c5390fb857851280b54b89de55b4a998a68c"
     },
     {
       "path": "stat-dashboard.js",
@@ -5210,7 +5234,7 @@
     },
     {
       "path": "statData.js",
-      "sha256": "2ceb6f383c2770cd1b654845939a0d4fd6517e0cd4c01f1373ccf7c631c866b6"
+      "sha256": "d1d68724ac204f695068edfb536311e2669e15a182a11a7e36cc123c295033b2"
     },
     {
       "path": "storage-backup.js",
@@ -5222,7 +5246,7 @@
     },
     {
       "path": "storage-recovery.html",
-      "sha256": "626954aacbd77ce9b81cf201899ce53e3f47f420a16f5587d9c3cc47c21301ad"
+      "sha256": "02ef406b18872a0267c4adbec2b2f683738873eb9f489c583e8435eae5fc6693"
     },
     {
       "path": "storage-registry.js",
@@ -5238,7 +5262,7 @@
     },
     {
       "path": "storage-transfer.html",
-      "sha256": "371b6ff2dc623e5f7e51193ad1d5a743dc2d306f336f7e7476d7b6c09b5b044e"
+      "sha256": "3b98f868863c2e7b6f941216eacb525c5e50df3606b194ae6d28d439fa657cba"
     },
     {
       "path": "storage-transfer.js",

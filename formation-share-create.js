@@ -21,7 +21,7 @@
   const imageApi = window.TRICKCAL_FORMATION_SHARE_IMAGE;
   const imageController = imageApi?.createController?.();
                                             
-  const SHARE_PAGE_CACHE_VERSION = '0861069042092987';
+  const SHARE_PAGE_CACHE_VERSION = 'c197ec5da6ad942b';
   const SHARE_PREVIEW_CACHE_VERSION = '20260912b';
 
   if (!dialog || !openButton || !codec) return;

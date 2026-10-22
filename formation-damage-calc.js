@@ -10108,10 +10108,10 @@
     });
     if (isEffectSourceActive('artifact')) {
       [...new Set(target.artifactIds || [])].forEach(id => {
-        if (!['artifact_elven_wand','artifact_safety_harness'].includes(id)) return;
+        if (!['artifact_elven_wand','artifact_safety_harness','artifact_guin_tiny_penguin'].includes(id)) return;
         const row = createCardRow(id, 1, context.state?.cards?.[id]);
         const effect = (getCard(id)?.conditionalEffects || []).find(e => e.bonusesByStar?.[row.star - 1]?.shieldP !== undefined);
-        if (effect) rows.push({id:`card:${effect.id}`,label:row.name,meta:`★${row.star} / 本人に付与済み`,
+        if (effect) rows.push({id:`card:${effect.id}`,label:row.name,meta:`★${row.star} / ${id === 'artifact_guin_tiny_penguin' ? 'HP50%以下で発動・本人に付与済み' : '本人に付与済み'}`,
           coefficientP:Number(effect.bonusesByStar[row.star - 1].shieldP),provisional:true});
       });
     }
@@ -10157,6 +10157,9 @@
   }
 
   function isDefaultDefensiveShieldSource(row, candidates) {
+                                                                                 
+                                                                                 
+    if (row.id === 'card:artifact_guin_tiny_penguin_e01') return false;
     return /^(card:|ally:[^:]+:artifact_)/.test(row.id)
       && candidates.find(item=>/^(card:|ally:[^:]+:artifact_)/.test(item.id)
         && item.id.split(':').at(-1) === row.id.split(':').at(-1))?.id === row.id;

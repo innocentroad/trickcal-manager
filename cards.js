@@ -1971,6 +1971,80 @@ const CARD_LIBRARY = {
             ]
         },
         {
+            "id": "artifact_guin_tiny_penguin",
+            "kind": "artifact",
+            "rarity": "伝説",
+            "name": "グウィンの小さなペンギンの友達",
+            "signature": true,
+            "favoriteCharacter": "グウィン",
+            "cost": 10,
+            "bonusesByStar": [
+                {
+                    "hasteP": 11.3,
+                    "critDmgResP": 4.7
+                },
+                {
+                    "hasteP": 14.1,
+                    "critDmgResP": 5.9
+                },
+                {
+                    "hasteP": 16.9,
+                    "critDmgResP": 7
+                },
+                {
+                    "hasteP": 19.7,
+                    "critDmgResP": 8.2
+                },
+                {
+                    "hasteP": 22.5,
+                    "critDmgResP": 9.4
+                }
+            ],
+            "conditionalEffects": [
+                {
+                    "id": "artifact_guin_tiny_penguin_e01",
+                    "type": "toggle",
+                    "label": "自身のHPが50%以下になった時 シールド付与",
+                    "processGroupId": "artifact_guin_tiny_penguin_shield",
+                    "processOrder": 1,
+                    "triggerType": "HP以下",
+                    "triggerValue": 50,
+                    "effectType": "バフ",
+                    "effectStack": false,
+                    "condition": "自身のHPが50%以下になった時",
+                    "shortLabel": "シールド付与",
+                    "valueClass": "倍率",
+                    "duration": "7",
+                    "nonStackingSameEffect": true,
+                    "description": "自身 / 持続:7 / 参照:自身の最大HP / 倍率",
+                    "descriptionByStar": [
+                        "シールド付与36% (自身のHPが50%以下になった時 / 自身)",
+                        "シールド付与42% (自身のHPが50%以下になった時 / 自身)",
+                        "シールド付与48% (自身のHPが50%以下になった時 / 自身)",
+                        "シールド付与54% (自身のHPが50%以下になった時 / 自身)",
+                        "シールド付与60% (自身のHPが50%以下になった時 / 自身)"
+                    ],
+                    "bonusesByStar": [
+                        {
+                            "shieldP": 36
+                        },
+                        {
+                            "shieldP": 42
+                        },
+                        {
+                            "shieldP": 48
+                        },
+                        {
+                            "shieldP": 54
+                        },
+                        {
+                            "shieldP": 60
+                        }
+                    ]
+                }
+            ]
+        },
+        {
             "id": "artifact_dragonlight_sword",
             "kind": "artifact",
             "rarity": "伝説",
@@ -5638,6 +5712,16 @@ const CARD_SOLDER_DATA = {
         "2": {
             "critDmgP": 5.399999999999999,
             "critRateP": 10.200000000000003
+        }
+    },
+    "artifact_guin_tiny_penguin": {
+        "1": {
+            "hasteP": 2.8,
+            "critDmgResP": 1.1
+        },
+        "2": {
+            "hasteP": 5.7,
+            "critDmgResP": 2.3
         }
     },
     "artifact_dragonlight_sword": {

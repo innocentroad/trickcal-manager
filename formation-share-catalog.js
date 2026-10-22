@@ -16,7 +16,8 @@
       'Rudd', 'Rufo', 'Layze', 'Levi', 'Rohne', 'Rollett', 'Barie', 'Sherum',
       'Joanne',
       'Lethe',
-      'KommySwim'
+      'KommySwim',
+      'Guin'
     ],
     artifacts: [
       'artifact_yomi_moonflower', 'artifact_erpin_ice_cream_cake', 'artifact_butter_yellow_card',
@@ -34,7 +35,8 @@
       'artifact_old_wooden_dagger', 'artifact_elven_wand', 'artifact_gemstone_ring', 'artifact_crown_of_thorns',
       'artifact_weathered_arrow', 'artifact_icy_charm', 'artifact_cotton_cloak', 'artifact_shining_tiara',
       'artifact_cardboard_armor', 'artifact_head_wrap',
-      'artifact_rusty_awl', 'artifact_sherum_parchment_scroll'
+      'artifact_rusty_awl', 'artifact_sherum_parchment_scroll',
+      'artifact_guin_tiny_penguin'
     ],
     spells: [
       'spell_alice_fake_magic', 'spell_epica_hero_exaltation', 'spell_luc_ed_dream',

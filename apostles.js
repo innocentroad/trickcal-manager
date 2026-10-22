@@ -7690,6 +7690,831 @@ const APOSTLE_LIBRARY = [
     "board": null
   },
   {
+    "id": "guin",
+    "name": "グウィン",
+    "basic": {
+      "rarity": 3.0,
+      "personality": "冷静",
+      "race": "獣人",
+      "role": "支援",
+      "position": "前列",
+      "attackType": "魔法",
+      "initialSp": 160.0,
+      "spRecoveryPerSecond": 37.0,
+      "baseAttackSpeed": 105.0,
+      "combatPowerCorrection": 0.365,
+      "combatPowerLowSkillCoefficient": 0.02,
+      "combatPowerHighSkillCoefficient": 0.02,
+      "combatPowerPassiveCoefficient": 0.02,
+      "combatPowerAsideCoefficient": 0.7
+    },
+    "statTypes": {
+      "hp": 3.0,
+      "atkP": 0.0,
+      "atkM": 1.0,
+      "defP": 4.0,
+      "defM": 4.0,
+      "crit": 3.0,
+      "critDmg": 3.0,
+      "critRes": 4.0,
+      "critDmgRes": 4.0
+    },
+    "skills": [
+      {
+        "effects": [
+          {
+            "effectId": "Guin_basic_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "敵",
+            "levels": {
+              "1": 60.0,
+              "2": 60.0,
+              "3": 60.0,
+              "4": 60.0,
+              "5": 60.0,
+              "6": 60.0,
+              "7": 60.0,
+              "8": 60.0,
+              "9": 60.0,
+              "10": 60.0,
+              "11": 60.0,
+              "12": 60.0,
+              "13": 60.0,
+              "14": 60.0,
+              "15": 60.0
+            }
+          }
+        ],
+        "skillId": "Guin_basic",
+        "skillType": "普通攻撃_基本",
+        "skillName": "基本攻撃",
+        "description": "カバンを振り回し、敵に魔法ダメージを与える。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Guin_enhanced_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "範囲内の敵",
+            "levels": {
+              "1": 200.0,
+              "2": 200.0,
+              "3": 200.0,
+              "4": 200.0,
+              "5": 200.0,
+              "6": 200.0,
+              "7": 200.0,
+              "8": 200.0,
+              "9": 200.0,
+              "10": 200.0,
+              "11": 200.0,
+              "12": 200.0,
+              "13": 200.0,
+              "14": 200.0,
+              "15": 200.0
+            }
+          }
+        ],
+        "skillId": "Guin_enhanced",
+        "skillType": "普通攻撃_強化",
+        "skillName": "基本攻撃",
+        "description": "一定の確率でカバンを大きく振り回し、敵に範囲魔法ダメージを与える。",
+        "triggerType": "一定確率",
+        "triggerValue": 33.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Guin_low_e01",
+            "valueKind": "魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "自身の周囲の敵",
+            "levels": {
+              "1": 120.0,
+              "2": 132.0,
+              "3": 144.0,
+              "4": 156.0,
+              "5": 168.0,
+              "6": 180.0,
+              "7": 192.0,
+              "8": 204.0,
+              "9": 216.0,
+              "10": 228.0,
+              "11": 240.0,
+              "12": 252.0,
+              "13": 264.0,
+              "14": 276.0,
+              "15": 288.0
+            }
+          },
+          {
+            "effectId": "Guin_low_e02",
+            "valueKind": "領域持続時間",
+            "valueClass": "持続時間",
+            "effectType": "攻撃",
+            "effectTarget": "自身の周囲の敵",
+            "levels": {
+              "1": 10.0,
+              "2": 10.0,
+              "3": 10.0,
+              "4": 10.0,
+              "5": 10.0,
+              "6": 10.0,
+              "7": 10.0,
+              "8": 10.0,
+              "9": 10.0,
+              "10": 10.0,
+              "11": 10.0,
+              "12": 10.0,
+              "13": 10.0,
+              "14": 10.0,
+              "15": 10.0
+            }
+          },
+          {
+            "effectId": "Guin_low_e03",
+            "valueKind": "ダメージ間隔",
+            "valueClass": "秒数",
+            "effectType": "攻撃",
+            "effectTarget": "自身の周囲の敵",
+            "fixedValue": 1.0
+          },
+          {
+            "effectId": "Guin_low_e04",
+            "processGroupId": "Guin_low_reduce",
+            "processOrder": 1.0,
+            "valueKind": "与ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "デバフ",
+            "effectTarget": "自身の周囲の敵",
+            "levels": {
+              "1": 20.0,
+              "2": 21.0,
+              "3": 22.0,
+              "4": 23.0,
+              "5": 24.0,
+              "6": 25.0,
+              "7": 26.0,
+              "8": 27.0,
+              "9": 28.0,
+              "10": 29.0,
+              "11": 30.0,
+              "12": 31.0,
+              "13": 32.0,
+              "14": 33.0,
+              "15": 34.0
+            }
+          },
+          {
+            "effectId": "Guin_low_e05",
+            "processGroupId": "Guin_low_reduce",
+            "processOrder": 2.0,
+            "valueKind": "与ダメージ量減少",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "自身の周囲の敵",
+            "levels": {
+              "1": 6.0,
+              "2": 6.0,
+              "3": 6.0,
+              "4": 6.0,
+              "5": 6.0,
+              "6": 6.0,
+              "7": 6.0,
+              "8": 6.0,
+              "9": 6.0,
+              "10": 6.0,
+              "11": 6.0,
+              "12": 6.0,
+              "13": 6.0,
+              "14": 6.0,
+              "15": 6.0
+            }
+          }
+        ],
+        "skillId": "Guin_low",
+        "skillType": "低学年",
+        "skillName": "スノーフォグ",
+        "description": "自身の周囲に旗を立て、一定時間、冷たい霧領域を生成する。領域内の敵に1秒ごとに魔法ダメージを与え、さらにその敵の味方への与ダメージ量を減少させる。"
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Guin_high_e01",
+            "valueKind": "総魔法ダメージ",
+            "valueClass": "倍率",
+            "effectType": "攻撃",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 2000.0,
+              "2": 2200.0,
+              "3": 2400.0,
+              "4": 2600.0,
+              "5": 2800.0,
+              "6": 3000.0,
+              "7": 3200.0,
+              "8": 3400.0,
+              "9": 3600.0,
+              "10": 3800.0,
+              "11": 4000.0,
+              "12": 4200.0,
+              "13": 4400.0,
+              "14": 4600.0,
+              "15": 4800.0
+            }
+          },
+          {
+            "effectId": "Guin_high_e02",
+            "valueKind": "ヒット数",
+            "valueClass": "ヒット数",
+            "effectType": "攻撃",
+            "effectTarget": "氷の道の上の敵",
+            "fixedValue": 10.0
+          },
+          {
+            "effectId": "Guin_high_e03",
+            "valueKind": "氷の道の持続時間",
+            "valueClass": "持続時間",
+            "effectType": "攻撃",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 8.0,
+              "2": 8.0,
+              "3": 8.0,
+              "4": 8.0,
+              "5": 8.0,
+              "6": 8.0,
+              "7": 8.0,
+              "8": 8.0,
+              "9": 8.0,
+              "10": 8.0,
+              "11": 8.0,
+              "12": 8.0,
+              "13": 8.0,
+              "14": 8.0,
+              "15": 8.0
+            }
+          },
+          {
+            "effectId": "Guin_high_e04",
+            "processGroupId": "Guin_high_as",
+            "processOrder": 1.0,
+            "valueKind": "攻撃速度減少",
+            "valueClass": "倍率",
+            "effectType": "デバフ",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 60.0,
+              "2": 60.0,
+              "3": 60.0,
+              "4": 60.0,
+              "5": 60.0,
+              "6": 60.0,
+              "7": 60.0,
+              "8": 60.0,
+              "9": 60.0,
+              "10": 60.0,
+              "11": 60.0,
+              "12": 60.0,
+              "13": 60.0,
+              "14": 60.0,
+              "15": 60.0
+            }
+          },
+          {
+            "effectId": "Guin_high_e05",
+            "processGroupId": "Guin_high_as",
+            "processOrder": 2.0,
+            "valueKind": "攻撃速度減少",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 4.0,
+              "2": 4.0,
+              "3": 4.0,
+              "4": 4.0,
+              "5": 4.0,
+              "6": 4.0,
+              "7": 4.0,
+              "8": 4.0,
+              "9": 4.0,
+              "10": 4.0,
+              "11": 4.0,
+              "12": 4.0,
+              "13": 4.0,
+              "14": 4.0,
+              "15": 4.0
+            }
+          },
+          {
+            "effectId": "Guin_high_e06",
+            "processGroupId": "Guin_high_move",
+            "processOrder": 1.0,
+            "valueKind": "移動速度減少",
+            "valueClass": "倍率",
+            "effectType": "デバフ",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 70.0,
+              "2": 70.0,
+              "3": 70.0,
+              "4": 70.0,
+              "5": 70.0,
+              "6": 70.0,
+              "7": 70.0,
+              "8": 70.0,
+              "9": 70.0,
+              "10": 70.0,
+              "11": 70.0,
+              "12": 70.0,
+              "13": 70.0,
+              "14": 70.0,
+              "15": 70.0
+            }
+          },
+          {
+            "effectId": "Guin_high_e07",
+            "processGroupId": "Guin_high_move",
+            "processOrder": 2.0,
+            "valueKind": "移動速度減少",
+            "valueClass": "持続時間",
+            "effectType": "デバフ",
+            "effectTarget": "氷の道の上の敵",
+            "levels": {
+              "1": 4.0,
+              "2": 4.0,
+              "3": 4.0,
+              "4": 4.0,
+              "5": 4.0,
+              "6": 4.0,
+              "7": 4.0,
+              "8": 4.0,
+              "9": 4.0,
+              "10": 4.0,
+              "11": 4.0,
+              "12": 4.0,
+              "13": 4.0,
+              "14": 4.0,
+              "15": 4.0
+            }
+          }
+        ],
+        "skillId": "Guin_high",
+        "skillType": "高学年",
+        "skillName": "極地の帰路",
+        "description": "一定時間、前方に氷の道を生成し、ペンギンを10羽召喚する。氷の道の上にいる敵の攻撃速度と移動速度を減少させる。ペンギンは氷の道を滑りながら敵に衝突し、魔法ダメージを与える。",
+        "cooldownSeconds": 26.0
+      },
+      {
+        "effects": [
+          {
+            "effectId": "Guin_passive_e01",
+            "processGroupId": "Guin_passive_reduce",
+            "processOrder": 1.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "倍率",
+            "effectType": "バフ",
+            "triggerType": "強化攻撃命中時",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 24.0,
+              "2": 26.0,
+              "3": 28.0,
+              "4": 30.0,
+              "5": 32.0,
+              "6": 34.0,
+              "7": 36.0,
+              "8": 38.0,
+              "9": 40.0,
+              "10": 42.0,
+              "11": 44.0,
+              "12": 46.0,
+              "13": 48.0,
+              "14": 50.0,
+              "15": 52.0
+            }
+          },
+          {
+            "effectId": "Guin_passive_e02",
+            "processGroupId": "Guin_passive_reduce",
+            "processOrder": 2.0,
+            "valueKind": "被ダメージ量減少",
+            "valueClass": "持続時間",
+            "effectType": "バフ",
+            "triggerType": "強化攻撃命中時",
+            "effectTarget": "自身",
+            "levels": {
+              "1": 8.0,
+              "2": 8.0,
+              "3": 8.0,
+              "4": 8.0,
+              "5": 8.0,
+              "6": 8.0,
+              "7": 8.0,
+              "8": 8.0,
+              "9": 8.0,
+              "10": 8.0,
+              "11": 8.0,
+              "12": 8.0,
+              "13": 8.0,
+              "14": 8.0,
+              "15": 8.0
+            }
+          }
+        ],
+        "skillId": "Guin_passive",
+        "skillType": "パッシブ",
+        "skillName": "パッシブスキル",
+        "description": "強化攻撃時に一定時間、自身の被ダメージ量が減少する。"
+      }
+    ],
+    "favoriteCard": {
+      "name": "グウィンの小さなペンギンの友達",
+      "kind": "遺物",
+      "levels": {
+        "1": [
+          {
+            "effects": [
+              {
+                "effectId": "Guin_favorite_1_e01",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化攻撃",
+                "valueKind": "魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "effectTarget": "範囲内の敵",
+                "fixedValue": 200.0
+              },
+              {
+                "effectId": "Guin_favorite_1_e02",
+                "targetSkill": "普通攻撃_強化",
+                "targetSkillName": "強化攻撃",
+                "valueKind": "巨大ペンギンによる魔法ダメージ",
+                "valueClass": "倍率",
+                "effectType": "攻撃",
+                "effectTarget": "ランダムな敵の周囲",
+                "fixedValue": 800.0
+              },
+              {
+                "effectId": "Guin_favorite_1_e03",
+                "processGroupId": "Guin_favorite_stun",
+                "processOrder": 1.0,
+                "targetSkill": "普通攻撃_強化",
+                "valueKind": "気絶",
+                "valueClass": "状態付与",
+                "effectType": "デバフ",
+                "effectTarget": "巨大ペンギンが命中した敵"
+              },
+              {
+                "effectId": "Guin_favorite_1_e04",
+                "processGroupId": "Guin_favorite_stun",
+                "processOrder": 2.0,
+                "targetSkill": "普通攻撃_強化",
+                "valueKind": "気絶",
+                "valueClass": "持続時間",
+                "effectType": "デバフ",
+                "effectTarget": "巨大ペンギンが命中した敵",
+                "fixedValue": 3.0
+              }
+            ],
+            "skillId": "Guin_favorite_1",
+            "skillName": "愛用Lv1",
+            "description": "一定確率でカバンを大きく振り回し、敵に範囲魔法ダメージを与える。その後ランダムな敵に巨大ペンギンが落下する。\\n巨大ペンギンは敵に範囲魔法ダメージを与え、気絶を付与する。"
+          }
+        ],
+        "3": [
+          {
+            "effects": [
+              {
+                "effectId": "Guin_favorite_3_e01",
+                "valueKind": "強化攻撃確率増加",
+                "valueClass": "倍率",
+                "effectType": "バフ",
+                "effectTarget": "自身",
+                "fixedValue": 30.0
+              }
+            ],
+            "skillId": "Guin_favorite_3",
+            "skillName": "愛用Lv3",
+            "description": "グウィンの強化攻撃確率が30%増加する。"
+          }
+        ]
+      }
+    },
+    "aside": {
+      "name": "伝説の羅針盤",
+      "levels": {
+        "1": {
+          "name": "伝説のレジェンド羅針盤",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Guin_aside_1",
+              "effectId": "Guin_aside_1_e01",
+              "valueKind": "最大HP増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Guin_aside_1",
+              "effectId": "Guin_aside_1_e02",
+              "valueKind": "物理防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Guin_aside_1",
+              "effectId": "Guin_aside_1_e03",
+              "valueKind": "魔法防御力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Guin_aside_1",
+              "effectId": "Guin_aside_1_e04",
+              "valueKind": "会心抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            },
+            {
+              "skillId": "Guin_aside_1",
+              "effectId": "Guin_aside_1_e05",
+              "valueKind": "会心ダメージ抵抗増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "fixedValue": 6.0
+            }
+          ],
+          "description": "着用者の最大HP、物理防御力、魔法防御力、会心抵抗、会心ダメージ抵抗が増加する。"
+        },
+        "2": {
+          "name": "ワクワクする冒険だ！",
+          "stats": [],
+          "effects": [
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e01",
+              "processGroupId": "Guin_aside_2_evasion",
+              "processOrder": 1.0,
+              "valueKind": "目くらまし",
+              "valueClass": "状態付与",
+              "effectType": "バフ",
+              "triggerType": "低学年スキル発動時",
+              "effectTarget": "自身"
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e02",
+              "processGroupId": "Guin_aside_2_evasion",
+              "processOrder": 2.0,
+              "valueKind": "目くらまし",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "effectTarget": "自身",
+              "levels": {
+                "1": 4.0,
+                "2": 4.0,
+                "3": 4.0,
+                "4": 4.0,
+                "5": 4.0,
+                "6": 4.0,
+                "7": 4.0,
+                "8": 4.0,
+                "9": 4.0,
+                "10": 4.0,
+                "11": 4.0,
+                "12": 4.0,
+                "13": 4.0,
+                "14": 4.0,
+                "15": 4.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e03",
+              "processGroupId": "Guin_aside_2_attack",
+              "processOrder": 1.0,
+              "valueKind": "攻撃力増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "自身の周囲の味方",
+              "displayCondition": "冷たい霧領域内",
+              "levels": {
+                "1": 16.0,
+                "2": 16.0,
+                "3": 16.0,
+                "4": 16.0,
+                "5": 16.0,
+                "6": 16.0,
+                "7": 16.0,
+                "8": 16.0,
+                "9": 16.0,
+                "10": 16.0,
+                "11": 16.0,
+                "12": 16.0,
+                "13": 16.0,
+                "14": 16.0,
+                "15": 16.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e04",
+              "processGroupId": "Guin_aside_2_attack",
+              "processOrder": 2.0,
+              "valueKind": "攻撃力増加",
+              "valueClass": "持続時間",
+              "effectType": "バフ",
+              "effectTarget": "自身の周囲の味方",
+              "levels": {
+                "1": 10.0,
+                "2": 10.0,
+                "3": 10.0,
+                "4": 10.0,
+                "5": 10.0,
+                "6": 10.0,
+                "7": 10.0,
+                "8": 10.0,
+                "9": 10.0,
+                "10": 10.0,
+                "11": 10.0,
+                "12": 10.0,
+                "13": 10.0,
+                "14": 10.0,
+                "15": 10.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e05",
+              "valueKind": "氷の道の持続時間",
+              "valueClass": "持続時間",
+              "effectType": "スキル変更",
+              "effectTarget": "氷の道の上の敵",
+              "targetSkill": "高学年スキル",
+              "levels": {
+                "1": 16.0,
+                "2": 16.0,
+                "3": 16.0,
+                "4": 16.0,
+                "5": 16.0,
+                "6": 16.0,
+                "7": 16.0,
+                "8": 16.0,
+                "9": 16.0,
+                "10": 16.0,
+                "11": 16.0,
+                "12": 16.0,
+                "13": 16.0,
+                "14": 16.0,
+                "15": 16.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e06",
+              "valueKind": "ペンギン数",
+              "valueClass": "体数",
+              "effectType": "スキル変更",
+              "effectTarget": "氷の道の上の敵",
+              "targetSkill": "高学年スキル",
+              "levels": {
+                "1": 20.0,
+                "2": 20.0,
+                "3": 20.0,
+                "4": 20.0,
+                "5": 20.0,
+                "6": 20.0,
+                "7": 20.0,
+                "8": 20.0,
+                "9": 20.0,
+                "10": 20.0,
+                "11": 20.0,
+                "12": 20.0,
+                "13": 20.0,
+                "14": 20.0,
+                "15": 20.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e07",
+              "valueKind": "攻撃速度減少",
+              "valueClass": "持続時間",
+              "effectType": "スキル変更",
+              "effectTarget": "氷の道の上の敵",
+              "targetSkill": "高学年スキル",
+              "levels": {
+                "1": 8.0,
+                "2": 8.0,
+                "3": 8.0,
+                "4": 8.0,
+                "5": 8.0,
+                "6": 8.0,
+                "7": 8.0,
+                "8": 8.0,
+                "9": 8.0,
+                "10": 8.0,
+                "11": 8.0,
+                "12": 8.0,
+                "13": 8.0,
+                "14": 8.0,
+                "15": 8.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e08",
+              "valueKind": "移動速度減少",
+              "valueClass": "持続時間",
+              "effectType": "スキル変更",
+              "effectTarget": "氷の道の上の敵",
+              "targetSkill": "高学年スキル",
+              "levels": {
+                "1": 8.0,
+                "2": 8.0,
+                "3": 8.0,
+                "4": 8.0,
+                "5": 8.0,
+                "6": 8.0,
+                "7": 8.0,
+                "8": 8.0,
+                "9": 8.0,
+                "10": 8.0,
+                "11": 8.0,
+                "12": 8.0,
+                "13": 8.0,
+                "14": 8.0,
+                "15": 8.0
+              }
+            },
+            {
+              "skillId": "Guin_aside_2",
+              "effectId": "Guin_aside_2_e09",
+              "valueKind": "高学年スキルダメージ増加",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "damageModifierCategory": "行動倍率",
+              "attackCategory": "高学年スキル",
+              "effectTarget": "自身",
+              "targetSkill": "高学年スキル",
+              "fixedValue": 100.0,
+              "displayCondition": "ペンギン20羽の合計"
+            }
+          ],
+          "description": "低学年スキル使用時、自身に目くらましを付与する。冷たい霧領域内にいる味方の攻撃力が増加する。\n高学年スキルの氷の道の持続時間が増加し、より多くのペンギンを召喚する。氷の道にいる敵の攻撃速度と移動速度減少の持続時間が増加する。\n目くらまし：敵の目標にならない。他の味方がいない時は発動しない。"
+        },
+        "3": {
+          "name": "征服記念写真",
+          "stats": [
+            {
+              "skillId": "Guin_aside_3_global",
+              "effectId": "Guin_aside_3_global_e01",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ",
+              "increaseP": 3.0
+            },
+            {
+              "skillId": "Guin_aside_3_global",
+              "effectId": "Guin_aside_3_global_e02",
+              "statApplyTo": "全体",
+              "statName": "会心ダメージ抵抗",
+              "increaseP": 3.0
+            }
+          ],
+          "effects": [
+            {
+              "skillId": "Guin_aside_3_battle",
+              "effectId": "Guin_aside_3_battle_e01",
+              "valueKind": "被ダメージ量減少",
+              "valueClass": "倍率",
+              "effectType": "バフ",
+              "effectTarget": "味方全員",
+              "fixedValue": 7.5
+            }
+          ],
+          "description": "味方全員の敵からの被ダメージ量を減少させる。"
+        }
+      }
+    },
+    "board": null
+  },
+  {
     "id": "chloe",
     "name": "クロエ",
     "basic": {

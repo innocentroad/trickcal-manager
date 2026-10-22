@@ -131,6 +131,11 @@
     "low": "img/Chara/Skill/Skill_F_Gabia.webp",
     "passive": "img/Chara/Skill/Skill_P_Gabia.webp"
   },
+  "Guin": {
+    "high": "img/Chara/Skill/Icon_GraduateSkill_Guin.webp",
+    "low": "img/Chara/Skill/Icon_AdmissionSkill_Guin.webp",
+    "passive": "img/Chara/Skill/Skill_P_Guin.webp"
+  },
   "Haley": {
     "high": "img/Chara/Skill/Skill_S_Haley.webp",
     "low": "img/Chara/Skill/Skill_F_Haley.webp",

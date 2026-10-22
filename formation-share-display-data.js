@@ -137,6 +137,13 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "role": "支援",
       "imagePath": "img/Chara/Kyuri.webp?v=b5ef4a2b2ddb6ade"
     },
+    "Guin": {
+      "name": "グウィン",
+      "personality": "冷静",
+      "position": "前列",
+      "role": "支援",
+      "imagePath": "img/Chara/Guin.webp?v=014357f2f640aba0"
+    },
     "Chloe": {
       "name": "クロエ",
       "personality": "狂気",
@@ -775,6 +782,15 @@ const FORMATION_SHARE_DISPLAY_DATA = {
       "kind": "artifact",
       "imagePath": "img/Card/Artifact/シェルムの羊皮紙の巻物.webp?v=4e4df7eba2ff2727"
     },
+    "artifact_guin_tiny_penguin": {
+      "name": "グウィンの小さなペンギンの友達",
+      "rarity": "伝説",
+      "cost": 10,
+      "signature": true,
+      "favoriteCharacter": "グウィン",
+      "kind": "artifact",
+      "imagePath": "img/Card/Artifact/グウィンの小さなペンギンの友達.webp?v=beb5cd4b01ce5846"
+    },
     "artifact_dragonlight_sword": {
       "name": "竜光剣",
       "rarity": "伝説",
@@ -1324,8 +1340,8 @@ const FORMATION_SHARE_DISPLAY_DATA = {
     "img/SP回復.webp": "img/SP回復.webp?v=04761ffeb11bd275"
   },
   "sourceCounts": {
-    "apostles": 81,
-    "artifacts": 52,
+    "apostles": 82,
+    "artifacts": 53,
     "spells": 36,
     "masterPowers": 6
   }
